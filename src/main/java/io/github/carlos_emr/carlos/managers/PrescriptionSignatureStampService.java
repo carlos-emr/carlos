@@ -47,11 +47,14 @@ import org.springframework.stereotype.Service;
  * the script is written gives the PDF and the Fax gate the same immutable, point-in-time signature
  * record that consultations already get.</p>
  *
- * <p>Guards, in order: {@code rx_signature_enabled} (or {@code rx_fax_enabled}) must be on; the
- * session facility must allow digital signatures; the script must not already be signed; and the
- * stamp must belong to the logged-in provider (enforced again inside
- * {@link DigitalSignatureManager#saveStampSignature}). Reprints never call this: they render the
- * signature stored when the script was first printed.</p>
+ * <p>Guards, in order: the PERSISTED prescription row must exist, be unsigned, carry a patient,
+ * and have been written by the logged-in provider (the session bean's provider is not consulted:
+ * it is always the logged-in user, so it proves nothing about who wrote the row); then
+ * {@code rx_signature_enabled} (or {@code rx_fax_enabled}) must be on; the session facility must
+ * allow digital signatures; and the provider must have a stamp on file (enforced again inside
+ * {@link DigitalSignatureManager#saveStampSignature}). Reprints never reach this:
+ * {@code RxViewScript2Action} skips stamping while the session is in reprint mode, and a reprint
+ * renders the signature stored when the script was first printed.</p>
  *
  * <p>The applied stamp is a default, not a lock: the signature pad stays available on the page and
  * a drawn signature replaces the stamp on the prescription.</p>
@@ -87,8 +90,9 @@ public class PrescriptionSignatureStampService {
      * @param bean         the Rx session bean whose stash was just saved under {@code scriptId}
      * @param scriptId     the script number returned by {@code RxPrescriptionData.saveScript}
      * @return the id of the stored stamp signature, or {@code null} when nothing was applied
-     *         (feature off, facility disallows digital signatures, already signed, no stamp on
-     *         file, or a persistence failure, which is logged and never propagated to the page)
+     *         (row missing or already signed, written by another provider, feature off, facility
+     *         disallows digital signatures, no stamp on file, or a persistence failure, which is
+     *         logged and never propagated to the page)
      */
     public Integer applyStampToScript(LoggedInInfo loggedInInfo, RxSessionBean bean, String scriptId) {
         if (loggedInInfo == null || bean == null || bean.getStashSize() == 0) {
@@ -122,7 +126,19 @@ public class PrescriptionSignatureStampService {
         if (patientId == null) {
             return null;
         }
-        Integer signatureId = applyStamp(loggedInInfo, bean.getProviderNo(), patientId, scriptNo);
+        // The prescriber is the PERSISTED row's provider_no, never the session bean's. The bean's
+        // provider is always the logged-in user (RxChoosePatient2Action), so comparing against it
+        // would be a tautology, and a re-prescribed stash item carries the ORIGINAL script number
+        // (RxPrescriptionData.newPrescription copies script_no) — without this check provider B
+        // could bind B's stamp onto a script that provider A wrote.
+        String prescriber = persisted.getProviderNo();
+        if (prescriber == null || prescriber.isBlank()
+                || !Objects.equals(loggedInInfo.getLoggedInProviderNo(), prescriber)) {
+            MiscUtils.getLogger().debug("Rx stamp not applied: script {} was not written by the logged-in provider",
+                    LogSafe.sanitize(scriptId));
+            return null;
+        }
+        Integer signatureId = applyStamp(loggedInInfo, prescriber, patientId, scriptNo);
         if (signatureId != null) {
             for (int i = 0; i < bean.getStashSize(); i++) {
                 RxPrescriptionData.Prescription rx = bean.getStashItem(i);

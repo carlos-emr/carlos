@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -35,6 +35,7 @@ import java.io.IOException;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -74,28 +75,44 @@ public final class RxViewScript2Action extends ActionSupport {
         // Setup variables
 
 
-        RxSessionBean bean =
-                (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        HttpSession session = request.getSession();
+        RxSessionBean bean = (RxSessionBean) session.getAttribute("RxSessionBean");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
+        }
+
+        // Reprint mode. reprint2 (RxRePrescribe2Action) loads the reprinted script into tmpBeanRX
+        // and flags the session with rePrint=true; ViewScript2.jsp then renders tmpBeanRX, NOT the
+        // live RxSessionBean. Nothing may be persisted or stamped here: the live stash is whatever
+        // the prescriber has pending — possibly nothing (saving it would insert an orphan
+        // prescription row) or re-prescribed items that still carry their ORIGINAL script number
+        // (saving would be skipped and that historical script would be re-signed). A reprint shows
+        // the signature stored when the script was first printed, or the pad if it never was.
+        if (isReprintMode(session)) {
+            RxSessionBean reprinted = (RxSessionBean) session.getAttribute("tmpBeanRX");
+            String reprintedScriptId = reprinted == null ? null : persistedScriptId(reprinted);
+            if (reprintedScriptId != null) {
+                request.setAttribute("scriptId", reprintedScriptId);
+            }
+            return "viewScript";
         }
 
         RxPrescriptionData.Prescription rx;
         RxPrescriptionData prescription = new RxPrescriptionData();
 
         // Reuse an already-persisted script instead of writing a duplicate. This action is reached
-        // via popForm2 both after "Save And Print" (updateSaveAllDrugs already persisted the stash
-        // and stamped each item's script_no) and on reprint2 (the reprinted script's number is on
-        // the stash). Calling saveScript again here created a SECOND prescription — and duplicate
-        // drugs rows — for a single prescribing action. Only save when the stash is not yet
-        // persisted (every item carries the same numeric script_no == fully persisted).
-        String scriptId = fullyPersistedScriptId(bean);
+        // via popForm2 after "Save And Print", where updateSaveAllDrugs already persisted the stash
+        // (each item now carries its drugs row id and the shared script_no). Calling saveScript
+        // again here created a SECOND prescription — and duplicate drugs rows — for a single
+        // prescribing action. Only save when the stash is not yet persisted.
+        String scriptId = persistedScriptId(bean);
         if (scriptId == null) {
             scriptId = prescription.saveScript(loggedInInfo, bean);
             for (int i = 0; i < bean.getStashSize(); i++) {
                 rx = bean.getStashItem(i);
                 rx.Save(scriptId);
+                rx.setScript_no(scriptId);
                 rx = null;
             }
         }
@@ -109,9 +126,8 @@ public final class RxViewScript2Action extends ActionSupport {
         // page can fax it without a hand-drawn signature; the pad stays available to override.
         // Require _rx WRITE — the stamp persists a signature, so a read-only prescriber must not
         // trigger it, matching the manual signature-save path. Eligibility ("is this row already
-        // signed?") is decided inside the service from the PERSISTED prescription row, so a stale
-        // session rePrint marker cannot make a genuinely new, unsigned script skip its stamp, and a
-        // reprint of an already-signed script is a no-op there.
+        // signed, and did the logged-in provider write it?") is decided inside the service from the
+        // PERSISTED prescription row.
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)
                 && signatureStampService.applyStampToScript(loggedInInfo, bean, scriptId) != null) {
             request.setAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED, Boolean.TRUE);
@@ -121,11 +137,26 @@ public final class RxViewScript2Action extends ActionSupport {
     }
 
     /**
-     * The script number under which the whole stash is already persisted, or {@code null} when the
-     * stash is empty, unsaved, or split across scripts. Used to avoid re-persisting a script that a
-     * prior save (Save And Print) or a reprint already wrote.
+     * Mirrors the ViewScript2.jsp test for "render the reprinted tmpBeanRX instead of the live
+     * stash": the session-scoped {@code rePrint} flag set by reprint2 and cleared by the save paths.
      */
-    private static String fullyPersistedScriptId(RxSessionBean bean) {
+    static boolean isReprintMode(HttpSession session) {
+        Object rePrint = session.getAttribute("rePrint");
+        return rePrint != null && "true".equalsIgnoreCase(String.valueOf(rePrint));
+    }
+
+    /**
+     * The script number under which the whole stash is already persisted, or {@code null} when the
+     * stash is empty, contains any unsaved item, or is split across scripts.
+     *
+     * <p>"Persisted" is decided per item from {@code drugId}, which only
+     * {@code RxPrescriptionData.Prescription.Save} assigns (from the inserted drugs row) — never
+     * from {@code script_no} alone. A re-prescribed item is built in memory with the ORIGINAL
+     * script number copied onto it ({@code RxPrescriptionData.newPrescription}) and {@code drugId}
+     * 0, so trusting a uniform positive {@code script_no} would mistake an unsaved re-prescription
+     * for that historical script and both skip its save and stamp the old prescription.</p>
+     */
+    static String persistedScriptId(RxSessionBean bean) {
         if (bean.getStashSize() == 0) {
             return null;
         }
@@ -137,8 +168,9 @@ public final class RxViewScript2Action extends ActionSupport {
         if (!isPositiveScriptNo(first)) {
             return null;
         }
-        for (int i = 1; i < bean.getStashSize(); i++) {
-            if (!first.equals(bean.getStashItem(i).getScript_no())) {
+        for (int i = 0; i < bean.getStashSize(); i++) {
+            RxPrescriptionData.Prescription item = bean.getStashItem(i);
+            if (item == null || item.getDrugId() <= 0 || !first.equals(item.getScript_no())) {
                 return null;
             }
         }

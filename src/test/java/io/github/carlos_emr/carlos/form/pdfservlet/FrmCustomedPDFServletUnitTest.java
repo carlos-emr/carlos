@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,6 +40,7 @@ import org.springframework.mock.web.MockServletContext;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
 import java.nio.file.Files;
@@ -47,6 +49,7 @@ import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -295,6 +298,37 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse to fax when the prescription does not exist")
+    void shouldRefuseFax_whenPrescriptionNotFound(@TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        // No stubStoredSignature(): PrescriptionDao.find returns null, and no pad file is named.
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("fax-failure").contains("not signed");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxJobDao, never()).persist(any());
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+        }
+    }
+
+    @Test
     @DisplayName("should refuse to fax a prescription that carries no signature")
     void shouldRefuseFax_whenPrescriptionUnsigned(@TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -303,7 +337,13 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletResponse response = new MockHttpServletResponse();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        // No stubStoredSignature(): PrescriptionDao.find returns null, and no pad file is named.
+        // The row exists, the caller is authorized for its patient, but digital_signature_id is
+        // null and no pad file is named: the "no signature" guard itself must refuse the fax.
+        Prescription unsigned = new Prescription();
+        unsigned.setDemographicId(DEMOGRAPHIC_NO);
+        when(prescriptionDao.find(SCRIPT_ID)).thenReturn(unsigned);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(true);
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
             loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -429,16 +469,61 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fall back to the stored signature when the named pad file is missing or escapes the temp directory")
-    void shouldFallBackToStoredSignature_whenPadFileMissingOrOutsideTempDirectory() throws Exception {
+    @DisplayName("should fall back to the stored signature when the named pad file does not exist")
+    void shouldFallBackToStoredSignature_whenPadFileMissing() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
-        request.addParameter("imgFile", "../../etc/passwd");
+        // A well-formed pad name for THIS provider that was never written.
+        request.addParameter("imgFile", padFileFor("999998").getFileName().toString());
         stubStoredSignature();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
         assertThat(resolved).isEqualTo(tinyPng());
+        verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("should fall back to the stored signature when the named pad file escapes the temp directory")
+    void shouldFallBackToStoredSignature_whenPadFileOutsideTempDirectory() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.addParameter("imgFile", "../../etc/passwd");
+        stubStoredSignature();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        // The pad branch is only entered for a logged-in provider; without this stub the
+        // traversal value would never be examined and this test would prove nothing.
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        // Real PathValidationUtils behaviour, but PROVE the traversal value reached it.
+        try (MockedStatic<PathValidationUtils> pathValidation = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+            pathValidation.verify(() -> PathValidationUtils.validatePath(eq("../../etc/passwd"), any(File.class)));
+        }
+        verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("should fall back to the stored signature when path validation rejects the pad file name")
+    void shouldFallBackToStoredSignature_whenPadFilePathRejected() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.addParameter("imgFile", "../../etc/passwd");
+        stubStoredSignature();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        // The SecurityException contract: a rejected path must be swallowed into the stored-signature
+        // fallback, never propagated into the fax/print response.
+        try (MockedStatic<PathValidationUtils> pathValidation = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            pathValidation.when(() -> PathValidationUtils.validatePath(eq("../../etc/passwd"), any(File.class)))
+                    .thenThrow(new SecurityException("path escapes the allowed directory"));
+
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+        }
     }
 
     @Test
@@ -459,18 +544,35 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should withhold a stored signature when the caller lacks _rx read privilege for the patient")
-    void shouldWithholdStoredSignature_whenCallerLacksRxRead() throws Exception {
-        MockHttpServletRequest request = createFaxRequest();
+    @DisplayName("should withhold a stored signature from a print/preview when the caller lacks _rx read for the patient")
+    void shouldWithholdStoredSignature_whenPreviewCallerLacksRxRead() throws Exception {
+        MockHttpServletRequest request = createPreviewRequest(); // no __method → READ gate
         stubStoredSignature();
-        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), anyString())).thenReturn(false);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
 
         assertThat(resolved).isNull();
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, String.valueOf(DEMOGRAPHIC_NO));
+        verify(securityInfoManager, never()).hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), anyString());
         verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+    }
+
+    @Test
+    @DisplayName("should render a stored signature on a print/preview for a caller with only _rx read")
+    void shouldRenderStoredSignature_whenPreviewCallerHasOnlyRxRead() throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        stubStoredSignature(); // grants READ+WRITE by default
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), anyString())).thenReturn(false);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+        assertThat(resolved).isEqualTo(tinyPng());
+        verify(securityInfoManager, never()).hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), anyString());
     }
 
     @Test
@@ -518,6 +620,13 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
         assertThat(resolved).isNull();
         verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+    }
+
+    /** The same request as {@link #createFaxRequest()} but a print/preview: no {@code __method}. */
+    private MockHttpServletRequest createPreviewRequest() {
+        MockHttpServletRequest request = createFaxRequest();
+        request.removeParameter("__method");
+        return request;
     }
 
     private MockHttpServletRequest createFaxRequest() {

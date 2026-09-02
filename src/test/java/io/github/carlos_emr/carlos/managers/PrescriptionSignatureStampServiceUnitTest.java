@@ -135,8 +135,14 @@ class PrescriptionSignatureStampServiceUnitTest {
     }
 
     private static io.github.carlos_emr.carlos.commn.model.Prescription unsignedPrescriptionFor(Integer demographicId) {
+        return unsignedPrescriptionFor(demographicId, PROVIDER_NO);
+    }
+
+    /** An unsigned persisted row for {@code demographicId} written by {@code prescriberNo}. */
+    private static io.github.carlos_emr.carlos.commn.model.Prescription unsignedPrescriptionFor(Integer demographicId, String prescriberNo) {
         io.github.carlos_emr.carlos.commn.model.Prescription p = new io.github.carlos_emr.carlos.commn.model.Prescription();
         p.setDemographicId(demographicId);
+        p.setProviderNo(prescriberNo);
         return p;
     }
 
@@ -268,11 +274,43 @@ class PrescriptionSignatureStampServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should not stamp another provider's script")
-    void shouldSkipStamp_whenScriptProviderDiffersFromSession() {
-        bean.setProviderNo("111111");
+    @DisplayName("should not stamp a script whose persisted row was written by another provider")
+    void shouldSkipStamp_whenPersistedPrescriberDiffersFromSession() {
+        // The re-prescribe case: the session bean's provider IS the logged-in user, but the script
+        // number on the stash belongs to a row another provider wrote. The persisted row decides.
+        bean.setProviderNo(PROVIDER_NO);
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(unsignedPrescriptionFor(DEMOGRAPHIC_NO, "111111"));
 
         assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
+        verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+        assertThat(stashItem.getDigitalSignatureId()).isNull();
+    }
+
+    @Test
+    @DisplayName("should not stamp when the persisted row records no prescriber")
+    void shouldSkipStamp_whenPersistedPrescriberMissing() {
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(unsignedPrescriptionFor(DEMOGRAPHIC_NO, null));
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
+        verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+    }
+
+    @Test
+    @DisplayName("should decide the prescriber from the persisted row, not the session bean")
+    void shouldStampWithPersistedPrescriber_whenBeanProviderDiffers() {
+        // A stale bean provider must neither block nor be trusted: the row's provider_no (which is
+        // the logged-in user here) is what the stamp is saved under.
+        bean.setProviderNo("111111");
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID))).thenReturn(unsignedPrescriptionFor(DEMOGRAPHIC_NO, PROVIDER_NO));
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isEqualTo(SIGNATURE_ID);
+        verify(digitalSignatureManager).saveStampSignature(loggedInInfo, PROVIDER_NO, DEMOGRAPHIC_NO, ModuleType.PRESCRIPTION);
+    }
+
+    @Test
+    @DisplayName("should not stamp through applyStamp when the given provider is not the logged-in provider")
+    void shouldSkipStamp_whenApplyStampProviderDiffersFromSession() {
+        assertThat(service.applyStamp(loggedInInfo, "111111", DEMOGRAPHIC_NO, Integer.parseInt(SCRIPT_ID))).isNull();
         verifyNoInteractions(digitalSignatureManager, prescriptionManager);
     }
 

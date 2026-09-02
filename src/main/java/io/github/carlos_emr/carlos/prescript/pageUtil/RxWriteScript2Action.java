@@ -238,12 +238,21 @@ public final class RxWriteScript2Action extends ActionSupport {
                     rx = bean.getStashItem(i);
 
                     rx.Save(scriptId);
+                    // Record the script on the stash item, as updateSaveAllDrugs does: ViewScript2
+                    // builds the preview URL and the pad's signature-override POST from the stash
+                    // item's script_no, so leaving it null would preview the wrong script and send
+                    // scriptId=null when the prescriber overrides the stamp by hand.
+                    rx.setScript_no(scriptId);
                     auditStr.append(rx.getAuditString());
                     auditStr.append("\n");
 
                     rx = null;
                 }
                 fwd = "viewScript";
+                // A reprint earlier in this session leaves rePrint=true behind; ViewScript2.jsp
+                // would then render the reprinted tmpBeanRX instead of the script just written.
+                // nosemgrep: tainted-session-from-http-request -- value is null literal (clearing session attribute), not user input
+                request.getSession().setAttribute("rePrint", null);
                 String ip = request.getRemoteAddr();
                 request.setAttribute("scriptId", scriptId);
                 // Same stamp-on-write as RxViewScript2Action: a stamp on file signs the freshly
