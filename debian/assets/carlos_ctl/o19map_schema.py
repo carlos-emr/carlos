@@ -600,6 +600,11 @@ TABLES = {
             'lastUpdateUser',
             'lastUpdateDate',
         ],
+        'dropped': {
+            'storageVersion': {
+                'nondefault': 's.`storageVersion` IS NOT NULL AND s.`storageVersion` <> 0',
+            },
+        },
     },
     'SecurityToken': {
         'class': 'copy',
@@ -1449,10 +1454,12 @@ TABLES = {
     },
     'clinic_location': {
         'class': 'copy',
+        'replace_seed': True,
         'cols': ['id', 'clinic_location_no', 'clinic_no', 'clinic_location_name'],
     },
     'clinic_nbr': {
         'class': 'copy',
+        'replace_seed': True,
         'cols': ['nbr_id', 'nbr_value', 'nbr_string', 'nbr_status'],
     },
     'config_Immunization': {
@@ -1859,7 +1866,7 @@ TABLES = {
     },
     'demographic_merged': {
         'class': 'copy',
-        'cols': ['id', 'demographic_no', 'merged_to', 'deleted'],
+        'cols': ['id', 'demographic_no', 'merged_to', 'deleted', 'lastUpdateUser', 'lastUpdateDate'],
     },
     'demographicaccessory': {
         'class': 'copy',
@@ -5056,6 +5063,7 @@ TABLES = {
             'signature',
             'datetimeOfDetention',
             'signature1',
+            'datetimeOfDelivered',
             'signature2',
         ],
     },
@@ -9328,6 +9336,8 @@ TABLES = {
             'first_name',
             'report_status',
             'accessionNum',
+            'filler_order_num',
+            'sending_facility',
             'label',
         ],
         'chunk_by': 'id',
@@ -9549,19 +9559,15 @@ TABLES = {
     'lst_discharge_reason': {
         'class': 'copy',
         'replace_seed': True,
-        'cols': ['description'],
+        'cols': ['description', 'needsecondary', 'isactive', 'displayorder'],
+        'renames': {
+            'needsecondary': 'needSecondary',
+            'isactive': 'isActive',
+            'displayorder': 'displayOrder',
+        },
         'dropped': {
             'code': {
                 'nondefault': "s.`code` IS NOT NULL AND s.`code` <> ''",
-            },
-            'needSecondary': {
-                'nondefault': 's.`needSecondary` IS NOT NULL AND s.`needSecondary` <> 0',
-            },
-            'isActive': {
-                'nondefault': 's.`isActive` IS NOT NULL AND s.`isActive` <> 0',
-            },
-            'displayOrder': {
-                'nondefault': 's.`displayOrder` IS NOT NULL AND s.`displayOrder` <> 0',
             },
             'lastUpdateUser': {
                 'nondefault': "s.`lastUpdateUser` IS NOT NULL AND s.`lastUpdateUser` <> ''",
@@ -9616,7 +9622,15 @@ TABLES = {
     'lst_orgcd': {
         'class': 'copy',
         'replace_seed': True,
-        'cols': ['code', 'description', 'activeyn', 'orderbyindex', 'codetree'],
+        'cols': ['code', 'description', 'activeyn', 'orderbyindex', 'codetree', 'fullCode', 'codeCsv'],
+        'dropped': {
+            'lastUpdateUser': {
+                'nondefault': "s.`lastUpdateUser` IS NOT NULL AND s.`lastUpdateUser` <> ''",
+            },
+            'lastUpdateDate': {
+                'nondefault': "s.`lastUpdateDate` IS NOT NULL AND s.`lastUpdateDate` <> ''",
+            },
+        },
     },
     'lst_program_type': {
         'class': 'copy',
@@ -9802,11 +9816,15 @@ TABLES = {
         'cols': ['cssID', 'location'],
     },
     'measurementGroup': {
-        'class': 'copy',
+        'class': 'merge',
+        'merge_keys': ['name', 'typeDisplayName'],
+        'surrogate_pk': 'id',
         'cols': ['id', 'name', 'typeDisplayName'],
     },
     'measurementGroupStyle': {
-        'class': 'copy',
+        'class': 'merge',
+        'merge_keys': ['groupName'],
+        'surrogate_pk': 'groupID',
         'cols': ['groupID', 'groupName', 'cssID'],
     },
     'measurementMap': {
@@ -9955,6 +9973,9 @@ TABLES = {
             'status',
             'serviceLocationIdentifier',
         ],
+        'value_exprs': {
+            'uid': 's.`recordID`',
+        },
     },
     'pmm_log': {
         'class': 'copy',
@@ -10269,6 +10290,7 @@ TABLES = {
     },
     'provider_facility': {
         'class': 'copy',
+        'replace_seed': True,
         'cols': ['provider_no', 'facility_id'],
     },
     'providerbillcenter': {

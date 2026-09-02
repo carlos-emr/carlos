@@ -525,8 +525,8 @@ KNOWN_TABLES = {
     'mdsZMN': 'copy',
     'mdsZRG': 'copy',
     'measurementCSSLocation': 'copy',
-    'measurementGroup': 'copy',
-    'measurementGroupStyle': 'copy',
+    'measurementGroup': 'merge',
+    'measurementGroupStyle': 'merge',
     'measurementMap': 'reference',
     'measurementType': 'merge',
     'measurementTypeDeleted': 'copy',
@@ -990,9 +990,12 @@ def run_checks(query, properties=None, province="on", accepted=(),
             if entry.get("class") not in ("copy", "merge") or t not in col_map:
                 continue
             renames = entry.get("renames", {})
-            known = set(renames.get(c, c) for c in entry.get("cols", []))
-            known.update(entry.get("dropped", {}))
-            extra = sorted(col_map[t] - known)
+            # MySQL column names are case-insensitive — fold case
+            known = set(renames.get(c, c).lower()
+                        for c in entry.get("cols", []))
+            known.update(c.lower() for c in entry.get("dropped", {}))
+            extra = sorted(c for c in col_map[t]
+                           if c.lower() not in known)
             if extra:
                 unknown_cols[t] = extra
         if unknown_cols:

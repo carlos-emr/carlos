@@ -57,9 +57,14 @@ run_sql -e "DROP DATABASE IF EXISTS \`$DB\`;
 
 # createdatabase_generic.sh order (Ontario, ICD-9), permissive session so the
 # 2006-era SQL loads on a modern MariaDB exactly as it did on MySQL 5.x.
+# default_storage_engine=MyISAM is authenticity, not convenience: the era's
+# MySQL default was MyISAM, and wide forms like formONAREnhancedRecord
+# exceed InnoDB's row-size limit — exactly why real O19 databases hold them
+# as MyISAM (their dumps carry explicit ENGINE clauses, so the importer's
+# staging restore is unaffected by the modern InnoDB default).
 load() {
   echo "loading $1 ..."
-  run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0" \
+  run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
           "$DB" < "$2"
 }
 load oscarinit.sql          "$SQLDIR/oscarinit.sql"
@@ -68,12 +73,23 @@ load oscardata.sql          "$SQLDIR/oscardata.sql"
 load oscardata_on.sql       "$SQLDIR/oscardata_on.sql"
 load icd9.sql               "$SQLDIR/icd9.sql"
 load caisi/initcaisi.sql    "$SQLDIR/caisi/initcaisi.sql"
-load caisi/initcaisidata.sql "$SQLDIR/caisi/initcaisidata.sql"
+# initcaisidata SOURCEs sibling files by relative path — the client must
+# run from the caisi directory, as createdatabase_generic.sh did
+(cd "$SQLDIR/caisi" &&
+ run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
+         "$DB" < initcaisidata.sql)
+echo "loading caisi/initcaisidata.sql ... done"
 load icd9_issue_groups.sql  "$SQLDIR/icd9_issue_groups.sql"
 load measurementMapData.sql "$SQLDIR/measurementMapData.sql"
 load expire_oscardoc.sql    "$SQLDIR/expire_oscardoc.sql"
 if [ "$WITH_OLIS" = 1 ]; then
-  load olis/olisinit.sql "$SQLDIR/olis/olisinit.sql"
+  # olisinit LOAD DATA LOCAL INFILEs its sibling CSVs — client cwd must be
+  # the olis directory, and local-infile must be enabled
+  (cd "$SQLDIR/olis" &&
+   run_sql --local-infile=1 \
+           --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
+           "$DB" < olisinit.sql)
+  echo "loading olis/olisinit.sql ... done"
 fi
 
 load "vendored demo.sql" "$SCRIPT_DIR/fixtures/demo-data/demo.sql"
@@ -81,8 +97,14 @@ load "fixture-document-rows.sql" \
      "$SCRIPT_DIR/fixtures/documents/fixture-document-rows.sql"
 
 mkdir -p "$OUT"
-echo "dumping to $OUT/o19-fixture.sql.gz ..."
-"${MYSQL_CMD}dump" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} \
+# mariadb pairs with mariadb-dump; mysql pairs with mysqldump
+if command -v "${MYSQL_CMD}-dump" >/dev/null 2>&1; then
+  DUMP_CMD="${MYSQL_CMD}-dump"
+else
+  DUMP_CMD="${MYSQL_CMD}dump"
+fi
+echo "dumping to $OUT/o19-fixture.sql.gz (via $DUMP_CMD) ..."
+"$DUMP_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} \
   --single-transaction --quick --default-character-set=latin1 "$DB" \
   | gzip > "$OUT/o19-fixture.sql.gz"
 

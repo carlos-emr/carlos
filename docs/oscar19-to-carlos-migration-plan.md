@@ -574,7 +574,41 @@ left for diagnosis (rollback = pre-import snapshot). The full P0–P7 chain
 now runs end to end; `test_props.py` (pinned against the committed
 clinic-example fixture) brings the suite to 131 passing tests.
 
-Remaining milestone: end-to-end rehearsal + operator guide (M7).
+**Milestone 7 — end-to-end rehearsal + operator guide (done):**
+The full turnkey flow was rehearsed on a real MariaDB 10.11 with a fixture
+built exactly per this plan: `build-o19-fixture.sh` created a latin1 O19
+database from the Bitbucket init scripts (MyISAM-era engine default —
+`formONAREnhancedRecord` exceeds InnoDB's row limit, which is precisely why
+real O19 installs hold it as MyISAM), loaded the vendored `release/demo.sql`
+demo dataset + fixture document rows, and emitted the three turnkey inputs;
+the CARLOS target was provisioned from the Flyway files in version order.
+Both input paths ran to completion: separate flags AND the encrypted
+`--bundle .tar.gz.enc` handoff. Every gate fired as designed: the planted
+`ldap.enabled` produced a hard no-go (remediated like a real clinic),
+`--accept` sign-offs were demanded and recorded, the ETL pre-check caught
+`pharmacyInfo.uid` (curated via `value_exprs`), row parity passed for 340
+copy tables with the break-glass delta itemized, the documents gate caught
+the planted missing file and passed after remediation + `--resume`,
+verification passed, and `--cleanup` kept `o19_archive` (113 tables + CSVs)
+while dropping staging. The standalone `o19_preflight.py` ran from a bare
+directory with correct exit codes.
+
+**Rehearsal fall-out fixed and pinned by tests:** DDL parsing now applies
+statements in document order, models `CREATE TABLE IF NOT EXISTS` as a
+no-op (CARLOS side) and re-issued CREATEs as column UNIONS (O19 patch-soup
+side), parses parenthesized multi-column `ADD (a,b)` alters, and matches
+columns case-insensitively (MySQL semantics); the ETL intersects manifest
+columns with the actual dump at runtime (patch-level variance reported, not
+fatal); every Flyway-seeded copy-class table must reconcile its seeds (new
+integrity test, after `clinic_location` collided live); the break-glass
+admin's auto-ids are bumped above the clinic's range;
+`measurementGroup`/`measurementGroupStyle` became merge-class (seeded via
+statements the seed counter cannot count). Operator guide:
+`docs/o19-import-deb.md`. Suite: 132 tests passing.
+
+**All seven milestones complete.** Next steps beyond this round: run the
+Playwright UI suite against a migrated database under a full app deploy,
+the BC manifest pass (§10.6), and the carlos-podman `import-o19` catch-up.
 
 ## 10. Implementation work breakdown
 

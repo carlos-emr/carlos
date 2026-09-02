@@ -122,6 +122,21 @@ class TestSchemaManifest(unittest.TestCase):
                           "seed delete targets non-copied table {}"
                           .format(table))
 
+    def test_every_seeded_copy_table_reconciles_its_seeds(self):
+        # a Flyway-seeded copy-class table WITHOUT seed handling collides
+        # on PK the moment the clinic's rows arrive (found live in the M7
+        # rehearsal on clinic_location) — every one must either replace
+        # its seeds or be covered by the carlosdoc seed-delete script.
+        deleted = {t for t, _ in o19map_schema.CARLOSDOC_SEED_DELETES}
+        for table, n in o19map_schema.SEED_ROW_COUNTS.items():
+            entry = o19map_schema.TABLES[table]
+            if entry["class"] != "copy" or n == 0:
+                continue
+            self.assertTrue(
+                entry.get("replace_seed") or table in deleted,
+                "{0} is Flyway-seeded ({1} rows) but neither replace_seed "
+                "nor seed-deleted — its PKs will collide".format(table, n))
+
     def test_seed_row_counts_cover_only_copy_and_merge_tables(self):
         copyish = {t for t, e in o19map_schema.TABLES.items()
                    if e["class"] in ("copy", "merge")}

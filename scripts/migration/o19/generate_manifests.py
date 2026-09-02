@@ -204,7 +204,7 @@ def strip_line_comments(text: str) -> str:
 
 
 _CREATE_RE = re.compile(
-    r"create\s+table\s+(?:if\s+not\s+exists\s+)?`?(\w+)`?\s*\(", re.I)
+    r"create\s+table\s+(if\s+not\s+exists\s+)?`?(\w+)`?\s*\(", re.I)
 _DROP_RE = re.compile(r"drop\s+table\s+(?:if\s+exists\s+)?`?(\w+)`?", re.I)
 _ALTER_RE = re.compile(r"alter\s+table\s+`?(\w+)`?\s+", re.I)
 _RENAME_RE = re.compile(r"rename\s+table\s+`?(\w+)`?\s+to\s+`?(\w+)`?", re.I)
@@ -213,13 +213,40 @@ _INSERT_RE = re.compile(
 
 
 class Schema:
-    """Table -> ordered {column: type}, plus primary keys."""
+    """Table -> ordered {column: type}, plus primary keys.
 
-    def __init__(self) -> None:
+    if_not_exists_mode:
+      "skip"  — a guarded CREATE on an existing table is a no-op (exact
+                MySQL semantics; right for the deterministic CARLOS side).
+      "union" — a guarded CREATE merges columns the table does not have
+                yet. Right for the O19 side, whose patch history re-issues
+                tables through overlapping scripts: the manifest should be
+                the SUPERSET of live schemas, with per-site stragglers
+                handled by the ETL's runtime column intersection and the
+                preflight unknown-column flow.
+    """
+
+    def __init__(self, if_not_exists_mode: str = "skip") -> None:
         self.tables: Dict[str, Dict[str, str]] = {}
         self.pks: Dict[str, List[str]] = {}
+        self.if_not_exists_mode = if_not_exists_mode
 
-    def apply_create(self, name: str, body: str) -> None:
+    def apply_create(self, name: str, body: str,
+                     if_not_exists: bool = False) -> None:
+        # CREATE TABLE IF NOT EXISTS on an existing table is a NO-OP in
+        # MySQL — the restore migrations (V1.0.5/V1.0.6) re-issue old
+        # definitions guarded this way, and replacing the baseline's
+        # fuller definition with them silently dropped columns.
+        merge_into: Optional[Dict[str, str]] = None
+        if name in self.tables:
+            if self.if_not_exists_mode == "union":
+                # patch-soup model: a re-issued CREATE (guarded or not) on a
+                # live database never removes columns — an unguarded one
+                # simply errors and a guarded one no-ops — so the parsed
+                # schema unions columns instead of replacing the table.
+                merge_into = self.tables[name]
+            elif if_not_exists:
+                return
         cols: Dict[str, str] = {}
         pk: List[str] = []
         for part in _split_top_level(body):
@@ -241,7 +268,13 @@ class Schema:
             if inline_pk and not pk:
                 pk = [first]
             cols[first] = ctype
-        # a later CREATE for the same table (updates re-creating) replaces it
+        if merge_into is not None:
+            existing_lower = {c.lower() for c in merge_into}
+            for c, ctype in cols.items():
+                if c.lower() not in existing_lower:
+                    merge_into[c] = ctype
+            return
+        # a later unguarded CREATE (updates re-creating) replaces it
         self.tables[name] = cols
         if pk:
             self.pks[name] = pk
@@ -256,6 +289,15 @@ class Schema:
         cols = self.tables[name]
         for clause in _split_top_level(clause_text):
             clause = clause.strip().rstrip(";").strip()
+            # parenthesized multi-column form: ADD (a INT, b VARCHAR(5))
+            m = re.match(r"add\s*\((.+)\)\s*$", clause, re.I | re.S)
+            if m:
+                for part in _split_top_level(m.group(1)):
+                    pm = re.match(r"\s*`?(\w+)`?\s+(.+)", part, re.S)
+                    if pm and pm.group(1).lower() not in COLUMN_KEYWORDS:
+                        cols[pm.group(1)] = re.sub(
+                            r"\s+", " ", pm.group(2)).strip()
+                continue
             m = re.match(r"add\s+(?:column\s+)?`?(\w+)`?\s+(.+)", clause,
                          re.I | re.S)
             if m and m.group(1).lower() not in COLUMN_KEYWORDS:
@@ -313,7 +355,8 @@ class Schema:
                 except ValueError:
                     i = m.end()
                     continue
-                self.apply_create(m.group(1), text[open_idx + 1:close - 1])
+                self.apply_create(m.group(2), text[open_idx + 1:close - 1],
+                                  if_not_exists=bool(m.group(1)))
                 i = close
             elif kind == "drop":
                 self.tables.pop(m.group(1), None)
@@ -364,8 +407,9 @@ def read_sql(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def load_schema(files: List[Path]) -> Schema:
-    schema = Schema()
+def load_schema(files: List[Path],
+                if_not_exists_mode: str = "skip") -> Schema:
+    schema = Schema(if_not_exists_mode)
     for f in files:
         schema.feed(strip_line_comments(read_sql(f)))
     return schema
@@ -464,18 +508,23 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             if t in replace_seed:
                 entry["replace_seed"] = True
         t_ren = renames.get(t, {})
+        # MySQL column names are case-insensitive: `displayOrder` and
+        # `displayorder` are the same column, so matching must fold case
+        # (the ETL still SELECTs the O19 side's actual spelling).
+        o19_by_lower = {c.lower(): c for c in o19.tables[t]}
         cols: List[str] = []
         ren_out: Dict[str, str] = {}
+        mapped_sources = set()
         for target in carlos.tables[t]:
-            source = t_ren.get(target, target)
-            if source in o19.tables[t]:
+            source = o19_by_lower.get(t_ren.get(target, target).lower())
+            if source is not None:
                 cols.append(target)
+                mapped_sources.add(source)
                 if source != target:
                     ren_out[target] = source
         entry["cols"] = cols
         if ren_out:
             entry["renames"] = ren_out
-        mapped_sources = {t_ren.get(c, c) for c in cols}
         dropped: Dict[str, dict] = {}
         for source_col, coltype in o19.tables[t].items():
             if source_col in mapped_sources:
@@ -671,7 +720,8 @@ def main() -> int:
     ov_schema = load_module(here / "overrides_schema.py")
     ov_props = load_module(here / "overrides_props.py")
 
-    o19 = load_schema(expand_sources(oscar, O19_SQL_SOURCES))
+    o19 = load_schema(expand_sources(oscar, O19_SQL_SOURCES),
+                      if_not_exists_mode="union")
     carlos_files = sorted((MIGRATION_DIR / "common").glob("*.sql")) + \
         sorted((MIGRATION_DIR / "on").glob("*.sql"))
     carlos = load_schema(carlos_files)

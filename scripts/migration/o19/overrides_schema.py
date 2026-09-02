@@ -62,7 +62,8 @@ CLASS_REFERENCE = {
 # rows id-intact. (provider/security are handled by CARLOSDOC_SEED_DELETES +
 # the ordered seed-reconciliation script, not here.)
 REPLACE_SEED = {
-    "clinic", "property", "issue", "program", "program_provider",
+    "clinic", "clinic_location", "clinic_nbr", "provider_facility",
+    "property", "issue", "program", "program_provider",
     "caisi_role", "access_type", "default_role_access", "secRole",
     "secUserRole", "mygroup", "scheduletemplate", "scheduletemplatecode",
     "scheduleholiday", "queue", "groups_tbl", "agency", "Facility",
@@ -104,6 +105,10 @@ CLASS_MERGE = {
     "tickler_text_suggest": ["suggested_text"],
     "measurementType": ["type", "measuringInstruction"],
     "validations": ["name"],
+    # seeded by V1.0.10 via statements the seed counter cannot count as
+    # rows; clinics customize measurement groups, so union semantics
+    "measurementGroup": ["name", "typeDisplayName"],
+    "measurementGroupStyle": ["groupName"],
 }
 
 # --- O19-only table dispositions ------------------------------------------
@@ -257,6 +262,15 @@ CARLOSDOC_SEED_DELETES = [
     ("security", "user_name = 'carlosdoc'"),
     ("provider", "provider_no = '999998'"),
 ]
+
+# CARLOS-added NOT NULL columns without defaults: the value the import
+# synthesizes for them (SQL over the staging row alias `s`). The ETL
+# pre-check aborts naming any such column that lacks an entry here.
+VALUE_EXPRS = {
+    # uid groups pharmacy record revisions in CARLOS; each imported O19
+    # pharmacy heads its own group.
+    "pharmacyInfo": {"uid": "s.`recordID`"},
+}
 
 SEED_PROVIDER_NO = "999998"
 SEED_USER_NAME = "carlosdoc"

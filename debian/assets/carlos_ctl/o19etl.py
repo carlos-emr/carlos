@@ -362,6 +362,29 @@ def detect_repairs(query, src_schema: str, accepted) -> Dict[str, set]:
     return repairs
 
 
+def effective_entry(table: str, entry: dict,
+                    src_cols: Dict[str, dict]) -> Tuple[dict, List[str]]:
+    """Intersect the manifest's column map with what the staged dump
+    actually has (case-insensitive): a clinic at a lower patch level may
+    lack columns the manifest superset knows. Missing sources are skipped
+    WITH a report line — the target column then takes its default."""
+    have = {c.lower() for c in src_cols}
+    renames = entry.get("renames", {})
+    ve = entry.get("value_exprs", {})
+    kept, skipped = [], []
+    for c in entry.get("cols", []):
+        if c in ve or renames.get(c, c).lower() in have:
+            kept.append(c)
+        else:
+            skipped.append(c)
+    if not skipped:
+        return entry, []
+    adjusted = dict(entry)
+    adjusted["cols"] = kept
+    return adjusted, ["{0}.{1} absent from this dump — target default "
+                      "used".format(table, c) for c in skipped]
+
+
 def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     """Execute P4. make_password_hash() -> (password, bcrypt_hash, pin)
     so the crypto (and its bcrypt dependency) stays injectable."""
@@ -375,11 +398,22 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     src_info = introspect_columns(plain, src)
     dst_info = introspect_columns(plain, dst)
 
+    patch_notes: List[str] = []
+    effective: Dict[str, dict] = {}
+    for table, entry in o19map_schema.TABLES.items():
+        if entry["class"] in ("copy", "merge") and table in src_info:
+            adjusted, notes = effective_entry(table, entry,
+                                              src_info[table])
+            effective[table] = adjusted
+            patch_notes.extend(notes)
+    if patch_notes:
+        report("patch-level variance ({0} column(s)):\n  ".format(
+            len(patch_notes)) + "\n  ".join(patch_notes))
+
     # -- loud pre-checks over every table before the first write ----------
     problems = []
-    for table, entry in sorted(o19map_schema.TABLES.items()):
-        if entry["class"] not in ("copy", "merge") or table not in src_info:
-            continue
+    for table in sorted(effective):
+        entry = effective[table]
         if table not in dst_info:
             problems.append("{0}: missing from target schema".format(table))
             continue
@@ -416,6 +450,16 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                        "FROM `{0}`.provider WHERE provider_no REGEXP "
                        "'^[0-9]+$'".format(src))[0][0]
         admin_pn = str(int(max_pn) + 1)
+        # the admin's security/secUserRole rows take auto ids — bump the
+        # counters above the clinic's id range or the later id-preserving
+        # copy collides with the admin's rows (found live in rehearsal)
+        for table, pk in (("security", "security_no"),
+                          ("secUserRole", "id")):
+            src_max = int(plain(
+                "SELECT IFNULL(MAX(`{0}`), 0) FROM `{1}`.`{2}`".format(
+                    pk, src, table))[0][0])
+            query("ALTER TABLE `{0}`.`{1}` AUTO_INCREMENT = {2}".format(
+                dst, table, src_max + 1000))
         password, pw_hash, pin = make_password_hash()
         cred_path = os.path.join(state_dir, "admin-credentials.txt")
         # file-first, before any SQL touches accounts (bootstrap-admin's
@@ -446,6 +490,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         cls = entry["class"]
         if table not in src_info:
             continue  # not in this dump (patch-level variance)
+        entry = effective.get(table, entry)
         tstate = progress["tables"].setdefault(table, {})
 
         if cls in ("reference", "drop"):
