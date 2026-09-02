@@ -166,11 +166,15 @@ def unescape_batch_field(value: str) -> str:
     return "".join(out)
 
 
-def image_ref_path(ref: str) -> str:
-    """The on-disk asset name of an eForm image reference: a query string
-    or fragment (`logo.png?v=2`, a cache-buster) is addressed to the
-    servlet, never to the filesystem."""
-    return re.split(r"[?#]", ref, 1)[0]
+def image_ref_suffix(ref: str) -> str:
+    """The query/fragment tail of an eForm image reference (`?v=2` of
+    `logo.png?v=2`), or "" when there is none. CARLOS resolves the WHOLE
+    `${oscar_image_path}` value as the `imagefile` parameter of its image
+    route — the tail is part of the filename it looks up, not a URL
+    parameter — so reconciliation checks the full value and only uses the
+    suffix to explain why the lookup fails."""
+    m = re.search(r"[?#]", ref)
+    return ref[m.start():] if m else ""
 
 
 def image_refs(form_html: str) -> List[str]:
@@ -385,17 +389,26 @@ def reconcile(query, dst_schema: str, ctx_root: str
         fid, form_name, html = r[0], r[1], unescape_batch_field(r[2])
         for ref in image_refs(html):
             checked += 1
-            asset = image_ref_path(ref)
-            if not asset:
-                continue
-            if not contained(image_dir, asset):
+            # the full value, exactly as the CARLOS image route looks it up
+            if not contained(image_dir, ref):
                 problems.append(
                     "eForm '{0}' (fid {1}) image reference escapes "
                     "eform/images: {2}".format(form_name, fid, ref))
-            elif not os.path.isfile(os.path.join(image_dir, asset)):
-                problems.append(
-                    "eForm '{0}' (fid {1}) references missing image "
-                    "asset: {2}".format(form_name, fid, ref))
+            elif not os.path.isfile(os.path.join(image_dir, ref)):
+                suffix = image_ref_suffix(ref)
+                bare = ref[:len(ref) - len(suffix)] if suffix else ""
+                if bare and os.path.isfile(os.path.join(image_dir, bare)):
+                    problems.append(
+                        "eForm '{0}' (fid {1}) image reference {2} carries "
+                        "a query/fragment suffix that CARLOS does not strip "
+                        "(the asset {3} exists, but the form addresses a "
+                        "file named with the suffix — a broken image at "
+                        "runtime until the form HTML is edited)"
+                        .format(form_name, fid, ref, bare))
+                else:
+                    problems.append(
+                        "eForm '{0}' (fid {1}) references missing image "
+                        "asset: {2}".format(form_name, fid, ref))
     lines.append("{0} eForm image reference(s) checked".format(checked))
 
     _, hrm_select = hrm_rewrite_sql(dst_schema, os.path.dirname(ctx_root))

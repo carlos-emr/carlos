@@ -50,7 +50,8 @@ Key core-table deltas (O19 → CARLOS):
 - `document`: CARLOS adds `receivedDate`, `abnormal`, `report_media`,
   `sent_date_time`; drops `fileSignature`.
 - `drugs`: CARLOS adds pharmacy/protocol columns; drops `dispensingUnits`
-  (drug-dispensing module removed); `outside_provider` survives and copies.
+  (drug-dispensing module removed); `outside_provider_name`/`outside_provider_ohip`
+  survive and copy.
 - `provider`, `tickler`, `preventions`, `consultationRequests`: additive only —
   straight copy of shared columns.
 - Charset: O19 init scripts declare no charset (live DBs are typically the MySQL 5.x
@@ -753,6 +754,13 @@ was fixed and pinned by tests. What changed in behaviour:
   pre-checks every collision before moving anything, HRM relocation runs on
   every pass, and `HRMDocument.reportFile` containment is checked on the
   full path.
+- **Round 4 (cubic on the head above):** `o19-preflight` exits 3, not 1,
+  when the server is unreachable (1 is a verdict); a recorded
+  `unverified-bundle` sign-off survives `--resume` without the flag or
+  digest; eForm image references are reconciled on the FULL value, since
+  CARLOS's image route looks up the whole `imagefile` parameter
+  (`logo.png?v=2` is a broken image, reported with the reason); the
+  properties fragment is `fchmod`ed before any credential is written.
 
 **All seven milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,

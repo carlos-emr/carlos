@@ -1072,8 +1072,12 @@ def _default_province() -> str:
         return "on"
 
 
-def _resolve_inputs(args, state_dir: str) -> Dict:
-    """Bundle vs separate flags -> concrete file paths (+ digests)."""
+def _resolve_inputs(args, state_dir: str, accepted=None) -> Dict:
+    """Bundle vs separate flags -> concrete file paths (+ digests).
+    `accepted` is the merged sign-off set (this run's --accept plus the
+    ledger's), so a recorded `unverified-bundle` survives --resume."""
+    if accepted is None:
+        accepted = args.accept
     if args.bundle:
         for flag, val in (("--dump", args.dump),
                           ("--properties", args.properties),
@@ -1089,7 +1093,7 @@ def _resolve_inputs(args, state_dir: str) -> Dict:
         # archive. The digest travels with the password, not the file.
         refusal = bundle_digest_refusal(args.bundle_sha256,
                                         sha256_file(args.bundle),
-                                        args.accept)
+                                        accepted)
         if refusal:
             die(refusal)
         opened = o19bundle.open_bundle(
@@ -1170,12 +1174,20 @@ def _dev_mode(args) -> bool:
     return bool(args.dev_target or args.mariadb_arg)
 
 
+def merged_acknowledgements(cli_accept, state: Dict) -> List[str]:
+    """This run's --accept classes plus the sign-offs the ledger already
+    records (a real run persists them, so a resume need not repeat them).
+    Pure, for the state tests."""
+    return sorted(set(cli_accept or ()) | set(state.get("accepted", [])))
+
+
 def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     dev_target = _dev_mode(args)
     state = load_state(state_dir)
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
 
-    inputs = _resolve_inputs(args, state_dir)
+    accepted = merged_acknowledgements(args.accept, state)
+    inputs = _resolve_inputs(args, state_dir, accepted)
     if getattr(args, "skip_documents", False) \
             and "no-documents" not in args.accept:
         die("--skip-documents requires --accept no-documents (the missing "
@@ -1187,7 +1199,6 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
             die("no documents tar in the inputs — pass --documents, or "
                 "--skip-documents with --accept no-documents")
 
-    accepted = sorted(set(args.accept) | set(state.get("accepted", [])))
     if not getattr(args, "dry_run", False) and import_mode:
         # sign-offs persist only from a real run: a dry run's --accept is
         # an experiment, not a recorded acknowledgement
@@ -1251,17 +1262,22 @@ def _target_db(dev_target: bool) -> str:
     return ""  # unreachable
 
 
-def _guarded(fn):
+def _guarded(fn, code: int = 1):
     """Run a verb body; a failed client statement (server unreachable, a
-    refused privilege) ends in one clear error line, never a traceback."""
+    refused privilege) ends in one clear error line, never a traceback.
+    `code` is the exit status of that failure: the preflight verb reserves
+    the low codes for verdicts, so it fails with its tool-error code."""
     try:
         return fn()
     except o19etl.QueryError as exc:
-        die(str(exc))
+        die(str(exc), code)
 
 
 def cmd_o19_preflight(argv) -> int:
-    return _guarded(lambda: _cmd_o19_preflight(argv))
+    # exit 1 is "go with acknowledgements" for this verb: an unreachable
+    # server must not read as an actionable go
+    return _guarded(lambda: _cmd_o19_preflight(argv),
+                    o19_preflight.EXIT_TOOL_ERROR)
 
 
 def cmd_import_o19(argv) -> int:

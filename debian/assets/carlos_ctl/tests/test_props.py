@@ -9,6 +9,7 @@ Run (from debian/assets):
 """
 
 import os
+import shutil
 import unittest
 
 from carlos_ctl import o19map_props, o19props
@@ -274,3 +275,39 @@ class TestSecretDefaultsAndDispositions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestFragmentFile(unittest.TestCase):
+    """The fragment carries credentials in clear: its mode is 0600 from
+    the first byte, also when a rerun overwrites a wider pre-existing
+    file."""
+
+    def test_wider_pre_existing_file_is_tightened_before_the_write(self):
+        import os
+        import stat
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        path = os.path.join(tmp, "o19-derived-carlos.properties")
+        with open(path, "w") as fh:
+            fh.write("old\n")
+        os.chmod(path, 0o644)
+        o19props.write_fragment(path, "hcv.service.pass=secret\n")
+        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+        with open(path) as fh:
+            self.assertEqual(fh.read(), "hcv.service.pass=secret\n")
+
+    def test_fresh_file_is_created_private(self):
+        import os
+        import stat
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        path = os.path.join(tmp, "fragment")
+        old_umask = os.umask(0o000)
+        try:
+            o19props.write_fragment(path, "k=v\n")
+        finally:
+            os.umask(old_umask)
+        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+

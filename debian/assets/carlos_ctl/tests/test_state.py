@@ -6,6 +6,7 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import argparse
 import os
 import shutil
 import tempfile
@@ -363,6 +364,64 @@ class TestBundleDigest(unittest.TestCase):
         self.assertIsNone(o19import.bundle_digest_refusal(
             None, self.ACTUAL, ["unverified-bundle"]))
         self.assertIn("unverified-bundle", o19import.ACCEPT_CLASSES)
+
+    def test_recorded_sign_off_survives_resume(self):
+        # a real run persisted `unverified-bundle`; the resume passes
+        # neither the flag nor a digest and must still open the bundle
+        state = {"accepted": ["unverified-bundle"]}
+        accepted = o19import.merged_acknowledgements([], state)
+        self.assertEqual(accepted, ["unverified-bundle"])
+        self.assertIsNone(o19import.bundle_digest_refusal(
+            None, self.ACTUAL, accepted))
+
+    def test_resolve_inputs_uses_the_merged_acknowledgements(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        bundle = os.path.join(tmp, "o19-bundle.tar")
+        with open(bundle, "wb") as fh:
+            fh.write(b"\0" * 512)
+        opened = []
+        real_open = o19import.o19bundle.open_bundle
+        o19import.o19bundle.open_bundle = lambda *a, **kw: (
+            opened.append(a) or {"dump": None, "documents": None,
+                                 "properties": None, "bundle_sha256": "x",
+                                 "members": {}})
+        self.addCleanup(setattr, o19import.o19bundle, "open_bundle",
+                        real_open)
+        args = argparse.Namespace(
+            bundle=bundle, bundle_pass=None, bundle_sha256=None,
+            bundle_cipher="aes-256-cbc", bundle_openssl_opt=[],
+            dump=None, properties=None, documents=None, accept=[])
+        with self.assertRaises(SystemExit):  # no sign-off anywhere
+            o19import._resolve_inputs(args, tmp, [])
+        self.assertEqual(opened, [])
+        o19import._resolve_inputs(args, tmp, ["unverified-bundle"])
+        self.assertEqual(len(opened), 1)
+
+
+class TestGuardedExit(unittest.TestCase):
+    """A failed client statement ends in one error line; the preflight
+    verb's low exit codes are verdicts, so its failure is the tool-error
+    code, never a code a caller could read as go."""
+
+    def _boom():
+        raise o19import.o19etl.QueryError("mariadb: cannot connect",
+                                          "stderr")
+
+    def test_default_failure_code_is_one(self):
+        with self.assertRaises(SystemExit) as cm:
+            o19import._guarded(TestGuardedExit._boom)
+        self.assertEqual(cm.exception.code, 1)
+
+    def test_preflight_fails_with_the_tool_error_code(self):
+        real = o19import._cmd_o19_preflight
+        o19import._cmd_o19_preflight = lambda argv: TestGuardedExit._boom()
+        self.addCleanup(setattr, o19import, "_cmd_o19_preflight", real)
+        with self.assertRaises(SystemExit) as cm:
+            o19import.cmd_o19_preflight([])
+        self.assertEqual(cm.exception.code,
+                         o19import.o19_preflight.EXIT_TOOL_ERROR)
+        self.assertNotIn(cm.exception.code, (0, 1, 2))
 
 
 class TestAcceptIdDriftLock(unittest.TestCase):

@@ -387,6 +387,18 @@ def render_report(result: dict) -> str:
 # P6 driver
 # --------------------------------------------------------------------------
 
+def write_fragment(path: str, text: str) -> None:
+    """Write the reviewable fragment with mode 0600 from the first byte:
+    it holds carried credentials in clear, so no umask window may expose
+    it, and a pre-existing file (a rerun) keeps its possibly wider mode
+    across O_TRUNC — so the mode is tightened on the open descriptor
+    BEFORE any secret is written."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="latin-1") as fh:
+        os.fchmod(fh.fileno(), 0o600)
+        fh.write(text)
+
+
 def run_props(ctx) -> None:
     from . import o19import
     from .util import die
@@ -409,12 +421,7 @@ def run_props(ctx) -> None:
     text = render_fragment(result)
     if dry:
         text = "# DRY RUN — regenerate with the real import\n" + text
-    # created with the final mode — the fragment holds carried credentials
-    # in clear, so no umask window may expose it
-    fd = os.open(fragment_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="latin-1") as fh:
-        fh.write(text)
-    os.chmod(fragment_path, 0o600)  # a pre-existing file keeps its mode
+    write_fragment(fragment_path, text)
 
     o19import.report_append(
         state_dir, "P6 props" + (" (dry run)" if dry else ""),

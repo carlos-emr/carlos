@@ -255,17 +255,46 @@ class TestEformImageRefs(unittest.TestCase):
                          sorted(["logo.png", "sig.png", "stamp.gif",
                                  "form.pdf?x=1"]))
 
-    def test_query_string_and_fragment_are_not_part_of_the_asset_name(self):
-        # a cache-busting `?v=2` is addressed to the servlet: the file on
-        # disk is logo.png, and the reference must not block the import
-        self.assertEqual(o19docs.image_ref_path("logo.png?v=2"), "logo.png")
-        self.assertEqual(o19docs.image_ref_path("form.pdf#page=2"),
-                         "form.pdf")
-        self.assertEqual(o19docs.image_ref_path("plain.gif"), "plain.gif")
-        self.assertEqual(o19docs.image_ref_path("?only=query"), "")
+    def test_query_string_and_fragment_suffixes_are_recognised(self):
+        # CARLOS resolves the whole value as the imagefile parameter, so
+        # `logo.png?v=2` names a file that does not exist; the suffix is
+        # only split off to explain the failure, never to excuse it
+        self.assertEqual(o19docs.image_ref_suffix("logo.png?v=2"), "?v=2")
+        self.assertEqual(o19docs.image_ref_suffix("form.pdf#page=2"),
+                         "#page=2")
+        self.assertEqual(o19docs.image_ref_suffix("plain.gif"), "")
+        self.assertEqual(o19docs.image_ref_suffix("?only=query"),
+                         "?only=query")
 
     def test_unrelated_html_has_no_refs(self):
         self.assertEqual(o19docs.image_refs("<p>no images</p>"), [])
+
+    def test_reconcile_checks_the_full_reference_as_carlos_resolves_it(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root)
+        os.makedirs(os.path.join(root, "document"))
+        os.makedirs(os.path.join(root, "eform", "images"))
+        with open(os.path.join(root, "eform", "images", "logo.png"),
+                  "wb") as fh:
+            fh.write(b"png")
+
+        def query(sql):
+            if ".eform" in sql:
+                return [("7", "Consent",
+                         '<img src="${oscar_image_path}logo.png?v=2">'
+                         '<img src="${oscar_image_path}logo.png">'
+                         '<img src="${oscar_image_path}gone.gif">')]
+            return []
+
+        problems, lines = o19docs.reconcile(query, "o19_import", root)
+        self.assertEqual(len(problems), 2, problems)
+        suffixed = [p for p in problems if "logo.png?v=2" in p]
+        self.assertEqual(len(suffixed), 1)
+        self.assertIn("does not strip", suffixed[0])
+        self.assertIn("logo.png exists", suffixed[0])
+        self.assertTrue(any("missing image asset: gone.gif" in p
+                            for p in problems))
+        self.assertIn("3 eForm image reference(s) checked", lines)
 
 
 class TestArchiveCsvExport(unittest.TestCase):
