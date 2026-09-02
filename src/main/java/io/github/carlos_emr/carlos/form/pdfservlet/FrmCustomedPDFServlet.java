@@ -832,6 +832,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         if (signature == null || signature.getSignatureImage() == null || signature.getSignatureImage().length == 0) {
             return null;
         }
+        // Same bar as the pad capture: a stored blob that OpenPDF cannot decode would pass the
+        // "signed" gate here and then be dropped silently in EndPage, sending a fax reported as
+        // signed with a blank signature line. Treat undecodable bytes as no signature at all.
+        if (!isRenderableImage(signature.getSignatureImage())) {
+            logger.warn("Stored signature {} for prescription {} is not a readable image; treating the script as unsigned",
+                    signatureId, LogSafe.sanitize(String.valueOf(scriptNo)));
+            return null;
+        }
         return signature.getSignatureImage();
     }
 

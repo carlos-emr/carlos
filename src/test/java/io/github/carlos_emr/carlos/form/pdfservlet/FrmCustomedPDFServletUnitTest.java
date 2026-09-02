@@ -535,6 +535,26 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should treat a stored signature that is not a decodable image as absent")
+    void shouldWithholdStoredSignature_whenImageNotRenderable() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        DigitalSignature corrupt = new DigitalSignature();
+        corrupt.setDemographicId(DEMOGRAPHIC_NO);
+        corrupt.setModuleType(ModuleType.PRESCRIPTION);
+        corrupt.setSignatureImage("not an image".getBytes(StandardCharsets.UTF_8));
+        when(digitalSignatureManager.getDigitalSignature(SIGNATURE_ID)).thenReturn(corrupt);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+        // The fax gate keys off this result, so an undecodable blob must refuse the fax rather
+        // than let EndPage drop it silently and send a "signed" fax with a blank signature line.
+        assertThat(resolved).isNull();
+    }
+
+    @Test
     @DisplayName("should withhold a stored signature that belongs to another patient's record")
     void shouldWithholdStoredSignature_whenPatientMismatch() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
