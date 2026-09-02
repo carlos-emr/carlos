@@ -394,9 +394,10 @@ have no CARLOS counterpart at all.
    (set by the CARLOS deployment), `backup_path`, `buildtag`/`version*`.
    These belong to carlos-podman provisioning, and copying an O19 value would
    break or weaken the new install. (`login_local_ip` — the local-network
-   ranges exempt from the failed-login lockout — and `resource_base_url` are
-   clinic policy CARLOS still reads and are carried; the URL is validated as
-   a plain http(s) URL because the provider JSPs render it into script.)
+   ranges exempt from the failed-login lockout — is carried, as is
+   `resource_base_url`, the clinic's provider-menu link target; the URL is
+   validated as a plain http(s) URL because the provider JSPs render it into
+   script.)
 6. **`dropped-flag`** — O19 keys for modules CARLOS removed are *not* carried but
    are itemized in the report so nobody assumes the feature still works:
    BORN (`born*`), Integrator (`INTEGRATOR_*`), MyOSCAR/PHR (`MY_OSCAR`,

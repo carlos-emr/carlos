@@ -135,8 +135,8 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
         # world-readable and some statements carry credentials
         cp = run(argv, input=sql, capture_output=True, errors="replace")
         if cp.returncode != 0:
-            raise RuntimeError("SQL failed ({0}): {1}".format(
-                sql[:80], cp.stderr.strip()))
+            raise o19etl.QueryError("SQL failed ({0}): {1}".format(
+                sql[:80], cp.stderr.strip()), cp.stderr)
         return batch_rows(cp.stdout)
 
     query.base_argv = base  # type: ignore[attr-defined]
@@ -755,8 +755,9 @@ def make_etl_query(base_argv: List[str]) -> Callable:
             + list(CLIENT_COMMON_ARGS)
         cp = run(argv, input=sql, capture_output=True, errors="replace")
         if cp.returncode != 0:
-            raise RuntimeError("ETL statement failed ({0} ...): {1}".format(
-                sql[:120], cp.stderr.strip()))
+            raise o19etl.QueryError(
+                "ETL statement failed ({0} ...): {1}".format(
+                    sql[:120], cp.stderr.strip()), cp.stderr)
         return batch_rows(cp.stdout)
 
     return query

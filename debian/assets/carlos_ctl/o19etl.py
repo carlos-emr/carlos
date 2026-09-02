@@ -692,8 +692,24 @@ def save_progress(state_dir: str, progress: Dict) -> None:
 ABSENT_OBJECT_MARKERS = ("Unknown column", "doesn't exist", "1054", "1146")
 
 
+class QueryError(RuntimeError):
+    """A failed client statement: the message carries the SQL prefix for
+    the operator, `stderr` the server's own error text — which is the only
+    part the absent-object test may look at (the SQL can contain a patient
+    id such as 1054)."""
+
+    def __init__(self, message: str, stderr: str = ""):
+        RuntimeError.__init__(self, message)
+        self.stderr = stderr
+
+
 def _absent_object_error(exc: Exception) -> bool:
-    text = str(exc)
+    """True for the server's 'no such table/column' errors — judged on
+    the client's stderr alone, not on the formatted message with the
+    statement text in it."""
+    text = getattr(exc, "stderr", None)
+    if text is None:
+        text = str(exc)
     return any(m in text for m in ABSENT_OBJECT_MARKERS)
 
 

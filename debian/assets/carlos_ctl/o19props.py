@@ -72,7 +72,22 @@ def _join_surrogates(text: str) -> str:
     character (the same rule java.util.Properties applies)."""
     if not any(0xD800 <= ord(c) <= 0xDFFF for c in text):
         return text
-    return text.encode("utf-16", "surrogatepass").decode("utf-16")
+    # pair only an adjacent high+low surrogate; an unpaired surrogate is
+    # kept as-is (java.util.Properties preserves it too) rather than
+    # aborting the whole properties file
+    out = []
+    i = 0
+    while i < len(text):
+        cp = ord(text[i])
+        if (0xD800 <= cp <= 0xDBFF and i + 1 < len(text)
+                and 0xDC00 <= ord(text[i + 1]) <= 0xDFFF):
+            out.append(chr(0x10000 + ((cp - 0xD800) << 10)
+                           + ord(text[i + 1]) - 0xDC00))
+            i += 2
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
 
 
 def parse_properties_text(text: str) -> List[Tuple[str, str]]:

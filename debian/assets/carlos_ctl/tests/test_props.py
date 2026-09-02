@@ -158,6 +158,9 @@ class TestRendering(unittest.TestCase):
         # a non-BMP character is two 4-digit escapes (a surrogate pair)
         emoji = o19props.escape_property_value("\U0001f600")
         self.assertEqual(emoji, "\\ud83d\\ude00")
+        # an unpaired surrogate escape is preserved, not a parse failure
+        parsed = dict(o19props.parse_properties_text("k=a\\ud800b\n"))
+        self.assertEqual(parsed["k"], "a\ud800b")
         # and the escaped line decodes back to the original pair
         parsed = dict(o19props.parse_properties_text(text))
         self.assertEqual(parsed["odd key=1"], "caf\u00e9 \u2014 \u4e2d")

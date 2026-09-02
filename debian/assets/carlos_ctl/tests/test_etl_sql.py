@@ -458,6 +458,24 @@ class TestCharsetRepairPredicate(unittest.TestCase):
                          "'[\\\\x{C3}\\\\x{C2}][\\\\x{80}-\\\\x{BF}]'")
 
 
+class TestAbsentObjectDetection(unittest.TestCase):
+
+    def test_only_the_servers_stderr_is_inspected(self):
+        # the SQL in the message can carry a patient id such as 1054; the
+        # verdict must come from the server's error text alone
+        exc = o19etl.QueryError(
+            "SQL failed (SELECT COUNT(*) FROM t WHERE demographic_no = "
+            "1054): ERROR 1205 (HY000): Lock wait timeout exceeded",
+            "ERROR 1205 (HY000): Lock wait timeout exceeded")
+        self.assertFalse(o19etl._absent_object_error(exc))
+        gone = o19etl.QueryError("SQL failed (SELECT 1 FROM x): ...",
+                                 "ERROR 1146 (42S02): Table 'x' doesn't exist")
+        self.assertTrue(o19etl._absent_object_error(gone))
+        # a plain RuntimeError (no stderr attribute) still works on text
+        self.assertTrue(o19etl._absent_object_error(
+            RuntimeError("Unknown column 'q' in 'field list'")))
+
+
 class TestRowParity(unittest.TestCase):
 
     def test_parity_flags_a_short_copy(self):
