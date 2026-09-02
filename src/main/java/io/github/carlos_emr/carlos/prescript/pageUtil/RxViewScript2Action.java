@@ -150,8 +150,9 @@ public final class RxViewScript2Action extends ActionSupport {
      * stash": the session-scoped {@code rePrint} flag set by reprint2 and cleared by the save paths.
      */
     static boolean isReprintMode(HttpSession session) {
-        Object rePrint = session.getAttribute("rePrint");
-        return rePrint != null && "true".equalsIgnoreCase(String.valueOf(rePrint));
+        // reprint2 stores the literal "true" and the save paths store null; an exact match is
+        // enough and avoids a locale-sensitive case fold on a flag the code fully controls.
+        return "true".equals(session.getAttribute("rePrint"));
     }
 
     /**
