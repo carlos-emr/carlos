@@ -167,6 +167,8 @@ public class AddEForm2Action extends ActionSupport {
         // is a submission — and that is what decides the template side effects below.
         boolean print = "true".equals(request.getParameter("print"));
         boolean printPreviewOnly = print && "true".equals(request.getParameter("skipSave"));
+        // "Submit & PDF": a submission, so it writes the template and closes its window afterwards.
+        boolean submitAndPdf = print && !printPreviewOnly;
         boolean saveAsEdoc = "true".equals(request.getParameter("saveAsEdoc"));
         boolean isDownloadEForm = "true".equals(request.getParameter("saveAndDownloadEForm")) || print;
         boolean isEmailEForm = "true".equals(request.getParameter("emailEForm"));
@@ -347,7 +349,7 @@ public class AddEForm2Action extends ActionSupport {
             // so a generated eForm's chart notes, ticklers, preventions and consults were created.
             // "Submit & PDF" is still a submission and keeps that behaviour; only the "PDF" preview
             // (skipSave=true) skips it, matching what its label promises.
-            if (!fax && !isEmailEForm && (!isDownloadEForm || (print && !printPreviewOnly))) {
+            if (!fax && !isEmailEForm && (!isDownloadEForm || submitAndPdf)) {
                 //write template message to echart
                 String program_no = new EctProgram(se).getProgram(providerNo);
                 String path = request.getRequestURL().toString();
@@ -393,7 +395,7 @@ public class AddEForm2Action extends ActionSupport {
                     // being swallowed by the general handler is exactly why an incomplete download
                     // was a dead end with no way for the clinician to review the omissions and
                     // decide. Mirrors the fax path.
-                    return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no);
+                    return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no, submitAndPdf);
                 } catch (PDFGenerationException e) {
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
@@ -402,14 +404,7 @@ public class AddEForm2Action extends ActionSupport {
                 request.setAttribute("eFormPDF", pdfBase64);
                 request.setAttribute("eFormPDFName", fileName);
                 request.setAttribute("isDownload", "true");
-                if (print && !printPreviewOnly) {
-                    // "Submit & PDF" is a submission: once the result page has started the download
-                    // and shown the saved alert, the floating toolbar closes the window exactly as it
-                    // does after a plain Submit. printControl.js used to do this with a blind 3 s
-                    // timer that could fire before the (server-rendered) PDF arrived. The "PDF"
-                    // preview and the toolbar's Download PDF keep the window open.
-                    request.setAttribute("isSuccess_Autoclose", "true");
-                }
+                flagSubmissionAutoClose(submitAndPdf);
 
                 request.setAttribute("fdid", fdid);
                 request.setAttribute("parentAjaxId", "eforms");
@@ -463,7 +458,7 @@ public class AddEForm2Action extends ActionSupport {
                     request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
                 } catch (EformContentUnavailableException e) {
                     // Same subclass-before-superclass ordering as the save branch above.
-                    return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no);
+                    return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no, submitAndPdf);
                 } catch (PDFGenerationException e) {
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
@@ -472,14 +467,7 @@ public class AddEForm2Action extends ActionSupport {
                 request.setAttribute("eFormPDF", pdfBase64);
                 request.setAttribute("eFormPDFName", fileName);
                 request.setAttribute("isDownload", "true");
-                if (print && !printPreviewOnly) {
-                    // "Submit & PDF" is a submission: once the result page has started the download
-                    // and shown the saved alert, the floating toolbar closes the window exactly as it
-                    // does after a plain Submit. printControl.js used to do this with a blind 3 s
-                    // timer that could fire before the (server-rendered) PDF arrived. The "PDF"
-                    // preview and the toolbar's Download PDF keep the window open.
-                    request.setAttribute("isSuccess_Autoclose", "true");
-                }
+                flagSubmissionAutoClose(submitAndPdf);
 
                 request.setAttribute("fdid", prev_fdid);
                 request.setAttribute("parentAjaxId", "eforms");
@@ -613,6 +601,23 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     /**
+     * Marks the download result page for auto-close when the download was a "Submit & PDF"
+     * submission (the {@code print} flag without {@code skipSave}).
+     *
+     * <p>A submission closes its window once the result page has started the download and shown
+     * the saved alert, exactly as the floating toolbar does after a plain Submit.
+     * {@code printControl.js} used to do this with a blind 3 s timer that could fire before the
+     * server-rendered PDF arrived. The "PDF" preview and the toolbar's own Download PDF keep the
+     * window open, so they pass {@code false}. Both download branches go through here so the two
+     * paths cannot drift apart.</p>
+     */
+    private void flagSubmissionAutoClose(boolean submission) {
+        if (submission) {
+            request.setAttribute("isSuccess_Autoclose", "true");
+        }
+    }
+
+    /**
      * Offers the clinician an exact, one-time approval for a download the completeness gate refused.
      *
      * <p>Mirrors the fax path. The retry deliberately targets {@code eform/downloadEFormPdf} rather
@@ -624,12 +629,20 @@ public class AddEForm2Action extends ActionSupport {
      * <p>Every category the report carries is surfaced. The approval digest binds to the complete
      * issue set, so a category the clinician was never shown is one they cannot meaningfully have
      * approved.</p>
+     *
+     * @param autoClose whether the refused download was a "Submit & PDF" submission. The approval
+     *     page posts to a render-only route, so the intent has to travel with it: without this the
+     *     approved download would arrive without the auto-close the submission promised.
      */
     private String offerDownloadApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
-            String fdid, String demographicNo) {
-        return offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
+            String fdid, String demographicNo, boolean autoClose) {
+        String result = offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
                 EFormRenderApprovalService.Operation.DOWNLOAD, PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE,
                 "eform/downloadEFormPdf", "eform.renderMissingContent.btnApproveAndDownload");
+        if (autoClose && "missingContent".equals(result)) {
+            request.setAttribute("approvalAutoClose", "true");
+        }
+        return result;
     }
 
     /**

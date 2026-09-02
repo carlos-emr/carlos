@@ -239,6 +239,8 @@ class AddEForm2ActionPrintAliasTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("missingContent");
         assertThat(mockRequest.getAttribute("approvalAction")).isEqualTo("eform/downloadEFormPdf");
         assertThat(mockRequest.getAttribute("renderApproval")).isEqualTo("ticket");
+        // A preview keeps its window open, so the approval page carries no auto-close intent.
+        assertThat(mockRequest.getAttribute("approvalAutoClose")).isNull();
     }
 
     @Test

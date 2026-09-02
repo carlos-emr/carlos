@@ -215,6 +215,28 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         verifyTemplateWritten(true);
     }
 
+    @Test
+    @DisplayName("should carry the Submit & PDF auto-close intent into the download approval page")
+    void shouldCarryAutoCloseIntoApproval_whenSubmitAndPdfRefused() throws Exception {
+        // The approval page posts to eform/downloadEFormPdf, not back to this action, so the only
+        // way the approved download can still close the window is for the intent to ride along.
+        mockRequest.setParameter("print", "true");
+        mockRequest.setParameter("skipSave", "false");
+        when(mockDocumentAttachmentManager.renderEFormPacketWithCompleteness(any(), any(), isNull()))
+                .thenThrow(new EformContentUnavailableException("incomplete", 42,
+                        new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false, false)));
+        when(mockRenderApprovalService.issue(any(), any(), anyInt(), anyString(), any(), any(), any(), anyInt()))
+                .thenReturn("ticket");
+
+        String result = new AddEForm2Action().execute();
+
+        assertThat(result).isEqualTo("missingContent");
+        assertThat(mockRequest.getAttribute("approvalAutoClose")).isEqualTo("true");
+        // Refused or not, the flag that closes THIS response's window is never set on the approval page.
+        assertThat(mockRequest.getAttribute("isSuccess_Autoclose")).isNull();
+        verifyTemplateWritten(true);
+    }
+
     // There is deliberately no separate "plain save writes the template" test. execute() continues
     // past the write into MatchManager's client matching, which needs real matcher data and NPEs
     // without it — mocking that chain would test PMmodule, not this contract. The eDoc test above
