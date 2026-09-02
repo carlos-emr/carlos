@@ -113,7 +113,7 @@ Three related invariants were fixed at the same time:
   `<body onload>` does, so `seteditControlContents()` used to refuse the write, log
   "cannot set editor contents" on every new letter, and drop clinic templates' content.
 
-Regression coverage: `AddEForm2ActionPrintAliasTest` (server alias, mapped results),
+Regression coverage: `AddEForm2ActionPrintAliasUnitTest` (server alias, mapped results),
 `RichTextLetterPrintAssetRegressionTest` (browser assets), `DisplayImage2ActionUnitTest`
 (template serving), `EFormJspMigrationRegressionTest` (the `.do` alias), and the live browser
 check `scripts/eform-rtl-print-pdf-playwright-checks.js`

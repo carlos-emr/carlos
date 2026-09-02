@@ -86,7 +86,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("AddEForm2Action legacy print flag")
 @Tag("unit")
 @Tag("eform")
-class AddEForm2ActionPrintAliasTest extends CarlosUnitTestBase {
+class AddEForm2ActionPrintAliasUnitTest extends CarlosUnitTestBase {
 
     private static final Path ADD_EFORM_ACTION = Path.of(
             "src", "main", "java", "io", "github", "carlos_emr", "carlos",
