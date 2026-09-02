@@ -833,21 +833,35 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         String prescriber = prescription.getProviderNo();
         String signingName = "";
+        String collegeId = "";
+        String billingNo = "";
         if (prescriber != null && !prescriber.isBlank()) {
             ProSignatureData signatureData = new ProSignatureData();
+            Provider provider = providerDao.getProvider(prescriber);
             if (signatureData.hasSignature(prescriber)) {
                 signingName = signatureData.getSignature(prescriber);
-            } else {
-                Provider provider = providerDao.getProvider(prescriber);
-                if (provider != null) {
-                    signingName = ((provider.getFirstName() == null ? "" : provider.getFirstName()) + " "
-                            + (provider.getLastName() == null ? "" : provider.getLastName())).trim();
-                }
+            } else if (provider != null) {
+                signingName = ((provider.getFirstName() == null ? "" : provider.getFirstName()) + " "
+                        + (provider.getLastName() == null ? "" : provider.getLastName())).trim();
+            }
+            if (provider != null) {
+                collegeId = provider.getPractitionerNo() == null ? "" : provider.getPractitionerNo();
+                billingNo = provider.getBillingNo() == null ? "" : provider.getBillingNo();
             }
         }
+        // EVERY field the fax renders must come from the record, not just the drug lines. The PDF
+        // also prints additNotes immediately above the signature line, and the College ID and
+        // billing number beside the prescriber's name — all read straight from the request. Binding
+        // only "rx" and "sigDoctorName" left the control bypassable through a sibling parameter: a
+        // caller with _rx write on the patient could post arbitrary additNotes and have it render
+        // above another prescriber's stored signature, under that prescriber's name. Each of these
+        // has a record source, so bind them the same way.
         Map<String, String> bound = new HashMap<>();
         bound.put("rx", body.toString());
         bound.put("sigDoctorName", signingName == null ? "" : signingName);
+        bound.put("additNotes", prescription.getComments() == null ? "" : prescription.getComments());
+        bound.put("pracNo", collegeId);
+        bound.put("billingNumber", billingNo);
         return new RecordBoundRequest(req, bound);
     }
 
@@ -990,6 +1004,46 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             logger.warn("Privilege check failed for the fax permission gate; deferring to the signature gate", e);
             return false;
         }
+    }
+
+    /**
+     * Splits the {@code rx} body the PDF renders into one entry per drug block.
+     *
+     * <p>A block ends at an empty line, a line that is just the separator, or a one-character line —
+     * the last of those because a browser-posted body is CRLF-normalised on submit, so each
+     * separator arrives as a lone {@code \r}.</p>
+     *
+     * <p><strong>The tail must be flushed explicitly.</strong> {@code String.split} drops TRAILING
+     * empty strings, so a body ending with its own separator loses that separator from the array
+     * entirely and the final block would never be added: a one-drug script would render with no
+     * drug lines at all, above a real signature. The browser body hides this because its trailing
+     * separator survives as that lone {@code \r}; the record-bound fax body is built server-side
+     * with plain newlines and has no such sentinel. {@link #splitRxBlocks} flushes its tail the
+     * same way.</p>
+     *
+     * @param rx      the body to split
+     * @param newline the platform line separator the body was written with
+     * @return one entry per block, in order; empty when {@code rx} holds no content
+     */
+    static List<String> splitRenderedRxBlocks(String rx, String newline) {
+        List<String> listRx = new ArrayList<String>();
+        if (rx == null) {
+            return listRx;
+        }
+        String listElem = "";
+        for (String s : rx.split(newline)) {
+            if (s.equals("") || s.equals(newline) || s.length() == 1) {
+                listRx.add(listElem);
+                listElem = "";
+            } else {
+                listElem = listElem + s;
+                listElem += newline;
+            }
+        }
+        if (!listElem.isEmpty()) {
+            listRx.add(listElem);
+        }
+        return listRx;
     }
 
     /** The prescription named by the request's {@code scriptId}, or {@code null} when absent or malformed. */
@@ -1228,20 +1282,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
 
         // parse prescript and put into a list of prescript;
-        String[] rxA = rx.split(newline);
-        List<String> listRx = new ArrayList<String>();
-        String listElem = "";
-
-        for (String s : rxA) {
-
-            if (s.equals("") || s.equals(newline) || s.length() == 1) {
-                listRx.add(listElem);
-                listElem = "";
-            } else {
-                listElem = listElem + s;
-                listElem += newline;
-            }
-        }
+        List<String> listRx = splitRenderedRxBlocks(rx, newline);
 
         // A0-A10, LEGAL, LETTER, HALFLETTER, _11x17, LEDGER, NOTE, B0-B5, ARCH_A-ARCH_E, FLSA
         // and FLSE

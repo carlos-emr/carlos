@@ -858,6 +858,68 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should bind the notes and prescriber ids to the record, not to the request")
+    void shouldBindNotesAndPrescriberIds_toPrescriptionRecord() throws Exception {
+        // The PDF prints additNotes immediately ABOVE the signature line, and the College ID and
+        // billing number beside the prescriber's name. Binding only rx and sigDoctorName left the
+        // record-binding control bypassable: a caller with _rx write on the patient could post
+        // arbitrary additNotes and have it render over another prescriber's stored signature.
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        request.addParameter("additNotes", "Oxycodone 80 mg, #100, refills x5");
+        request.addParameter("pracNo", "999999");
+        request.addParameter("billingNumber", "888888");
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound.getParameter("additNotes"))
+                .as("posted notes must never reach the page above the signature")
+                .isNotEqualTo("Oxycodone 80 mg, #100, refills x5");
+        assertThat(bound.getParameter("pracNo")).isNotEqualTo("999999");
+        assertThat(bound.getParameter("billingNumber")).isNotEqualTo("888888");
+    }
+
+    @Test
+    @DisplayName("should render every drug block when the body ends with its own separator")
+    void shouldRenderEveryBlock_whenBodyEndsWithSeparator() {
+        // The record-bound fax body appends newline+newline after EVERY block, so it ends with its
+        // own separator. String.split drops trailing empty strings, so without an explicit tail
+        // flush the final block is lost: a one-drug script faxes with the clinic header, the
+        // prescriber's name and their signature, and no medication at all.
+        String nl = System.getProperty("line.separator");
+        String oneDrug = "Amoxicillin 500 mg capsule" + nl + "1 cap PO TID x 7 days" + nl + nl;
+        String twoDrugs = oneDrug + "Ibuprofen 400 mg tablet" + nl + "1 tab PO QID PRN" + nl + nl;
+
+        assertThat(FrmCustomedPDFServlet.splitRenderedRxBlocks(oneDrug, nl))
+                .as("a single-drug fax must still render its one drug block")
+                .hasSize(1);
+        assertThat(FrmCustomedPDFServlet.splitRenderedRxBlocks(oneDrug, nl).get(0))
+                .contains("Amoxicillin 500 mg capsule")
+                .contains("1 cap PO TID x 7 days");
+        assertThat(FrmCustomedPDFServlet.splitRenderedRxBlocks(twoDrugs, nl))
+                .as("the LAST drug must not be dropped from a multi-drug fax")
+                .hasSize(2);
+        assertThat(FrmCustomedPDFServlet.splitRenderedRxBlocks(twoDrugs, nl).get(1))
+                .contains("Ibuprofen 400 mg tablet");
+    }
+
+    @Test
+    @DisplayName("should keep browser-posted CRLF bodies splitting exactly as before")
+    void shouldPreserveLegacySplit_forBrowserPostedBody() {
+        // Preview2.jsp TERMINATES every block with ";;" which becomes a blank line, and the form post
+        // CRLF-normalises it, so each separator reaches the servlet as a lone "\r". This is the
+        // print path and the pre-PR fax path; the tail flush must not change its block count.
+        String nl = System.getProperty("line.separator");
+        String legacyTwo = ("Amox 500mg; 1 cap TID" + ";;" + "Ibu 400mg; 1 tab QID" + ";;")
+                .replace(";", nl).replace("\n", "\r\n");
+
+        assertThat(FrmCustomedPDFServlet.splitRenderedRxBlocks(legacyTwo, nl)
+                .stream().filter(b -> !b.isBlank()).count())
+                .as("the browser-posted body already flushed its tail via the lone CR")
+                .isEqualTo(2L);
+    }
+
+    @Test
     @DisplayName("should withhold the signature when the privilege check itself throws")
     void shouldWithholdSignature_whenPrivilegeCheckThrows() throws Exception {
         // SecurityInfoManagerImpl rethrows PatientDirectiveException. Unguarded it would abort PDF
