@@ -720,11 +720,16 @@
                     }
 		<% }
 
-		if (bean.getStashSize() > 0) {
+		// Link the drawn signature to the script that will actually be FAXED, not to the stash
+		// row. The two can differ (scriptIdForFax may come from a request parameter), and the fax
+		// gate is now resolved from the fax target: linking to the stash row would flip the gate
+		// open while leaving the faxed prescription unsigned in storage, so the fax would then be
+		// refused as unsigned. Only the digits-validated scriptIdForFax is emitted here.
+		if (!scriptIdForFax.isEmpty()) {
 		%>
 		try {
 			let signId = new URLSearchParams(e.storedImageUrl.split('?')[1]).get('digitalSignatureId')
-			this.setDigitalSignatureToRx(signId, <%=bean.getStashItem(0).getScript_no() %>);
+			this.setDigitalSignatureToRx(signId, '<%= scriptIdForFax %>');
 		} catch (e) {
 			console.error(e);
 		}
