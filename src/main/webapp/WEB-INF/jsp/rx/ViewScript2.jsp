@@ -446,7 +446,7 @@
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                         // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
+                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                         text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
@@ -997,8 +997,17 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 						// Exactly the conditions the JavaScript gate applies, from the same values:
 						// same prescription for both halves (the persisted row scriptIdForFax names,
 						// never the session stash), and the same pharmacy-fax requirement.
+						//
+						// The stash term is separate and must stay: sendFax() reads
+						// frames['preview'].document, and the #preview iframe is only emitted inside
+						// `if (bean.getStashSize() > 0)` above. With an empty stash the buttons would
+						// look live and the click would die on an undefined frame with nothing shown
+						// to the user. Enabling Fax requires BOTH a faxable record and the preview
+						// the handler depends on.
+						boolean previewAvailable = bean.getStashSize() > 0;
 						String isFaxDisabled =
-								(!canFaxScript || !faxTargetSigned || !hasPharmacyFax) ? "disabled" : "";
+								(!canFaxScript || !faxTargetSigned || !hasPharmacyFax || !previewAvailable)
+										? "disabled" : "";
 					%>
                                         <tr>
 						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFax"/>"

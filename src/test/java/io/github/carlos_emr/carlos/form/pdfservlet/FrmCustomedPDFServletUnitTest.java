@@ -866,6 +866,21 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // arbitrary additNotes and have it render over another prescriber's stored signature.
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
+        // Give the RECORD known values so the assertions prove where the replacements came FROM.
+        // Asserting only "not the posted value" would pass even if the binding wrote empty strings,
+        // i.e. it would go green over a fix that silently dropped the prescriber's real notes.
+        Prescription record = prescriptionDao.find(SCRIPT_ID);
+        record.setComments("Take with food. Recheck INR in 5 days.");
+        io.github.carlos_emr.carlos.commn.model.Provider provider =
+                new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setFirstName("Ada");
+        provider.setLastName("Prescriber");
+        provider.setPractitionerNo("CPSO-12345");
+        provider.setBillingNo("BILL-67890");
+        ProviderDao providerDao = mock(ProviderDao.class);
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+        registerMock(ProviderDao.class, providerDao);
+
         request.addParameter("additNotes", "Oxycodone 80 mg, #100, refills x5");
         request.addParameter("pracNo", "999999");
         request.addParameter("billingNumber", "888888");
@@ -873,10 +888,12 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
         assertThat(bound.getParameter("additNotes"))
-                .as("posted notes must never reach the page above the signature")
-                .isNotEqualTo("Oxycodone 80 mg, #100, refills x5");
-        assertThat(bound.getParameter("pracNo")).isNotEqualTo("999999");
-        assertThat(bound.getParameter("billingNumber")).isNotEqualTo("888888");
+                .as("the notes rendered above the signature must be the RECORD's, not the caller's")
+                .isEqualTo("Take with food. Recheck INR in 5 days.");
+        assertThat(bound.getParameter("pracNo"))
+                .as("the College ID beside the prescriber's name must be that prescriber's")
+                .isEqualTo("CPSO-12345");
+        assertThat(bound.getParameter("billingNumber")).isEqualTo("BILL-67890");
     }
 
     @Test

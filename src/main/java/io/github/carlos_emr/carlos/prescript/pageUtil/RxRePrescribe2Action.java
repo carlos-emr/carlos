@@ -274,7 +274,15 @@ public String saveDigitalSignature() throws IOException {
     
     // Extract and validate digital signature ID from request (can be null to remove signature)
     String digitalSignatureIdParam = request.getParameter("digitalSignatureId");
-    if (digitalSignatureIdParam != null && !digitalSignatureIdParam.matches("\\d{1,9}")) {
+    // A null parameter is legitimate: it CLEARS the link. A present one must name a real signature,
+    // which means positive — "0" matches the digit pattern but is not an id. Storing 0 would leave
+    // the row and the fax path permanently disagreeing: digital_signature_id is then non-null, so
+    // ViewScript2's faxTargetSigned lights the Fax button, while resolveSignatureImage looks up
+    // signature 0, finds no metadata, and refuses the fax as unsigned — after having overwritten
+    // whatever stamp the row carried.
+    boolean signatureIdMalformed = digitalSignatureIdParam != null
+            && (!digitalSignatureIdParam.matches("\\d{1,9}") || Integer.parseInt(digitalSignatureIdParam) <= 0);
+    if (signatureIdMalformed) {
         logger.warn("Invalid digitalSignatureId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         return NONE;
