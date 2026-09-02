@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
@@ -854,6 +855,40 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
         assertThat(resolved).isEqualTo(tinyPng());
         verify(securityInfoManager, never()).hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), anyString());
+    }
+
+    @Test
+    @DisplayName("should withhold the signature when the privilege check itself throws")
+    void shouldWithholdSignature_whenPrivilegeCheckThrows() throws Exception {
+        // SecurityInfoManagerImpl rethrows PatientDirectiveException. Unguarded it would abort PDF
+        // generation with a 500 rather than the deliberate refusal this method exists to produce.
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), anyString()))
+                .thenThrow(new PatientDirectiveException("directive blocks this chart"));
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+        assertThat(resolved).isNull();
+        verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+    }
+
+    @Test
+    @DisplayName("should defer to the signature gate when the fax permission check throws")
+    void shouldNotReportPermissionDenial_whenPrivilegeCheckThrows() {
+        // Answering "denied" here would emit the specific permission wording, which under a directive
+        // confirms the script exists. Answering "not denied" is not an authorization: resolveSignature
+        // Image withholds the signature on the same failure, so the fax still refuses — as "not signed",
+        // the same answer a non-existent script id gives.
+        Prescription prescription = new Prescription();
+        prescription.setDemographicId(DEMOGRAPHIC_NO);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), anyString()))
+                .thenThrow(new PatientDirectiveException("directive blocks this chart"));
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+        assertThat(new FrmCustomedPDFServlet().isFaxDeniedByPrivilege(prescription, loggedInInfo)).isFalse();
     }
 
     @Test

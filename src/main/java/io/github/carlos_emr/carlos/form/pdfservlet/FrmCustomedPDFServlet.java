@@ -977,8 +977,19 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return false;
         }
         String patient = String.valueOf(prescription.getDemographicId());
-        return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, patient)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient);
+        try {
+            return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, patient)
+                    && !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient);
+        } catch (RuntimeException e) {
+            // hasPrivilege rethrows PatientDirectiveException (SecurityInfoManagerImpl); unguarded it
+            // would crash the servlet instead of refusing the fax. Answer "not denied HERE" so the
+            // request falls through to resolveSignatureImage, whose own guard withholds the signature
+            // and produces the generic "not signed" reply. Nothing is authorized by this answer — it
+            // only declines to emit the specific permission wording, which is right under a directive:
+            // that wording would confirm the script exists.
+            logger.warn("Privilege check failed for the fax permission gate; deferring to the signature gate", e);
+            return false;
+        }
     }
 
     /** The prescription named by the request's {@code scriptId}, or {@code null} when absent or malformed. */
@@ -1029,8 +1040,19 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // FaxJob (an outbound mutation), so it requires _rx WRITE; a print/preview requires READ.
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
         String requiredRight = isFax ? SecurityInfoManager.WRITE : SecurityInfoManager.READ;
-        if (demographicId == null
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", requiredRight, String.valueOf(demographicId))) {
+        boolean authorized;
+        try {
+            authorized = demographicId != null
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_rx", requiredRight, String.valueOf(demographicId));
+        } catch (RuntimeException e) {
+            // hasPrivilege rethrows PatientDirectiveException; unguarded it would abort PDF generation
+            // with a 500 instead of the deliberate refusal below. Any failure to establish the right
+            // means the signature is not released — the same outcome as lacking it outright.
+            logger.warn("Privilege check failed while resolving the signature for prescription {}; withholding it",
+                    LogSafe.sanitize(String.valueOf(scriptNo)), e);
+            authorized = false;
+        }
+        if (!authorized) {
             logger.debug("Denied signature render for prescription {}: caller lacks _rx {} for its patient",
                     LogSafe.sanitize(String.valueOf(scriptNo)), requiredRight);
             return null;

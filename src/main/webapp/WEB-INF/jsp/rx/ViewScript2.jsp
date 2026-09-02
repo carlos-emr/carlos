@@ -632,16 +632,34 @@
             // the chart the bean holds; gating on the bean would then enable Fax for a fax the server
             // refuses (or hide one it would allow). No id, or an id that resolves to nothing or to a
             // row with no patient, means there is nothing faxable — closed, not open.
+            //
+            // Nothing in here may throw. hasPrivilege rethrows PatientDirectiveException
+            // (SecurityInfoManagerImpl) and the DAO lookup can fail on its own; from a JSP either is a
+            // 500 on the whole print/fax page rather than a disabled button. Any failure leaves the
+            // gate false: Fax off, page still renders.
+            // BOTH halves of the gate — may-I-fax and is-it-signed — must describe the SAME
+            // prescription, the one scriptIdForFax names, because that is the row the servlet signs
+            // from. Reading the permission from the persisted row and the signature from the session
+            // stash would let a stash holding a different script decide whether Fax lights up.
             boolean canFaxScript = false;
-            if (!scriptIdForFax.isEmpty()) {
-                io.github.carlos_emr.carlos.commn.model.Prescription faxTarget =
-                        SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.PrescriptionDao.class)
-                                .find(Integer.parseInt(scriptIdForFax));
-                if (faxTarget != null && faxTarget.getDemographicId() != null) {
-                    canFaxScript = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
-                            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
-                                    "_rx", "w", String.valueOf(faxTarget.getDemographicId()));
+            boolean faxTargetSigned = false;
+            try {
+                if (!scriptIdForFax.isEmpty()) {
+                    io.github.carlos_emr.carlos.commn.model.Prescription faxTarget =
+                            SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.PrescriptionDao.class)
+                                    .find(Integer.parseInt(scriptIdForFax));
+                    if (faxTarget != null && faxTarget.getDemographicId() != null) {
+                        canFaxScript = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+                                .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+                                        "_rx", "w", String.valueOf(faxTarget.getDemographicId()));
+                        faxTargetSigned = faxTarget.getDigitalSignatureId() != null;
+                    }
                 }
+            } catch (RuntimeException e) {
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                        .warn("Fax gate could not be resolved; leaving Fax disabled", e);
+                canFaxScript = false;
+                faxTargetSigned = false;
             }
         %>
         <script type="text/javascript">
@@ -684,7 +702,7 @@
             // The script already carries a stored signature (the prescriber's stamp applied on write,
             // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
             // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
-            var hasStoredSignature = <%= bean.getStashSize() > 0 && bean.getStashItem(0).getDigitalSignatureId() != null ? "true" : "false" %>;
+            var hasStoredSignature = <%= faxTargetSigned ? "true" : "false" %>;
             <% } %>
 
             function signatureHandler(e) {
@@ -959,8 +977,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
 
 					<%
-						String isFaxDisabled = (!canFaxScript || bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId()))
-								? "disabled" : "";
+						// Same prescription for both halves as the JS gate above: the persisted row
+						// scriptIdForFax names, never the session stash.
+						String isFaxDisabled = (!canFaxScript || !faxTargetSigned) ? "disabled" : "";
 					%>
                                         <tr>
 						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFax"/>"
