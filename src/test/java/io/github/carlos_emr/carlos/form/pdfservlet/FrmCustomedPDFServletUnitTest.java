@@ -431,6 +431,26 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should fax the record in record order when the request body only partly matches it")
+    void shouldUseRecordOrder_whenRequestBodyPartlyMatchesRecord() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE), drugRow(6, SECOND_DRUG_LINE));
+        String nl = System.lineSeparator();
+        // The second record drug first, then a block that is NOT in the record: a tampered body
+        // that happens to contain one real line must not keep even that line's request position.
+        String posted = (SECOND_DRUG_LINE.replace("\n", "; ") + ";;Oxycodone 80 mg; #100;;").replace(";", nl);
+        request.setParameter("rx", posted);
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        String rx = bound.getParameter("rx");
+        assertThat(rx).doesNotContain("Oxycodone");
+        assertThat(rx.indexOf("Amoxicillin")).isLessThan(rx.indexOf("Ibuprofen"));
+    }
+
+    @Test
     @DisplayName("should keep a one-character line inside its drug block and split only on blank lines")
     void shouldSplitRxBlocks_onBlankLinesOnly() {
         String nl = System.lineSeparator();

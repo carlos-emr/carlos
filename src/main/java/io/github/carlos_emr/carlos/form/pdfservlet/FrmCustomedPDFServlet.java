@@ -811,9 +811,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
         }
         if (!remaining.isEmpty() || ordered.size() != requestBlocks.size()) {
+            // Anything but an exact reordering of the record is discarded wholesale: the fax is the
+            // record in the record's own order, never a partially request-shaped body.
             logger.warn("Fax body for prescription {} did not match its record; faxing the record instead",
                     LogSafe.sanitize(String.valueOf(scriptNo)));
-            ordered.addAll(remaining);
+            ordered = new ArrayList<>(recordLines);
         }
         StringBuilder body = new StringBuilder();
         for (String line : ordered) {

@@ -94,6 +94,8 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        // By default the prescription row exists and the link persists.
+        when(mockPrescriptionManager.setPrescriptionSignature(any(), any(Integer.class), any())).thenReturn(true);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -146,6 +148,19 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("should report not found when the prescription row does not exist")
+    void shouldReturnNotFound_whenPrescriptionMissing() throws Exception {
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+        when(mockPrescriptionManager.setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, SIGNATURE_ID)).thenReturn(false);
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
     }
 
     @Test
