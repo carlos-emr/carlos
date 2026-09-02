@@ -82,6 +82,9 @@ class PrescriptionSignatureStampServiceUnitTest {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private SecurityInfoManager securityInfoManager;
+
     private PrescriptionSignatureStampService service;
     private RxSessionBean bean;
     private RxPrescriptionData.Prescription stashItem;
@@ -123,7 +126,11 @@ class PrescriptionSignatureStampServiceUnitTest {
         // By default the persisted prescription exists and is unsigned, so a stamp applies.
         when(prescriptionDao.find(anyInt())).thenReturn(unsignedPrescription());
 
-        service = new PrescriptionSignatureStampService(digitalSignatureManager, prescriptionManager, prescriptionDao);
+        // By default the caller may write the persisted prescription's own patient.
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), anyString())).thenReturn(true);
+
+        service = new PrescriptionSignatureStampService(digitalSignatureManager, prescriptionManager, prescriptionDao,
+                securityInfoManager);
     }
 
     @AfterEach
@@ -279,6 +286,35 @@ class PrescriptionSignatureStampServiceUnitTest {
 
         assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
         verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+    }
+
+    @Test
+    @DisplayName("should not stamp when the caller lacks _rx write on the script's own patient")
+    void shouldSkipStamp_whenCallerLacksWriteOnPersistedPatient() {
+        // The calling actions check only a GLOBAL _rx write right, so this is the only place the
+        // stamp is bound to the chart it actually writes to. The prescriber guard cannot cover it:
+        // the row here was written by this very provider, who has since lost access to the patient.
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(false);
+
+        assertThat(service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID)).isNull();
+        verifyNoInteractions(digitalSignatureManager, prescriptionManager);
+        assertThat(stashItem.getDigitalSignatureId()).isNull();
+    }
+
+    @Test
+    @DisplayName("should authorize against the persisted patient, not the session bean's")
+    void shouldAuthorizeAgainstPersistedPatient_whenBeanHoldsAnotherChart() {
+        // A stale or re-prescribed bean can name a different chart than the row scriptId resolves to.
+        // Authorizing the bean's demographic would check the wrong patient entirely.
+        int persistedPatient = DEMOGRAPHIC_NO + 5000;
+        bean.setDemographicNo(DEMOGRAPHIC_NO);
+        when(prescriptionDao.find(Integer.parseInt(SCRIPT_ID)))
+                .thenReturn(unsignedPrescriptionFor(persistedPatient, PROVIDER_NO));
+
+        service.applyStampToScript(loggedInInfo, bean, SCRIPT_ID);
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", "w", String.valueOf(persistedPatient));
     }
 
     @Test

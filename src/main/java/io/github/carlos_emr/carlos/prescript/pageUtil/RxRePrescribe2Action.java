@@ -323,12 +323,16 @@ public String saveDigitalSignature() throws IOException {
     
     // Log the action for audit trail
     // Note: Using REPRINT constant as this is related to prescription printing/signing workflow
+    // The patient logged is the PERSISTED prescription's, never the session bean's. scriptId is
+    // request-supplied and is authorized above against the row it actually resolves to, so the two
+    // can differ; recording the bean's patient would file this signature event under whichever
+    // chart happens to be open rather than the one that was signed.
     LogAction.addLog(loggedInInfo.getLoggedInProviderNo(),
                       LogConst.REPRINT,
                       LogConst.CON_PRESCRIPTION, 
                       scriptId, 
                       ip, 
-                      "" + beanRX.getDemographicNo());
+                      String.valueOf(targetPrescription.getDemographicId()));
     
     // Return null for Ajax-style calls that don't require a view forward
     return null;

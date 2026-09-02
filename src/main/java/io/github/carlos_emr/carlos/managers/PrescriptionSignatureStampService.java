@@ -48,7 +48,8 @@ import org.springframework.stereotype.Service;
  * record that consultations already get.</p>
  *
  * <p>Guards, in order: the PERSISTED prescription row must exist, be unsigned, carry a patient,
- * and have been written by the logged-in provider (the session bean's provider is not consulted:
+ * the caller must hold {@code _rx} write on THAT patient (the calling actions check only a global
+ * {@code _rx} right), and the row must have been written by the logged-in provider (the session bean's provider is not consulted:
  * it is always the logged-in user, so it proves nothing about who wrote the row); then
  * {@code rx_signature_enabled} (or {@code rx_fax_enabled}) must be on; the session facility must
  * allow digital signatures; and the provider must have a stamp on file (enforced again inside
@@ -73,6 +74,7 @@ public class PrescriptionSignatureStampService {
     private final DigitalSignatureManager digitalSignatureManager;
     private final PrescriptionManager prescriptionManager;
     private final io.github.carlos_emr.carlos.commn.dao.PrescriptionDao prescriptionDao;
+    private final SecurityInfoManager securityInfoManager;
 
     /**
      * @param digitalSignatureManager stores the stamp image and yields the signature id that is
@@ -80,13 +82,18 @@ public class PrescriptionSignatureStampService {
      * @param prescriptionManager     performs the signature link on the persisted prescription
      * @param prescriptionDao         reads the persisted prescription so the stamp can be bound to
      *                                the prescriber who actually wrote it, not to the caller
+     * @param securityInfoManager      authorizes the caller against the persisted prescription's own
+     *                                 patient; the calling actions only hold a global {@code _rx}
+     *                                 check, which says nothing about this chart
      */
     public PrescriptionSignatureStampService(DigitalSignatureManager digitalSignatureManager,
                                              PrescriptionManager prescriptionManager,
-                                             io.github.carlos_emr.carlos.commn.dao.PrescriptionDao prescriptionDao) {
+                                             io.github.carlos_emr.carlos.commn.dao.PrescriptionDao prescriptionDao,
+                                             SecurityInfoManager securityInfoManager) {
         this.digitalSignatureManager = digitalSignatureManager;
         this.prescriptionManager = prescriptionManager;
         this.prescriptionDao = prescriptionDao;
+        this.securityInfoManager = securityInfoManager;
     }
 
     /**
@@ -97,7 +104,8 @@ public class PrescriptionSignatureStampService {
      * @param bean         the Rx session bean whose stash was just saved under {@code scriptId}
      * @param scriptId     the script number returned by {@code RxPrescriptionData.saveScript}
      * @return the id of the stored stamp signature, or {@code null} when nothing was applied
-     *         (row missing or already signed, written by another provider, feature off, facility
+     *         (row missing or already signed, no {@code _rx} write on its patient, written by
+     *         another provider, feature off, facility
      *         disallows digital signatures, no stamp on file, or a persistence failure, which is
      *         logged and never propagated to the page)
      */
@@ -131,6 +139,17 @@ public class PrescriptionSignatureStampService {
         // the fax/print path then correctly withholds — silently breaking fax for a signed script.
         Integer patientId = persisted.getDemographicId();
         if (patientId == null) {
+            return null;
+        }
+        // Patient-scoped authorization. The callers (RxViewScript2Action, RxWriteScript2Action) hold
+        // only a GLOBAL _rx write check (null target), which proves nothing about this chart, and
+        // scriptId is request-supplied. The prescriber guard below narrows this to the caller's own
+        // scripts, but a clinician who keeps global _rx write after losing access to a particular
+        // patient could still stamp a script they wrote for them. Refuse rather than throw: this
+        // runs inside a print/fax page render, and every other failure here leaves the pad available.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", String.valueOf(patientId))) {
+            MiscUtils.getLogger().debug("Rx stamp not applied: no _rx write on script {}'s patient",
+                    LogSafe.sanitize(scriptId));
             return null;
         }
         // The prescriber is the PERSISTED row's provider_no, never the session bean's. The bean's

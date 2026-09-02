@@ -132,9 +132,17 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
      * need this: the servlet refuses to fax an unsigned prescription.
      */
     private void stubStoredSignature() throws Exception {
+        stubStoredSignature("999998");
+    }
+
+    /**
+     * As {@link #stubStoredSignature()}, but the persisted row records {@code prescriberNo} as its
+     * prescriber — used to separate the signing caller from the provider who wrote the script.
+     */
+    private void stubStoredSignature(String prescriberNo) throws Exception {
         Prescription prescription = new Prescription();
         prescription.setDemographicId(DEMOGRAPHIC_NO);
-        prescription.setProviderNo("999998");
+        prescription.setProviderNo(prescriberNo);
         prescription.setDigitalSignatureId(SIGNATURE_ID);
         when(prescriptionDao.find(SCRIPT_ID)).thenReturn(prescription);
         // The record has one drug, so a fax has something legitimate to render.
@@ -642,6 +650,33 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
         } finally {
             Files.deleteIfExists(foreignPad);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject the caller's own pad capture when they did not write the prescription")
+    void shouldRejectOwnPadFile_whenCallerIsNotThePersistedPrescriber() throws Exception {
+        // A covering provider with _rx write on the same patient re-faxes another prescriber's
+        // script and draws on the pad. The document names the PERSISTED prescriber (the fax body is
+        // bound to the record), so honouring this capture would put provider B's ink under provider
+        // A's name. The stored signature — the one A actually left on the script — is used instead.
+        Path ownPad = padFileFor("999998");
+        try {
+            byte[] ownBytes = otherPng(); // a real, decodable image, and this caller's own capture
+            Files.write(ownPad, ownBytes);
+            MockHttpServletRequest request = createFaxRequest();
+            request.addParameter("imgFile", ownPad.toString());
+            stubStoredSignature("111111"); // the script was written by a DIFFERENT provider
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+            assertThat(resolved).isNotEqualTo(ownBytes);
+            verify(digitalSignatureManager).getDigitalSignature(SIGNATURE_ID);
+        } finally {
+            Files.deleteIfExists(ownPad);
         }
     }
 

@@ -1051,9 +1051,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
 
         // 1. the signature-pad capture written for this signing session.
+        // The pad is only honoured for the prescriber's OWN script. The rendered document names the
+        // persisted prescriber (bindFaxContentToRecord takes the name from the record), so accepting
+        // another provider's fresh capture here would put provider B's ink under provider A's name.
+        // A non-prescriber falls through to the stored signature, which is the designed
+        // reprint/refax path: it renders the signature the prescriber themselves left on the script.
         String imgFile = req.getParameter("imgFile");
         String signingProviderNo = loggedInInfo.getLoggedInProviderNo();
-        if (imgFile != null && !imgFile.isBlank() && signingProviderNo != null && !signingProviderNo.isBlank()) {
+        String prescribingProviderNo = prescription.getProviderNo();
+        if (imgFile != null && !imgFile.isBlank() && signingProviderNo != null && !signingProviderNo.isBlank()
+                && signingProviderNo.equals(prescribingProviderNo)) {
             try {
                 File tempDir = PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir");
                 File padFile = PathValidationUtils.validatePath(imgFile, tempDir);

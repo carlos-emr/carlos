@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -45,6 +47,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
@@ -161,6 +164,25 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         verify(mockSecurityInfoManager)
                 .hasPrivilege(mockLoggedInInfo, "_rx", "w", String.valueOf(SIGNATURE_DEMOGRAPHIC_NO));
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, SIGNATURE_ID);
+    }
+
+    @Test
+    @DisplayName("should audit the persisted prescription's patient, not the open chart's")
+    void shouldAuditPersistedPatient_whenSessionBeanHoldsAnotherChart() throws Exception {
+        // scriptId is request-supplied and authorized against the row it resolves to, so the signed
+        // prescription can belong to a different patient than the chart the session has open (the
+        // fixture's bean holds demographic 1; the target row is SIGNATURE_DEMOGRAPHIC_NO). Auditing
+        // the bean would file the signature event under whichever chart happened to be open.
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+
+        try (MockedStatic<LogAction> logActionMock = mockStatic(LogAction.class)) {
+            action.saveDigitalSignature();
+
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq(LogConst.REPRINT),
+                    eq(LogConst.CON_PRESCRIPTION), eq(String.valueOf(SCRIPT_ID)), anyString(),
+                    eq(String.valueOf(SIGNATURE_DEMOGRAPHIC_NO))));
+        }
     }
 
     @Test
