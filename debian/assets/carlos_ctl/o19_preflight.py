@@ -55,7 +55,7 @@ import subprocess
 import sys
 
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
-SCHEMA_MAP_VERSION = 'o19map-2'
+SCHEMA_MAP_VERSION = 'o19map-2+78d7b58b'
 PATIENT_DATA_TABLES = [
     'DrugDispensing',
     'DrugDispensingMapping',
@@ -312,7 +312,7 @@ KNOWN_TABLES = {
     'ctl_diagcode': 'merge',
     'ctl_doc_class': 'merge',
     'ctl_doctype': 'merge',
-    'ctl_document': 'merge',
+    'ctl_document': 'copy',
     'ctl_frequency': 'merge',
     'ctl_specialinstructions': 'merge',
     'custom_filter': 'copy',

@@ -357,10 +357,16 @@ def carlos_era_objects(seed_rows: Sequence[Sequence[str]],
     """Objects the CARLOS seed grants that the clinic's O19 never knew:
     absent from its secObjectName AND from every one of its grants
     (compared like the column's collation: `_masterlink` knows
-    `_masterLink`)."""
-    known = {o.lower() for o in stage_objects} | {r[1].lower()
-                                                   for r in stage_rows}
-    return sorted({r[1] for r in seed_rows if r[1].lower() not in known})
+    `_masterLink`).
+
+    _fold, not .lower(): the column's collation is PAD SPACE, so a
+    clinic's `_hrm ` already covers `_hrm`. Missing that promotes an
+    object the clinic knew into the CARLOS-era set, and the backfill then
+    grants it to every custom role — `_hrm`, `_masterLink`, `_report`
+    and the `_admin.*` family are all in that seed."""
+    known = {_fold(o) for o in stage_objects} | {_fold(r[1])
+                                                 for r in stage_rows}
+    return sorted({r[1] for r in seed_rows if _fold(r[1]) not in known})
 
 
 def custom_roles(target_roles: Sequence[str],
@@ -419,8 +425,8 @@ def choose_template(custom: str, stage_rows: Sequence[Sequence[str]],
     best_role, best = None, -1.0
     candidates = {r[0] for r in seed_rows if is_role_group(r[0])}
     if stock_roles is not None:
-        stock_fold = {s.lower() for s in stock_roles}
-        candidates = {c for c in candidates if c.lower() in stock_fold}
+        stock_fold = {_fold(s) for s in stock_roles}
+        candidates = {c for c in candidates if _fold(c) in stock_fold}
     for role in sorted(candidates):
         score = jaccard(mine, role_pairs(seed_rows, role))
         if score > best:
@@ -787,6 +793,20 @@ def verify_role_checks(query: Callable, dst_schema: str,
         else:
             problems.append("role '{0}' missing from secRole".format(name))
 
+    # every active assignment's grants must be findable by the app, which
+    # matches role names EXACTLY while the database matches them
+    # case-insensitively; step 1b aligns the spellings, and a non-zero
+    # count here means a provider can log in and open nothing
+    drift = n(role_spelling_drift_sql(dst_schema))
+    if drift:
+        problems.append(
+            "{0} active role assignment(s) name a role whose privilege "
+            "rows carry a different spelling — CARLOS matches role names "
+            "exactly, so those grants are inert".format(drift))
+    else:
+        ok.append("role-name spellings agree across secRole, secUserRole "
+                  "and secObjPrivilege")
+
     if admin_provider_no:
         pn = _sql_str(admin_provider_no)
         active = n("SELECT COUNT(*) FROM `{0}`.secUserRole WHERE provider_no "
@@ -905,6 +925,52 @@ def verify_role_checks(query: Callable, dst_schema: str,
 
 # --- driver -----------------------------------------------------------------
 
+def role_spelling_drift_sql(dst_schema: str) -> str:
+    """Active role assignments whose grants CARLOS would not find.
+
+    CARLOS resolves a grant with `Properties.containsKey` over the
+    provider's role names (OscarRoleObjectPrivilege.checkPrivilege), i.e.
+    EXACT Java string equality — while the database compares role names
+    under utf8mb4_general_ci, which folds case and trailing blanks. The
+    privilege merge therefore keeps the CARLOS seed's `nurse` rows and
+    drops the clinic's `Nurse` ones, and secUserRole (replace_seed) still
+    says `Nurse`: every grant on that role becomes inert and the provider
+    can log in but open nothing."""
+    return ("SELECT COUNT(*) FROM `{0}`.secUserRole ur JOIN "
+            "`{0}`.secObjPrivilege p ON p.roleUserGroup = ur.role_name "
+            "WHERE ur.activeyn = 1 AND BINARY p.roleUserGroup <> "
+            "BINARY ur.role_name".format(dst_schema))
+
+
+def role_spelling_statements(dst_schema: str) -> List[str]:
+    """Canonicalise every role-name spelling onto the one secRole holds.
+
+    Safe and idempotent: secRole.role_name is a case-insensitive UNIQUE
+    key and secObjPrivilege's PRIMARY KEY (roleUserGroup, objectName) is
+    case-insensitive too, so at most one spelling of a given role can
+    exist in either table and the update cannot collide. Re-running it
+    matches nothing."""
+    return [
+        "UPDATE `{0}`.secObjPrivilege p JOIN `{0}`.secRole r ON "
+        "r.role_name = p.roleUserGroup SET p.roleUserGroup = r.role_name "
+        "WHERE BINARY p.roleUserGroup <> BINARY r.role_name"
+        .format(dst_schema),
+        "UPDATE `{0}`.secUserRole ur JOIN `{0}`.secRole r ON "
+        "r.role_name = ur.role_name SET ur.role_name = r.role_name "
+        "WHERE BINARY ur.role_name <> BINARY r.role_name"
+        .format(dst_schema),
+    ]
+
+
+def comma_named_roles_sql(dst_schema: str) -> str:
+    """Role names carrying a comma. CARLOS splits a provider's role list
+    on ',' before the exact match, so such a role can never match and
+    grants nothing — reported, never rewritten (renaming a role is the
+    clinic's decision)."""
+    return ("SELECT role_name FROM `{0}`.secRole WHERE role_name LIKE "
+            "'%,%' ORDER BY role_name".format(dst_schema))
+
+
 def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     """The post-copy step, ledger-marked per sub-step under progress['roles'].
     ctx carries the ETL executors (query_etl with the bulk-copy prelude,
@@ -1006,6 +1072,33 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                         "CARLOS seed's grants (see roles-details.txt)"
                         .format(len(dangling))) if dangling else ""))
         mark("roles_appended")
+
+    # 1b. one spelling per role, everywhere (see role_spelling_drift_sql:
+    #     the app matches role names exactly, the database matches them
+    #     case-insensitively, and the privilege merge creates the gap)
+    if not ledger.get("role_spelling"):
+        drift = n(role_spelling_drift_sql(dst))
+        for sql in role_spelling_statements(dst):
+            query(sql)
+        if drift:
+            report("roles: {0} active assignment(s) named a role whose "
+                   "privilege rows carried a different spelling (CARLOS "
+                   "matches role names exactly, the database does not) — "
+                   "all spellings aligned to the clinic's secRole "
+                   "catalogue; no grant was added or removed"
+                   .format(drift))
+        commas = [r[0] for r in plain(comma_named_roles_sql(dst)) if r]
+        if commas and not ledger.get("role_comma_listed"):
+            append_private(["role names carrying a comma (CARLOS splits a "
+                            "provider's role list on ',', so these grant "
+                            "nothing): " + ", ".join(commas)])
+            mark("role_comma_listed")
+        if commas:
+            report("roles: {0} role name(s) contain a comma and can never "
+                   "match in CARLOS (named in roles-details.txt) — rename "
+                   "them in Administration > Roles after go-live"
+                   .format(len(commas)))
+        mark("role_spelling")
 
     # 2. facility / clinic guarantees, facility links (run_etl pre-checks
     #    the same conditions against staging before the first write; this

@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS properties manifest."""
 
-PROPS_MAP_VERSION = 'o19map-2'
+PROPS_MAP_VERSION = 'o19map-2+9738bf48'
 
 # active keys of the stock O19 oscar_mcmaster.properties — the baseline-diff
 # reference: clinic keys equal to these defaults are ignored (CARLOS defaults win)

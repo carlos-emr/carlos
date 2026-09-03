@@ -218,6 +218,18 @@ class TestCustomRoleBackfill(unittest.TestCase):
         era = o19roles.carlos_era_objects(self.SEED, self.STAGE, self.OBJECTS)
         self.assertEqual(era, ["_email", "_fax", "_hrm.administrator"])
 
+    def test_a_trailing_blank_still_counts_as_known(self):
+        # the column's collation is PAD SPACE, so the clinic's '_hrm '
+        # already covers '_hrm'. Treating it as CARLOS-era would grant
+        # every custom role an object the clinic already scoped itself.
+        seed = list(self.SEED) + [["doctor", "_hrm", "x", "0"]]
+        objects = list(self.OBJECTS) + ["_hrm "]
+        self.assertNotIn(
+            "_hrm", o19roles.carlos_era_objects(seed, self.STAGE, objects))
+        stage = list(self.STAGE) + [["nurse", "_HRM", "r", "0"]]
+        self.assertNotIn(
+            "_hrm", o19roles.carlos_era_objects(seed, stage, self.OBJECTS))
+
     def test_custom_roles_exclude_provider_numbers_queues_and_stock(self):
         roles = o19roles.custom_roles(
             ["doctor", "Triage Nurse", "Ghost", "Unused"], self.STAGE,
@@ -508,6 +520,39 @@ class TestRichTextLetter(unittest.TestCase):
                       o19roles.rtl_disable_statement("carlos", "7"))
 
 
+class TestRoleSpelling(unittest.TestCase):
+    """CARLOS matches role names with exact Java string equality; the
+    database matches them case-insensitively. The privilege merge keeps
+    the seed's `nurse` rows and drops the clinic's `Nurse` ones, while
+    secUserRole still says `Nurse` — every grant on that role goes
+    inert."""
+
+    def test_the_drift_probe_compares_binary_under_a_folded_join(self):
+        sql = o19roles.role_spelling_drift_sql("carlos")
+        self.assertIn("p.roleUserGroup = ur.role_name", sql)
+        self.assertIn("BINARY p.roleUserGroup <> BINARY ur.role_name", sql)
+        self.assertIn("ur.activeyn = 1", sql)
+
+    def test_both_tables_are_aligned_to_the_secRole_catalogue(self):
+        stmts = o19roles.role_spelling_statements("carlos")
+        self.assertEqual(len(stmts), 2)
+        self.assertIn("`carlos`.secObjPrivilege", stmts[0])
+        self.assertIn("SET p.roleUserGroup = r.role_name", stmts[0])
+        self.assertIn("`carlos`.secUserRole", stmts[1])
+        self.assertIn("SET ur.role_name = r.role_name", stmts[1])
+        for sql in stmts:
+            # guarded, so a re-run matches nothing: both target tables
+            # key role names case-insensitively, so at most one spelling
+            # of a role exists and the update cannot collide
+            self.assertIn("WHERE BINARY", sql)
+            self.assertTrue(sql.startswith("UPDATE "), sql)
+
+    def test_comma_named_roles_are_reported_never_rewritten(self):
+        sql = o19roles.comma_named_roles_sql("carlos")
+        self.assertTrue(sql.startswith("SELECT role_name"), sql)
+        self.assertIn("LIKE '%,%'", sql)
+
+
 class TestVerifyRoleChecks(unittest.TestCase):
     """A fake query answers the exact shapes verify_role_checks issues."""
 
@@ -517,13 +562,16 @@ class TestVerifyRoleChecks(unittest.TestCase):
             "admin_active": "2", "admin_grant": "1", "facility": "1",
             "clinic": "1", "program": "1", "missing": "0", "unlinked": "0",
             "grants": "600", "no_role": [], "no_grant": [], "locked": [],
-            "jobs": "1", "rtl": [["12", "Rich Text Letter", "1",
+            "jobs": "1", "spelling_drift": "0",
+            "rtl": [["12", "Rich Text Letter", "1",
                                   "Rich Text Letter Generator 2026.3.0",
                                   "1", "0", "1"]],
         }
         answers.update(over)
 
         def q(sql):
+            if "BINARY p.roleUserGroup" in sql:
+                return [[answers["spelling_drift"]]]
             if "SELECT role_name FROM" in sql and "secRole`" not in sql \
                     and "DISTINCT" not in sql:
                 return answers["roles"]

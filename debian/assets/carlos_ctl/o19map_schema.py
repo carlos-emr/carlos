@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-2'
+SCHEMA_MAP_VERSION = 'o19map-2+78d7b58b'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -1637,8 +1637,8 @@ TABLES = {
         'cols': ['id', 'module', 'doctype', 'status'],
     },
     'ctl_document': {
-        'class': 'merge',
-        'merge_keys': ['module', 'module_id', 'document_no'],
+        'class': 'copy',
+        'replace_seed': True,
         'cols': ['module', 'module_id', 'document_no', 'status'],
     },
     'ctl_frequency': {
@@ -21008,6 +21008,7 @@ CARLOSDOC_SEED_DELETES = [
     ('secUserRole', "provider_no = '999998'"),
     ('ProviderPreference', "providerNo = '999998'"),
     ('providersite', "provider_no = '999998'"),
+    ('property', "provider_no = '999998'"),
     ('security', "user_name = 'carlosdoc'"),
     ('provider', "provider_no = '999998'"),
 ]

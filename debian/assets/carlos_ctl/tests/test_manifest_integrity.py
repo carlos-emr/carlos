@@ -296,8 +296,23 @@ class TestSchemaManifest(unittest.TestCase):
         # Release 2026.08+ trains use CalVer; the manifest token must never
         # be mistakable for a CARLOS release version.
         v = o19map_schema.SCHEMA_MAP_VERSION
-        self.assertRegex(v, r"^o19map-\d+$", v)
-        self.assertEqual(o19map_props.PROPS_MAP_VERSION, v)
+        p = o19map_props.PROPS_MAP_VERSION
+        self.assertRegex(v, r"^o19map-\d+\+[0-9a-f]{8}$", v)
+        self.assertRegex(p, r"^o19map-\d+\+[0-9a-f]{8}$", p)
+        # same hand-maintained base; the suffix is derived from each
+        # module's own content, so a classification change the author
+        # forgot to bump still invalidates a --resume across it
+        self.assertEqual(v.split("+")[0], p.split("+")[0])
+
+    def test_the_version_suffix_tracks_the_classification(self):
+        import hashlib
+        digest = hashlib.sha256(
+            repr(sorted(o19map_schema.TABLES.items()))
+            .encode("utf-8")).hexdigest()[:8]
+        self.assertEqual(
+            o19map_schema.SCHEMA_MAP_VERSION.split("+", 1)[1], digest,
+            "regenerate the manifests: the shipped token does not "
+            "describe the shipped TABLES")
 
 
 class TestPreflightDriftLock(unittest.TestCase):

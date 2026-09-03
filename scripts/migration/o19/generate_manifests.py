@@ -34,6 +34,7 @@ The CARLOS migration directory is only ever READ.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import re
 import sys
@@ -827,6 +828,27 @@ GENERATED_HEADER = """\
 """
 
 
+def content_version(base: str, content) -> str:
+    """The overlay's token with a short digest of the content it
+    describes appended.
+
+    The ETL ledger refuses a --resume across a changed token, which is
+    the whole point of having one — but a token maintained by hand drifts
+    the moment someone changes a classification and forgets to bump it,
+    and then two package builds with DIFFERENT tables share a version
+    and a resume across them is accepted. Deriving the suffix from the
+    content makes that impossible to forget. The base stays the
+    hand-maintained token so the shape remains deliberately
+    non-CalVer."""
+    digest = hashlib.sha256(
+        repr(content).encode("utf-8")).hexdigest()[:8]
+    return "{0}+{1}".format(base, digest)
+
+
+def schema_map_version(tables, ov) -> str:
+    return content_version(ov.SCHEMA_MAP_VERSION, sorted(tables.items()))
+
+
 def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                        o19_commit: str, extras: Optional[Dict] = None) -> str:
     extras = extras or {}
@@ -837,7 +859,8 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
               if t in copy_tables and seed_counts[t] > 0}
     out = [GENERATED_HEADER]
     out.append('"""OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""\n')
-    out.append("SCHEMA_MAP_VERSION = {!r}".format(ov.SCHEMA_MAP_VERSION))
+    out.append("SCHEMA_MAP_VERSION = {!r}".format(
+        schema_map_version(tables, ov)))
     out.append("O19_PROFILE = 'on'")
     # provenance is the O19 commit only — no wall-clock stamp, so --check
     # compares content, not the day it was generated
@@ -894,7 +917,10 @@ def emit_props_module(o19_defaults, ov) -> str:
     defaults, secret_keys = split_secret_defaults(o19_defaults)
     out = [GENERATED_HEADER]
     out.append('"""OSCAR 19 -> CARLOS properties manifest."""\n')
-    out.append("PROPS_MAP_VERSION = {!r}\n".format(ov.PROPS_MAP_VERSION))
+    out.append("PROPS_MAP_VERSION = {!r}\n".format(
+        content_version(ov.PROPS_MAP_VERSION,
+                        (sorted(ov.KEYS.items()),
+                         list(ov.PREFIX_RULES)))))
     out.append("# active keys of the stock O19 oscar_mcmaster.properties —"
                " the baseline-diff\n# reference: clinic keys equal to these"
                " defaults are ignored (CARLOS defaults win)")
@@ -925,7 +951,8 @@ def emit_preflight_data(tables, ov, extras: Optional[Dict] = None) -> str:
     charset = {t: e["charset_scan"] for t, e in sorted(tables.items())
                if e.get("charset_scan")}
     lines = [MARKER_BEGIN]
-    lines.append("SCHEMA_MAP_VERSION = {!r}".format(ov.SCHEMA_MAP_VERSION))
+    lines.append("SCHEMA_MAP_VERSION = {!r}".format(
+        schema_map_version(tables, ov)))
     lines.append("PATIENT_DATA_TABLES = " + _fmt(patient))
     lines.append("KNOWN_TABLES = " + _fmt(known))
     lines.append("B3_FLAGGED_COLUMNS = " + _fmt(b3_cols))

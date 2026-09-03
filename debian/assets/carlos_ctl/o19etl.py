@@ -90,13 +90,15 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
     rows = query(
         "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, "
         "IS_NULLABLE, IFNULL(CHARACTER_MAXIMUM_LENGTH, 0), "
-        "IFNULL(COLUMN_DEFAULT, '\\0NONE'), EXTRA "
+        "IFNULL(COLUMN_DEFAULT, '\\0NONE'), EXTRA, "
+        "IFNULL(CHARACTER_OCTET_LENGTH, 0) "
         "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{0}'"
         .format(schema))
     for r in rows:
         if len(r) < 8:
             continue
         t, c, dtype, ctype, nullable, char_len, default, extra = r[:8]
+        octet_len = int(r[8] or 0) if len(r) > 8 else 0
         has_default = default not in ("\\0NONE", "\0NONE")
         # MariaDB quotes string defaults in information_schema ('x'),
         # MySQL does not; a literal NULL default is "no value"
@@ -111,6 +113,10 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
             "column_type": ctype,
             "nullable": nullable.upper() == "YES",
             "char_len": int(char_len or 0),
+            # TEXT/BLOB capacity is in BYTES: a same-declared column is
+            # not the same capacity once the charset widens, which is
+            # exactly the latin1 -> utf8mb4 move this import makes
+            "octet_len": octet_len,
             "has_default": has_default,
             "default": value,
             "auto_increment": "auto_increment" in extra.lower(),
@@ -296,20 +302,32 @@ def copy_statement(table: str, entry: dict, src_schema: str,
     return sql
 
 
-def merge_join(entry: dict, archive_schema: Optional[str] = None,
-               dst_cols: Optional[Dict[str, dict]] = None) -> str:
-    """Natural-key join between target alias d and source alias s. The
-    source side carries the SAME expression the insert stores (id remap,
-    zero-date NULLIF, enum fallback) so anti-join, insert and id map all
+def merge_key_exprs(entry: dict, archive_schema: Optional[str] = None,
+                    dst_cols: Optional[Dict[str, dict]] = None
+                    ) -> List[str]:
+    """The source-side expression for each merge key — what the insert
+    actually stores, so the anti-join, the insert and the id map all
     agree on what a row's key is."""
-    parts = []
+    out = []
     for k in entry["merge_keys"]:
         expr = source_expr(entry, k, None, archive_schema,
                            dst_cols[k]["nullable"] if dst_cols else None)
         if dst_cols and k in dst_cols:
             expr = sanitize_expr(expr, dst_cols[k])
-        parts.append("d.`{0}` <=> {1}".format(k, expr))
-    return " AND ".join(parts)
+        out.append(expr)
+    return out
+
+
+def merge_join(entry: dict, archive_schema: Optional[str] = None,
+               dst_cols: Optional[Dict[str, dict]] = None,
+               dst_alias: str = "d") -> str:
+    """Natural-key join between the target alias (default d) and source
+    alias s. The source side carries the SAME expression the insert
+    stores (id remap, zero-date NULLIF, enum fallback)."""
+    exprs = merge_key_exprs(entry, archive_schema, dst_cols)
+    return " AND ".join(
+        "{0}.`{1}` <=> {2}".format(dst_alias, k, expr)
+        for k, expr in zip(entry["merge_keys"], exprs))
 
 
 def merge_statement(table: str, entry: dict, src_schema: str,
@@ -395,7 +413,7 @@ def coercion_precheck_sql(table: str, entry: dict, src_schema: str,
     renames = entry.get("renames", {})
     for c in entry.get("cols", []):
         d = dst_cols.get(c)
-        s = src_cols.get(renames.get(c, c))
+        s = src_col(src_cols, renames.get(c, c))
         if not d or not s:
             continue
         if d["type"] in NUMERIC_TYPES and s["type"] in STRING_TYPES:
@@ -435,17 +453,25 @@ def idmap_statements(table: str, entry: dict, src_schema: str,
         # already satisfied by a CARLOS seed, so the anti-join appended
         # nothing for it) falls back to the target's first row for that key
         # — every source id a child references gets a deterministic map
+        # The SOURCE side partitions by the expressions the insert
+        # stores, not by the raw columns: a key rewritten by value_exprs,
+        # a zero-date NULLIF, an enum fallback or an fk_remap puts two
+        # source rows in different partitions while the target holds them
+        # as one — and both would then map to the same new id.
         "INSERT INTO `{0}`.`{1}` (old_id, new_id) SELECT s.`{2}`, "
         "COALESCE(d.`{2}`, d1.`{2}`) "
-        "FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY {3} ORDER BY "
-        "`{2}`) AS rn FROM `{4}`.`{5}`) s LEFT JOIN (SELECT *, ROW_NUMBER() "
-        "OVER (PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d ON "
+        "FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY {9} ORDER BY "
+        "s.`{2}`) AS rn FROM `{4}`.`{5}` s) s LEFT JOIN (SELECT *, "
+        "ROW_NUMBER() OVER (PARTITION BY {3} ORDER BY `{2}`) AS rn FROM "
+        "`{6}`.`{5}`) d ON "
         "{7} AND s.rn = d.rn LEFT JOIN (SELECT *, ROW_NUMBER() OVER "
         "(PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d1 ON {8} "
         "AND d1.rn = 1 WHERE COALESCE(d.`{2}`, d1.`{2}`) IS NOT NULL".format(
             archive_schema, name, pk,
             ", ".join("`{0}`".format(k) for k in keys),
-            src_schema, table, dst_schema, join, join.replace("d.`", "d1.`")),
+            src_schema, table, dst_schema, join,
+            merge_join(entry, archive_schema, dst_cols, dst_alias="d1"),
+            ", ".join(merge_key_exprs(entry, archive_schema, dst_cols))),
     ]
 
 
@@ -586,9 +612,13 @@ def unknown_column_shadow_statements(table: str, entry: dict,
     extra = unknown_columns(entry, src_cols)
     if not extra:
         return []
-    context = [c for c in _context_cols(entry)
-               if entry.get("renames", {}).get(c, c) in src_cols]
-    context = [entry.get("renames", {}).get(c, c) for c in context]
+    # case-insensitively, like effective_entry: a dump spelling the key
+    # differently would otherwise drop the row identifier and leave the
+    # captured values with nothing to join back to
+    lower = {c.lower(): c for c in src_cols}
+    context = [lower[entry.get("renames", {}).get(c, c).lower()]
+               for c in _context_cols(entry)
+               if entry.get("renames", {}).get(c, c).lower() in lower]
     select_cols = list(dict.fromkeys(context + extra))
     shadow = "{0}__unknown_cols".format(table)
     # the extra columns are the dump's own names: quoted, never trusted
@@ -747,29 +777,64 @@ def credential_rows(plain, src_schema: str,
     return out
 
 
+BYTE_CAPACITY_TYPES = ("tinytext", "text", "mediumtext", "longtext",
+                       "tinyblob", "blob", "mediumblob", "longblob")
+
+
+def src_col(src_cols: Dict[str, dict], name: str) -> Optional[dict]:
+    """The staged column, matched the way effective_entry decides a
+    column is present: case-insensitively. MySQL resolves column names
+    case-insensitively, so a dump spelling a column differently still
+    copies — and a case-sensitive lookup here would silently skip the
+    guard for exactly that column."""
+    got = src_cols.get(name)
+    if got is not None:
+        return got
+    lower = name.lower()
+    for have, info in src_cols.items():
+        if have.lower() == lower:
+            return info
+    return None
+
+
 def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
                             dst_cols: Dict[str, dict],
                             src_cols: Dict[str, dict],
                             repaired: Optional[set] = None,
                             archive_schema: Optional[str] = None
                             ) -> List[Tuple[str, str]]:
-    """(column, COUNT-sql) pairs for target text columns narrower than
-    their source — a non-zero count must ERROR, never truncate. Counted
-    on the REPAIRED text where a charset repair applies ('Ã©' is two
-    characters, 'é' one): the text that will be stored is what must fit."""
+    """(column, COUNT-sql) pairs for target text columns that cannot hold
+    what the source has — a non-zero count must ERROR, never truncate.
+    Counted on the REPAIRED text where a charset repair applies ('Ã©' is
+    two characters, 'é' one): the text that will be stored is what must
+    fit.
+
+    TEXT and BLOB capacity is in BYTES, so a same-declared column is not
+    the same capacity when the charset widens: a latin1 `text` holds
+    65535 characters, a utf8mb4 `text` 65535 bytes. Those columns are
+    always measured, in bytes; sized types (VARCHAR/CHAR) keep the
+    character comparison and are only checked when they actually
+    narrow."""
     out = []
     for c in entry["cols"]:
         d = dst_cols.get(c)
-        s = src_cols.get(entry.get("renames", {}).get(c, c))
+        s = src_col(src_cols, entry.get("renames", {}).get(c, c))
         if not d or not s:
             continue
-        if d["char_len"] and s["char_len"] \
+        expr = source_expr(entry, c, repaired, archive_schema)
+        if d["type"] in BYTE_CAPACITY_TYPES:
+            cap = d.get("octet_len") or d["char_len"]
+            if not cap:
+                continue
+            sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE "
+                   "LENGTH(CONVERT({2} USING utf8mb4)) > {3}".format(
+                       src_schema, table, expr, cap))
+            out.append((c, sql))
+        elif d["char_len"] and s["char_len"] \
                 and d["char_len"] < s["char_len"]:
             sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE "
                    "CHAR_LENGTH({2}) > {3}".format(
-                       src_schema, table,
-                       source_expr(entry, c, repaired, archive_schema),
-                       d["char_len"]))
+                       src_schema, table, expr, d["char_len"]))
             out.append((c, sql))
     return out
 
@@ -909,6 +974,22 @@ def detect_repairs(query, src_schema: str, accepted,
             if bad:
                 unrepairable.append("{0}.{1} ({2} row(s))".format(
                     table, col, bad))
+            # Thrice-encoded text SATISFIES the predicate — it round-trips
+            # — so it is not in `bad`, and one repair hop leaves it still
+            # mojibake while the report says the repair handled it. The
+            # repair must be a fixed point: a value that still looks
+            # double-encoded after repairing is not repairable here.
+            multi = int(query(
+                "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE ({2}) AND ({3})"
+                .format(src_schema, table,
+                        double_encoded_predicate(expr),
+                        double_encoded_predicate(
+                            REPAIR_TEMPLATE.format(expr))))[0][0])
+            if multi:
+                unrepairable.append(
+                    "{0}.{1} ({2} row(s) still double-encoded after one "
+                    "repair — encoded more than twice)".format(
+                        table, col, multi))
             if n:
                 repairs.setdefault(table, set()).add(col)
                 if notes is not None:
@@ -1245,12 +1326,23 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                     "FROM `{0}`.provider WHERE provider_no REGEXP "
                     "'^[0-9]+$'".format(src))[0][0]
                 admin_pn = str(int(max_pn) + 1)
+                if admin_pn == o19map_schema.SEED_PROVIDER_NO:
+                    # a clinic whose vendor purged oscardoc leaves 999997
+                    # as the high water mark; cloning the seed clinician
+                    # onto its own provider_no is a duplicate-key insert
+                    # AFTER the credentials file and the ledger mark are
+                    # written, and the resume then deletes the rows the
+                    # clone reads from
+                    admin_pn = str(int(admin_pn) + 1)
                 width = dst_info.get("provider", {}).get(
                     "provider_no", {}).get("char_len", 0)
                 if width and len(admin_pn) > width:
                     die("cannot allocate a break-glass provider_no: the "
                         "clinic's highest numeric provider_no ({0}) leaves "
-                        "no room in provider.provider_no ({1} chars)"
+                        "no room in provider.provider_no ({1} chars). "
+                        "Shorten a provider number in the source, "
+                        "re-export, and re-run with --resume --restage; "
+                        "nothing has been written to the target."
                         .format(max_pn, width))
             # the admin's security/secUserRole rows take auto ids — bump
             # the counters above the clinic's id range or the later

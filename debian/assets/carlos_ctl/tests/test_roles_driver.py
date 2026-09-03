@@ -142,6 +142,10 @@ class FakeDb(object):
         if sql == o19roles.unknown_prevention_types_sql(
                 DST, o19map_schema.KNOWN_PREVENTION_TYPES):
             return a["unknown"]
+        if sql == o19roles.role_spelling_drift_sql(DST):
+            return [[str(a.get("spelling_drift", 0))]]
+        if sql == o19roles.comma_named_roles_sql(DST):
+            return a.get("comma_roles", [])
         if sql == o19roles.rtl_rows_sql(DST):
             if len(self.rtl_sequence) > 1:
                 return self.rtl_sequence.pop(0)

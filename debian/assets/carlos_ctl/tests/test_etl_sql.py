@@ -15,9 +15,10 @@ from carlos_ctl import o19etl, o19map_schema
 
 
 def col(dtype="varchar", nullable=True, char_len=0, column_type=None,
-        has_default=False, auto_increment=False):
+        has_default=False, auto_increment=False, octet_len=None):
     return {"type": dtype, "nullable": nullable, "char_len": char_len,
             "column_type": column_type or dtype,
+            "octet_len": char_len if octet_len is None else octet_len,
             "has_default": has_default, "auto_increment": auto_increment}
 
 
@@ -204,8 +205,11 @@ class TestSurrogateIdRemap(unittest.TestCase):
         self.assertEqual(len(stmts), 3)
         self.assertIn("`arch`.`LookupList__idmap`", stmts[1])
         self.assertIn("old_id BIGINT NOT NULL PRIMARY KEY", stmts[1])
-        self.assertIn("ROW_NUMBER() OVER (PARTITION BY `name` ORDER BY "
-                      "`id`) AS rn FROM `src`.`LookupList`", stmts[2])
+        # the SOURCE partitions on the expression the insert stores, so
+        # a key the manifest rewrites cannot split one target row's twins
+        # across two partitions (both would then map to the same new id)
+        self.assertIn("ROW_NUMBER() OVER (PARTITION BY s.`name` ORDER BY "
+                      "s.`id`) AS rn FROM `src`.`LookupList` s", stmts[2])
         self.assertIn("ROW_NUMBER() OVER (PARTITION BY `name` ORDER BY "
                       "`id`) AS rn FROM `dst`.`LookupList`", stmts[2])
         self.assertIn("ON d.`name` <=> s.`name` AND s.rn = d.rn", stmts[2])
@@ -216,6 +220,17 @@ class TestSurrogateIdRemap(unittest.TestCase):
         self.assertIn("d1 ON d1.`name` <=> s.`name` AND d1.rn = 1", stmts[2])
         self.assertIn("COALESCE(d.`id`, d1.`id`)", stmts[2])
         self.assertTrue(stmts[2].endswith("IS NOT NULL"))
+
+    def test_the_source_partition_uses_the_rewritten_key(self):
+        # value_exprs maps '' to NULL: two source rows with '' and NULL
+        # insert as one key and must not land in two partitions
+        entry = dict(self.PARENT)
+        entry["value_exprs"] = {"name": "NULLIF(s.`name`, '')"}
+        stmts = o19etl.idmap_statements("LookupList", entry, "src", "dst",
+                                        "arch", self.PARENT_DST)
+        self.assertIn("PARTITION BY NULLIF(s.`name`, '')", stmts[2])
+        self.assertIn("d.`name` <=> NULLIF(s.`name`, '')", stmts[2])
+        self.assertIn("d1.`name` <=> NULLIF(s.`name`, '')", stmts[2])
 
     def test_no_idmap_without_surrogate(self):
         self.assertEqual(o19etl.idmap_statements(

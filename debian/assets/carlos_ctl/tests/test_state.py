@@ -453,8 +453,8 @@ class TestStagingRestore(unittest.TestCase):
              b"use the inhaler twice daily');\n"]))
 
     def test_a_line_longer_than_the_carry_bound_stays_mid_line(self):
-        big = (b"INSERT INTO n VALUES ('" + b"x" * (o19import.DUMP_CARRY_MAX * 2)
-               + b" use it');\n")
+        filler = b"x" * (o19import.DUMP_CARRY_MAX * 2)
+        big = b"INSERT INTO n VALUES ('" + filler + b" use it');\n"
         half = len(big) // 2
         self.assertIsNone(self._scan([big[:half], big[half:]]))
         # and a real marker on the line AFTER it is still caught

@@ -72,6 +72,14 @@ CLASS_REFERENCE = {
 # rows id-intact. (provider/security are handled by CARLOSDOC_SEED_DELETES +
 # the ordered seed-reconciliation script, not here.)
 REPLACE_SEED = {
+    # ctl_document's "natural key" is (module, module_id, document_no) —
+    # three CLINIC-scoped surrogate ids, so merging is meaningless: the
+    # CARLOS seed's three demo rows (documents 4953-4955, two of them
+    # bound to provider 999998) would attach to whatever the clinic's
+    # documents 4953-4955 happen to be, and a clinic row with the same
+    # triple would lose its status to the seed's. Nothing CARLOS-authored
+    # is worth preserving here.
+    "ctl_document",
     "clinic", "clinic_location", "clinic_nbr", "provider_facility",
     "issue", "program", "program_provider",
     "caisi_role", "access_type", "default_role_access", "secRole",
@@ -95,7 +103,6 @@ CLASS_MERGE = {
     "ctl_diagcode": ["servicetype", "diagnostic_code"],
     "ctl_doc_class": ["reportclass", "subclass"],
     "ctl_doctype": ["module", "doctype"],
-    "ctl_document": ["module", "module_id", "document_no"],
     "ctl_frequency": ["freqcode"],
     "ctl_specialinstructions": ["description"],
     "appointment_status": ["status"],
@@ -369,6 +376,14 @@ CARLOSDOC_SEED_DELETES = [
     ("secUserRole", "provider_no = '999998'"),
     ("ProviderPreference", "providerNo = '999998'"),
     ("providersite", "provider_no = '999998'"),
+    # two CARLOS seed rows are provider-SCOPED to the seeded clinician
+    # (default_ref_prac, consultation_letterheadname_default). property
+    # merges on (name, provider_no), so they survive the import and
+    # re-bind to whichever clinic provider ends up holding 999998 —
+    # giving a real clinician a default referring practitioner and a
+    # letterhead they never set, or silently winning over the ones they
+    # did. They belong with the rest of the seeded clinician's rows.
+    ("property", "provider_no = '999998'"),
     ("security", "user_name = 'carlosdoc'"),
     ("provider", "provider_no = '999998'"),
 ]
