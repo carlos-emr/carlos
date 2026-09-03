@@ -34,6 +34,8 @@ public class FaxProviderException extends Exception {
     private static final long serialVersionUID = 1L;
 
     private final boolean transientError;
+    /** HTTP status of the provider response that caused this failure, or 0 when not HTTP-related. */
+    private final int httpStatus;
 
     /**
      * Creates a provider exception with message only (non-transient by default).
@@ -41,6 +43,20 @@ public class FaxProviderException extends Exception {
     public FaxProviderException(String message) {
         super(message);
         this.transientError = false;
+        this.httpStatus = 0;
+    }
+
+    /**
+     * Creates a non-transient provider exception for an HTTP response with a non-success status,
+     * carrying the status so callers can branch on it instead of parsing the message.
+     *
+     * @param message String the error message
+     * @param httpStatus int the HTTP status code returned by the provider (for example 401 or 403)
+     */
+    public FaxProviderException(String message, int httpStatus) {
+        super(message);
+        this.transientError = false;
+        this.httpStatus = httpStatus;
     }
 
     /**
@@ -49,6 +65,7 @@ public class FaxProviderException extends Exception {
     public FaxProviderException(String message, Throwable cause) {
         super(message, cause);
         this.transientError = false;
+        this.httpStatus = 0;
     }
 
     /**
@@ -61,6 +78,17 @@ public class FaxProviderException extends Exception {
     public FaxProviderException(String message, Throwable cause, boolean transientError) {
         super(message, cause);
         this.transientError = transientError;
+        this.httpStatus = 0;
+    }
+
+    /**
+     * Returns the HTTP status of the provider response behind this failure.
+     *
+     * @return int the status code (for example 401, 403, 500), or 0 when the failure was not an
+     *         HTTP non-success response (network error, malformed body, provider "Failed" status)
+     */
+    public int getHttpStatus() {
+        return httpStatus;
     }
 
     /**

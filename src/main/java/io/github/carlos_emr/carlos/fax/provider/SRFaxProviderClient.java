@@ -342,14 +342,20 @@ public class SRFaxProviderClient implements FaxProviderClient {
             root = postForm(getSrfaxApiUrl(), params);
         } catch (FaxProviderException e) {
             // SRFax answers a wrong access_id/access_pwd pair with a bare HTTP 401/403 rather
-            // than a JSON "Failed" body. Say what that means for the admin: the classic mistake
-            // is typing the login email where the numeric account number belongs.
-            if (!e.isTransient() && e.getMessage() != null
-                    && (e.getMessage().contains("HTTP 401") || e.getMessage().contains("HTTP 403"))) {
+            // than a JSON "Failed" body. Branch on the status carried by postForm(), not on the
+            // message text. A 403 is also what an egress proxy, an SRFax-side IP block, or a
+            // wrong API URL produce, so say so rather than sending the admin back to the
+            // credentials alone.
+            if (e.getHttpStatus() == 401) {
                 throw new FaxProviderException(
                         "SRFax rejected the account number or password (" + e.getMessage()
-                                + "). Check that the account number is the numeric SRFax account number, not your login email.",
-                        e, false);
+                                + "). Check both values in your SRFax portal.", e, false);
+            }
+            if (e.getHttpStatus() == 403) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check both values in your SRFax portal; a proxy or firewall blocking"
+                                + " the SRFax API produces the same response.", e, false);
             }
             throw e;
         }
@@ -686,7 +692,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
                     throw new FaxProviderException("SRFax API returned HTTP " + statusCode +
-                            ": " + response.getReasonPhrase());
+                            ": " + response.getReasonPhrase(), statusCode);
                 }
 
                 HttpEntity entity = response.getEntity();

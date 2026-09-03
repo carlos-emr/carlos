@@ -237,13 +237,29 @@ class SRFaxProviderClientHttpTransportUnitTest extends CarlosUnitTestBase {
         responseStatus = status;
         responseBody = status == 401 ? "Unauthorized" : "Forbidden";
 
-        // Then - the admin sees what the status means here, not just the transport status
+        // Then - the admin sees what the status means here, not just the transport status;
+        // a 403 additionally names the proxy/firewall case that yields the same response
         assertThatThrownBy(() -> client.verifyConnection(config))
                 .isInstanceOf(FaxProviderException.class)
                 .hasMessageContaining("rejected the account number or password")
                 .hasMessageContaining("HTTP " + status)
-                .hasMessageContaining("not your login email")
-                .satisfies(e -> assertThat(((FaxProviderException) e).isTransient()).isFalse());
+                .satisfies(e -> {
+                    assertThat(((FaxProviderException) e).isTransient()).isFalse();
+                    assertThat(e.getMessage().contains("proxy or firewall")).isEqualTo(status == 403);
+                });
+    }
+
+    @Test
+    @DisplayName("should carry the HTTP status on the exception for a non-success response")
+    void shouldCarryHttpStatus_onNonSuccessResponse() {
+        // Given
+        responseStatus = 502;
+        responseBody = "Bad Gateway";
+
+        // Then - callers branch on the status, not on the message text
+        assertThatThrownBy(() -> client.verifyConnection(config))
+                .isInstanceOf(FaxProviderException.class)
+                .satisfies(e -> assertThat(((FaxProviderException) e).getHttpStatus()).isEqualTo(502));
     }
 
     @Test

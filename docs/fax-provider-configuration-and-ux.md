@@ -49,9 +49,11 @@ Steps:
    `/admin/ManageFax?method=testConnection`, which runs a read-only `Get_Fax_Inbox` probe
    through `FaxProviderClient.verifyConnection`. A wrong account number/password comes back
    as `Connection failed: SRFax rejected the account number or password (SRFax API returned
-   HTTP 403: Forbidden). Check that the account number is the numeric SRFax account number, not
-   your login email.` when SRFax answers with a bare HTTP 401/403 (its usual response to a bad
-   `access_id`/`access_pwd` pair); when SRFax instead returns a JSON `Failed` body, the message
+   HTTP 403: Forbidden). Check both values in your SRFax portal; a proxy or firewall blocking
+   the SRFax API produces the same response.` when SRFax answers with a bare HTTP 401/403 (its
+   usual response to a bad `access_id`/`access_pwd` pair; the proxy/firewall sentence appears
+   only for 403, which an egress block also yields); when SRFax instead returns a JSON `Failed`
+   body, the message
    is `Connection failed: SRFax connection test failed: ` followed by SRFax's own reason text
    (for example `Invalid Access Code / Password`). A non-numeric account number (for example the login email) is refused
    before anything is sent to SRFax, on both the test and the save. When the
@@ -103,7 +105,8 @@ unrecognized statuses raise `FaxProviderException`.
 ## Number Normalization Policy
 - `fax_config.faxNumber` stores exactly **10 digits** (Configure Fax strips formatting and drops a
   leading `1` from an 11-digit entry; anything else is rejected with a row-level error). The
-  10-digit value is also the join key between `FaxConfig.faxNumber` and `FaxJob.fax_line`.
+  10-digit value is also the join key between `FaxConfig.faxNumber` and `faxes.faxline`
+  (entity field `FaxJob.fax_line`).
 - At send time the SRFax client derives `sCallerID` (10-digit) and `sToFaxNumber` (11-digit,
   `1` prepended to a 10-digit destination).
 

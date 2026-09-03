@@ -43,7 +43,8 @@ It runs with fake defaults anywhere; export the same `SRFAX_*` variables and
 development account. Its save step overwrites the single fax account row, so by
 default it only saves when no account is configured yet or the stored account is
 its own fake test account (otherwise the step is reported as SKIP).
-`SRFAX_LIVE=true` saves the real values you supplied; set
+`SRFAX_LIVE=true` saves the real values you supplied and, like any save, leaves the
+gateway enabled with inbound polling on; set
 `FAX_CONFIG_ALLOW_OVERWRITE=true` to force the save on a shared dev instance.
 Screenshots follow the same rule, and additionally require that the values the
 run types are the built-in fake ones; they are never captured in live mode or
