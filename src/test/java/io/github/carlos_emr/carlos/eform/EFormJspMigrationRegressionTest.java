@@ -67,6 +67,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
             Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
+    private static final Path RTL_MODERNIZE_MIGRATION =
+            Path.of("database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql");
     private static final Path WEB_XML =
             Path.of("src/main/webapp/WEB-INF/web.xml");
     private static final Path EFORM_FAX_MISSING_CONTENT_JSP =
@@ -227,6 +229,19 @@ class EFormJspMigrationRegressionTest {
 
         assertThat(struts).contains("<action name=\"eform/displayImage\"");
         assertThat(struts).contains("<action name=\"eform/displayImage.do\"");
+    }
+
+    @Test
+    @DisplayName("struts eForm config should keep the rtlPreventions.do alias the shipped letter calls")
+    void shouldKeepRtlPreventionsCompatibilityRoute_whenReadingStrutsEFormConfig() throws IOException {
+        String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        String letterMigration = Files.readString(RTL_MODERNIZE_MIGRATION, StandardCharsets.UTF_8);
+
+        // The stored form_html hardcodes the .do spelling; the alias must exist as long as it does.
+        // The relative URL form appears only in the stored form_html, not in the file's SQL comment.
+        assertThat(letterMigration).contains("../eform/rtlPreventions.do");
+        assertThat(struts).contains("<action name=\"eform/rtlPreventions\"");
+        assertThat(struts).contains("<action name=\"eform/rtlPreventions.do\"");
     }
 
     @Test
