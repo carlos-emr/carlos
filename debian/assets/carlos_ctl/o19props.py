@@ -399,7 +399,12 @@ def write_fragment(path: str, text: str) -> None:
     across O_TRUNC — so the mode is tightened on the open descriptor
     BEFORE any secret is written."""
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="latin-1") as fh:
+    # latin-1 is the java.util.Properties file encoding; values are
+    # already \\uXXXX-escaped by _escape_non_latin1, and the backslash
+    # replacement is a backstop so a stray character in a header comment
+    # cannot abort the write
+    with os.fdopen(fd, "w", encoding="latin-1",
+                   errors="backslashreplace") as fh:
         os.fchmod(fh.fileno(), 0o600)
         fh.write(text)
 
@@ -425,7 +430,10 @@ def run_props(ctx) -> None:
                                                        else ""))
     text = render_fragment(result)
     if dry:
-        text = "# DRY RUN — regenerate with the real import\n" + text
+        # ASCII only: the fragment is written as ISO-8859-1 (what
+        # java.util.Properties reads), and an em dash here crashed every
+        # --dry-run before it could report anything
+        text = "# DRY RUN - regenerate with the real import\n" + text
     write_fragment(fragment_path, text)
 
     o19import.report_append(

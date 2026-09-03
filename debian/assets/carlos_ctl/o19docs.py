@@ -22,7 +22,7 @@ import os
 import re
 import shutil
 import urllib.parse
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from . import o19bundle, o19etl
 from .util import STATE, die, log, run, warn
@@ -256,6 +256,22 @@ def classify_document_files(rows: List[Tuple[str, str]],
             missing.append("document {0}: {1} (path escapes the document "
                            "directory)".format(doc_no, filename))
             continue
+        if "/" in filename or "\\" in filename:
+            # PathValidationUtils.sanitizeFileName runs the value through
+            # FilenameUtils.getName before opening it, so CARLOS looks
+            # for the BASENAME in a flat document/ — a file sitting at
+            # the nested path exists but is never served. Same rule the
+            # eForm image references get, for the same reason.
+            missing.append("document {0}: {1} (names a subdirectory — "
+                           "CARLOS serves document/ flat and opens the "
+                           "basename only)".format(doc_no, filename))
+            continue
+        if filename.startswith("."):
+            # sanitizeFileName rejects a dot-leading basename outright
+            missing.append("document {0}: {1} (a leading dot is refused "
+                           "by CARLOS's filename validation)".format(
+                               doc_no, filename))
+            continue
         path = os.path.join(doc_dir, filename)
         if os.path.islink(path):
             # the extracted tree carries no links (tar member types are
@@ -270,17 +286,23 @@ def classify_document_files(rows: List[Tuple[str, str]],
     return missing, empty
 
 
-def find_orphans(doc_dir: str, known: set, cap: int = 50) -> List[str]:
-    orphans = []
+def find_orphans(doc_dir: str, known: set,
+                 cap: int = 50) -> Tuple[int, List[str]]:
+    """(total, sample): how many files under doc_dir no row references,
+    and the first `cap` of them by name. The count is not capped — it is
+    the figure the report states, and a capped one would understate what
+    the clinic is carrying."""
+    total = 0
+    sample: List[str] = []
     if not os.path.isdir(doc_dir):
-        return orphans
+        return 0, sample
     for name in sorted(os.listdir(doc_dir)):
         if os.path.isfile(os.path.join(doc_dir, name)) \
                 and name not in known:
-            orphans.append(name)
-            if len(orphans) >= cap:
-                break
-    return orphans
+            total += 1
+            if len(sample) < cap:
+                sample.append(name)
+    return total, sample
 
 
 # --------------------------------------------------------------------------
@@ -307,8 +329,11 @@ def _merge_entry(src: str, dst: str, resume: bool = False) -> int:
         die("refusing to merge through a symlink ('{0}')".format(
             dst if os.path.islink(dst) else src))
     if not os.path.lexists(dst):
+        # a whole subtree moves in one call: report what it actually
+        # carried, not "1 entry" for a directory of thousands
+        leaves = _count_leaves(src)
         shutil.move(src, dst)
-        return 1
+        return leaves
     if os.path.isdir(src) and os.path.isdir(dst):
         moved = 0
         for child in sorted(os.listdir(src)):
@@ -322,6 +347,19 @@ def _merge_entry(src: str, dst: str, resume: bool = False) -> int:
     die("refusing to overwrite '{0}' in the documents tree — the target "
         "is not pristine".format(dst))
     return 0  # unreachable
+
+
+def _count_leaves(path: str) -> int:
+    """Files (and empty directories) under path, or 1 for a plain file —
+    what a move of this entry actually relocates."""
+    if not os.path.isdir(path) or os.path.islink(path):
+        return 1
+    total = 0
+    for _, dirnames, filenames in os.walk(path):
+        total += len(filenames)
+        if not dirnames and not filenames:
+            total += 1
+    return total
 
 
 def _collisions(src: str, dst: str, resume: bool = False) -> List[str]:
@@ -348,7 +386,8 @@ def _collisions(src: str, dst: str, resume: bool = False) -> List[str]:
 
 
 def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
-               private: Optional[Callable[[List[str]], None]] = None
+               private: Optional[Callable[[List[str]], None]] = None,
+               mark_started: Optional[Callable[[], None]] = None
                ) -> List[str]:
     """Move the context tree's children into the target context dir,
     merging into the deploy's directory skeleton at any depth.
@@ -359,7 +398,16 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
     resume of an interrupted merge, where an identical file is already
     where it belongs. Cache directories are skipped with a note. Colliding
     paths go to the private callback (they are document names), the count
-    to the error. Returns report lines."""
+    to the error.
+
+    `mark_started` is called once, after the collision scan has passed
+    and before the first move — the caller records "a restore is under
+    way" there. Recording it any earlier would make a refusal by the
+    pre-scan (which moves nothing) look to the next run like an
+    interrupted restore, whose message would then tell the operator to
+    delete pre-existing files this import never placed.
+
+    Returns report lines."""
     lines = []
     os.makedirs(target_dir, exist_ok=True)
     children = [c for c in sorted(os.listdir(src_ctx_dir))
@@ -372,15 +420,20 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
         if private:
             private(["documents tree paths the merge refused:"] + problems)
         if resume:
-            die("the previous restore of the documents tar was interrupted "
-                "and {0} path(s) now hold DIFFERENT content from the tar "
-                "(itemised in documents-details.txt) — remove the files "
-                "the interrupted restore placed under {1}, or restore the "
-                "pre-import snapshot, then --resume".format(
-                    len(problems), target_dir))
+            die("{0} path(s) under {1} hold content that differs from "
+                "the tar (itemised in documents-details.txt). If the "
+                "interrupted restore placed them, remove them; if they "
+                "predate this import the target was never pristine, and "
+                "the pre-import snapshot is the way back. Then --resume"
+                .format(len(problems), target_dir))
         die("refusing to merge the documents tree — the target is not "
-            "pristine ({0} collision(s), nothing was moved; itemised in "
-            "documents-details.txt)".format(len(problems)))
+            "pristine ({0} collision(s); nothing was moved and nothing "
+            "was recorded, itemised in documents-details.txt). Clear "
+            "those paths from {1}, or restore the pre-import snapshot, "
+            "then --resume".format(len(problems), target_dir))
+    if mark_started:
+        mark_started()
+    loose: List[str] = []
     for child in sorted(os.listdir(src_ctx_dir)):
         src = os.path.join(src_ctx_dir, child)
         dst = os.path.join(target_dir, child)
@@ -396,7 +449,17 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
                 "merged into existing" if existed else "moved",
                 child, moved, "y" if moved == 1 else "ies"))
         else:
-            lines.append("moved {0}".format(child))
+            # a loose file at the context root is a document, and a
+            # document's name carries a patient's: the report gets a
+            # count, the name goes to the root-only details file
+            loose.append(child)
+    if loose:
+        if private:
+            private(["loose files moved from the context directory root:"]
+                    + loose)
+        lines.append("moved {0} loose file(s) from the context directory "
+                     "root (named in documents-details.txt)".format(
+                         len(loose)))
     return lines
 
 
@@ -409,7 +472,8 @@ def _sha256(path: str) -> str:
 
 
 def relocate_hrm_reports(ctx_root: str,
-                         private: Optional[Callable[[List[str]], None]] = None
+                         private: Optional[Callable[[List[str]], None]] = None,
+                         reserved: Optional[Set[str]] = None
                          ) -> List[str]:
     """Move O19's HRM report files into document/ (DOCUMENT_DIR), where
     CARLOS's HRM reader looks for them. O19 keeps them nested (OMD_hrm
@@ -419,7 +483,18 @@ def relocate_hrm_reports(ctx_root: str,
     identical (one is kept); differing content under one name, or a
     name already present in document/, is fatal — the basename rewrite
     of HRMDocument.reportFile could not tell them apart. Names go to the
-    private callback, the count to the error."""
+    private callback, the count to the error.
+
+    `reserved` is every docfilename the target's `document` rows claim.
+    A name in it is refused even when no file sits at that path: the row
+    whose file the tar did not carry would otherwise be satisfied by
+    this HRM report, and reconciliation — which only asks whether a file
+    of that name exists — would pass while one patient's chart served
+    another patient's hospital report.
+
+    Nothing moves until the whole scan is clean: the refusal tells the
+    operator to resolve the names in the source tree, and that tree must
+    still hold them when they go looking."""
     src_dir = os.path.join(ctx_root, HRM_INCOMING_DIR)
     if not os.path.isdir(src_dir):
         return []
@@ -434,8 +509,9 @@ def relocate_hrm_reports(ctx_root: str,
             if os.path.islink(path) or not os.path.isfile(path):
                 continue
             by_name.setdefault(name, []).append(path)
+    claimed = reserved or set()
     problems = []
-    moved = deduped = 0
+    plan = []            # (name, keep_path, drop_paths, already_placed)
     for name in sorted(by_name):
         paths = by_name[name]
         dst = os.path.join(doc_dir, name)
@@ -444,31 +520,41 @@ def relocate_hrm_reports(ctx_root: str,
             problems.append("{0}: {1} differing copies under hrm/".format(
                 name, len(paths)))
             continue
+        if name in claimed:
+            # a document row already answers to this name; see the
+            # docstring — an absent file is the dangerous case, not the
+            # present one
+            problems.append("{0}: a document row already claims this "
+                            "name".format(name))
+            continue
         if os.path.lexists(dst):
             if os.path.isfile(dst) and not os.path.islink(dst) \
                     and _sha256(dst) in digests:
                 # an interrupted relocation already placed it
-                for p in paths:
-                    os.unlink(p)
-                deduped += len(paths)
+                plan.append((name, None, paths, True))
                 continue
             problems.append("{0}: collides with an existing document/ "
                             "file".format(name))
             continue
-        shutil.move(paths[0], dst)
-        moved += 1
-        for p in paths[1:]:
-            os.unlink(p)
-            deduped += 1
+        plan.append((name, paths[0], paths[1:], False))
     if problems:
         if private:
             private(["HRM report files the import cannot relocate: "]
                     + problems)
         die("{0} HRM report name(s) cannot be relocated into document/ "
-            "(differing copies of one name, or a name document/ already "
-            "holds — itemised in documents-details.txt); resolve them in "
-            "the source tree and re-run with --resume".format(
-                len(problems)))
+            "(differing copies of one name, a name a document row "
+            "claims, or a name document/ already holds — itemised in "
+            "documents-details.txt); resolve them in the source tree "
+            "(nothing under hrm/ has been moved) and re-run with "
+            "--resume".format(len(problems)))
+    moved = deduped = 0
+    for name, keep, drop, already in plan:
+        if not already:
+            shutil.move(keep, os.path.join(doc_dir, name))
+            moved += 1
+        for p in drop:
+            os.unlink(p)
+            deduped += 1
     # leave no empty dated directories behind (files only were moved)
     for dirpath, dirnames, filenames in os.walk(src_dir, topdown=False):
         if dirpath != src_dir and not dirnames and not filenames:
@@ -515,6 +601,7 @@ def reconcile(query, dst_schema: str, ctx_root: str
     problems: List[str] = []
     lines: List[str] = []
     private: List[str] = []
+    unroutable: List[str] = []
     doc_dir = os.path.join(ctx_root, "document")
 
     rows = [(r[0], r[1]) for r in query(
@@ -523,14 +610,24 @@ def reconcile(query, dst_schema: str, ctx_root: str
     missing, empty = classify_document_files(rows, doc_dir)
     problems.extend("missing file for " + m for m in missing)
     problems.extend("empty file for " + e for e in empty)
+
+    _, hrm_select = hrm_rewrite_sql(dst_schema, os.path.dirname(ctx_root))
+    hrm_rows = [(r[0], r[1]) for r in query(hrm_select)
+                if len(r) >= 2]
+    # HRM reports were relocated INTO document/ and are referenced by
+    # HRMDocument, not by a document row: counting them as orphans would
+    # make every HRM clinic's orphan figure meaningless
     known = {f for _, f in rows}
-    orphans = find_orphans(doc_dir, known)
-    if orphans:
-        lines.append("{0} orphan file(s) on disk with no document row "
-                     "(report-only; named in documents-details.txt)"
-                     .format(len(orphans)))
-        private.append("orphan files with no document row: "
-                       + ", ".join(orphans))
+    known |= {os.path.basename(p.replace("\\", "/"))
+              for _, p in hrm_rows if p}
+    orphan_total, orphan_sample = find_orphans(doc_dir, known)
+    if orphan_total:
+        lines.append("{0} orphan file(s) on disk with no document or HRM "
+                     "row (report-only; the first {1} are named in "
+                     "documents-details.txt)".format(
+                         orphan_total, len(orphan_sample)))
+        private.append("orphan files with no document or HRM row: "
+                       + ", ".join(orphan_sample))
     lines.append("{0} document row(s) reconciled against {1}".format(
         len(rows), doc_dir))
 
@@ -552,36 +649,46 @@ def reconcile(query, dst_schema: str, ctx_root: str
             if not asset:
                 continue  # a bare `#fragment`: no request is made
             if not contained(image_dir, asset):
-                problems.append(
+                unroutable.append(
                     "eForm '{0}' (fid {1}) image reference escapes "
                     "eform/images: {2}".format(form_name, fid, ref))
             elif "/" in asset or "\\" in asset:
                 # the route validates imagefile as ONE path component:
                 # a subdirectory reference is a broken image at runtime
-                problems.append(
+                unroutable.append(
                     "eForm '{0}' (fid {1}) image reference {2} names a "
                     "subdirectory — CARLOS serves eform/images as a flat "
-                    "directory (HTTP 400 at runtime until the form HTML "
-                    "is edited)".format(form_name, fid, ref))
+                    "directory".format(form_name, fid, ref))
             elif not os.path.isfile(os.path.join(image_dir, asset)):
                 bare = asset.split("?", 1)[0] if "?" in asset else ""
                 if bare and os.path.isfile(os.path.join(image_dir, bare)):
-                    problems.append(
+                    unroutable.append(
                         "eForm '{0}' (fid {1}) image reference {2} carries "
-                        "a query suffix that CARLOS does not strip "
-                        "(the asset {3} exists, but the form addresses a "
-                        "file named with the suffix — a broken image at "
-                        "runtime until the form HTML is edited)"
-                        .format(form_name, fid, ref, bare))
+                        "a query suffix that CARLOS does not strip (the "
+                        "asset {3} is present)".format(
+                            form_name, fid, ref, bare))
                 else:
                     problems.append(
                         "eForm '{0}' (fid {1}) references missing image "
                         "asset: {2}".format(form_name, fid, ref))
     lines.append("{0} eForm image reference(s) checked".format(checked))
+    if unroutable:
+        # These three shapes are the form HTML addressing the image
+        # wrongly, not a missing file: the asset is on disk and the only
+        # fix is an edit to eform.form_html in the target. Blocking a
+        # cutover on them would leave the operator with a refusal they
+        # cannot clear (there is no --accept for it, and no tar can
+        # change a form's HTML), for a broken image on a template —
+        # never an unreadable clinical record. Reported, not blocking.
+        lines.append("{0} eForm image reference(s) name an asset CARLOS "
+                     "cannot route to (report-only; the assets are "
+                     "present — each needs eform.form_html edited in the "
+                     "target, itemised in documents-details.txt)".format(
+                         len(unroutable)))
+        private.append("eForm image references CARLOS cannot route to "
+                       "(edit eform.form_html for each):")
+        private.extend(unroutable)
 
-    _, hrm_select = hrm_rewrite_sql(dst_schema, os.path.dirname(ctx_root))
-    hrm_rows = [(r[0], r[1]) for r in query(hrm_select)
-                if len(r) >= 2]
     problems.extend("missing HRM report for " + p
                     for p in classify_hrm_files(hrm_rows, doc_dir))
     lines.append("{0} HRM report row(s) reconciled against {1}".format(
@@ -619,21 +726,39 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
                 "identifier class the import accepts".format(table))
         select = ", ".join("{0}, ({0} IS NULL)".format(o19etl.ident(c))
                            for c in cols)
-        rows = query("SELECT {0} FROM {1}.{2}".format(
-            select, o19etl.ident(archive_schema), o19etl.ident(table)))
+        # ordered so a re-run of P5 rewrites the same file, not the same
+        # rows in a different order (the clinic diffs these between passes)
+        rows = query("SELECT {0} FROM {1}.{2} ORDER BY {3}".format(
+            select, o19etl.ident(archive_schema), o19etl.ident(table),
+            ", ".join(str(i) for i in range(1, len(cols) * 2 + 1, 2))))
         path = os.path.join(out_dir, table + ".csv")
         # created with the final mode: the rows are archived clinical data
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
         os.fchmod(fd, 0o640)  # the mode argument applies to a NEW file only
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-            writer = csv.writer(fh)
+            # QUOTE_NOTNULL (3.12+) writes SQL NULL as a bare empty field
+            # and quotes every string, so a stored '' is distinguishable
+            # from NULL. On an older interpreter both come out empty —
+            # the archive is still complete, only that one distinction is
+            # lost, which is why this degrades rather than refusing.
+            quoting = getattr(csv, "QUOTE_NOTNULL", None)
+            writer = (csv.writer(fh, quoting=quoting) if quoting is not None
+                      else csv.writer(fh))
             writer.writerow(cols)
+            width = len(cols) * 2
             for r in rows:
-                out = []
-                for i in range(0, len(cols) * 2, 2):
-                    value = r[i] if i < len(r) else ""
-                    flag = r[i + 1] if i + 1 < len(r) else "0"
-                    out.append(None if flag == "1" else value)
+                if len(r) != width:
+                    # a padded or truncated row would write a plausible
+                    # but wrong archive of clinical data with no signal:
+                    # for an archive-only table this file is the only
+                    # copy the clinic keeps
+                    die("archive table {0}: a row came back with {1} "
+                        "field(s) where {2} were selected — the export "
+                        "cannot be trusted; re-run P5 with --resume once "
+                        "the archive schema is readable".format(
+                            table, len(r), width))
+                out = [None if r[i + 1] == "1" else r[i]
+                       for i in range(0, width, 2)]
                 writer.writerow(out)
         lines.append("{0}.csv: {1} row(s)".format(table, len(rows)))
     return lines
@@ -678,6 +803,12 @@ def run_docs(ctx) -> None:
                             skipped="no-documents")
         return
 
+    # one details file per pass: every step below re-itemises what it
+    # finds, and this must truncate before the FIRST private() write —
+    # the twins refusal below is one, and repeated attempts would
+    # otherwise stack undelimited blocks in the file they cite
+    o19import.write_private(details_path, "P5 documents:\n")
+
     # Reads only the target database, so it runs BEFORE the tar is
     # touched: two rows reaching one basename through different paths
     # would be folded onto one file by the rewrite, and the remedy this
@@ -696,9 +827,6 @@ def run_docs(ctx) -> None:
 
     tar_path = ctx["documents"]
     tar_sha = o19import.sha256_file(tar_path)
-    # one details file per pass: every step below re-runs on --resume and
-    # re-itemises what it finds
-    o19import.write_private(details_path, "P5 documents:\n")
     if prev.get("skipped") == "no-documents" and prev.get("status") == "done":
         die("this import recorded --skip-documents (no-documents "
             "acknowledged) and the phase is complete; a documents tar "
@@ -752,19 +880,29 @@ def run_docs(ctx) -> None:
         if cp.returncode != 0:
             die("documents tar extraction failed")
 
-        # recorded BEFORE the first move: a crash mid-merge is then a
-        # resumable state (same tar, idempotent merge), not a tree the
-        # next run mistakes for a non-pristine target
-        state.setdefault("phases", {})["documents"] = {
-            "status": "in-progress", "tar_sha256": tar_sha,
-            "restoring": True, "old_ctx": old_ctx}
-        o19import.save_state(state_dir, state)
+        def _mark_restoring():
+            # recorded once the merge is past its collision scan and
+            # about to move: a crash from here on is a resumable state
+            # (same tar, idempotent merge), while a refusal by the scan
+            # leaves no mark at all — it moved nothing
+            state.setdefault("phases", {})["documents"] = {
+                "status": "in-progress", "tar_sha256": tar_sha,
+                "restoring": True, "old_ctx": old_ctx}
+            o19import.save_state(state_dir, state)
+
         if resuming_merge:
             log("documents: completing the interrupted restore of the same "
                 "tar (files already in place are verified, not replaced)")
-        move_lines = merge_move(os.path.join(incoming, old_ctx), ctx_root,
-                                resume=bool(resuming_merge), private=private)
-        shutil.rmtree(incoming, ignore_errors=True)
+        try:
+            move_lines = merge_move(os.path.join(incoming, old_ctx),
+                                    ctx_root,
+                                    resume=bool(resuming_merge),
+                                    private=private,
+                                    mark_started=_mark_restoring)
+        finally:
+            # a refusal must not leave a second full copy of the clinic's
+            # documents in the state volume
+            shutil.rmtree(incoming, ignore_errors=True)
         # the tree is in place: record it NOW so a failure in any of the
         # (idempotent) steps below resumes without re-extracting
         state["phases"]["documents"] = {
@@ -780,7 +918,11 @@ def run_docs(ctx) -> None:
     # every pass, not only the first (a no-op once hrm/ is gone): a
     # relocation that failed after the restore was recorded must be retried
     # on --resume rather than skipped
-    hrm_lines = relocate_hrm_reports(ctx_root, private=private)
+    claimed = {r[0] for r in query(
+        "SELECT DISTINCT docfilename FROM `{0}`.document"
+        .format(ctx["target_db"])) if r and r[0]}
+    hrm_lines = relocate_hrm_reports(ctx_root, private=private,
+                                     reserved=claimed)
     if hrm_lines:
         o19import.report_append(state_dir, "P5 HRM relocation",
                                 "\n".join(hrm_lines))

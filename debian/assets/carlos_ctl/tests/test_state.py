@@ -506,10 +506,28 @@ class TestBundleDigest(unittest.TestCase):
         # a real run persisted `unverified-bundle`; the resume passes
         # neither the flag nor a digest and must still open the bundle
         state = {"accepted": ["unverified-bundle"]}
-        accepted = o19import.merged_acknowledgements([], state)
+        accepted = o19import.merged_acknowledgements([], state, True)
         self.assertEqual(accepted, ["unverified-bundle"])
         self.assertIsNone(o19import.bundle_digest_refusal(
             None, self.ACTUAL, accepted))
+
+    def test_recorded_sign_off_does_not_carry_into_a_fresh_run(self):
+        # the ledger records `accepted` before the first phase runs, so a
+        # run that dies in a P0 gate leaves sign-offs behind with nothing
+        # to resume; the next (necessarily fresh) invocation must not
+        # inherit them — `no-pre-backup` would skip the rollback snapshot
+        # for a run nobody acknowledged
+        state = {"accepted": ["no-pre-backup", "unverified-bundle"]}
+        self.assertEqual(
+            o19import.merged_acknowledgements([], state, False), [])
+        self.assertEqual(
+            o19import.merged_acknowledgements(["charset-repair"], state,
+                                              False),
+            ["charset-repair"])
+        # and a resume still continues on what the run recorded
+        self.assertEqual(
+            o19import.merged_acknowledgements([], state, True),
+            ["no-pre-backup", "unverified-bundle"])
 
     def test_resolve_inputs_uses_the_merged_acknowledgements(self):
         tmp = tempfile.mkdtemp()

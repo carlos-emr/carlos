@@ -1486,10 +1486,22 @@ def _dev_mode(args) -> bool:
     return bool(args.dev_target or args.mariadb_arg)
 
 
-def merged_acknowledgements(cli_accept, state: Dict) -> List[str]:
-    """This run's --accept classes plus the sign-offs the ledger already
-    records (a real run persists them, so a resume need not repeat them).
-    Pure, for the state tests."""
+def merged_acknowledgements(cli_accept, state: Dict,
+                            resume: bool) -> List[str]:
+    """This run's --accept classes, plus — on a resume only — the
+    sign-offs the ledger already records, so continuing a run need not
+    repeat them.
+
+    A fresh run gets exactly what it passed. The ledger's `accepted` is
+    written before the first phase runs, so an invocation that dies in a
+    P0 gate leaves its sign-offs behind with no phase recorded; because
+    that is not a resumable run, the operator's only legal next step is
+    a fresh invocation, and inheriting there would let a sign-off as
+    consequential as `no-pre-backup` (which skips the rollback snapshot)
+    or `charset-repair` (given for a different dump) apply to a run
+    nobody acknowledged. Pure, for the state tests."""
+    if not resume:
+        return sorted(set(cli_accept or ()))
     return sorted(set(cli_accept or ()) | set(state.get("accepted", [])))
 
 
@@ -1529,7 +1541,8 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         die(str(exc))
     if getattr(args, "fixups_dir", None) and not dev_target:
         die("--fixups-dir is a development seam and needs --dev-target")
-    accepted = merged_acknowledgements(args.accept, state)
+    accepted = merged_acknowledgements(args.accept, state,
+                                       getattr(args, "resume", False))
     inputs = _resolve_inputs(
         args, state_dir, accepted,
         recorded_digest=state.get("inputs", {}).get("bundle_sha256"),

@@ -116,6 +116,52 @@ class TestHrmRewrite(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(root, "document",
                                                      "r.xml")))
 
+    def test_a_name_a_document_row_claims_is_never_taken(self):
+        # the dangerous case is a document row whose file the tar did NOT
+        # carry: nothing sits at that path, so without the reservation
+        # the HRM report moves in and reconciliation — which only asks
+        # whether a file of that name exists — passes while one patient's
+        # chart serves another patient's hospital report
+        root = tempfile.mkdtemp(prefix="o19docs-hrmclaim-")
+        self.addCleanup(shutil.rmtree, root)
+        src = os.path.join(root, "hrm", "sftp_downloads", "01012020",
+                           "decrypted")
+        os.makedirs(src)
+        with open(os.path.join(src, "report.pdf"), "w") as fh:
+            fh.write("patient A HRM lab")
+        private = []
+        with self.assertRaises(SystemExit):
+            o19docs.relocate_hrm_reports(root, private=private.extend,
+                                         reserved={"report.pdf"})
+        self.assertTrue(any("report.pdf" in line for line in private))
+        self.assertTrue(any("document row already claims" in line
+                            for line in private), private)
+        # the refusal names the source tree, so the source must still
+        # hold what it names
+        self.assertTrue(os.path.isfile(os.path.join(src, "report.pdf")))
+        self.assertFalse(os.path.exists(
+            os.path.join(root, "document", "report.pdf")))
+
+    def test_nothing_moves_when_a_later_name_is_refused(self):
+        # the scan runs to completion before the first move: a refusal on
+        # the second name must not leave the first one relocated
+        root = tempfile.mkdtemp(prefix="o19docs-hrmscan-")
+        self.addCleanup(shutil.rmtree, root)
+        a = os.path.join(root, "hrm", "d1")
+        b = os.path.join(root, "hrm", "d2")
+        os.makedirs(a)
+        os.makedirs(b)
+        for path, body in ((os.path.join(a, "aaa.xml"), "fine"),
+                           (os.path.join(a, "zzz.xml"), "one"),
+                           (os.path.join(b, "zzz.xml"), "two")):
+            with open(path, "w") as fh:
+                fh.write(body)
+        with self.assertRaises(SystemExit):
+            o19docs.relocate_hrm_reports(root, private=lambda _l: None)
+        self.assertFalse(os.path.exists(
+            os.path.join(root, "document", "aaa.xml")))
+        self.assertTrue(os.path.isfile(os.path.join(a, "aaa.xml")))
+
     def test_context_with_sql_metacharacters_is_refused(self):
         for bad in ("x'; DROP TABLE HRMDocument; --", "a b", "../etc", ""):
             with self.assertRaises(ValueError):
@@ -323,6 +369,24 @@ class TestReconciliationClassification(unittest.TestCase):
         with open(os.path.join(self.doc_dir, "orphan.pdf"), "w") as fh:
             fh.write("orphan")
 
+    def test_names_carlos_cannot_open_are_blocking(self):
+        # PathValidationUtils.sanitizeFileName runs the value through
+        # FilenameUtils.getName and refuses a dot-leading basename, so a
+        # file that exists at the nested path is still never served
+        nested = os.path.join(self.doc_dir, "sub")
+        os.makedirs(nested)
+        for name in ("deep.pdf", ".hidden.pdf"):
+            with open(os.path.join(nested, name), "w") as fh:
+                fh.write("x")
+        with open(os.path.join(self.doc_dir, ".hidden.pdf"), "w") as fh:
+            fh.write("x")
+        rows = [("4", "sub/deep.pdf"), ("5", ".hidden.pdf")]
+        missing, empty = o19docs.classify_document_files(rows, self.doc_dir)
+        self.assertEqual(empty, [])
+        self.assertEqual(len(missing), 2, missing)
+        self.assertIn("names a subdirectory", missing[0])
+        self.assertIn("leading dot", missing[1])
+
     def test_missing_and_empty_files_are_blocking(self):
         rows = [("1", "present.pdf"), ("2", "gone.pdf"), ("3", "empty.pdf")]
         missing, empty = o19docs.classify_document_files(rows, self.doc_dir)
@@ -330,9 +394,22 @@ class TestReconciliationClassification(unittest.TestCase):
         self.assertEqual(empty, ["document 3: empty.pdf (zero bytes)"])
 
     def test_orphans_are_report_only(self):
-        orphans = o19docs.find_orphans(
+        total, sample = o19docs.find_orphans(
             self.doc_dir, {"present.pdf", "empty.pdf"})
-        self.assertEqual(orphans, ["orphan.pdf"])
+        self.assertEqual((total, sample), (1, ["orphan.pdf"]))
+
+    def test_the_orphan_count_is_not_capped_by_the_sample(self):
+        # the report states this number: a capped one would understate
+        # what the clinic is carrying
+        extra = tempfile.mkdtemp(prefix="o19docs-orph-")
+        self.addCleanup(shutil.rmtree, extra)
+        for i in range(60):
+            with open(os.path.join(extra, "x{0:03d}.pdf".format(i)),
+                      "w") as fh:
+                fh.write("x")
+        total, sample = o19docs.find_orphans(extra, set(), cap=50)
+        self.assertEqual(total, 60)
+        self.assertEqual(len(sample), 50)
 
     def test_report_lines_carry_counts_never_file_names(self):
         ctx_root = tempfile.mkdtemp(prefix="o19docs-ctx-")
@@ -419,7 +496,7 @@ class TestEformImageRefs(unittest.TestCase):
             o19docs.image_refs("curl(${oscar_image_path}odd).png "),
             ["odd).png"])
 
-    def test_subdirectory_references_are_blocking(self):
+    def test_subdirectory_references_are_reported_not_blocking(self):
         root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, root)
         os.makedirs(os.path.join(root, "document"))
@@ -434,10 +511,16 @@ class TestEformImageRefs(unittest.TestCase):
                          '<img src="${oscar_image_path}sub/d.png">')]
             return []
 
-        problems, _lines, _private = o19docs.reconcile(query, "o19_import",
-                                                       root)
-        self.assertEqual(len(problems), 1)
-        self.assertIn("names a subdirectory", problems[0])
+        problems, lines, private = o19docs.reconcile(query, "o19_import",
+                                                     root)
+        # the asset is present; only the form HTML addresses it wrongly,
+        # and no tar or file copy can fix that — so it is reported, not
+        # a refusal the operator cannot clear
+        self.assertEqual(problems, [])
+        self.assertTrue(any("cannot route to" in ln for ln in lines), lines)
+        self.assertTrue(any("names a subdirectory" in ln
+                            for ln in private), private)
+        self.assertFalse(any("d.png" in ln for ln in lines), lines)
 
     def test_reconcile_checks_the_full_reference_as_carlos_resolves_it(self):
         root = tempfile.mkdtemp()
@@ -457,17 +540,17 @@ class TestEformImageRefs(unittest.TestCase):
                          '<img src="${oscar_image_path}gone.gif">')]
             return []
 
-        problems, lines, _private = o19docs.reconcile(query, "o19_import",
-                                                      root)
+        problems, lines, private = o19docs.reconcile(query, "o19_import",
+                                                     root)
         # logo.png and logo.png#top are one served reference (the
         # fragment never leaves the browser); the other two are not
-        self.assertEqual(len(problems), 2, problems)
-        suffixed = [p for p in problems if "logo.png?v=2" in p]
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("missing image asset: gone.gif", problems[0])
+        # the query suffix is a routing defect, not a missing file
+        suffixed = [ln for ln in private if "logo.png?v=2" in ln]
         self.assertEqual(len(suffixed), 1)
         self.assertIn("does not strip", suffixed[0])
-        self.assertIn("logo.png exists", suffixed[0])
-        self.assertTrue(any("missing image asset: gone.gif" in p
-                            for p in problems))
+        self.assertIn("logo.png is present", suffixed[0])
         self.assertIn("3 eForm image reference(s) checked", lines)
 
 
@@ -500,6 +583,52 @@ class TestArchiveCsvExport(unittest.TestCase):
         self.assertIn("ID,note", content)
         self.assertIn('"line1\nline2"', content)
         self.assertIn("back\\nslash", content)  # decoded exactly once
+
+
+class TestArchiveCsvRowShape(unittest.TestCase):
+
+    def test_a_row_of_the_wrong_width_is_refused(self):
+        # padding a short row or dropping a long row's tail writes a
+        # plausible but wrong archive, and for an archive-only table the
+        # CSV is the only copy the clinic keeps
+        out = tempfile.mkdtemp(prefix="o19docs-csvshape-")
+        self.addCleanup(shutil.rmtree, out)
+
+        def short(sql):
+            if "information_schema.TABLES" in sql:
+                return [["t"]]
+            if "information_schema.COLUMNS" in sql:
+                return [["a"], ["b"], ["c"]]
+            return [["1", "0", "2", "0"]]        # 4 fields, 6 expected
+
+        with self.assertRaises(SystemExit):
+            o19docs.export_archive_csv(short, "arch", out)
+
+        def long_(sql):
+            if "information_schema.TABLES" in sql:
+                return [["t"]]
+            if "information_schema.COLUMNS" in sql:
+                return [["a"]]
+            return [["1", "0", "EXTRA"]]         # 3 fields, 2 expected
+
+        with self.assertRaises(SystemExit):
+            o19docs.export_archive_csv(long_, "arch", out)
+
+    def test_rows_are_exported_in_a_stable_order(self):
+        out = tempfile.mkdtemp(prefix="o19docs-csvorder-")
+        self.addCleanup(shutil.rmtree, out)
+        seen = []
+
+        def q(sql):
+            if "information_schema.TABLES" in sql:
+                return [["t"]]
+            if "information_schema.COLUMNS" in sql:
+                return [["a"], ["b"]]
+            seen.append(sql)
+            return [["1", "0", "x", "0"]]
+
+        o19docs.export_archive_csv(q, "arch", out)
+        self.assertTrue(seen[0].endswith("ORDER BY 1, 3"), seen[0])
 
 
 class TestArchiveCsvNulls(unittest.TestCase):
