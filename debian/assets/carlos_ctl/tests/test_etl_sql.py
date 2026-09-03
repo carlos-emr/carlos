@@ -162,7 +162,8 @@ class TestMergeStatement(unittest.TestCase):
         self.assertEqual(selected_expr(sql, "creation_date"),
                          "COALESCE(NULLIF(NULLIF(s.`update_date`, "
                          "'0001-01-01 00:00:00'), '0000-00-00 00:00:00'), "
-                         "NULLIF(s.`service_date`, '0000-00-00 00:00:00'), "
+                         "NULLIF(NULLIF(s.`service_date`, "
+                         "'0001-01-01 00:00:00'), '0000-00-00 00:00:00'), "
                          "'1970-01-02 00:00:00')")
 
     def test_surrogate_pk_is_excluded_from_the_insert(self):

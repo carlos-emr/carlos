@@ -702,6 +702,7 @@ def save_progress(state_dir: str, progress: Dict) -> None:
     # provider numbers
     tmp = _progress_path(state_dir) + ".tmp"
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # a stale .tmp keeps its old mode otherwise
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         json.dump(progress, fh)
     os.replace(tmp, _progress_path(state_dir))
@@ -1052,6 +1053,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             # contract: never leave a credential that exists only in memory)
             fd = os.open(cred_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
                          0o600)
+            os.fchmod(fd, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write("break-glass administrator (created by import-o19)\n"
                          "user: {0}\nprovider_no: {1}\npassword: {2}\n"

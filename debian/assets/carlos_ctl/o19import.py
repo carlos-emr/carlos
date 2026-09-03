@@ -90,6 +90,7 @@ def save_state(state_dir: str, state: Dict) -> None:
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
     tmp = state_path(state_dir) + ".tmp"
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # a stale .tmp keeps its old mode otherwise
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         json.dump(state, fh, indent=1, sort_keys=True)
     os.replace(tmp, state_path(state_dir))
@@ -901,6 +902,7 @@ def run_p6(ctx) -> None:
 
 def write_private(path: str, text: str) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # the mode argument applies to a NEW file only
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(text)
 
@@ -908,6 +910,7 @@ def write_private(path: str, text: str) -> None:
 def append_private(path: str, text: str) -> None:
     """Append to a 0600 file without a read-truncate-write window."""
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(text)
 
@@ -1006,7 +1009,7 @@ def run_p7(ctx) -> None:
     if os.path.isfile(path):
         with open(path, encoding="utf-8") as fh:
             existing = fh.read().split("P7 verify:\n")[0]
-    if existing or r_private:
+    if os.path.isfile(path) or r_private:
         write_private(path, existing + "P7 verify:\n"
                       + "\n".join(r_private) + "\n")
     if r_adv:

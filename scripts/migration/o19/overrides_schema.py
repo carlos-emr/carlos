@@ -390,7 +390,8 @@ VALUE_EXPRS = {
     "tickler": {"creation_date": "COALESCE(NULLIF(NULLIF(s.`update_date`, "
                                  "'0001-01-01 00:00:00'), "
                                  "'0000-00-00 00:00:00'), "
-                                 "NULLIF(s.`service_date`, "
+                                 "NULLIF(NULLIF(s.`service_date`, "
+                                 "'0001-01-01 00:00:00'), "
                                  "'0000-00-00 00:00:00'), "
                                  "'" + UNKNOWN_DATE_SENTINEL + "')"},
     # property merges on (name, provider_no); O19 writes '' where CARLOS

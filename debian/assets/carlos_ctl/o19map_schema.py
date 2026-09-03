@@ -10768,7 +10768,7 @@ TABLES = {
             'creation_date',
         ],
         'value_exprs': {
-            'creation_date': "COALESCE(NULLIF(NULLIF(s.`update_date`, '0001-01-01 00:00:00'), '0000-00-00 00:00:00'), NULLIF(s.`service_date`, '0000-00-00 00:00:00'), '1970-01-02 00:00:00')",
+            'creation_date': "COALESCE(NULLIF(NULLIF(s.`update_date`, '0001-01-01 00:00:00'), '0000-00-00 00:00:00'), NULLIF(NULLIF(s.`service_date`, '0001-01-01 00:00:00'), '0000-00-00 00:00:00'), '1970-01-02 00:00:00')",
         },
         'fk_remap': {
             'category_id': 'tickler_category',
