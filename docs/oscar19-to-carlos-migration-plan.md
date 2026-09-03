@@ -180,7 +180,8 @@ importer therefore reconciles the role matrix instead of choosing one side:
   policy such as `doctor`/`_eform` = `w`), the clinic's own rows append — custom
   roles, per-provider overrides (`roleUserGroup` = provider_no), patient-scoped
   lockouts (`_eChart$<demo>`, `_all`), document-queue objects (`_queue.<id>`).
-  Grants on removed-module objects (`_pmm*`, `_admin.traceability`, …) are not
+  Grants on objects no CARLOS code checks (the removed traceability report's
+  object, `_newCasemgmt.clearTempNotes`, …; `MERGE_EXCLUDE`) are not
   carried (`MERGE_EXCLUDE`). Every clinic grant the seed overrode is itemised in
   `privilege-diff.txt` (root-only) for the technical review.
 - `secRole`/`secUserRole` stay **replace_seed** (clinic ids are referenced by
