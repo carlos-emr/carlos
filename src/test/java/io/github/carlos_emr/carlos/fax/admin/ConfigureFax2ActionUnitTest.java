@@ -342,7 +342,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             String body = response.getContentAsString();
             assertThat(body)
                     .contains("\"success\":false")
-                    .contains("Your SRFax fax number must be a 10-digit North American number.");
+                    .contains("Fax number must be a 10-digit North American number.");
             // The IllegalArgumentException aborts the save loop (and the wipe-path fallback
             // save further down) before any row is persisted.
             verify(faxConfigDao, never()).saveEntity(any());

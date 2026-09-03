@@ -171,19 +171,28 @@ function usingFakeValues() {
     && config.srfax.faxNumber === FAKE_FAX_NUMBER;
 }
 
-function screenshotAllowed(existingAccountNumber) {
+// Every stored field that could identify a real account must be empty or the fake
+// constant, not just the account number: a row can carry a real sender email or
+// fax number next to the fake account number.
+function storedRowIsFake(existing) {
+  return (existing.accountNumber === '' || existing.accountNumber === FAKE_ACCESS_ID)
+    && (existing.senderEmail === '' || existing.senderEmail === FAKE_EMAIL)
+    && (existing.faxNumber === '' || existing.faxNumber === FAKE_FAX_NUMBER);
+}
+
+function screenshotAllowed(existing) {
   if (config.screenshotsAlways) {
     return true;
   }
   if (config.srfax.live || !usingFakeValues()) {
     return false;
   }
-  return existingAccountNumber === '' || existingAccountNumber === FAKE_ACCESS_ID;
+  return storedRowIsFake(existing);
 }
 
 let screenshotsSkipped = 0;
-async function shot(page, existingAccountNumber, name) {
-  if (!screenshotAllowed(existingAccountNumber)) {
+async function shot(page, existing, name) {
+  if (!screenshotAllowed(existing)) {
     screenshotsSkipped += 1;
     return null;
   }
@@ -228,7 +237,7 @@ async function main() {
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const context = await browser.newContext({ viewport: { width: 1360, height: 1100 } });
   let page;
-  const existing = { accountNumber: '', accountName: '' };
+  const existing = { accountNumber: '', accountName: '', senderEmail: '', faxNumber: '' };
 
   try {
     await step('login as an administrator', async () => {
@@ -269,6 +278,8 @@ async function main() {
       // decide below whether saving is safe (never clobber a real account by default).
       existing.accountNumber = (await frame.locator('#faxUser').inputValue()).trim();
       existing.accountName = (await frame.locator('#accountName').inputValue()).trim();
+      existing.senderEmail = (await frame.locator('#senderEmail').inputValue()).trim();
+      existing.faxNumber = digitsOnly(await frame.locator('#faxNumber').inputValue());
     });
 
     const frame = page.frameLocator('#myFrame');
@@ -305,12 +316,12 @@ async function main() {
       await frame.locator('#testSrfaxConnectionBtn').waitFor({ state: 'visible', timeout: 10000 });
       assert((await frame.locator('#faxUser').getAttribute('inputmode')) === 'numeric', 'Account number input is not inputmode=numeric');
 
-      await shot(page, existing.accountNumber, 'fax-config-page');
+      await shot(page, existing, 'fax-config-page');
     });
 
     await step('test connection reports a result before anything is saved', async () => {
       await fillSrfaxForm(frame, config.srfax);
-      await shot(page, existing.accountNumber, 'fax-config-filled');
+      await shot(page, existing, 'fax-config-filled');
 
       const configureCalls = recorder.requestLog.filter((entry) => /admin\/ManageFax/.test(entry.url)).length;
       await frame.locator('#testSrfaxConnectionBtn').click();
@@ -351,7 +362,7 @@ async function main() {
 
       // Nothing was saved by the test: Save is still the only persisting control.
       assert(!(await frame.locator('#msg').isVisible()), 'Save alert appeared during a connection test');
-      await shot(page, existing.accountNumber, 'fax-config-test-result');
+      await shot(page, existing, 'fax-config-test-result');
 
       // A result only describes the credentials that were tested: editing the account
       // number must clear it, so a stale "successful" line can never sit beside unverified
@@ -388,7 +399,7 @@ async function main() {
       const alertClass = (await alert.getAttribute('class')) || '';
       assert(/alert-success/.test(alertClass), `Save did not succeed: "${alertText}"`);
       assert(!alertText.includes(config.srfax.pass), 'Save response echoed the password');
-      await shot(page, existing.accountNumber, 'fax-config-saved');
+      await shot(page, existing, 'fax-config-saved');
 
       // Reload the direct route (the same gated action the nav iframe used) and
       // confirm the persisted values come back, password masked.
@@ -408,7 +419,7 @@ async function main() {
 
       const html = await direct.content();
       assert(!html.includes(config.srfax.pass), 'Rendered page contains the SRFax password');
-      await shot(direct, existing.accountNumber, 'fax-config-reloaded');
+      await shot(direct, existing, 'fax-config-reloaded');
       await direct.close();
     });
 

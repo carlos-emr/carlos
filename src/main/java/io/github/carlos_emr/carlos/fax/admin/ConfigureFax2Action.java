@@ -515,8 +515,9 @@ public class ConfigureFax2Action extends ActionSupport {
             digits = digits.substring(1);
         }
         if (digits.length() != 10) {
-            // The page renders a single account, so no row number in the message.
-            throw new IllegalArgumentException("Your SRFax fax number must be a 10-digit North American number.");
+            // Provider-neutral (a legacy MIDDLEWARE row goes through here too) and without a
+            // row number: the page renders a single account.
+            throw new IllegalArgumentException("Fax number must be a 10-digit North American number.");
         }
         return digits;
     }
@@ -598,7 +599,8 @@ public class ConfigureFax2Action extends ActionSupport {
             String errorMsg = "Invalid provider type '" + sanitizedInput + "'"
                     + (faxConfigId == null ? "" : " for fax config id " + faxConfigId)
                     + ". Valid values are: MIDDLEWARE, SRFAX";
-            MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId, providerTypes[idx], ex);
+            MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId,
+                    LogSafe.sanitize(providerTypes[idx]), ex);
             throw new IllegalArgumentException(errorMsg);
         }
     }

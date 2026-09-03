@@ -349,13 +349,13 @@ public class SRFaxProviderClient implements FaxProviderClient {
             if (e.getHttpStatus() == 401) {
                 throw new FaxProviderException(
                         "SRFax rejected the account number or password (" + e.getMessage()
-                                + "). Check both values in your SRFax portal.", e, false);
+                                + "). Check both values in your SRFax portal.", e, 401);
             }
             if (e.getHttpStatus() == 403) {
                 throw new FaxProviderException(
                         "SRFax rejected the account number or password (" + e.getMessage()
                                 + "). Check both values in your SRFax portal; a proxy or firewall blocking"
-                                + " the SRFax API produces the same response.", e, false);
+                                + " the SRFax API produces the same response.", e, 403);
             }
             throw e;
         }

@@ -245,6 +245,8 @@ class SRFaxProviderClientHttpTransportUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("HTTP " + status)
                 .satisfies(e -> {
                     assertThat(((FaxProviderException) e).isTransient()).isFalse();
+                    // The wrapper keeps the status so callers can still branch on it.
+                    assertThat(((FaxProviderException) e).getHttpStatus()).isEqualTo(status);
                     assertThat(e.getMessage().contains("proxy or firewall")).isEqualTo(status == 403);
                 });
     }

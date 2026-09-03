@@ -82,6 +82,21 @@ public class FaxProviderException extends Exception {
     }
 
     /**
+     * Creates a non-transient provider exception that re-describes an HTTP failure for the caller
+     * while keeping both the original cause and its HTTP status, so a wrapper never erases the
+     * status callers branch on.
+     *
+     * @param message String the error message
+     * @param cause Throwable the underlying HTTP failure
+     * @param httpStatus int the HTTP status code of that failure (for example 401 or 403)
+     */
+    public FaxProviderException(String message, Throwable cause, int httpStatus) {
+        super(message, cause);
+        this.transientError = false;
+        this.httpStatus = httpStatus;
+    }
+
+    /**
      * Returns the HTTP status of the provider response behind this failure.
      *
      * @return int the status code (for example 401, 403, 500), or 0 when the failure was not an
