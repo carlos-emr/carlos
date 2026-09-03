@@ -335,7 +335,22 @@ public class SRFaxProviderClient implements FaxProviderClient {
         params.add(new BasicNameValuePair("action", ACTION_GET_INBOX));
         params.add(new BasicNameValuePair("sViewedStatus", "UNREAD"));
 
-        JsonNode root = postForm(getSrfaxApiUrl(), params);
+        JsonNode root;
+        try {
+            root = postForm(getSrfaxApiUrl(), params);
+        } catch (FaxProviderException e) {
+            // SRFax answers a wrong access_id/access_pwd pair with a bare HTTP 401/403 rather
+            // than a JSON "Failed" body. Say what that means for the admin: the classic mistake
+            // is typing the login email where the numeric account number belongs.
+            if (!e.isTransient() && e.getMessage() != null
+                    && (e.getMessage().contains("HTTP 401") || e.getMessage().contains("HTTP 403"))) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check that the account number is the numeric SRFax account number, not your login email.",
+                        e, false);
+            }
+            throw e;
+        }
         ensureSuccess(root, "SRFax rejected the account number or password");
         logger.info("SRFax connection test succeeded");
     }

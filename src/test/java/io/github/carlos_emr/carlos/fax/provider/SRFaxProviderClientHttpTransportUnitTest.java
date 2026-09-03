@@ -224,4 +224,20 @@ class SRFaxProviderClientHttpTransportUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("rejected the account number or password")
                 .hasMessageContaining("Invalid Access Code / Password");
     }
+
+    @Test
+    @DisplayName("should explain a bare HTTP 403 as rejected credentials for verifyConnection")
+    void shouldExplainForbidden_asRejectedCredentialsForVerifyConnection() {
+        // Given - SRFax answers a wrong access_id/access_pwd with a bare 403, not a JSON body
+        responseStatus = 403;
+        responseBody = "Forbidden";
+
+        // Then - the admin sees what a 403 means here, not just the transport status
+        assertThatThrownBy(() -> client.verifyConnection(config))
+                .isInstanceOf(FaxProviderException.class)
+                .hasMessageContaining("rejected the account number or password")
+                .hasMessageContaining("HTTP 403")
+                .hasMessageContaining("not your login email")
+                .satisfies(e -> assertThat(((FaxProviderException) e).isTransient()).isFalse());
+    }
 }
