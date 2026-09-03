@@ -153,6 +153,34 @@ class TestDispositions(unittest.TestCase):
         self.assertNotIn("acme_ehr_bridge.endpoint", self.fragment)
 
 
+class TestFaxKeys(unittest.TestCase):
+    """CARLOS kept fax (SRFax transport); only the old middleware
+    transport's settings are gone. Dropping the per-feature switches
+    turned the clinic's Rx and consultation fax buttons off at cutover
+    and told the operator the module had been removed."""
+
+    def test_the_switches_carlos_reads_are_carried(self):
+        for key in ("faxPollInterval", "RXFAX", "rx_fax_enabled",
+                    "consultation_fax_enabled", "eform_fax_enabled"):
+            self.assertEqual(o19map_props.KEYS[key]["d"], "carry", key)
+
+    def test_the_middleware_transport_settings_are_still_dropped(self):
+        for key in ("faxURI", "faxIdentifier", "faxKeystore"):
+            self.assertEqual(o19map_props.KEYS[key]["d"], "dropped-flag",
+                             key)
+
+    def test_faxEnable_is_carried_under_the_name_carlos_reads(self):
+        self.assertEqual(o19map_props.KEYS["faxEnable"],
+                         {"d": "carry", "as": "enableFax"})
+        result = o19props.translate_all([("faxEnable", "true")],
+                                        documents_root=ROOT)
+        fragment = dict(result["fragment"])
+        self.assertEqual(fragment.get("enableFax"), "true")
+        self.assertNotIn("faxEnable", fragment)
+        note = [n for k, d, n in result["rows"] if k == "faxEnable"][0]
+        self.assertIn("enableFax", note)
+
+
 class TestRendering(unittest.TestCase):
 
     def test_fragment_is_reviewable_properties_text(self):

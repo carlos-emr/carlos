@@ -62,6 +62,8 @@ class FakeDb(object):
             return [[str(self.tables.get(table, 0))]]
         if sql == "SELECT 1":
             return [["1"]]
+        if sql.startswith("SELECT role_name FROM "):
+            return []       # no clinic-custom roles unless a test says so
         raise AssertionError("unexpected SQL: " + sql)
 
 
@@ -73,6 +75,10 @@ def base_tables(**extra):
     t = {"demographic": 40, "provider": 3, "appointment": 100,
          "casemgmt_note": 200, "document": 10, "drugs": 50,
          "Facility": 1, "clinic": 1}
+    # every table the import cannot run without: a real clinic dump has
+    # them, and their absence is now its own blocker
+    for name in pf.REQUIRED_TABLES:
+        t.setdefault(name, 1)
     t.update(extra)
     return t
 
@@ -119,6 +125,80 @@ class TestVerdicts(unittest.TestCase):
         ids = {f["id"] for f in report["findings"]}
         self.assertIn("B2-unknown-tables", ids)
         self.assertTrue(any("`custom$table`" in q for q in db.queries))
+
+    def test_a_dump_missing_a_required_table_is_refused_here(self):
+        # the ETL refuses it too, but only at P4 — after the pre-import
+        # snapshot and the full staging restore
+        tables = base_tables()
+        del tables["secObjectName"]
+        report = pf.run_checks(FakeDb(tables), properties=clean_props())
+        f = [x for x in report["findings"]
+             if x["id"] == "required-tables-missing"][0]
+        self.assertEqual(f["severity"], pf.BLOCKER)
+        self.assertIsNone(f.get("accept"))
+        self.assertIn("secObjectName", f["data"])
+        self.assertEqual(report["verdict"], "no-go")
+
+    def test_a_name_outside_the_identifier_class_is_refused_here(self):
+        # the ETL refuses it before its first write and no flag clears
+        # it, so counting it as "unknown, acknowledge it" would send the
+        # operator to a refusal the sign-off cannot reach
+        db = FakeDb(base_tables(**{"demographic bak 2019": 3}))
+        report = pf.run_checks(db, properties=clean_props(),
+                               accepted=["unknown-as-archive"])
+        f = [x for x in report["findings"]
+             if x["id"] == "identifier-class"][0]
+        self.assertIn("demographic bak 2019", f["data"])
+        self.assertIsNone(f.get("accept"))
+        self.assertEqual(report["verdict"], "no-go")
+
+    def test_an_absent_column_is_reported_not_a_no_go(self):
+        # o19etl has a branch for a Facility table with no `disabled`
+        # column; the assessment must not refuse that clinic outright,
+        # and must not diagnose it as a privilege problem
+        class NoDisabled(FakeDb):
+            def __call__(self, sql):
+                if "`Facility`" in sql and "disabled" in sql:
+                    raise RuntimeError(
+                        "ERROR 1054 (42S22): Unknown column 'disabled' "
+                        "in 'where clause'")
+                return FakeDb.__call__(self, sql)
+        report = pf.run_checks(NoDisabled(base_tables()),
+                               properties=clean_props())
+        ids = {f["id"]: f for f in report["findings"]}
+        self.assertNotIn("query-errors", ids)
+        self.assertIn("Facility [disabled = 0]", ids["absent-objects"]["data"])
+        self.assertEqual(ids["absent-objects"]["severity"], pf.INFO)
+
+    def test_a_missing_properties_file_is_refused(self):
+        # ldap.enabled is a no-accept refusal at import time, so an
+        # assessment that skipped the file could return "go" for a clinic
+        # whose every staff login breaks at cutover
+        report = pf.run_checks(FakeDb(base_tables()), properties=None)
+        f = [x for x in report["findings"] if x["id"] == "no-properties"][0]
+        self.assertEqual(f["severity"], pf.BLOCKER)
+        self.assertIsNone(f.get("accept"))
+        self.assertEqual(report["verdict"], "no-go")
+
+    def test_drop_class_rows_are_reported(self):
+        # dropped with no archive and no CSV: the only silent loss in the
+        # design, so it must at least be visible
+        drop = sorted(t for t, c in pf.KNOWN_TABLES.items()
+                      if c == "drop" and not t.upper().startswith("OLIS"))
+        report = pf.run_checks(
+            FakeDb(base_tables(**{drop[0]: 4})), properties=clean_props())
+        f = [x for x in report["findings"]
+             if x["id"] == "drop-tables-with-rows"][0]
+        self.assertEqual(f["data"], {drop[0]: 4})
+        self.assertEqual(f["severity"], pf.ADVISORY)
+
+    def test_an_olis_nomenclature_table_raises_the_olis_blocker(self):
+        # those two are drop-class, so an OLIS clinic that never wrote a
+        # preference row used to raise nothing at all
+        report = pf.run_checks(
+            FakeDb(base_tables(OLISResultNomenclature=9)),
+            properties=clean_props())
+        self.assertIn("olis-gone", report["required_accepts"])
 
     def test_uncountable_table_is_a_hard_no_go(self):
         class Denied(FakeDb):
@@ -198,7 +278,7 @@ class TestVerdicts(unittest.TestCase):
         self.assertEqual(set(pf.ACCEPT_IDS),
                          {"archived-forms", "unknown-as-archive",
                           "olis-gone", "dropped-columns",
-                          "carry-credentials"})
+                          "carry-credentials", "charset-repair"})
 
     def test_live_credentials_are_a_blocker_cleared_by_sign_off(self):
         report = pf.run_checks(FakeDb(base_tables(ServiceClient=2,
@@ -254,7 +334,10 @@ class TestAdvisories(unittest.TestCase):
         f = [x for x in report["findings"] if x["id"] == "archive-config"][0]
         self.assertEqual(f["data"], {"report_template": 4})
 
-    def test_mojibake_sampling_is_advisory(self):
+    def test_mojibake_blocks_until_the_repair_is_acknowledged(self):
+        # the ETL refuses outright without --accept charset-repair, and
+        # it refuses at P4 — after the pre-import snapshot and the full
+        # staging restore. A "go" here costs the clinic a cutover window.
         db = FakeDb(base_tables(),
                     where_counts={("demographic",
                                    pf.double_encoded_predicate("last_name")):
@@ -262,8 +345,16 @@ class TestAdvisories(unittest.TestCase):
         report = pf.run_checks(db, properties=clean_props())
         f = [x for x in report["findings"]
              if x["id"] == "charset-mojibake"][0]
-        self.assertEqual(f["severity"], pf.ADVISORY)
+        self.assertEqual(f["severity"], pf.BLOCKER)
+        self.assertEqual(f["accept"], "charset-repair")
         self.assertIn("demographic.last_name", f["data"])
+        # a blocker with an accept class: the assessment now names the
+        # flag the operator must carry into the import
+        self.assertEqual(report["verdict"], "go-with-acknowledgements")
+        self.assertIn("charset-repair", report["required_accepts"])
+        cleared = pf.run_checks(db, properties=clean_props(),
+                                accepted=("charset-repair",))
+        self.assertEqual(cleared["verdict"], "go")
 
 
 class TestRoleAdvisories(unittest.TestCase):

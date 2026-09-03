@@ -853,15 +853,18 @@ def run_docs(ctx) -> None:
 
     if not already_restored:
         gz = tar_path.endswith(".gz")
-        cp = run(["tar", "-tvzf" if gz else "-tvf", tar_path],
-                 capture_output=True)
-        if cp.returncode != 0:
-            die("cannot read documents tar: " + cp.stderr.strip())
+        try:
+            # from the archive's own headers, not a formatted listing:
+            # tar quotes non-ASCII member names, and a clinic tree full
+            # of accented document names would otherwise be unreadable
+            entries = o19bundle.read_tar_entries(tar_path, gz)
+        except Exception as exc:
+            die("cannot read documents tar: {0}".format(str(exc)[:300]))
         try:
             # plain files + directories only, relative traversal-free
             # names: the tree is extracted as root
             names = o19bundle.validate_tar_members(
-                o19bundle.parse_tar_listing(cp.stdout.splitlines()),
+                [(kind, name) for kind, name, _ in entries],
                 allow_dirs=True)
             old_ctx = detect_context_dir(names)
         except ValueError as exc:

@@ -174,6 +174,89 @@ class TestTarListingAndMemberTypes(unittest.TestCase):
         self.assertIn("directory", str(cm.exception))
 
 
+class TestTarEntriesFromHeaders(unittest.TestCase):
+    """The listing comes from the archive's own headers, not from a
+    formatted `tar -tv` rendering: GNU tar escapes non-ASCII names under
+    LC_ALL=C, and bsdtar prints nine columns rather than six."""
+
+    def _archive(self, gz=True):
+        import tarfile
+        root = tempfile.mkdtemp(prefix="o19tar-")
+        self.addCleanup(shutil.rmtree, root)
+        src = os.path.join(root, "src")
+        os.makedirs(os.path.join(src, "sub"))
+        for name in ("documents-sant\u00e9.tar.gz", "sub/d\u00e9j\u00e0.pdf"):
+            with open(os.path.join(src, name), "wb") as fh:
+                fh.write(b"x" * 10)
+        os.symlink("/etc/shadow", os.path.join(src, "link"))
+        path = os.path.join(root, "a.tar.gz" if gz else "a.tar")
+        with tarfile.open(path, "w:gz" if gz else "w") as tf:
+            tf.add(src, arcname=".")
+        return path
+
+    def test_non_ascii_names_survive_verbatim(self):
+        entries = o19bundle.read_tar_entries(self._archive(), True)
+        names = [n for _k, n, _s in entries]
+        self.assertIn("./documents-sant\u00e9.tar.gz", names)
+        self.assertIn("./sub/d\u00e9j\u00e0.pdf", names)
+
+    def test_sizes_come_from_the_headers(self):
+        entries = o19bundle.read_tar_entries(self._archive(), True)
+        self.assertEqual(o19bundle.entries_size(entries), 20)
+
+    def test_a_symlink_is_typed_and_refused(self):
+        entries = o19bundle.read_tar_entries(self._archive(), True)
+        with self.assertRaises(ValueError) as cm:
+            o19bundle.validate_tar_members(
+                [(k, n) for k, n, _ in entries], allow_dirs=True)
+        self.assertIn("not a plain file", str(cm.exception))
+
+    def test_a_dot_built_bundle_extracts(self):
+        # `tar -C dir -czf bundle .` is the ordinary way to build one: it
+        # writes the archive root as a `.` entry and every member as
+        # ./name, and used to be refused with three confusing messages
+        import tarfile
+        root = tempfile.mkdtemp(prefix="o19dot-")
+        self.addCleanup(shutil.rmtree, root)
+        src = os.path.join(root, "src")
+        os.makedirs(src)
+        for name in ("o19.sql.gz", "oscar.properties"):
+            with open(os.path.join(src, name), "w") as fh:
+                fh.write("x")
+        path = os.path.join(root, "b.tar.gz")
+        with tarfile.open(path, "w:gz") as tf:
+            tf.add(src, arcname=".")
+        entries = o19bundle.read_tar_entries(path, True)
+        names = o19bundle.validate_tar_members(
+            [(k, n) for k, n, _ in entries], allow_dirs=False)
+        self.assertEqual(sorted(names),
+                         ["./o19.sql.gz", "./oscar.properties"])
+        members = o19bundle.classify_members(names)
+        out = os.path.join(root, "out")
+        os.makedirs(out)
+        rc = subprocess.call(
+            ["tar", "-xzf", path, "-C", out, "--"]
+            + [m for m in members.values() if m])
+        self.assertEqual(rc, 0)
+        self.assertEqual(sorted(os.listdir(out)),
+                         ["o19.sql.gz", "oscar.properties"])
+
+    def test_a_real_subdirectory_is_still_refused_in_a_bundle(self):
+        with self.assertRaises(ValueError):
+            o19bundle.validate_tar_members(
+                [("d", "./sub"), ("-", "./sub/x.sql")], allow_dirs=False)
+
+    def test_dot_slash_members_are_the_ordinary_bundle_shape(self):
+        # `tar -C dir -czf bundle .` writes every member as ./name
+        members = o19bundle.classify_members(
+            ["./o19.sql.gz", "./oscar.properties", "./o19-documents.tar.gz"])
+        # the ARCHIVE's own name goes back to tar: `-- o19.sql.gz` does
+        # not match a member stored as `./o19.sql.gz`
+        self.assertEqual(members["dump"], "./o19.sql.gz")
+        self.assertEqual(members["properties"], "./oscar.properties")
+        self.assertEqual(members["documents"], "./o19-documents.tar.gz")
+
+
 class TestTarHeaderChecksum(unittest.TestCase):
 
     @staticmethod

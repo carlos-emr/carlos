@@ -315,6 +315,21 @@ class TestSchemaManifest(unittest.TestCase):
             "describe the shipped TABLES")
 
 
+class TestDroppedPrefixesTrackTheFileRules(unittest.TestCase):
+    """The same prefix list prunes the clinic's `property` TABLE and
+    reports dropped keys from oscar.properties. Maintained separately it
+    drifts into a contradiction: keys dropped from the file while the
+    matching rows survive in the table."""
+
+    def test_every_dropped_flag_prefix_is_embedded(self):
+        from carlos_ctl import o19_preflight
+        derived = sorted(
+            p for p, spec in o19map_props.PREFIX_RULES
+            if spec.get("d") == "dropped-flag")
+        self.assertEqual(sorted(o19_preflight.DROPPED_PROP_PREFIXES),
+                         derived)
+
+
 class TestPreflightDriftLock(unittest.TestCase):
     """The data embedded in o19_preflight.py must be exactly derivable from
     o19map_schema — the two ship together and must never drift."""

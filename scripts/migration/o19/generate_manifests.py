@@ -875,6 +875,9 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " migrations may also grow via\n# INSERT ... SELECT, which no"
                " static count can see; clinical data never lives there.")
     out.append("SEED_ROW_COUNTS = " + _fmt(seeded) + "\n")
+    out.append("# tables the import cannot run without (o19etl "
+               "pre-checks and the roles step)")
+    out.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)) + "\n")
     out.append("CARLOSDOC_SEED_DELETES = "
                + _fmt(list(ov.CARLOSDOC_SEED_DELETES)) + "\n")
     out.append("SEED_PROVIDER_NO = {!r}".format(ov.SEED_PROVIDER_NO))
@@ -936,7 +939,8 @@ def emit_props_module(o19_defaults, ov) -> str:
     return "\n".join(out).rstrip("\n") + "\n"
 
 
-def emit_preflight_data(tables, ov, extras: Optional[Dict] = None) -> str:
+def emit_preflight_data(tables, ov, props_ov,
+                        extras: Optional[Dict] = None) -> str:
     extras = extras or {}
     known = {t: e["class"] for t, e in sorted(tables.items())}
     patient = sorted(t for t, e in tables.items() if e.get("patient_data"))
@@ -953,12 +957,20 @@ def emit_preflight_data(tables, ov, extras: Optional[Dict] = None) -> str:
     lines = [MARKER_BEGIN]
     lines.append("SCHEMA_MAP_VERSION = {!r}".format(
         schema_map_version(tables, ov)))
+    lines.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)))
     lines.append("PATIENT_DATA_TABLES = " + _fmt(patient))
     lines.append("KNOWN_TABLES = " + _fmt(known))
     lines.append("B3_FLAGGED_COLUMNS = " + _fmt(b3_cols))
     lines.append("CHARSET_SCAN = " + _fmt(charset))
-    lines.append("DROPPED_PROP_PREFIXES = "
-                 + _fmt(list(ov.PREFLIGHT_DROPPED_PROP_PREFIXES)))
+    # DERIVED from the properties overlay, never maintained beside it:
+    # the same list prunes the clinic's `property` TABLE, and the
+    # hand-written copy had drifted six prefixes behind the file rules —
+    # so hsfo_* keys were dropped from oscar.properties while the
+    # matching property rows survived the import and CARLOS read them
+    # back.
+    lines.append("DROPPED_PROP_PREFIXES = " + _fmt(
+        [p for p, spec in props_ov.PREFIX_RULES
+         if spec.get("d") == "dropped-flag"]))
     lines.append("STOCK_ROLE_NAMES = "
                  + _fmt(list(extras.get("stock_role_names", []))))
     lines.append("LEGACY_PREVENTION_TYPES = "
@@ -1061,7 +1073,8 @@ def main() -> int:
     schema_out = emit_schema_module(tables, carlos, seed_counts, ov_schema,
                                     commit, extras)
     props_out = emit_props_module(o19_defaults, ov_props)
-    preflight_block = emit_preflight_data(tables, ov_schema, extras)
+    preflight_block = emit_preflight_data(tables, ov_schema, ov_props,
+                                          extras)
 
     for t, e in tables.items():
         for col, parent in e.get("fk_remap", {}).items():

@@ -21004,6 +21004,24 @@ SEED_ROW_COUNTS = {
     'validations': 17,
 }
 
+# tables the import cannot run without (o19etl pre-checks and the roles step)
+REQUIRED_TABLES = [
+    'Facility',
+    'clinic',
+    'provider',
+    'security',
+    'secRole',
+    'secUserRole',
+    'secObjPrivilege',
+    'secObjectName',
+    'program',
+    'program_provider',
+    'provider_facility',
+    'preventions',
+    'eform',
+    'property',
+]
+
 CARLOSDOC_SEED_DELETES = [
     ('secUserRole', "provider_no = '999998'"),
     ('ProviderPreference', "providerNo = '999998'"),

@@ -145,6 +145,9 @@ KEYS = {
     # CARLOS reads the eForm image directory under a new key name
     "eform_image": {"d": "translate", "t": "docpath", "as": "EFORM_IMAGES_DIR"},
     # no CARLOS reader (legacy fax cover-page logo) — reported, not carried
+    # CARLOS takes the cover-page and consultation logos from
+    # faxLogoInCoverPage / faxLogoInConsultation / clinicLetterheadLogo,
+    # which are set in the deployment's own properties, not from this key
     "faxLogo": {"d": "dropped-flag", "advisory": "fax"},
     "HOME_DIR": {"d": "translate", "t": "docpath"},
     # a bare checkpoint FILENAME (default .LastDownloadedID), not a path
@@ -189,16 +192,26 @@ KEYS = {
     # (validated as a plain http(s) URL: the JSPs place it in a JS string)
     "resource_base_url": {"d": "carry", "validate": "url"},
     "log.purge.mysqldump": {"d": "deploy-owned"},
-    # --- removed-module fax transport (advisory: SRFax decision) ----------
+    # --- fax ---------------------------------------------------------
+    # CARLOS kept fax (SRFax transport); only the OLD MIDDLEWARE
+    # TRANSPORT'S settings are gone. The per-feature switches and the
+    # poll interval are still read — dropping them turned the clinic's
+    # Rx and consultation fax buttons off at cutover and told the
+    # operator the module had been removed, so they would not have
+    # re-added them. Verified against src/main: FaxSchedulerJob
+    # (faxPollInterval), Preview2.jsp (RXFAX) and CarlosProperties
+    # (rx_fax_enabled, consultation_fax_enabled, eform_fax_enabled,
+    # enableFax).
     "faxURI": {"d": "dropped-flag", "advisory": "fax"},
     "faxIdentifier": {"d": "dropped-flag", "advisory": "fax"},
     "faxKeystore": {"d": "dropped-flag", "advisory": "fax"},
-    "faxEnable": {"d": "dropped-flag", "advisory": "fax"},
-    "faxPollInterval": {"d": "dropped-flag", "advisory": "fax"},
-    "RXFAX": {"d": "dropped-flag", "advisory": "fax"},
-    "rx_fax_enabled": {"d": "dropped-flag", "advisory": "fax"},
-    "consultation_fax_enabled": {"d": "dropped-flag", "advisory": "fax"},
-    "eform_fax_enabled": {"d": "dropped-flag", "advisory": "fax"},
+    # CARLOS reads this one under a different name
+    "faxEnable": {"d": "carry", "as": "enableFax"},
+    "faxPollInterval": {"d": "carry"},
+    "RXFAX": {"d": "carry"},
+    "rx_fax_enabled": {"d": "carry"},
+    "consultation_fax_enabled": {"d": "carry"},
+    "eform_fax_enabled": {"d": "carry"},
     # --- remaining stock keys, classified by whether CARLOS reads them ----
     # (every O19_DEFAULTS / SECRET_DEFAULT_KEYS key has a disposition; the
     # test suite pins that none is left "unknown")

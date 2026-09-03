@@ -56,6 +56,22 @@ import sys
 
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
 SCHEMA_MAP_VERSION = 'o19map-2+78d7b58b'
+REQUIRED_TABLES = [
+    'Facility',
+    'clinic',
+    'provider',
+    'security',
+    'secRole',
+    'secUserRole',
+    'secObjPrivilege',
+    'secObjectName',
+    'program',
+    'program_provider',
+    'provider_facility',
+    'preventions',
+    'eform',
+    'property',
+]
 PATIENT_DATA_TABLES = [
     'DrugDispensing',
     'DrugDispensingMapping',
@@ -720,20 +736,23 @@ CHARSET_SCAN = {
 }
 DROPPED_PROP_PREFIXES = [
     'ldap.',
+    'OLIS_',
+    'olis_',
+    'util.erx.',
     'born',
     'INTEGRATOR_',
     'MY_OSCAR',
     'MYOSCAR',
     'myoscar',
+    'myOSCAR',
     'oscar_myoscar',
     'mymeds',
+    'MYDRUGREF',
     'CBI_',
-    'OLIS_',
-    'olis_',
-    'util.erx.',
     'clinicaid',
     'indivica',
     'consultation_indivica',
+    'eform_generator_indivica',
     'spire_',
     'redirectstudysite_',
     'sharingcenter',
@@ -742,10 +761,13 @@ DROPPED_PROP_PREFIXES = [
     'loginlogo',
     'logintext',
     'logintitle',
-    'MYDRUGREF',
     'eaaps.',
     'health_tracker',
     'streethealth',
+    'hsfo',
+    'osp.',
+    'vendor',
+    'software',
 ]
 STOCK_ROLE_NAMES = [
     'CAISI ADMIN',
@@ -830,7 +852,7 @@ INFO = "info"
 #: the blocker classes an assessment can acknowledge (a subset of the
 #: import verb's --accept classes; a typo must not read as "accepted")
 ACCEPT_IDS = ("archived-forms", "unknown-as-archive", "olis-gone",
-              "dropped-columns", "carry-credentials")
+              "dropped-columns", "carry-credentials", "charset-repair")
 #: copy-class tables whose rows are live credentials (OAuth consumer
 #: secrets, signing keys); mirrors o19map_schema.CREDENTIAL_TABLES
 CREDENTIAL_TABLES = ("ServiceClient", "oscarKeys", "publicKeys")
@@ -1102,6 +1124,27 @@ def dropped_table_references(text, dropped_tables):
     return sorted(t for t in dropped_tables if t.lower() in words)
 
 
+#: server error text that means "this table or column is not at this
+#: patch level" rather than "the query failed". Matched on the client's
+#: error prefix so a row id or a table name that happens to contain the
+#: number cannot be mistaken for one.
+_ABSENT_OBJECT_RE = re.compile(
+    r"ERROR\s+(1054|1146)\b|Unknown column|doesn't exist", re.I)
+
+
+def _absent_object(text):
+    """True when a failed query names a table or column the dump does not
+    carry. The importer anticipates patch-level variance (o19etl has a
+    branch for a Facility with no `disabled` column), so this must not
+    be reported as a failed check."""
+    return bool(_ABSENT_OBJECT_RE.search(text or ""))
+
+
+#: the identifier class o19etl.IDENTIFIER_RE accepts; a name outside it
+#: is refused before the first write, with no --accept
+IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_$]+$")
+
+
 def _count(query, table, where=None):
     """Row count, or an ("error", message) tuple when the count could not
     be taken (missing privilege, odd storage engine, ...). Callers route
@@ -1133,16 +1176,29 @@ def run_checks(query, properties=None, province="on", accepted=(),
     accepted = set(accepted)
     findings = []
     query_errors = {}
+    # tables/columns this patch level does not carry: reported, never a
+    # blocker (see _absent_object)
+    absent_objects = {}
 
     def count(table, where=None):
         """_count that FAILS CLOSED: an error is recorded (and becomes a
         no-go blocker below) and counts as 0 only for the purpose of not
-        double-reporting the table."""
+        double-reporting the table.
+
+        An error naming an absent table or column is the exception. The
+        importer anticipates patch-level variance — o19etl has a branch
+        for a Facility table with no `disabled` column, for instance —
+        so routing it into the query-errors blocker produces an
+        unacceptable `no-go` for a clinic the import supports, with a
+        diagnosis (privileges, corruption) that is simply wrong."""
         n = _count(query, table, where)
         if isinstance(n, tuple):
             label = table if where is None else "{0} [{1}]".format(
                 table, where[:60])
-            query_errors[label] = n[1]
+            if _absent_object(n[1]):
+                absent_objects[label] = n[1]
+            else:
+                query_errors[label] = n[1]
             return 0
         return n
 
@@ -1190,6 +1246,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
         tables[manifest] = live
     live_to_manifest = dict((live, manifest)
                             for manifest, live in tables.items())
+    known_live_lower = set(n.lower() for n in live_names)
     if case_collisions:
         findings.append(finding(
             "case-colliding-tables", BLOCKER,
@@ -1274,15 +1331,33 @@ def run_checks(query, properties=None, province="on", accepted=(),
     # --- archive-class config/log tables with rows (advisory) -------------
     archive_rows = {}
     olis_rows = {}
+    drop_rows = {}
     for t, cls in KNOWN_TABLES.items():
-        if cls != "archive" or t in PATIENT_DATA_TABLES or t not in tables:
+        if t in PATIENT_DATA_TABLES or t not in tables:
+            continue
+        # drop-class tables are deleted with NO archive and no CSV, so a
+        # non-empty one is the only silent loss in the design — and the
+        # OLIS nomenclature tables are drop-class, so an OLIS clinic that
+        # never wrote a preference row would otherwise raise no blocker
+        if cls not in ("archive", "drop"):
             continue
         n = count_live(t)
         if n > 0:
             if t.upper().startswith("OLIS"):
                 olis_rows[t] = n
+            elif cls == "drop":
+                drop_rows[t] = n
             else:
                 archive_rows[t] = n
+    if drop_rows:
+        findings.append(finding(
+            "drop-tables-with-rows", ADVISORY,
+            "{0} table(s) of removed modules hold rows that are NOT "
+            "archived".format(len(drop_rows)),
+            "These are infrastructure of modules CARLOS removed "
+            "(Integrator caches, sharing policy, ministry reference "
+            "reloads). Their rows are dropped with no archive and no CSV "
+            "export. Review the list before migrating.", data=drop_rows))
     if archive_rows:
         findings.append(finding(
             "archive-config", ADVISORY,
@@ -1320,13 +1395,47 @@ def run_checks(query, properties=None, province="on", accepted=(),
     # only secUserRole rows with activeyn = 1; the importer reconciles the
     # role matrix, so these findings tell the clinic what the import will
     # do rather than block it.
+    # --- tables the import cannot run without -----------------------------
+    missing_required = [t for t in REQUIRED_TABLES
+                        if t.lower() not in known_live_lower]
+    if missing_required:
+        findings.append(finding(
+            "required-tables-missing", BLOCKER,
+            "{0} table(s) the import requires are absent".format(
+                len(missing_required)),
+            "The ETL refuses a dump without them, before writing — but "
+            "only at P4, after the pre-import snapshot and the full "
+            "staging restore. Re-take the dump without --ignore-table. "
+            "No --accept flag exists for this.",
+            data=dict((t, "absent") for t in missing_required)))
+
+    # --- identifier class -------------------------------------------------
+    # the ETL refuses any table or column name outside [A-Za-z0-9_$]
+    # before its first write, and no flag clears it; an assessment that
+    # counts such a table and calls it "unknown, acknowledge it" sends the
+    # operator to a refusal the sign-off cannot reach
+    odd_names = sorted(n for n in live_names if not IDENTIFIER_RE.match(n))
+    if odd_names:
+        findings.append(finding(
+            "identifier-class", BLOCKER,
+            "{0} table name(s) outside the identifier class the import "
+            "accepts".format(len(odd_names)),
+            "Not an OSCAR 19 clinic schema as shipped. Rename them in the "
+            "source and re-export. No --accept flag exists for this.",
+            data=dict((n, "outside [A-Za-z0-9_$]") for n in odd_names)))
+
     # a missing table counts as zero rows: the importer refuses both. A
     # count that FAILED is not zero rows — the query-errors blocker
     # already covers it, so the row-count blocker is not raised on top
     n = (_count(query, tables["Facility"], "disabled = 0")
          if "Facility" in tables else 0)
     if isinstance(n, tuple):
-        query_errors["Facility [disabled = 0]"] = n[1]
+        if _absent_object(n[1]):
+            # a Facility table without `disabled`: the ETL has its own
+            # branch for exactly this, so it must not become a no-go
+            absent_objects["Facility [disabled = 0]"] = n[1]
+        else:
+            query_errors["Facility [disabled = 0]"] = n[1]
     elif n == 0:
         findings.append(finding(
             "facility-none-enabled", BLOCKER,
@@ -1338,7 +1447,10 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "exists for this."))
     n = _count(query, tables["clinic"]) if "clinic" in tables else 0
     if isinstance(n, tuple):
-        query_errors["clinic"] = n[1]
+        if _absent_object(n[1]):
+            absent_objects["clinic"] = n[1]
+        else:
+            query_errors["clinic"] = n[1]
     elif n == 0:
         findings.append(finding(
             "clinic-missing", BLOCKER,
@@ -1534,12 +1646,17 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "and will be itemized (not carried) by the props phase.",
                 data=dropped))
     else:
+        # a BLOCKER: one of the checks this skips (ldap.enabled) is a
+        # no-accept refusal at import time, so an assessment without the
+        # file can return "go" for a clinic whose every staff login
+        # breaks at cutover. No accept class — supply the file.
         findings.append(finding(
-            "no-properties", ADVISORY,
+            "no-properties", BLOCKER,
             "oscar.properties not provided",
-            "Property-based checks (LDAP, encrypted notes, removed-module "
-            "keys) were skipped - rerun with --properties for the full "
-            "assessment."))
+            "Property-based checks are skipped without it, and one of "
+            "them (LDAP authentication) is a refusal the import cannot "
+            "acknowledge. Rerun with --properties. No --accept flag "
+            "exists for this."))
 
     # --- charset / mojibake sampling --------------------------------------
     mojibake = {}
@@ -1551,13 +1668,18 @@ def run_checks(query, properties=None, province="on", accepted=(),
             if n > 0:
                 mojibake["{0}.{1}".format(t, col)] = n
     if mojibake:
+        # a BLOCKER, not an advisory: the ETL refuses outright without
+        # --accept charset-repair, and it refuses at P4 — after the
+        # pre-import snapshot and the full staging restore. An assessment
+        # that says "go" here costs the clinic a cutover window.
         findings.append(finding(
-            "charset-mojibake", ADVISORY,
+            "charset-mojibake", BLOCKER,
             "double-encoded text detected in {0} column(s)"
             .format(len(mojibake)),
-            "The ETL's charset repair handles this, gated by "
-            "--accept charset-repair; text the repair cannot round-trip "
-            "blocks there (B8).", data=mojibake))
+            "The ETL's per-row charset repair handles this but refuses "
+            "to run unacknowledged; text the repair cannot round-trip "
+            "blocks there outright (B8).", accept="charset-repair",
+            data=mojibake))
 
     # --- column-level unknowns (import mode only) -------------------------
     if schema_map is not None:
@@ -1616,6 +1738,16 @@ def run_checks(query, properties=None, province="on", accepted=(),
     inv["_tables"] = len(tables)
     findings.append(finding("inventory", INFO, "database inventory",
                             data=inv))
+
+    # --- patch-level variance: reported, never a verdict -----------------
+    if absent_objects:
+        findings.append(finding(
+            "absent-objects", INFO,
+            "{0} check(s) named a table or column this dump does not "
+            "carry".format(len(absent_objects)),
+            "A lower patch level than the manifest's superset. The "
+            "importer skips what is absent and reports it; the target's "
+            "default stands for a missing column.", data=absent_objects))
 
     # --- query errors: a check that could not run is a hard no-go --------
     if query_errors:

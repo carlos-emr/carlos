@@ -281,8 +281,14 @@ def translate_all(clinic: List[Tuple[str, str]],
                              "not a plain http(s) URL — not carried "
                              "(CARLOS renders this value into script)"))
                 continue
-            fragment.append((key, value))
-            rows.append((key, "carry", ""))
+            # CARLOS may read the same setting under a different key
+            # (faxEnable -> enableFax): the fragment carries the key
+            # CARLOS honours
+            target_key = spec.get("as", key)
+            fragment.append((target_key, value))
+            rows.append((key, "carry",
+                         "" if target_key == key
+                         else "carried as {0}".format(target_key)))
         elif d == "carry-secret":
             fragment.append((key, value))
             secrets.append(key)

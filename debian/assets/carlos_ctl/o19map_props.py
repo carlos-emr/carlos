@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS properties manifest."""
 
-PROPS_MAP_VERSION = 'o19map-2+9738bf48'
+PROPS_MAP_VERSION = 'o19map-2+a1fd983f'
 
 # active keys of the stock O19 oscar_mcmaster.properties — the baseline-diff
 # reference: clinic keys equal to these defaults are ignored (CARLOS defaults win)
@@ -704,8 +704,7 @@ KEYS = {
         'd': 'carry',
     },
     'RXFAX': {
-        'd': 'dropped-flag',
-        'advisory': 'fax',
+        'd': 'carry',
     },
     'RX_ALLERGY_CHECKING': {
         'd': 'carry',
@@ -841,8 +840,7 @@ KEYS = {
         'd': 'carry',
     },
     'consultation_fax_enabled': {
-        'd': 'dropped-flag',
-        'advisory': 'fax',
+        'd': 'carry',
     },
     'consultation_signature_enabled': {
         'd': 'carry',
@@ -924,8 +922,7 @@ KEYS = {
         'd': 'carry',
     },
     'eform_fax_enabled': {
-        'd': 'dropped-flag',
-        'advisory': 'fax',
+        'd': 'carry',
     },
     'eform_image': {
         'd': 'translate',
@@ -948,8 +945,8 @@ KEYS = {
         'd': 'dropped-flag',
     },
     'faxEnable': {
-        'd': 'dropped-flag',
-        'advisory': 'fax',
+        'd': 'carry',
+        'as': 'enableFax',
     },
     'faxIdentifier': {
         'd': 'dropped-flag',
@@ -964,8 +961,7 @@ KEYS = {
         'advisory': 'fax',
     },
     'faxPollInterval': {
-        'd': 'dropped-flag',
-        'advisory': 'fax',
+        'd': 'carry',
     },
     'faxURI': {
         'd': 'dropped-flag',
@@ -1119,8 +1115,7 @@ KEYS = {
         'd': 'carry',
     },
     'rx_fax_enabled': {
-        'd': 'dropped-flag',
-        'advisory': 'fax',
+        'd': 'carry',
     },
     'rx_signature_enabled': {
         'd': 'carry',

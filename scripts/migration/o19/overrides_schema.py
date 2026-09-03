@@ -372,6 +372,17 @@ CHARSET_SCAN = {
 # Rows Flyway seeds for the default clinician; deleted (in order) after the
 # break-glass admin exists and before providers/security copy. WHERE clauses
 # are fragments the ETL wraps in DELETE statements.
+# Tables the import cannot run without: the roles post-step and the ETL
+# pre-checks both refuse a dump that lacks one. Emitted into the manifest
+# AND into the preflight's generated block so the assessment refuses the
+# same dump the import would, instead of saying "go" and failing at P4
+# after the snapshot and the staging restore.
+REQUIRED_TABLES = [
+    "Facility", "clinic", "provider", "security", "secRole", "secUserRole",
+    "secObjPrivilege", "secObjectName", "program", "program_provider",
+    "provider_facility", "preventions", "eform", "property",
+]
+
 CARLOSDOC_SEED_DELETES = [
     ("secUserRole", "provider_no = '999998'"),
     ("ProviderPreference", "providerNo = '999998'"),
@@ -417,13 +428,10 @@ VALUE_EXPRS = {
 SEED_PROVIDER_NO = "999998"
 SEED_USER_NAME = "carlosdoc"
 
-# Property prefixes of removed modules, embedded into o19_preflight.py for
-# the dropped-keys advisory (ldap. escalates to blocker B5 there).
-PREFLIGHT_DROPPED_PROP_PREFIXES = [
-    "ldap.", "born", "INTEGRATOR_", "MY_OSCAR", "MYOSCAR", "myoscar",
-    "oscar_myoscar", "mymeds", "CBI_", "OLIS_", "olis_", "util.erx.",
-    "clinicaid", "indivica", "consultation_indivica", "spire_",
-    "redirectstudysite_", "sharingcenter", "cr_security", "RX3",
-    "loginlogo", "logintext", "logintitle", "MYDRUGREF", "eaaps.",
-    "health_tracker", "streethealth",
-]
+# Property prefixes of removed modules are DERIVED from the dropped-flag
+# rules in overrides_props.PREFIX_RULES and embedded into
+# o19_preflight.py (ldap. escalates to blocker B5 there). The same list
+# prunes the clinic's `property` TABLE, so a hand-maintained copy beside
+# the file rules drifts into a contradiction: it had fallen six prefixes
+# behind, and hsfo_* keys were dropped from oscar.properties while the
+# matching property rows survived the import and CARLOS read them back.

@@ -26,6 +26,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import tarfile
 from typing import Dict, List, Optional, Tuple
 
 from .util import die, log, run
@@ -45,6 +46,8 @@ TAR_MAGIC = b"ustar"
 # documents tar, directories) may be extracted from clinic-supplied input.
 TAR_TYPE_FILE = "-"
 TAR_TYPE_DIR = "d"
+TAR_TYPE_SYMLINK = "l"
+TAR_TYPE_HARDLINK = "h"
 
 DEFAULT_CIPHER = "aes-256-cbc"
 DEFAULT_DERIVATION = ["-pbkdf2", "-iter", "200000"]
@@ -80,10 +83,23 @@ def bundle_kind(name: str) -> Tuple[bool, bool]:
         "or .tar.gz.enc".format(base))
 
 
+def _strip_dot_slash(name: str) -> str:
+    """`tar -C dir -czf bundle .` writes every member as `./name`, which
+    is a perfectly ordinary way to build the bundle. The traversal checks
+    are unaffected by the prefix, so it is normalised away once rather
+    than reported as "carries a path"."""
+    while name.startswith("./"):
+        name = name[2:]
+    return name
+
+
 def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
     """Map tar member names to the three inputs; hard error on anything odd.
 
-    Returns {"dump": name, "documents": name-or-None, "properties": name}.
+    Returns {"dump": name, "documents": name-or-None, "properties": name}
+    with the names EXACTLY as the archive stores them (a `./` prefix
+    included), because those are what tar must be given to extract them;
+    the file each one lands at is the name with that prefix removed.
     """
     problems: List[str] = []
     dumps: List[str] = []
@@ -99,11 +115,15 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
                             "must be the three plain files at the archive "
                             "root".format(raw))
             continue
-        name = raw
-        if "/" in name or name.startswith(".") or ".." in name.split("/"):
+        name = _strip_dot_slash(raw)
+        if "/" in name:
             problems.append("member '{0}' carries a path — bundle members "
                             "must sit at the archive root with paths "
                             "trimmed".format(raw))
+            continue
+        if name.startswith("."):
+            problems.append("member '{0}' is a dot-file — the bundle holds "
+                            "the three named inputs only".format(raw))
             continue
         if name.startswith("-"):
             # a name that looks like an option must never reach tar's
@@ -111,14 +131,17 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
             problems.append("member '{0}' starts with '-' — refused"
                             .format(raw))
             continue
+        # classified on the normalised name, but the ARCHIVE's own name
+        # is what goes back to tar: `tar -xzf b.tar.gz -- o19.sql.gz`
+        # does not match a member stored as `./o19.sql.gz`
         if name.endswith(".sql") or name.endswith(".sql.gz"):
-            dumps.append(name)
+            dumps.append(raw)
         elif name.endswith(".tar") or name.endswith(".tar.gz"):
-            docs.append(name)
+            docs.append(raw)
         elif name.endswith(".properties"):
-            props.append(name)
+            props.append(raw)
         else:
-            unknown.append(name)
+            unknown.append(raw)
     if len(dumps) != 1:
         problems.append("expected exactly one *.sql/*.sql.gz dump, found "
                         "{0}: {1}".format(len(dumps), dumps or "none"))
@@ -136,6 +159,45 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
         raise ValueError("bundle rejected:\n  " + "\n  ".join(problems))
     return {"dump": dumps[0], "documents": docs[0] if docs else None,
             "properties": props[0]}
+
+
+def read_tar_entries(path: str, gzipped: bool
+                     ) -> List[Tuple[str, str, int]]:
+    """(type_letter, member_name, size) for every entry, read from the
+    archive's own headers.
+
+    NOT from `tar -tv`: that output is a formatted, quoted rendering, and
+    parsing it made two independent assumptions that do not hold. GNU tar
+    defaults to --quoting-style=escape, so under LC_ALL=C a member named
+    `documents-santé.tar.gz` prints as `docum\303\251nts...` and the name
+    handed back to tar for extraction does not exist in the archive;
+    bsdtar prints nine columns rather than six, so the size column reads
+    as a group name and the whole listing mis-parses into names that
+    still pass the suffix rules. Reading the headers removes both.
+
+    A link entry keeps its target in the name, as the verbose listing did,
+    so a link can never masquerade as a plain member."""
+    mode = "r:gz" if gzipped else "r:"
+    out: List[Tuple[str, str, int]] = []
+    with tarfile.open(path, mode) as tf:
+        for info in tf:
+            if info.issym():
+                out.append((TAR_TYPE_SYMLINK,
+                            "{0} -> {1}".format(info.name, info.linkname),
+                            0))
+            elif info.islnk():
+                out.append((TAR_TYPE_HARDLINK,
+                            "{0} link to {1}".format(info.name,
+                                                     info.linkname), 0))
+            elif info.isdir():
+                out.append((TAR_TYPE_DIR, info.name, 0))
+            elif info.isfile():
+                out.append((TAR_TYPE_FILE, info.name, info.size))
+            else:
+                # character/block device, fifo, or anything else the
+                # validator must refuse by type
+                out.append(("?", info.name, 0))
+    return out
 
 
 def parse_tar_listing(verbose_lines: List[str]) -> List[Tuple[str, str]]:
@@ -171,12 +233,19 @@ def validate_tar_members(entries: List[Tuple[str, str]],
     if allow_dirs:
         allowed.add(TAR_TYPE_DIR)
     for type_letter, name in entries:
+        if type_letter == TAR_TYPE_DIR and not _strip_dot_slash(name).strip(
+                "/").replace(".", "", 1):
+            # the archive root itself, which `tar -C dir -czf bundle .`
+            # always writes. It creates nothing outside the work
+            # directory and is not a member: skipped rather than refused,
+            # so the ordinary way of building a bundle works.
+            continue
         if type_letter not in allowed:
             problems.append("member '{0}' is not a plain file (tar type "
                             "'{1}': symlinks, hardlinks, devices and fifos "
                             "are refused)".format(name, type_letter))
             continue
-        clean = name[2:] if name.startswith("./") else name
+        clean = _strip_dot_slash(name)
         if clean.startswith("/") or not clean:
             problems.append("member '{0}' has an absolute or empty name"
                             .format(name))
@@ -194,6 +263,14 @@ def validate_tar_members(entries: List[Tuple[str, str]],
     if problems:
         raise ValueError("archive rejected:\n  " + "\n  ".join(problems))
     return names
+
+
+def entries_size(entries: List[Tuple[str, str, int]]) -> int:
+    """Expanded footprint of the plain files in an archive, for the
+    disk-headroom check (a compressed archive's file size says nothing
+    about what it unpacks to)."""
+    return sum(size for kind, _name, size in entries
+               if kind == TAR_TYPE_FILE)
 
 
 def listed_size(entries_verbose: List[str]) -> int:
@@ -381,21 +458,29 @@ def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
         except ValueError:
             die(WRONG_KEY_GUIDANCE)
     else:
-        check_magic(tar_path, gzipped)
+        # a truncated scp or a .tar renamed .tar.gz raises here; without
+        # this the ValueError escapes as a traceback, and for the
+        # o19-preflight verb exit 1 IS a verdict
+        try:
+            check_magic(tar_path, gzipped)
+        except ValueError as exc:
+            die("{0} is not the archive its name says it is ({1}) — the "
+                "transfer may be truncated".format(bundle, exc))
 
-    tar_flags = "-tvzf" if gzipped else "-tvf"
-    cp = run(["tar", tar_flags, tar_path], capture_output=True)
-    if cp.returncode != 0:
-        die("cannot list bundle contents: {0}".format(cp.stderr.strip()))
+    try:
+        entries = read_tar_entries(tar_path, gzipped)
+    except (tarfile.TarError, OSError) as exc:
+        die("cannot read the bundle's contents ({0}) — the archive is "
+            "corrupt or truncated".format(exc))
     try:
         names = validate_tar_members(
-            parse_tar_listing(cp.stdout.splitlines()), allow_dirs=False)
+            [(kind, name) for kind, name, _ in entries], allow_dirs=False)
         members = classify_members(names)
     except ValueError as exc:
         die(str(exc))
-    # the listing knows the expanded size: refused before extraction fills
+    # the headers know the expanded size: refused before extraction fills
     # the state volume (a .tar.gz bundle can expand far beyond its size)
-    needed = listed_size(cp.stdout.splitlines())
+    needed = entries_size(entries)
     st = os.statvfs(workdir)
     free = st.f_bavail * st.f_frsize
     if needed and free < needed:
@@ -423,7 +508,8 @@ def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
         if name is None:
             result[role] = None
             continue
-        path = os.path.join(workdir, name)
+        # tar drops the `./` prefix when it writes the file
+        path = os.path.join(workdir, _strip_dot_slash(name))
         if os.path.islink(path) or not os.path.isfile(path):
             die("bundle member '{0}' did not extract as a plain file"
                 .format(name))

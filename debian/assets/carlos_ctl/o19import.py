@@ -390,17 +390,18 @@ def check_disk_headroom(dump_bytes: int, bundle_size: int,
 
 def documents_expanded_size(tar_path: str) -> int:
     """Expanded footprint of the documents archive (sum of member sizes
-    from the tar listing); the archive's own size is what a .tar.gz
-    compresses PDFs to, not what the tree needs on disk. Falls back to
-    the file size when the listing cannot be read (P5 reports why)."""
-    flags = "-tvzf" if tar_path.endswith(".gz") else "-tvf"
-    cp = run(["tar", flags, tar_path], capture_output=True)
-    if cp.returncode != 0:
-        warn("cannot list the documents archive ({0}); using its file size "
-             "for the disk check".format(cp.stderr.strip()[:200]))
+    from the archive's own headers); the archive's own size is what a
+    .tar.gz compresses PDFs to, not what the tree needs on disk. Falls
+    back to the file size when the archive cannot be read (P5 reports
+    why)."""
+    try:
+        entries = o19bundle.read_tar_entries(tar_path,
+                                             tar_path.endswith(".gz"))
+    except Exception as exc:
+        warn("cannot read the documents archive ({0}); using its file size "
+             "for the disk check".format(str(exc)[:200]))
         return os.path.getsize(tar_path)
-    return max(o19bundle.listed_size(cp.stdout.splitlines()),
-               os.path.getsize(tar_path))
+    return max(o19bundle.entries_size(entries), os.path.getsize(tar_path))
 
 
 def resume_hint(state: Dict) -> str:

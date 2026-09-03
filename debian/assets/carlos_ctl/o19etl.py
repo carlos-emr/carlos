@@ -1694,11 +1694,9 @@ APPENDED_ROW_KEYS = {
 
 #: staging tables the roles post-step reads or appends to; refused by the
 #: ETL pre-checks when absent from the dump
-ROLES_STEP_TABLES = (
-    "Facility", "clinic", "provider", "security", "secRole", "secUserRole",
-    "secObjPrivilege", "secObjectName", "program", "program_provider",
-    "provider_facility", "preventions", "eform", "property",
-)
+# generated from the overlay and shared with the standalone preflight,
+# so the assessment refuses the same dump this pre-check does
+ROLES_STEP_TABLES = tuple(o19map_schema.REQUIRED_TABLES)
 
 
 def appended_row_count_sql(table: str, src_schema: str,
