@@ -363,10 +363,28 @@ case "$1" in
         # sed replacement: sed treats |, & and \ specially there, so a host
         # name or heap value containing one would be corrupted — or abort
         # configure under set -e. Appends when the key is missing.
+        #
+        # The value is trimmed and double-quoted before it is written. Both
+        # consumers of carlos-emr.env — systemd's EnvironmentFile= parser and
+        # the `.`-source in carlos-emr-tomcat that mirrors it for a manual run
+        # — strip surrounding double quotes, so quoting is transparent to a
+        # clean value but load-bearing for a dirty one: a debconf answer that
+        # arrived with a stray interior space (`2 g`) would otherwise be
+        # written as `CARLOS_JAVA_XMX=2 g`, which the shell source reads as
+        # "run g with CARLOS_JAVA_XMX=2" — the service fails to start (exit
+        # 127) or the heap is silently dropped to systemd's default. Leading
+        # and trailing whitespace is stripped outright; it is never meaningful
+        # in these keys and is the most common way a fat-fingered answer sneaks
+        # a space in. env_get() and the round-trip reads below already strip
+        # the quotes, so this stays consistent with every reader of the file.
         set_env_key() {
             key="$1" value="$2"
             SEK_KEY="${key}" SEK_VALUE="${value}" awk '
-                BEGIN { k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"] }
+                BEGIN {
+                    k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"]
+                    gsub(/^[ \t]+/, "", v); gsub(/[ \t]+$/, "", v)
+                    v = "\042" v "\042"
+                }
                 index($0, k "=") == 1 { print k "=" v; done = 1; next }
                 { print }
                 END { if (!done) print k "=" v }
