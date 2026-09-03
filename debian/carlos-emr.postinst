@@ -951,13 +951,17 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # bare IP: a numeric Host header trips CRS rule 920350 on every poll
         # and fills the brand-new audit log with noise the installer itself
         # generated.
-        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | head -1)"
+        # tr -d '\042' strips the surrounding double quotes set_env_key now
+        # writes: a raw read would hand curl --resolve a quoted host/addr and
+        # every healthy install would sit out the whole loop before wrongly
+        # reporting the front door dead. Same idiom as the XMS/XMX reads above.
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
         PROBE_NAME="${PROBE_NAME:-localhost}"
         # Probe the address nginx actually listens on: with a non-default
         # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
         # healthy install used to sit through the whole five-minute loop and
         # then blame the application.
-        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | head -1)"
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
         case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
         i=0
         while [ "${i}" -lt 60 ]; do
