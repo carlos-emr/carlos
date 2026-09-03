@@ -389,7 +389,8 @@ def cmd_db_apply_settings(argv) -> int:
         # "loaded", then wrote a default-time-zone the server cannot start
         # with. CONVERT_TZ returns NULL for an unknown zone.
         cp = db_root(["-N", "-B", "-e",
-                      f"SELECT CONVERT_TZ('2026-01-01 00:00:00','UTC','{sql_escape(zone)}') IS NOT NULL"],
+                      "SELECT CONVERT_TZ('2026-01-01 00:00:00','UTC',"
+                      f"'{sql_escape(zone)}') IS NOT NULL"],
                      capture_output=True)
         return cp.returncode == 0 and cp.stdout.strip() == "1"
 
@@ -398,7 +399,8 @@ def cmd_db_apply_settings(argv) -> int:
     # adds a renamed one. A custom CARLOS_BACKUP_VERIFY_DB otherwise made
     # every db-apply-settings restart MariaDB for a value no restart applies.
     verify_db_now = env_get(BACKUP_ENV, "CARLOS_BACKUP_VERIFY_DB") or "carlos_restore_drill"
-    extra = "" if verify_db_now == "carlos_restore_drill" else f"binlog_ignore_db = {verify_db_now}\n"
+    extra = ("" if verify_db_now == "carlos_restore_drill"
+             else f"binlog_ignore_db = {verify_db_now}\n")
 
     tz_ok = bool(tz) and os.path.isfile(f"/usr/share/zoneinfo/{tz}")
     if tz_ok and not _tz_resolves(tz):
@@ -494,7 +496,8 @@ def cmd_db_apply_settings(argv) -> int:
         return 0
     log("restarting MariaDB to apply /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
     if run(["systemctl", "restart", "mariadb.service"]).returncode != 0:
-        die("MariaDB failed to restart; check 'systemctl status mariadb' and 'journalctl -u mariadb'")
+        die("MariaDB failed to restart; check 'systemctl status mariadb' "
+            "and 'journalctl -u mariadb'")
     import time
     for _ in range(60):
         if db_root_ok():
@@ -536,7 +539,8 @@ def cmd_bootstrap_admin(argv) -> int:
     # a credential the clinic may have long since made its own.
     # This is NOT a leaked secret: it is the already-public value this verb
     # exists to hunt down and replace.
-    seeded_hash = "{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju"  # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
+    # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
+    seeded_hash = "{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju"
     cp = db_root(["-N", "-B", "-e",
                   f"SELECT COUNT(*) FROM `{s.db_name}`.security "
                   f"WHERE user_name='{user}' AND password='{sql_escape(seeded_hash)}'"],
@@ -572,7 +576,8 @@ def cmd_bootstrap_admin(argv) -> int:
     # and the next run regenerates it.
     outfile = os.path.join(CONF_DIR, "initial-admin.txt")
     if not os.path.isdir(CONF_DIR):
-        die(f"{CONF_DIR} does not exist — reinstall carlos-emr before resetting the seeded credential")
+        die(f"{CONF_DIR} does not exist — reinstall carlos-emr before "
+            "resetting the seeded credential")
     sql = f"""
 SET SESSION sql_log_bin = 0;
 UPDATE `{s.db_name}`.security

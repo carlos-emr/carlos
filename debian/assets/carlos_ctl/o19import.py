@@ -637,7 +637,6 @@ def run_p0(ctx) -> None:
 # --------------------------------------------------------------------------
 
 def head_collations(head: bytes) -> List[str]:
-    import re
     return sorted(set(
         m.decode("ascii", "replace")
         for m in re.findall(rb"COLLATE[= ]([A-Za-z0-9_]+)", head[:65536])))
@@ -900,7 +899,7 @@ def run_p1(ctx) -> None:
             "the target — restaging a different dump now would mix two "
             "sources. Restore the pre-import snapshot and start over.")
     if ctx["restage"]:
-        progress = o19etl._progress_path(ctx["state_dir"])
+        progress = o19etl.progress_path(ctx["state_dir"])
         if os.path.exists(progress):
             os.unlink(progress)
         # the preflight verdict belongs to the dump it was run over
@@ -1203,7 +1202,6 @@ def run_p5(ctx) -> None:
     if phase_done(ctx["state"], "documents"):
         log("documents: already restored and reconciled — skipping")
         return
-    from . import o19docs
     ctx.setdefault("archive_schema", ARCHIVE_SCHEMA)
     o19docs.run_docs(ctx)
 
@@ -1293,7 +1291,7 @@ def run_p7(ctx) -> None:
                 d = query("SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` = "
                           "{3}".format(dst, table, col, demo))[0][0]
             except RuntimeError as exc:
-                if o19etl._absent_object_error(exc):
+                if o19etl.absent_object_error(exc):
                     continue  # table absent at this patch level
                 # the statement carries a demographic_no: name the table
                 # and the server's reason, never the statement itself
@@ -1330,7 +1328,7 @@ def run_p7(ctx) -> None:
         try:
             return {r[0]: (r[1], r[2]) for r in query(agg.format(schema))}
         except RuntimeError as exc:
-            if not o19etl._absent_object_error(exc):
+            if not o19etl.absent_object_error(exc):
                 raise
             return None
 
@@ -1803,7 +1801,9 @@ def assessment_refusal(state: Dict, state_dir: str) -> Optional[str]:
     return None
 
 
-_WORKSPACE_LOCK_FD = None
+#: the held workspace lock's descriptor, kept in a dict so the helper
+#: needs no `global` (it is process-wide state, deliberately)
+_WORKSPACE_LOCK: Dict[str, int] = {}
 
 
 def take_workspace_lock(state_dir: str) -> None:
@@ -1820,8 +1820,7 @@ def take_workspace_lock(state_dir: str) -> None:
 
     The fd is deliberately never closed: the kernel releases the lock when
     the process exits, however it exits."""
-    global _WORKSPACE_LOCK_FD
-    if _WORKSPACE_LOCK_FD is not None:
+    if _WORKSPACE_LOCK:
         return
     import fcntl
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
@@ -1844,7 +1843,7 @@ def take_workspace_lock(state_dir: str) -> None:
                             " (pid {0})".format(holder) if holder else ""))
     os.ftruncate(fd, 0)
     os.write(fd, "{0}\n".format(os.getpid()).encode("utf-8"))
-    _WORKSPACE_LOCK_FD = fd
+    _WORKSPACE_LOCK["fd"] = fd
 
 
 def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
@@ -1969,9 +1968,10 @@ def _nonnegative_seconds(text: str) -> int:
     first SQL statement, as an invalid session setting."""
     try:
         seconds = int(text)
-    except ValueError:
+    except ValueError as exc:
         raise argparse.ArgumentTypeError(
-            "expected a whole number of seconds, not {0!r}".format(text))
+            "expected a whole number of seconds, not {0!r}"
+            .format(text)) from exc
     if seconds < 0:
         raise argparse.ArgumentTypeError(
             "must be 0 (no bound) or a positive number of seconds")
@@ -2070,7 +2070,7 @@ def cmd_o19_preflight(argv) -> int:
     except SystemExit as exc:
         if exc.code in (0, None):
             raise
-        raise SystemExit(o19_preflight.EXIT_TOOL_ERROR)
+        raise SystemExit(o19_preflight.EXIT_TOOL_ERROR) from exc
 
 
 def cmd_import_o19(argv) -> int:

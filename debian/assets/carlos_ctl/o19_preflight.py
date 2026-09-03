@@ -717,10 +717,12 @@ KNOWN_TABLES = {
 }
 B3_FLAGGED_COLUMNS = {
     'document': {
-        'fileSignature': "`fileSignature` IS NOT NULL AND `fileSignature` <> ''",
+        'fileSignature':
+            "`fileSignature` IS NOT NULL AND `fileSignature` <> ''",
     },
     'drugs': {
-        'dispensingUnits': "`dispensingUnits` IS NOT NULL AND `dispensingUnits` <> ''",
+        'dispensingUnits':
+            "`dispensingUnits` IS NOT NULL AND `dispensingUnits` <> ''",
     },
 }
 CHARSET_SCAN = {

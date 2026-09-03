@@ -21,6 +21,7 @@ import html as html_module
 import os
 import re
 import shutil
+import tarfile
 import urllib.parse
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
@@ -874,7 +875,7 @@ def run_docs(ctx) -> None:
             # tar quotes non-ASCII member names, and a clinic tree full
             # of accented document names would otherwise be unreadable
             entries = o19bundle.read_tar_entries(tar_path, gz)
-        except Exception as exc:
+        except (tarfile.TarError, OSError, EOFError) as exc:
             die("cannot read documents tar: {0}".format(str(exc)[:300]))
         try:
             # plain files + directories only, relative traversal-free

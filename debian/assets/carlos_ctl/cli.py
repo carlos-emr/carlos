@@ -156,7 +156,8 @@ def _cmd_backup(argv) -> int:
             util.warn("the backup FAILED — journalctl -u carlos-emr-backup -n 50")
         return rc
     if sub[0] == "verify":
-        util.log("running the restore-drill unit (journalctl -u carlos-emr-backup-verify -f to watch)")
+        util.log("running the restore-drill unit "
+                 "(journalctl -u carlos-emr-backup-verify -f to watch)")
         rc = util.run(["systemctl", "start", "carlos-emr-backup-verify.service"]).returncode
         if rc == 0:
             util.log("restore drill passed")

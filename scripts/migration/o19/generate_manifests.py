@@ -793,16 +793,26 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
 # emission
 # --------------------------------------------------------------------------
 
-def _fmt(obj, indent: int = 0) -> str:
-    """Deterministic, diff-friendly repr wrapped for the 100-col house style."""
+def _fmt(obj, indent: int = 0, pair_width: Optional[int] = None) -> str:
+    """Deterministic, diff-friendly repr wrapped for the 100-col house
+    style. `pair_width` additionally puts a dict value on its own line
+    when `key: value` would exceed it — the generated block inside
+    o19_preflight.py lives in a hand-written 79-column file, and two
+    long SQL predicates in it were the file's only lint findings."""
     pad = "    " * indent
     if isinstance(obj, dict):
         if not obj:
             return "{}"
         lines = ["{"]
         for k in obj:
-            lines.append("{}    {!r}: {},".format(
-                pad, k, _fmt(obj[k], indent + 1)))
+            value = _fmt(obj[k], indent + 1, pair_width)
+            one = "{}    {!r}: {},".format(pad, k, value)
+            if (pair_width and len(one) > pair_width
+                    and "\n" not in value):
+                lines.append("{}    {!r}:".format(pad, k))
+                lines.append("{}        {},".format(pad, value))
+            else:
+                lines.append(one)
         lines.append(pad + "}")
         return "\n".join(lines)
     if isinstance(obj, list):
@@ -964,7 +974,7 @@ def emit_preflight_data(tables, ov, props_ov,
     lines.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)))
     lines.append("PATIENT_DATA_TABLES = " + _fmt(patient))
     lines.append("KNOWN_TABLES = " + _fmt(known))
-    lines.append("B3_FLAGGED_COLUMNS = " + _fmt(b3_cols))
+    lines.append("B3_FLAGGED_COLUMNS = " + _fmt(b3_cols, pair_width=79))
     lines.append("CHARSET_SCAN = " + _fmt(charset))
     # DERIVED from the properties overlay, never maintained beside it:
     # the same list prunes the clinic's `property` TABLE, and the

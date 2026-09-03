@@ -604,12 +604,12 @@ class TestAbsentObjectDetection(unittest.TestCase):
             "SQL failed (SELECT COUNT(*) FROM t WHERE demographic_no = "
             "1054): ERROR 1205 (HY000): Lock wait timeout exceeded",
             "ERROR 1205 (HY000): Lock wait timeout exceeded")
-        self.assertFalse(o19etl._absent_object_error(exc))
+        self.assertFalse(o19etl.absent_object_error(exc))
         gone = o19etl.QueryError("SQL failed (SELECT 1 FROM x): ...",
                                  "ERROR 1146 (42S02): Table 'x' doesn't exist")
-        self.assertTrue(o19etl._absent_object_error(gone))
+        self.assertTrue(o19etl.absent_object_error(gone))
         # a plain RuntimeError (no stderr attribute) still works on text
-        self.assertTrue(o19etl._absent_object_error(
+        self.assertTrue(o19etl.absent_object_error(
             RuntimeError("Unknown column 'q' in 'field list'")))
 
 

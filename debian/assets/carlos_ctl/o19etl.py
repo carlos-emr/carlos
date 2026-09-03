@@ -489,12 +489,12 @@ def fk_unmapped_count_sql(table: str, entry: dict, src_schema: str,
     raw (NOT NULL)."""
     out = []
     for col, parent in sorted(entry.get("fk_remap", {}).items()):
-        src_col = entry.get("renames", {}).get(col, col)
+        source_name = entry.get("renames", {}).get(col, col)
         out.append((col, parent,
                     "SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE s.`{2}` IS "
                     "NOT NULL AND NOT EXISTS (SELECT 1 FROM `{3}`.`{4}` m "
                     "WHERE m.old_id = s.`{2}`)".format(
-                        src_schema, table, src_col, archive_schema,
+                        src_schema, table, source_name, archive_schema,
                         idmap_table(parent))))
     return out
 
@@ -855,7 +855,7 @@ def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
 # execution driver
 # --------------------------------------------------------------------------
 
-def _progress_path(state_dir: str) -> str:
+def progress_path(state_dir: str) -> str:
     return os.path.join(state_dir, "etl-progress.json")
 
 
@@ -869,14 +869,14 @@ def load_progress(state_dir: str, dump_sha256: Optional[str] = None,
     ledger with table marks but no digest is untrusted and reset."""
     from .util import die
     try:
-        with open(_progress_path(state_dir), encoding="utf-8") as fh:
+        with open(progress_path(state_dir), encoding="utf-8") as fh:
             progress = json.load(fh)
     except FileNotFoundError:
         progress = {"tables": {}}
     except (OSError, ValueError) as exc:
         die("cannot read the ETL ledger {0} ({1}) — the target may hold a "
             "partial copy: restore the pre-import snapshot and start over"
-            .format(_progress_path(state_dir), exc))
+            .format(progress_path(state_dir), exc))
     progress.setdefault("tables", {})
     if dump_sha256:
         recorded = progress.get("dump_sha256")
@@ -918,7 +918,7 @@ def save_progress(state_dir: str, progress: Dict) -> None:
     # provider numbers), and fsynced: a rename that lands before the data
     # would leave a ledger of zeroes describing writes that did happen
     from . import o19import
-    o19import.durable_json(_progress_path(state_dir), progress)
+    o19import.durable_json(progress_path(state_dir), progress)
 
 
 # The numeric code decides whenever the client gave one: a bare "1054"
@@ -945,7 +945,7 @@ class QueryError(RuntimeError):
         self.stderr = stderr
 
 
-def _absent_object_error(exc: Exception) -> bool:
+def absent_object_error(exc: Exception) -> bool:
     """True for the server's 'no such table/column' errors — judged on
     the client's stderr alone, not on the formatted message with the
     statement text in it."""
@@ -982,13 +982,14 @@ def detect_repairs(query, src_schema: str, accepted,
                 # a lower patch level may lack the column/table (already
                 # reported as patch-level variance); anything else is a
                 # failed scan and must not pass as "clean"
-                if _absent_object_error(exc):
+                if absent_object_error(exc):
                     if notes is not None:
                         notes.append("charset scan skipped: {0}.{1} not in "
                                      "this dump".format(table, col))
                     continue
-                raise RuntimeError("charset scan of {0}.{1} failed: {2}"
-                                   .format(table, col, exc))
+                raise RuntimeError(
+                    "charset scan of {0}.{1} failed: {2}"
+                    .format(table, col, exc)) from exc
             bad = int(query(
                 "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE {2} IS NOT NULL AND "
                 "{2} REGEXP {3} AND NOT ({4})".format(
@@ -1120,7 +1121,7 @@ def precheck_scope(state_dir: str) -> str:
     unreadable = ("the ETL ledger could not be read, so assume earlier "
                   "writes stand")
     try:
-        with open(_progress_path(state_dir), encoding="utf-8") as fh:
+        with open(progress_path(state_dir), encoding="utf-8") as fh:
             progress = json.load(fh)
     except FileNotFoundError:
         return "nothing was written"
