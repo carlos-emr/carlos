@@ -65,6 +65,13 @@ DB_HOST="${CARLOS_BACKUP_DB_HOST:-127.0.0.1}"
 DB_PORT="${CARLOS_BACKUP_DB_PORT:-3306}"
 DB_NAME="${CARLOS_BACKUP_DB_NAME:-oscar}"
 KEEP="${CARLOS_BACKUP_KEEP:---keep-daily 7 --keep-weekly 5 --keep-monthly 12}"
+# ...split into an ARRAY rather than relying on an unquoted expansion at the
+# call site. These are separate restic flags and must arrive as separate
+# arguments, but an unquoted "${KEEP}" also globs: with CARLOS_BACKUP_KEEP
+# set to anything containing *, ? or [, a retention value would be silently
+# replaced by whatever the working directory happened to contain.
+KEEP_ARGS=()
+read -r -a KEEP_ARGS <<< "${KEEP}"
 # How long shipped binary logs stay restorable. This bounds the
 # point-in-time window: a dump OLDER than this can still be restored, but
 # only to its own instant (no roll-forward). KEEP above does not govern it.
@@ -340,16 +347,18 @@ ship_binlogs() {
     # the suffix filter below would silently skip ALL logs forever. If the
     # recorded name is no longer in the server's list, start over from the
     # earliest available log and say so.
-    # shellcheck disable=SC2086  # ${logs} is a whitespace-separated list of
-    # log names and MUST split into one printf argument per name; quoting it
-    # would make the whole list a single line and the grep -qx never match.
-    if [ -n "${previous}" ] && ! printf '%s\n' ${logs} | grep -qx "${previous}"; then
+    # "${logs}" quoted: it is ALREADY newline-separated (awk printed one
+    # name per line) and command substitution stripped the trailing
+    # newline, so printf reproduces the same lines either way — while
+    # unquoted it would also glob, and a log name containing [ ? or *
+    # would be silently rewritten into whatever the working directory
+    # happens to contain.
+    if [ -n "${previous}" ] && ! printf '%s\n' "${logs}" | grep -qx "${previous}"; then
         alert "binlog chain restarted — reshipping from the earliest available log" \
               "the marker (${previous}) names a log the server no longer lists; the binlog base name changed or the counter was reset. Shipping restarts from the earliest server-known log. Verify which full dump anchors your recovery chain before relying on point-in-time restore across the reset."
         previous=""
     fi
-    # shellcheck disable=SC2086  # deliberate split, as above
-    last="$(printf '%s\n' ${logs} | tail -1)"
+    last="$(printf '%s\n' "${logs}" | tail -1)"
 
     local name any=0 stream_failed=""
     for name in ${logs}; do
@@ -535,10 +544,8 @@ cmd_run() {
     # repository lock three times) every night for no benefit.
     local tag
     for tag in db files; do
-        # shellcheck disable=SC2086  # KEEP is a set of restic FLAGS
-        # ("--keep-daily 7 --keep-weekly 5 ...") and has to reach restic as
-        # separate arguments; quoted it becomes one nonsense option.
-        restic forget --tag "${tag}" --host "$(hostname -s)-carlos" ${KEEP}
+        restic forget --tag "${tag}" --host "$(hostname -s)-carlos" \
+            "${KEEP_ARGS[@]}"
     done
     # Binary logs only matter within reach of a full dump to replay them onto.
     restic forget --tag binlog --host "$(hostname -s)-carlos" --keep-within "${BINLOG_KEEP}"
