@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -410,7 +411,8 @@ public class ConfigureFax2Action extends ActionSupport {
                     "Connection successful. SRFax accepted the account number and password."));
         } catch (FaxProviderException | IllegalArgumentException e) {
             // Provider status text / validation text only — never the submitted values.
-            MiscUtils.getLogger().warn("Fax connection test failed: {}", e.getMessage());
+            // Provider-supplied text: strip control characters before it reaches the log.
+            MiscUtils.getLogger().warn("Fax connection test failed: {}", LogSafe.sanitize(e.getMessage()));
             sendJsonError(text("admin.configureFax.test.failed", "Connection failed: {0}",
                     e.getMessage() == null ? "provider error" : e.getMessage()));
         } catch (RuntimeException e) {

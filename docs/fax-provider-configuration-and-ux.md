@@ -28,6 +28,7 @@ in CARLOS, with emphasis on SRFax behavior and admin configuration UX.
   provider, so it is held to the same POST-only rule.
 
 ## Admin Setup Walkthrough (SRFax)
+
 An SRFax account gives you three things: a **login email**, a **password**, and a numeric
 **account number**. Only two of them authenticate CARLOS to the SRFax API. On
 **Administration > Faxes > Configure Fax** (Fax Gateway Configuration card):
