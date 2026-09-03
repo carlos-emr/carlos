@@ -9,11 +9,18 @@
 # run from the repository root (works mounted anywhere)
 [ -f debian/carlos-emr.postinst ] || { echo "run me from the repo root"; exit 2; }
 PASS=0; FAIL=0
-ok()   { echo "  PASS  $*"; PASS=$((PASS+1)); }
-bad()  { echo "  FAIL  $*"; FAIL=$((FAIL+1)); }
+ok()   { echo "  PASS  $*"; PASS=$((PASS + 1)); }
+bad()  { echo "  FAIL  $*"; FAIL=$((FAIL + 1)); }
 hdr()  { echo; echo "=== $* ==="; }
+# `cmd && ok ... || bad ...` reads as if-then-else but is not one: when
+# ok() returns non-zero the bad() branch runs too. Every check routes
+# through here instead.
+verdict() { # 0-or-1, pass-message, fail-message
+  if [ "$1" -eq 0 ]; then ok "$2"; else bad "$3"; fi
+}
 
 hdr "platform"
+# shellcheck source=/dev/null
 . /etc/os-release; echo "  $PRETTY_NAME"
 echo "  python3: $(python3 -V 2>&1)"
 echo "  bash:    $(bash --version | head -1)"
@@ -24,7 +31,7 @@ echo "  mariadb: $(mariadb --version 2>/dev/null || echo '(not installed)')"
 hdr "maintainer scripts parse under the shells dpkg uses"
 for f in debian/carlos-emr.postinst debian/carlos-emr.postrm; do
   [ -f "$f" ] || { bad "$f missing"; continue; }
-  head -1 "$f" | grep -q 'bin/sh' && SH=dash || SH=bash
+  if head -1 "$f" | grep -q 'bin/sh'; then SH=dash; else SH=bash; fi
   if $SH -n "$f" 2>/tmp/e; then ok "$SH -n $f"; else bad "$SH -n $f: $(cat /tmp/e)"; fi
   # dpkg runs #!/bin/sh scripts under dash; check both regardless
   if dash -n "$f" 2>/tmp/e; then ok "dash -n $f"; else bad "dash -n $f: $(cat /tmp/e)"; fi
@@ -60,28 +67,43 @@ gate() { # file-content, expected "GATE"/"nogate"
   printf '%s' "$1" > "$T/state.json"
   if [ -s "$T/state.json" ] && ! python3 -c "$PRED" "$T/state.json"; then echo GATE; else echo nogate; fi
 }
-[ "$(gate '{"phases":{"verify":{"status":"started"}}}')" = GATE ]   && ok "shell condition gates a started verify"   || bad "shell condition failed to gate"
-[ "$(gate '{"phases":{"verify":{"status":"done"}}}')"    = nogate ] && ok "shell condition passes a finished import" || bad "shell condition wrongly gated"
-[ "$(gate '')" = nogate ] && ok "empty file short-circuits on -s (no python3 call)" || bad "empty file behaviour changed"
-[ "$(gate '{"phases":{"stage":{"status":"done"}}}')" = nogate ] && ok "an assessment leftover does not keep the EMR stopped" || bad "assessment leftover gates the upgrade"
+shell_gate() { # file-content, expected, pass-message, fail-message
+  got=$(gate "$1")
+  if [ "$got" = "$2" ]; then ok "$3"; else bad "$4 (got $got)"; fi
+}
+shell_gate '{"phases":{"verify":{"status":"started"}}}' GATE \
+  "shell condition gates a started verify" "shell condition failed to gate"
+shell_gate '{"phases":{"verify":{"status":"done"}}}' nogate \
+  "shell condition passes a finished import" "shell condition wrongly gated"
+shell_gate '' nogate \
+  "empty file short-circuits on -s (no python3 call)" \
+  "empty file behaviour changed"
+shell_gate '{"phases":{"stage":{"status":"done"}}}' nogate \
+  "an assessment leftover does not keep the EMR stopped" \
+  "assessment leftover gates the upgrade"
 rm -rf "$T"
 
 hdr "postrm shred fallback flag logic"
 O19_SHREDDED=1
 false || { O19_SHREDDED=0; true; }
-[ "$O19_SHREDDED" = 0 ] && ok "fallback sets the flag" || bad "fallback did not set the flag"
+verdict "$([ "$O19_SHREDDED" = 0 ]; echo $?)" \
+  "fallback sets the flag" "fallback did not set the flag"
 O19_SHREDDED=1
 true || { O19_SHREDDED=0; true; }
-[ "$O19_SHREDDED" = 1 ] && ok "successful shred leaves the flag set" || bad "flag wrongly cleared"
-command -v shred >/dev/null && ok "shred present (coreutils)" || bad "shred absent - fallback would always fire"
+verdict "$([ "$O19_SHREDDED" = 1 ]; echo $?)" \
+  "successful shred leaves the flag set" "flag wrongly cleared"
+verdict "$(command -v shred >/dev/null; echo $?)" \
+  "shred present (coreutils)" "shred absent - fallback would always fire"
 
 hdr "fixture builder: optional charset arg under set -euo pipefail"
 two=$(bash -c 'set -euo pipefail; f(){ set -- ${3+--default-character-set="$3"}; echo $#; }; f a b')
 three=$(bash -c 'set -euo pipefail; f(){ set -- ${3+--default-character-set="$3"}; echo "$# $1"; }; f a b utf8mb4')
-[ "$two" = "0" ] && ok "2-arg call adds no word" || bad "2-arg call produced $two word(s)"
-[ "$three" = "1 --default-character-set=utf8mb4" ] \
-  && ok "3-arg call adds exactly one word" || bad "3-arg call: $three"
-bash -n scripts/migration/o19/build-o19-fixture.sh && ok "build-o19-fixture.sh parses" || bad "build-o19-fixture.sh syntax"
+verdict "$([ "$two" = "0" ]; echo $?)" \
+  "2-arg call adds no word" "2-arg call produced $two word(s)"
+verdict "$([ "$three" = "1 --default-character-set=utf8mb4" ]; echo $?)" \
+  "3-arg call adds exactly one word" "3-arg call: $three"
+verdict "$(bash -n scripts/migration/o19/build-o19-fixture.sh; echo $?)" \
+  "build-o19-fixture.sh parses" "build-o19-fixture.sh syntax"
 
 hdr "carlos_ctl unit suite under this python3"
 ( cd debian/assets && python3 -m unittest discover -s carlos_ctl/tests -t . 2>&1 | tail -3 )
@@ -99,8 +121,11 @@ for n in ast.walk(t):
             if 'carlos_ctl' in a.name: bad.append(a.name)
 print('  package imports:', bad or 'none')
 sys.exit(1 if bad else 0)
-" && ok "no carlos_ctl imports (standalone)" || bad "imports the package"
-python3 debian/assets/carlos_ctl/o19_preflight.py --help >/dev/null 2>&1 && ok "runs --help" || bad "--help failed"
+"
+verdict $? "no carlos_ctl imports (standalone)" "imports the package"
+python3 debian/assets/carlos_ctl/o19_preflight.py --help >/dev/null 2>&1
+verdict $? "runs --help" "--help failed"
 
 echo; echo "=== TOTAL: $PASS passed, $FAIL failed ==="
-exit $([ "$FAIL" = 0 ] && echo 0 || echo 1)
+[ "$FAIL" -eq 0 ] || exit 1
+exit 0
