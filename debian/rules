@@ -199,7 +199,17 @@ override_dh_auto_install:
 	    database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
 	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
 	    database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	    .devcontainer/db/scripts/demo-hrm-report.sql \
 	    $(STAGE)/$(SHAREDIR)/demo/
+	# Demo document FILES. The snapshot's document rows reference these PDFs and
+	# its HRM rows are retargeted (demo-hrm-report.sql) at the fictitious HRM
+	# report; without the files every attachment render fails "could not be
+	# converted into a PDF" and the HRM lists stay empty. carlos-ctl demo-data
+	# copies them into the document store after the SQL load.
+	install -d $(STAGE)/$(SHAREDIR)/demo/documents
+	install -m 0644 .devcontainer/db/db_data/documents/*.pdf \
+	    .devcontainer/db/db_data/hrm/*.xml \
+	    $(STAGE)/$(SHAREDIR)/demo/documents/
 	# Tomcat's global web.xml and catalina.properties come from the
 	# distribution's own tomcat11 package (a build dependency) rather than
 	# being vendored into this repo: they then track the Tomcat the runtime

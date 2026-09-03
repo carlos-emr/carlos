@@ -100,6 +100,12 @@
                 <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
                 <input type="hidden" name="parentAjaxId" value="eforms">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <%-- A "Submit & PDF" submission closes its window after the download; the approved
+                     download must still do so, so the intent travels with the retry. Display-only:
+                     it is not bound into the approval digest. --%>
+                <c:if test="${approvalAutoClose == 'true'}">
+                    <input type="hidden" name="autoClose" value="true">
+                </c:if>
                 <button type="submit" class="btn btn-warning">
                     <fmt:message key="${approvalButtonLabelKey}"/>
                 </button>

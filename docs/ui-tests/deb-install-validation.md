@@ -140,6 +140,19 @@ the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 if the two ever disagree about the RTL chain, that script and
 `debian/assets/carlos_ctl/dbops.py` are the authorities.)
 
+`carlos-ctl demo-data` also copies the demo document FILES (the PDFs the
+dump's document rows reference, plus the fictitious HRM report that
+`demo-hrm-report.sql` points one demographic-1 `HRMDocument` row at) into
+`/var/lib/carlos-emr/CarlosDocument/carlos/document/` as `carlos:carlos 0640`.
+Confirm they arrived before running the attachment checks; without them every
+attachment render fails "could not be converted into a PDF" and the attach
+popups list no HRM documents:
+
+```bash
+lxc exec carlos-test -- ls -la /var/lib/carlos-emr/CarlosDocument/carlos/document/
+# expect six *_LabReport.pdf and demo-hrm-diagnostic-imaging.xml
+```
+
 One database tweak and three fixtures remain:
 
 ```bash
@@ -153,15 +166,12 @@ lxc exec carlos-test -- mariadb -u root carlos \
 Fixtures the dataset alone does not provide:
 
 ```bash
-# a) Demo document FILES. The dump ships document table rows; the PDFs they
-#    reference live in the repo. Without them, attaching a document to a
-#    consultation or eForm packet fails PDF conversion.
-for f in .devcontainer/db/db_data/documents/*.pdf; do
-  lxc file push "$f" carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/document/
-done
-lxc exec carlos-test -- bash -c \
-  'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/document/*.pdf
-   chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/document/*.pdf'
+# a) (Demo document files: seeded by carlos-ctl demo-data, see above. On a
+#    store provisioned by an older package, push them by hand:)
+#    for f in .devcontainer/db/db_data/documents/*.pdf .devcontainer/db/db_data/hrm/*.xml; do
+#      lxc file push "$f" carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/document/
+#    done
+#    then chown carlos:carlos and chmod 0640 the pushed files.
 
 # b) Provider stamp for the consultation-signature checks: any small PNG,
 #    named consult_sig_<providerNo>.png in the eForm image directory.
@@ -173,7 +183,16 @@ lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png'
 
-# c) The three LOCAL_SEED_OBEC_REPORT appointments that
+# c) A clinic Rich Text Letter template, so eform-rtl-print-pdf-playwright-checks.js
+#    (RTL_TEMPLATE_NAME=MissedAppointment.rtl) can prove clinic .rtl templates load
+#    into the editor unsandboxed. The repo ships one.
+lxc file push release/Document/carlos/eform/images/MissedAppointment.rtl \
+  carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
+lxc exec carlos-test -- bash -c \
+  'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
+   chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl'
+
+# d) The three LOCAL_SEED_OBEC_REPORT appointments that
 #    patient-list-by-appointment-export-playwright-checks.js documents as its
 #    operator-provisioned fixture contract (see that script's header):
 lxc exec carlos-test -- mariadb -u root carlos -e "
@@ -223,6 +242,8 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# Rich Text Letter print/PDF check (fixture c above); omit to skip only its template step.
+export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 # Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
 # deletes its own prescription (and every other row it creates: drugs, DigitalSignature, faxes,
 # FaxClientLog, fax_config), so it needs no fixture script id. It cannot remove FILES: each run
@@ -285,6 +306,13 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **`eform-rtl-print-pdf-playwright-checks.js` must be run through `:443`** too. It
+  drives the Rich Text Letter the way a clinician does (Preventions, Download,
+  the form's PDF and "Submit & PDF" buttons — the latter must auto-close the window
+  after the download — toolbar Print, "Submit & Print", a clinic template) and
+  verifies real PDF bytes come back from the render browser. One of the defects
+  it pins exists only behind the WAF: CRS 932100 scored the letter's own prose
+  in `ARGS:Letter` and answered the save with a 403 (package exclusion 1045).
 - **`eform-admin-crud-playwright-checks.js` must be run through `:443`.** It
   covers the eForm administration create/edit/delete round trip, and one of the
   three defects it pins (the CRS block on the editor's `ARGS:formHtml`, rule
