@@ -19,6 +19,21 @@ from .util import (
 )
 
 
+# CARLOS_PROVINCE answer -> the migration/billing province it resolves to.
+# 'other' is a deliberate ALIAS for Ontario, not a third jurisdiction: the WAR
+# ships only common/on/bc migration locations, and the application recognises
+# only ON and BC. Rendering billregion=OTHER would not give a neutral install,
+# it would give a broken one — Billing2Action is
+# `return "ON".equals(region) ? "ON" : "BC";`, so the Billing tab would chain
+# into the BC screens against tables the on migrations never create; ~40 JSP
+# and Java sites do an exact .equals("ON"); and FlywaySchemaValidator
+# normalises only ON/BC, so its boot-time cross-check of
+# carlos.flyway.locations against billregion would stop covering this
+# deployment. So the operator's answer is kept verbatim in carlos-emr.env for
+# the record, and everything derived from it goes through schema_province.
+PROVINCE_SCHEMA = {"on": "on", "bc": "bc", "other": "on"}
+
+
 class Settings:
     """The carlos-emr.env values every verb needs, validated once."""
 
@@ -39,12 +54,15 @@ class Settings:
         # every command.
         if not re.fullmatch(r"[A-Za-z0-9_]+", self.db_name):
             die(f"CARLOS_DB_NAME ('{self.db_name}') must be a plain identifier (A-Za-z0-9_)")
-        if self.province not in ("on", "bc"):
-            die(f"CARLOS_PROVINCE ('{self.province}') must be 'on' or 'bc'")
+        if self.province not in PROVINCE_SCHEMA:
+            die(f"CARLOS_PROVINCE ('{self.province}') must be 'on', 'bc' or 'other'")
+        # The province whose migrations and billregion this install actually
+        # gets; identical to self.province except for the 'other' alias above.
+        self.schema_province = PROVINCE_SCHEMA[self.province]
 
     @property
     def flyway_locations(self) -> str:
-        return f"classpath:db/migration/common,classpath:db/migration/{self.province}"
+        return f"classpath:db/migration/common,classpath:db/migration/{self.schema_province}"
 
 
 def load() -> Settings:
@@ -58,7 +76,7 @@ def cmd_init_config(argv) -> int:
         die(f"{PROPERTIES} does not exist; reinstall the package")
 
     doc = f"{STATE}/CarlosDocument/carlos"
-    province_uc = s.province.upper()
+    province_uc = s.schema_province.upper()
 
     # JDBC parameters, and why each one is here:
     #   zeroDateTimeBehavior=round        the OSCAR-lineage schema contains
@@ -232,7 +250,11 @@ def cmd_init_config(argv) -> int:
         os.chmod(os.path.join(ngx, "proxy-params.conf"), 0o644)
     if not os.path.exists(os.path.join(ngx, "stapling.conf")):
         _write(os.path.join(ngx, "stapling.conf"), "# Managed by carlos-emr-cert.\n")
-    log(f"configuration rendered for {s.server_name} (province {province_uc})")
+    # Report the declared answer alongside what it resolved to: an operator who
+    # answered 'other' would otherwise find billregion=ON with nothing saying why.
+    province_note = (province_uc if s.province == s.schema_province
+                     else f"{s.province} -> {province_uc}")
+    log(f"configuration rendered for {s.server_name} (province {province_note})")
 
     # RENDERING IS NOT APPLYING — finish the job so the operator loop is
     # simply "edit carlos-emr.env, run carlos-ctl init-config":

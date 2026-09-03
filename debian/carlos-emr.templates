@@ -28,15 +28,17 @@ Description: Address the CARLOS EMR front door should listen on:
 
 Template: carlos-emr/province
 Type: select
-Choices: on, bc
+Choices: on, bc, other
 Default: on
 Description: Billing province:
  CARLOS implements provincial billing for Ontario (on) and British Columbia
  (bc). This choice selects which database migrations are applied and which
- billing behaviour the application uses.
+ billing behaviour the application uses. Choose other for a clinic anywhere
+ else: it installs the Ontario schema and billing configuration, which is the
+ supported deployment for a province CARLOS does not implement natively.
  .
- It CANNOT be changed afterwards: the two provinces create different tables,
- and switching means starting again from an empty database.
+ It CANNOT be changed afterwards: on and bc create different tables, and
+ switching means starting again from an empty database.
 
 Template: carlos-emr/tls-mode
 Type: select
