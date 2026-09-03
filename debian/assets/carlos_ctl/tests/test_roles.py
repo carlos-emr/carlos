@@ -104,8 +104,11 @@ class TestStatementShapes(unittest.TestCase):
                       "COUNT(*) FROM `carlos`.secObjPrivilege g WHERE "
                       "g.roleUserGroup = r.role_name) DESC, r.role_no LIMIT 1",
                       first)
-        # no active role at all -> the clinic role with the FEWEST grants
+        # no active role at all -> the clinic role with the FEWEST grants,
+        # never a secRole row named like a pseudo-group
         self.assertNotIn("'doctor'", fallback)
+        self.assertIn("r.role_name NOT REGEXP "
+                      "'^(-?[0-9]+|_all|_queue\\\\..*)$'", fallback)
         self.assertIn("ORDER BY (SELECT COUNT(*) FROM `carlos`.secObjPrivilege"
                       " g WHERE g.roleUserGroup = r.role_name) ASC, r.role_no "
                       "LIMIT 1", fallback)
@@ -186,10 +189,15 @@ class TestCustomRoleBackfill(unittest.TestCase):
         for group in ("999997", "-1", "_all", "_queue.2"):
             self.assertFalse(o19roles.is_role_group(group))
         self.assertTrue(o19roles.is_role_group("Triage Nurse"))
-        # role_name is unique case-insensitively: `Doctor` IS the stock role
+        # role_name is unique case-insensitively: `Doctor` IS the stock role,
+        # and grant rows spelled `ghost` belong to the role `Ghost`
         self.assertEqual(o19roles.custom_roles(
             ["Doctor", "Ghost"], [("Doctor", "_rx", "x", "0")] + self.STAGE,
             ["doctor"]), ["Ghost"])
+        self.assertEqual(o19roles.custom_roles(
+            ["Ghost"], [("ghost", "_rx", "x", "0")], ["doctor"]), ["Ghost"])
+        self.assertEqual(o19roles.role_pairs([("ghost", "_rx", "x", "0")],
+                                             "Ghost"), {("_rx", "x")})
         self.assertEqual(o19roles.non_role_named_roles(
             ["doctor", "123", "_queue.9"]), ["123", "_queue.9"])
 
@@ -235,9 +243,10 @@ class TestCustomRoleBackfill(unittest.TestCase):
         # without the stock list the identical non-stock group wins
         self.assertEqual(o19roles.choose_template("Small", stage, seed,
                                                   0.3)[0], "Twin Group")
-        # with it, only doctor is a candidate and it is below the floor
+        # with it, only doctor is a candidate (matched case-insensitively,
+        # seed spelling kept) and it is below the floor
         template, score = o19roles.choose_template("Small", stage, seed, 0.3,
-                                                   ["doctor"])
+                                                   ["DOCTOR"])
         self.assertIsNone(template)
         self.assertLess(score, 0.3)
         self.assertGreater(score, 0.0)
@@ -262,9 +271,17 @@ class TestCustomRoleBackfill(unittest.TestCase):
                     ["a=doctor", "a=nurse"]):
             with self.assertRaises(ValueError):
                 o19roles.parse_role_templates(bad)
-        # an exact repeat is not a conflict
+        # an exact or case-only repeat is not a conflict; a case-only
+        # twin with a different template is (the column is unique
+        # case-insensitively)
         self.assertEqual(o19roles.parse_role_templates(
-            ["a=doctor", "a=doctor"]), {"a": "doctor"})
+            ["a=doctor", "a=doctor", "A=Doctor"]), {"a": "doctor"})
+        with self.assertRaises(ValueError):
+            o19roles.parse_role_templates(["a=doctor", "A=nurse"])
+        self.assertTrue(o19roles.same_role_templates(
+            {"Triage Nurse": "nurse"}, {"triage nurse": "Nurse"}))
+        self.assertFalse(o19roles.same_role_templates(
+            {"Triage Nurse": "nurse"}, {"Triage Nurse": "doctor"}))
         problems = o19roles.validate_role_templates(
             {"Triage Nurse": "nurse", "Stranger": "doctor",
              "Ghost": "Pharmacist"}, ["Triage Nurse", "Ghost"],
@@ -332,8 +349,8 @@ class TestDiffPruneNormalise(unittest.TestCase):
         self.assertIn("WHERE BINARY prevention_type = 'Flu'", stmts[0][2])
         unknown = o19roles.unknown_prevention_types_sql("carlos",
                                                         ["Inf", "Var"])
-        self.assertIn("NOT IN ('Inf', 'Var')", unknown)
-        self.assertIn("GROUP BY prevention_type", unknown)
+        self.assertIn("BINARY prevention_type NOT IN ('Inf', 'Var')", unknown)
+        self.assertIn("GROUP BY BINARY prevention_type", unknown)
 
 
 class TestRichTextLetter(unittest.TestCase):

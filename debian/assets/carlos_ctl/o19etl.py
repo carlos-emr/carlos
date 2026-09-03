@@ -911,13 +911,20 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # tables involved are id-intact copies): refuse here, before the first
     # write, rather than after the whole copy
     from . import o19roles
-    if "Facility" in src_info and not int(plain(
-            o19roles.enabled_facility_count_sql(src))[0][0]):
+    # a dump WITHOUT these tables is refused as well: the copy loop skips
+    # tables absent from staging, which would leave CARLOS's seeded
+    # Facility/clinic rows standing in for the clinic's
+    if "Facility" not in src_info:
+        problems.append("the dump has no Facility table — not an OSCAR 19 "
+                        "clinic dump")
+    elif not int(plain(o19roles.enabled_facility_count_sql(src))[0][0]):
         problems.append("the dump has no enabled Facility row — CARLOS "
                         "cannot log anyone in without one; enable a "
                         "Facility in the source and re-export")
-    if "clinic" in src_info and not int(plain(
-            o19roles.clinic_count_sql(src))[0][0]):
+    if "clinic" not in src_info:
+        problems.append("the dump has no clinic table — not an OSCAR 19 "
+                        "clinic dump")
+    elif not int(plain(o19roles.clinic_count_sql(src))[0][0]):
         problems.append("the dump has no `clinic` row — letterheads, "
                         "requisitions and consultations dereference it")
     if ctx.get("role_templates") and "secRole" in src_info:

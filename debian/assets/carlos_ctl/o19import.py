@@ -43,7 +43,7 @@ import sys
 import time
 from typing import Callable, Dict, List, Optional
 
-from . import dbops, o19_preflight, o19bundle, o19etl, o19map_schema
+from . import dbops, o19_preflight, o19bundle, o19docs, o19etl, o19map_schema
 from .util import (BACKUP_ENV, ENV_FILE, STATE, die, genpw, genrandom, log,
                    run, warn)
 
@@ -151,23 +151,11 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
 # backslash or tab reaches the callers (and their _sql_str) as stored.
 CLIENT_COMMON_ARGS = ("--default-character-set=utf8mb4", "-N", "-B")
 
-_BATCH_ESCAPES = {"0": "\0", "t": "\t", "n": "\n", "\\": "\\"}
-
-
-def unescape_batch(value: str) -> str:
-    if "\\" not in value:
-        return value
-    out = []
-    i = 0
-    while i < len(value):
-        c = value[i]
-        if c == "\\" and i + 1 < len(value) and value[i + 1] in _BATCH_ESCAPES:
-            out.append(_BATCH_ESCAPES[value[i + 1]])
-            i += 2
-        else:
-            out.append(c)
-            i += 1
-    return "".join(out)
+# the ONE place batch escapes are decoded (o19docs.unescape_batch_field is
+# the implementation); callers must not decode a second time — a literal
+# backslash-n in an eForm would otherwise turn into a newline. SQL NULL
+# arrives as the two characters \N, which the decoder leaves alone.
+unescape_batch = o19docs.unescape_batch_field
 
 
 def batch_rows(stdout: str) -> List[List[str]]:

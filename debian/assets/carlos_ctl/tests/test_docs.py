@@ -300,7 +300,10 @@ class TestEformImageRefs(unittest.TestCase):
 
 class TestArchiveCsvExport(unittest.TestCase):
 
-    def test_exports_tables_with_unescaped_values(self):
+    def test_exports_tables_with_decoded_values(self):
+        # the client wrapper (o19import.batch_rows) decodes batch escapes
+        # once; the phase must write the decoded value as-is, never decode
+        # again (a literal backslash-n in clinic data would become a newline)
         out = tempfile.mkdtemp(prefix="o19docs-csv-")
         self.addCleanup(shutil.rmtree, out)
 
@@ -309,7 +312,7 @@ class TestArchiveCsvExport(unittest.TestCase):
                 return [["formONAR"]]
             if "information_schema.COLUMNS" in sql:
                 return [["ID"], ["note"]]
-            return [["1", "line1\\nline2"], ["2", "plain"]]
+            return [["1", "line1\nline2"], ["2", "back\\nslash"]]
 
         lines = o19docs.export_archive_csv(q, "o19_archive", out)
         self.assertEqual(lines, ["formONAR.csv: 2 row(s)"])
@@ -317,6 +320,7 @@ class TestArchiveCsvExport(unittest.TestCase):
             content = fh.read()
         self.assertIn("ID,note", content)
         self.assertIn('"line1\nline2"', content)
+        self.assertIn("back\\nslash", content)  # not decoded a second time
 
 
 class TestArchiveCsvNulls(unittest.TestCase):
@@ -330,7 +334,9 @@ class TestArchiveCsvNulls(unittest.TestCase):
                 return [["t"]]
             if "information_schema.COLUMNS" in sql:
                 return [["a"], ["b"]]
-            return [["1", "\\N"], ["\\N", "x\\ty"]]
+            # values arrive decoded from the client wrapper; \N (SQL NULL)
+            # is the one marker the decoder leaves alone
+            return [["1", "\\N"], ["\\N", "x\ty"]]
         o19docs.export_archive_csv(q, "arch", out)
         with open(os.path.join(out, "t.csv"), newline="") as fh:
             text = fh.read()

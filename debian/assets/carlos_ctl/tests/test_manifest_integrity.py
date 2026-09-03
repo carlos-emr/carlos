@@ -192,7 +192,15 @@ class TestSchemaManifest(unittest.TestCase):
         # seed grants (the `_pmm%` pattern of the first cut caught live
         # objects); the list is explicit, never a wildcard
         exclude = o19map_schema.TABLES["secObjPrivilege"]["merge_exclude"]
-        self.assertNotIn("LIKE", exclude)
+        self.assertNotRegex(exclude, r"(?i)\b(?:LIKE|REGEXP|RLIKE)\b")
+        self.assertNotIn("%", exclude)
+        # exactly the dead objects, nothing broader
+        import re
+        names = sorted(re.findall(r"'([^']*)'", exclude))
+        self.assertEqual(names, sorted([
+            "_admin.traceability", "_newCasemgmt.clearTempNotes",
+            "_caisi.documentationWarning", "_caisi.documentationWarning ",
+            "_pmm.editProgram.schedules", "_pmm.functionalCentre"]))
         self.assertIn("'_admin.traceability'", exclude)
         self.assertNotIn("'_admin.pmm'", exclude)  # seeded by CARLOS
 

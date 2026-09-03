@@ -130,7 +130,8 @@ if [ "$WITH_UPDATES" = 1 ]; then
     if ! err=$(run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
                "$DB" < "$f" 2>&1 >/dev/null); then
       UPDATE_FAILURES=$((UPDATE_FAILURES + 1))
-      echo "warning: $(basename "$f") stopped at its first error (earlier statements of the file may have applied): ${err##*$'\n'}" >&2
+      printf 'warning: %s stopped at its first error (earlier statements of the file may have applied):\n%s\n' \
+        "$(basename "$f")" "$err" >&2
     fi
   done
   echo "loading updates/*.sql ... done ($UPDATE_FAILURES file(s) failed, see warnings)"

@@ -24,6 +24,11 @@ class FakeDb(object):
         # rows: {sql substring: canned rows} for non-COUNT queries
         self.tables = dict(tables or {})
         self.where_counts = dict(where_counts or {})
+        # every Facility row is enabled unless a test says otherwise
+        if "Facility" in self.tables and not any(
+                t == "Facility" for t, _ in self.where_counts):
+            self.where_counts[("Facility", "disabled = 0")] = \
+                self.tables["Facility"]
         self.columns = dict(columns or {})
         self.rows = dict(rows or {})
         self.queries = []
@@ -64,7 +69,8 @@ def clean_props():
 
 def base_tables(**extra):
     t = {"demographic": 40, "provider": 3, "appointment": 100,
-         "casemgmt_note": 200, "document": 10, "drugs": 50}
+         "casemgmt_note": 200, "document": 10, "drugs": 50,
+         "Facility": 1, "clinic": 1}
     t.update(extra)
     return t
 
@@ -271,6 +277,13 @@ class TestRoleAdvisories(unittest.TestCase):
         self.assertEqual(ids["facility-none-enabled"]["severity"], pf.BLOCKER)
         self.assertEqual(ids["clinic-missing"]["severity"], pf.BLOCKER)
         self.assertEqual(report["verdict"], "no-go")
+        # a dump without the tables at all is the same refusal
+        db = FakeDb({"demographic": 40, "provider": 3})
+        report = pf.run_checks(db, properties=clean_props())
+        ids = {f["id"]: f for f in report["findings"]}
+        self.assertEqual(ids["facility-none-enabled"]["title"],
+                         "no Facility table")
+        self.assertEqual(ids["clinic-missing"]["title"], "no clinic table")
 
     def test_role_advisory_texts_state_the_exceptions(self):
         report = pf.run_checks(self.db(), properties=clean_props())

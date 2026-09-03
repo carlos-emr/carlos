@@ -78,6 +78,11 @@ class TestPrivilegeReplay(unittest.TestCase):
             "SELECT roleUserGroup, objectName, privilege FROM {0}."
             "secObjPrivilege".format(schema)).fetchall())
 
+    def full_rows(self, schema=DST):
+        return set(self.db.execute(
+            "SELECT roleUserGroup, objectName, privilege, priority, "
+            "provider_no FROM {0}.secObjPrivilege".format(schema)).fetchall())
+
     def snapshot(self):
         for sql in o19roles.snapshot_statements(DST, ARCH):
             if "secObjPrivilege" in sql:
@@ -98,9 +103,16 @@ class TestPrivilegeReplay(unittest.TestCase):
         self.assertEqual(self.grants(), expected)
         # cardinality: 9 seed + 10 clinic - 2 shared keys - 1 excluded
         self.assertEqual(len(self.grants()), 16)
-        # CARLOS's value stands on the shared key
-        self.assertIn(("doctor", "_billing", "x"), self.grants())
-        self.assertNotIn(("doctor", "_billing", "r"), self.grants())
+        # CARLOS's value stands on the shared key — every column of it:
+        # the clinic's priority/provider_no never lands on a seed row
+        full = self.full_rows()
+        self.assertIn(("doctor", "_billing", "x", 0, None), full)
+        self.assertIn(("doctor", "_rx", "x", 0, None), full)
+        self.assertNotIn(("doctor", "_billing", "r", 0, "999998"), full)
+        self.assertNotIn(("doctor", "_rx", "x", 0, "999998"), full)
+        # appended clinic rows keep their own metadata
+        self.assertIn(("Triage Nurse", "_rx", "r", 0, "999998"), full)
+        self.assertEqual(len(full), 16)
         # live _pmm objects and the non-role groups ride along
         for row in (("nurse", "_pmm.newClient", "x"), ("Triage Nurse",
                                                        "_pmm", "x"),

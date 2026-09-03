@@ -1214,23 +1214,24 @@ def run_checks(query, properties=None, province="on", accepted=(),
     # only secUserRole rows with activeyn = 1; the importer reconciles the
     # role matrix, so these findings tell the clinic what the import will
     # do rather than block it.
-    if "Facility" in tables:
-        n = count_live("Facility", "disabled = 0")
-        if n == 0:
-            findings.append(finding(
-                "facility-none-enabled", BLOCKER,
-                "no enabled Facility row",
-                "CARLOS cannot log anyone in without an enabled Facility; "
-                "the import refuses the dump before writing. Enable a "
-                "Facility in the source and re-export."))
-    if "clinic" in tables:
-        n = count_live("clinic")
-        if n == 0:
-            findings.append(finding(
-                "clinic-missing", BLOCKER,
-                "the clinic table is empty",
-                "Letterheads, requisitions and consultations dereference the "
-                "clinic row; the import refuses the dump before writing."))
+    # a missing table counts as zero rows: the importer refuses both
+    n = count_live("Facility", "disabled = 0") if "Facility" in tables else 0
+    if n == 0:
+        findings.append(finding(
+            "facility-none-enabled", BLOCKER,
+            "no enabled Facility row" if "Facility" in tables
+            else "no Facility table",
+            "CARLOS cannot log anyone in without an enabled Facility; "
+            "the import refuses the dump before writing. Enable a "
+            "Facility in the source and re-export."))
+    n = count_live("clinic") if "clinic" in tables else 0
+    if n == 0:
+        findings.append(finding(
+            "clinic-missing", BLOCKER,
+            "the clinic table is empty" if "clinic" in tables
+            else "no clinic table",
+            "Letterheads, requisitions and consultations dereference the "
+            "clinic row; the import refuses the dump before writing."))
     if "secRole" in tables:
         custom = []
         try:

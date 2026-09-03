@@ -63,6 +63,8 @@ GUARANTEED_ROLES = (("doctor", "doctor"), ("admin", "admin"))
 #: queues, bare provider numbers (per-provider overrides) and the seed's
 #: `-1` pseudo-group
 NON_ROLE_GROUP_RE = re.compile(r"^(-?\d+|_all|_queue\..*)$")
+#: the same pattern for MariaDB REGEXP (single-quoted SQL literal body)
+NON_ROLE_GROUP_SQL_RE = "^(-?[0-9]+|_all|_queue\\\\..*)$"
 
 OSCAR_PROGRAM = "OSCAR"
 
@@ -208,8 +210,11 @@ def membership_statements(dst_schema: str) -> List[str]:
                    "ur.provider_no = pr.provider_no AND ur.activeyn = 1 "
                    "ORDER BY (r.role_name = 'doctor') DESC, {1} DESC, "
                    "r.role_no LIMIT 1)".format(dst_schema, grants))
-    least_role = ("(SELECT r.role_no FROM `{0}`.secRole r ORDER BY {1} ASC, "
-                  "r.role_no LIMIT 1)".format(dst_schema, grants))
+    # a secRole row named like a non-role group (digits, _all, _queue.*)
+    # is never a membership role — same pattern as NON_ROLE_GROUP_RE
+    least_role = ("(SELECT r.role_no FROM `{0}`.secRole r WHERE r.role_name "
+                  "NOT REGEXP '{2}' ORDER BY {1} ASC, r.role_no LIMIT 1)"
+                  .format(dst_schema, grants, NON_ROLE_GROUP_SQL_RE))
     template = ("INSERT INTO `{0}`.program_provider (program_id, "
                 "provider_no, role_id, team_id) SELECT p.id, pr.provider_no, "
                 "{1}, NULL FROM `{0}`.provider pr JOIN `{0}`.program p "
@@ -285,12 +290,14 @@ def custom_roles(target_roles: Sequence[str],
                  stock_roles: Sequence[str]) -> List[str]:
     """Clinic roles that (a) exist in the target secRole, (b) hold at least
     one imported grant and (c) are not a CARLOS stock role name."""
-    granted = {r[0] for r in stage_rows if is_role_group(r[0])}
     # secRole.role_name is UNIQUE under a case-insensitive collation and
-    # Java's getRoleByName matches the same way: `Doctor` IS the stock role
+    # Java's getRoleByName matches the same way: `Doctor` IS the stock
+    # role, and a grant row spelled `triage nurse` belongs to `Triage
+    # Nurse`
+    granted = {r[0].casefold() for r in stage_rows if is_role_group(r[0])}
     stock = {r.casefold() for r in stock_roles}
     return sorted(r for r in target_roles
-                  if r in granted and r.casefold() not in stock)
+                  if r.casefold() in granted and r.casefold() not in stock)
 
 
 def non_role_named_roles(target_roles: Sequence[str]) -> List[str]:
@@ -302,7 +309,8 @@ def non_role_named_roles(target_roles: Sequence[str]) -> List[str]:
 
 def role_pairs(rows: Sequence[Sequence[str]],
                role: str) -> Set[Tuple[str, str]]:
-    return {(r[1], (r[2] or "").strip()) for r in rows if r[0] == role}
+    return {(r[1], (r[2] or "").strip()) for r in rows
+            if r[0].casefold() == role.casefold()}
 
 
 def jaccard(a: Set, b: Set) -> float:
@@ -326,7 +334,8 @@ def choose_template(custom: str, stage_rows: Sequence[Sequence[str]],
     best_role, best = None, -1.0
     candidates = {r[0] for r in seed_rows if is_role_group(r[0])}
     if stock_roles is not None:
-        candidates &= set(stock_roles)
+        stock_fold = {s.casefold() for s in stock_roles}
+        candidates = {c for c in candidates if c.casefold() in stock_fold}
     for role in sorted(candidates):
         score = jaccard(mine, role_pairs(seed_rows, role))
         if score > best:
@@ -364,11 +373,26 @@ def parse_role_templates(values: Optional[Sequence[str]]) -> Dict[str, str]:
         if not custom or not stock:
             raise ValueError("--role-template expects CUSTOM=STOCK, got {0!r}"
                              .format(raw))
-        if custom in out and out[custom] != stock:
-            raise ValueError("--role-template names {0!r} twice"
-                             .format(custom))
+        # role names are unique case-insensitively (the column's
+        # collation), so `Triage Nurse=nurse` and `triage nurse=doctor`
+        # conflict; an exact or case-only repeat of the same mapping is
+        # tolerated and the first spelling kept
+        twin = next((k for k in out if k.casefold() == custom.casefold()),
+                    None)
+        if twin is not None:
+            if out[twin].casefold() != stock.casefold():
+                raise ValueError("--role-template names {0!r} twice"
+                                 .format(custom))
+            continue
         out[custom] = stock
     return out
+
+
+def same_role_templates(a: Dict[str, str], b: Dict[str, str]) -> bool:
+    """Equality up to case, like the role_name column."""
+    def fold(m):
+        return {c.casefold(): t.casefold() for c, t in m.items()}
+    return fold(a) == fold(b)
 
 
 def validate_role_templates(overrides: Dict[str, str],
@@ -509,9 +533,12 @@ def prevention_type_statements(dst_schema: str,
 def unknown_prevention_types_sql(dst_schema: str,
                                  known: Sequence[str]) -> str:
     known_list = ", ".join("'{0}'".format(_sql_str(k)) for k in known)
+    # BINARY like the rewrite: a code differing from a known one only by
+    # case is not rendered either, so it must be listed for review
     return ("SELECT prevention_type, COUNT(*) FROM `{0}`.preventions "
-            "WHERE prevention_type NOT IN ({1}) GROUP BY prevention_type "
-            "ORDER BY prevention_type".format(dst_schema, known_list))
+            "WHERE BINARY prevention_type NOT IN ({1}) GROUP BY "
+            "BINARY prevention_type ORDER BY prevention_type"
+            .format(dst_schema, known_list))
 
 
 def rtl_rows_sql(dst_schema: str) -> str:
@@ -809,7 +836,7 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     if recorded is None:
         mark("role_templates", requested)
         recorded = requested
-    elif requested and requested != recorded:
+    elif requested and not same_role_templates(requested, recorded):
         die("roles: this import recorded --role-template {0}; the resume "
             "passes {1}. Resume with the recorded mapping (or without the "
             "flag) — a changed template would graft a second stock role's "

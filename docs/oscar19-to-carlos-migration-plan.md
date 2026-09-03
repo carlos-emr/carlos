@@ -223,9 +223,11 @@ importer therefore reconciles the role matrix instead of choosing one side:
   append; O19 writes `''` and CARLOS NULL for a global key — `NULLIF` makes them
   one key) and rows of removed modules (`PREFLIGHT_DROPPED_PROP_PREFIXES`) are
   pruned.
-- The privilege merge leaves behind only grants on objects no CARLOS code checks
-  and no CARLOS seed grants (`MERGE_EXCLUDE`, an explicit list — `_pmm.*` objects
-  are live and carried). `privilege-diff.txt` itemises three things for the
+- The privilege merge keeps every CARLOS seed grant, appends every clinic grant
+  whose (role, object) the seed does not hold, and omits only grants on objects
+  no CARLOS code checks and no seed grants (`MERGE_EXCLUDE`, an explicit list —
+  `_pmm.*` objects are live and carried). `privilege-diff.txt` itemises three
+  things for the
   review: clinic grants CARLOS's seed overrode on the same (role, object), clinic
   grants on stock roles the seed does not hold (appended, so a stock role is wider
   than the seed), and the excluded grants.

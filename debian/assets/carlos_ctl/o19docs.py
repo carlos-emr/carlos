@@ -148,7 +148,9 @@ def classify_hrm_files(rows: List[Tuple[str, str]],
 
 
 def unescape_batch_field(value: str) -> str:
-    """Undo the mariadb batch-mode (-B) escaping of a field value."""
+    """Undo the mariadb batch-mode (-B) escaping of a field value. Applied
+    once, by o19import.batch_rows, to every value the client returns;
+    the phases receive decoded values and must not decode again."""
     out = []
     i = 0
     n = len(value)
@@ -362,7 +364,7 @@ def reconcile(query, dst_schema: str, ctx_root: str
     lines: List[str] = []
     doc_dir = os.path.join(ctx_root, "document")
 
-    rows = [(r[0], unescape_batch_field(r[1])) for r in query(
+    rows = [(r[0], r[1]) for r in query(
         "SELECT document_no, docfilename FROM `{0}`.document"
         .format(dst_schema)) if len(r) >= 2]
     missing, empty = classify_document_files(rows, doc_dir)
@@ -384,7 +386,7 @@ def reconcile(query, dst_schema: str, ctx_root: str
     for r in eform_rows:
         if len(r) < 3:
             continue
-        fid, form_name, html = r[0], r[1], unescape_batch_field(r[2])
+        fid, form_name, html = r[0], r[1], r[2]
         for ref in image_refs(html):
             checked += 1
             asset = image_ref_lookup(ref)
@@ -411,7 +413,7 @@ def reconcile(query, dst_schema: str, ctx_root: str
     lines.append("{0} eForm image reference(s) checked".format(checked))
 
     _, hrm_select = hrm_rewrite_sql(dst_schema, os.path.dirname(ctx_root))
-    hrm_rows = [(r[0], unescape_batch_field(r[1])) for r in query(hrm_select)
+    hrm_rows = [(r[0], r[1]) for r in query(hrm_select)
                 if len(r) >= 2]
     problems.extend("missing HRM report for " + p
                     for p in classify_hrm_files(hrm_rows, doc_dir))
@@ -445,8 +447,7 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
             for r in rows:
                 # the batch client prints SQL NULL as the two characters
                 # \N — that is not a value, so it becomes an empty field
-                writer.writerow([None if v == "\\N"
-                                 else unescape_batch_field(v) for v in r])
+                writer.writerow([None if v == "\\N" else v for v in r])
         os.chmod(path, 0o640)
         lines.append("{0}.csv: {1} row(s)".format(table, len(rows)))
     return lines
