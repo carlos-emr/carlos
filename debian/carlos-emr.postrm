@@ -88,14 +88,30 @@ case "$1" in
         # a 0700 directory, which is no protection at all once the disk
         # leaves the building. The rest of the workspace is a record of
         # the import and is KEPT — it is named in the notice below.
+        # A postrm must not fail (dpkg would leave the package half-purged
+        # and the operator unable to proceed), so an unavailable or failing
+        # `shred` falls back to an ordinary unlink. That fallback leaves the
+        # bytes recoverable, so it is SAID rather than passed off as a
+        # shred: the notice below is written from this flag.
+        O19_SHREDDED=1
         if [ -d "${STATE}/o19-import" ]; then
             find "${STATE}/o19-import" -maxdepth 1 -type f \
                 \( -name 'admin-credentials.txt*' \
                    -o -name 'o19-derived-carlos.properties*' \) \
                 -exec shred -u {} + 2>/dev/null \
-              || find "${STATE}/o19-import" -maxdepth 1 -type f \
+              || {
+                O19_SHREDDED=0
+                find "${STATE}/o19-import" -maxdepth 1 -type f \
                    \( -name 'admin-credentials.txt*' \
                       -o -name 'o19-derived-carlos.properties*' \) -delete
+              }
+        fi
+        if [ "$O19_SHREDDED" = 0 ]; then
+            echo "carlos-emr: WARNING: shred failed or is unavailable; the" >&2
+            echo "carlos-emr: OSCAR 19 credential note and properties" >&2
+            echo "carlos-emr: fragment were DELETED, not overwritten. Their" >&2
+            echo "carlos-emr: contents remain recoverable from this disk;" >&2
+            echo "carlos-emr: wipe the filesystem before the disk leaves." >&2
         fi
 
         # Tomcat scratch, the WAF spool and the ACME webroot: all rebuilt on
@@ -123,7 +139,13 @@ carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED
   kept: /var/lib/carlos-emr/o19-import       (an OSCAR 19 import's ledgers,
         reports and the CSV export of its archive-only clinical records — the
         break-glass credential note and the derived properties fragment were
-        SHREDDED, the rest is the record of what the migration did)
+        removed (shredded unless a warning above says otherwise), the rest is
+        the record of what the migration did)
+  NOTE: the import's break-glass administrator account still EXISTS in the
+        retained `oscar` database, and the note holding its password is now
+        gone. The clinic's own provider logins came across with the import
+        and are unaffected; use one of those, or issue a fresh administrator
+        after reinstalling with `carlos-ctl bootstrap-admin`.
 
 To destroy the data deliberately, reinstall the package and run
   carlos-ctl destroy-data --confirm <server-name>

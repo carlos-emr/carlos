@@ -335,9 +335,14 @@ gate has no override.
    run can neither be resumed nor mistaken for a fresh one; only
    `admin-credentials.txt` stays under its own name); the `o19_archive` schema
    (removed-module data + dropped-column shadows + the OSCAR 19 token
-   tables, which are never copied live) and its CSV export under
-   `/var/lib/carlos-emr/o19-import/o19-archive-export/` (root-only) are
-   kept for the clinic; copy them out deliberately when handing them over.
+   tables, which are never copied live) is kept for the clinic, and so is
+   its CSV export — but the export directory is retired with the rest of the
+   run, so after `--cleanup` collect it from
+   `/var/lib/carlos-emr/o19-import/o19-archive-export.completed-<timestamp>/`
+   (root-only), not the unsuffixed path. It is renamed rather than kept in
+   place so a second clinic's import into the same workspace cannot leave
+   the first clinic's tables sitting beside its own; copy it out
+   deliberately when handing it over.
    Cleanup is allowed after a passed verification, or while nothing has
    been written to the target (after a dry run or an aborted assessment) —
    never on a mid-import workspace, whose only resume ledger it would

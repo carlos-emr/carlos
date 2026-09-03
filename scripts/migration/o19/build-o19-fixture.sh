@@ -93,9 +93,20 @@ run_sql -e "DROP DATABASE IF EXISTS \`$DB\`;
 # exceed InnoDB's row-size limit — exactly why real O19 databases hold them
 # as MyISAM (their dumps carry explicit ENGINE clauses, so the importer's
 # staging restore is unaffected by the modern InnoDB default).
+# $3 (optional) pins --default-character-set for THIS file. The vendored
+# OSCAR init/data files are latin1-era bytes, so they are loaded under
+# whatever the client is configured for, exactly as createdatabase_generic.sh
+# did. clinical.sql is different: it is UTF-8 source whose whole purpose is
+# to land one correctly-encoded and one deliberately double-encoded row in a
+# latin1 database. Without a pinned charset that outcome depends on the
+# client's default (latin1 on classic MySQL, utf8mb4 on a modern MariaDB) --
+# under a latin1 client 'COTE' with accents is stored as its own UTF-8 bytes,
+# which IS the mojibake case, collapsing the two cases into one and leaving
+# the "correctly encoded text survives verbatim" branch never exercised.
 load() {
   echo "loading $1 ..."
-  run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
+  run_sql ${3+--default-character-set="$3"} \
+          --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
           "$DB" < "$2"
 }
 load oscarinit.sql          "$SQLDIR/oscarinit.sql"
@@ -160,7 +171,8 @@ load "fixture roles.sql" "$SCRIPT_DIR/fixtures/demo-data/roles.sql"
 # encounter notes, appointments, ticklers, consultations, billing and the
 # three text encodings the charset path exists for — none of which the
 # vendored dataset carries (synthetic; see fixtures/PROVENANCE.md)
-load "fixture clinical.sql" "$SCRIPT_DIR/fixtures/demo-data/clinical.sql"
+load "fixture clinical.sql" "$SCRIPT_DIR/fixtures/demo-data/clinical.sql" \
+     utf8mb4
 
 mkdir -p "$OUT"
 # mariadb pairs with mariadb-dump (mariadbdump nowhere); mysql pairs with

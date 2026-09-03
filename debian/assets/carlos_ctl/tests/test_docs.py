@@ -8,6 +8,8 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import contextlib
+import io
 import os
 import shutil
 import tempfile
@@ -709,6 +711,68 @@ class TestArchiveCsvNulls(unittest.TestCase):
         with self.assertRaises(SystemExit):
             o19docs.export_archive_csv(q, "arch", out)
         self.assertEqual(os.listdir(out), [])
+
+
+class TestOwnershipSymlinkGuard(unittest.TestCase):
+    """apply_ownership refuses a documents tree holding symbolic links.
+
+    The tree is owned by the unprivileged service account, so a link
+    planted there and followed by a root-run `chown -R` would hand that
+    account ownership of whatever it points at.
+    """
+
+    def setUp(self):
+        self._run = o19docs.run
+        self._geteuid = os.geteuid
+        os.geteuid = lambda: 0
+        self.calls = []
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        o19docs.run = self._run
+        os.geteuid = self._geteuid
+
+    def _install(self, find_rc, find_out):
+        class CP(object):
+            def __init__(self, rc, out=""):
+                self.returncode = rc
+                self.stdout = out
+
+        def fake_run(argv, **kw):
+            self.calls.append(argv)
+            if argv[0] == "find" and "-type" in argv and "l" in argv:
+                return CP(find_rc, find_out)
+            return CP(0, "")
+        o19docs.run = fake_run
+
+    def test_a_link_whose_name_holds_a_space_counts_as_one(self):
+        # -print0 output: whitespace splitting would report two links and
+        # send the operator looking for a file that is not there
+        self._install(0, "/docs/my scan.pdf\0")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19docs.apply_ownership("/docs", False)
+        self.assertIn("1 symbolic link(s)", err.getvalue())
+        self.assertNotIn("chown", [c[0] for c in self.calls])
+
+    def test_an_unreadable_tree_is_fatal_rather_than_chowned(self):
+        # find failing with no output is not "no links found": chowning
+        # blind is exactly what this guard exists to prevent
+        self._install(1, "")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19docs.apply_ownership("/docs", False)
+        self.assertIn("could not scan", err.getvalue())
+        self.assertNotIn("chown", [c[0] for c in self.calls])
+
+    def test_a_clean_tree_is_chowned_without_dereferencing_links(self):
+        self._install(0, "")
+        o19docs.apply_ownership("/docs", False)
+        chowns = [c for c in self.calls if c[0] == "chown"]
+        self.assertEqual(len(chowns), 1)
+        self.assertIn("-Rh", chowns[0])
 
 
 if __name__ == "__main__":

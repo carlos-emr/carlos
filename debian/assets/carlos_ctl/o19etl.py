@@ -41,7 +41,33 @@ from .util import warn
 # windows rather than rows. Beyond this the range is not a table's id
 # space any more and building the list alone would exhaust memory.
 MAX_CHUNK_WINDOWS = 200000
+
+
 CHUNK_ROWS = 50000
+
+
+def chunk_span_refusal(table: str, chunk_col: str, lo: int,
+                       hi: int) -> Optional[str]:
+    """The refusal text when a chunked table's id range is too wide to
+    window, or None when it is copyable.
+
+    Called BEFORE the table's first target write (the replace_seed DELETE
+    and the ``started`` checkpoint both follow it). The id space comes
+    from the dump, so one row with a BIGINT id near the type's ceiling
+    asks for ~1.8e14 windows and the process dies of memory exhaustion at
+    P4, mid-write, with the OOM killer free to take mariadbd with it.
+    Refusing after the DELETE would have destroyed the target's rows and
+    contradicted this message's own "nothing has been written" promise.
+    """
+    span = (hi - lo) // CHUNK_ROWS + 1
+    if span <= MAX_CHUNK_WINDOWS:
+        return None
+    return ("{0}: its {1} column spans {2}..{3}, which needs {4} copy "
+            "windows — the id space is far larger than the table. "
+            "Renumber or remove the outlying row(s) in the source and "
+            "re-export; nothing has been written for this table.".format(
+                table, chunk_col, lo, hi, span))
+
 
 REPAIR_TEMPLATE = ("CONVERT(BINARY CONVERT({0} USING latin1) USING utf8mb4)")
 
@@ -1338,8 +1364,14 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # point back at the snapshot they just restored. The break-glass
     # admin is the cheapest witness: this run created it, so its absence
     # means the target is not the one this ledger describes.
+    # ...but only once the INSERT is recorded. Between the ledger save
+    # that names the provider_no and the seed INSERT itself there is a
+    # window in which the row legitimately does not exist yet; the
+    # partial-admin retry below (seed_admin_cleanup_statements) is what
+    # covers that, and this witness would otherwise refuse the resume it
+    # is meant to protect.
     recorded_pn = progress.get("admin_provider_no")
-    if recorded_pn:
+    if recorded_pn and progress.get("seed_admin_inserted"):
         still_there = int(plain(
             "SELECT COUNT(*) FROM `{0}`.provider WHERE provider_no = {1}"
             .format(dst, _sql_str(recorded_pn)))[0][0])
@@ -1484,6 +1516,9 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     drop_lines: List[str] = kept.setdefault("drop", [])
     shadow_notes: List[str] = kept.setdefault("shadow", [])
     absent_tables: List[str] = []
+    # tables whose target rows P0 tolerated because this copy deletes them
+    tolerated_tables = set(getattr(
+        o19map_schema, "PRISTINE_TOLERATED_TABLES", ()))
     for table in etl_order(o19map_schema.TABLES):
         entry = o19map_schema.TABLES[table]
         cls = entry["class"]
@@ -1491,10 +1526,26 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             # not in this dump (patch-level variance): said so, because a
             # seeded table then keeps CARLOS's seed rows in the clinic's
             # place
+            note = ""
+            cleared = progress["tables"].get(table, {}).get(
+                "absent_cleared")
+            if table in tolerated_tables and not cleared:
+                # P0 tolerated the target's own rows here (the deploy's
+                # audit trail) ONLY because the copy deletes them before
+                # the clinic's land. With the table absent from the dump
+                # that copy never runs, so the deploy's rows would end up
+                # interleaved with the clinic's history under CARLOS. The
+                # contract is "nothing of the deploy's own survives", so
+                # clear them even though there is nothing to copy in.
+                query("DELETE FROM `{0}`.`{1}`".format(dst, table))
+                progress["tables"].setdefault(table, {})["absent_cleared"] \
+                    = True
+                save_progress(state_dir, progress)
+                note = " (absent: the target's own rows were cleared)"
+            elif table in o19map_schema.SEED_ROW_COUNTS:
+                note = " (seeded: CARLOS defaults stand)"
             if cls in ("copy", "merge"):
-                absent_tables.append("{0}{1}".format(
-                    table, " (seeded: CARLOS defaults stand)"
-                    if table in o19map_schema.SEED_ROW_COUNTS else ""))
+                absent_tables.append("{0}{1}".format(table, note))
             continue
         entry = effective.get(table, entry)
         tstate = progress["tables"].setdefault(table, {})
@@ -1561,6 +1612,12 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                 # checkpoint) clears its first unconfirmed window
                 resumed = bool(tstate.get("started"))
                 done_through = tstate.get("done_through", lo - 1)
+                # bounded BEFORE the window list is built AND before the
+                # replace_seed DELETE below — see chunk_span_refusal
+                refusal = chunk_span_refusal(table, entry["chunk_by"],
+                                             lo, hi)
+                if refusal:
+                    die(refusal)
                 if not tstate.get("started"):
                     if entry.get("replace_seed"):
                         # the unchunked branch does this too: the target
@@ -1571,19 +1628,6 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                         query("DELETE FROM `{0}`.`{1}`".format(dst, table))
                     tstate["started"] = True
                     save_progress(state_dir, progress)
-                # bounded BEFORE the list is built: the id space comes
-                # from the dump, so one row with a BIGINT id near the
-                # type's ceiling asks for ~1.8e14 tuples and the process
-                # dies of memory exhaustion at P4, mid-write, with the
-                # OOM killer free to take mariadbd with it
-                span = (hi - lo) // CHUNK_ROWS + 1
-                if span > MAX_CHUNK_WINDOWS:
-                    die("{0}: its {1} column spans {2}..{3}, which needs "
-                        "{4} copy windows — the id space is far larger "
-                        "than the table. Renumber or remove the outlying "
-                        "row(s) in the source and re-export; nothing has "
-                        "been written for this table.".format(
-                            table, entry["chunk_by"], lo, hi, span))
                 windows = chunk_windows(lo, hi)
                 if len(windows) > 1000:
                     # id-range windows, not row windows: a sparse id space

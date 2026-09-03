@@ -334,7 +334,9 @@ objects with no seeded grant.
 Everything classified `archive` also produces a per-table CSV under
 `…/o19-import/o19-archive-export/` in the root-only state directory (never
 inside the documents tree, which the service account owns) so the clinic holds a readable
-copy independent of MariaDB.
+copy independent of MariaDB. `--cleanup` retires that directory with the rest
+of the run's files (`o19-archive-export.completed-<timestamp>/`), so a second
+import into the same workspace cannot mix two clinics' exports.
 
 ## 5. Documents tar
 

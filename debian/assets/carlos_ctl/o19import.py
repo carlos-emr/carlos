@@ -580,6 +580,14 @@ def run_p0(ctx) -> None:
 
     counts = gather_copy_counts(query, ctx["target_db"])
     startup = startup_row_counts(query, ctx["target_db"])
+    # tables pristine_violations() waves through (the deploy's own audit
+    # rows). Waved through is not invisible: their counts go in the
+    # report, because P0 is the last place anyone looks before the copy
+    # deletes them.
+    tolerated = {
+        t: counts[t] for t in
+        getattr(o19map_schema, "PRISTINE_TOLERATED_TABLES", ())
+        if counts.get(t)}
     violations = pristine_violations(tolerate_startup_rows(counts, startup))
     identity_rows = query(
         "SELECT user_name FROM `{0}`.security".format(ctx["target_db"]))
@@ -617,7 +625,7 @@ def run_p0(ctx) -> None:
     report_append(ctx["state_dir"], "P0 check-pristine",
                   "target {0}: {1} copy/merge-class tables checked (copy: "
                   "exact seed rows or empty; merge: at least the reference "
-                  "seeds); pristine={2}{3}{4}{5}".format(
+                  "seeds); pristine={2}{3}{4}{5}{6}".format(
                       ctx["target_db"], len(counts), not violations,
                       " (DEV TARGET — sweep advisory only)" if dev else "",
                       ("\n  startup-created rows tolerated (the webapp's "
@@ -625,6 +633,11 @@ def run_p0(ctx) -> None:
                            "{0} {1}".format(t, n)
                            for t, n in sorted(startup.items())))
                       if startup else "",
+                      ("\n  pre-existing rows tolerated (this deploy's own; "
+                       "the copy deletes them before the clinic's land): "
+                       + ", ".join("{0} {1}".format(t, n)
+                                   for t, n in sorted(tolerated.items())))
+                      if tolerated else "",
                       ("\n  " + "\n  ".join(violations[:25]))
                       if violations else ""))
     if not ctx.get("dry_run"):
@@ -1342,13 +1355,21 @@ def run_p7(ctx) -> None:
         lines.append("billing totals: billing_on_cheader1 absent from "
                      "both schemas")
     elif s_rows is None or d_rows is None:
+        # one-sided: recorded as a failure AND reported as uncompared.
+        # Zeroing both sides here would make the equality below hold and
+        # print "billing totals match for 0 fiscal year(s)" under a
+        # problem saying the totals could not be compared at all.
+        present = dst if s_rows is None else src
         problems.append(
             "billing_on_cheader1 exists in {0} but not in {1} — "
             "verification cannot compare billing totals".format(
-                dst if s_rows is None else src,
-                src if s_rows is None else dst))
-        s_rows = d_rows = {}
-    if s_rows != d_rows:
+                present, src if s_rows is None else dst))
+        lines.append("billing totals: NOT COMPARED (billing_on_cheader1 "
+                     "is in {0} only)".format(present))
+        s_rows = d_rows = None
+    if s_rows is None:
+        pass
+    elif s_rows != d_rows:
         for year in sorted(set(s_rows) | set(d_rows)):
             if s_rows.get(year) != d_rows.get(year):
                 problems.append(

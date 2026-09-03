@@ -304,10 +304,24 @@ case "$1" in
         # An unattended upgrade landing mid-import would run Flyway
         # against a half-copied schema and then START the webapp into it,
         # costing the clinic a multi-hour rollback. The state file is the
-        # same predicate --resume uses.
+        # same predicate --resume uses. Parsed, not grepped: P7 records a
+        # "verify" phase when it STARTS, so the mere presence of the key
+        # read a failed or interrupted verification as a finished import.
+        # Only phases.verify.status == "done" clears the gate; an
+        # unreadable or half-written ledger fails closed (python3 is a
+        # hard Depends of this package -- carlos-ctl is written in it).
         if [ -s /var/lib/carlos-emr/o19-import/state.json ] \
-           && grep -q '"phases"' /var/lib/carlos-emr/o19-import/state.json \
-           && ! grep -q '"verify"' /var/lib/carlos-emr/o19-import/state.json
+           && ! python3 -c 'import json, sys
+try:
+    s = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)
+p = s.get("phases")
+if not isinstance(p, dict) or not p:
+    sys.exit(0)
+v = p.get("verify")
+sys.exit(0 if isinstance(v, dict) and v.get("status") == "done" else 1)
+' /var/lib/carlos-emr/o19-import/state.json
         then
             MIGRATION_OK=0
             echo "carlos-emr: an OSCAR 19 import is in progress (see" >&2

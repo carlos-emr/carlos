@@ -8,6 +8,7 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import inspect
 import os
 import unittest
 
@@ -963,6 +964,41 @@ class TestManifestDrivenGeneration(unittest.TestCase):
                 # joins through its NULLIF, not the raw column)
                 self.assertIn("d.`{0}` <=> {1}".format(
                     k, o19etl.source_expr(entry, k)), sql)
+
+
+class TestChunkSpanRefusal(unittest.TestCase):
+    """The windowed-copy id-range bound, evaluated before any write.
+
+    run_etl calls this BEFORE the replace_seed DELETE and the ``started``
+    checkpoint, so its "nothing has been written for this table" promise
+    is true. A refusal raised after the DELETE would have destroyed the
+    target's rows while claiming it had not.
+    """
+
+    def test_an_ordinary_id_range_is_copyable(self):
+        self.assertIsNone(
+            o19etl.chunk_span_refusal("log", "id", 1, 4_000_000))
+
+    def test_a_range_at_the_bound_is_still_copyable(self):
+        hi = o19etl.CHUNK_ROWS * (o19etl.MAX_CHUNK_WINDOWS - 1)
+        self.assertIsNone(o19etl.chunk_span_refusal("log", "id", 0, hi))
+
+    def test_a_bigint_outlier_is_refused_naming_the_span(self):
+        msg = o19etl.chunk_span_refusal("log", "id", 1, 2 ** 62)
+        self.assertIsNotNone(msg)
+        self.assertIn("log", msg)
+        self.assertIn("id", msg)
+        self.assertIn("nothing has been written for this table", msg)
+
+    def test_the_refusal_precedes_every_write_in_the_copy_path(self):
+        # the ordering is the whole point: assert the call site sits
+        # above the replace_seed DELETE inside the chunked branch
+        src = inspect.getsource(o19etl.run_etl)
+        chunked = src.index('if entry.get("chunk_by"):')
+        guard = src.index("chunk_span_refusal(", chunked)
+        delete = src.index(
+            'query("DELETE FROM `{0}`.`{1}`".format(dst, table))', chunked)
+        self.assertLess(guard, delete)
 
 
 if __name__ == "__main__":

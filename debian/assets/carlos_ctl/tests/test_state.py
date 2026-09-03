@@ -93,6 +93,19 @@ class TestPristineGate(unittest.TestCase):
         v = o19import.pristine_violations(counts)
         self.assertTrue(any(seeded_table in x for x in v))
 
+    def test_a_tolerated_table_with_rows_is_waved_through(self):
+        # `log` carries this deploy's own audit rows (a sysadmin's
+        # verification login). The copy deletes them before the clinic's
+        # id-intact rows land, so they are not a non-stock target — but
+        # run_check_pristine still puts the count in the report, because
+        # P0 is the last place anyone looks before they are deleted.
+        tolerated = getattr(o19map_schema, "PRISTINE_TOLERATED_TABLES", ())
+        self.assertTrue(tolerated)
+        counts = self.seeds()
+        for table in tolerated:
+            counts[table] = 12
+        self.assertEqual(o19import.pristine_violations(counts), [])
+
     def test_no_accept_class_can_clear_the_gate(self):
         # the gate is not expressed as a preflight blocker at all, so the
         # accept vocabulary cannot touch it — pin the vocabulary here.
@@ -788,6 +801,29 @@ class TestVerifyPhaseFiles(unittest.TestCase):
             self.assertIn("P7 verify:\nexpired logins: fixture.expired",
                           fh.read())
         self.assertTrue(o19import.phase_done(ctx["state"], "verify"))
+
+    def test_a_one_sided_billing_table_is_not_reported_as_a_match(self):
+        # billing_on_cheader1 present in the target but absent from
+        # staging: the run records that it cannot compare. Zeroing both
+        # sides to keep the equality test simple used to print "billing
+        # totals match for 0 fiscal year(s)" directly under that failure.
+        ctx = self._ctx()
+        inner = ctx["query"]
+
+        def query(sql, db=None):
+            if "billing_on_cheader1 GROUP BY" in sql and "o19_import" in sql:
+                raise RuntimeError(
+                    "ERROR 1146 (42S02) at line 1: Table "
+                    "'o19_import.billing_on_cheader1' doesn't exist")
+            return inner(sql, db)
+        ctx["query"] = query
+        with self.assertRaises(SystemExit):
+            o19import.run_p7(ctx)
+        with open(os.path.join(self.state_dir, "report.txt")) as fh:
+            report = fh.read()
+        self.assertIn("billing totals: NOT COMPARED", report)
+        self.assertNotIn("billing totals match", report)
+        self.assertIn("verification cannot compare billing totals", report)
 
     def test_rerun_replaces_the_verify_block(self):
         o19import.write_private(
