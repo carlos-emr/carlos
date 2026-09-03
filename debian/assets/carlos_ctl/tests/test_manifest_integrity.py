@@ -143,6 +143,72 @@ class TestSchemaManifest(unittest.TestCase):
         for table in o19map_schema.SEED_ROW_COUNTS:
             self.assertIn(table, copyish, table)
 
+    def test_privilege_tables_are_merged_on_their_primary_key(self):
+        # the role matrix: CARLOS grants win on collision, clinic-custom
+        # roles / provider overrides / patient lockouts append (plan §4.5)
+        priv = o19map_schema.TABLES["secObjPrivilege"]
+        self.assertEqual(priv["class"], "merge")
+        self.assertEqual(priv["merge_keys"], ["roleUserGroup", "objectName"])
+        self.assertNotIn("surrogate_pk", priv)
+        self.assertIn("_pmm", priv.get("merge_exclude", ""))
+        obj = o19map_schema.TABLES["secObjectName"]
+        self.assertEqual(obj["class"], "merge")
+        self.assertEqual(obj["merge_keys"], ["objectName"])
+        # secPrivilege is the token vocabulary and stays CARLOS-owned
+        self.assertEqual(o19map_schema.TABLES["secPrivilege"]["class"],
+                         "reference")
+
+    def test_property_and_gender_lists_merge_with_carlos_defaults(self):
+        prop = o19map_schema.TABLES["property"]
+        self.assertEqual(prop["class"], "merge")
+        self.assertEqual(prop["merge_keys"], ["name", "provider_no"])
+        self.assertEqual(prop["surrogate_pk"], "id")
+        self.assertIn("NULLIF", prop["value_exprs"]["provider_no"])
+        gender = o19map_schema.TABLES["lst_gender"]
+        self.assertEqual(gender["class"], "merge")
+        self.assertEqual(gender["merge_keys"], ["code"])
+
+    def test_privilege_seed_floor_reflects_later_deletions(self):
+        # 514 baseline tuples, minus the carlosdoc denial V1.0.9 deletes;
+        # the V1.0.6 INSERT IGNORE is not counted (a live target holds 514)
+        self.assertEqual(o19map_schema.SEED_ROW_COUNTS["secObjPrivilege"],
+                         513)
+        self.assertEqual(o19map_schema.SEED_ROW_COUNTS["secObjectName"],
+                         133)
+
+    def test_startup_created_rows_name_copy_tables(self):
+        # the seed script deletes them before the id-intact copy; a merge
+        # table could not be cleared that way
+        tables = [t for t, _ in o19map_schema.STARTUP_CREATED_ROWS]
+        self.assertEqual(tables, ["site", "providersite",
+                                  "program_provider", "program"])
+        for table, where in o19map_schema.STARTUP_CREATED_ROWS:
+            self.assertEqual(o19map_schema.TABLES[table]["class"], "copy",
+                             table)
+            self.assertTrue(where.strip(), table)
+
+    def test_role_and_prevention_constants_are_populated(self):
+        self.assertIn("doctor", o19map_schema.STOCK_ROLE_NAMES)
+        self.assertIn("admin", o19map_schema.STOCK_ROLE_NAMES)
+        self.assertIn("HRMAdmin", o19map_schema.STOCK_ROLE_NAMES)
+        self.assertEqual(o19map_schema.STOCK_ROLE_NAMES,
+                         sorted(set(o19map_schema.STOCK_ROLE_NAMES)))
+        self.assertEqual(o19map_schema.PREVENTION_TYPE_MAP["Flu"], "Inf")
+        for canonical in set(o19map_schema.PREVENTION_TYPE_MAP.values()):
+            self.assertIn(canonical, o19map_schema.KNOWN_PREVENTION_TYPES,
+                          "map targets a code PreventionItems.xml lacks")
+        self.assertGreater(o19map_schema.ROLE_TEMPLATE_MIN_JACCARD, 0)
+        self.assertLess(o19map_schema.ROLE_TEMPLATE_MIN_JACCARD, 1)
+
+    def test_value_expr_targets_are_copied_columns(self):
+        # a synthesized column that is not in `cols` is silently never
+        # written (found in M8 on pharmacyInfo.uid)
+        for table, entry in o19map_schema.TABLES.items():
+            for col in entry.get("value_exprs", {}):
+                self.assertIn(col, entry["cols"],
+                              "{0}.{1} has a value_exprs entry but is not "
+                              "copied".format(table, col))
+
     def test_core_clinical_tables_are_copied(self):
         # The heart of a clinic record must never silently fall out of the
         # manifest through a parser or curation regression.
@@ -196,6 +262,9 @@ class TestPreflightDriftLock(unittest.TestCase):
             pf.CHARSET_SCAN,
             {t: e["charset_scan"] for t, e in o19map_schema.TABLES.items()
              if e.get("charset_scan")})
+        self.assertEqual(pf.STOCK_ROLE_NAMES, o19map_schema.STOCK_ROLE_NAMES)
+        self.assertEqual(pf.LEGACY_PREVENTION_TYPES,
+                         sorted(o19map_schema.PREVENTION_TYPE_MAP))
 
 
 class TestPropsManifest(unittest.TestCase):

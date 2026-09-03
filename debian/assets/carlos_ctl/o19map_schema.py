@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-1'
+SCHEMA_MAP_VERSION = 'o19map-2'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -1932,12 +1932,16 @@ TABLES = {
             'number_of_pages',
             'appointment_no',
             'restrictToProgram',
+            'receivedDate',
         ],
         'dropped': {
             'fileSignature': {
                 'nondefault': "s.`fileSignature` IS NOT NULL AND s.`fileSignature` <> ''",
                 'b3': True,
             },
+        },
+        'value_exprs': {
+            'receivedDate': 's.`observationdate`',
         },
         'chunk_by': 'document_no',
         'charset_scan': ['docdesc'],
@@ -9579,8 +9583,8 @@ TABLES = {
         },
     },
     'lst_gender': {
-        'class': 'copy',
-        'replace_seed': True,
+        'class': 'merge',
+        'merge_keys': ['code'],
         'cols': ['code', 'description', 'isactive', 'displayorder'],
         'dropped': {
             'progDesc': {
@@ -9963,6 +9967,7 @@ TABLES = {
             'addDate',
             'status',
             'serviceLocationIdentifier',
+            'uid',
         ],
         'value_exprs': {
             'uid': 's.`recordID`',
@@ -10185,13 +10190,17 @@ TABLES = {
         'cols': ['team_id', 'name', 'program_id'],
     },
     'property': {
-        'class': 'copy',
-        'replace_seed': True,
+        'class': 'merge',
+        'merge_keys': ['name', 'provider_no'],
+        'surrogate_pk': 'id',
         'cols': ['name', 'value', 'id', 'provider_no'],
         'dropped': {
             'lastUpdateDate': {
                 'nondefault': "s.`lastUpdateDate` IS NOT NULL AND s.`lastUpdateDate` <> ''",
             },
+        },
+        'value_exprs': {
+            'provider_no': "NULLIF(s.`provider_no`, '')",
         },
     },
     'provider': {
@@ -10556,10 +10565,21 @@ TABLES = {
         'cols': ['id', 'provider_no', 'date_time', 'scratch_text', 'status'],
     },
     'secObjPrivilege': {
-        'class': 'reference',
+        'class': 'merge',
+        'merge_keys': ['roleUserGroup', 'objectName'],
+        'merge_exclude': "s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN ('_admin.traceability', '_newCasemgmt.clearTempNotes', '_admin.pmm', '_caisi.documentationWarning ')",
+        'cols': ['roleUserGroup', 'objectName', 'privilege', 'priority', 'provider_no'],
     },
     'secObjectName': {
-        'class': 'reference',
+        'class': 'merge',
+        'merge_keys': ['objectName'],
+        'merge_exclude': "s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN ('_admin.traceability', '_newCasemgmt.clearTempNotes', '_admin.pmm', '_caisi.documentationWarning ')",
+        'cols': ['objectName', 'description', 'orgapplicable'],
+        'dropped': {
+            'note': {
+                'nondefault': "s.`note` IS NOT NULL AND s.`note` <> ''",
+            },
+        },
     },
     'secPrivilege': {
         'class': 'reference',
@@ -10745,7 +10765,11 @@ TABLES = {
             'priority',
             'task_assigned_to',
             'category_id',
+            'creation_date',
         ],
+        'value_exprs': {
+            'creation_date': "COALESCE(NULLIF(s.`update_date`, '0001-01-01 00:00:00'), s.`service_date`, NOW())",
+        },
         'fk_remap': {
             'category_id': 'tickler_category',
         },
@@ -20701,6 +20725,8 @@ CARLOS_COLUMNS = {
     'scheduletemplate': ['provider_no', 'name', 'summary', 'timecode'],
     'scheduletemplatecode': ['id', 'code', 'description', 'duration', 'color', 'confirm', 'bookinglimit'],
     'scratch_pad': ['id', 'provider_no', 'date_time', 'scratch_text', 'status'],
+    'secObjPrivilege': ['roleUserGroup', 'objectName', 'privilege', 'priority', 'provider_no'],
+    'secObjectName': ['objectName', 'description', 'orgapplicable'],
     'secRole': ['role_no', 'role_name', 'description'],
     'secUserRole': ['id', 'provider_no', 'role_name', 'orgcd', 'activeyn', 'lastUpdateDate'],
     'security': [
@@ -20920,7 +20946,6 @@ SEED_ROW_COUNTS = {
     'app_lookuptable': 13,
     'app_lookuptable_fields': 40,
     'appointment_status': 15,
-    'bed_type': 1,
     'billcenter': 9,
     'billing_payment_type': 8,
     'billingservice': 11472,
@@ -20945,14 +20970,9 @@ SEED_ROW_COUNTS = {
     'frm_labreq_preset': 193,
     'groups_tbl': 1,
     'issue': 71,
-    'lst_admission_status': 2,
-    'lst_discharge_reason': 3,
     'lst_field_category': 4,
     'lst_gender': 4,
-    'lst_organization': 3,
     'lst_orgcd': 2,
-    'lst_program_type': 3,
-    'lst_sector': 4,
     'lst_service_restriction': 3,
     'measurementType': 348,
     'mygroup': 1,
@@ -20968,6 +20988,8 @@ SEED_ROW_COUNTS = {
     'scheduleholiday': 28,
     'scheduletemplate': 1,
     'scheduletemplatecode': 23,
+    'secObjPrivilege': 513,
+    'secObjectName': 133,
     'secRole': 33,
     'secUserRole': 2,
     'security': 1,
@@ -20989,4 +21011,180 @@ SEED_USER_NAME = 'carlosdoc'
 # copy-class tables whose rows are credentials (OAuth consumer secrets, signing
 # keys): copied verbatim, named in the ETL report under a rotate/verify advisory
 CREDENTIAL_TABLES = ['ServiceClient', 'oscarKeys', 'publicKeys']
+
+# rows the webapp creates on its first start (the OSCAR program, the seeded
+# clinician's membership, the default site): tolerated by the P0 sweep on a booted
+# host and deleted by the seed script before the clinic's rows copy
+STARTUP_CREATED_ROWS = [
+    ('site', "name = 'Main Clinic'"),
+    ('providersite', "provider_no = '999998'"),
+    ('program_provider', "provider_no = '999998' AND program_id IN (SELECT id FROM {schema}.program WHERE name = 'OSCAR')"),
+    ('program', "name = 'OSCAR'"),
+]
+
+# role names the CARLOS Flyway seed defines (secRole); any other imported role
+# is clinic-custom and gets its CARLOS-era grants from a template stock role
+STOCK_ROLE_NAMES = [
+    'CAISI ADMIN',
+    'Case Manager',
+    'Client Service Worker',
+    'Clinical Assistant',
+    'Clinical Case Manager',
+    'Clinical Social Worker',
+    'Counselling Intern',
+    'Field Note Admin',
+    'HRMAdmin',
+    'Housing Worker',
+    'Medical Secretary',
+    'Nurse Manager',
+    'Partner Doctor',
+    'RN',
+    'RPN',
+    'Recreation Therapist',
+    'Site Manager',
+    'Support Counsellor',
+    'Support Worker',
+    'Vaccine Provider',
+    'admin',
+    'counsellor',
+    'doctor',
+    'er_clerk',
+    'external',
+    'locum',
+    'moderator',
+    'nurse',
+    'property staff',
+    'psychiatrist',
+    'receptionist',
+    'secretary',
+    'student',
+]
+
+ROLE_TEMPLATE_MIN_JACCARD = 0.3
+
+# legacy preventions.prevention_type spellings -> Health Canada code, from
+# database/mysql/updates/update-2026-03-10-standardize-prevention-types.sql; the
+# roles post-step applies them to imported rows (Flyway never sees clinic data)
+PREVENTION_TYPE_MAP = {
+    'CHOLERA': 'Chol-O',
+    'CTC': 'LDCT',
+    'DTaP-HBV-IPV-Hib': 'DTaP-HB-IPV-Hib',
+    'Dukoral': 'Chol-O',
+    'Flu': 'Inf',
+    'H1N1': 'Inf',
+    'HPV Vaccine': 'HPV',
+    'HZV': 'LZV',
+    'HepA': 'HA',
+    'HepA+B': 'HAHB',
+    'HepAB': 'HAHB',
+    'HepB': 'HB',
+    'Influenza': 'Inf',
+    'MMRV': 'MMR-Var',
+    'Measles': 'M',
+    'Men-B': 'rMenB',
+    'MenC-C': 'Men-C-C',
+    'Pneu': 'Pneu-C',
+    'Pneu-C-7': 'Pneu-C',
+    'Pneumococcus': 'Pneu-P-23',
+    'Pneumovax': 'Pneu-P-23',
+    'Poliovirus': 'IPV',
+    'Rabies': 'Rab',
+    'Rot': 'Rota',
+    'Rotavirus': 'Rota',
+    'TdP': 'Td-IPV',
+    'TdP-IPV': 'Td-IPV',
+    'Tetanus': 'T',
+    'Typh': 'Typh-I',
+    'Typhoid': 'Typh-I',
+    'Typhoid-I': 'Typh-I',
+    'VZ': 'Var',
+    'Varicella': 'Var',
+    'Zos': 'LZV',
+    'Zostavax': 'LZV',
+    'dTaP': 'Tdap',
+    'dTap': 'Tdap',
+    'fIPV': 'IPV',
+}
+
+# prevention type codes PreventionItems.xml renders; any other imported code shows
+# as an unconfigured prevention and is reported
+KNOWN_PREVENTION_TYPES = [
+    'AAA',
+    'BCG',
+    'BMD',
+    'COLONOSCOPY',
+    'COVID-19',
+    'Chol-Ecol-O',
+    'Chol-O',
+    'DT-IPV',
+    'DTaP',
+    'DTaP-HB-IPV-Hib',
+    'DTaP-Hib',
+    'DTaP-IPV',
+    'DTaP-IPV-HB',
+    'DTaP-IPV-Hib',
+    'DTaP-IPV-Hib-HB',
+    'FOBT',
+    'H1N1',
+    'HA',
+    'HA-Typh-I',
+    'HAHB',
+    'HB',
+    'HBTmf',
+    'HIV',
+    'HPV',
+    'HPV-9',
+    'HPV-CERVIX',
+    'HepB screen',
+    'HepC screen',
+    'Hib',
+    'IPV',
+    'Inf',
+    'JE',
+    'LDCT',
+    'LZV',
+    'M',
+    'MAM',
+    'MMR',
+    'MMR-Var',
+    'MR',
+    'Men-C-ACYW-135',
+    'Men-C-C',
+    'Men-P-AC',
+    'Men-P-ACWY',
+    'OtherA',
+    'OtherB',
+    'PAP',
+    'PHV',
+    'PSA',
+    'Pneu-C',
+    'Pneu-C-13',
+    'Pneu-C-15',
+    'Pneu-C-20',
+    'Pneu-P-23',
+    'RSV',
+    'RSVAb',
+    'RZV',
+    'Rab',
+    'Rota',
+    'Rota-1',
+    'Rota-5',
+    'Smoking',
+    'T',
+    'TBE',
+    'Td',
+    'Td-IPV',
+    'TdP-IPV-Hib',
+    'Tdap',
+    'Tdap-IPV',
+    'Tuberculosis',
+    'Typh-I',
+    'Typh-O',
+    'VDRL',
+    'Var',
+    'YF',
+    'chlamydia',
+    'ghonorrhea PCR',
+    'rMenB',
+]
 

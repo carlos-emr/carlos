@@ -189,6 +189,37 @@ def pristine_violations(counts: Dict[str, int]) -> List[str]:
     return violations
 
 
+def startup_row_counts(query, db: str) -> Dict[str, int]:
+    """Rows the webapp created on its first start, per table (manifest
+    STARTUP_CREATED_ROWS): a packaged host has booted before the import
+    runs, so the sweep tolerates exactly these rows (the seed script
+    deletes them before the copy)."""
+    from . import o19roles
+    out: Dict[str, int] = {}
+    tables = {row[0] for row in query(
+        "SELECT TABLE_NAME FROM information_schema.TABLES "
+        "WHERE TABLE_SCHEMA = '{0}'".format(db))}
+    for table, where in o19map_schema.STARTUP_CREATED_ROWS:
+        if table not in tables:
+            continue
+        n = int(query(o19roles.startup_row_count_sql(table, where, db))
+                [0][0])
+        if n:
+            out[table] = n
+    return out
+
+
+def tolerate_startup_rows(counts: Dict[str, int],
+                          startup: Dict[str, int]) -> Dict[str, int]:
+    """The sweep's counts with the startup-created rows subtracted (pure,
+    for the tests): only copy-class tables the sweep knows are touched."""
+    adjusted = dict(counts)
+    for table, n in startup.items():
+        if table in adjusted:
+            adjusted[table] = max(0, adjusted[table] - n)
+    return adjusted
+
+
 def gather_copy_counts(query, db: str) -> Dict[str, int]:
     tables = {row[0] for row in query(
         "SELECT TABLE_NAME FROM information_schema.TABLES "
@@ -345,7 +376,8 @@ def run_p0(ctx) -> None:
         return
 
     counts = gather_copy_counts(query, ctx["target_db"])
-    violations = pristine_violations(counts)
+    startup = startup_row_counts(query, ctx["target_db"])
+    violations = pristine_violations(tolerate_startup_rows(counts, startup))
     identity_rows = query(
         "SELECT user_name FROM `{0}`.security".format(ctx["target_db"]))
     users = sorted(r[0] for r in identity_rows if r)
@@ -368,9 +400,14 @@ def run_p0(ctx) -> None:
     report_append(ctx["state_dir"], "P0 check-pristine",
                   "target {0}: {1} copy/merge-class tables checked (copy: "
                   "exact seed rows or empty; merge: at least the reference "
-                  "seeds); pristine={2}{3}{4}".format(
+                  "seeds); pristine={2}{3}{4}{5}".format(
                       ctx["target_db"], len(counts), not violations,
                       " (DEV TARGET — sweep advisory only)" if dev else "",
+                      ("\n  startup-created rows tolerated (the webapp's "
+                       "first start): " + ", ".join(
+                           "{0} {1}".format(t, n)
+                           for t, n in sorted(startup.items())))
+                      if startup else "",
                       ("\n  " + "\n  ".join(violations[:25]))
                       if violations else ""))
     if not ctx.get("dry_run"):
@@ -772,7 +809,9 @@ def _row_parity(ctx):
                              admin_user=(progress.get("admin_user")
                                          or ctx.get("admin_user")),
                              admin_provider_no=progress.get(
-                                 "admin_provider_no"))
+                                 "admin_provider_no"),
+                             appended=progress.get("roles", {}).get(
+                                 "appended"))
 
 
 def run_p4(ctx) -> None:
@@ -917,6 +956,28 @@ def run_p7(ctx) -> None:
         lines.append("billing totals match for {0} fiscal year(s)"
                      .format(len(s_rows)))
 
+    # roles, privileges and the rows CARLOS code requires (M8)
+    from . import o19roles
+    progress = o19etl.load_progress(ctx["state_dir"])
+    r_ok, r_bad, r_adv, r_private = o19roles.verify_role_checks(
+        query, dst, progress.get("admin_provider_no"),
+        o19map_schema.SEED_ROW_COUNTS.get("secObjPrivilege", 0))
+    lines.append("roles/privileges: {0} check(s) passed".format(len(r_ok)))
+    problems.extend(r_bad)
+    if r_private:
+        # the roles post-step already wrote this file (activated
+        # assignments); the verify findings are appended, never replace it
+        path = os.path.join(ctx["state_dir"], "roles-details.txt")
+        existing = ""
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as fh:
+                existing = fh.read()
+        write_private(path, existing + "P7 verify:\n"
+                      + "\n".join(r_private) + "\n")
+    if r_adv:
+        lines.append("ADVISORIES (review before go-live):\n  "
+                     + "\n  ".join(r_adv))
+
     report_append(ctx["state_dir"], "P7 verify",
                   "\n".join(lines)
                   + ("\nFAILURES:\n  " + "\n  ".join(problems[:40])
@@ -1052,6 +1113,17 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                         help="break-glass admin account created before the "
                              "seeded clinician is removed (required for a "
                              "real import)")
+        ap.add_argument("--role-template", action="append", default=[],
+                        metavar="CUSTOM=STOCK",
+                        help="grant a clinic-custom role the CARLOS-era "
+                             "privileges of the named CARLOS stock role "
+                             "(repeatable); default: the closest stock role "
+                             "by privilege similarity, reported")
+        ap.add_argument("--fixups-dir", metavar="DIR",
+                        help="DEV ONLY (with --dev-target): directory "
+                             "holding the packaged data-fixup scripts "
+                             "(Rich Text Letter); default "
+                             "/usr/share/carlos-emr/schema/o19-fixups")
         ap.add_argument("--dry-run", action="store_true",
                         help="run P0-P2 + reports only; no writes beyond "
                              "the throwaway staging schema")
@@ -1210,6 +1282,14 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     state = load_state(state_dir)
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
 
+    from . import o19roles
+    try:
+        role_templates = o19roles.parse_role_templates(
+            getattr(args, "role_template", None))
+    except ValueError as exc:
+        die(str(exc))
+    if getattr(args, "fixups_dir", None) and not dev_target:
+        die("--fixups-dir is a development seam and needs --dev-target")
     accepted = merged_acknowledgements(args.accept, state)
     inputs = _resolve_inputs(
         args, state_dir, accepted,
@@ -1257,6 +1337,8 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         "resume": getattr(args, "resume", False),
         "dry_run": getattr(args, "dry_run", False),
         "admin_user": getattr(args, "admin_user", None),
+        "role_templates": role_templates,
+        "fixups_dir": getattr(args, "fixups_dir", None),
     }
 
 
@@ -1379,6 +1461,9 @@ def _cmd_import_o19(argv) -> int:
         "  2. run `carlos-ctl backup full` (post-import snapshot)\n"
         "  3. TECHNICAL REVIEW before clinical use: {0}/report.txt, spot "
         "checks, UI smoke\n"
+        "     roles: the 'roles:' report lines, privilege-diff.txt and "
+        "roles-details.txt — confirm each custom role's privileges in "
+        "Administration > Security, and expired or role-less accounts\n"
         "  4. then `carlos-ctl import-o19 --cleanup`".format(
             ctx["state_dir"]))
     return 0

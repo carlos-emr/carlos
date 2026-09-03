@@ -117,6 +117,25 @@ class TestMergeStatement(unittest.TestCase):
         self.assertIn("WHERE NOT EXISTS (SELECT 1 FROM `dst`.`t` d "
                       "WHERE d.`name` <=> s.`name`)", sql)
 
+    def test_merge_exclude_predicate_is_appended(self):
+        entry = {"class": "merge", "cols": ["name", "value"],
+                 "merge_keys": ["name"],
+                 "merge_exclude": "s.`name` LIKE '\\_pmm%'"}
+        dst = {"name": col(), "value": col()}
+        sql = o19etl.merge_statement("t", entry, "src", "dst", dst)
+        self.assertTrue(sql.endswith(" AND NOT (s.`name` LIKE '\\_pmm%')"))
+
+    def test_privilege_and_history_value_exprs_reach_the_sql(self):
+        # the manifest promises these (plan §4.3 / §4.5)
+        doc = o19map_schema.TABLES["document"]
+        sql = o19etl.copy_statement("document", doc, "src", "dst",
+                                    {c: col() for c in doc["cols"]})
+        self.assertIn("s.`observationdate`", sql)
+        tick = o19map_schema.TABLES["tickler"]
+        sql = o19etl.copy_statement("tickler", tick, "src", "dst",
+                                    {c: col() for c in tick["cols"]})
+        self.assertIn("NULLIF(s.`update_date`, '0001-01-01 00:00:00')", sql)
+
     def test_surrogate_pk_is_excluded_from_the_insert(self):
         entry = {"class": "merge", "cols": ["id", "type"],
                  "merge_keys": ["type"], "surrogate_pk": "id"}
@@ -545,7 +564,11 @@ class TestManifestDrivenGeneration(unittest.TestCase):
             sql = o19etl.merge_statement(table, entry, "src", "dst", dst)
             self.assertIn("NOT EXISTS", sql)
             for k in entry["merge_keys"]:
-                self.assertIn("d.`{0}` <=> s.`{0}`".format(k), sql)
+                # the anti-join compares the SAME expression the insert
+                # stores (a value_exprs key such as property.provider_no
+                # joins through its NULLIF, not the raw column)
+                self.assertIn("d.`{0}` <=> {1}".format(
+                    k, o19etl.source_expr(entry, k)), sql)
 
 
 if __name__ == "__main__":

@@ -40,7 +40,7 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-SCHEMA_MAP_VERSION = "o19map-1"
+SCHEMA_MAP_VERSION = "o19map-2"
 
 # --- shared-table class overrides -----------------------------------------
 
@@ -48,7 +48,11 @@ SCHEMA_MAP_VERSION = "o19map-1"
 CLASS_REFERENCE = {
     "icd9", "icd10", "measurementMap", "diagnosticcode", "ichppccode",
     "billing_on_errorCode", "country_codes",
-    "secObjectName", "secObjPrivilege", "secPrivilege",
+    # secPrivilege is the privilege-token vocabulary (x/r/w/u/d/o); the
+    # role matrix itself (secObjPrivilege) and the object catalogue
+    # (secObjectName) are MERGED below — clinic-custom roles, per-provider
+    # overrides and patient-scoped lockouts live there
+    "secPrivilege",
     "gstControl", "specialistsJavascript", "oscarcommlocations",
     "OscarJob", "OscarJobType", "OscarCode", "oscar_msg_type",
     "fax_config",                    # CARLOS fax is SRFax/DB-configured
@@ -63,13 +67,13 @@ CLASS_REFERENCE = {
 # the ordered seed-reconciliation script, not here.)
 REPLACE_SEED = {
     "clinic", "clinic_location", "clinic_nbr", "provider_facility",
-    "property", "issue", "program", "program_provider",
+    "issue", "program", "program_provider",
     "caisi_role", "access_type", "default_role_access", "secRole",
     "secUserRole", "mygroup", "scheduletemplate", "scheduletemplatecode",
     "scheduleholiday", "queue", "groups_tbl", "agency", "Facility",
     "FunctionalCentre", "bed_type", "report", "reportprovider",
     "lst_admission_status", "lst_discharge_reason", "lst_field_category",
-    "lst_gender", "lst_organization", "lst_orgcd", "lst_program_type",
+    "lst_organization", "lst_orgcd", "lst_program_type",
     "lst_sector", "lst_service_restriction",
 }
 
@@ -111,7 +115,66 @@ CLASS_MERGE = {
     # rows; clinics customize measurement groups, so union semantics
     "measurementGroup": ["name", "typeDisplayName"],
     "measurementGroupStyle": ["groupName"],
+    # the role matrix: CARLOS's seeded grants win on a (role, object)
+    # collision (deliberate CARLOS policy such as doctor/_eform 'w'), the
+    # clinic's own rows append — custom roles, per-provider overrides
+    # (roleUserGroup = provider_no), patient-scoped lockouts
+    # (_eChart$<demo>, roleUserGroup '_all'), document-queue objects
+    # (_queue.<id>). The (roleUserGroup, objectName) PK is the natural key.
+    # The roles post-step (o19roles) reports every overridden clinic row.
+    "secObjPrivilege": ["roleUserGroup", "objectName"],
+    "secObjectName": ["objectName"],
+    # runtime configuration store (UserProperty): CARLOS defaults stand,
+    # the clinic's own keys append; a surrogate id, so appended rows get
+    # fresh ids (nothing references property.id)
+    "property": ["name", "provider_no"],
+    # CARLOS adds gender codes (U, X) O19 lacks; clinic rows append
+    "lst_gender": ["code"],
 }
+
+# Rows a merge-class table must NOT accept from the dump: objects of modules
+# CARLOS removed (their code checks nothing, and they would only clutter the
+# admin UI's role matrix). Predicates address the staging alias `s`.
+MERGE_EXCLUDE = {
+    "secObjPrivilege": ("s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN "
+                        "('_admin.traceability', "
+                        "'_newCasemgmt.clearTempNotes', '_admin.pmm', "
+                        "'_caisi.documentationWarning ')"),
+    "secObjectName": ("s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN "
+                      "('_admin.traceability', "
+                      "'_newCasemgmt.clearTempNotes', '_admin.pmm', "
+                      "'_caisi.documentationWarning ')"),
+}
+
+# Seed rows a later Flyway migration DELETEs again (the static tuple count
+# over-counts them): table -> rows to subtract from the P0 floor.
+SEED_COUNT_DELETIONS = {
+    # common/V1.0.9 removes the carlosdoc-scoped _admin.schedule.groupCreate
+    # denial the on_data baseline seeded
+    "secObjPrivilege": 1,
+}
+
+# Rows the CARLOS webapp creates on its FIRST START (ContextStartupListener:
+# the OSCAR program with a membership for the seeded clinician, and the
+# default site). A packaged host has booted before the import runs, so P0
+# tolerates exactly these rows, and the seed script deletes them before the
+# clinic's rows (which reuse the same ids) are copied. Predicates address
+# the target table directly; a subquery names its schema as {schema}
+# (the client runs without a default database).
+STARTUP_CREATED_ROWS = [
+    ("site", "name = 'Main Clinic'"),
+    ("providersite", "provider_no = '999998'"),
+    ("program_provider", "provider_no = '999998' AND program_id IN "
+                         "(SELECT id FROM {schema}.program WHERE name = "
+                         "'OSCAR')"),
+    ("program", "name = 'OSCAR'"),
+]
+
+# Custom-role backfill (o19roles): a clinic role gets the CARLOS-era grants
+# of the stock role whose privilege set it resembles most, but only when the
+# resemblance (Jaccard over (object, privilege) pairs) reaches this floor;
+# below it the role is reported for manual review instead of guessed at.
+ROLE_TEMPLATE_MIN_JACCARD = 0.3
 
 # Child tables whose foreign key points at a merge-class parent with a
 # surrogate PK: appended parent rows get fresh ids, so the child reads its
@@ -301,6 +364,18 @@ VALUE_EXPRS = {
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},
+    # CARLOS-added columns whose default would misrepresent history
+    # (plan §4.3): a document's received date is the O19 observation date;
+    # a tickler's creation timestamp is its legacy update stamp (O19's
+    # column default is 0001-01-01), else its service date — never the
+    # import time the column default would stamp on every row
+    "document": {"receivedDate": "s.`observationdate`"},
+    "tickler": {"creation_date": "COALESCE(NULLIF(s.`update_date`, "
+                                 "'0001-01-01 00:00:00'), s.`service_date`, "
+                                 "NOW())"},
+    # property merges on (name, provider_no); O19 writes '' where CARLOS
+    # writes NULL for a global key, so both spell the key the same way
+    "property": {"provider_no": "NULLIF(s.`provider_no`, '')"},
 }
 
 SEED_PROVIDER_NO = "999998"

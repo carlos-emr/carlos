@@ -116,6 +116,40 @@ class TestPristineGate(unittest.TestCase):
         v = o19import.pristine_violations(counts)
         self.assertTrue(any(x.startswith("provider:") for x in v))
 
+    def test_startup_created_rows_are_tolerated_once(self):
+        # a packaged host booted before the import: the webapp added the
+        # OSCAR program, its membership and the default site
+        counts = self.seeds()
+        counts["program"] += 1
+        counts["program_provider"] += 1
+        counts["site"] = 1
+        counts["providersite"] = 1
+        self.assertTrue(o19import.pristine_violations(counts))
+        adjusted = o19import.tolerate_startup_rows(
+            counts, {"program": 1, "program_provider": 1, "site": 1,
+                     "providersite": 1})
+        self.assertEqual(o19import.pristine_violations(adjusted), [])
+        # a second OSCAR program is still a violation
+        counts["program"] += 1
+        adjusted = o19import.tolerate_startup_rows(
+            counts, {"program": 1, "program_provider": 1, "site": 1,
+                     "providersite": 1})
+        self.assertTrue(any(v.startswith("program:")
+                            for v in o19import.pristine_violations(adjusted)))
+
+    def test_startup_row_counts_follow_the_manifest(self):
+        def q(sql):
+            if "information_schema" in sql:
+                return [["site"], ["program"]]
+            if "`site`" in sql:
+                return [["1"]]
+            if "`program`" in sql:
+                self.assertIn("name = 'OSCAR'", sql)
+                return [["0"]]
+            raise AssertionError(sql)
+        self.assertEqual(o19import.startup_row_counts(q, "carlos"),
+                         {"site": 1})
+
     def test_provider_and_security_seeds_are_expected(self):
         # provider/security ARE seeded — the sweep must expect their seed
         # rows rather than demanding zero.

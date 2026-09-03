@@ -79,6 +79,41 @@ class TestGenerator(unittest.TestCase):
         stripped = self.gen.strip_line_comments(text)
         self.assertEqual(self.gen.count_insert_rows(stripped), {"t": 3})
 
+    def test_seed_counter_skips_insert_ignore_tuples(self):
+        # a forward migration's INSERT IGNORE may be a no-op on a database
+        # that already holds the row, so it must not raise the P0 floor
+        text = ("INSERT INTO `t` VALUES (1,'a'),(2,'b');\n"
+                "INSERT IGNORE INTO `t` (a, b) VALUES (3,'c');\n"
+                "INSERT IGNORE INTO `u` VALUES (1,'z');\n")
+        self.assertEqual(self.gen.count_insert_rows(text), {"t": 2})
+
+    def test_seed_string_column_reads_the_quoted_field(self):
+        text = ("INSERT INTO `secRole` VALUES (1,'doctor','doctor'),"
+                "(2,'Site Manager','Site Manager'),\n(3,'O\\'Neil','x');\n"
+                "INSERT INTO `other` VALUES (9,'nope','n');\n")
+        self.assertEqual(self.gen.seed_string_column(text, "secRole", 1),
+                         ["doctor", "Site Manager", "O'Neil"])
+
+    def test_prevention_type_map_parses_direct_updates_only(self):
+        text = ("UPDATE preventions SET prevention_type = 'Inf' WHERE "
+                "prevention_type = 'Flu';\n"
+                "UPDATE preventions SET prevention_type = 'Inf' WHERE "
+                "prevention_type = 'Influenza';\n"
+                "UPDATE preventionsExt pe JOIN preventions p ON pe.id = p.id "
+                "SET pe.val = 'x' WHERE p.prevention_type NOT IN ('Inf');\n")
+        self.assertEqual(self.gen.parse_prevention_type_map(text),
+                         {"Flu": "Inf", "Influenza": "Inf"})
+        with self.assertRaises(SystemExit):
+            self.gen.parse_prevention_type_map(
+                text + "UPDATE preventions SET prevention_type = 'Var' "
+                       "WHERE prevention_type = 'Flu';\n")
+
+    def test_prevention_items_parser_reads_item_names(self):
+        xml = ('<items><item\n  name="Inf"\n  desc="flu"/>'
+               '<item name="Var" desc="v"/><other name="no"/></items>')
+        self.assertEqual(self.gen.parse_prevention_items(xml),
+                         ["Inf", "Var"])
+
     def test_secret_key_filter(self):
         secret = ("db_password", "hcv.service.pass", "clinicaid_api_key",
                   "hcv.service.conformanceKey", "PGP_KEY", "email.password",

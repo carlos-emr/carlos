@@ -17,6 +17,12 @@ content (clearly-fake values only — no real clinic or patient data):
 
 - `properties/oscar-clinic-example.properties` — a fabricated
   "clinic-modified" O19 properties file driving the props-phase tests.
+- `demo-data/roles.sql` — synthetic role/privilege and legacy-data cases for
+  the roles post-step rehearsal (a clinic-custom role, a NULL `activeyn`
+  assignment, an expired login, a document-queue object, a patient-scoped
+  lockout, a clinic override of a stock grant, a legacy prevention code, a
+  removed-module property key). Fake providers `999901`–`999903`, fake
+  logins `fixture.*` with the upstream demo password hash.
 - `documents/` — manifest + generator for a deterministic placeholder
   OscarDocument tree (no binaries committed), plus the matching fixture
   database rows.

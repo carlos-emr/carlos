@@ -296,6 +296,10 @@ def merge_statement(table: str, entry: dict, src_schema: str,
            "WHERE NOT EXISTS (SELECT 1 FROM `{0}`.`{1}` d WHERE {5})"
            .format(dst_schema, table, targets, exprs, src_schema,
                    merge_join(entry, archive_schema, dst_cols)))
+    if entry.get("merge_exclude"):
+        # rows of removed modules the merge must not carry (manifest
+        # MERGE_EXCLUDE; the predicate addresses the staging alias s)
+        sql += " AND NOT ({0})".format(entry["merge_exclude"])
     if surrogate:
         sql += " ORDER BY s.`{0}`".format(surrogate)
     return sql
@@ -527,8 +531,11 @@ def seed_admin_statements(dst_schema: str, admin_user: str,
         "('{1}', '{2}', '{3}', '{4}', 1, '{3}', NOW())"
         .format(dst_schema, user, _sql_str(password_hash), pn,
                 _sql_str(pin)),
-        "INSERT INTO `{0}`.secUserRole (provider_no, role_name, "
-        "lastUpdateDate) SELECT '{1}', role_name, NOW() FROM "
+        # roles cloned ACTIVE: hasPrivilege counts only activeyn = 1 rows,
+        # and the column's default is NULL (an inert admin, found in M8)
+        "INSERT INTO `{0}`.secUserRole (provider_no, role_name, orgcd, "
+        "activeyn, lastUpdateDate) SELECT '{1}', role_name, "
+        "IFNULL(orgcd, 'R0000001'), 1, NOW() FROM "
         "`{0}`.secUserRole WHERE provider_no = '{2}'"
         .format(dst_schema, pn, seed_pn),
     ]
@@ -843,6 +850,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     """Execute P4. make_password_hash() -> (password, bcrypt_hash, pin)
     so the crypto (and its bcrypt dependency) stays injectable."""
     from .util import die
+    from . import o19roles  # imports this module; resolved lazily
     query = ctx["query_etl"]          # carries the session prelude
     plain = ctx["query"]
     src, dst, arch = ctx["src_schema"], ctx["target_db"], ctx["archive_schema"]
@@ -1002,10 +1010,24 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                                                cred_path))
         for sql in seed_delete_statements(dst):
             query(sql)
+        # rows the webapp created on its first start (a packaged host has
+        # booted before the import): the clinic's rows reuse their ids
+        for sql in o19roles.startup_row_delete_statements(dst):
+            query(sql)
         progress["seed_done"] = True
         save_progress(state_dir, progress)
-        report("seeded clinician removed")
+        report("seeded clinician and startup-created rows removed")
     seed_group = set(seed_group_tables())
+
+    # -- CARLOS seed snapshot (before any clinic row lands) -----------------
+    # the pristine target IS the seed; the roles post-step reads the
+    # snapshot for the privilege diff, the role append and the template
+    # choice, and it must predate the merges below
+    if not progress.get("seed_priv_snapshot"):
+        for sql in o19roles.snapshot_statements(dst, arch):
+            query(sql)
+        progress["seed_priv_snapshot"] = True
+        save_progress(state_dir, progress)
 
     # -- table loop --------------------------------------------------------
     counts = {"copy": 0, "merge": 0, "archive": 0, "drop": 0,
@@ -1192,6 +1214,10 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                "go-live (tokens issued by the OSCAR 19 install keep "
                "working): " + ", ".join(token_tables))
 
+    # -- roles, privileges and CARLOS-required rows (M8) -------------------
+    o19roles.run_roles(ctx, progress,
+                       lambda: save_progress(state_dir, progress))
+
     query(force_reset_statement(dst))
     report("forcePasswordReset set for every imported user")
     report("ETL complete: {0} copied, {1} merged, {2} archived, "
@@ -1226,16 +1252,43 @@ def admin_row_count_sql(table: str, dst_schema: str, admin_user: str,
             user=_sql_str(admin_user), pn=_sql_str(admin_provider_no)))
 
 
+# Tables the roles post-step legitimately appends to beyond the copy
+# (CARLOS-only roles, the OSCAR program, synthesised memberships and
+# facility links): target rows with no staging twin on these keys are the
+# tolerated delta — and only as many as the roles ledger recorded.
+APPENDED_ROW_KEYS = {
+    "secRole": ["role_name"],
+    "program": ["name"],
+    "program_provider": ["program_id", "provider_no", "role_id"],
+    "provider_facility": ["provider_no", "facility_id"],
+}
+
+
+def appended_row_count_sql(table: str, src_schema: str,
+                           dst_schema: str) -> Optional[str]:
+    keys = APPENDED_ROW_KEYS.get(table)
+    if not keys:
+        return None
+    join = " AND ".join("d.`{0}` <=> s.`{0}`".format(k) for k in keys)
+    return ("SELECT COUNT(*) FROM `{0}`.`{1}` d WHERE NOT EXISTS (SELECT 1 "
+            "FROM `{2}`.`{1}` s WHERE {3})".format(dst_schema, table,
+                                                     src_schema, join))
+
+
 def row_parity(plain_query, src_schema: str, dst_schema: str,
                admin_user: Optional[str] = None,
-               admin_provider_no: Optional[str] = None
+               admin_provider_no: Optional[str] = None,
+               appended: Optional[Dict[str, int]] = None
                ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) comparing staging vs target counts for
-    every copy-class table. The ONLY tolerated delta is the break-glass
+    every copy-class table. The tolerated deltas are the break-glass
     admin's own rows, counted exactly on the target (provider, security,
-    secUserRole); every other table — the seed-delete tables included —
-    must match to the row."""
+    secUserRole), and the rows the roles post-step recorded appending
+    (`appended`, from its ledger) — which must equal the target rows that
+    have no staging twin. Every other table — the seed-delete tables
+    included — must match to the row."""
     ok, bad = [], []
+    appended = appended or {}
     src_tables = {r[0] for r in plain_query(
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
         "TABLE_SCHEMA = '{0}'".format(src_schema))}
@@ -1255,6 +1308,17 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
                 admin_rows = int(plain_query(sql)[0][0])
                 expected += admin_rows
                 note = " (+{0} break-glass admin row(s))".format(admin_rows)
+        if table in appended:
+            recorded = int(appended[table])
+            sql = appended_row_count_sql(table, src_schema, dst_schema)
+            twinless = int(plain_query(sql)[0][0]) if sql else 0
+            expected += recorded
+            note += " (+{0} synthesised row(s))".format(recorded)
+            if twinless != recorded:
+                bad.append("{0}: {1} target row(s) without a staging twin, "
+                           "but the roles ledger recorded {2}".format(
+                               table, twinless, recorded))
+                continue
         line = "{0}: staging {1} -> target {2}{3}".format(
             table, src_n, dst_n, note)
         (ok if dst_n == expected else bad).append(line)

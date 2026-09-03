@@ -63,6 +63,13 @@ O19_SQL_SOURCES = [
 ]
 
 O19_PROPERTIES = "src/main/resources/oscar_mcmaster.properties"
+# CARLOS data-normalisation script the importer replays on imported rows
+# (Flyway runs on the stock deploy before the import and never sees them)
+PREVENTION_TYPE_SCRIPT = (
+    REPO_ROOT / "database" / "mysql" / "updates"
+    / "update-2026-03-10-standardize-prevention-types.sql")
+PREVENTION_ITEMS_XML = (REPO_ROOT / "src" / "main" / "resources" / "oscar"
+                        / "prevention" / "PreventionItems.xml")
 CARLOS_PROPERTIES = REPO_ROOT / "src" / "main" / "resources" / "carlos.properties"
 
 MARKER_BEGIN = "# === BEGIN GENERATED DATA (generate_manifests.py) ==="
@@ -211,7 +218,7 @@ _DROP_RE = re.compile(r"drop\s+table\s+(?:if\s+exists\s+)?`?(\w+)`?", re.I)
 _ALTER_RE = re.compile(r"alter\s+table\s+`?(\w+)`?\s+", re.I)
 _RENAME_RE = re.compile(r"rename\s+table\s+`?(\w+)`?\s+to\s+`?(\w+)`?", re.I)
 _INSERT_RE = re.compile(
-    r"insert\s+(?:ignore\s+)?into\s+`?(\w+)`?[^;]*?values\s*", re.I)
+    r"insert\s+(ignore\s+)?into\s+`?(\w+)`?[^;]*?values\s*", re.I)
 
 
 class Schema:
@@ -381,11 +388,17 @@ class Schema:
 
 
 def count_insert_rows(text: str) -> Dict[str, int]:
-    """Count VALUES tuples per table (extended INSERTs counted per tuple)."""
+    """Count VALUES tuples per table (extended INSERTs counted per tuple).
+
+    INSERT IGNORE tuples are NOT counted: they are how forward migrations
+    re-add a row that may already exist, so they can be no-ops and would
+    over-state the P0 seed floor."""
     counts: Dict[str, int] = {}
     for m in _INSERT_RE.finditer(text):
-        table = m.group(1)
+        table = m.group(2)
         i = m.end()
+        if m.group(1):
+            continue
         # walk tuples: '(' ... ')' [, '(' ... ')']* until ';'
         n = len(text)
         rows = 0
@@ -404,6 +417,63 @@ def count_insert_rows(text: str) -> Dict[str, int]:
             break
         counts[table] = counts.get(table, 0) + rows
     return counts
+
+
+def seed_string_column(text: str, table: str, index: int) -> List[str]:
+    """The `index`-th quoted field of every VALUES tuple inserted into
+    `table` (e.g. secRole.role_name), in file order."""
+    out: List[str] = []
+    for m in _INSERT_RE.finditer(text):
+        if m.group(2) != table:
+            continue
+        i = m.end()
+        n = len(text)
+        while i < n:
+            while i < n and text[i] in " \r\n\t":
+                i += 1
+            if i >= n or text[i] != "(":
+                break
+            end = _walk_parens(text, i)
+            fields = _split_top_level(text[i + 1:end - 1])
+            if len(fields) > index:
+                f = fields[index].strip()
+                if len(f) >= 2 and f[0] == f[-1] and f[0] in "'\"":
+                    out.append(f[1:-1].replace("\\'", "'"))
+            i = end
+            while i < n and text[i] in " \r\n\t":
+                i += 1
+            if i < n and text[i] == ",":
+                i += 1
+                continue
+            break
+    return out
+
+
+_PREVENTION_MAP_RE = re.compile(
+    r"UPDATE\s+preventions\s+SET\s+prevention_type\s*=\s*'([^']+)'\s+"
+    r"WHERE\s+prevention_type\s*=\s*'([^']+)'\s*;", re.I)
+
+
+def parse_prevention_type_map(text: str) -> Dict[str, str]:
+    """legacy prevention_type -> canonical code, from the direct-mapping
+    UPDATE statements of the standardize-prevention-types script (the
+    script's catch-all section uses a different statement shape and is
+    deliberately not replicated by the importer)."""
+    out: Dict[str, str] = {}
+    for canonical, legacy in _PREVENTION_MAP_RE.findall(text):
+        if legacy in out and out[legacy] != canonical:
+            raise SystemExit("prevention type {!r} mapped twice ({} / {})"
+                             .format(legacy, out[legacy], canonical))
+        out[legacy] = canonical
+    return out
+
+
+_PREVENTION_ITEM_RE = re.compile(r"<item\b[^>]*?\bname=\"([^\"]+)\"", re.S)
+
+
+def parse_prevention_items(text: str) -> List[str]:
+    """The canonical prevention type codes PreventionItems.xml declares."""
+    return sorted(set(_PREVENTION_ITEM_RE.findall(text)))
 
 
 def read_sql(path: Path) -> str:
@@ -528,6 +598,8 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
     b3_exprs = dict(getattr(ov, "B3_NONDEFAULT_EXPRS", {}))
     chunk_tables = set(ov.CHUNK_TABLES)
     charset_scan = dict(ov.CHARSET_SCAN)
+    merge_exclude = dict(getattr(ov, "MERGE_EXCLUDE", {}))
+    startup_rows = list(getattr(ov, "STARTUP_CREATED_ROWS", []))
 
     for t in shared:
         entry: Dict[str, object] = {}
@@ -541,6 +613,8 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
         if t in merge_keys:
             entry["class"] = "merge"
             entry["merge_keys"] = list(merge_keys[t])
+            if t in merge_exclude:
+                entry["merge_exclude"] = merge_exclude[t]
             for k in merge_keys[t]:
                 if k not in carlos.tables[t]:
                     raise SystemExit(
@@ -579,6 +653,12 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
                 mapped_sources.add(source)
                 if source != target:
                     ren_out[target] = source
+        # a value_exprs target the dump lacks (a CARLOS-added column such
+        # as pharmacyInfo.uid or tickler.creation_date) is still copied —
+        # from its expression, not a source column — so it joins the map
+        for col in value_exprs.get(t, {}):
+            if col in carlos.tables[t] and col not in cols:
+                cols.append(col)
         entry["cols"] = cols
         if ren_out:
             entry["renames"] = ren_out
@@ -661,6 +741,18 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             raise SystemExit(
                 "CREDENTIAL_TABLES names {}, which is not a copy-class "
                 "table".format(t))
+    for t in merge_exclude:
+        if tables.get(t, {}).get("class") != "merge":
+            raise SystemExit(
+                "MERGE_EXCLUDE names {}, which is not a merge-class table"
+                .format(t))
+    for t, _where in startup_rows:
+        # the seed script deletes these before the id-intact copy; only a
+        # copy-class table can hold them (a merge table keeps its seeds)
+        if tables.get(t, {}).get("class") != "copy":
+            raise SystemExit(
+                "STARTUP_CREATED_ROWS names {}, which is not a copy-class "
+                "table".format(t))
 
     for t in o19_only:
         if t in archive_patient:
@@ -715,7 +807,8 @@ GENERATED_HEADER = """\
 
 
 def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
-                       o19_commit: str) -> str:
+                       o19_commit: str, extras: Optional[Dict] = None) -> str:
+    extras = extras or {}
     copy_tables = sorted(t for t, e in tables.items()
                          if e["class"] in ("copy", "merge"))
     carlos_columns = {t: list(carlos.tables[t]) for t in copy_tables}
@@ -747,6 +840,32 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " report under a rotate/verify advisory")
     out.append("CREDENTIAL_TABLES = "
                + _fmt(list(getattr(ov, "CREDENTIAL_TABLES", []))) + "\n")
+    out.append("# rows the webapp creates on its first start (the OSCAR"
+               " program, the seeded\n# clinician's membership, the default"
+               " site): tolerated by the P0 sweep on a booted\n# host and"
+               " deleted by the seed script before the clinic's rows copy")
+    out.append("STARTUP_CREATED_ROWS = "
+               + _fmt(list(getattr(ov, "STARTUP_CREATED_ROWS", []))) + "\n")
+    out.append("# role names the CARLOS Flyway seed defines (secRole); any"
+               " other imported role\n# is clinic-custom and gets its"
+               " CARLOS-era grants from a template stock role")
+    out.append("STOCK_ROLE_NAMES = "
+               + _fmt(list(extras.get("stock_role_names", []))) + "\n")
+    out.append("ROLE_TEMPLATE_MIN_JACCARD = {!r}\n".format(
+        getattr(ov, "ROLE_TEMPLATE_MIN_JACCARD", 0.3)))
+    out.append("# legacy preventions.prevention_type spellings -> Health"
+               " Canada code, from\n# database/mysql/updates/update-2026-03-10-"
+               "standardize-prevention-types.sql; the\n# roles post-step"
+               " applies them to imported rows (Flyway never sees clinic"
+               " data)")
+    out.append("PREVENTION_TYPE_MAP = "
+               + _fmt(dict(sorted(extras.get("prevention_type_map",
+                                             {}).items()))) + "\n")
+    out.append("# prevention type codes PreventionItems.xml renders; any"
+               " other imported code shows\n# as an unconfigured prevention"
+               " and is reported")
+    out.append("KNOWN_PREVENTION_TYPES = "
+               + _fmt(list(extras.get("known_prevention_types", []))) + "\n")
     return "\n".join(out) + "\n"
 
 
@@ -770,7 +889,8 @@ def emit_props_module(o19_defaults, ov) -> str:
     return "\n".join(out) + "\n"
 
 
-def emit_preflight_data(tables, ov) -> str:
+def emit_preflight_data(tables, ov, extras: Optional[Dict] = None) -> str:
+    extras = extras or {}
     known = {t: e["class"] for t, e in sorted(tables.items())}
     patient = sorted(t for t, e in tables.items() if e.get("patient_data"))
     b3_cols: Dict[str, Dict[str, str]] = {}
@@ -791,6 +911,10 @@ def emit_preflight_data(tables, ov) -> str:
     lines.append("CHARSET_SCAN = " + _fmt(charset))
     lines.append("DROPPED_PROP_PREFIXES = "
                  + _fmt(list(ov.PREFLIGHT_DROPPED_PROP_PREFIXES)))
+    lines.append("STOCK_ROLE_NAMES = "
+                 + _fmt(list(extras.get("stock_role_names", []))))
+    lines.append("LEGACY_PREVENTION_TYPES = "
+                 + _fmt(sorted(extras.get("prevention_type_map", {}))))
     lines.append(MARKER_END)
     return "\n".join(lines)
 
@@ -836,9 +960,34 @@ def main() -> int:
     # comments are stripped first: a `-- note` between VALUES tuples would
     # otherwise end the tuple walk early and under-count the seed
     seed_counts: Dict[str, int] = {}
+    stock_role_names: List[str] = []
     for f in carlos_files:
-        for t, n in count_insert_rows(strip_line_comments(read_sql(f))).items():
+        text = strip_line_comments(read_sql(f))
+        for t, n in count_insert_rows(text).items():
             seed_counts[t] = seed_counts.get(t, 0) + n
+        # secRole VALUES (role_no, role_name, description)
+        stock_role_names.extend(seed_string_column(text, "secRole", 1))
+    # rows a later migration DELETEs again are not part of the floor
+    for t, n in sorted(getattr(ov_schema, "SEED_COUNT_DELETIONS",
+                               {}).items()):
+        if seed_counts.get(t, 0) < n:
+            raise SystemExit(
+                "SEED_COUNT_DELETIONS: {} subtracts {} from a seed of {} "
+                "rows (stale entry)".format(t, n, seed_counts.get(t, 0)))
+        seed_counts[t] -= n
+    extras = {
+        "stock_role_names": sorted(set(stock_role_names)),
+        "prevention_type_map": parse_prevention_type_map(
+            read_sql(PREVENTION_TYPE_SCRIPT)),
+        "known_prevention_types": parse_prevention_items(
+            PREVENTION_ITEMS_XML.read_text(encoding="utf-8")),
+    }
+    if not extras["stock_role_names"]:
+        raise SystemExit("no secRole seed rows found in the CARLOS "
+                         "migrations")
+    if not extras["prevention_type_map"]:
+        raise SystemExit("no prevention type mappings parsed from {}"
+                         .format(PREVENTION_TYPE_SCRIPT))
 
     commit = "unknown"
     head = oscar / ".git"
@@ -862,9 +1011,9 @@ def main() -> int:
     o19_defaults = parse_properties(oscar / O19_PROPERTIES)
 
     schema_out = emit_schema_module(tables, carlos, seed_counts, ov_schema,
-                                    commit)
+                                    commit, extras)
     props_out = emit_props_module(o19_defaults, ov_props)
-    preflight_block = emit_preflight_data(tables, ov_schema)
+    preflight_block = emit_preflight_data(tables, ov_schema, extras)
 
     for t, e in tables.items():
         for col, parent in e.get("fk_remap", {}).items():

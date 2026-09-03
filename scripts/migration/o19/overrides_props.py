@@ -23,7 +23,7 @@ default (O19_DEFAULTS in the generated module):
 KEYS (exact match) wins over PREFIX_RULES (first match in order).
 """
 
-PROPS_MAP_VERSION = "o19map-1"
+PROPS_MAP_VERSION = "o19map-2"
 
 KEYS = {
     # --- clinic identity / billing (carry) --------------------------------

@@ -1,0 +1,418 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+"""Contracts of the roles/privileges post-step (M8): every write is
+idempotent, the break-glass admin is usable, memberships use the clinic's
+own role ids, custom roles get CARLOS-era grants from a deterministic
+template, and the verify checks fail closed on what the step guarantees.
+
+Run (from debian/assets):
+    python3 -m unittest discover -v -s carlos_ctl/tests -t .
+"""
+
+import unittest
+
+from carlos_ctl import o19etl, o19map_schema, o19roles
+
+
+def idempotent(sql):
+    """Every write the step issues is safe to re-run."""
+    s = sql.upper()
+    return ("NOT EXISTS" in s or s.startswith("INSERT IGNORE")
+            or s.startswith("UPDATE") or s.startswith("DELETE")
+            or s.startswith("DROP TABLE IF EXISTS")
+            or s.startswith("CREATE TABLE"))
+
+
+class TestStatementShapes(unittest.TestCase):
+
+    def test_snapshot_copies_every_seed_table_into_the_archive(self):
+        stmts = o19roles.snapshot_statements("carlos", "o19_archive")
+        self.assertEqual(len(stmts), 2 * len(o19roles.SNAPSHOT_TABLES))
+        self.assertIn("CREATE TABLE `o19_archive`.`carlos_seed_"
+                      "secObjPrivilege` AS SELECT * FROM "
+                      "`carlos`.`secObjPrivilege`", stmts)
+        for table in ("secObjPrivilege", "secObjectName", "secRole",
+                      "access_type"):
+            self.assertIn(table, o19roles.SNAPSHOT_TABLES)
+
+    def test_startup_rows_delete_in_manifest_order_with_bound_schema(self):
+        stmts = o19roles.startup_row_delete_statements("carlos")
+        tables = [s.split("`")[3] for s in stmts]
+        self.assertEqual(tables, [t for t, _ in
+                                  o19map_schema.STARTUP_CREATED_ROWS])
+        self.assertLess(tables.index("program_provider"),
+                        tables.index("program"))
+        pp = [s for s in stmts if "`program_provider`" in s][0]
+        self.assertIn("FROM `carlos`.program WHERE name = 'OSCAR'", pp)
+        self.assertNotIn("{schema}", pp)
+        self.assertIn("WHERE name = 'Main Clinic'",
+                      o19roles.startup_row_count_sql(
+                          "site", "name = 'Main Clinic'", "carlos"))
+
+    def test_guaranteed_roles_and_carlos_roles_append_by_name(self):
+        stmts = o19roles.guaranteed_role_statements("carlos")
+        self.assertEqual(len(stmts), 2)
+        for sql in stmts:
+            self.assertIn("WHERE NOT EXISTS", sql)
+        self.assertIn("'doctor'", stmts[0])
+        append = o19roles.carlos_role_append_statement("carlos", "o19_archive")
+        self.assertIn("FROM `o19_archive`.`carlos_seed_secRole` s", append)
+        self.assertIn("d.role_name = s.role_name", append)
+        self.assertNotIn("role_no,", append.split("SELECT")[0])  # fresh ids
+
+    def test_oscar_program_insert_is_guarded_and_never_null_facility(self):
+        sql = o19roles.oscar_program_statement("carlos")
+        self.assertIn("HAVING MIN(f.id) IS NOT NULL", sql)
+        self.assertIn("NOT EXISTS (SELECT 1 FROM `carlos`.program WHERE "
+                      "name = 'OSCAR')", sql)
+        self.assertIn("'Service', 'active', 99999", sql)
+
+    def test_membership_uses_the_clinics_role_no_and_skips_members(self):
+        stmts = o19roles.membership_statements("carlos")
+        self.assertEqual(len(stmts), 2)
+        first, fallback = stmts
+        self.assertIn("JOIN `carlos`.secRole r ON r.role_name = ur.role_name",
+                      first)
+        self.assertIn("ur.activeyn = 1", first)
+        self.assertIn("role_name = 'doctor'", fallback)
+        for sql in stmts:
+            self.assertIn("NOT EXISTS (SELECT 1 FROM `carlos`.program_provider"
+                          " pp WHERE pp.provider_no = pr.provider_no)", sql)
+            self.assertIn("pr.status = '1'", sql)
+            self.assertNotIn("caisi_role", sql)
+
+    def test_facility_link_targets_the_first_enabled_facility(self):
+        sql = o19roles.provider_facility_statement("carlos")
+        self.assertIn("MIN(f.id) FROM `carlos`.Facility f WHERE "
+                      "f.disabled = 0", sql)
+        self.assertIn("NOT EXISTS", sql)
+
+    def test_activeyn_update_is_scoped_to_live_accounts(self):
+        sql = o19roles.activeyn_update_statement("carlos")
+        self.assertIn("SET ur.activeyn = 1", sql)
+        self.assertIn("ur.activeyn IS NULL", sql)
+        self.assertIn("p.status = '1'", sql)
+        self.assertIn("JOIN `carlos`.security s", sql)
+        self.assertIn("activeyn IS NULL",
+                      o19roles.activeyn_candidates_sql("carlos"))
+
+    def test_every_write_is_idempotent(self):
+        writes = (o19roles.snapshot_statements("c", "a")
+                  + o19roles.startup_row_delete_statements("c")
+                  + o19roles.guaranteed_role_statements("c")
+                  + [o19roles.carlos_role_append_statement("c", "a"),
+                     o19roles.provider_facility_statement("c"),
+                     o19roles.oscar_program_statement("c"),
+                     o19roles.activeyn_update_statement("c"),
+                     o19roles.backfill_statement("c", "a", "x", "nurse",
+                                                 ["_fax"]),
+                     o19roles.rtl_disable_statement("c", "7")]
+                  + o19roles.membership_statements("c")
+                  + [d for _, d in o19roles.property_prune_statements(
+                      "c", ["born"])]
+                  + [u for _, _, _, u in o19roles.prevention_type_statements(
+                      "c", {"Flu": "Inf"})])
+        for sql in writes:
+            self.assertTrue(idempotent(sql), sql)
+
+
+class TestCustomRoleBackfill(unittest.TestCase):
+
+    SEED = [("doctor", "_rx", "x", "0"), ("doctor", "_fax", "x", "0"),
+            ("doctor", "_email", "x", "0"), ("nurse", "_rx", "r", "0"),
+            ("nurse", "_fax", "x", "0"), ("admin", "_admin", "x", "0"),
+            ("-1", "_email", "x", "0"), ("HRMAdmin", "_hrm.administrator",
+                                         "x", "0")]
+    STAGE = [("doctor", "_rx", "x", "0"), ("Triage Nurse", "_rx", "r", "0"),
+             ("Triage Nurse", "_tickler", "x", "0"),
+             ("999997", "_rx", "o", "0"), ("_all", "_eChart$5", "|or|", "0"),
+             ("_queue.2", "_edoc", "x", "0"), ("Ghost", "_rx", "x", "0")]
+    OBJECTS = ["_rx", "_tickler", "_admin", "_edoc"]
+
+    def test_carlos_era_objects_are_those_o19_never_knew(self):
+        era = o19roles.carlos_era_objects(self.SEED, self.STAGE, self.OBJECTS)
+        self.assertEqual(era, ["_email", "_fax", "_hrm.administrator"])
+
+    def test_custom_roles_exclude_provider_numbers_queues_and_stock(self):
+        roles = o19roles.custom_roles(
+            ["doctor", "Triage Nurse", "Ghost", "Unused"], self.STAGE,
+            ["doctor", "nurse", "admin"])
+        # Ghost has grants and is in the catalogue -> custom; Unused has
+        # no imported grant -> nothing to resemble, left alone
+        self.assertEqual(roles, ["Ghost", "Triage Nurse"])
+        for group in ("999997", "_all", "_queue.2"):
+            self.assertFalse(o19roles.is_role_group(group))
+        self.assertTrue(o19roles.is_role_group("Triage Nurse"))
+
+    def test_template_is_the_closest_stock_role_ties_alphabetical(self):
+        template, score = o19roles.choose_template(
+            "Triage Nurse", self.STAGE, self.SEED, 0.3)
+        # shares (_rx, r) with nurse only
+        self.assertEqual(template, "nurse")
+        self.assertGreater(score, 0.3)
+        # Ghost shares (_rx, x) with doctor -> doctor
+        self.assertEqual(o19roles.choose_template(
+            "Ghost", self.STAGE, self.SEED, 0.3)[0], "doctor")
+        # a tie is broken alphabetically, never by dict order
+        seed = [("beta", "_a", "x", "0"), ("alpha", "_a", "x", "0")]
+        stage = [("custom", "_a", "x", "0")]
+        self.assertEqual(o19roles.choose_template("custom", stage, seed,
+                                                  0.3)[0], "alpha")
+
+    def test_low_similarity_yields_no_template(self):
+        stage = [("Odd", "_zzz", "x", "0"), ("Odd", "_yyy", "x", "0")]
+        template, score = o19roles.choose_template("Odd", stage, self.SEED,
+                                                   0.3)
+        self.assertIsNone(template)
+        self.assertEqual(score, 0.0)
+
+    def test_backfill_is_insert_ignore_over_carlos_era_objects_only(self):
+        sql = o19roles.backfill_statement("carlos", "o19_archive",
+                                          "Triage Nurse", "nurse",
+                                          ["_fax", "_email"])
+        self.assertTrue(sql.startswith("INSERT IGNORE INTO "
+                                       "`carlos`.secObjPrivilege"))
+        self.assertIn("SELECT 'Triage Nurse', objectName, privilege, "
+                      "priority, NULL FROM "
+                      "`o19_archive`.`carlos_seed_secObjPrivilege`", sql)
+        self.assertIn("roleUserGroup = 'nurse' AND objectName IN ('_fax', "
+                      "'_email')", sql)
+
+    def test_role_template_flag_parses_and_validates(self):
+        parsed = o19roles.parse_role_templates(
+            ["Triage Nurse=nurse", " Ghost = doctor "])
+        self.assertEqual(parsed, {"Triage Nurse": "nurse", "Ghost": "doctor"})
+        for bad in (["nope"], ["=doctor"], ["x="],
+                    ["a=doctor", "a=nurse"]):
+            with self.assertRaises(ValueError):
+                o19roles.parse_role_templates(bad)
+        problems = o19roles.validate_role_templates(
+            {"Triage Nurse": "nurse", "Stranger": "doctor",
+             "Ghost": "Pharmacist"}, ["Triage Nurse", "Ghost"],
+            ["doctor", "nurse"])
+        self.assertEqual(len(problems), 2)
+        self.assertTrue(any("Stranger" in p for p in problems))
+        self.assertTrue(any("Pharmacist" in p for p in problems))
+
+
+class TestDiffPruneNormalise(unittest.TestCase):
+
+    def test_privilege_diff_compares_clinic_rows_with_the_seed_snapshot(self):
+        sql = o19roles.privilege_diff_sql("o19_import", "o19_archive")
+        self.assertIn("FROM `o19_import`.secObjPrivilege s JOIN "
+                      "`o19_archive`.`carlos_seed_secObjPrivilege` d", sql)
+        self.assertIn("NOT (s.privilege <=> d.privilege AND s.priority <=> "
+                      "d.priority)", sql)
+
+    def test_excluded_grants_count_uses_the_manifest_predicate(self):
+        sql = o19roles.excluded_grants_count_sql("o19_import")
+        self.assertIsNotNone(sql)
+        self.assertIn(o19map_schema.TABLES["secObjPrivilege"]["merge_exclude"],
+                      sql)
+
+    def test_property_prune_escapes_like_wildcards(self):
+        pairs = o19roles.property_prune_statements(
+            "carlos", ["INTEGRATOR_", "util.erx."])
+        self.assertEqual(len(pairs), 2)
+        count_sql, delete_sql = pairs[0]
+        self.assertIn("name LIKE 'INTEGRATOR\\_%'", count_sql)
+        self.assertTrue(delete_sql.startswith("DELETE FROM `carlos`.property"))
+
+    def test_prevention_type_statements_follow_the_generated_map(self):
+        stmts = o19roles.prevention_type_statements(
+            "carlos", {"Flu": "Inf", "VZ": "Var"})
+        self.assertEqual([(a, b) for a, b, _, _ in stmts],
+                         [("Flu", "Inf"), ("VZ", "Var")])
+        self.assertEqual(stmts[0][3], "UPDATE `carlos`.preventions SET "
+                                      "prevention_type = 'Inf' WHERE "
+                                      "prevention_type = 'Flu'")
+        unknown = o19roles.unknown_prevention_types_sql("carlos",
+                                                        ["Inf", "Var"])
+        self.assertIn("NOT IN ('Inf', 'Var')", unknown)
+        self.assertIn("GROUP BY prevention_type", unknown)
+
+
+class TestRichTextLetter(unittest.TestCase):
+
+    def test_rows_are_found_by_title_and_flagged_by_version(self):
+        sql = o19roles.rtl_rows_sql("carlos")
+        self.assertIn("form_html LIKE '%<title>Rich Text Letter</title>%'",
+                      sql)
+        self.assertIn("form_html LIKE '%RTL 2026.3.0%'", sql)
+
+    def test_canonical_legacy_row_gets_the_fixups(self):
+        rows = [("12", "Rich Text Letter", "1", "Rich Text Letter Generator "
+                                               "v2.1", "0")]
+        disable, run, notes = o19roles.rtl_plan(rows)
+        self.assertEqual(disable, [])
+        self.assertTrue(run)
+        self.assertEqual(o19roles.fixup_scripts_needed(rows),
+                         list(o19roles.RTL_FIXUP_SCRIPTS))
+
+    def test_modern_row_is_left_alone(self):
+        rows = [("12", "Rich Text Letter", "1", "x 2026.3.0", "1")]
+        disable, run, notes = o19roles.rtl_plan(rows)
+        self.assertFalse(run)
+        self.assertEqual(disable, [])
+
+    def test_letter_named_row_is_disabled_and_seed_added_when_absent(self):
+        rows = [("1", "letter", "1", "letter generator", "0")]
+        disable, run, notes = o19roles.rtl_plan(rows)
+        self.assertEqual(disable, ["1"])
+        self.assertTrue(run)
+        scripts = o19roles.fixup_scripts_needed(rows)
+        self.assertEqual(scripts[0], o19roles.RTL_SEED_SCRIPT)
+        self.assertEqual(scripts[1:], list(o19roles.RTL_FIXUP_SCRIPTS))
+        self.assertTrue(any("legacy" in n for n in notes))
+        # already disabled legacy rows are not touched again
+        self.assertEqual(o19roles.rtl_plan(
+            [("1", "letter", "0", "x", "0")])[0], [])
+
+    def test_no_rtl_at_all_seeds_then_fixes(self):
+        disable, run, notes = o19roles.rtl_plan([])
+        self.assertTrue(run)
+        self.assertEqual(o19roles.fixup_scripts_needed([])[0],
+                         o19roles.RTL_SEED_SCRIPT)
+        self.assertIn("WHERE fid = 7",
+                      o19roles.rtl_disable_statement("carlos", "7"))
+
+
+class TestVerifyRoleChecks(unittest.TestCase):
+    """A fake query answers the exact shapes verify_role_checks issues."""
+
+    def make_query(self, **over):
+        answers = {
+            "roles": [["doctor"], ["admin"], ["Triage Nurse"]],
+            "admin_active": "2", "admin_grant": "1", "facility": "1",
+            "clinic": "1", "program": "1", "missing": "0", "unlinked": "0",
+            "grants": "600", "no_role": [], "no_grant": [], "locked": [],
+            "jobs": "1",
+        }
+        answers.update(over)
+
+        def q(sql):
+            if "SELECT role_name FROM" in sql and "secRole`" not in sql \
+                    and "DISTINCT" not in sql:
+                return answers["roles"]
+            if "activeyn = 1" in sql and "COUNT(*)" in sql \
+                    and "objectName" not in sql:
+                return [[answers["admin_active"]]]
+            if "p.objectName = '_admin'" in sql:
+                return [[answers["admin_grant"]]]
+            if "Facility WHERE disabled = 0" in sql:
+                return [[answers["facility"]]]
+            if ".clinic" in sql:
+                return [[answers["clinic"]]]
+            if "program WHERE name = 'OSCAR'" in sql:
+                return [[answers["program"]]]
+            if "NOT EXISTS (SELECT 1 FROM `carlos`.program_provider" in sql:
+                return [[answers["missing"]]]
+            if "provider_facility" in sql:
+                return [[answers["unlinked"]]]
+            if sql.startswith("SELECT COUNT(*) FROM `carlos`.secObjPrivilege"):
+                return [[answers["grants"]]]
+            if "NOT EXISTS (SELECT 1 FROM `carlos`.secUserRole" in sql:
+                return answers["no_role"]
+            if "SELECT DISTINCT ur.role_name" in sql:
+                return answers["no_grant"]
+            if "b_ExpireSet = 1" in sql:
+                return answers["locked"]
+            if "OscarJobType" in sql:
+                return [[answers["jobs"]]]
+            raise AssertionError("unexpected SQL: " + sql)
+        return q
+
+    def test_clean_target_passes_every_hard_check(self):
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(), "carlos", "100001", 513)
+        self.assertEqual(bad, [])
+        self.assertEqual(adv, [])
+        self.assertEqual(private, [])
+        self.assertTrue(any("holds _admin" in line for line in ok))
+
+    def test_inert_admin_missing_program_and_low_floor_fail(self):
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(admin_active="0", admin_grant="0", program="0",
+                            grants="10", missing="2"),
+            "carlos", "100001", 513)
+        self.assertEqual(len(bad), 5, bad)
+        self.assertTrue(any("no active secUserRole" in b for b in bad))
+        self.assertTrue(any("seed floor" in b for b in bad))
+        self.assertTrue(any("without program_provider" in b for b in bad))
+
+    def test_missing_guaranteed_role_fails(self):
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(roles=[["admin"]]), "carlos", None, 1)
+        self.assertTrue(any("'doctor' missing" in b for b in bad))
+
+    def test_clinic_conditions_are_advisories_with_private_names(self):
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(no_role=[["p7"], ["p8"]],
+                            no_grant=[["Ghost"]], locked=[["olduser"]],
+                            jobs="0"),
+            "carlos", "100001", 513)
+        self.assertEqual(bad, [])
+        self.assertEqual(len(adv), 4)
+        joined = "\n".join(adv)
+        self.assertNotIn("p7", joined)
+        self.assertNotIn("olduser", joined)
+        self.assertIn("Ghost", joined)  # role names are not PHI
+        self.assertTrue(any("p7, p8" in line for line in private))
+        self.assertTrue(any("olduser" in line for line in private))
+
+
+class TestSeedAdminClone(unittest.TestCase):
+
+    def test_admin_roles_are_cloned_active(self):
+        stmts = o19etl.seed_admin_statements(
+            "carlos", "breakglass", "100001", "{bcrypt}$2b$12$x", "1234")
+        self.assertEqual(len(stmts), 3)
+        self.assertIn("(provider_no, role_name, orgcd, activeyn, "
+                      "lastUpdateDate)", stmts[2])
+        self.assertIn("IFNULL(orgcd, 'R0000001'), 1, NOW()", stmts[2])
+
+
+class TestParityWithAppendedRows(unittest.TestCase):
+
+    def test_appended_row_keys_cover_only_role_step_tables(self):
+        self.assertEqual(set(o19etl.APPENDED_ROW_KEYS),
+                         {"secRole", "program", "program_provider",
+                          "provider_facility"})
+        self.assertIsNone(o19etl.appended_row_count_sql("demographic",
+                                                        "s", "d"))
+        sql = o19etl.appended_row_count_sql("program_provider", "stage",
+                                            "carlos")
+        self.assertIn("d.`program_id` <=> s.`program_id` AND d.`provider_no`"
+                      " <=> s.`provider_no` AND d.`role_id` <=> s.`role_id`",
+                      sql)
+
+    def _query(self, target, twinless):
+        def q(sql):
+            if "information_schema" in sql:
+                return [["secRole"]]
+            if "WHERE NOT EXISTS" in sql:
+                return [[str(twinless)]]
+            if "`stage`.`secRole`" in sql:
+                return [["31"]]
+            if "`carlos`.`secRole`" in sql:
+                return [[str(target)]]
+            return [["0"]]
+        return q
+
+    def test_recorded_appended_rows_are_tolerated(self):
+        ok, bad = o19etl.row_parity(self._query(34, 3), "stage", "carlos",
+                                    appended={"secRole": 3})
+        self.assertEqual(bad, [])
+        self.assertTrue(any("+3 synthesised" in line for line in ok))
+
+    def test_parity_rejects_appended_rows_the_ledger_did_not_record(self):
+        ok, bad = o19etl.row_parity(self._query(34, 3), "stage", "carlos")
+        self.assertEqual(len(bad), 1)
+        ok, bad = o19etl.row_parity(self._query(34, 4), "stage", "carlos",
+                                    appended={"secRole": 3})
+        self.assertEqual(len(bad), 1)
+        self.assertIn("roles ledger recorded 3", bad[0])
+
+
+if __name__ == "__main__":
+    unittest.main()

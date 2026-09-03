@@ -133,6 +133,17 @@ override_dh_auto_install:
 	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
+	# Data-fixup scripts the OSCAR 19 importer replays on IMPORTED rows
+	# (Rich Text Letter seed + 2026.3.0 modernisation, prevention type
+	# codes): Flyway runs on the empty deploy before an import and never
+	# sees clinic data, so carlos-ctl import-o19 applies these itself.
+	install -d $(STAGE)/$(SHAREDIR)/schema/o19-fixups
+	install -m 0644 database/mysql/updates/update-2012-07-12.sql \
+	  database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
+	  database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
+	  database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	  database/mysql/updates/update-2026-03-10-standardize-prevention-types.sql \
+	  $(STAGE)/$(SHAREDIR)/schema/o19-fixups/
 	install -d $(STAGE)/$(SHAREDIR)/lib
 	install -m 0644 $(BUILDDIR)/carlos-flyway-runner.jar $(STAGE)/$(SHAREDIR)/lib/
 	# Tomcat's global web.xml and catalina.properties come from the

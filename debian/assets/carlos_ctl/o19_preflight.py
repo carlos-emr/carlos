@@ -46,7 +46,7 @@ import subprocess
 import sys
 
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
-SCHEMA_MAP_VERSION = 'o19map-1'
+SCHEMA_MAP_VERSION = 'o19map-2'
 PATIENT_DATA_TABLES = [
     'DrugDispensing',
     'DrugDispensingMapping',
@@ -487,7 +487,7 @@ KNOWN_TABLES = {
     'lst_family_relationship': 'archive',
     'lst_field_category': 'copy',
     'lst_fieldtype': 'archive',
-    'lst_gender': 'copy',
+    'lst_gender': 'merge',
     'lst_incident_clientissues': 'archive',
     'lst_incident_disposition': 'archive',
     'lst_incident_nature': 'archive',
@@ -574,7 +574,7 @@ KNOWN_TABLES = {
     'program_provider_team': 'copy',
     'program_queue': 'copy',
     'program_team': 'copy',
-    'property': 'copy',
+    'property': 'merge',
     'provider': 'copy',
     'providerArchive': 'copy',
     'providerExt': 'copy',
@@ -634,8 +634,8 @@ KNOWN_TABLES = {
     'scheduletemplate': 'copy',
     'scheduletemplatecode': 'copy',
     'scratch_pad': 'copy',
-    'secObjPrivilege': 'reference',
-    'secObjectName': 'reference',
+    'secObjPrivilege': 'merge',
+    'secObjectName': 'merge',
     'secPrivilege': 'reference',
     'secRole': 'copy',
     'secSite': 'archive',
@@ -737,6 +737,81 @@ DROPPED_PROP_PREFIXES = [
     'eaaps.',
     'health_tracker',
     'streethealth',
+]
+STOCK_ROLE_NAMES = [
+    'CAISI ADMIN',
+    'Case Manager',
+    'Client Service Worker',
+    'Clinical Assistant',
+    'Clinical Case Manager',
+    'Clinical Social Worker',
+    'Counselling Intern',
+    'Field Note Admin',
+    'HRMAdmin',
+    'Housing Worker',
+    'Medical Secretary',
+    'Nurse Manager',
+    'Partner Doctor',
+    'RN',
+    'RPN',
+    'Recreation Therapist',
+    'Site Manager',
+    'Support Counsellor',
+    'Support Worker',
+    'Vaccine Provider',
+    'admin',
+    'counsellor',
+    'doctor',
+    'er_clerk',
+    'external',
+    'locum',
+    'moderator',
+    'nurse',
+    'property staff',
+    'psychiatrist',
+    'receptionist',
+    'secretary',
+    'student',
+]
+LEGACY_PREVENTION_TYPES = [
+    'CHOLERA',
+    'CTC',
+    'DTaP-HBV-IPV-Hib',
+    'Dukoral',
+    'Flu',
+    'H1N1',
+    'HPV Vaccine',
+    'HZV',
+    'HepA',
+    'HepA+B',
+    'HepAB',
+    'HepB',
+    'Influenza',
+    'MMRV',
+    'Measles',
+    'Men-B',
+    'MenC-C',
+    'Pneu',
+    'Pneu-C-7',
+    'Pneumococcus',
+    'Pneumovax',
+    'Poliovirus',
+    'Rabies',
+    'Rot',
+    'Rotavirus',
+    'TdP',
+    'TdP-IPV',
+    'Tetanus',
+    'Typh',
+    'Typhoid',
+    'Typhoid-I',
+    'VZ',
+    'Varicella',
+    'Zos',
+    'Zostavax',
+    'dTaP',
+    'dTap',
+    'fIPV',
 ]
 # === END GENERATED DATA ===
 
@@ -930,6 +1005,28 @@ def make_cli_query(mysql_cmd, mysql_args, db, env=None):
     return query
 
 
+def _sql_literal(value):
+    """Escape a string for a single-quoted SQL literal."""
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def _like_prefix(value):
+    """A LIKE pattern matching values that start with `value` literally."""
+    return _sql_literal(value).replace("_", "\\_").replace("%", "\\%") + "%"
+
+
+_WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def dropped_table_references(text, dropped_tables):
+    """Table names of removed modules that a free-text SQL/XML template
+    mentions as whole words (dashboard indicators keep SQL in XML)."""
+    if not text:
+        return []
+    words = set(_WORD_RE.findall(text))
+    return sorted(t for t in dropped_tables if t in words)
+
+
 def _count(query, table, where=None):
     """Row count, or an ("error", message) tuple when the count could not
     be taken (missing privilege, odd storage engine, ...). Callers route
@@ -1109,6 +1206,126 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "The clinic actively used a workflow whose column was dropped "
             "(values are preserved in o19_archive shadow tables).",
             accept="dropped-columns", data=b3_hits))
+
+    # --- roles, privileges and CARLOS-required data (M8, all advisory) ---
+    # CARLOS's privilege check is exact-match, deny-by-default and counts
+    # only secUserRole rows with activeyn = 1; the importer reconciles the
+    # role matrix, so these findings tell the clinic what the import will
+    # do rather than block it.
+    if "secRole" in tables:
+        custom = []
+        try:
+            for row in query("SELECT role_name FROM {0} ORDER BY role_name"
+                             .format(_ident(tables["secRole"]))):
+                if row and row[0] and row[0] not in STOCK_ROLE_NAMES:
+                    custom.append(row[0])
+        except Exception as exc:
+            text = str(exc).strip()
+            query_errors["secRole [role list]"] = (
+                text.splitlines()[-1] if text else "")
+        if custom:
+            findings.append(finding(
+                "roles-custom", ADVISORY,
+                "{0} clinic-custom role(s) not in the CARLOS role catalogue"
+                .format(len(custom)),
+                "Their O19 grants are carried; CARLOS-era privileges (fax, "
+                "email, pharmacy edit, ...) are filled in from the closest "
+                "stock role and reported for review (--role-template "
+                "overrides the choice).", data={"roles": ", ".join(custom)}))
+    if "secUserRole" in tables:
+        n = count_live("secUserRole", "activeyn IS NULL")
+        if n:
+            findings.append(finding(
+                "roles-activeyn-null", ADVISORY,
+                "{0} role assignment(s) have activeyn NULL".format(n),
+                "CARLOS counts only activeyn = 1; the import sets it to 1 "
+                "for providers whose account is active and lists them in "
+                "roles-details.txt."))
+        if "provider" in tables:
+            n = count_live(
+                "provider",
+                "status = '1' AND provider_no NOT IN (SELECT provider_no "
+                "FROM {0} WHERE activeyn = 1)".format(
+                    _ident(tables["secUserRole"])))
+            if n:
+                findings.append(finding(
+                    "roles-providers-without-active-role", ADVISORY,
+                    "{0} active provider(s) hold no active role".format(n),
+                    "They can log in but reach nothing until a role is "
+                    "assigned in Administration."))
+    if "security" in tables:
+        n = count_live("security", "b_ExpireSet = 1 AND (date_ExpireDate IS "
+                                   "NULL OR date_ExpireDate < NOW())")
+        if n:
+            findings.append(finding(
+                "security-locked", ADVISORY,
+                "{0} login(s) are expired and import locked".format(n),
+                "b_ExpireSet with a past or missing expiry refuses the "
+                "login; extend or clear the expiry before go-live."))
+    if "preventions" in tables and LEGACY_PREVENTION_TYPES:
+        legacy = ", ".join("'{0}'".format(_sql_literal(t))
+                           for t in LEGACY_PREVENTION_TYPES)
+        n = count_live("preventions", "prevention_type IN ({0})".format(legacy))
+        if n:
+            findings.append(finding(
+                "prevention-legacy-types", ADVISORY,
+                "{0} prevention(s) use legacy type codes".format(n),
+                "CARLOS renders Health Canada codes (Flu -> Inf, VZ -> Var, "
+                "...); the import normalises these rows and reports any "
+                "code it cannot map."))
+    if "eform" in tables:
+        n = count_live(
+            "eform",
+            "form_html LIKE '%<title>Rich Text Letter</title>%' AND "
+            "(form_name <> 'Rich Text Letter' OR form_html NOT LIKE "
+            "'%RTL 2026.3.0%')")
+        if n:
+            findings.append(finding(
+                "rtl-legacy-form", ADVISORY,
+                "{0} legacy Rich Text Letter form(s)".format(n),
+                "The O19 form carries a raw-SQL sink and pre-CARLOS routes; "
+                "the import applies the 2026.3.0 form and disables legacy "
+                "copies."))
+    if "property" in tables:
+        removed = {}
+        for prefix in DROPPED_PROP_PREFIXES:
+            n = count_live("property", "name LIKE '{0}'".format(
+                _like_prefix(prefix)))
+            if n:
+                removed[prefix] = n
+        if removed:
+            findings.append(finding(
+                "property-removed-module-keys", ADVISORY,
+                "{0} property-table row(s) belong to removed modules"
+                .format(sum(removed.values())),
+                "Keys of modules CARLOS removed (Integrator, MyOSCAR, OLIS, "
+                "...) in the property table; the import prunes them.",
+                data=removed))
+    if "indicatorTemplate" in tables:
+        dropped_tables = sorted(t for t, c in KNOWN_TABLES.items()
+                                if c in ("archive", "drop"))
+        hits = {}
+        try:
+            for row in query("SELECT id, name, template FROM {0}".format(
+                    _ident(tables["indicatorTemplate"]))):
+                if len(row) < 3:
+                    continue
+                refs = dropped_table_references(row[2], dropped_tables)
+                if refs:
+                    hits["{0} (id {1})".format(row[1] or "?", row[0])] = \
+                        ", ".join(refs)
+        except Exception as exc:
+            text = str(exc).strip()
+            query_errors["indicatorTemplate [scan]"] = (
+                text.splitlines()[-1] if text else "")
+        if hits:
+            findings.append(finding(
+                "indicator-templates-dropped-refs", ADVISORY,
+                "{0} dashboard indicator(s) query tables CARLOS removed"
+                .format(len(hits)),
+                "Their drill-down SQL names archived/dropped tables and "
+                "will fail at run time; retire or rewrite them.",
+                data=hits))
 
     # --- properties-driven checks ----------------------------------------
     if properties is not None:

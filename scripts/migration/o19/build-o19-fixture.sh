@@ -19,6 +19,11 @@
 #
 # --with-olis loads olis/olisinit.sql (not in the stock createdatabase order,
 # but present on real OLIS sites; exercises the OLIS-dropped path).
+# --with-updates additionally replays database/mysql/updates/*.sql in name
+# order (best effort: a real clinic database carries years of these patches,
+# which add ~280 privilege rows and extra roles; a script that fails on a
+# modern server is reported and skipped). Default off: the stock init set
+# keeps the fixture deterministic.
 # Repeatable --mysql-arg values pass client options through. The password
 # never travels on the command line (visible in process listings and shell
 # history): give it via --mysql-password-file (exported as MYSQL_PWD into
@@ -30,7 +35,7 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-OSCAR_SRC="" OUT="" DB="o19_fixture" WITH_OLIS=0 MYSQL_CMD="mariadb"
+OSCAR_SRC="" OUT="" DB="o19_fixture" WITH_OLIS=0 WITH_UPDATES=0 MYSQL_CMD="mariadb"
 MYSQL_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -38,6 +43,7 @@ while [ $# -gt 0 ]; do
     --out) OUT="$2"; shift 2 ;;
     --db) DB="$2"; shift 2 ;;
     --with-olis) WITH_OLIS=1; shift ;;
+    --with-updates) WITH_UPDATES=1; shift ;;
     --mysql-cmd) MYSQL_CMD="$2"; shift 2 ;;
     --mysql-arg) MYSQL_ARGS+=("$2"); shift 2 ;;
     --mysql-password-file) MYSQL_PWD="$(head -c 4096 "$2" | tr -d '\r\n')"; export MYSQL_PWD; shift 2 ;;
@@ -111,9 +117,22 @@ if [ "$WITH_OLIS" = 1 ]; then
   echo "loading olis/olisinit.sql ... done"
 fi
 
+if [ "$WITH_UPDATES" = 1 ]; then
+  for f in $(ls "$SQLDIR"/updates/*.sql | sort); do
+    if ! run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
+         "$DB" < "$f" 2>/dev/null; then
+      echo "warning: $(basename "$f") failed on this server — skipped" >&2
+    fi
+  done
+  echo "loading updates/*.sql ... done"
+fi
+
 load "vendored demo.sql" "$SCRIPT_DIR/fixtures/demo-data/demo.sql"
 load "fixture-document-rows.sql" \
      "$SCRIPT_DIR/fixtures/documents/fixture-document-rows.sql"
+# clinic-custom role, role-hygiene cases and legacy data the M8 roles
+# post-step reconciles (synthetic; see fixtures/PROVENANCE.md)
+load "fixture roles.sql" "$SCRIPT_DIR/fixtures/demo-data/roles.sql"
 
 mkdir -p "$OUT"
 # mariadb pairs with mariadb-dump; mysql pairs with mysqldump

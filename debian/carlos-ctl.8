@@ -217,8 +217,14 @@ holding the dump, the OscarDocument tar and oscar.properties at its root
 flags.
 .B --admin-user
 names the break-glass administrator created before the seeded clinician is
-removed. Blockers found by the built-in preflight are cleared only by
-explicit
+removed. The clinic's role matrix is merged under CARLOS's seeded grants
+(CARLOS wins on the same role and object, clinic rows append) and
+clinic-custom roles receive the CARLOS-era privileges of the closest stock
+role;
+.B --role-template
+.I CUSTOM=STOCK
+(repeatable) overrides that choice. Blockers found by the built-in preflight
+are cleared only by explicit
 .B --accept
 sign-off flags, recorded in the report.
 .B --dry-run
@@ -243,7 +249,10 @@ USE or CREATE DATABASE statements is refused.
 .B --dev-target
 and
 .B --mariadb-arg
-serve development databases only and are refused on a packaged host. See
+serve development databases only and are refused on a packaged host
+.RB ( --fixups-dir
+points a development run at the data-fixup scripts the package installs
+under /usr/share/carlos-emr/schema/o19-fixups). See
 docs/oscar19-to-carlos-migration-plan.md and docs/o19-import-deb.md in the
 source tree.
 .TP

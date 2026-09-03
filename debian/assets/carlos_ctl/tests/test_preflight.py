@@ -18,15 +18,21 @@ from carlos_ctl import o19_preflight as pf
 class FakeDb(object):
     """Serves the exact SQL shapes run_checks() issues."""
 
-    def __init__(self, tables=None, where_counts=None, columns=None):
-        # tables: {name: rowcount}; where_counts: {(table, substring): n}
+    def __init__(self, tables=None, where_counts=None, columns=None,
+                 rows=None):
+        # tables: {name: rowcount}; where_counts: {(table, substring): n};
+        # rows: {sql substring: canned rows} for non-COUNT queries
         self.tables = dict(tables or {})
         self.where_counts = dict(where_counts or {})
         self.columns = dict(columns or {})
+        self.rows = dict(rows or {})
         self.queries = []
 
     def __call__(self, sql):
         self.queries.append(sql)
+        for frag, canned in self.rows.items():
+            if frag in sql:
+                return canned
         if "information_schema.TABLES" in sql and "TABLE_NAME" in sql \
                 and "SUM(" not in sql:
             return [[t] for t in sorted(self.tables)]
@@ -202,6 +208,66 @@ class TestAdvisories(unittest.TestCase):
              if x["id"] == "charset-mojibake"][0]
         self.assertEqual(f["severity"], pf.ADVISORY)
         self.assertIn("demographic.last_name", f["data"])
+
+
+class TestRoleAdvisories(unittest.TestCase):
+    """The M8 role/privilege findings inform the reconciliation the import
+    performs; none of them may ever block."""
+
+    def db(self):
+        return FakeDb(
+            base_tables(secRole=5, secUserRole=4, security=3, preventions=2,
+                        eform=1, property=2, indicatorTemplate=1),
+            where_counts={
+                ("secUserRole", "activeyn IS NULL"): 3,
+                ("provider", "NOT IN (SELECT provider_no"): 2,
+                ("security", "b_ExpireSet = 1"): 1,
+                ("preventions", "prevention_type IN ('"): 2,
+                ("eform", "Rich Text Letter"): 1,
+                ("property", "name LIKE 'INTEGRATOR\\_%'"): 2,
+            },
+            rows={
+                "SELECT role_name FROM `secRole`": [["doctor"],
+                                                     ["Triage Nurse"]],
+                "FROM `indicatorTemplate`": [
+                    ["1", "Old dashboard", "SELECT 1 FROM phr_documents"],
+                    ["2", "Fine", "SELECT 1 FROM demographic"]],
+            })
+
+    def test_role_advisories_never_block(self):
+        report = pf.run_checks(self.db(), properties=clean_props())
+        self.assertEqual(report["verdict"], "go")
+        ids = {f["id"]: f for f in report["findings"]}
+        for fid in ("roles-custom", "roles-activeyn-null",
+                    "roles-providers-without-active-role", "security-locked",
+                    "prevention-legacy-types", "rtl-legacy-form",
+                    "property-removed-module-keys",
+                    "indicator-templates-dropped-refs"):
+            self.assertIn(fid, ids, fid)
+            self.assertEqual(ids[fid]["severity"], pf.ADVISORY, fid)
+        self.assertEqual(ids["roles-custom"]["data"]["roles"], "Triage Nurse")
+        self.assertEqual(ids["property-removed-module-keys"]["data"],
+                         {"INTEGRATOR_": 2})
+        self.assertEqual(ids["indicator-templates-dropped-refs"]["data"],
+                         {"Old dashboard (id 1)": "phr_documents"})
+
+    def test_clean_role_data_raises_no_role_advisory(self):
+        db = FakeDb(base_tables(secRole=2, secUserRole=2, security=3),
+                    rows={"SELECT role_name FROM `secRole`": [["doctor"],
+                                                                ["admin"]]})
+        report = pf.run_checks(db, properties=clean_props())
+        ids = {f["id"] for f in report["findings"]}
+        for fid in ("roles-custom", "roles-activeyn-null", "security-locked",
+                    "rtl-legacy-form", "prevention-legacy-types"):
+            self.assertNotIn(fid, ids)
+
+    def test_dropped_table_scan_matches_whole_words_only(self):
+        self.assertEqual(pf.dropped_table_references(
+            "select * from phr_documents_x, phr_documents", ["phr_documents"]),
+            ["phr_documents"])
+        self.assertEqual(pf.dropped_table_references(None, ["x"]), [])
+        self.assertEqual(pf._like_prefix("util.erx."), "util.erx.%")
+        self.assertEqual(pf._like_prefix("INTEGRATOR_"), "INTEGRATOR\\_%")
 
 
 class TestTableCaseHandling(unittest.TestCase):

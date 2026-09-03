@@ -107,8 +107,8 @@ Principles:
 | Class | Handling |
 |---|---|
 | `copy` | Shared table, clinic data → copy shared columns; CARLOS-added columns take their defaults |
-| `reference` | Shared table, CARLOS-seeded reference data → keep CARLOS rows, ignore dump (e.g. `icd9`, `icd10`, `billingservice` official codes, `lst_*` lookups, `secObjectName`) |
-| `merge` | Shared table containing both seed and clinic rows → copy with conflict reconciliation (e.g. `property`, `providerPreference`, `encounterForm`, private billing codes in `billingservice`) |
+| `reference` | Shared table, CARLOS-seeded reference data → keep CARLOS rows, ignore dump (e.g. `icd9`, `icd10`, `billingservice` official codes, CAISI `lst_*` lookups, `secPrivilege`) |
+| `merge` | Shared table containing both seed and clinic rows → anti-join on a natural key: CARLOS seed rows win, clinic rows append (e.g. `property`, `encounterForm`, private billing codes in `billingservice`, the role matrix `secObjPrivilege`/`secObjectName`, `lst_gender`) |
 | `archive` | O19-only table with patient/clinic data → copy into `o19_archive` + CSV export (see §5) |
 | `drop` | O19-only table from removed infrastructure with no clinical value → recorded in report only (Integrator, sharing/XDS, `cr_*` cookie-revolver, report-runner templates, temp tables) |
 
@@ -166,6 +166,72 @@ kept unless the clinic explicitly overrode the key in O19).
 Post-copy: set `security.forcePasswordReset = 1` for every imported user (legacy
 SHA-1 hashes still work for the first login and auto-upgrade to BCrypt; the forced
 reset moves everyone onto CARLOS password policy immediately).
+
+#### Roles, privileges and CARLOS-required rows (M8)
+
+CARLOS's privilege check is exact-match and deny-by-default: `hasPrivilege` reads
+the `secUserRole` rows with `activeyn = 1`, joins them to `secObjPrivilege` by role
+NAME, and has no parent fallback (`_admin.fax` does not inherit `_admin`). The
+importer therefore reconciles the role matrix instead of choosing one side:
+
+- `secObjPrivilege` and `secObjectName` are **merge** tables on their primary key:
+  CARLOS's seeded grants win on a `(role, object)` collision (deliberate CARLOS
+  policy such as `doctor`/`_eform` = `w`), the clinic's own rows append — custom
+  roles, per-provider overrides (`roleUserGroup` = provider_no), patient-scoped
+  lockouts (`_eChart$<demo>`, `_all`), document-queue objects (`_queue.<id>`).
+  Grants on removed-module objects (`_pmm*`, `_admin.traceability`, …) are not
+  carried (`MERGE_EXCLUDE`). Every clinic grant the seed overrode is itemised in
+  `privilege-diff.txt` (root-only) for the technical review.
+- `secRole`/`secUserRole` stay **replace_seed** (clinic ids are referenced by
+  `program_provider.role_id`); the post-step re-adds CARLOS-only roles (`HRMAdmin`,
+  `Site Manager`, `Partner Doctor`) by name and guarantees `doctor` and `admin`
+  exist (startup dereferences `doctor`).
+- A **clinic-custom role** (not a CARLOS stock role name) receives the CARLOS-era
+  grants — objects the clinic's O19 never had (`_fax`, `_email`, `_rx.editPharmacy`,
+  `_admin.flowsheet`, …) — of the stock role its imported privilege set resembles
+  most (Jaccard over (object, privilege) pairs, floor 0.3, ties alphabetical),
+  `INSERT IGNORE` so nothing imported is overwritten; `--role-template CUSTOM=STOCK`
+  overrides the choice. Below the floor nothing is guessed and the role is reported.
+- `secUserRole.activeyn` NULL grants nothing in CARLOS; the import sets it to 1 for
+  providers whose account is active (`status = '1'` with a `security` row) and lists
+  them in `roles-details.txt`. The break-glass admin's cloned roles are created
+  active.
+- Case management fails closed without `program_provider` membership, and the
+  webapp's first start creates program `OSCAR` plus a membership for the seeded
+  clinician (deleted by the import). The post-step creates `OSCAR` if absent, gives
+  every active provider without any membership a row there (role_id = the clinic's
+  own `secRole.role_no` for its first active role, else `doctor`), and links every
+  active provider to the first enabled `Facility`. An import with no enabled
+  `Facility` or no `clinic` row is refused (clinic data is never invented).
+- The P0 sweep tolerates exactly the rows the webapp creates on first start
+  (`STARTUP_CREATED_ROWS`: the `OSCAR` program and membership, the `Main Clinic`
+  site and its provider link) and the seed script deletes them before the copy —
+  a packaged host has always booted once before an import.
+- `property` merges on `(name, provider_no)` (CARLOS defaults stand, clinic keys
+  append; the fixture's `''` and CARLOS's NULL spell a global key the same way) and
+  rows of removed modules (`PREFLIGHT_DROPPED_PROP_PREFIXES`) are pruned.
+- Data normalisation CARLOS ships only as post-baseline scripts never reaches
+  imported rows through Flyway (it ran on the empty deploy first), so the post-step
+  applies it: `preventions.prevention_type` legacy codes follow the generated
+  `PREVENTION_TYPE_MAP` (from `update-2026-03-10-standardize-prevention-types.sql`),
+  and the Rich Text Letter eForm is brought to 2026.3.0 with the packaged scripts
+  under `/usr/share/carlos-emr/schema/o19-fixups/` (the v1 seed first when the
+  clinic has no `Rich Text Letter` row; any other RTL-titled row such as O19's
+  2010 `letter` is disabled — it carries the `RptByExample.do` sink).
+- `value_exprs` now also cover `document.receivedDate` (= `observationdate`) and
+  `tickler.creation_date` (= legacy `update_date`, else `service_date`), and a
+  synthesized column is always part of the copied column list (the earlier
+  `pharmacyInfo.uid` entry was never written).
+- P7 verifies the guarantees (roles present, admin usable, facility/clinic/program
+  rows, memberships, seed floor) and reports clinic-data conditions as advisories
+  (active accounts with no active role, roles granting nothing, expired logins,
+  empty `OscarJobType`). Row parity tolerates the appended rows the roles ledger
+  recorded, and only those.
+
+Still maintainer-side (Flyway, for stock installs): promote the prevention-type and
+RTL scripts, seed the `OSCAR` program and default site, and fix the seed's
+`_masterlink`/`_masterLink` split and the ~30 code-referenced objects with no
+seeded grant.
 
 ### 4.6 O19 modules removed from CARLOS — data disposition
 
@@ -765,7 +831,20 @@ was fixed and pinned by tests. What changed in behaviour:
   with the reason; the properties fragment is `fchmod`ed before any
   credential is written.
 
-**All seven milestones complete.** Next steps beyond this round: run the
+**M8 — roles, privileges and CARLOS-required rows (done):** the review of
+the imported clinic against CARLOS's stricter privilege model found that the
+clinic's role catalogue arrived without CARLOS-era grants, that clinic-custom
+roles and patient lockouts were discarded with the `reference`-class role
+matrix, that the break-glass admin's cloned roles were inert (`activeyn`
+NULL), that a target whose webapp had booted once was refused by P0 and
+would fail at startup after the import (the `OSCAR` program membership of a
+deleted provider), and that case management needs `program_provider` rows.
+§4.5 documents the reconciliation; the manifest is `o19map-2`. The rehearsal
+fixture gained `roles.sql` (a custom role, a NULL `activeyn`, an expired
+login, a queue object, a patient lockout, a legacy prevention code, a
+removed-module property key, a clinic override of a stock grant).
+
+**All milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,
 the BC manifest pass (§10.6), and the carlos-podman `import-o19` catch-up.
 

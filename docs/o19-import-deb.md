@@ -122,6 +122,20 @@ after the break-glass administrator named by `--admin-user` is created
 (credentials in `/var/lib/carlos-emr/o19-import/admin-credentials.txt`,
 root-only).
 
+Roles and privileges: CARLOS checks privileges exactly (no parent fallback)
+and counts only active role assignments, so the import merges the clinic's
+role matrix under CARLOS's seeded grants (CARLOS wins on the same
+role/object, clinic rows append), gives clinic-custom roles the CARLOS-era
+privileges of the closest stock role (`--role-template 'Custom
+Role=doctor'` overrides the choice, repeatable), activates `activeyn`-NULL
+assignments of live accounts, and creates the program membership and
+facility link every provider needs. The `roles:` lines of the report say
+what was done; `privilege-diff.txt` (root-only) itemises every clinic grant
+the CARLOS seed overrode and `roles-details.txt` names the providers whose
+assignments were activated or who hold no role. Legacy prevention type
+codes are normalised and the Rich Text Letter eForm is brought to 2026.3.0
+from the packaged scripts under `/usr/share/carlos-emr/schema/o19-fixups/`.
+
 Useful variants: `--dry-run` (stage + preflight + properties report only;
 its `--accept` flags are not recorded — sign-offs persist only from a real
 run), `--dump/--documents/--properties` instead of a bundle,
@@ -153,10 +167,14 @@ gate has no override.
    `/var/lib/carlos-emr/o19-import/report.txt` (row parity with the
    break-glass delta itemized, referential spot checks, billing totals per
    fiscal year, documents reconciliation, archive/dropped inventory, the
-   credential tables copied verbatim to rotate/verify), plus manual spot
-   checks and a UI smoke of the migrated charts. The report is written to
-   be shareable; the per-patient lines of the spot check (which name
-   patient identifiers) go to `verify-details.txt` next to it, root-only.
+   credential tables copied verbatim to rotate/verify, the `roles:` lines
+   and the verify advisories), plus manual spot checks and a UI smoke of
+   the migrated charts. The report is written to be shareable; the
+   per-patient lines of the spot check (which name patient identifiers) go
+   to `verify-details.txt` next to it, root-only, as do `privilege-diff.txt`
+   and `roles-details.txt`. Confirm each clinic-custom role's privileges in
+   Administration > Security (the report names the template role used),
+   and deal with expired or role-less accounts before go-live.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the
    extracted bundle and retires the run's `state.json` (renamed to
    `state.json.completed-<time>`, so the finished run can neither be

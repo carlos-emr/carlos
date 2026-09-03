@@ -31,6 +31,9 @@ class TestSeedScriptOrdering(unittest.TestCase):
         stmts = self.admin_stmts()
         self.assertIn("WHERE provider_no = '{0}'".format(
             o19map_schema.SEED_PROVIDER_NO), stmts[2])
+        # cloned ACTIVE: hasPrivilege ignores rows whose activeyn is NULL
+        self.assertIn("activeyn", stmts[2])
+        self.assertIn(", 1, NOW()", stmts[2])
 
     def test_admin_gets_forced_password_reset(self):
         self.assertIn("forcePasswordReset", self.admin_stmts()[1])
