@@ -36,7 +36,6 @@ report, spot checks, UI smoke — before clinical use.
 """
 
 import argparse
-import hashlib
 import json
 import os
 import re

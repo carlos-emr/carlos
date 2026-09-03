@@ -1264,4 +1264,3 @@ PREFIX_RULES = [
     ('invoice_', {'d': 'carry'}),
     ('billing', {'d': 'carry'}),
 ]
-

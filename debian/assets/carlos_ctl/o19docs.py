@@ -24,7 +24,7 @@ import shutil
 import urllib.parse
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import o19bundle, o19etl, o19map_schema
+from . import o19bundle, o19etl
 from .util import STATE, die, log, run, warn
 
 DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")

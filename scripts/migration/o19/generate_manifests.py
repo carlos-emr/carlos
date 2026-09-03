@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
 import re
 import sys
 from pathlib import Path
@@ -888,7 +887,7 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " and is reported")
     out.append("KNOWN_PREVENTION_TYPES = "
                + _fmt(list(extras.get("known_prevention_types", []))) + "\n")
-    return "\n".join(out) + "\n"
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
 def emit_props_module(o19_defaults, ov) -> str:
@@ -908,7 +907,7 @@ def emit_props_module(o19_defaults, ov) -> str:
     out.append("SECRET_DEFAULT_KEYS = " + _fmt(secret_keys) + "\n")
     out.append("KEYS = " + _fmt(dict(sorted(ov.KEYS.items()))) + "\n")
     out.append("PREFIX_RULES = " + _fmt(list(ov.PREFIX_RULES)) + "\n")
-    return "\n".join(out) + "\n"
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
 def emit_preflight_data(tables, ov, extras: Optional[Dict] = None) -> str:

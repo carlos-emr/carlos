@@ -198,6 +198,5 @@ class TestAdminUserSafety(unittest.TestCase):
         self.assertTrue(stmts[2].startswith("DELETE FROM `carlos`.provider"))
 
 
-
 if __name__ == "__main__":
     unittest.main()

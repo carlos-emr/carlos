@@ -73,8 +73,8 @@ class FakeDb(object):
                              for p, c, _d in prune}
         prev = o19roles.prevention_type_statements(
             DST, o19map_schema.PREVENTION_TYPE_MAP)
-        self.prev_counts = {c: self.answers["prevention_counts"].get(l, 0)
-                            for l, _k, c, _u in prev}
+        self.prev_counts = {c: self.answers["prevention_counts"].get(code, 0)
+                            for code, _k, c, _u in prev}
 
     # -- the ETL executor: writes only
     def query(self, sql, db=None):

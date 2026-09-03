@@ -35,7 +35,7 @@ import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import o19map_schema
-from .util import log, warn
+from .util import warn
 
 CHUNK_ROWS = 50000
 
@@ -1026,8 +1026,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     odd = unsafe_identifiers(src_info)
     if odd:
         die("ETL pre-checks failed ({0}): the staged dump ".format(
-            precheck_scope(state_dir)) + 
-            "carries {0} table/column name(s) outside the accepted "
+            precheck_scope(state_dir))
+            +             "carries {0} table/column name(s) outside the accepted "
             "identifier class [A-Za-z0-9_$] — not an OSCAR 19 clinic "
             "dump as shipped; rename them in the source and re-export: {1}"
             .format(len(odd), ", ".join(repr(x) for x in odd[:10])))
@@ -1112,7 +1112,6 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # the roles post-step's own preconditions, predicted from staging (the
     # tables involved are id-intact copies): refuse here, before the first
     # write, rather than after the whole copy
-    from . import o19roles
     # every plain-client statement interpolates values with backslash
     # escaping; a server mode that disables it (or ANSI_QUOTES) would turn
     # a quoted clinic value into SQL. The ETL executor pins sql_mode='';

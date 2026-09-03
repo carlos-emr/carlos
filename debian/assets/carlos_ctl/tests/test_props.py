@@ -24,9 +24,9 @@ ROOT = "/var/lib/carlos-emr/OscarDocument"
 
 def fixture_result():
     clinic = o19props.load_clinic_properties(os.path.abspath(FIXTURE))
-    return o19props.translate_all(clinic, documents_root=ROOT,
-                                  deployment_drugref=
-                                  "http://127.0.0.1:8080/drugref")
+    return o19props.translate_all(
+        clinic, documents_root=ROOT,
+        deployment_drugref="http://127.0.0.1:8080/drugref")
 
 
 class TestBaselineDiff(unittest.TestCase):
@@ -309,8 +309,6 @@ class TestSecretDefaultsAndDispositions(unittest.TestCase):
         self.assertEqual(fragment["INCOMINGDOCUMENT_RECYCLEBIN"], "false")
         self.assertEqual(fragment["mcedt.last.downloadedID.file"],
                          ".clinicCheckpoint")
-
-
 
 
 class TestFragmentFile(unittest.TestCase):
