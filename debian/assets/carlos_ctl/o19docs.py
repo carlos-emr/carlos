@@ -21,7 +21,6 @@ import html as html_module
 import os
 import re
 import shutil
-import tarfile
 import urllib.parse
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
@@ -885,7 +884,7 @@ def run_docs(ctx) -> None:
             # tar quotes non-ASCII member names, and a clinic tree full
             # of accented document names would otherwise be unreadable
             entries = o19bundle.read_tar_entries(tar_path, gz)
-        except (tarfile.TarError, OSError, EOFError) as exc:
+        except o19bundle.ARCHIVE_ERRORS as exc:
             die("cannot read documents tar: {0}".format(str(exc)[:300]))
         try:
             # plain files + directories only, relative traversal-free
@@ -984,9 +983,12 @@ def run_docs(ctx) -> None:
             "(root-only)".format(len(problems)))
         die("documents reconciliation FAILED ({0} problem(s), itemised in "
             "{1}) — the clinical record must not go live with unreadable "
-            "documents. Fix the tree in place (add the missing files under "
-            "{2}) and re-run with --resume; to restore a different tar "
-            "instead, restore the pre-import snapshot first."
+            "documents. For a missing file, fix the tree in place (add it "
+            "under {2}) and re-run with --resume; to restore a different "
+            "tar instead, restore the pre-import snapshot first. An eForm "
+            "image reference that ESCAPES eform/images is not a missing "
+            "file and no tar can clear it: correct that form's form_html "
+            "in the target (or disable the form), then --resume."
             .format(len(problems), details_path, ctx_root))
     o19import.mark_done(state_dir, state, "documents", tar_sha256=tar_sha,
                         restored=True)

@@ -93,7 +93,15 @@ case "$1" in
         # `shred` falls back to an ordinary unlink. That fallback leaves the
         # bytes recoverable, so it is SAID rather than passed off as a
         # shred: the notice below is written from this flag.
+        # `set -e` is active: the AND-OR list below takes the status of
+        # whichever side ran last, so an undeletable file (immutable
+        # attribute, read-only or full filesystem) in the FALLBACK would
+        # abort the whole postrm and leave the package half-purged --
+        # skipping the warning, the notice and the nginx reload. The
+        # trailing `|| O19_DELETE_FAILED=1` both swallows that status and
+        # records it, so the failure is reported rather than fatal.
         O19_SHREDDED=1
+        O19_DELETE_FAILED=0
         if [ -d "${STATE}/o19-import" ]; then
             find "${STATE}/o19-import" -maxdepth 1 -type f \
                 \( -name 'admin-credentials.txt*' \
@@ -104,9 +112,16 @@ case "$1" in
                 find "${STATE}/o19-import" -maxdepth 1 -type f \
                    \( -name 'admin-credentials.txt*' \
                       -o -name 'o19-derived-carlos.properties*' \) -delete
-              }
+              } || O19_DELETE_FAILED=1
         fi
-        if [ "$O19_SHREDDED" = 0 ]; then
+        if [ "$O19_DELETE_FAILED" = 1 ]; then
+            echo "carlos-emr: WARNING: the OSCAR 19 credential note and/or" >&2
+            echo "carlos-emr: properties fragment could NOT be removed from" >&2
+            echo "carlos-emr:   ${STATE}/o19-import" >&2
+            echo "carlos-emr: They hold a plaintext administrator password" >&2
+            echo "carlos-emr: and the clinic's carried secrets. Remove them" >&2
+            echo "carlos-emr: by hand (shred -u) before this disk leaves." >&2
+        elif [ "$O19_SHREDDED" = 0 ]; then
             echo "carlos-emr: WARNING: shred failed or is unavailable; the" >&2
             echo "carlos-emr: OSCAR 19 credential note and properties" >&2
             echo "carlos-emr: fragment were DELETED, not overwritten. Their" >&2
@@ -144,8 +159,11 @@ carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED
   NOTE: the import's break-glass administrator account still EXISTS in the
         retained `oscar` database, and the note holding its password is now
         gone. The clinic's own provider logins came across with the import
-        and are unaffected; use one of those, or issue a fresh administrator
-        after reinstalling with `carlos-ctl bootstrap-admin`.
+        and are unaffected -- sign in with one of those. `carlos-ctl
+        bootstrap-admin` will NOT help here: it only resets the seeded
+        `carlosdoc` credential, and the import deletes that account. With no
+        usable login left, the password must be reset directly in the
+        `security` table of the retained database.
 
 To destroy the data deliberately, reinstall the package and run
   carlos-ctl destroy-data --confirm <server-name>

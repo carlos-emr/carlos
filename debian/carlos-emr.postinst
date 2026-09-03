@@ -304,20 +304,37 @@ case "$1" in
         # An unattended upgrade landing mid-import would run Flyway
         # against a half-copied schema and then START the webapp into it,
         # costing the clinic a multi-hour rollback. The state file is the
-        # same predicate --resume uses. Parsed, not grepped: P7 records a
-        # "verify" phase when it STARTS, so the mere presence of the key
-        # read a failed or interrupted verification as a finished import.
-        # Only phases.verify.status == "done" clears the gate; an
-        # unreadable or half-written ledger fails closed (python3 is a
-        # hard Depends of this package -- carlos-ctl is written in it).
+        # same predicate --resume uses. Parsed, not grepped, and it must
+        # match the tool's own definition of "a run is in progress" in
+        # both directions:
+        #   * P7 records a "verify" phase when it STARTS, so the mere
+        #     presence of the key read a failed or interrupted
+        #     verification as a finished import. Only
+        #     phases.verify.status == "done" clears the gate.
+        #   * a lone "stage" phase is NOT a run. `o19-preflight` calls
+        #     run_p1, which marks "stage" unconditionally, so a clinic
+        #     that merely ASSESSED a migration and declined it is left
+        #     with that ledger for ever. Gating on it would keep the EMR
+        #     stopped after every later upgrade, and the --resume this
+        #     block prints is itself refused in that state
+        #     ("a staged dump alone is not a run"). carlos-ctl excludes
+        #     {"stage"} in five places; so does this.
+        # An unreadable, half-written or structurally wrong ledger fails
+        # closed (python3 is a hard Depends -- carlos-ctl is written in
+        # it), as does an empty "phases" -- a real run writes the ledger
+        # before P0 and only marks its first phase afterwards.
         if [ -s /var/lib/carlos-emr/o19-import/state.json ] \
            && ! python3 -c 'import json, sys
 try:
     s = json.load(open(sys.argv[1]))
 except Exception:
     sys.exit(1)
+if not isinstance(s, dict):
+    sys.exit(1)
 p = s.get("phases")
-if not isinstance(p, dict) or not p:
+if not isinstance(p, dict):
+    sys.exit(1)
+if p and not (set(p) - set(["stage"])):
     sys.exit(0)
 v = p.get("verify")
 sys.exit(0 if isinstance(v, dict) and v.get("status") == "done" else 1)
@@ -330,6 +347,9 @@ sys.exit(0 if isinstance(v, dict) and v.get("status") == "done" else 1)
             echo "carlos-emr: both would corrupt the import. Finish it with" >&2
             echo "carlos-emr:   sudo carlos-ctl import-o19 ... --resume" >&2
             echo "carlos-emr: then run: sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
+            echo "carlos-emr: If that import was abandoned, retire the workspace with" >&2
+            echo "carlos-emr:   sudo carlos-ctl import-o19 --cleanup" >&2
+            echo "carlos-emr: and re-run this upgrade." >&2
         elif mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
             # mariadb-server was already running when this package's drop-in
             # was unpacked, so it is still on distribution defaults — STRICT

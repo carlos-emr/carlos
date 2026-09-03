@@ -1651,11 +1651,12 @@ def run_checks(query, properties=None, province="on", accepted=(),
         # Chunked because a clinic property table is queried through the
         # batch client and this list is long.
         for chunk in _chunks(DROPPED_PROP_KEYS, 200):
+            # count_live() already files a failed count into the
+            # query-errors blocker and returns 0, exactly as it does for
+            # the prefix counts above — a tuple never reaches here, and
+            # storing one would make the sum() below raise instead
             n = count_live("property", "name IN ({0})".format(
                 ", ".join("'{0}'".format(_sql_literal(k)) for k in chunk)))
-            if isinstance(n, tuple):
-                removed["(exact keys)"] = n
-                break
             if n:
                 removed["(exact keys)"] = removed.get("(exact keys)", 0) + n
         if removed:

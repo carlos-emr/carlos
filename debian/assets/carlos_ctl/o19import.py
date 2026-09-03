@@ -41,7 +41,6 @@ import os
 import re
 import shutil
 import subprocess
-import tarfile
 import sys
 import time
 from typing import Callable, Dict, List, Optional
@@ -421,7 +420,7 @@ def documents_expanded_size(tar_path: str) -> int:
     try:
         entries = o19bundle.read_tar_entries(tar_path,
                                              tar_path.endswith(".gz"))
-    except (tarfile.TarError, OSError, EOFError) as exc:
+    except o19bundle.ARCHIVE_ERRORS as exc:
         warn("cannot read the documents archive ({0}); using its file size "
              "for the disk check".format(str(exc)[:200]))
         return os.path.getsize(tar_path)
@@ -481,21 +480,43 @@ def run_p0_capacity(ctx) -> None:
             break
         except RuntimeError:
             continue
+    # Without the PROCESS privilege the server does not ERROR on this
+    # query — it silently restricts PROCESSLIST to the caller's own
+    # threads, so the binlog-dump count comes back 0 and the gate passes
+    # on a host that does have replicas attached. The connection is
+    # root-on-localhost by contract, which holds PROCESS, so this is
+    # belt-and-braces: it refuses only on a POSITIVE determination that
+    # the privilege is absent, and stays quiet whenever the grant probe
+    # is itself unavailable or unparseable (a false refusal here would
+    # block an import for no reason).
+    try:
+        grants = " ".join(str(r[0]) for r in (query("SHOW GRANTS") or [])
+                          if r and r[0])
+    except RuntimeError:
+        grants = ""
+    if grants and "ALL PRIVILEGES" not in grants.upper() \
+            and "PROCESS" not in grants.upper():
+        die("the database account this import runs as does not hold the "
+            "PROCESS privilege, so information_schema.PROCESSLIST shows "
+            "only its own threads and an attached replica would go "
+            "unnoticed. The import's binlog-off bulk copy is not "
+            "replica-safe: grant PROCESS, or detach the replicas and say "
+            "so.")
     try:
         dump_threads = query(
             "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE "
             "COMMAND IN ('Binlog Dump', 'Binlog Dump GTID')")
     except RuntimeError as exc:
-        # this is the RELIABLE half of the check — SHOW REPLICA HOSTS
-        # only sees replicas that registered a report_host. Failing open
-        # here would let the import silently diverge an attached replica,
+        # the more reliable half of the check — SHOW REPLICA HOSTS only
+        # sees replicas that registered a report_host. Failing open here
+        # would let the import silently diverge an attached replica,
         # which is unrecoverable without re-importing.
         die("cannot determine whether replicas are attached (the "
             "information_schema.PROCESSLIST probe failed: {0}). The "
             "import's binlog-off bulk copy is not replica-safe, so it "
-            "will not proceed on an unknown answer: grant the import "
-            "account PROCESS, or detach the replicas and say so."
-            .format(str(exc).strip()[:200]))
+            "will not proceed on an unknown answer: detach the replicas "
+            "and say so, or fix the probe.".format(
+                str(exc).strip()[:200]))
     connected = 0
     if dump_threads and dump_threads[0] and dump_threads[0][0]:
         try:

@@ -9,6 +9,7 @@ Run (from debian/assets):
 """
 
 import contextlib
+import csv
 import io
 import os
 import shutil
@@ -16,6 +17,23 @@ import tempfile
 import unittest
 
 from carlos_ctl import o19docs
+
+
+def _read_csv(path):
+    """The export's own rows, read back with the quoting it was written
+    with. QUOTE_NOTNULL (3.12+) yields None for a bare empty field (SQL
+    NULL) and a string for a quoted one; older interpreters yield ""
+    for both, which is the documented degradation."""
+    quoting = getattr(csv, "QUOTE_NOTNULL", None)
+    with open(path, newline="", encoding="utf-8") as fh:
+        reader = (csv.reader(fh, quoting=quoting) if quoting is not None
+                  else csv.reader(fh))
+        return [row for row in reader]
+
+
+def _null_or_empty(cell):
+    """None for a cell that means SQL NULL on either interpreter."""
+    return None if cell in (None, "") else cell
 
 
 class TestDetectContextDir(unittest.TestCase):
@@ -625,11 +643,15 @@ class TestArchiveCsvExport(unittest.TestCase):
 
         lines = o19docs.export_archive_csv(q, "o19_archive", out)
         self.assertEqual(lines, ["formONAR.csv: 2 row(s)"])
-        with open(os.path.join(out, "formONAR.csv")) as fh:
-            content = fh.read()
-        self.assertIn("ID,note", content)
-        self.assertIn('"line1\nline2"', content)
-        self.assertIn("back\\nslash", content)  # decoded exactly once
+        # assert the VALUES, not the quoting: the writer runs under
+        # QUOTE_NOTNULL on 3.12+ (which quotes every non-NULL field) and
+        # under QUOTE_MINIMAL below that, so a rendering assertion passes
+        # on the dev interpreter and fails on the one the package targets
+        # (Ubuntu 26.04 ships 3.14). Read it back the way it was written.
+        self.assertEqual(_read_csv(os.path.join(out, "formONAR.csv")),
+                         [["ID", "note"],
+                          ["1", "line1\nline2"],
+                          ["2", "back\\nslash"]])   # decoded exactly once
 
 
 class TestArchiveCsvRowShape(unittest.TestCase):
@@ -694,11 +716,38 @@ class TestArchiveCsvNulls(unittest.TestCase):
             return [["1", "0", "NULL", "1"], ["NULL", "1", "x\ty", "0"],
                     ["3", "0", "NULL", "0"]]
         o19docs.export_archive_csv(q, "arch", out)
+        rows = _read_csv(os.path.join(out, "t.csv"))
+        self.assertEqual(rows[0], ["a", "b"])
+        # a SQL NULL reads back as None under QUOTE_NOTNULL and as "" on
+        # an interpreter without it (the documented degradation), so the
+        # NULL cells are compared through one helper
+        self.assertEqual([_null_or_empty(c) for c in rows[1]], ["1", None])
+        self.assertEqual([_null_or_empty(c) for c in rows[2]], [None, "x\ty"])
+        # the stored four-character string 'NULL', never SQL NULL
+        self.assertEqual(rows[3], ["3", "NULL"])
+
+    @unittest.skipUnless(hasattr(csv, "QUOTE_NOTNULL"),
+                         "interpreter predates csv.QUOTE_NOTNULL (3.12)")
+    def test_sql_null_is_distinguishable_from_an_empty_string(self):
+        # the whole reason the writer asks for QUOTE_NOTNULL: on the
+        # interpreter the package actually ships against, a stored '' and
+        # a SQL NULL must not both come back as an empty cell
+        out = tempfile.mkdtemp(prefix="o19docs-csvnull2-")
+        self.addCleanup(shutil.rmtree, out)
+
+        def q(sql):
+            if "information_schema.TABLES" in sql:
+                return [["t"]]
+            if "information_schema.COLUMNS" in sql:
+                return [["a"], ["b"]]
+            return [["", "0", "", "1"]]        # stored '' , then SQL NULL
+        o19docs.export_archive_csv(q, "arch", out)
         with open(os.path.join(out, "t.csv"), newline="") as fh:
-            text = fh.read()
-        self.assertIn("1,\r\n", text)
-        self.assertIn(",x\ty", text)
-        self.assertIn("3,NULL", text)  # the stored value, not SQL NULL
+            raw = fh.read()
+        self.assertIn('"",\r\n', raw)       # quoted '' then a bare NULL
+        row = _read_csv(os.path.join(out, "t.csv"))[1]
+        self.assertEqual(row[0], "")
+        self.assertIsNone(row[1])
 
     def test_archive_names_outside_the_identifier_class_are_refused(self):
         out = tempfile.mkdtemp(prefix="o19docs-csvname-")

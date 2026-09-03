@@ -63,10 +63,46 @@ def chunk_span_refusal(table: str, chunk_col: str, lo: int,
     if span <= MAX_CHUNK_WINDOWS:
         return None
     return ("{0}: its {1} column spans {2}..{3}, which needs {4} copy "
-            "windows — the id space is far larger than the table. "
-            "Renumber or remove the outlying row(s) in the source and "
-            "re-export; nothing has been written for this table.".format(
+            "windows — the id space is far larger than the table. Nothing "
+            "has been written for this table, but earlier tables in this "
+            "run have been: restore the pre-import snapshot, renumber or "
+            "remove the outlying row(s) in the source, re-export, and "
+            "start over. (A re-exported dump cannot be offered to this "
+            "workspace with --restage once the ETL has copied from the "
+            "one staged earlier.)".format(
                 table, chunk_col, lo, hi, span))
+
+
+def absent_table_disposition(table: str, cls: str,
+                             tolerated: Sequence[str],
+                             in_target: bool) -> Tuple[bool, str]:
+    """(clear the target's rows?, the report note) for a manifest table
+    this dump does not contain.
+
+    P0 lets a PRISTINE_TOLERATED_TABLES table through the stock-deploy
+    gate holding rows (this deploy's own audit trail) ONLY because the
+    copy deletes them before the clinic's id-intact rows land. When the
+    dump has no such table that copy never runs, so those rows would end
+    up interleaved with the clinic's history under CARLOS — hence the
+    clear, even though there is nothing to copy in.
+
+    Both the class and the target's own schema are checked because this
+    is generic over PRISTINE_TOLERATED_TABLES: an entry of some other
+    class would otherwise be emptied below the `cls in (copy, merge)`
+    test that decides whether anything is reported at all, destroying
+    target rows silently.
+
+    The note is returned whether or not this run is the one that does the
+    delete. `absent_tables` is rebuilt from scratch on every run and the
+    whole block is re-emitted, so deriving it from "did I just clear it"
+    dropped the line on every --resume — taking, out of the shareable
+    report, the one fact the P0 tolerance rests on.
+    """
+    if table in tolerated and cls in ("copy", "merge") and in_target:
+        return True, " (absent: the target's own rows were cleared)"
+    if table in o19map_schema.SEED_ROW_COUNTS:
+        return False, " (seeded: CARLOS defaults stand)"
+    return False, ""
 
 
 REPAIR_TEMPLATE = ("CONVERT(BINARY CONVERT({0} USING latin1) USING utf8mb4)")
@@ -1526,24 +1562,14 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             # not in this dump (patch-level variance): said so, because a
             # seeded table then keeps CARLOS's seed rows in the clinic's
             # place
-            note = ""
-            cleared = progress["tables"].get(table, {}).get(
-                "absent_cleared")
-            if table in tolerated_tables and not cleared:
-                # P0 tolerated the target's own rows here (the deploy's
-                # audit trail) ONLY because the copy deletes them before
-                # the clinic's land. With the table absent from the dump
-                # that copy never runs, so the deploy's rows would end up
-                # interleaved with the clinic's history under CARLOS. The
-                # contract is "nothing of the deploy's own survives", so
-                # clear them even though there is nothing to copy in.
+            clear, note = absent_table_disposition(
+                table, cls, tolerated_tables, table in dst_info)
+            if clear and not progress["tables"].get(table, {}).get(
+                    "absent_cleared"):
                 query("DELETE FROM `{0}`.`{1}`".format(dst, table))
-                progress["tables"].setdefault(table, {})["absent_cleared"] \
-                    = True
+                progress["tables"].setdefault(
+                    table, {})["absent_cleared"] = True
                 save_progress(state_dir, progress)
-                note = " (absent: the target's own rows were cleared)"
-            elif table in o19map_schema.SEED_ROW_COUNTS:
-                note = " (seeded: CARLOS defaults stand)"
             if cls in ("copy", "merge"):
                 absent_tables.append("{0}{1}".format(table, note))
             continue

@@ -27,6 +27,7 @@ import os
 import shutil
 import subprocess
 import tarfile
+import zlib
 from typing import Dict, List, Optional, Tuple
 
 from .util import die, log, run
@@ -159,6 +160,16 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
         raise ValueError("bundle rejected:\n  " + "\n  ".join(problems))
     return {"dump": dumps[0], "documents": docs[0] if docs else None,
             "properties": props[0]}
+
+
+#: everything reading a clinic archive can raise. zlib.error is the
+#: one that does NOT descend from OSError: a gzip member whose deflate
+#: stream is corrupt mid-body surfaces it unwrapped through tarfile, and
+#: a truncated multi-GB scp is exactly how that happens. Letting it
+#: escape costs more than a traceback — for the o19-preflight verb an
+#: uncaught exception exits 1, and exit 1 IS the "go with
+#: acknowledgements" verdict.
+ARCHIVE_ERRORS = (tarfile.TarError, zlib.error, OSError, EOFError)
 
 
 def read_tar_entries(path: str, gzipped: bool
@@ -469,7 +480,7 @@ def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
 
     try:
         entries = read_tar_entries(tar_path, gzipped)
-    except (tarfile.TarError, OSError) as exc:
+    except ARCHIVE_ERRORS as exc:
         die("cannot read the bundle's contents ({0}) — the archive is "
             "corrupt or truncated".format(exc))
     try:

@@ -988,7 +988,12 @@ class TestChunkSpanRefusal(unittest.TestCase):
         self.assertIsNotNone(msg)
         self.assertIn("log", msg)
         self.assertIn("id", msg)
-        self.assertIn("nothing has been written for this table", msg)
+        self.assertIn("Nothing has been written for this table", msg)
+        # ...and the remedy has to be one the operator can reach from
+        # here: by the time a table is being copied the ledger already
+        # names the break-glass admin, so --restage is refused and the
+        # only way out is the pre-import snapshot
+        self.assertIn("restore the pre-import snapshot", msg)
 
     def test_the_refusal_precedes_every_write_in_the_copy_path(self):
         # the ordering is the whole point: assert the call site sits
@@ -999,6 +1004,53 @@ class TestChunkSpanRefusal(unittest.TestCase):
         delete = src.index(
             'query("DELETE FROM `{0}`.`{1}`".format(dst, table))', chunked)
         self.assertLess(guard, delete)
+
+
+class TestAbsentTableDisposition(unittest.TestCase):
+    """What happens to a manifest table this dump does not carry."""
+
+    TOL = ("log",)
+
+    def test_a_tolerated_table_is_cleared_and_said_so(self):
+        clear, note = o19etl.absent_table_disposition(
+            "log", "copy", self.TOL, True)
+        self.assertTrue(clear)
+        self.assertIn("the target's own rows were cleared", note)
+
+    def test_the_note_does_not_depend_on_this_run_doing_the_delete(self):
+        # the report block is rebuilt from scratch every run, so a resume
+        # that skips the (already done) delete must still say it happened
+        # — otherwise the fact P0's tolerance rests on vanishes from the
+        # shareable report on the second attempt
+        first = o19etl.absent_table_disposition("log", "copy", self.TOL, True)
+        again = o19etl.absent_table_disposition("log", "copy", self.TOL, True)
+        self.assertEqual(first[1], again[1])
+
+    def test_a_tolerated_table_missing_from_the_target_is_left_alone(self):
+        clear, note = o19etl.absent_table_disposition(
+            "log", "copy", self.TOL, False)
+        self.assertFalse(clear)
+
+    def test_a_tolerated_table_of_another_class_is_never_emptied(self):
+        # only copy/merge tables are reported at all, so clearing one of
+        # another class would destroy target rows with no report line
+        for cls in ("reference", "drop", "archive"):
+            clear, note = o19etl.absent_table_disposition(
+                "log", cls, self.TOL, True)
+            self.assertFalse(clear, cls)
+            self.assertEqual(note, "", cls)
+
+    def test_a_seeded_table_keeps_the_carlos_defaults_note(self):
+        seeded = next(iter(o19map_schema.SEED_ROW_COUNTS))
+        clear, note = o19etl.absent_table_disposition(
+            seeded, "copy", (), True)
+        self.assertFalse(clear)
+        self.assertIn("CARLOS defaults stand", note)
+
+    def test_an_ordinary_absent_table_gets_no_note(self):
+        self.assertEqual(
+            o19etl.absent_table_disposition("zzz_nope", "copy", (), True),
+            (False, ""))
 
 
 if __name__ == "__main__":
