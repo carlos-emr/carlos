@@ -93,8 +93,8 @@ sudo carlos-ctl import-o19 \
 ```
 
 `--admin-user` names the break-glass administrator created before the
-seeded clinician is removed. It must be 1 to 30 characters of letters,
-digits, `_`, `.`, `@` or `-`; it may not be the seeded `carlosdoc`; and it
+seeded clinician is removed. It must start with a letter or a digit and
+run to at most 30 characters of letters, digits, `_`, `.`, `@` or `-`; it may not be the seeded `carlosdoc`; and it
 may not collide with a login the dump already carries.
 
 The host needs, before the run: roughly 2.5 times the **uncompressed** dump

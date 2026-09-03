@@ -165,8 +165,9 @@ def validate_admin_user(name: Optional[str]) -> str:
     characters only, no quoting tricks."""
     if not name or not ADMIN_USER_RE.match(name):
         raise ValueError(
-            "--admin-user must be 1-30 characters of letters, digits, "
-            "'_', '.', '@' or '-' (got {0!r})".format(name))
+            "--admin-user must start with a letter or digit and run to "
+            "at most 30 characters of letters, digits, '_', '.', '@' or "
+            "'-' (got {0!r})".format(name))
     return name
 
 

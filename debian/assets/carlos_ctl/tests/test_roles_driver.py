@@ -315,24 +315,24 @@ class TestSeedReplay(RunRolesBase):
                     twinless={"secRole": 3, "provider_facility": 2,
                               "program": 1, "program_provider": 5,
                               "eform": 1})
-        with self.assertRaises(o19etl.QueryError):
-            self.run_roles(db)
-        # the resume: the ledger the crashed run persisted (every earlier
-        # step marked, the RTL plan taken from an empty eform table) and
-        # a database that now holds the seeded row
+        # resume from the ledger the crashed run ACTUALLY persisted, not a
+        # hand-built one: that is what pins the pre-RTL marks and the RTL
+        # plan having been written before the first fixup ran
         progress2 = {"tables": {}}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db, progress=progress2)
+        self.assertIn("rtl_plan", progress2["roles"],
+                      "the plan must be persisted before the first write")
+        self.assertNotIn("rtl", progress2["roles"],
+                         "the crash landed before the step was marked")
+        for step in ("roles_appended", "facility_links", "activeyn",
+                     "program", "backfill", "diff", "property_pruned",
+                     "prevention_types"):
+            self.assertIn(step, progress2["roles"], step)
         db2 = FakeDb(rtl_sequence=[seeded, modern],
                      twinless={"secRole": 3, "provider_facility": 2,
                                "program": 1, "program_provider": 5,
                                "eform": 1})
-        # the persisted plan from the crashed run
-        plan = list(o19roles.rtl_plan([]))
-        progress2["roles"] = {"roles_appended": True, "facility_links": True,
-                              "activeyn": True, "program": True,
-                              "backfill": True, "diff": True,
-                              "property_pruned": True,
-                              "prevention_types": True,
-                              "appended": {}, "rtl_plan": plan}
         self.run_roles(db2, progress=progress2)
         seeds = [w for w in db2.writes
                  if w.startswith("-- " + o19roles.RTL_SEED_SCRIPT)]

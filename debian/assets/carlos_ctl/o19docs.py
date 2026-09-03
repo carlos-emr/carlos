@@ -675,6 +675,22 @@ def run_docs(ctx) -> None:
                             skipped="no-documents")
         return
 
+    # Reads only the target database, so it runs BEFORE the tar is
+    # touched: two rows reaching one basename through different paths
+    # would be folded onto one file by the rewrite, and the remedy this
+    # names (re-export) is only reachable while the tree is untouched.
+    twins = query(hrm_basename_twins_sql(ctx["target_db"]))
+    if twins:
+        private(["HRM report basenames reached through more than one "
+                 "path (the basename rewrite cannot tell them apart):"]
+                + ["{0}: {1} path(s)".format(r[0], r[1]) for r in twins
+                   if len(r) >= 2])
+        die("{0} HRM report name(s) are referenced through different "
+            "paths by HRMDocument rows (itemised in documents-details.txt) "
+            "— CARLOS keeps reports flat under document/, so rename the "
+            "duplicates in the source and re-export (nothing has been "
+            "restored yet)".format(len(twins)))
+
     tar_path = ctx["documents"]
     tar_sha = o19import.sha256_file(tar_path)
     # one details file per pass: every step below re-runs on --resume and
@@ -769,18 +785,6 @@ def run_docs(ctx) -> None:
     # hand (the documented remedy) leaves root-owned files behind, and a
     # root-run reconciliation would never notice
     apply_ownership(ctx_root, ctx["dev_target"])
-    # two rows reaching one basename through different paths would be
-    # folded onto one file by the rewrite: refused before it runs
-    twins = query(hrm_basename_twins_sql(ctx["target_db"]))
-    if twins:
-        private(["HRM report basenames reached through more than one "
-                 "path (the basename rewrite cannot tell them apart):"]
-                + ["{0}: {1} path(s)".format(r[0], r[1]) for r in twins
-                   if len(r) >= 2])
-        die("{0} HRM report name(s) are referenced through different "
-            "paths by HRMDocument rows (itemised in documents-details.txt) "
-            "— CARLOS keeps reports flat under document/, so rename the "
-            "duplicates in the source and re-export".format(len(twins)))
     update_sql, _ = hrm_rewrite_sql(ctx["target_db"], documents_root)
     query(update_sql)  # idempotent: basename into DOCUMENT_DIR
 
