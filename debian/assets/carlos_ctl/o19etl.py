@@ -902,17 +902,21 @@ def load_progress(state_dir: str, dump_sha256: Optional[str] = None,
 
 
 def save_progress(state_dir: str, progress: Dict) -> None:
-    # 0600 like the private text files: the roles ledger plans carry
-    # provider numbers
-    tmp = _progress_path(state_dir) + ".tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)  # a stale .tmp keeps its old mode otherwise
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(progress, fh)
-    os.replace(tmp, _progress_path(state_dir))
+    # 0600 like the private text files (the roles ledger plans carry
+    # provider numbers), and fsynced: a rename that lands before the data
+    # would leave a ledger of zeroes describing writes that did happen
+    from . import o19import
+    o19import.durable_json(_progress_path(state_dir), progress)
 
 
-ABSENT_OBJECT_MARKERS = ("Unknown column", "doesn't exist", "1054", "1146")
+# anchored on the client's error prefix: a bare "1054" substring test
+# also matched a table name, a row id or a byte offset carrying those
+# digits, and would then silently classify a real failure as "absent at
+# this patch level" — in the P7 spot check that skips a verification
+# join, and in detect_repairs it would pass a failed charset scan as
+# clean
+ABSENT_OBJECT_RE = re.compile(r"ERROR\s+(1054|1146)\b", re.I)
+ABSENT_OBJECT_MARKERS = ("Unknown column", "doesn't exist")
 
 
 class QueryError(RuntimeError):
@@ -933,6 +937,8 @@ def _absent_object_error(exc: Exception) -> bool:
     text = getattr(exc, "stderr", None)
     if text is None:
         text = str(exc)
+    if ABSENT_OBJECT_RE.search(text or ""):
+        return True
     return any(m in text for m in ABSENT_OBJECT_MARKERS)
 
 
@@ -1300,6 +1306,30 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     progress = load_progress(state_dir, ctx.get("dump_sha256"),
                              o19map_schema.SCHEMA_MAP_VERSION)
 
+    # Has the target been rewound under this ledger? The pre-import
+    # restic snapshot covers the CARLOS schema and the documents tree,
+    # NOT this workspace — so an operator who follows the rollback advice
+    # in any of our refusals ends up with a pristine database and a
+    # ledger that still says two hundred tables are done. A --resume then
+    # skips every one of them, leaving CARLOS seed rows in the clinic's
+    # place, and --cleanup and --restage both refuse with messages that
+    # point back at the snapshot they just restored. The break-glass
+    # admin is the cheapest witness: this run created it, so its absence
+    # means the target is not the one this ledger describes.
+    recorded_pn = progress.get("admin_provider_no")
+    if recorded_pn:
+        still_there = int(plain(
+            "SELECT COUNT(*) FROM `{0}`.provider WHERE provider_no = {1}"
+            .format(dst, _sql_str(recorded_pn)))[0][0])
+        if not still_there:
+            die("the target no longer holds this import's break-glass "
+                "administrator (provider_no {0}), but the ledger records "
+                "its work — the database was rewound underneath it "
+                "(a restored snapshot does not cover {1}). This run "
+                "cannot be resumed: move {1} aside and start the import "
+                "over against the restored database."
+                .format(recorded_pn, state_dir))
+
     # -- seed reconciliation (strictly ordered, before provider/security) --
     # Resumable in two recorded steps: admin rows inserted, then seeds
     # deleted. A retry after an interrupted insert clears the partial admin
@@ -1510,6 +1540,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                 resumed = bool(tstate.get("started"))
                 done_through = tstate.get("done_through", lo - 1)
                 if not tstate.get("started"):
+                    if entry.get("replace_seed"):
+                        # the unchunked branch does this too: the target
+                        # may already hold rows this copy would collide
+                        # with on its id-intact insert (`log` carries the
+                        # deploy's own audit rows). Once a window has
+                        # landed, `started` is set and this never re-runs.
+                        query("DELETE FROM `{0}`.`{1}`".format(dst, table))
                     tstate["started"] = True
                     save_progress(state_dir, progress)
                 windows = chunk_windows(lo, hi)

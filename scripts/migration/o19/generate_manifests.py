@@ -875,6 +875,10 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " migrations may also grow via\n# INSERT ... SELECT, which no"
                " static count can see; clinical data never lives there.")
     out.append("SEED_ROW_COUNTS = " + _fmt(seeded) + "\n")
+    out.append("# copy-class tables the P0 pristine sweep tolerates rows "
+               "in (all REPLACE_SEED)")
+    out.append("PRISTINE_TOLERATED_TABLES = "
+               + _fmt(list(ov.PRISTINE_TOLERATED_TABLES)) + "\n")
     out.append("# tables the import cannot run without (o19etl "
                "pre-checks and the roles step)")
     out.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)) + "\n")

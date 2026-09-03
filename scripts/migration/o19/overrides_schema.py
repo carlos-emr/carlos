@@ -72,6 +72,10 @@ CLASS_REFERENCE = {
 # rows id-intact. (provider/security are handled by CARLOSDOC_SEED_DELETES +
 # the ordered seed-reconciliation script, not here.)
 REPLACE_SEED = {
+    # the deploy's own audit rows (a verification login) are deleted
+    # before the clinic's id-intact rows land — see
+    # PRISTINE_TOLERATED_TABLES
+    "log",
     # ctl_document's "natural key" is (module, module_id, document_no) —
     # three CLINIC-scoped surrogate ids, so merging is meaningless: the
     # CARLOS seed's three demo rows (documents 4953-4955, two of them
@@ -184,6 +188,17 @@ SEED_COUNT_DELETIONS = {
 # clinic's rows (which reuse the same ids) are copied. Predicates address
 # the target table directly; a subquery names its schema as {schema}
 # (the client runs without a default database).
+# Copy-class tables the P0 pristine sweep tolerates rows in. The sweep
+# exists to catch a deploy that has been USED clinically; `log` is the
+# audit trail, and CARLOS writes a row there for every login attempt —
+# including a failed one — so a sysadmin who logs in once to confirm the
+# deploy works permanently disqualifies the host, with "provision a fresh
+# Flyway schema" as the only offered remedy. Safe to tolerate because
+# every table here is also REPLACE_SEED: the copy deletes the target's
+# rows before writing the clinic's id-intact ones, so nothing collides
+# and nothing of the deploy's own survives. The counts are reported.
+PRISTINE_TOLERATED_TABLES = ["log"]
+
 STARTUP_CREATED_ROWS = [
     ("site", "name = 'Main Clinic'"),
     ("providersite", "provider_no = '999998'"),

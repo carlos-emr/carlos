@@ -55,7 +55,7 @@ import subprocess
 import sys
 
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
-SCHEMA_MAP_VERSION = 'o19map-2+78d7b58b'
+SCHEMA_MAP_VERSION = 'o19map-2+d0b73f74'
 REQUIRED_TABLES = [
     'Facility',
     'clinic',
@@ -1821,8 +1821,12 @@ def render_text(report):
     lines.append("")
     lines.append("Next step on a 'go': bundle the three inputs on this "
                  "server and ship them to the CARLOS host:")
-    lines.append("  mysqldump --single-transaction --quick <db> | gzip "
-                 "> o19.sql.gz")
+    lines.append("  # stop Tomcat FIRST: OSCAR 19 tables are usually "
+                 "MyISAM, for which")
+    lines.append("  # --single-transaction gives no consistency at all "
+                 "against a live database")
+    lines.append("  mysqldump --single-transaction --quick --skip-triggers "
+                 "<db> | gzip > o19.sql.gz")
     lines.append("    (MySQL 5.6+: add --set-gtid-purged=OFF; the import "
                  "refuses a dump that sets GTID_PURGED)")
     lines.append("  tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz "
@@ -1832,6 +1836,12 @@ def render_text(report):
     lines.append("    | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt "
                  "-pass file:PASSFILE \\")
     lines.append("    -out o19-bundle.tar.gz.enc")
+    lines.append("    (OpenSSL 1.0.x, e.g. Ubuntu 14.04, has neither "
+                 "-pbkdf2 nor -iter: use")
+    lines.append("     `openssl enc -aes-256-cbc -md sha256 -salt` and tell "
+                 "the CARLOS operator,")
+    lines.append("     who then passes --bundle-openssl-opt -md "
+                 "--bundle-openssl-opt sha256)")
     lines.append("  sha256sum o19-bundle.tar.gz.enc   # send the digest with "
                  "the "
                  "password, separately from the file")

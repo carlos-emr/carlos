@@ -141,6 +141,23 @@ class TestPristineGate(unittest.TestCase):
         self.assertTrue(any(v.startswith("program:")
                             for v in o19import.pristine_violations(adjusted)))
 
+    def test_an_audit_row_from_a_verification_login_is_tolerated(self):
+        # CARLOS writes a `log` row for every login attempt, failed ones
+        # included. Refusing the host for it would make one confirmation
+        # login by the sysadmin cost a reprovision, and the copy deletes
+        # those rows before the clinic's land (log is replace_seed).
+        counts = self.seeds()
+        counts["log"] = 3
+        self.assertEqual(o19import.pristine_violations(counts), [])
+        for table in o19map_schema.PRISTINE_TOLERATED_TABLES:
+            self.assertTrue(
+                o19map_schema.TABLES[table].get("replace_seed"),
+                "{0} is tolerated but its rows are never cleared".format(
+                    table))
+        # a clinical table is still a refusal
+        counts["demographic"] = 1
+        self.assertTrue(o19import.pristine_violations(counts))
+
     def test_startup_row_counts_follow_the_manifest(self):
         def q(sql):
             if "information_schema" in sql:

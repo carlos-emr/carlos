@@ -40,6 +40,7 @@ STATE_DIR=/var/backups/carlos-emr
 ALERTED=0
 WORK_DIR="${STATE_DIR}/work"
 DOCS_DIR=/var/lib/carlos-emr/OscarDocument
+O19_DIR=/var/lib/carlos-emr/o19-import
 LOG_TAG=carlos-emr-backup
 
 log()  { printf '%s: %s\n' "${LOG_TAG}" "$*"; }
@@ -490,6 +491,15 @@ cmd_run() {
     # is exactly the material that must survive the loss of the host.
     local -a targets=("${DOCS_DIR}")
     [ -d "${CONF_DIR}" ] && targets+=("${CONF_DIR}")
+    # The OSCAR 19 import workspace, when one exists. Two things live
+    # there that exist nowhere else: the CSV rendering of the o19_archive
+    # schema (the clinic's only readable copy of every record that became
+    # archive-only, which they signed off as such), and the run ledgers
+    # that describe what the import did. Without the ledgers a restored
+    # snapshot rewinds the database while state.json still claims two
+    # hundred tables are done, and the import can be neither resumed nor
+    # cleaned up.
+    [ -d "${O19_DIR}" ] && targets+=("${O19_DIR}")
     # Two deliberate exclusions:
     #
     #   tls/          the front-door key and certificate. The key is
@@ -502,9 +512,14 @@ cmd_run() {
     #                 read once and shredded; copying it into every snapshot
     #                 would keep a plaintext administrator password alive long
     #                 after the account it describes was supposed to change.
+    #   admin-credentials.txt  the break-glass password the import
+    #                 creates, for the same reason as initial-admin.txt.
+    #                 The `*` catches the set-aside copies too.
     restic backup --tag files --host "$(hostname -s)-carlos" \
         --exclude "${CONF_DIR}/tls" \
         --exclude "${CONF_DIR}/initial-admin.txt" \
+        --exclude "${O19_DIR}/admin-credentials.txt*" \
+        --exclude "${O19_DIR}/.lock" \
         "${targets[@]}"
 
     log "pruning old snapshots (${KEEP})"

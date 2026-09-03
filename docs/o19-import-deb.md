@@ -40,7 +40,14 @@ and what must be decided before cutover.
 During the cutover window, with Tomcat stopped on the OSCAR 19 server:
 
 ```bash
-mysqldump --single-transaction --quick oscar | gzip > o19.sql.gz
+mysqldump --single-transaction --quick --skip-triggers oscar \
+    | gzip > o19.sql.gz
+# Tomcat MUST already be stopped: OSCAR 19 tables are usually MyISAM, and
+# --single-transaction gives a consistent snapshot only for transactional
+# tables — against a live database it would produce a dump whose tables
+# disagree with each other, which no check downstream can detect.
+# --skip-triggers: mysqldump emits triggers by default and a trigger
+# carries a DEFINER clause the schema-scoped restore account cannot set.
 # one database, named as an argument: never --databases/--all-databases
 # (the importer refuses a dump that names its own schema); on MySQL 5.6+
 # add --set-gtid-purged=OFF
@@ -77,11 +84,32 @@ bundle whose digest does not match.
 
 ## 3. Import on the CARLOS host
 
-Prerequisites: a **fresh install** of the carlos-emr package — schema
-migrated (`carlos-ctl db-migrate`), never used clinically (the importer
-verifies this mechanically and refuses anything else; the only remedy is a
-fresh schema, there is no override) — and configured backups
-(the pre-import restic snapshot is the rollback point).
+Prerequisites, all of them before the command below:
+
+1. A **fresh install** of the carlos-emr package with the schema migrated
+   (`carlos-ctl db-migrate`) and **never used clinically**. The importer
+   verifies this mechanically and refuses anything else; there is no
+   override, and the way back is
+   `carlos-ctl destroy-data --confirm <server name>` followed by
+   `carlos-ctl db-users` and `carlos-ctl db-migrate`.
+2. **Do not log in to that deploy.** Verify it with `carlos-ctl check`.
+   A successful login writes rows the sweep tolerates in the audit table
+   only; anything else a session touches is a refusal.
+3. **Stop the service**: `carlos-ctl stop`. A real run or a `--resume` is
+   refused while `carlos-emr` is running *or starting* — its startup
+   listener writes rows the row-parity gate rejects, and a live session
+   could read a half-copied chart.
+4. **Configured backups.** The pre-import restic snapshot is the rollback
+   point, and it now covers `/var/lib/carlos-emr/o19-import` as well as
+   the database and the documents tree, so a restore rewinds the run's
+   ledgers with the data they describe. The break-glass credential note
+   is deliberately excluded.
+5. **Keep the bundle, its passfile and the digest** until `--cleanup`.
+   Every `--resume` repeats the whole command with `--resume` appended,
+   and re-reads the bundle.
+
+Only one import may work in `/var/lib/carlos-emr/o19-import` at a time;
+a second invocation is refused and names the pid of the one holding it.
 
 ```bash
 sudo carlos-ctl import-o19 \
@@ -339,12 +367,21 @@ given clinic — that list is the clinic's sign-off.
   server-wide SET statements — the restore runs as an account limited to the staging
   schema. Re-take the dump with `--skip-triggers --set-gtid-purged=OFF`
   (and without `--databases`); OSCAR 19 keeps nothing in triggers or views.
-- *documents reconciliation FAILED* — a `document` row's file is missing or
-  empty in the tar, an eForm references an image asset that is not there,
-  or an HRM report is missing; the names are in `documents-details.txt`
-  (root-only), the console and the report carry counts. Fix the tree (or
-  re-ship the tar) and `--resume`; the import never goes live with
-  unreadable documents. HRM report files are moved from the whole `hrm/`
+- *documents reconciliation FAILED* — a `document` row's file is missing,
+  empty, named with a subdirectory or with a leading dot (CARLOS opens the
+  basename only and refuses dot-leading names), an eForm references an
+  image asset that is not there, or an HRM report is missing; the names
+  are in `documents-details.txt` (root-only), the console and the report
+  carry counts. Fix the tree **in place** under
+  `/var/lib/carlos-emr/OscarDocument/carlos/` and `--resume`; the import
+  never goes live with unreadable documents. Restoring a *different* tar
+  is not a recovery path — the phase records the tar it restored and
+  refuses another one; that needs the pre-import snapshot first.
+  Separately reported, not blocking: eForm image references CARLOS cannot
+  route to (a subdirectory, a query suffix, a path that escapes
+  `eform/images`). The asset is present and only the form's HTML is
+  wrong, so no tar can fix it — each needs `eform.form_html` edited in
+  the target after go-live. HRM report files are moved from the whole `hrm/`
   tree (O19 nests them under `hrm/sftp_downloads/<date>/decrypted/`) into
   `document/` and every `HRMDocument.reportFile` is rewritten to its
   basename there; identical copies of one name are folded, differing

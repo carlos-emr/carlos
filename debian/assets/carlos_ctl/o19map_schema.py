@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-2+78d7b58b'
+SCHEMA_MAP_VERSION = 'o19map-2+d0b73f74'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -9517,6 +9517,7 @@ TABLES = {
     },
     'log': {
         'class': 'copy',
+        'replace_seed': True,
         'cols': [
             'id',
             'dateTime',
@@ -21003,6 +21004,9 @@ SEED_ROW_COUNTS = {
     'tickler_text_suggest': 20,
     'validations': 17,
 }
+
+# copy-class tables the P0 pristine sweep tolerates rows in (all REPLACE_SEED)
+PRISTINE_TOLERATED_TABLES = ['log']
 
 # tables the import cannot run without (o19etl pre-checks and the roles step)
 REQUIRED_TABLES = [

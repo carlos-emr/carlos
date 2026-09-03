@@ -100,14 +100,30 @@ def load_state(state_dir: str) -> Dict:
         return {}  # unreachable
 
 
-def save_state(state_dir: str, state: Dict) -> None:
-    os.makedirs(state_dir, mode=0o700, exist_ok=True)
-    tmp = state_path(state_dir) + ".tmp"
+def durable_json(path: str, payload) -> None:
+    """Write a JSON document so a power loss leaves either the old file
+    or the new one. os.replace alone is atomic against a crash, not
+    against a loss of power: without the fsyncs the rename can land
+    before the data, leaving a ledger of zeroes describing writes that
+    did happen."""
+    tmp = path + ".tmp"
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.fchmod(fd, 0o600)  # a stale .tmp keeps its old mode otherwise
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(state, fh, indent=1, sort_keys=True)
-    os.replace(tmp, state_path(state_dir))
+        json.dump(payload, fh, indent=1, sort_keys=True)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+    dir_fd = os.open(os.path.dirname(path) or ".", os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+
+
+def save_state(state_dir: str, state: Dict) -> None:
+    os.makedirs(state_dir, mode=0o700, exist_ok=True)
+    durable_json(state_path(state_dir), state)
 
 
 def phase_done(state: Dict, phase: str) -> bool:
@@ -228,10 +244,17 @@ def pristine_violations(counts: Dict[str, int]) -> List[str]:
     """
     violations = []
     seeds = o19map_schema.SEED_ROW_COUNTS
+    tolerated = set(getattr(o19map_schema, "PRISTINE_TOLERATED_TABLES", ()))
     for table in sorted(counts):
         expected = seeds.get(table, 0)
         actual = counts[table]
         cls = o19map_schema.TABLES.get(table, {}).get("class")
+        if table in tolerated:
+            # the deploy's own audit rows: a sysadmin's verification
+            # login writes one, and the copy deletes them before the
+            # clinic's land (see PRISTINE_TOLERATED_TABLES). Reported by
+            # the caller, never a refusal.
+            continue
         if cls == "merge":
             if actual < expected:
                 violations.append(
@@ -534,16 +557,30 @@ def run_p0(ctx) -> None:
         "SELECT user_name FROM `{0}`.security".format(ctx["target_db"]))
     users = sorted(r[0] for r in identity_rows if r)
     if users != [o19map_schema.SEED_USER_NAME]:
-        violations.append("security holds {0!r}, expected only the "
-                          "'{1}' seed".format(
-                              users, o19map_schema.SEED_USER_NAME))
+        # the logins themselves go to the root-only file: a login name is
+        # a person, and report.txt is the shareable record
+        write_private(os.path.join(ctx["state_dir"], "verify-details.txt"),
+                      "P0 pristine sweep: security holds "
+                      + ", ".join(repr(u) for u in users) + "\n")
+        violations.append("security holds {0} login(s) where only the "
+                          "'{1}' seed is expected (named in "
+                          "verify-details.txt)".format(
+                              len(users), o19map_schema.SEED_USER_NAME))
     if violations:
         text = ("the import runs ONLY on a stock initial deploy; this "
                 "database is not one:\n  " + "\n  ".join(violations[:25])
                 + ("\n  ... and {0} more".format(len(violations) - 25)
                    if len(violations) > 25 else "")
-                + "\nNo --accept flag clears this: provision a fresh "
-                  "Flyway schema instead.")
+                + "\nNo --accept flag clears this. To start from a stock "
+                  "schema: `carlos-ctl destroy-data --confirm <server "
+                  "name>`, then `carlos-ctl db-users` and `carlos-ctl "
+                  "db-migrate` — and do not log in to the result, not "
+                  "even once, before the import.")
+        # written BEFORE the refusal: a hard P0 stop otherwise leaves no
+        # trace anywhere but the terminal
+        report_append(ctx["state_dir"], "P0 check-pristine",
+                      "target {0}: REFUSED\n  ".format(ctx["target_db"])
+                      + "\n  ".join(violations[:25]))
         if dev:
             warn("DEV TARGET: pristine sweep downgraded to a warning:\n"
                  + text)
@@ -1392,7 +1429,12 @@ RUN_FILES = ("report.txt", "roles-details.txt", "privilege-diff.txt",
              "verify-details.txt", "documents-details.txt", "preflight.txt",
              "preflight.json", "etl-progress.json",
              "o19-derived-carlos.properties",
-             "o19-derived-carlos.properties.dry-run")
+             "o19-derived-carlos.properties.dry-run",
+             # the CSV rendering of this run's archive schema: clinic
+             # records. Retired with the run, or a second clinic's import
+             # into the same workspace would leave the first clinic's
+             # tables sitting beside its own.
+             "o19-archive-export")
 
 
 # --------------------------------------------------------------------------
@@ -1695,8 +1737,53 @@ def assessment_refusal(state: Dict, state_dir: str) -> Optional[str]:
     return None
 
 
+_WORKSPACE_LOCK_FD = None
+
+
+def take_workspace_lock(state_dir: str) -> None:
+    """Hold an exclusive lock on the workspace for this process's life.
+
+    Every gate in this module is a read of state.json or the ETL ledger,
+    so two concurrent invocations pass all of them. Both would then enter
+    the seed block, allocate the same break-glass provider_no, and write
+    over each other's admin-credentials.txt and ledger; one INSERT wins on
+    security.user_name and the loser's cleanup on a later resume deletes
+    the surviving admin by provider_no — while the seeded clinician has
+    already been deleted. That leaves the clinic with no working login and
+    a credentials file matching no row.
+
+    The fd is deliberately never closed: the kernel releases the lock when
+    the process exits, however it exits."""
+    global _WORKSPACE_LOCK_FD
+    if _WORKSPACE_LOCK_FD is not None:
+        return
+    import fcntl
+    os.makedirs(state_dir, mode=0o700, exist_ok=True)
+    path = os.path.join(state_dir, ".lock")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        holder = ""
+        try:
+            with open(path, encoding="utf-8") as fh:
+                holder = fh.read().strip()
+        except OSError:
+            pass
+        os.close(fd)
+        die("another carlos-ctl import is working in {0}{1} — wait for it "
+            "to finish, or check it with `systemctl status` / `ps`. Two "
+            "runs over one workspace can leave the clinic with no working "
+            "login.".format(state_dir,
+                            " (pid {0})".format(holder) if holder else ""))
+    os.ftruncate(fd, 0)
+    os.write(fd, "{0}\n".format(os.getpid()).encode("utf-8"))
+    _WORKSPACE_LOCK_FD = fd
+
+
 def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     dev_target = _dev_mode(args)
+    take_workspace_lock(state_dir)
     state = load_state(state_dir)
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
     real_run = import_mode and not getattr(args, "dry_run", False)
@@ -2004,6 +2091,7 @@ def _cmd_import_o19(argv) -> int:
 
 def _make_ctx_for_cleanup(args) -> Dict:
     state_dir = STATE_DIR
+    take_workspace_lock(state_dir)
     return {
         "state_dir": state_dir,
         "state": load_state(state_dir),
