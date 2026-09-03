@@ -310,6 +310,14 @@ class TestResumeContract(unittest.TestCase):
         # masked BEFORE the width cut: a truncated literal cannot leak
         self.assertNotIn("s3cr3t", o19import.redact_statement(sql, 60))
         self.assertEqual(o19import.redact_statement("SELECT 1"), "SELECT 1")
+        # a stored HASH is a credential too — it is directly replayable
+        hashed = ("GRANT ALL ON x.* TO 'a'@'b' IDENTIFIED BY PASSWORD "
+                  "'*ABC123DEADBEEF'")
+        self.assertNotIn("ABC123DEADBEEF",
+                         o19import.redact_statement(hashed))
+        # an escaped quote inside the literal must not end the match
+        escaped = r"SET PASSWORD = 'a\'b-s3cr3t'"
+        self.assertNotIn("s3cr3t", o19import.redact_statement(escaped))
 
     def test_etl_started_reads_the_ledger(self):
         from carlos_ctl import o19etl
@@ -548,7 +556,9 @@ class TestStagingRestore(unittest.TestCase):
             if "BINLOG ADMIN" in sql:
                 raise RuntimeError("ERROR 1064: unknown privilege")
             return []
-        cnf = os.path.join(tempfile.mkdtemp(prefix="o19cnf-"), "c.cnf")
+        cnf_dir = tempfile.mkdtemp(prefix="o19cnf-")
+        self.addCleanup(shutil.rmtree, cnf_dir)
+        cnf = os.path.join(cnf_dir, "c.cnf")
         with self.assertRaises(SystemExit):
             o19import.grant_staging_account(q, cnf)
         self.assertFalse(any("SUPER" in s for s in seen))

@@ -21,7 +21,9 @@ overrides_props.py       hand-curated oscar.properties dispositions (durable)
 build-o19-fixture.sh     builds the rehearsal database + turnkey inputs
 fixtures/                vendored O19 demo data & stock properties
                          (PROVENANCE.md), synthetic clinic properties and
-                         role/legacy-data cases (demo-data/roles.sql),
+                         role/legacy-data cases (demo-data/roles.sql) and
+                         clinical rows + text encodings the vendored
+                         dataset lacks (demo-data/clinical.sql),
                          documents-tree manifest/generator + fixture rows,
                          documents/make-o19-bundle.sh (packs the inputs into
                          every --bundle variant used by the rehearsal)
@@ -77,9 +79,14 @@ defaults file (`--mysql-arg --defaults-extra-file=FILE`), or a pre-set
 
 Creates a **latin1** `o19_fixture` database (init scripts in
 `createdatabase_generic.sh` order, then the vendored `release/demo.sql` demo
-dataset, the fixture document rows and `demo-data/roles.sql` — the synthetic
-role/privilege and legacy-data cases the roles post-step reconciles) and
-emits the three turnkey inputs:
+dataset, the fixture document rows, `demo-data/roles.sql` — the synthetic
+role/privilege and legacy-data cases the roles post-step reconciles — and
+`demo-data/clinical.sql`, which adds the encounter notes, appointments,
+ticklers, consultations and Ontario billing the vendored dataset does not
+carry, together with accented text in both the correctly-encoded and the
+deliberately double-encoded form so the charset scan, the per-row repair
+and the `charset-repair` sign-off are actually exercised) and emits the
+three turnkey inputs:
 `o19-fixture.sql.gz`, `o19-documents.tar.gz` (generated placeholder tree —
 includes one deliberate missing-file row and one orphan file so the
 documents-phase reconciliation gate is exercised), and `oscar.properties`

@@ -31,6 +31,26 @@ content (clearly-fake values only — no real clinic or patient data):
   fixture dump itself is not byte-reproducible (the upstream seed writes
   NOW() values and mysqldump stamps its completion time), nor are the
   bundles that embed it — only the documents tar is.
+- `demo-data/clinical.sql` — synthetic clinical rows the vendored dataset
+  does not carry, and the three text encodings the import's charset path
+  exists for. The vendored file populates demographics, labs, drugs,
+  preventions and messages and nothing else, so eight of the fourteen
+  chunked tables, the whole Ontario billing copy, the tickler zero-date
+  `value_exprs`, the `fk_remap` indirection through an appended merge
+  parent and every `CHARSET_SCAN` column were unexercised by the
+  rehearsal. This file adds encounter notes (`casemgmt_note`,
+  `casemgmt_note_ext`, `casemgmt_issue`), appointments, ticklers on both
+  branches of the `creation_date` expression (a zero `update_date`, and
+  a row where both candidate dates are absent), a clinic-defined
+  consultation service with two requests that reference it, Ontario
+  billing headers and items, allergies and a custom demographic sheet.
+  Two invented patients carry accented names — one correctly encoded, one
+  deliberately double-encoded (`Ã©` for `é`) so the per-row repair and
+  the `charset-repair` sign-off are actually exercised. Every value is
+  latin1-representable, because the fixture database is latin1; every
+  INSERT names its columns, so a patch-level difference in column order
+  cannot shift a value into the wrong field. It is a CARLOS file and is
+  loaded after the vendored one, which stays verbatim.
 - `documents/` — manifest + generator for a deterministic placeholder
   OscarDocument tree (no binaries committed), plus the matching fixture
   database rows.

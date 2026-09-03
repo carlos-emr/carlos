@@ -6,7 +6,11 @@
 # emit the three turnkey migration inputs (dump, documents tar, properties).
 #
 # The database is created LATIN1 (the MySQL 5.x default real O19 installs
-# run) so the importer's charset-conversion path is genuinely exercised.
+# run). That alone exercises nothing while every byte of clinic data is
+# ASCII, which is what the vendored dataset is — so fixtures/demo-data/
+# clinical.sql adds accented text in both the correctly-encoded and the
+# deliberately double-encoded form, which is what actually drives the
+# charset scan, the per-row repair and the charset-repair sign-off.
 # Init/reference SQL comes from an OSCAR checkout (--oscar-src, in
 # createdatabase_generic.sh order); the demo dataset and document rows are
 # the vendored fixtures in fixtures/ (see fixtures/PROVENANCE.md).
@@ -153,6 +157,10 @@ load "fixture-document-rows.sql" \
 # clinic-custom role, role-hygiene cases and legacy data the M8 roles
 # post-step reconciles (synthetic; see fixtures/PROVENANCE.md)
 load "fixture roles.sql" "$SCRIPT_DIR/fixtures/demo-data/roles.sql"
+# encounter notes, appointments, ticklers, consultations, billing and the
+# three text encodings the charset path exists for — none of which the
+# vendored dataset carries (synthetic; see fixtures/PROVENANCE.md)
+load "fixture clinical.sql" "$SCRIPT_DIR/fixtures/demo-data/clinical.sql"
 
 mkdir -p "$OUT"
 # mariadb pairs with mariadb-dump (mariadbdump nowhere); mysql pairs with

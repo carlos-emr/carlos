@@ -623,6 +623,22 @@ class TestVerifyRoleChecks(unittest.TestCase):
         self.assertTrue(any("seed floor" in b for b in bad))
         self.assertTrue(any("without program_provider" in b for b in bad))
 
+    def test_a_trailing_blank_role_name_is_the_same_role(self):
+        # the collation is PAD SPACE; .lower() alone would call a
+        # guaranteed role missing and fail a verified import
+        query = self.make_query(roles=[["doctor "], ["admin "],
+                                       ["Triage Nurse"]])
+        _ok, problems, _adv, _priv = o19roles.verify_role_checks(
+            query, "carlos", None, 0)
+        self.assertEqual(
+            [p for p in problems if "missing from secRole" in p], [])
+        # a LEADING blank is significant and is NOT the same role
+        query = self.make_query(roles=[[" doctor"], ["admin"]])
+        _ok, problems, _adv, _priv = o19roles.verify_role_checks(
+            query, "carlos", None, 0)
+        self.assertTrue(any("missing from secRole" in p for p in problems),
+                        problems)
+
     def test_missing_guaranteed_role_fails(self):
         ok, bad, adv, private = o19roles.verify_role_checks(
             self.make_query(roles=[["admin"]]), "carlos", None, 1)

@@ -478,6 +478,31 @@ class TestEformImageRefs(unittest.TestCase):
                                  "logo.png", "bare.gif", "a.png",
                                  "sub/deep.png", "bg.png"]))
 
+    def test_a_percent_encoded_name_is_decoded_exactly_once(self):
+        # image_refs already percent-decoded; decoding again in reconcile
+        # would split a name that legitimately contains '#' or '&' and
+        # turn a working form into a blocking P5 failure
+        root = tempfile.mkdtemp(prefix="o19docs-pct-")
+        self.addCleanup(shutil.rmtree, root)
+        os.makedirs(os.path.join(root, "document"))
+        os.makedirs(os.path.join(root, "eform", "images"))
+        for name in ("chart#2.png", "a&b.png"):
+            with open(os.path.join(root, "eform", "images", name),
+                      "wb") as fh:
+                fh.write(b"png")
+
+        def query(sql):
+            if ".eform" in sql:
+                return [("9", "Chart",
+                         '<img src="${oscar_image_path}chart%232.png">'
+                         '<img src="${oscar_image_path}a%26b.png">')]
+            return []
+
+        problems, lines, _private = o19docs.reconcile(query, "o19_import",
+                                                      root)
+        self.assertEqual(problems, [])
+        self.assertIn("2 eForm image reference(s) checked", lines)
+
     def test_the_css_wrapper_is_recognised_however_it_is_written(self):
         # CSS keywords are case-insensitive and whitespace is allowed
         # around the parenthesis; missing the wrapper leaves the closing

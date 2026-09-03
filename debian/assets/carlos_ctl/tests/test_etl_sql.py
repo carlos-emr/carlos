@@ -691,6 +691,78 @@ class TestPrecheckScope(unittest.TestCase):
             self.assertEqual(o19etl.precheck_scope(self.dir), unreadable,
                              "ledger payload {0!r}".format(payload))
 
+    def test_an_unparseable_ledger_fails_closed_too(self):
+        # not valid JSON at all, and a path that cannot be read: this
+        # function only chooses a phrase for someone else's refusal, so
+        # raising here would replace that refusal with a traceback
+        import os
+        unreadable = ("the ETL ledger could not be read, so assume "
+                      "earlier writes stand")
+        with open(os.path.join(self.dir, "etl-progress.json"), "w") as fh:
+            fh.write("{not json at all")
+        self.assertEqual(o19etl.precheck_scope(self.dir), unreadable)
+        os.unlink(os.path.join(self.dir, "etl-progress.json"))
+        os.mkdir(os.path.join(self.dir, "etl-progress.json"))
+        self.assertEqual(o19etl.precheck_scope(self.dir), unreadable)
+
+
+class TestCoercionPrecheckCuration(unittest.TestCase):
+
+    def test_a_curated_value_expr_silences_the_refusal(self):
+        # the refusal names curating one as the remedy, so it must work:
+        # without the skip the operator follows the instruction and the
+        # pre-check refuses forever
+        entry = {"cols": ["archived"],
+                 "value_exprs": {"archived": "CAST(s.`archived` AS SIGNED)"}}
+        dst = {"archived": col("int")}
+        src = {"archived": col("varchar")}
+        self.assertEqual(
+            o19etl.coercion_precheck_sql("t", entry, "stage", dst, src), [])
+        # and without the entry it still refuses
+        self.assertEqual(
+            [c for c, _ in o19etl.coercion_precheck_sql(
+                "t", {"cols": ["archived"]}, "stage", dst, src)],
+            ["archived"])
+
+    def test_a_case_differing_source_spelling_is_still_checked(self):
+        # effective_entry keeps the column (it matches case-insensitively)
+        # and MySQL copies it, so a case-sensitive lookup here would
+        # disable the guard for exactly that column
+        entry = {"cols": ["isActive"]}
+        dst = {"isActive": col("int")}
+        src = {"isactive": col("varchar")}
+        self.assertEqual(
+            [c for c, _ in o19etl.coercion_precheck_sql(
+                "t", entry, "stage", dst, src)], ["isActive"])
+
+
+class TestOverlengthByteCapacity(unittest.TestCase):
+
+    def test_a_same_declared_text_column_is_measured_in_bytes(self):
+        # latin1 `text` holds 65535 CHARACTERS, utf8mb4 `text` 65535
+        # BYTES: identical declarations, different capacity, and the
+        # copy runs under sql_mode='' so the overflow is a silent trim
+        entry = {"cols": ["note"]}
+        dst = {"note": col("text", char_len=65535, octet_len=65535)}
+        src = {"note": col("text", char_len=65535, octet_len=65535)}
+        checks = o19etl.overlength_precheck_sql("t", entry, "stage", dst,
+                                                src)
+        self.assertEqual([c for c, _ in checks], ["note"])
+        self.assertIn("LENGTH(CONVERT(", checks[0][1])
+        self.assertIn("> 65535", checks[0][1])
+
+    def test_a_sized_column_keeps_the_character_comparison(self):
+        entry = {"cols": ["city"]}
+        dst = {"city": col("varchar", char_len=30)}
+        src = {"city": col("varchar", char_len=60)}
+        checks = o19etl.overlength_precheck_sql("t", entry, "stage", dst,
+                                                src)
+        self.assertIn("CHAR_LENGTH(", checks[0][1])
+        # and a widening one is not checked at all
+        self.assertEqual(o19etl.overlength_precheck_sql(
+            "t", entry, "stage", {"city": col("varchar", char_len=60)},
+            {"city": col("varchar", char_len=30)}), [])
+
 
 class TestMergeReverseParity(unittest.TestCase):
 
@@ -757,11 +829,36 @@ class TestMergeReverseParity(unittest.TestCase):
             seen.append(sql)
             return [["0"]]
 
-        o19etl.row_parity(q, "stage", "carlos", dst_info=dst_info)
+        # archive_schema MUST be passed: merge_join only emits the idmap
+        # subquery when it is set, so without it the assertion below
+        # holds whatever the production code does
+        o19etl.row_parity(q, "stage", "carlos", dst_info=dst_info,
+                          archive_schema="o19_archive")
         for parent in set(entry["fk_remap"].values()):
             self.assertFalse(
                 any("{0}__idmap".format(parent) in x for x in seen),
                 "parity joined through a missing id map for " + parent)
+
+        # positive control: with the parent present the join IS emitted,
+        # so the test above cannot pass by nothing ever being generated
+        parents = sorted(set(entry["fk_remap"].values()))
+        seen2 = []
+
+        def q2(sql):
+            if "information_schema" in sql:
+                return [[table]] + [[p] for p in parents]
+            seen2.append(sql)
+            return [["0"]]
+
+        dst2 = dict(dst_info)
+        for parent in parents:
+            pe = o19map_schema.TABLES[parent]
+            dst2[parent] = {c: col() for c in pe["cols"]}
+        o19etl.row_parity(q2, "stage", "carlos", dst_info=dst2,
+                          archive_schema="o19_archive")
+        self.assertTrue(
+            any("{0}__idmap".format(parents[0]) in x for x in seen2),
+            "the id-map join is never generated, so the prune is untested")
 
     def test_row_parity_checks_merge_tables_in_reverse(self):
         table = next(t for t, e in o19map_schema.TABLES.items()
@@ -829,6 +926,29 @@ class TestManifestDrivenGeneration(unittest.TestCase):
             # exactly one SELECT keyword (columns like SELECT_OPTION_ID
             # exist in the real schema — match the keyword with spaces)
             self.assertEqual(sql.count(") SELECT "), 1)
+
+    def test_a_column_the_dump_lacks_is_dropped_from_both_sides(self):
+        # the shape sweep above builds `dst` FROM the manifest's own
+        # column list AND feeds the manifest entry unchanged, so it never
+        # exercises the source-side reconciliation copy_statement relies
+        # on. Here the DUMP is at a lower patch level than the manifest.
+        table = next(t for t, e in o19map_schema.TABLES.items()
+                     if e["class"] == "copy" and len(e["cols"]) > 2
+                     and not e.get("value_exprs")
+                     and not e.get("fk_remap")
+                     and not e.get("renames"))
+        entry = o19map_schema.TABLES[table]
+        absent = entry["cols"][-1]
+        src_cols = {c: col() for c in entry["cols"] if c != absent}
+        effective, notes = o19etl.effective_entry(table, entry, src_cols)
+        self.assertTrue(any(absent in n for n in notes), notes)
+        dst = {c: col() for c in entry["cols"]}
+        sql = o19etl.copy_statement(table, effective, "src", "dst", dst)
+        self.assertNotIn("`{0}`".format(absent), sql,
+                         "a column the dump does not carry is still named "
+                         "in the copy; the target default must stand")
+        for keep in entry["cols"][:-1]:
+            self.assertIn("`{0}`".format(keep), sql)
 
     def test_every_merge_entry_generates_anti_join(self):
         for table, entry in o19map_schema.TABLES.items():
