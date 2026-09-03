@@ -10,6 +10,8 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import contextlib
+import io
 import os
 import shutil
 import tempfile
@@ -102,9 +104,8 @@ class FakeDb(object):
             return a["activeyn_candidates"]
         if sql == o19roles.activeyn_admin_left_sql(DST):
             return a["admin_left"]
-        if sql.startswith("SELECT ur.provider_no, ur.role_name FROM "
-                          "`{0}`.secUserRole ur WHERE ur.activeyn = 1 AND "
-                          "ur.role_name IN (".format(DST)):
+        if sql == o19roles.dangling_role_assignments_sql(
+                DST, ["HRMAdmin", "Partner Doctor", "Site Manager"]):
             return a["dangling"]
         if sql == o19roles.restored_seed_grants_sql(SRC, ARCH):
             return a["restored"]
@@ -298,6 +299,90 @@ class TestCrashAndResume(RunRolesBase):
         self.assertNotIn(o19roles.provider_facility_statement(DST), db.writes)
 
 
+class TestSeedReplay(RunRolesBase):
+
+    def test_seed_script_runs_once_across_a_crash_and_resume(self):
+        # no canonical row -> seed + fixups; the seed INSERT commits, the
+        # crash hits the modernize script; the resume finds the seeded
+        # row and must not seed again
+        seeded = [["40", "Rich Text Letter", "1",
+                   "Rich Text Letter Generator v2.1", "0", "1", "1", "0"]]
+        modern = [["40", "Rich Text Letter", "1",
+                   "Rich Text Letter Generator 2026.3.0", "1", "0", "1",
+                   "0"]]
+        db = FakeDb(rtl_sequence=[[], seeded, modern],
+                    fail_on="-- " + o19roles.RTL_MODERNIZE_SCRIPT,
+                    twinless={"secRole": 3, "provider_facility": 2,
+                              "program": 1, "program_provider": 5,
+                              "eform": 1})
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db)
+        # the resume: the ledger the crashed run persisted (every earlier
+        # step marked, the RTL plan taken from an empty eform table) and
+        # a database that now holds the seeded row
+        progress2 = {"tables": {}}
+        db2 = FakeDb(rtl_sequence=[seeded, modern],
+                     twinless={"secRole": 3, "provider_facility": 2,
+                               "program": 1, "program_provider": 5,
+                               "eform": 1})
+        # the persisted plan from the crashed run
+        plan = list(o19roles.rtl_plan([]))
+        progress2["roles"] = {"roles_appended": True, "facility_links": True,
+                              "activeyn": True, "program": True,
+                              "backfill": True, "diff": True,
+                              "property_pruned": True,
+                              "prevention_types": True,
+                              "appended": {}, "rtl_plan": plan}
+        self.run_roles(db2, progress=progress2)
+        seeds = [w for w in db2.writes
+                 if w.startswith("-- " + o19roles.RTL_SEED_SCRIPT)]
+        self.assertEqual(seeds, [])
+        fixups = [w for w in db2.writes if w.startswith("-- update-2026")]
+        self.assertEqual(len(fixups), len(o19roles.RTL_FIXUP_SCRIPTS))
+        self.assertEqual(progress2["roles"]["appended"]["eform"], 1)
+        self.assertIn("modernised", progress2["roles"]["rtl"]["outcome"])
+        # ... and the first (crashed) run did seed exactly once
+        seeds = [w for w in db.writes
+                 if w.startswith("-- " + o19roles.RTL_SEED_SCRIPT)]
+        self.assertEqual(len(seeds), 1)
+
+
+class TestAdminTemplateFloor(RunRolesBase):
+
+    def test_weak_admin_resemblance_is_held_for_the_operator(self):
+        # a custom role whose grants overlap `admin` a little (0.5 > J >=
+        # 0.3): the administrator objects are not handed out automatically
+        stage = STAGE_ROWS + [["Clerk", "_admin", "x", "0"],
+                              ["Clerk", "_tickler", "x", "0"]]
+        seed = SEED_ROWS + [["admin", "_admin.fax", "x", "0"]]
+        rows_sql = ("SELECT roleUserGroup, objectName, privilege, priority "
+                    "FROM `{0}`.secObjPrivilege".format(SRC))
+
+        class Db(FakeDb):
+            def plain(self, sql, db=None):
+                if sql == rows_sql:
+                    return stage
+                if sql == ("SELECT roleUserGroup, objectName, privilege, "
+                           "priority FROM " + SNAP):
+                    return seed
+                if sql == "SELECT role_name FROM `{0}`.secRole".format(DST):
+                    return TARGET_ROLES + [["Clerk"]]
+                return FakeDb.plain(self, sql, db)
+
+        db = Db()
+        progress, _ = self.run_roles(db)
+        held = progress["roles"]["backfill_plan"]["admin_held"]
+        self.assertIn("Clerk", held)
+        self.assertLess(held["Clerk"], o19roles.ADMIN_TEMPLATE_MIN_JACCARD)
+        self.assertNotIn("Clerk", progress["roles"]["backfill"]["templates"])
+        backfills = [w for w in db.writes
+                     if "INSERT IGNORE" in w and "'Clerk'" in w]
+        self.assertEqual(backfills, [])
+        report = "\n".join(self.reports)
+        self.assertIn("'Clerk': closest stock role is 'admin'", report)
+        self.assertIn("--role-template 'Clerk=admin'", report)
+
+
 class TestRoleTemplateBinding(RunRolesBase):
 
     def test_first_run_records_the_mapping_and_uses_it(self):
@@ -371,8 +456,12 @@ class TestRoleTemplateBinding(RunRolesBase):
 
     def test_unknown_template_dies_with_a_resume_hint(self):
         db = FakeDb()
-        with self.assertRaises(SystemExit):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), \
+                self.assertRaises(SystemExit):
             self.run_roles(db, role_templates={"Nobody": "doctor"})
+        self.assertIn("--resume", err.getvalue())
+        self.assertIn("'Nobody'", err.getvalue())
 
     def test_flag_after_backfill_is_reported_not_ignored(self):
         db = FakeDb()

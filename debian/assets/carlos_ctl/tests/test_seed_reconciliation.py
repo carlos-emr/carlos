@@ -192,7 +192,8 @@ class TestAdminUserSafety(unittest.TestCase):
         self.assertEqual(len(stmts), 3)
         for sql in stmts:
             self.assertIn("'100001'", sql)
-        self.assertTrue(stmts[0].startswith("DELETE FROM `carlos`.secUserRole"))
+        self.assertTrue(
+            stmts[0].startswith("DELETE FROM `carlos`.secUserRole"))
         self.assertIn("user_name = 'bg' AND provider_no = '100001'", stmts[1])
         self.assertTrue(stmts[2].startswith("DELETE FROM `carlos`.provider"))
 

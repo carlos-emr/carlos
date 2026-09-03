@@ -25,7 +25,8 @@ ROOT = "/var/lib/carlos-emr/OscarDocument"
 def fixture_result():
     clinic = o19props.load_clinic_properties(os.path.abspath(FIXTURE))
     return o19props.translate_all(clinic, documents_root=ROOT,
-                                  deployment_drugref="http://127.0.0.1:8080/drugref")
+                                  deployment_drugref=
+                                  "http://127.0.0.1:8080/drugref")
 
 
 class TestBaselineDiff(unittest.TestCase):
@@ -206,6 +207,22 @@ class TestJavaPropertiesParser(unittest.TestCase):
         self.assertEqual(self.parse("a b\nc:d\ne  =  f\n"),
                          {"a": "b", "c": "d", "e": "f"})
 
+    def test_line_terminators_and_whitespace_match_java(self):
+        # java.util.Properties ends a line at \n, \r, \r\n only and strips
+        # space, tab and form feed: a Windows-1252 ellipsis (0x85 through
+        # latin-1) or a form feed is value text, NBSP is key text
+        pairs = dict(o19props.parse_properties_text(
+            "Support_Contact=Call us\x85 ext 12\r\nk2=a\x0cb\r\n"
+            "\xa0odd=1\n"))
+        self.assertEqual(pairs["Support_Contact"], "Call us\x85 ext 12")
+        self.assertEqual(pairs["k2"], "a\x0cb")
+        self.assertIn("\xa0odd", pairs)
+        self.assertNotIn("ext", pairs)
+
+    def test_trailing_continuation_at_eof_keeps_the_record(self):
+        self.assertEqual(o19props.parse_properties_text("a=1\nk=v\\"),
+                         [("a", "1"), ("k", "v")])
+
     def test_line_continuation(self):
         text = "key=first \\\n    second\nnext=1\n"
         self.assertEqual(self.parse(text), {"key": "first second",
@@ -273,8 +290,6 @@ class TestSecretDefaultsAndDispositions(unittest.TestCase):
                          ".clinicCheckpoint")
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestFragmentFile(unittest.TestCase):
@@ -311,3 +326,6 @@ class TestFragmentFile(unittest.TestCase):
             os.umask(old_umask)
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
 
+
+if __name__ == "__main__":
+    unittest.main()

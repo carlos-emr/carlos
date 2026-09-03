@@ -8,6 +8,7 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import os
 import unittest
 
 from carlos_ctl import o19etl, o19map_schema
@@ -116,6 +117,13 @@ class TestCopyStatement(unittest.TestCase):
         self.assertEqual(counts[0][0], "e")
         self.assertIn("s.`e` NOT IN ('a', 'b')", counts[0][1])
         self.assertIn("s.`e` IS NOT NULL", counts[0][1])
+        # nullable target: a NULL source value is not a fallback
+        self.assertNotIn("OR s.`e` IS NULL", counts[0][1])
+        strict = dict(info, nullable=False)
+        counts = o19etl.enum_fallback_count_sql("t", entry, "src",
+                                                {"e": strict})
+        # NOT NULL target: a NULL source value falls back too, so count it
+        self.assertIn("OR s.`e` IS NULL", counts[0][1])
 
     def test_charset_repair_wraps_only_flagged_columns(self):
         entry = {"class": "copy", "cols": ["name", "note"]}
@@ -320,15 +328,27 @@ class TestResumeIdempotency(unittest.TestCase):
         with self.assertRaises(SystemExit):
             o19etl.load_progress(d, "aaa", "o19map-1")
 
-    def test_digest_less_ledger_with_table_marks_is_reset(self):
+    def test_digest_less_ledger_with_table_marks_is_refused(self):
+        # a reset would re-enter the seed block over a target that already
+        # holds the admin; the remedy is the snapshot, like a foreign dump
         import shutil
         import tempfile
         d = tempfile.mkdtemp(prefix="o19progress-")
         self.addCleanup(shutil.rmtree, d)
         o19etl.save_progress(d, {"tables": {"demographic": {"done": True}}})
-        fresh = o19etl.load_progress(d, "aaa", "o19map-1")
-        self.assertEqual(fresh["tables"], {})
-        self.assertEqual(fresh["dump_sha256"], "aaa")
+        with self.assertRaises(SystemExit):
+            o19etl.load_progress(d, "aaa", "o19map-1")
+
+    def test_corrupt_ledger_is_fatal_and_absent_is_fresh(self):
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="o19progress-")
+        self.addCleanup(shutil.rmtree, d)
+        self.assertEqual(o19etl.load_progress(d)["tables"], {})
+        with open(os.path.join(d, "etl-progress.json"), "w") as fh:
+            fh.write("{not json")
+        with self.assertRaises(SystemExit):
+            o19etl.load_progress(d)
 
 
 class TestUnknownSchemaCapture(unittest.TestCase):
@@ -408,6 +428,45 @@ class TestArchiveAndShadow(unittest.TestCase):
         stmts = o19etl.shadow_statements("t", entry, "src", "arch", src)
         self.assertIn("s.`isactive`", stmts[1])
         self.assertNotIn("s.`isActive`", stmts[1])
+
+
+class TestIdentifierQuoting(unittest.TestCase):
+    """Names the dump chooses (unknown tables, vendor-fork columns) reach
+    root-executed SQL: they are quoted with doubled backticks, and the
+    ETL pre-check refuses anything outside the identifier class before
+    the first write."""
+
+    EVIL = "t1`;DROP DATABASE victim;--"
+
+    def test_ident_doubles_embedded_backticks(self):
+        self.assertEqual(o19etl.ident(self.EVIL),
+                         "`t1``;DROP DATABASE victim;--`")
+        self.assertEqual(o19etl.ident("plain"), "`plain`")
+
+    def test_archive_statements_keep_a_crafted_name_one_identifier(self):
+        for sql in o19etl.archive_statements(self.EVIL, "src", "arch"):
+            self.assertIn("`t1``;DROP DATABASE victim;--`", sql)
+            # the crafted name never closes the identifier: the only
+            # backtick before ;DROP is the doubled (escaped) one
+            self.assertNotRegex(sql, r"[^`]`;DROP")
+
+    def test_unknown_column_shadow_quotes_the_dumps_column_names(self):
+        entry = {"class": "copy", "cols": ["id"]}
+        src_cols = {"id": col("int"), "x`; DROP TABLE y; --": col()}
+        stmts = o19etl.unknown_column_shadow_statements(
+            "t", entry, "src", "arch", src_cols)
+        self.assertEqual(len(stmts), 2)
+        self.assertIn("s.`x``; DROP TABLE y; --` IS NOT NULL", stmts[1])
+        self.assertNotRegex(stmts[1], r"[^`]`; DROP")
+
+    def test_unsafe_identifiers_lists_tables_and_columns(self):
+        info = {"ok": {"id": col("int"), "bad col": col()},
+                self.EVIL: {"id": col("int")}, "z$1": {"a_b": col()}}
+        self.assertEqual(o19etl.unsafe_identifiers(info),
+                         ["ok.bad col", self.EVIL])
+        self.assertTrue(o19etl.IDENTIFIER_RE.match("secObjPrivilege"))
+        self.assertFalse(o19etl.IDENTIFIER_RE.match("a-b"))
+        self.assertFalse(o19etl.IDENTIFIER_RE.match(""))
 
 
 class TestChunkWindows(unittest.TestCase):
@@ -504,10 +563,12 @@ class TestCharsetRepairPredicate(unittest.TestCase):
         expr = o19etl.repair_expr("s.`note`")
         self.assertTrue(expr.startswith("CASE WHEN "))
         # normalised to utf8mb4 before comparing (latin1 staging tables)
-        self.assertIn("CONVERT(s.`note` USING utf8mb4) REGEXP", expr)
+        self.assertIn("LENGTH(CONVERT(s.`note` USING utf8mb4)) <> "
+                      "CHAR_LENGTH(CONVERT(s.`note` USING utf8mb4))", expr)
         # doubled backslashes in the SQL text (the server's string parser
         # eats one before the regex engine sees the escape)
-        self.assertIn("REGEXP '[^\\\\x00-\\\\x7F]'", expr)
+        # no REGEXP: the Spencer engine of MySQL < 8 misreads a \x class
+        self.assertNotIn("REGEXP", expr)
         self.assertIn("CONVERT(BINARY CONVERT(s.`note` USING latin1) USING "
                       "utf8mb4)", expr)
         self.assertTrue(expr.endswith("ELSE s.`note` END"))

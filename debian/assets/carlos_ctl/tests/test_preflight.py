@@ -10,6 +10,8 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import contextlib
+import io
 import unittest
 
 from carlos_ctl import o19_preflight as pf
@@ -166,10 +168,36 @@ class TestVerdicts(unittest.TestCase):
         self.assertEqual(report["verdict"], "no-go")
 
     def test_encrypted_notes_are_a_hard_no_go(self):
+        # judged on the rows: a note with a password is stored encrypted
+        props = clean_props()
+        report = pf.run_checks(
+            FakeDb(base_tables(),
+                   where_counts={("casemgmt_note",
+                                  "password IS NOT NULL"): 3}),
+            properties=props)
+        self.assertEqual(report["verdict"], "no-go")
+        ids = {f["id"]: f for f in report["findings"]}
+        self.assertEqual(ids["B4-encrypted-notes"]["severity"], pf.BLOCKER)
+
+    def test_stock_note_password_property_alone_is_not_a_blocker(self):
+        # casemgmt.note.password.enabled=true is the shipped O19 default:
+        # with no locked note it is an advisory, never a no-go
         props = clean_props()
         props["casemgmt.note.password.enabled"] = "true"
         report = pf.run_checks(FakeDb(base_tables()), properties=props)
-        self.assertEqual(report["verdict"], "no-go")
+        self.assertEqual(report["verdict"], "go")
+        ids = {f["id"]: f for f in report["findings"]}
+        self.assertNotIn("B4-encrypted-notes", ids)
+        self.assertEqual(ids["notes-password-enabled"]["severity"],
+                         pf.ADVISORY)
+
+    def test_accept_typo_is_refused_not_recorded(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            rc = pf.main(["--db", "x", "--accept", "archive-forms"])
+        self.assertEqual(rc, pf.EXIT_TOOL_ERROR)
+        self.assertEqual(set(pf.ACCEPT_IDS),
+                         {"archived-forms", "unknown-as-archive",
+                          "olis-gone", "dropped-columns"})
 
     def test_bc_province_is_a_hard_no_go(self):
         report = pf.run_checks(FakeDb(base_tables()),
@@ -253,7 +281,9 @@ class TestRoleAdvisories(unittest.TestCase):
                     "indicator-templates-dropped-refs"):
             self.assertIn(fid, ids, fid)
             self.assertEqual(ids[fid]["severity"], pf.ADVISORY, fid)
-        self.assertEqual(ids["roles-custom"]["data"]["roles"], "Triage Nurse")
+        # a list: a role name may carry a comma
+        self.assertEqual(ids["roles-custom"]["data"]["roles"],
+                         ["Triage Nurse"])
         self.assertEqual(ids["property-removed-module-keys"]["data"],
                          {"INTEGRATOR_": 2})
         self.assertEqual(ids["indicator-templates-dropped-refs"]["data"],
@@ -299,7 +329,10 @@ class TestRoleAdvisories(unittest.TestCase):
     def test_client_batch_escapes_are_decoded_per_value(self):
         self.assertEqual(pf._unescape_batch("a\\tb\\nc\\\\d"),
                          "a\tb\nc\\d")
-        self.assertEqual(pf._unescape_batch("\\N"), "\\N")  # NULL marker
+        # the client prints SQL NULL as the word NULL; a stored backslash-N
+        # arrives escaped and decodes to the two characters
+        self.assertEqual(pf._unescape_batch("NULL"), "NULL")
+        self.assertEqual(pf._unescape_batch("\\\\N"), "\\N")
         # the reason it matters: a line break before the table name
         self.assertEqual(pf.dropped_table_references(
             pf._unescape_batch("SELECT 1\\nFROM\\tphr_documents"),
@@ -468,12 +501,32 @@ class TestReportContract(unittest.TestCase):
         # the value is normalised to utf8mb4 before every comparison: O19
         # tables are usually latin1, and BINARY-comparing across charsets
         # would compare different byte strings (every row 'clean')
-        self.assertIn("CONVERT(`last_name` USING utf8mb4) REGEXP "
-                      "'[^\\\\x00-\\\\x7F]'", p)
+        # a byte-vs-character length test, never REGEXP: the Spencer
+        # engine of MySQL < 8 / MariaDB < 10.0.5 (the assessment hosts)
+        # reads a \x class as a literal bracket expression
+        self.assertIn("LENGTH(CONVERT(`last_name` USING utf8mb4)) <> "
+                      "CHAR_LENGTH(CONVERT(`last_name` USING utf8mb4))", p)
+        self.assertNotIn("REGEXP", p)
         self.assertIn("CONVERT(CONVERT(`last_name` USING utf8mb4) USING "
                       "latin1)", p)
         self.assertNotIn("HEX(", p)
         self.assertNotIn("C383", p)
+
+    def test_properties_parser_line_terminators_match_java(self):
+        # only \n, \r, \r\n end a line: a Windows-1252 ellipsis (0x85 read
+        # through latin-1) or a form feed stays inside the value; leading
+        # NBSP is part of the key; a final continuation keeps the record
+        props = pf.parse_properties_text(
+            "Support_Contact=Call us\x85 ext 12\r\nk2=a\x0cb\r\n"
+            "\xa0odd=1\nlast=v\\")
+        self.assertEqual(props["Support_Contact"], "Call us\x85 ext 12")
+        self.assertEqual(props["k2"], "a\x0cb")
+        self.assertIn("\xa0odd", props)
+        self.assertEqual(props["last"], "v")
+        self.assertNotIn("ext", props)
+        # a \uD83D\uDE00 pair is one character, as in Java
+        self.assertEqual(pf.parse_properties_text(
+            "smile=\\uD83D\\uDE00")["smile"], "\U0001F600")
 
     def test_properties_parser_has_java_semantics(self):
         props = pf.parse_properties_text(

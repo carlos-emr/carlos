@@ -18,14 +18,19 @@ content (clearly-fake values only — no real clinic or patient data):
 - `properties/oscar-clinic-example.properties` — a fabricated
   "clinic-modified" O19 properties file driving the props-phase tests.
 - `demo-data/roles.sql` — synthetic role/privilege and legacy-data cases for
-  the roles post-step rehearsal (a clinic-custom role, a NULL `activeyn`
-  assignment, an expired login, a document-queue object, a patient-scoped
+  the roles post-step rehearsal (a clinic-custom role, two NULL `activeyn`
+  assignments (a `doctor` row the import activates and a dormant `admin`
+  row it leaves), an `indicatorTemplate` row whose template carries an
+  embedded line break, an expired login, a document-queue object, a patient-scoped
   lockout, a clinic override of a stock grant, a grant on an object CARLOS
   no longer checks, legacy prevention codes `Flu` and `dTaP` next to the
   valid `DTaP`, a removed-module property key). Fake providers
   `999901`–`999903`, fake logins `fixture.*` with the upstream O19 seed
   clinician's legacy password hash (also quoted in `docs/Password_System.md`;
-  not a secret). Timestamps are fixed so the dump is reproducible.
+  not a secret). The rows this file adds carry fixed timestamps; the
+  fixture dump itself is not byte-reproducible (the upstream seed writes
+  NOW() values and mysqldump stamps its completion time) — only the
+  documents tar and the unencrypted bundles are.
 - `documents/` — manifest + generator for a deterministic placeholder
   OscarDocument tree (no binaries committed), plus the matching fixture
   database rows.

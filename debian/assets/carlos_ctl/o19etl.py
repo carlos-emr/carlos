@@ -57,10 +57,10 @@ def double_encoded_predicate(expr: str) -> str:
     # silently marked every mojibake row as clean
     u = "CONVERT({0} USING utf8mb4)".format(expr)
     down = "CONVERT({0} USING latin1)".format(u)
-    # the SQL literal must carry a DOUBLED backslash: the server's string
-    # parser drops the backslash of an unknown escape, so '\x00' would reach
-    # the regex engine as 'x00' (an innocent-looking, wrong character class)
-    return ("{0} IS NOT NULL AND {1} REGEXP '[^\\\\x00-\\\\x7F]' AND "
+    # "contains a non-ASCII character" as a byte-vs-character length
+    # test (the same clause the standalone preflight uses on the old
+    # servers, whose Spencer regex engine misreads a \x class)
+    return ("{0} IS NOT NULL AND LENGTH({1}) <> CHAR_LENGTH({1}) AND "
             "BINARY CONVERT({2} USING utf8mb4) = BINARY {1} AND "
             "BINARY CONVERT(CONVERT(BINARY {2} USING utf8mb4) USING binary) "
             "= BINARY {2}".format(expr, u, down))
@@ -125,6 +125,35 @@ def _sql_str(value: str) -> str:
     # decoded batch values may carry one
     return (value.replace("\\", "\\\\").replace("'", "\\'")
             .replace("\0", "\\0"))
+
+
+#: the identifier shape the import accepts from a clinic dump: every table
+#: and column name of the OSCAR 19 schema (and every vendor-fork addition
+#: seen so far) is plain ASCII word characters. Anything else is refused
+#: by the ETL pre-checks before the first write — a name is never a
+#: reason to start improvising SQL quoting.
+IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_$]+$")
+
+
+def ident(name: str) -> str:
+    """Backtick-quote an identifier with embedded backticks doubled. Every
+    name that reaches SQL from the STAGED dump (table and column names
+    the manifest does not know) goes through here: the statements run as
+    the database root, so a crafted name must stay a name."""
+    return "`" + str(name).replace("`", "``") + "`"
+
+
+def unsafe_identifiers(src_info: Dict[str, Dict[str, dict]]) -> List[str]:
+    """Staged table/column names outside IDENTIFIER_RE, as 'table' or
+    'table.column' — the pre-check refuses the dump when any exist."""
+    bad = []
+    for table in sorted(src_info):
+        if not IDENTIFIER_RE.match(table):
+            bad.append(table)
+        for column in sorted(src_info[table]):
+            if not IDENTIFIER_RE.match(column):
+                bad.append("{0}.{1}".format(table, column))
+    return bad
 
 
 ADMIN_USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@\-]{0,29}$")
@@ -234,10 +263,14 @@ def enum_fallback_count_sql(table: str, entry: dict, src_schema: str,
         if not values:
             continue
         expr = source_expr(entry, c, repaired, archive_schema)
-        out.append((c, "SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE {2} IS NOT "
-                       "NULL AND {2} NOT IN ({3})".format(
+        # a NULL source value on a NOT NULL target falls back as well
+        null_clause = ("" if info["nullable"]
+                       else " OR {0} IS NULL".format(expr))
+        out.append((c, "SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE ({2} IS "
+                       "NOT NULL AND {2} NOT IN ({3})){4}".format(
                            src_schema, table, expr,
-                           ", ".join("'{0}'".format(v) for v in values))))
+                           ", ".join("'{0}'".format(v) for v in values),
+                           null_clause)))
     return out
 
 
@@ -404,12 +437,15 @@ def etl_order(tables: Dict[str, dict]) -> List[str]:
 
 def archive_statements(table: str, src_schema: str,
                        archive_schema: str) -> List[str]:
+    # unknown (unclassified) tables reach here under the dump's own
+    # names: quoted, never trusted
+    t = ident(table)
     return [
-        "DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema, table),
-        "CREATE TABLE `{0}`.`{1}` LIKE `{2}`.`{1}`".format(
-            archive_schema, table, src_schema),
-        "INSERT INTO `{0}`.`{1}` SELECT * FROM `{2}`.`{1}`".format(
-            archive_schema, table, src_schema),
+        "DROP TABLE IF EXISTS `{0}`.{1}".format(archive_schema, t),
+        "CREATE TABLE `{0}`.{1} LIKE `{2}`.{1}".format(
+            archive_schema, t, src_schema),
+        "INSERT INTO `{0}`.{1} SELECT * FROM `{2}`.{1}".format(
+            archive_schema, t, src_schema),
     ]
 
 
@@ -484,8 +520,10 @@ def unknown_column_shadow_statements(table: str, entry: dict,
     context = [entry.get("renames", {}).get(c, c) for c in context]
     select_cols = list(dict.fromkeys(context + extra))
     shadow = "{0}__unknown_cols".format(table)
-    cols = ", ".join("s.`{0}`".format(c) for c in select_cols)
-    predicate = " OR ".join("s.`{0}` IS NOT NULL".format(c) for c in extra)
+    # the extra columns are the dump's own names: quoted, never trusted
+    cols = ", ".join("s." + ident(c) for c in select_cols)
+    predicate = " OR ".join("s.{0} IS NOT NULL".format(ident(c))
+                            for c in extra)
     return [
         "DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema, shadow),
         "CREATE TABLE `{0}`.`{1}` AS SELECT {2} FROM `{3}`.`{4}` s "
@@ -624,9 +662,14 @@ def missing_required_columns(entry: dict,
 
 def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
                             dst_cols: Dict[str, dict],
-                            src_cols: Dict[str, dict]) -> List[Tuple[str, str]]:
+                            src_cols: Dict[str, dict],
+                            repaired: Optional[set] = None,
+                            archive_schema: Optional[str] = None
+                            ) -> List[Tuple[str, str]]:
     """(column, COUNT-sql) pairs for target text columns narrower than
-    their source — a non-zero count must ERROR, never truncate."""
+    their source — a non-zero count must ERROR, never truncate. Counted
+    on the REPAIRED text where a charset repair applies ('Ã©' is two
+    characters, 'é' one): the text that will be stored is what must fit."""
     out = []
     for c in entry["cols"]:
         d = dst_cols.get(c)
@@ -637,7 +680,8 @@ def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
                 and d["char_len"] < s["char_len"]:
             sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE "
                    "CHAR_LENGTH({2}) > {3}".format(
-                       src_schema, table, source_expr(entry, c),
+                       src_schema, table,
+                       source_expr(entry, c, repaired, archive_schema),
                        d["char_len"]))
             out.append((c, sql))
     return out
@@ -663,8 +707,12 @@ def load_progress(state_dir: str, dump_sha256: Optional[str] = None,
     try:
         with open(_progress_path(state_dir), encoding="utf-8") as fh:
             progress = json.load(fh)
-    except (OSError, ValueError):
+    except FileNotFoundError:
         progress = {"tables": {}}
+    except (OSError, ValueError) as exc:
+        die("cannot read the ETL ledger {0} ({1}) — the target may hold a "
+            "partial copy: restore the pre-import snapshot and start over"
+            .format(_progress_path(state_dir), exc))
     progress.setdefault("tables", {})
     if dump_sha256:
         recorded = progress.get("dump_sha256")
@@ -676,9 +724,13 @@ def load_progress(state_dir: str, dump_sha256: Optional[str] = None,
                 .format(state_dir, recorded[:12], dump_sha256[:12]))
         if not recorded and (progress["tables"]
                              or progress.get("admin_provider_no")):
-            warn("etl progress ledger carries no dump digest — "
-                 "discarding it")
-            progress = {"tables": {}}
+            # the ledger carries writes it cannot attribute to a dump: a
+            # reset would re-enter the seed block over a target that
+            # already holds the admin — same remedy as a foreign dump
+            die("the ETL ledger in {0} records writes but no dump digest; "
+                "it cannot be trusted to resume. The target may already "
+                "hold rows: restore the pre-import snapshot and start "
+                "over.".format(state_dir))
         progress["dump_sha256"] = dump_sha256
     if schema_map_version:
         recorded = progress.get("schema_map_version")
@@ -791,7 +843,8 @@ def detect_repairs(query, src_schema: str, accepted,
 
 def effective_entry(table: str, entry: dict,
                     src_cols: Dict[str, dict],
-                    src_tables: Optional[set] = None) -> Tuple[dict, List[str]]:
+                    src_tables: Optional[set] = None
+                    ) -> Tuple[dict, List[str]]:
     """Intersect the manifest's column map with what the staged dump
     actually has (case-insensitive): a clinic at a lower patch level may
     lack columns the manifest superset knows. Missing sources are skipped
@@ -855,8 +908,8 @@ def normalize_table_case(plain, src_schema: str,
                 lines.append("{0} left as is: {1} also exists".format(
                     live, want))
                 continue
-            plain("RENAME TABLE `{0}`.`{1}` TO `{0}`.`{2}`".format(
-                src_schema, live, want))
+            plain("RENAME TABLE `{0}`.{1} TO `{0}`.{2}".format(
+                src_schema, ident(live), ident(want)))
             lines.append("{0} -> {1}".format(live, want))
     return lines
 
@@ -873,6 +926,16 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     report = ctx["report"]
 
     src_info = introspect_columns(plain, src)
+    # the first thing decided about the staged dump, before the staging
+    # schema is touched: a table or column name outside the identifier
+    # class is refused outright (root runs every statement below)
+    odd = unsafe_identifiers(src_info)
+    if odd:
+        die("ETL pre-checks failed (nothing was written): the staged dump "
+            "carries {0} table/column name(s) outside the accepted "
+            "identifier class [A-Za-z0-9_$] — not an OSCAR 19 clinic "
+            "dump as shipped; rename them in the source and re-export: {1}"
+            .format(len(odd), ", ".join(repr(x) for x in odd[:10])))
     renamed = normalize_table_case(plain, src, list(src_info))
     if renamed:
         report("staged table names normalised to the manifest spelling "
@@ -894,6 +957,17 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         report("patch-level variance ({0} note(s)):\n  ".format(
             len(patch_notes)) + "\n  ".join(patch_notes))
 
+    # the charset scan first (reads only): the never-truncate pre-check
+    # below must measure the text as it will be stored, i.e. repaired
+    scan_notes: List[str] = []
+    repairs = detect_repairs(plain, src, ctx["accepted"], scan_notes)
+    if scan_notes:
+        report("charset scan:\n  " + "\n  ".join(scan_notes))
+    if repairs:
+        report("per-row charset repair active on: " + ", ".join(
+            sorted("{0}.{1}".format(t, c)
+                   for t, cs in repairs.items() for c in cs)))
+
     # -- loud pre-checks over every table before the first write ----------
     admin_user = validate_admin_user(ctx["admin_user"])
     problems = []
@@ -910,13 +984,22 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         if table not in dst_info:
             problems.append("{0}: missing from target schema".format(table))
             continue
+        # a manifest column the target lacks (a manifest built against a
+        # different Flyway level than the one installed) would be a bare
+        # KeyError inside the copy loop, after the seed block wrote
+        absent = [c for c in entry.get("cols", []) if c not in dst_info[table]]
+        if absent:
+            problems.append("{0}: manifest column(s) not in the target "
+                            "schema: {1}".format(table, ", ".join(absent)))
+            continue
         required = missing_required_columns(entry, dst_info[table])
         if required:
             problems.append(
                 "{0}: NOT NULL target column(s) without default or "
                 "value_exprs: {1}".format(table, ", ".join(required)))
         for col, sql in overlength_precheck_sql(
-                table, entry, src, dst_info[table], src_info[table]):
+                table, entry, src, dst_info[table], src_info[table],
+                repairs.get(table), arch):
             n = int(query(sql)[0][0])
             if n:
                 problems.append(
@@ -948,6 +1031,10 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     if "Facility" not in src_info:
         problems.append("the dump has no Facility table — not an OSCAR 19 "
                         "clinic dump")
+    elif "disabled" not in src_info["Facility"]:
+        problems.append("the dump's Facility table has no `disabled` "
+                        "column — a patch level older than the import "
+                        "supports")
     elif not int(plain(o19roles.enabled_facility_count_sql(src))[0][0]):
         problems.append("the dump has no enabled Facility row — CARLOS "
                         "cannot log anyone in without one; enable a "
@@ -970,15 +1057,6 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     if problems:
         die("ETL pre-checks failed (nothing was written):\n  "
             + "\n  ".join(problems))
-
-    scan_notes: List[str] = []
-    repairs = detect_repairs(plain, src, ctx["accepted"], scan_notes)
-    if scan_notes:
-        report("charset scan:\n  " + "\n  ".join(scan_notes))
-    if repairs:
-        report("per-row charset repair active on: " + ", ".join(
-            sorted("{0}.{1}".format(t, c)
-                   for t, cs in repairs.items() for c in cs)))
 
     # enum values outside the target set fall to the column default —
     # counted up front so the fallback is never silent
@@ -1049,6 +1127,12 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                     dst, table, src_max + 1000))
             password, pw_hash, pin = make_password_hash()
             cred_path = os.path.join(state_dir, "admin-credentials.txt")
+            if os.path.exists(cred_path) and not progress.get(
+                    "admin_provider_no"):
+                # a previous import's break-glass password (cleanup keeps
+                # the file on purpose): set aside, never overwritten
+                os.replace(cred_path, cred_path + ".previous-"
+                           + time.strftime("%Y%m%dT%H%M%S"))
             # file-first, before any SQL touches accounts (bootstrap-admin's
             # contract: never leave a credential that exists only in memory)
             fd = os.open(cred_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
@@ -1100,11 +1184,19 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     fk_lines: List[str] = []
     drop_lines: List[str] = []
     shadow_notes: List[str] = []
+    absent_tables: List[str] = []
     for table in etl_order(o19map_schema.TABLES):
         entry = o19map_schema.TABLES[table]
         cls = entry["class"]
         if table not in src_info:
-            continue  # not in this dump (patch-level variance)
+            # not in this dump (patch-level variance): said so, because a
+            # seeded table then keeps CARLOS's seed rows in the clinic's
+            # place
+            if cls in ("copy", "merge"):
+                absent_tables.append("{0}{1}".format(
+                    table, " (seeded: CARLOS defaults stand)"
+                    if table in o19map_schema.SEED_ROW_COUNTS else ""))
+            continue
         entry = effective.get(table, entry)
         tstate = progress["tables"].setdefault(table, {})
 
@@ -1171,7 +1263,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                 if not tstate.get("started"):
                     tstate["started"] = True
                     save_progress(state_dir, progress)
-                for window in chunk_windows(lo, hi):
+                windows = chunk_windows(lo, hi)
+                if len(windows) > 1000:
+                    # id-range windows, not row windows: a sparse id space
+                    # means many empty client invocations, not a hang
+                    warn("{0}: {1} id-range windows (sparse ids) — this "
+                         "table takes a while".format(table, len(windows)))
+                for window in windows:
                     if window[1] <= done_through:
                         continue
                     if resumed:
@@ -1235,6 +1333,11 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             tstate["unknown_shadow_done"] = True
             save_progress(state_dir, progress)
 
+    if absent_tables:
+        report("manifest tables absent from this dump ({0}; patch-level "
+               "variance — nothing copied for them):\n  ".format(
+                   len(absent_tables)) + "\n  ".join(absent_tables))
+
     # -- tables the manifest does not know: archived whole ------------------
     # (the unknown-as-archive sign-off is a preservation promise, not a
     # permission to drop)
@@ -1246,8 +1349,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         if tstate.get("done"):
             counts["unknown_archived"] += 1
             continue
-        n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
-            src, table))[0][0])
+        n = int(plain("SELECT COUNT(*) FROM `{0}`.{1}".format(
+            src, ident(table)))[0][0])
         if n == 0:
             unknown_lines.append("{0}: empty, not archived".format(table))
         else:
@@ -1306,6 +1409,12 @@ ADMIN_ROW_PREDICATES = {
     "security": "user_name = '{user}' AND provider_no = '{pn}'",
     "secUserRole": "provider_no = '{pn}'",
 }
+
+
+#: how many rows the roles step may synthesise per table where the number
+#: is fixed by construction (one OSCAR program, one Rich Text Letter seed);
+#: the other appended tables scale with the clinic's provider count
+APPENDED_ROW_MAX = {"program": 1, "eform": 1}
 
 
 def admin_row_count_sql(table: str, dst_schema: str, admin_user: str,
@@ -1394,6 +1503,15 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
                 bad.append("{0}: {1} target row(s) without a staging twin, "
                            "but the roles ledger recorded {2}".format(
                                table, twinless, recorded))
+                continue
+            limit = APPENDED_ROW_MAX.get(table)
+            if limit is not None and twinless > limit:
+                # the ledger measures the same anti-join, so it agrees with
+                # itself by construction; the step's own upper bound is
+                # what catches a write that ran twice
+                bad.append("{0}: {1} target row(s) without a staging twin, "
+                           "but the roles step synthesises at most {2}"
+                           .format(table, twinless, limit))
                 continue
         line = "{0}: staging {1} -> target {2}{3}".format(
             table, src_n, dst_n, note)

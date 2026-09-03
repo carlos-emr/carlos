@@ -14,12 +14,15 @@ clinic holds a readable copy that rides the normal backup.
 """
 
 import csv
+import hashlib
+import html as html_module
 import os
 import re
 import shutil
-from typing import Dict, List, Optional, Tuple
+import urllib.parse
+from typing import Callable, Dict, List, Optional, Tuple
 
-from . import o19bundle, o19map_schema
+from . import o19bundle, o19etl, o19map_schema
 from .util import STATE, die, log, run, warn
 
 DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
@@ -32,9 +35,8 @@ CACHE_DIR_NAMES = {"document_cache", ".o19-incoming"}
 
 # eForm image references: the literal ${oscar_image_path} placeholder and
 # the URL-encoded spellings CARLOS also honours ($%7B...%7D, %24%7B...%7D)
-IMAGE_REF_RE = re.compile(
-    r"(?:\$\{|\$%7[Bb]|%24%7[Bb])oscar_image_path(?:\}|%7[Dd])"
-    r"([^\"'\s)<>]+)")
+IMAGE_TOKEN_RE = re.compile(
+    r"(?:\$\{|\$%7[Bb]|%24%7[Bb])oscar_image_path(?:\}|%7[Dd])")
 
 # an OscarDocument context directory is a plain directory basename; the
 # name is interpolated into SQL (HRM path rewrite) and into filesystem
@@ -56,6 +58,10 @@ def contained(root: str, relative: str) -> bool:
     """True if root/relative resolves (symlinks followed) to a path inside
     root — the guard that keeps a document row or an eForm image reference
     from pointing reconciliation at an unrelated host file."""
+    if "\0" in relative:
+        # a decoded batch value can carry NUL; realpath would raise, and
+        # no file is ever named so
+        return False
     root_real = os.path.realpath(root)
     full = os.path.realpath(os.path.join(root, relative))
     return full == root_real or full.startswith(root_real + os.sep)
@@ -103,6 +109,18 @@ def detect_context_dir(member_names: List[str]) -> str:
 HRM_INCOMING_DIR = "hrm"
 
 
+def hrm_basename_twins_sql(dst_schema: str) -> str:
+    """Basenames that two HRMDocument rows reach through DIFFERENT paths
+    (re-sent reports land in dated directories under hrm/sftp_downloads
+    and may repeat a name): the basename rewrite would point both rows
+    at one file, so the import refuses before rewriting anything."""
+    return ("SELECT SUBSTRING_INDEX(REPLACE(reportFile, '\\\\', '/'), '/', "
+            "-1) AS b, COUNT(DISTINCT REPLACE(reportFile, '\\\\', '/')) AS "
+            "paths FROM `{0}`.HRMDocument WHERE reportFile IS NOT NULL AND "
+            "reportFile <> '' GROUP BY b HAVING paths > 1 ORDER BY b"
+            .format(dst_schema))
+
+
 def hrm_rewrite_sql(dst_schema: str,
                     new_root: str = DOCUMENTS_ROOT) -> Tuple[str, str]:
     """(update_sql, select_sql): point every HRMDocument.reportFile at
@@ -116,9 +134,10 @@ def hrm_rewrite_sql(dst_schema: str,
     already-rewritten path yields the same path."""
     doc_dir = os.path.join(new_root, TARGET_CTX, "document") + "/"
     where = "reportFile IS NOT NULL AND reportFile <> ''"
+    # a Windows-era path (backslashes) yields its basename too
     update = ("UPDATE `{0}`.HRMDocument SET reportFile = CONCAT('{1}', "
-              "SUBSTRING_INDEX(reportFile, '/', -1)) WHERE {2}"
-              .format(dst_schema, _sql_str(doc_dir), where))
+              "SUBSTRING_INDEX(REPLACE(reportFile, '\\\\', '/'), '/', -1)) "
+              "WHERE {2}".format(dst_schema, _sql_str(doc_dir), where))
     select = ("SELECT id, reportFile FROM `{0}`.HRMDocument WHERE {1}"
               .format(dst_schema, where))
     return update, select
@@ -176,12 +195,39 @@ def image_ref_lookup(ref: str) -> str:
     `${oscar_image_path}` expands to `/eform/displayImage?imagefile=`, so
     the browser drops a `#fragment` before the request ever leaves, but a
     `?query` stays INSIDE the imagefile value: `logo.png?v=2` names a file
-    literally called that. Reconciliation checks what the route checks."""
+    literally called that. Reconciliation checks what the route checks
+    (image_refs already decoded the value; this keeps the older callers'
+    contract for a raw reference)."""
     return ref.split("#", 1)[0]
 
 
 def image_refs(form_html: str) -> List[str]:
-    return sorted(set(IMAGE_REF_RE.findall(form_html)))
+    """The imagefile values the browser would send for every
+    ${oscar_image_path} reference in the HTML: the whole attribute value
+    after the token (a quoted value may carry spaces — `my scan[1].png`
+    is a real form), HTML entities decoded, the `#fragment` dropped,
+    anything after `&` (a second query parameter) cut, percent-encoding
+    undone — what the servlet reads as `imagefile`."""
+    refs = set()
+    for m in IMAGE_TOKEN_RE.finditer(form_html):
+        start = m.end()
+        quote = form_html[m.start() - 1] if m.start() > 0 else ""
+        if quote in ("\"", "'"):
+            end = form_html.find(quote, start)
+        else:
+            quote = ""
+            end = -1
+        if end < 0:
+            tail = re.match(r"[^\s\"'<>]*", form_html[start:])
+            value = tail.group(0) if tail else ""
+        else:
+            value = form_html[start:end]
+        value = html_module.unescape(value)
+        value = value.split("#", 1)[0].split("&", 1)[0]
+        value = urllib.parse.unquote(value)
+        if value:
+            refs.add(value)
+    return sorted(refs)
 
 
 def classify_document_files(rows: List[Tuple[str, str]],
@@ -229,11 +275,22 @@ def find_orphans(doc_dir: str, known: set, cap: int = 50) -> List[str]:
 # filesystem operations
 # --------------------------------------------------------------------------
 
-def _merge_entry(src: str, dst: str) -> int:
+def _same_file(src: str, dst: str) -> bool:
+    """A plain file already at its destination with identical content —
+    what an interrupted merge leaves behind."""
+    return (os.path.isfile(src) and os.path.isfile(dst)
+            and not os.path.islink(src) and not os.path.islink(dst)
+            and os.path.getsize(src) == os.path.getsize(dst)
+            and _sha256(src) == _sha256(dst))
+
+
+def _merge_entry(src: str, dst: str, resume: bool = False) -> int:
     """Move src into dst's place, merging directory into directory.
     Returns the number of leaf entries moved. Any file-level collision is
     fatal: the target must be a stock deploy (whose skeleton holds
-    directories only, nested — eform/images, incomingdocs/1/Fax, ...)."""
+    directories only, nested — eform/images, incomingdocs/1/Fax, ...).
+    On a resume of an interrupted merge an identical file already in
+    place is dropped from the source instead."""
     if os.path.islink(src) or os.path.islink(dst):
         die("refusing to merge through a symlink ('{0}')".format(
             dst if os.path.islink(dst) else src))
@@ -244,18 +301,22 @@ def _merge_entry(src: str, dst: str) -> int:
         moved = 0
         for child in sorted(os.listdir(src)):
             moved += _merge_entry(os.path.join(src, child),
-                                  os.path.join(dst, child))
+                                  os.path.join(dst, child), resume)
         os.rmdir(src)
         return moved
+    if resume and _same_file(src, dst):
+        os.unlink(src)
+        return 0
     die("refusing to overwrite '{0}' in the documents tree — the target "
         "is not pristine".format(dst))
     return 0  # unreachable
 
 
-def _collisions(src: str, dst: str) -> List[str]:
+def _collisions(src: str, dst: str, resume: bool = False) -> List[str]:
     """Every path under src that cannot be merged into dst: a symlink on
-    either side, or a file that already exists at the same path. Computed
-    BEFORE anything moves so a refusal leaves the target untouched."""
+    either side, or a file that already exists at the same path (on a
+    resume, one with different content). Computed BEFORE anything moves
+    so a refusal leaves the target untouched."""
     problems: List[str] = []
     if os.path.islink(src) or os.path.islink(dst):
         problems.append("symlink at '{0}'".format(
@@ -266,20 +327,27 @@ def _collisions(src: str, dst: str) -> List[str]:
     if os.path.isdir(src) and os.path.isdir(dst):
         for child in sorted(os.listdir(src)):
             problems.extend(_collisions(os.path.join(src, child),
-                                        os.path.join(dst, child)))
+                                        os.path.join(dst, child), resume))
+        return problems
+    if resume and _same_file(src, dst):
         return problems
     problems.append("'{0}' already exists".format(dst))
     return problems
 
 
-def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
+def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
+               private: Optional[Callable[[List[str]], None]] = None
+               ) -> List[str]:
     """Move the context tree's children into the target context dir,
     merging into the deploy's directory skeleton at any depth.
 
     A stock deploy's skeleton contains only directories (possibly nested),
     so merging never collides; an existing FILE at any path the tar also
-    carries is a hard refusal (the target is not pristine). Cache
-    directories are skipped with a note. Returns report lines."""
+    carries is a hard refusal (the target is not pristine) — except on a
+    resume of an interrupted merge, where an identical file is already
+    where it belongs. Cache directories are skipped with a note. Colliding
+    paths go to the private callback (they are document names), the count
+    to the error. Returns report lines."""
     lines = []
     os.makedirs(target_dir, exist_ok=True)
     children = [c for c in sorted(os.listdir(src_ctx_dir))
@@ -287,11 +355,20 @@ def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
     problems: List[str] = []
     for child in children:
         problems.extend(_collisions(os.path.join(src_ctx_dir, child),
-                                    os.path.join(target_dir, child)))
+                                    os.path.join(target_dir, child), resume))
     if problems:
+        if private:
+            private(["documents tree paths the merge refused:"] + problems)
+        if resume:
+            die("the previous restore of the documents tar was interrupted "
+                "and {0} path(s) now hold DIFFERENT content from the tar "
+                "(itemised in documents-details.txt) — remove the files "
+                "the interrupted restore placed under {1}, or restore the "
+                "pre-import snapshot, then --resume".format(
+                    len(problems), target_dir))
         die("refusing to merge the documents tree — the target is not "
-            "pristine ({0} collision(s), nothing was moved):\n  {1}".format(
-                len(problems), "\n  ".join(problems[:20])))
+            "pristine ({0} collision(s), nothing was moved; itemised in "
+            "documents-details.txt)".format(len(problems)))
     for child in sorted(os.listdir(src_ctx_dir)):
         src = os.path.join(src_ctx_dir, child)
         dst = os.path.join(target_dir, child)
@@ -301,7 +378,7 @@ def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
             continue
         existed = os.path.lexists(dst)
         is_dir = os.path.isdir(src)
-        moved = _merge_entry(src, dst)
+        moved = _merge_entry(src, dst, resume)
         if is_dir:
             lines.append("{0} {1}/ ({2} entr{3})".format(
                 "merged into existing" if existed else "moved",
@@ -311,30 +388,87 @@ def merge_move(src_ctx_dir: str, target_dir: str) -> List[str]:
     return lines
 
 
-def relocate_hrm_reports(ctx_root: str) -> List[str]:
-    """Move O19's <ctx>/hrm/ report files into document/ (DOCUMENT_DIR),
-    where CARLOS's HRM reader looks for them; a name collision with an
-    existing document is fatal rather than silently resolved."""
+def _sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def relocate_hrm_reports(ctx_root: str,
+                         private: Optional[Callable[[List[str]], None]] = None
+                         ) -> List[str]:
+    """Move O19's HRM report files into document/ (DOCUMENT_DIR), where
+    CARLOS's HRM reader looks for them. O19 keeps them nested (OMD_hrm
+    is <ctx>/hrm/, the downloads under hrm/sftp_downloads/<date>/
+    decrypted/), so the whole hrm/ tree is walked, files only, links
+    skipped. Two copies of one basename are fine when their content is
+    identical (one is kept); differing content under one name, or a
+    name already present in document/, is fatal — the basename rewrite
+    of HRMDocument.reportFile could not tell them apart. Names go to the
+    private callback, the count to the error."""
     src_dir = os.path.join(ctx_root, HRM_INCOMING_DIR)
     if not os.path.isdir(src_dir):
         return []
     doc_dir = os.path.join(ctx_root, "document")
     os.makedirs(doc_dir, exist_ok=True)
-    moved = 0
-    for name in sorted(os.listdir(src_dir)):
-        src = os.path.join(src_dir, name)
-        if not os.path.isfile(src) or os.path.islink(src):
-            continue
+    by_name: Dict[str, List[str]] = {}
+    for dirpath, dirnames, filenames in os.walk(src_dir):
+        dirnames[:] = sorted(d for d in dirnames
+                             if not os.path.islink(os.path.join(dirpath, d)))
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            if os.path.islink(path) or not os.path.isfile(path):
+                continue
+            by_name.setdefault(name, []).append(path)
+    problems = []
+    moved = deduped = 0
+    for name in sorted(by_name):
+        paths = by_name[name]
         dst = os.path.join(doc_dir, name)
+        digests = {_sha256(p) for p in paths}
+        if len(digests) > 1:
+            problems.append("{0}: {1} differing copies under hrm/".format(
+                name, len(paths)))
+            continue
         if os.path.lexists(dst):
-            die("HRM report '{0}' collides with an existing file in "
-                "document/ — resolve the duplicate before importing"
-                .format(name))
-        shutil.move(src, dst)
+            if os.path.isfile(dst) and not os.path.islink(dst) \
+                    and _sha256(dst) in digests:
+                # an interrupted relocation already placed it
+                for p in paths:
+                    os.unlink(p)
+                deduped += len(paths)
+                continue
+            problems.append("{0}: collides with an existing document/ "
+                            "file".format(name))
+            continue
+        shutil.move(paths[0], dst)
         moved += 1
+        for p in paths[1:]:
+            os.unlink(p)
+            deduped += 1
+    if problems:
+        if private:
+            private(["HRM report files the import cannot relocate: "]
+                    + problems)
+        die("{0} HRM report name(s) cannot be relocated into document/ "
+            "(differing copies of one name, or a name document/ already "
+            "holds — itemised in documents-details.txt); resolve them in "
+            "the source tree and re-run with --resume".format(
+                len(problems)))
+    # leave no empty dated directories behind (files only were moved)
+    for dirpath, dirnames, filenames in os.walk(src_dir, topdown=False):
+        if dirpath != src_dir and not dirnames and not filenames:
+            try:
+                os.rmdir(dirpath)
+            except OSError:
+                pass
+    if not moved and not deduped:
+        return []  # nothing left under hrm/ (a resume after the move)
     return ["moved {0} HRM report file(s) from {1}/ into document/ (the "
-            "location CARLOS reads HRM reports from)".format(
-                moved, HRM_INCOMING_DIR)]
+            "location CARLOS reads HRM reports from; {2} identical "
+            "duplicate(s) dropped)".format(moved, HRM_INCOMING_DIR, deduped)]
 
 
 def apply_ownership(root: str, dev_target: bool) -> None:
@@ -361,10 +495,14 @@ def apply_ownership(root: str, dev_target: bool) -> None:
 # --------------------------------------------------------------------------
 
 def reconcile(query, dst_schema: str, ctx_root: str
-              ) -> Tuple[List[str], List[str]]:
-    """(blocking_problems, report_lines) for the restored tree."""
+              ) -> Tuple[List[str], List[str], List[str]]:
+    """(blocking_problems, report_lines, private_lines) for the restored
+    tree. File and form names can carry a patient's or a clinician's
+    name: they appear in the problems (written to the root-only details
+    file) and the private lines, never in the report lines."""
     problems: List[str] = []
     lines: List[str] = []
+    private: List[str] = []
     doc_dir = os.path.join(ctx_root, "document")
 
     rows = [(r[0], r[1]) for r in query(
@@ -377,7 +515,10 @@ def reconcile(query, dst_schema: str, ctx_root: str
     orphans = find_orphans(doc_dir, known)
     if orphans:
         lines.append("{0} orphan file(s) on disk with no document row "
-                     "(report-only): {1}".format(len(orphans), orphans[:10]))
+                     "(report-only; named in documents-details.txt)"
+                     .format(len(orphans)))
+        private.append("orphan files with no document row: "
+                       + ", ".join(orphans))
     lines.append("{0} document row(s) reconciled against {1}".format(
         len(rows), doc_dir))
 
@@ -399,6 +540,14 @@ def reconcile(query, dst_schema: str, ctx_root: str
                 problems.append(
                     "eForm '{0}' (fid {1}) image reference escapes "
                     "eform/images: {2}".format(form_name, fid, ref))
+            elif "/" in asset or "\\" in asset:
+                # the route validates imagefile as ONE path component:
+                # a subdirectory reference is a broken image at runtime
+                problems.append(
+                    "eForm '{0}' (fid {1}) image reference {2} names a "
+                    "subdirectory — CARLOS serves eform/images as a flat "
+                    "directory (HTTP 400 at runtime until the form HTML "
+                    "is edited)".format(form_name, fid, ref))
             elif not os.path.isfile(os.path.join(image_dir, asset)):
                 bare = asset.split("?", 1)[0] if "?" in asset else ""
                 if bare and os.path.isfile(os.path.join(image_dir, bare)):
@@ -422,49 +571,55 @@ def reconcile(query, dst_schema: str, ctx_root: str
                     for p in classify_hrm_files(hrm_rows, doc_dir))
     lines.append("{0} HRM report row(s) reconciled against {1}".format(
         len(hrm_rows), doc_dir))
-    return problems, lines
-
-
-def _raw_rows(query, sql):
-    r"""Rows with the client's batch escapes still in place, so SQL NULL
-    (the bare token backslash-N) can be told from a stored two-character
-    backslash-N (which the client escapes as backslash-backslash-N). Fakes
-    without a `raw` parameter answer decoded rows; there the two are
-    indistinguishable and both become an empty CSV field."""
-    try:
-        return query(sql, raw=True)
-    except TypeError:
-        return query(sql)
+    return problems, lines, private
 
 
 def export_archive_csv(query, archive_schema: str, out_dir: str
                        ) -> List[str]:
     """Write every o19_archive table as CSV so the clinic holds a readable
-    copy of everything that became archive-only."""
+    copy of everything that became archive-only. SQL NULL is told from a
+    stored value by a companion `IS NULL` flag per column (the batch client
+    prints both a NULL and the four-letter string NULL identically), so a
+    NULL becomes an empty field and every stored value survives verbatim."""
     os.makedirs(out_dir, mode=0o750, exist_ok=True)
     tables = [r[0] for r in query(
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
         "TABLE_SCHEMA = '{0}' ORDER BY TABLE_NAME".format(archive_schema))]
     lines = []
     for table in tables:
+        # archive table names derive from the staged dump's own table
+        # names: the ETL refuses names outside the identifier class before
+        # it creates any of these, so a stray one here is a broken archive
+        # schema, never something to improvise a file name for
+        if not o19etl.IDENTIFIER_RE.match(table):
+            die("archive table name {0!r} is outside the identifier class "
+                "the import accepts — the archive schema was not written "
+                "by this import".format(table))
         cols = [r[0] for r in query(
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE "
             "TABLE_SCHEMA = '{0}' AND TABLE_NAME = '{1}' ORDER BY "
             "ORDINAL_POSITION".format(archive_schema, table))]
-        rows = _raw_rows(query, "SELECT * FROM `{0}`.`{1}`".format(
-            archive_schema, table))
+        if any(not o19etl.IDENTIFIER_RE.match(c) for c in cols):
+            die("archive table {0} carries a column name outside the "
+                "identifier class the import accepts".format(table))
+        select = ", ".join("{0}, ({0} IS NULL)".format(o19etl.ident(c))
+                           for c in cols)
+        rows = query("SELECT {0} FROM {1}.{2}".format(
+            select, o19etl.ident(archive_schema), o19etl.ident(table)))
         path = os.path.join(out_dir, table + ".csv")
         # created with the final mode: the rows are archived clinical data
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+        os.fchmod(fd, 0o640)  # the mode argument applies to a NEW file only
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
             writer = csv.writer(fh)
             writer.writerow(cols)
             for r in rows:
-                # the batch client prints SQL NULL as the two characters
-                # \N — that is not a value, so it becomes an empty field
-                writer.writerow([None if v == "\\N"
-                                 else unescape_batch_field(v) for v in r])
-        os.chmod(path, 0o640)
+                out = []
+                for i in range(0, len(cols) * 2, 2):
+                    value = r[i] if i < len(r) else ""
+                    flag = r[i + 1] if i + 1 < len(r) else "0"
+                    out.append(None if flag == "1" else value)
+                writer.writerow(out)
         lines.append("{0}.csv: {1} row(s)".format(table, len(rows)))
     return lines
 
@@ -485,7 +640,19 @@ def run_docs(ctx) -> None:
     documents_root = ctx.get("documents_root", DOCUMENTS_ROOT)
     ctx_root = os.path.join(documents_root, TARGET_CTX)
 
+    prev = state.get("phases", {}).get("documents", {})
+    details_path = os.path.join(state_dir, "documents-details.txt")
+
+    def private(lines):
+        o19import.append_private(details_path, "\n".join(lines) + "\n")
+
     if ctx["documents"] is None:
+        if prev.get("restored") or prev.get("restoring"):
+            die("the documents tree under {0} was already restored from "
+                "the tar with sha256 {1}... — --skip-documents cannot "
+                "retire it; resume with that tar (reconciliation is what "
+                "is left), or restore the pre-import snapshot".format(
+                    ctx_root, str(prev.get("tar_sha256"))[:12]))
         if "no-documents" not in ctx["accepted"]:
             die("no documents tar and no --accept no-documents sign-off")
         warn("importing WITHOUT documents (acknowledged) — document rows "
@@ -498,10 +665,24 @@ def run_docs(ctx) -> None:
 
     tar_path = ctx["documents"]
     tar_sha = o19import.sha256_file(tar_path)
-    prev = state.get("phases", {}).get("documents", {})
+    # one details file per pass: every step below re-runs on --resume and
+    # re-itemises what it finds
+    o19import.write_private(details_path, "P5 documents:\n")
+    if prev.get("skipped") == "no-documents" and prev.get("status") == "done":
+        die("this import recorded --skip-documents (no-documents "
+            "acknowledged) and the phase is complete; a documents tar "
+            "cannot be added afterwards — restore the pre-import snapshot "
+            "and start over with the tar")
     already_restored = (prev.get("tar_sha256") == tar_sha
                         and prev.get("restored"))
-    if prev.get("restored") and not already_restored:
+    # an interrupted merge (crash between the first move and the restored
+    # mark): the tree holds part of the tar; the merge below is
+    # idempotent for identical files, so the same tar is re-extracted
+    # and completed
+    resuming_merge = (prev.get("tar_sha256") == tar_sha
+                      and prev.get("restoring") and not prev.get("restored"))
+    if (prev.get("restored") or prev.get("restoring")) \
+            and not (already_restored or resuming_merge):
         # a different tar after a restore: re-extracting over the
         # restored tree could only collide, so say exactly what to do
         die("the documents tree under {0} was already restored from a "
@@ -540,11 +721,22 @@ def run_docs(ctx) -> None:
         if cp.returncode != 0:
             die("documents tar extraction failed")
 
-        move_lines = merge_move(os.path.join(incoming, old_ctx), ctx_root)
+        # recorded BEFORE the first move: a crash mid-merge is then a
+        # resumable state (same tar, idempotent merge), not a tree the
+        # next run mistakes for a non-pristine target
+        state.setdefault("phases", {})["documents"] = {
+            "status": "in-progress", "tar_sha256": tar_sha,
+            "restoring": True, "old_ctx": old_ctx}
+        o19import.save_state(state_dir, state)
+        if resuming_merge:
+            log("documents: completing the interrupted restore of the same "
+                "tar (files already in place are verified, not replaced)")
+        move_lines = merge_move(os.path.join(incoming, old_ctx), ctx_root,
+                                resume=bool(resuming_merge), private=private)
         shutil.rmtree(incoming, ignore_errors=True)
         # the tree is in place: record it NOW so a failure in any of the
         # (idempotent) steps below resumes without re-extracting
-        state.setdefault("phases", {})["documents"] = {
+        state["phases"]["documents"] = {
             "status": "in-progress", "tar_sha256": tar_sha,
             "restored": True, "old_ctx": old_ctx}
         o19import.save_state(state_dir, state)
@@ -557,7 +749,7 @@ def run_docs(ctx) -> None:
     # every pass, not only the first (a no-op once hrm/ is gone): a
     # relocation that failed after the restore was recorded must be retried
     # on --resume rather than skipped
-    hrm_lines = relocate_hrm_reports(ctx_root)
+    hrm_lines = relocate_hrm_reports(ctx_root, private=private)
     if hrm_lines:
         o19import.report_append(state_dir, "P5 HRM relocation",
                                 "\n".join(hrm_lines))
@@ -565,10 +757,25 @@ def run_docs(ctx) -> None:
     # hand (the documented remedy) leaves root-owned files behind, and a
     # root-run reconciliation would never notice
     apply_ownership(ctx_root, ctx["dev_target"])
+    # two rows reaching one basename through different paths would be
+    # folded onto one file by the rewrite: refused before it runs
+    twins = query(hrm_basename_twins_sql(ctx["target_db"]))
+    if twins:
+        private(["HRM report basenames reached through more than one "
+                 "path (the basename rewrite cannot tell them apart):"]
+                + ["{0}: {1} path(s)".format(r[0], r[1]) for r in twins
+                   if len(r) >= 2])
+        die("{0} HRM report name(s) are referenced through different "
+            "paths by HRMDocument rows (itemised in documents-details.txt) "
+            "— CARLOS keeps reports flat under document/, so rename the "
+            "duplicates in the source and re-export".format(len(twins)))
     update_sql, _ = hrm_rewrite_sql(ctx["target_db"], documents_root)
     query(update_sql)  # idempotent: basename into DOCUMENT_DIR
 
-    problems, lines = reconcile(query, ctx["target_db"], ctx_root)
+    problems, lines, private_lines = reconcile(query, ctx["target_db"],
+                                               ctx_root)
+    if private_lines:
+        private(["P5 reconciliation notes:"] + private_lines)
     csv_lines = export_archive_csv(
         query, ctx.get("archive_schema", "o19_archive"),
         os.path.join(ctx_root, "o19_archive_export"))
@@ -578,21 +785,18 @@ def run_docs(ctx) -> None:
                   + ["  " + line for line in csv_lines]))
     if problems:
         # document names can carry patient names: itemised in the private
-        # file, counted in the shareable report
-        o19import.write_private(
-            os.path.join(state_dir, "documents-details.txt"),
-            "P5 reconciliation failures:\n" + "\n".join(problems) + "\n")
+        # file, counted in the shareable report and on the console
+        private(["P5 reconciliation failures:"] + problems)
         o19import.report_append(
             state_dir, "P5 reconciliation FAILURES",
             "{0} problem(s) — itemised in documents-details.txt "
             "(root-only)".format(len(problems)))
-        die("documents reconciliation FAILED ({0} problem(s)) — the "
-            "clinical record must not go live with unreadable documents:"
-            "\n  ".format(len(problems)) + "\n  ".join(problems[:20])
-            + "\nFix the tree in place (add the missing files under {0}) "
-              "and re-run with --resume; to restore a different tar "
-              "instead, restore the pre-import snapshot first."
-              .format(ctx_root))
+        die("documents reconciliation FAILED ({0} problem(s), itemised in "
+            "{1}) — the clinical record must not go live with unreadable "
+            "documents. Fix the tree in place (add the missing files under "
+            "{2}) and re-run with --resume; to restore a different tar "
+            "instead, restore the pre-import snapshot first."
+            .format(len(problems), details_path, ctx_root))
     o19import.mark_done(state_dir, state, "documents", tar_sha256=tar_sha,
                         restored=True)
     log("documents restored and reconciled clean")

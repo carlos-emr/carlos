@@ -32,12 +32,12 @@ no-go until remediated — notably **LDAP authentication** (CARLOS has none;
 provision local credentials first), **password-protected casemgmt notes**,
 and the not-yet-curated **BC** profile. The report doubles as the
 clinic-facing feasibility statement: what migrates, what becomes
-archive-only (OLIS, eForm modules that were removed, antenatal ONAR forms),
+archive-only (OLIS, form modules that were removed, antenatal ONAR forms),
 and what must be decided before cutover.
 
 ## 2. Produce the three inputs on the OSCAR 19 server
 
-During the cutover window, with Tomcat stopped:
+During the cutover window, with Tomcat stopped on the OSCAR 19 server:
 
 ```bash
 mysqldump --single-transaction --quick oscar | gzip > o19.sql.gz
@@ -166,9 +166,19 @@ files, `privilege-diff.txt`, the preflight outputs) are retired with the
 same `.completed-<timestamp>` suffix as `state.json` when the import is
 cleaned up, so a later import in the same directory starts its own.
 
+On the CARLOS host the `carlos-emr` service must be stopped for the
+whole import (`carlos-ctl stop`); a real run or `--resume` refuses while it
+is active, because CARLOS's startup listener writes rows (program, site,
+memberships) that the row-parity gate would then reject, and a session could
+read a half-copied chart. Start it again only after the verified import and
+the properties fragment have been applied.
+
 Useful variants: `--dry-run` (stage + preflight + properties report only;
-its `--accept` flags are not recorded — sign-offs persist only from a real
-run), `--dump/--documents/--properties` instead of a bundle,
+it still runs the P0 gates — a non-stock target is refused — and it is
+refused over a workspace whose import is in progress, because it would
+re-extract the bundle and rewrite the recorded inputs; its `--accept` flags
+are not recorded — sign-offs persist only from a real run),
+`--dump/--documents/--properties` instead of a bundle,
 `--bundle-openssl-opt` for bundles encrypted by an older openssl
 (`-md md5`, no `-pbkdf2`), `--skip-documents` with `--accept no-documents`,
 `--accept unverified-bundle` to open a bundle whose digest was never
@@ -176,8 +186,11 @@ conveyed (a recorded sign-off, never a default).
 
 `carlos-ctl o19-preflight` is the assessment-only form on the CARLOS host:
 capacity checks, staged restore and the go/no-go report, with the exit
-code as the verdict (0 go, 1 acknowledgements required, 2 no-go, 3 tool
-error); it records no verdict and no sign-off.
+code as the verdict (0 go, 1 acknowledgements required, 2 no-go) and 3 for
+any failure of the tool itself (an unreachable server, bad flags, a refused
+dump, insufficient disk — never a verdict code); it records no verdict and
+no sign-off, and refuses a workspace whose import is in progress. With
+`--province bc` it stages first and then reports the province as a no-go.
 
 `--dev-target` and `--mariadb-arg` exist for development databases only
 (the devcontainer, where the database is a separate container reached over
@@ -206,9 +219,11 @@ gate has no override.
    Administration > Security (the report names the template role used),
    and deal with expired or role-less accounts before go-live.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the
-   extracted bundle and retires the run's `state.json` (renamed to
-   `state.json.completed-<time>`, so the finished run can neither be
-   resumed nor mistaken for a fresh one); the `o19_archive` schema
+   throwaway staging account, removes the extracted bundle and retires the
+   run's `state.json`, ETL ledger, report, private files and the properties
+   fragment (renamed with one `.completed-<time>` suffix, so the finished
+   run can neither be resumed nor mistaken for a fresh one; only
+   `admin-credentials.txt` stays under its own name); the `o19_archive` schema
    (removed-module data + dropped-column shadows + the OSCAR 19 token
    tables, which are never copied live) and its CSV export under
    `OscarDocument/carlos/o19_archive_export/` are kept for the clinic.
@@ -237,13 +252,27 @@ given clinic — that list is the clinic's sign-off.
   with `--databases` or `--all-databases`. Re-take it as
   `mysqldump <o19-db> > o19.sql` (see §2); the importer never lets a dump
   choose its own schema.
-- *"restore into o19_import failed"* mentioning DEFINER, SUPER or a
-  server-wide `SET` — the restore runs as an account limited to the staging
+- *"restore into o19_import failed"* mentioning DEFINER clauses, GRANTs or
+  server-wide SET statements — the restore runs as an account limited to the staging
   schema. Re-take the dump with `--skip-triggers --set-gtid-purged=OFF`
   (and without `--databases`); OSCAR 19 keeps nothing in triggers or views.
 - *documents reconciliation FAILED* — a `document` row's file is missing or
-  empty in the tar. Fix the tree (or re-ship the tar) and `--resume`; the
-  import never goes live with unreadable documents.
+  empty in the tar, an eForm references an image asset that is not there,
+  or an HRM report is missing; the names are in `documents-details.txt`
+  (root-only), the console and the report carry counts. Fix the tree (or
+  re-ship the tar) and `--resume`; the import never goes live with
+  unreadable documents. HRM report files are moved from the whole `hrm/`
+  tree (O19 nests them under `hrm/sftp_downloads/<date>/decrypted/`) into
+  `document/` and every `HRMDocument.reportFile` is rewritten to its
+  basename there; identical copies of one name are folded, differing
+  copies of one name (or one name reached through two paths) are refused
+  with the names listed privately.
+- *the previous restore of the documents tar was interrupted* — a crash
+  mid-merge; the same tar re-extracts and files already in place are
+  verified rather than replaced, so a plain `--resume` completes it. Only
+  a file whose content differs from the tar stops it.
+- *--skip-documents cannot retire it* — the tree was already restored from
+  a tar in this run; resume with that tar (reconciliation is what is left).
 - *ETL pre-checks failed: NOT NULL target column(s)* — the CARLOS schema
   gained a required column the manifest doesn't cover yet; report it (the
   fix is a `value_exprs` curation entry + regenerated manifest).
@@ -258,14 +287,28 @@ given clinic — that list is the clinic's sign-off.
   NO_BACKSLASH_ESCAPES* (or `ANSI_QUOTES`) — the import quotes clinic
   values with backslash escapes and refuses to run under those modes;
   clear them in the server configuration for the import.
+- *ETL pre-checks failed: the staged dump carries N table/column name(s)
+  outside the accepted identifier class* — a table or column whose name
+  is not plain `[A-Za-z0-9_$]` (no OSCAR 19 schema has one); every
+  statement runs as the database root, so such a name is refused rather
+  than quoted. Rename it in the source and re-export.
+- *manifest column(s) not in the target schema* — the installed package's
+  manifest names a column the deployed Flyway level lacks; report it.
+- *ETL pre-checks failed* on a `--resume` say *no further writes were
+  made*: the earlier phases' writes stand; fix the condition and resume.
 - *province 'bc': the OSCAR 19 import supports Ontario deployments only* —
   P0 refuses a non-Ontario host before sweeping it (the seed floors are
   generated from the Ontario migration set).
 - *`--role-template 'X': not a clinic-custom role with imported grants`* /
-  *`'Y' is not a CARLOS stock role`* — the flag names a role the dump does
-  not have, a stock role name (those need no template), a role with no
-  grants, or an unknown template. Fix the flag and `--resume`; nothing was
-  written for that step and the bad mapping was not recorded. Once the
+  *`'Y' is not a CARLOS stock role`* — on a fresh run this surfaces as
+  *ETL pre-checks failed (nothing was written): --role-template …*, on a
+  resume as *roles: --role-template …*; either way the flag names a role
+  the dump does not have, a stock role name (those need no template), a
+  role with no grants, or an unknown template. Fix the flag and `--resume`;
+  nothing was written for that step and the bad mapping was not recorded.
+  A custom role whose closest stock role is `admin` with a similarity
+  below 0.5 is *held for the operator*: pass `--role-template 'X=admin'`
+  to grant the administrator objects, or grant them by hand. Once the
   backfill has decided, a `--resume` that passes a *different* mapping is
   refused; pass the same mapping or none.
 - *roles: Rich Text Letter fixup script(s) missing* — the package is
@@ -277,8 +320,25 @@ given clinic — that list is the clinic's sign-off.
   a clinic-edited subject needs a manual edit first).
 - *this import completed under manifest X … run --cleanup* — a package
   upgrade after a finished import; there is nothing to resume, retire the
-  run with `--cleanup`.
+  run with `--cleanup`. *A finished ETL cannot be continued under a
+  different manifest* — the upgrade landed mid-run; the lossless path is to
+  reinstall the package version that shipped the recorded manifest,
+  `--resume`, `--cleanup`, then upgrade.
+- *the archive schema o19_archive of a previous import exists* — a fresh
+  run on a host that imported a clinic before; `--cleanup` that run (or
+  drop the schema once the clinic holds its CSV export) first, or the old
+  archive tables would be exported into the new clinic's document tree.
+- *carlos-emr is running — stop it for the duration of the import* — see
+  §3; stop the service and re-run (or `--resume`).
+- *a previous --cleanup was interrupted — run --cleanup again* — cleanup
+  marks itself before dropping anything; repeat it.
+- *cannot read state.json / the ETL ledger* — a corrupt ledger is fatal on
+  purpose (a "fresh" reading would re-sweep a mid-import target); restore
+  the pre-import snapshot if an import was in progress.
 - *P5 reconciliation FAILURES* — the offending document names are in
-  `documents-details.txt` (root-only); the report carries the count.
+  `documents-details.txt` (root-only); the report and the console carry
+  the count. The batch client prints SQL NULL as the word `NULL`; the
+  archive CSV export tells it from a stored `NULL` string by a companion
+  flag, so an empty CSV field is a real NULL.
 - A failed run keeps its state for diagnosis; the documented rollback is
   restoring the pre-import restic snapshot.

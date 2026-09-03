@@ -160,9 +160,10 @@ Both systems seed a default doctor at `provider_no 999998` (O19 `oscardoc`,
 CARLOS `carlosdoc`) plus matching `security`, schedule and property rows. The
 importer must, in order: delete the CARLOS `carlosdoc` seed rows (provider,
 security, preferences) **after** creating a fresh break-glass admin account chosen
-by the operator, then copy the clinic's providers/security verbatim. Same
-reconciliation applies to `property`/`SystemPreferences` defaults (CARLOS value
-kept unless the clinic explicitly overrode the key in O19).
+by the operator, then copy the clinic's providers/security verbatim. The same
+reconciliation applies to `property` defaults (CARLOS value kept unless the
+clinic explicitly overrode the key in O19; `SystemPreferences` is CARLOS-only
+and has nothing to reconcile).
 
 Post-copy: set `security.forcePasswordReset = 1` for every imported user (legacy
 SHA-1 hashes still work for the first login and auto-upgrade to BCrypt; the forced
@@ -196,16 +197,19 @@ importer therefore reconciles the role matrix instead of choosing one side:
   = 0.3, ties alphabetical), `INSERT IGNORE` so nothing imported is overwritten;
   `--role-template CUSTOM=STOCK` (case-insensitive, like the column) overrides the
   choice. The mapping is recorded in the ETL ledger once it has validated and
-  the backfill has decided on it; until then a resume may add or change the
-  flag (reported), after that a different mapping is refused and a resume
+  bound once the backfill has decided on it; until it is bound a resume may
+  add or change the flag (reported), after that a different mapping is refused and a resume
   without the flag continues with the recorded one — a typo therefore never
   wedges the import. Below the floor nothing is guessed and the role is reported
   for manual grants; a template that holds none of the CARLOS-era objects (every
   nurse/receptionist-class stock role: the seed grants them to `doctor`/`admin`
   only) adds nothing and says so; a custom role holding no imported grant is
   left alone (P7 lists it as granting nothing if an active account holds it).
-  Role names are compared case-insensitively throughout — importer and preflight
-  alike (`Doctor` is `doctor`); `admin` as a template is flagged in the report.
+  Role names are compared case-insensitively (and trailing-space-insensitively,
+  like the column's PAD SPACE collation) throughout — importer and preflight
+  alike (`Doctor` is `doctor`). `admin` as a template is applied automatically
+  only above similarity 0.5 and flagged in the report; below that the role is
+  held for an explicit `--role-template 'X=admin'`.
 - `secUserRole.activeyn` NULL grants nothing in CARLOS; the import sets it to 1 for
   assignments of providers whose account is active (`status = '1'` with a
   `security` row) and lists them (provider = role) in `roles-details.txt`, with a
@@ -340,15 +344,19 @@ Import steps:
    `INCOMINGDOCUMENT_DIR=…/carlos/incomingdocs`). Subtrees that ride along:
    `document/`, `eform/images/` (eForm image assets), `incomingdocs/`,
    `billing/download/`, HRM report files, faxes, export dirs.
-2. `chown -R` to the Tomcat service user; restore SELinux context where relevant.
+2. `chown -R` to the Tomcat service user (directories 2750, files 0640).
 3. **Reconciliation report** (blocking, not advisory):
    - every `document.docfilename` row → file exists, non-zero size;
-   - every `eform` referencing `${oscar_image_path}` asset → file exists;
-   - orphan files (on disk, no DB row) listed for operator review;
-   - `HRMDocument.reportFile` paths remapped from the O19 absolute path prefix to
-     the CARLOS one (column stores absolute paths on some installs — importer
-     rewrites the prefix).
-4. Large-object sanity: compare tar-reported total size vs restored size.
+   - every `eform` referencing a `${oscar_image_path}` asset → file exists
+     (the reference is decoded the way the image route receives it: whole
+     attribute value, entities and percent-encoding undone);
+   - orphan files (on disk, no DB row) counted in the report, named in the
+     root-only details file;
+   - HRM report files are moved out of the whole `hrm/` tree (O19 keeps them
+     under `hrm/sftp_downloads/<date>/decrypted/`) into `document/`, and every
+     `HRMDocument.reportFile` is rewritten to its basename inside the CARLOS
+     `DOCUMENT_DIR` (the only location CARLOS's HRM reader trusts); two rows
+     reaching one basename through different paths are refused.
 
 ## 6. Packaging: one-command turnkey import
 
@@ -403,16 +411,14 @@ signed off:**
   rule 6) — the "many keys no longer needed" list — grouped by module, plus the
   `deploy-owned` keys that will be ignored. OLIS and eRx keys escalate the
   matching module advisory; `ldap.*` escalates to B5.
-- Hylafax/legacy fax configuration → SRFax decision needed before cutover.
 - Providers with no `security` row, disabled accounts, stale `secUserRole`
-  entries — hygiene items that surface as confusing login behavior later.
-- Documents advisory (when the tar is available): rows in `document` whose file
-  is missing from the tar, and orphan files — full reconciliation still runs as
-  a hard gate in the `documents` phase (§5).
+  entries — hygiene items that surface as confusing login behavior later
+  (the roles advisories of §4.5).
+- Documents are not assessed by the preflight (no tar is read); full
+  reconciliation runs as a hard gate in the `documents` phase (§5).
 
-**INFO:** table/row inventory, database and documents sizes, estimated staging
-disk and import duration, provider/patient counts (sanity anchors for §7
-row-parity).
+**INFO:** table/row inventory, database size, provider/patient counts (sanity
+anchors for §7 row-parity).
 
 **Report contract.** Preflight always emits a machine-readable JSON verdict
 (`go` / `no-go` / `go-with-acknowledgements`) plus a human report listing every
@@ -424,6 +430,12 @@ what stops working (OLIS, eRx, MyOSCAR, LDAP), and what must be decided before
 cutover.
 
 **(b) `carlos-podman` repo — `carlos-ctl import-o19` (the turnkey wrapper)**
+
+> Superseded: the deb's `carlos-ctl import-o19` (§9a) is the shipped form —
+> `--admin-user` is mandatory, `--province` may only restate the host's
+> configured province, the application is never restarted by the import and
+> the properties fragment is applied by hand. The sketch below is kept as the
+> original design; the podman wrapper is still pending.
 
 `carlos_ctl` already owns db provisioning, Flyway migrate, backup and dump
 (`dbops.py`, `backup.py`). New subcommand:
@@ -643,9 +655,11 @@ manifest is passed). Verdict contract: exit 0 `go`, 1
 `go-with-acknowledgements` (each blocker names its `--accept` flag), 2
 `no-go` (LDAP, encrypted notes, BC, or unknowns needing classification);
 `--json` emits the machine report. The generator rewrites its embedded data
-block, and `test_preflight.py` (19 cases, fake-SQL runner) plus a drift-lock
+block, and `test_preflight.py` (fake-SQL runner) plus a drift-lock
 test in `test_manifest_integrity.py` pin the behavior. B4 detection keys off
-`casemgmt.note.password.enabled`; the report prints the canonical bundle
+`casemgmt_note` rows that carry a password (the property
+`casemgmt.note.password.enabled=true` is the stock O19 default and alone is
+an advisory); the report prints the canonical bundle
 command so the O19 side produces what the CARLOS side expects.
 
 **Milestone 3 — verbs, staging, bundle (done):**
@@ -839,8 +853,11 @@ was fixed and pinned by tests. What changed in behaviour:
   backslash (the string parser eats it, so `[^\x00-\x7F]` became
   `[^x00-x7F]`) and the BINARY round-trip compared a latin1 staging value
   against its utf8mb4 re-encoding, so every mojibake row read as clean.
-  Both are fixed (doubled backslashes; the value is normalised to utf8mb4
-  first) and proven on MariaDB 10.11 against latin1 and utf8mb4 tables:
+  Both are fixed (the non-ASCII test is a byte-vs-character length
+  comparison — a `REGEXP` class with `\x` escapes is misread by the Spencer
+  engine of MySQL < 8 / MariaDB < 10.0.5, the assessment hosts; the value is
+  normalised to utf8mb4 first) and proven on MariaDB 10.11 against latin1
+  and utf8mb4 tables:
   `Ã‰lise CÃ´tÃ©` repairs to `Élise Côté`; legitimate accents, ASCII,
   `1,800` and CJK pass through untouched.
 - **Documents:** the deb's nested skeleton (`incomingdocs/1/Fax`, …) is
@@ -924,6 +941,62 @@ Three review rounds followed (seed floors, binary prevention compare,
 crash-safe ledger, a single batch decoder, the template-binding order, the
 persisted RTL plan, the seeded `eform` row in row parity, dormant admin rows
 left alone, a fourth privilege-diff section).
+
+**Verified multi-agent review round (eight slice/crosscut reports, findings
+re-verified against the code, plus a CodeRabbit pass), re-rehearsed (done):**
+
+- **Identifiers from the dump are never trusted:** every table or column
+  name the staged dump chooses (unknown tables, vendor-fork columns, the
+  archive tables derived from them) is backtick-quoted with doubled
+  backticks, and the ETL pre-checks refuse any staged name outside
+  `[A-Za-z0-9_$]` before the first write — every statement runs as the
+  database root, so a crafted name must stay a name. The archive CSV export
+  applies the same class to file names and tells SQL NULL from a stored
+  `NULL` string by a companion flag (the batch client prints both alike).
+- **Preflight B4 is judged on the data:** `casemgmt.note.password.enabled=
+  true` is the stock O19 default; only `casemgmt_note` rows carrying a
+  password are the blocker, the property alone is an advisory. The
+  non-ASCII test is a byte-vs-character length comparison (the Spencer
+  regex engine of MySQL < 8 misreads a `\x` class), the report is written as
+  UTF-8 bytes after the JSON so a C-locale Python 3.4 cannot lose it, and a
+  `--accept` typo is refused rather than recorded.
+- **Resume safety:** the Rich Text Letter v1 seed (a bare INSERT) is never
+  replayed once a canonical row exists, P7 fails on more than one canonical
+  row and row parity bounds the synthesised `eform`/`program` rows; the
+  documents restore records `restoring` before the first move and an
+  interrupted merge completes on `--resume` (identical files verified, not
+  replaced); `--skip-documents` cannot retire a restored tree; a dry run or
+  assessment refuses a workspace whose import is in progress instead of
+  rewriting its inputs and bundle; a corrupt ledger is fatal, never "fresh";
+  cleanup marks itself, retires the ETL ledger and the properties fragment
+  with the run, and the break-glass credentials file is set aside rather
+  than overwritten by a later import.
+- **Roles step:** the CARLOS-only-role listing counts the NULL rows the
+  import activates; the activeyn report no longer double-counts dormant
+  admin rows; the seed's `-1` system pseudo-provider gets no membership,
+  link or review entry; duplicate logins count once; an RTL-titled clinic
+  copy without the `RptByExample.do` sink or a dead route is reported, not
+  disabled; a custom role resembling `admin` below similarity 0.5 is held
+  for an explicit `--role-template`; form names stay out of the report.
+- **HRM and eForm assets as CARLOS reads them:** the whole `hrm/` tree
+  (O19 nests reports under `sftp_downloads/<date>/decrypted/`) is walked,
+  identical duplicates folded, differing copies of one name refused, and two
+  `HRMDocument` rows reaching one basename through different paths are
+  refused before the rewrite; eForm image references are decoded the way
+  the image route receives them (whole attribute value, entities and
+  percent-encoding, a second query parameter cut) and a subdirectory
+  reference is a blocking problem.
+- **Orchestration:** the preflight verb exits 3 on every tool failure
+  (never a verdict code); credential literals are masked in every SQL error
+  text and a half-created staging account is dropped; `--province` may only
+  restate the packaged host's configured province; a running `carlos-emr`
+  service is refused for a real run; a leftover `o19_archive` of a previous
+  import is refused on a fresh run; the manifest-mismatch message offers the
+  package-downgrade path; sign-off hints carry `--resume` when needed.
+- **Properties parsing** ends lines only at `\n`, `\r`, `\r\n`, strips only
+  space, tab and form feed, keeps a record whose last line ends in a
+  continuation backslash and joins UTF-16 escape pairs — in the props
+  phase and the standalone preflight alike.
 
 **All milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,

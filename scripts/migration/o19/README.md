@@ -72,4 +72,9 @@ OLIS-dropped path. `--with-updates` applies the O19 `updates/*.sql` patch
 history best-effort before the demo data (real dumps carry ~281 privilege
 rows those patches add; 2006-era patches routinely fail on a modern server,
 each failure is named with its diagnostic, and a failed file may have applied
-its earlier statements — a rehearsal input, not a clinic).
+its earlier statements — a rehearsal input, not a clinic). Note that
+`update-2008-04-07.sql` recreates `secUserRole`: the stock assignments are
+renumbered and every one becomes `activeyn = 1`, so the roles.sql cases
+are the only NULL-activeyn rows left; the builder asserts the anchors the
+rehearsal depends on (the seed clinician's two roles, a Facility, a
+clinic row) after the replay.

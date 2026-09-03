@@ -135,6 +135,14 @@ if [ "$WITH_UPDATES" = 1 ]; then
     fi
   done
   echo "loading updates/*.sql ... done ($UPDATE_FAILURES file(s) failed, see warnings)"
+  # the replay rewrites secUserRole (update-2008-04-07 drops and recreates
+  # it); the anchors the rehearsal depends on must have survived
+  anchors=$(run_sql -N -B "$DB" -e "SELECT (SELECT COUNT(*) FROM secUserRole WHERE provider_no='999998'), (SELECT COUNT(*) FROM Facility), (SELECT COUNT(*) FROM clinic)")
+  case "$anchors" in
+    2*) ;;
+    *) echo "error: after --with-updates the seed clinician's roles, Facility or clinic rows are gone ($anchors)" >&2
+       exit 1 ;;
+  esac
 fi
 
 load "vendored demo.sql" "$SCRIPT_DIR/fixtures/demo-data/demo.sql"
@@ -145,11 +153,19 @@ load "fixture-document-rows.sql" \
 load "fixture roles.sql" "$SCRIPT_DIR/fixtures/demo-data/roles.sql"
 
 mkdir -p "$OUT"
-# mariadb pairs with mariadb-dump; mysql pairs with mysqldump
-if command -v "${MYSQL_CMD}-dump" >/dev/null 2>&1; then
-  DUMP_CMD="${MYSQL_CMD}-dump"
-else
-  DUMP_CMD="${MYSQL_CMD}dump"
+# mariadb pairs with mariadb-dump (mariadbdump nowhere); mysql pairs with
+# mysqldump, which older MariaDB hosts ship under that name only
+DUMP_CMD=""
+for candidate in "${MYSQL_CMD}-dump" "${MYSQL_CMD}dump" mysqldump; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    DUMP_CMD="$candidate"
+    break
+  fi
+done
+if [ -z "$DUMP_CMD" ]; then
+  echo "no dump client found (tried ${MYSQL_CMD}-dump, ${MYSQL_CMD}dump," \
+       "mysqldump)" >&2
+  exit 1
 fi
 echo "dumping to $OUT/o19-fixture.sql.gz (via $DUMP_CMD) ..."
 "$DUMP_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} \

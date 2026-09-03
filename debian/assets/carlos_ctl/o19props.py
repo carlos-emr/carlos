@@ -101,10 +101,15 @@ def parse_properties_text(text: str) -> List[Tuple[str, str]]:
     order: List[str] = []
     values: Dict[str, str] = {}
     logical: List[str] = []
-    physical = text.splitlines()
+    # java.util.Properties ends a line at \n, \r or \r\n only (never at
+    # \f, \x85 — the Windows-1252 ellipsis read through latin-1 — or the
+    # other characters str.splitlines() honours) and strips only space,
+    # tab and form feed; a continuation backslash on the last line still
+    # yields the record, hence the empty sentinel line
+    physical = re.split(r"\r\n|\r|\n", text) + [""]
     i = 0
     while i < len(physical):
-        line = physical[i].lstrip()
+        line = physical[i].lstrip(" \t\f")
         i += 1
         if not logical and (not line or line[0] in ("#", "!")):
             continue

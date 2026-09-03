@@ -1,4 +1,4 @@
-.TH CARLOS-CTL 8 "2026-08-20" "carlos-emr" "System Administration"
+.TH CARLOS-CTL 8 "2026-09-03" "carlos-emr" "System Administration"
 .SH NAME
 carlos\-ctl \- administer a CARLOS EMR host installed from the carlos\-emr package
 .SH SYNOPSIS
@@ -223,48 +223,123 @@ clinic-custom roles receive the CARLOS-era privileges of the closest stock
 role;
 .B --role-template
 .I CUSTOM=STOCK
-(repeatable, case-insensitive) overrides that choice; once the backfill has
-decided on it the mapping is recorded in the import ledger and a
-.B --resume
+(repeatable, case-insensitive) overrides that choice; the mapping is
+recorded in the import ledger once it validates and bound once the backfill
+has decided on it, after which a
+.B \-\-resume
 continues with it (a different mapping is then refused; before that a resume
 may add or correct the flag). Blockers found by the built-in preflight
 are cleared only by explicit
-.B --accept
-sign-off flags, recorded in the report.
-.B --dry-run
+.B \-\-accept
+sign-off flags, recorded in the report. The CARLOS service must be stopped
+for a real run: a running
+.B carlos\-emr
+unit is refused (its startup writes rows the row-parity gate would reject).
+.B \-\-dry-run
 stages and reports without writing to the EMR schema (its
-.B --accept
-flags are not recorded);
-.B --resume
+.B \-\-accept
+flags are not recorded; it still runs the P0 gates, and it is refused over a
+workspace whose import is in progress);
+.B \-\-resume
 continues an interrupted real import (required whenever a previous run left
-state behind beyond a staged dump — state is never continued implicitly; a
-dry run may inspect existing state without continuing it; once the data
-copy has started, only the emptiness sweep is skipped on resume);
-.B --restage
+state behind beyond a staged dump \(em state is never continued implicitly;
+once the data copy has started, only the emptiness sweep is skipped on
+resume);
+.B \-\-restage
 drops and re-restores the staging schema (clearing the recorded preflight
 verdict);
-.B --cleanup
-drops the staging schema, retires the run's state file and keeps the
-o19_archive schema and reports \(em allowed after verification or while
-nothing has been written to the EMR schema, never on a mid-import
-workspace. The pre-import backup is taken before the staged restore, which
-runs as a throwaway account limited to the staging schema; a dump carrying
-USE or CREATE DATABASE statements is refused.
-.B --dev-target
+.B \-\-cleanup
+drops the staging schema and the throwaway staging account, removes the
+extracted bundle, retires the run's ledgers, report and private files with a
+.I .completed-<time>
+suffix and keeps the o19_archive schema and
+.I admin-credentials.txt
+\(em allowed after verification or while nothing has been written to the
+EMR schema, never on a mid-import workspace. The pre-import backup is taken
+before the staged restore, which runs as a throwaway account limited to the
+staging schema; a dump carrying USE or CREATE DATABASE statements is
+refused.
+.B \-\-dev-target
 and
-.B --mariadb-arg
+.B \-\-mariadb-arg
 serve development databases only and are refused on a packaged host
-.RB ( --fixups-dir
+.RB ( \-\-fixups-dir
 points a development run at the data-fixup scripts the package installs
 under /usr/share/carlos-emr/schema/o19-fixups). See
 docs/oscar19-to-carlos-migration-plan.md and docs/o19-import-deb.md in the
 source tree.
+.RS
+.PP
+Options:
+.BR \-\-bundle " FILE" ,
+.BR \-\-bundle-pass " SPEC"
+(openssl \-pass spec: file:PATH, env:VAR, fd:N, stdin),
+.BR \-\-bundle-sha256 " HEX" ,
+.BR \-\-bundle-cipher " NAME"
+(default aes-256-cbc),
+.BR \-\-bundle-openssl-opt " OPT"
+(repeatable passthrough for legacy bundles, e.g. \-md then md5);
+.BR \-\-dump " FILE" ,
+.BR \-\-documents " FILE" ,
+.BR \-\-properties " FILE" ;
+.BR \-\-skip-documents
+(needs
+.BR "\-\-accept no-documents" );
+.BR \-\-province " on|bc"
+(must match the host's configured province; the import supports Ontario);
+.BR \-\-admin-user " NAME" ;
+.BR \-\-role-template " CUSTOM=STOCK" ;
+.BR \-\-accept " CLASS" ;
+.BR \-\-dry-run ,
+.BR \-\-resume ,
+.BR \-\-restage ,
+.BR \-\-cleanup ;
+.BR \-\-dev-target ,
+.BR \-\-mariadb-arg " ARG" ,
+.BR \-\-fixups-dir " DIR" .
+.PP
+Sign-off classes for
+.BR \-\-accept :
+.B archived-forms
+(patient data in removed modules becomes archive-only),
+.B unknown-as-archive
+(tables the manifest does not know are archived whole),
+.B dropped-columns
+(columns CARLOS dropped are shadow-captured),
+.B olis-gone
+(OLIS data is archive-only),
+.B charset-repair
+(double-encoded text is repaired per row),
+.B no-documents
+(import without the documents tree),
+.B no-pre-backup
+(no pre-import restic snapshot; required when backups are not configured),
+.B unverified-bundle
+(open a bundle whose digest was never conveyed). Every class is recorded in
+the report and survives \-\-resume.
+.RE
 .TP
 .B o19-preflight (experimental)
 Stage a dump and run only the capacity checks and the go/no-go feasibility
 check; the exit status is the verdict (0 go, 1 acknowledgements required,
-2 no-go, 3 tool error) and nothing is recorded as a sign-off. For an
-assessment BEFORE backups are shipped, copy
+2 no-go) and 3 for any failure of the tool itself (unreachable server, bad
+flags, refused dump, disk); nothing is recorded as a sign-off and a
+workspace whose import is in progress is refused untouched. Options:
+.BR \-\-bundle ,
+.BR \-\-bundle-pass ,
+.BR \-\-bundle-sha256 ,
+.BR \-\-bundle-cipher ,
+.BR \-\-bundle-openssl-opt ,
+.BR \-\-dump ,
+.BR \-\-properties ,
+.BR \-\-province ,
+.BR \-\-accept ,
+.BR \-\-restage ,
+.BR \-\-mariadb-arg ,
+.BR \-\-dev-target
+as for
+.BR import-o19 .
+For an assessment BEFORE backups are shipped, copy
 /usr/lib/carlos-emr/carlos_ctl/o19_preflight.py to the OSCAR 19 server and
 run it there standalone.
 .SH FILES

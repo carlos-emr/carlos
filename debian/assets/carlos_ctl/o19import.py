@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 CARLOS Contributors
-"""carlos-ctl import-o19 / o19-preflight — OSCAR 19 clinic import (experimental).
+"""carlos-ctl import-o19 / o19-preflight — OSCAR 19 clinic import
+(experimental).
 
 Phase pipeline (docs/oscar19-to-carlos-migration-plan.md §9a; each phase
 records its completion + input digests in state.json under
@@ -37,6 +38,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -79,11 +81,20 @@ def state_path(state_dir: str) -> str:
 
 
 def load_state(state_dir: str) -> Dict:
+    """The run ledger; absent means a fresh run, unreadable or corrupt
+    means STOP — treating it as fresh would re-sweep a mid-import target
+    and send the operator to the wrong remedy."""
     try:
         with open(state_path(state_dir), encoding="utf-8") as fh:
             return json.load(fh)
-    except (OSError, ValueError):
+    except FileNotFoundError:
         return {"phases": {}, "accepted": [], "inputs": {}}
+    except (OSError, ValueError) as exc:
+        die("cannot read {0} ({1}) — the run ledger is unreadable; if an "
+            "import is in progress restore the pre-import snapshot, "
+            "otherwise move the file aside".format(
+                state_path(state_dir), exc))
+        return {}  # unreachable
 
 
 def save_state(state_dir: str, state: Dict) -> None:
@@ -131,7 +142,7 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
     if mariadb_args:
         base = ["mariadb"] + list(mariadb_args)
 
-    def query(sql, db=None, raw=False):
+    def query(sql, db=None):
         argv = list(base) + list(CLIENT_COMMON_ARGS)
         if db:
             argv.append(db)
@@ -140,8 +151,8 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
         cp = run(argv, input=sql, capture_output=True, errors="replace")
         if cp.returncode != 0:
             raise o19etl.QueryError("SQL failed ({0}): {1}".format(
-                sql[:80], cp.stderr.strip()), cp.stderr)
-        return batch_rows(cp.stdout, raw=raw)
+                redact_statement(sql), cp.stderr.strip()), cp.stderr)
+        return batch_rows(cp.stdout)
 
     query.base_argv = base  # type: ignore[attr-defined]
     return query
@@ -156,18 +167,32 @@ CLIENT_COMMON_ARGS = ("--default-character-set=utf8mb4", "-N", "-B")
 # the ONE place batch escapes are decoded (o19docs.unescape_batch_field is
 # the implementation); callers must not decode a second time — a literal
 # backslash-n in an eForm would otherwise turn into a newline. SQL NULL
-# arrives as the two characters \N, which the decoder leaves alone.
+# arrives as the four letters NULL, exactly like a stored string 'NULL':
+# a caller that must tell them apart selects an `IS NULL` flag next to the
+# column (the archive CSV export does).
 unescape_batch = o19docs.unescape_batch_field
 
 
-def batch_rows(stdout: str, raw: bool = False) -> List[List[str]]:
+#: statement fragments that carry a credential: the error text (stderr,
+#: and whatever transcript the operator pastes) never shows what follows
+CREDENTIAL_SQL_RE = re.compile(
+    r"(IDENTIFIED\s+BY\s+|PASSWORD\s*\(\s*|password\s*=\s*)'[^']*'",
+    re.IGNORECASE)
+
+
+def redact_statement(sql: str, width: int = 80) -> str:
+    """The statement prefix an error message may show: credential
+    literals masked BEFORE truncation (a truncated `IDENTIFIED BY 'abc`
+    would still leak the head of the password)."""
+    masked = CREDENTIAL_SQL_RE.sub(lambda m: m.group(1) + "'<redacted>'",
+                                   sql)
+    return masked[:width]
+
+
+def batch_rows(stdout: str) -> List[List[str]]:
     lines = stdout.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
-    if raw:
-        # the archive CSV export decodes itself, after telling SQL NULL
-        # (the bare token \N) from a stored two-character \N
-        return [line.split("\t") for line in lines]
     return [[unescape_batch(v) for v in line.split("\t")] for line in lines]
 
 
@@ -324,6 +349,13 @@ def documents_expanded_size(tar_path: str) -> int:
                os.path.getsize(tar_path))
 
 
+def resume_hint(state: Dict) -> str:
+    """' --resume' when the workspace already records phases beyond the
+    stage (a literal rerun of the hinted command is refused without it)."""
+    phases = set(state.get("phases", {})) - {"stage"}
+    return " --resume" if phases else ""
+
+
 def etl_started(state_dir: str) -> bool:
     """True once the ETL has written anything to the target (the progress
     ledger exists with a seed step or a table entry)."""
@@ -387,6 +419,17 @@ def run_p0(ctx) -> None:
             die("flyway validate failed — the carlos schema does not match "
                 "the deployed application (run carlos-ctl db-migrate first)")
 
+    if not ctx.get("resume") and not dev:
+        # a previous import's archive schema would be inherited whole
+        # (its tables are per-table DROP+CREATE) and its rows exported
+        # into this clinic's document tree
+        left = query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
+                     "WHERE SCHEMA_NAME = '{0}'".format(ARCHIVE_SCHEMA))
+        if left:
+            die("the archive schema {0} of a previous import exists — run "
+                "`import-o19 --cleanup` for that run, or drop the schema "
+                "once the clinic holds its CSV export, before importing "
+                "another clinic on this host".format(ARCHIVE_SCHEMA))
     prior = ctx["state"].get("phases", {}).get("check-pristine", {})
     if ctx.get("resume") and prior.get("status") == "done" \
             and prior.get("pristine") is True \
@@ -533,7 +576,8 @@ def staging_account_statements(password: str) -> List[str]:
     pw = dbops.sql_escape(password)
     out = []
     for host in STAGING_ACCOUNT_HOSTS:
-        out.append("DROP USER IF EXISTS '{0}'@'{1}'".format(STAGING_USER, host))
+        out.append("DROP USER IF EXISTS '{0}'@'{1}'".format(STAGING_USER,
+                                                          host))
         out.append("CREATE USER '{0}'@'{1}' IDENTIFIED BY '{2}'".format(
             STAGING_USER, host, pw))
         out.append("GRANT ALL PRIVILEGES ON `{0}`.* TO '{1}'@'{2}'".format(
@@ -543,8 +587,15 @@ def staging_account_statements(password: str) -> List[str]:
 
 def grant_staging_account(query, client_cnf: str) -> None:
     password = genpw()
-    for sql in staging_account_statements(password):
-        query(sql)
+    try:
+        for sql in staging_account_statements(password):
+            query(sql)
+    except RuntimeError as exc:
+        # a half-created account (one host row in, the other refused)
+        # must not outlive the failure
+        revoke_staging_account(query, client_cnf)
+        die("cannot create the staging account: {0}".format(
+            str(exc).strip()[:300]))
     # SET SESSION sql_log_bin needs the scoped BINLOG ADMIN privilege
     # (MariaDB 10.5+). There is deliberately no SUPER fallback: SUPER would
     # widen the throwaway account far beyond the staging schema, so an
@@ -629,7 +680,8 @@ def run_p1(ctx) -> None:
     prev = ctx["state"].get("phases", {}).get("stage", {})
     if prev.get("status") == "done":
         if prev.get("dump_sha256") == dump_sha and not ctx["restage"]:
-            log("stage: already restored this dump (sha256 match) — skipping")
+            log("stage: already restored this dump (sha256 match) — "
+                "skipping")
             return
         if not ctx["restage"]:
             die("a different dump was already staged — pass --restage to "
@@ -746,8 +798,10 @@ def run_p2(ctx) -> Dict:
         die("preflight verdict: no-go — remediate the blockers above "
             "(full report: {0}/preflight.txt)".format(ctx["state_dir"]))
     if report["verdict"] == "go-with-acknowledgements":
-        die("preflight requires explicit sign-off — rerun with: {0}".format(
-            " ".join("--accept " + a for a in report["required_accepts"])))
+        die("preflight requires explicit sign-off — rerun with: "
+            "{0}{1}".format(
+            " ".join("--accept " + a for a in report["required_accepts"]),
+            resume_hint(ctx["state"])))
     mark_done(ctx["state_dir"], ctx["state"], "preflight",
               verdict=report["verdict"],
               acknowledged=report["acknowledged"])
@@ -773,7 +827,8 @@ def run_p3(ctx) -> None:
             return
         die("backups are not configured ({0} missing) — the pre-import "
             "restic snapshot is the rollback point. Configure backups, or "
-            "acknowledge with --accept no-pre-backup".format(BACKUP_ENV))
+            "acknowledge with --accept no-pre-backup{1}".format(
+                BACKUP_ENV, resume_hint(ctx["state"])))
     log("taking the pre-import backup (systemd unit; this is the rollback "
         "point) ...")
     cp = run(["systemctl", "start", "carlos-emr-backup.service"])
@@ -1057,6 +1112,11 @@ def run_cleanup(ctx) -> None:
     refusal = cleanup_refusal(state, ctx["state_dir"], ctx["dev_target"])
     if refusal:
         die(refusal)
+    # marked first: a cleanup interrupted half-way is "run --cleanup
+    # again", never a workspace a later --resume misreads
+    if os.path.exists(state_path(ctx["state_dir"])):
+        state["cleanup"] = "in-progress"
+        save_state(ctx["state_dir"], state)
     log("dropping staging schema {0} (archive schema {1} is kept) ..."
         .format(STAGING_SCHEMA, ARCHIVE_SCHEMA))
     ctx["query"]("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
@@ -1066,13 +1126,15 @@ def run_cleanup(ctx) -> None:
     bundle_dir = os.path.join(ctx["state_dir"], "bundle")
     if os.path.isdir(bundle_dir):
         shutil.rmtree(bundle_dir)
-    for name in ("etl-progress.json", ".stage-client.cnf"):
+    for name in (".stage-client.cnf", "state.json.tmp",
+                 "etl-progress.json.tmp"):
         path = os.path.join(ctx["state_dir"], name)
         if os.path.exists(path):
             os.unlink(path)
     report_append(ctx["state_dir"], "cleanup",
-                  "staging schema and extracted bundle removed; "
-                  "o19_archive and reports kept")
+                  "staging schema, staging account and extracted bundle "
+                  "removed; o19_archive kept; the run's ledgers, report "
+                  "and private files retired with a .completed- suffix")
     archived = archive_state(ctx["state_dir"])
     if archived:
         log("run state archived as {0} — a later import starts from "
@@ -1103,7 +1165,9 @@ def archive_state(state_dir: str) -> Optional[str]:
 #: deliberately not among them: the operator is told where it is)
 RUN_FILES = ("report.txt", "roles-details.txt", "privilege-diff.txt",
              "verify-details.txt", "documents-details.txt", "preflight.txt",
-             "preflight.json")
+             "preflight.json", "etl-progress.json",
+             "o19-derived-carlos.properties",
+             "o19-derived-carlos.properties.dry-run")
 
 
 # --------------------------------------------------------------------------
@@ -1190,15 +1254,31 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
 
 
 def _default_province() -> str:
+    """The packaged host's configured province; a development database
+    (no env file) defaults to Ontario. A malformed env file is an error,
+    never silently Ontario."""
     from . import config
-    try:
-        return config.load().province
-    except SystemExit:
+    if not os.path.exists(ENV_FILE):
         return "on"
+    return config.load().province
+
+
+def _province(args) -> str:
+    """--province may only restate the packaged host's configured province:
+    a BC host imported 'as Ontario' would pass the Ontario seed floors and
+    run the Ontario manifest against a BC schema."""
+    configured = _default_province()
+    chosen = getattr(args, "province", None)
+    if chosen and os.path.exists(ENV_FILE) and chosen != configured:
+        die("--province {0!r} contradicts this host's configured province "
+            "{1!r} ({2}); the import runs against the host as deployed"
+            .format(chosen, configured, ENV_FILE))
+    return chosen or configured
 
 
 def _resolve_inputs(args, state_dir: str, accepted=None,
-                    recorded_digest: Optional[str] = None) -> Dict:
+                    recorded_digest: Optional[str] = None,
+                    workdir_name: str = "bundle") -> Dict:
     """Bundle vs separate flags -> concrete file paths (+ digests).
     `accepted` is the merged sign-off set (this run's --accept plus the
     ledger's), so a recorded `unverified-bundle` survives --resume — but
@@ -1235,9 +1315,9 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
                                             actual[:12]) + refusal)
             die(refusal)
         opened = o19bundle.open_bundle(
-            args.bundle, os.path.join(state_dir, "bundle"),
+            args.bundle, os.path.join(state_dir, workdir_name),
             pass_spec=args.bundle_pass, cipher=args.bundle_cipher,
-            openssl_opts=args.bundle_openssl_opt)
+            openssl_opts=args.bundle_openssl_opt, expected_sha256=actual)
         if getattr(args, "skip_documents", False) and opened["documents"]:
             die("--skip-documents contradicts a bundle that CONTAINS a "
                 "documents member — drop one of the two")
@@ -1330,10 +1410,33 @@ def merged_acknowledgements(cli_accept, state: Dict) -> List[str]:
     return sorted(set(cli_accept or ()) | set(state.get("accepted", [])))
 
 
+def assessment_refusal(state: Dict, state_dir: str) -> Optional[str]:
+    """Why a dry run or an assessment may not touch this workspace: a run
+    in progress (its ledger, its extracted bundle, its recorded inputs)
+    must be continued with --resume or retired with --cleanup, never
+    overwritten by an experiment. Pure, for the state tests."""
+    phases = set(state.get("phases", {})) - {"stage"}
+    if state.get("cleanup") == "in-progress":
+        return "a previous --cleanup was interrupted — run --cleanup again"
+    if phases or etl_started(state_dir):
+        return ("this workspace holds an import in progress ({0}): a dry "
+                "run or assessment would overwrite its inputs; continue it "
+                "with --resume or retire it with --cleanup".format(
+                    ", ".join(sorted(phases)) or "etl ledger"))
+    return None
+
+
 def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     dev_target = _dev_mode(args)
     state = load_state(state_dir)
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
+    real_run = import_mode and not getattr(args, "dry_run", False)
+    if not real_run:
+        refusal = assessment_refusal(state, state_dir)
+        if refusal:
+            die(refusal)
+    elif state.get("cleanup") == "in-progress":
+        die("a previous --cleanup was interrupted — run --cleanup again")
 
     from . import o19roles
     try:
@@ -1346,7 +1449,10 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     accepted = merged_acknowledgements(args.accept, state)
     inputs = _resolve_inputs(
         args, state_dir, accepted,
-        recorded_digest=state.get("inputs", {}).get("bundle_sha256"))
+        recorded_digest=state.get("inputs", {}).get("bundle_sha256"),
+        # an assessment extracts into its own workdir: the real run's
+        # members (what --resume continues from) are never replaced
+        workdir_name="bundle" if real_run else "bundle-assess")
     if getattr(args, "skip_documents", False) \
             and "no-documents" not in args.accept:
         die("--skip-documents requires --accept no-documents (the missing "
@@ -1354,7 +1460,8 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     if inputs["documents"] is None and import_mode \
             and not getattr(args, "skip_documents", False) \
             and not getattr(args, "cleanup", False):
-        if "no-documents" not in args.accept:
+        # the merged set: a recorded no-documents sign-off survives --resume
+        if "no-documents" not in accepted:
             die("no documents tar in the inputs — pass --documents, or "
                 "--skip-documents with --accept no-documents")
 
@@ -1375,22 +1482,31 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
                     recorded_map, o19map_schema.SCHEMA_MAP_VERSION))
         die("this import ran with manifest {0}; the installed carlos-ctl "
             "carries {1}. A finished ETL cannot be continued under a "
-            "different manifest — restore the pre-import snapshot and "
-            "start over.".format(recorded_map,
-                                 o19map_schema.SCHEMA_MAP_VERSION))
-    state.setdefault("inputs", {}).update({
-        "dump": os.path.basename(inputs["dump"]) if inputs["dump"] else None,
-        "bundle_sha256": inputs.get("bundle_sha256"),
-        "dev_target": dev_target,
-        "schema_map_version": o19map_schema.SCHEMA_MAP_VERSION,
-    })
-    save_state(state_dir, state)
+            "different manifest. Lossless path: reinstall the carlos-emr "
+            "package version that shipped manifest {0}, --resume, "
+            "--cleanup, then upgrade; otherwise restore the pre-import "
+            "snapshot and start over.".format(
+                recorded_map, o19map_schema.SCHEMA_MAP_VERSION))
+    if real_run:
+        # recorded by real runs only (an assessment must not re-point the
+        # bundle sign-off or the manifest version); the manifest version
+        # is the one the first phases ran under, never overwritten
+        recorded = state.setdefault("inputs", {})
+        recorded.update({
+            "dump": os.path.basename(inputs["dump"]) if inputs["dump"]
+            else None,
+            "bundle_sha256": inputs.get("bundle_sha256"),
+            "dev_target": dev_target,
+        })
+        recorded.setdefault("schema_map_version",
+                            o19map_schema.SCHEMA_MAP_VERSION)
+        save_state(state_dir, state)
 
     return {
         "state_dir": state_dir,
         "state": state,
         "query": make_query(args.mariadb_arg),
-        "province": args.province or _default_province(),
+        "province": _province(args),
         "accepted": accepted,
         "dev_target": dev_target,
         "dump": inputs["dump"],
@@ -1418,9 +1534,13 @@ def require_resume_for_existing_state(state: Dict, resume: bool,
     # a staged dump alone is reusable (a dry run or assessment leaves it);
     # anything else recorded is a run in progress
     phases = set(state.get("phases", {})) - {"stage"}
-    if not phases or resume or dry_run:
+    if not phases or resume:
         return None
     done = ", ".join(sorted(phases))
+    if dry_run:
+        return ("a previous import left state behind ({0}); a dry run "
+                "cannot inspect a run in progress — --resume it or "
+                "--cleanup it first".format(done))
     return ("a previous import left state behind ({0}). Pass --resume to "
             "continue it, or --cleanup after a verified import; state is "
             "never continued implicitly.".format(done))
@@ -1439,6 +1559,22 @@ def _target_db(dev_target: bool) -> str:
     return ""  # unreachable
 
 
+def webapp_running_refusal() -> Optional[str]:
+    """CARLOS must not run against the target while it is being written:
+    its startup listener creates rows (program, site, memberships) that
+    would fail row parity, and a live session could read a half-copied
+    chart. Checked on every real run and resume of a packaged host."""
+    if not os.path.exists(ENV_FILE):
+        return None  # a development database, no service unit
+    cp = run(["systemctl", "is-active", "--quiet", "carlos-emr"])
+    if cp.returncode == 0:
+        return ("carlos-emr is running — stop it for the duration of the "
+                "import (`carlos-ctl stop`, or `systemctl stop carlos-emr`) "
+                "and re-run; start it again only after the verified import "
+                "and the properties fragment have been applied")
+    return None
+
+
 def _guarded(fn, code: int = 1):
     """Run a verb body; a failed client statement (server unreachable, a
     refused privilege) ends in one clear error line, never a traceback.
@@ -1451,10 +1587,17 @@ def _guarded(fn, code: int = 1):
 
 
 def cmd_o19_preflight(argv) -> int:
-    # exit 1 is "go with acknowledgements" for this verb: an unreachable
-    # server must not read as an actionable go
-    return _guarded(lambda: _cmd_o19_preflight(argv),
-                    o19_preflight.EXIT_TOOL_ERROR)
+    # exit 1 is "go with acknowledgements" and 2 "no-go" for this verb:
+    # a refusal of any kind (unreachable server, bad flags, missing file,
+    # disk, replicas, a refused dump) must not read as a verdict, so
+    # every early exit becomes the tool-error code — except --help
+    try:
+        return _guarded(lambda: _cmd_o19_preflight(argv),
+                        o19_preflight.EXIT_TOOL_ERROR)
+    except SystemExit as exc:
+        if exc.code in (0, None):
+            raise
+        raise SystemExit(o19_preflight.EXIT_TOOL_ERROR)
 
 
 def cmd_import_o19(argv) -> int:
@@ -1466,12 +1609,11 @@ def _cmd_o19_preflight(argv) -> int:
         list(argv))
     if os.geteuid() != 0 and not args.mariadb_arg:
         die("this command needs root (or --mariadb-arg for a dev database)")
-    ctx = _make_ctx(args, import_mode=False)
     # an assessment: capacity gates, stage, report — never a recorded
     # verdict or a persisted sign-off; the exit code IS the verdict
+    # (_make_ctx refuses a mid-import workspace before touching it)
+    ctx = _make_ctx(args, import_mode=False)
     ctx["dry_run"] = True
-    if etl_started(ctx["state_dir"]):
-        die("the target is mid-import (resume or clean up that run first)")
     run_p0_capacity(ctx)
     run_p1(ctx)
     report = run_p2(ctx)
@@ -1503,6 +1645,10 @@ def _cmd_import_o19(argv) -> int:
         load_state(STATE_DIR), args.resume, args.dry_run)
     if refusal:
         die(refusal)
+    if not args.dry_run:
+        refusal = webapp_running_refusal()
+        if refusal:
+            die(refusal)
 
     ctx = _make_ctx(args, import_mode=True)
     log("import-o19 (experimental) — manifest {0}, province {1}{2}".format(

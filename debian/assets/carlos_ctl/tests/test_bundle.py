@@ -291,6 +291,33 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
             o19bundle.open_bundle(enc, tempfile.mkdtemp(dir=self.work),
                                   pass_spec="file:" + self.passfile)
 
+    def test_refusal_after_decryption_leaves_no_plaintext_behind(self):
+        # two dumps: classified as ambiguous AFTER the decrypt; the
+        # plaintext tar must not survive the refusal in the workdir
+        with open(os.path.join(self.src, "other.sql"), "w") as fh:
+            fh.write("-- second dump\n")
+        plain = os.path.join(self.work, "two.tar")
+        subprocess.check_call(["tar", "-C", self.src, "-cf", plain,
+                               "o19.sql", "other.sql", "oscar.properties"])
+        enc = plain + ".enc"
+        self._enc(plain, enc)
+        dest = tempfile.mkdtemp(dir=self.work)
+        with self.assertRaises(SystemExit):
+            o19bundle.open_bundle(enc, dest,
+                                  pass_spec="file:" + self.passfile)
+        self.assertEqual(os.listdir(dest), [])
+
+    def test_digest_verified_by_the_caller_must_match_the_file_opened(
+            self):
+        plain = os.path.join(self.work, "b.tar")
+        self._tar(plain, gz=False)
+        dest = tempfile.mkdtemp(dir=self.work)
+        with self.assertRaises(SystemExit):
+            o19bundle.open_bundle(plain, dest, expected_sha256="0" * 64)
+        res = o19bundle.open_bundle(
+            plain, dest, expected_sha256=o19bundle.sha256_file(plain))
+        self.assertEqual(res["bundle_sha256"], o19bundle.sha256_file(plain))
+
     def test_gz_named_but_not_gz_is_refused(self):
         bogus = os.path.join(self.work, "b.tar.gz")
         with open(bogus, "wb") as fh:

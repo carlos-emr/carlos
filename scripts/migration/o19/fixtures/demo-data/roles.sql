@@ -13,7 +13,8 @@
 -- on _rx (the chooser picks the closest stock role — `Nurse Manager` in the
 -- rehearsal — and that template holds no CARLOS-era objects); the nurse set
 -- includes _pmm objects, which CARLOS still checks and the merge carries.
--- Timestamps are fixed so the fixture dump is reproducible.
+-- The rows this file adds carry fixed timestamps (the dump as a whole
+-- is not byte-reproducible: upstream seed rows carry NOW()).
 INSERT INTO `secRole` (`role_name`, `description`)
   VALUES ('Triage Nurse', 'Triage Nurse (clinic-custom fixture role)');
 INSERT INTO `secObjPrivilege` (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)

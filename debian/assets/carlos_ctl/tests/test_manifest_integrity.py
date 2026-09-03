@@ -278,6 +278,20 @@ class TestSchemaManifest(unittest.TestCase):
             self.assertTrue(o19map_schema.TABLES[table].get("chunk_by"),
                             "{} must chunk".format(table))
 
+    def test_manifest_identifiers_are_plain_word_characters(self):
+        # the manifest's own names are interpolated as constants; this
+        # pins that none of them would ever need quoting beyond backticks
+        from carlos_ctl import o19etl
+        for table, entry in o19map_schema.TABLES.items():
+            self.assertTrue(o19etl.IDENTIFIER_RE.match(table), table)
+            names = list(entry.get("cols", [])) + list(
+                entry.get("dropped", {})) + list(
+                entry.get("renames", {}).values()) + list(
+                entry.get("merge_keys", []))
+            for name in names:
+                self.assertTrue(o19etl.IDENTIFIER_RE.match(name),
+                                "{0}.{1}".format(table, name))
+
     def test_version_token_is_not_calver_shaped(self):
         # Release 2026.08+ trains use CalVer; the manifest token must never
         # be mistakable for a CARLOS release version.

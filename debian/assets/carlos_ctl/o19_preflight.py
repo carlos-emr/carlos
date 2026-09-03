@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 CARLOS Contributors
-"""o19_preflight — OSCAR 19 -> CARLOS migration feasibility check (experimental).
+"""o19_preflight — OSCAR 19 -> CARLOS migration feasibility check
+(experimental).
 
 Runs the go/no-go gate of docs/oscar19-to-carlos-migration-plan.md section 6.1
 in two modes with identical checks:
@@ -818,6 +819,10 @@ LEGACY_PREVENTION_TYPES = [
 BLOCKER = "blocker"
 ADVISORY = "advisory"
 INFO = "info"
+#: the blocker classes an assessment can acknowledge (a subset of the
+#: import verb's --accept classes; a typo must not read as "accepted")
+ACCEPT_IDS = ("archived-forms", "unknown-as-archive", "olis-gone",
+              "dropped-columns")
 
 # exit code for "the check itself failed" — distinct from every verdict
 EXIT_TOOL_ERROR = 3
@@ -867,6 +872,27 @@ def _unescape_property(text):
             continue
         out.append(c)
         i += 1
+    return _join_surrogates("".join(out))
+
+
+def _join_surrogates(text):
+    """Two adjacent \\uXXXX escapes forming a UTF-16 pair decode to one
+    character (the rule java.util.Properties applies); an unpaired
+    surrogate is kept (mirrors o19props._join_surrogates)."""
+    if not any(0xD800 <= ord(c) <= 0xDFFF for c in text):
+        return text
+    out = []
+    i = 0
+    while i < len(text):
+        cp = ord(text[i])
+        if (0xD800 <= cp <= 0xDBFF and i + 1 < len(text)
+                and 0xDC00 <= ord(text[i + 1]) <= 0xDFFF):
+            out.append(chr(0x10000 + ((cp - 0xD800) << 10)
+                           + ord(text[i + 1]) - 0xDC00))
+            i += 2
+        else:
+            out.append(text[i])
+            i += 1
     return "".join(out)
 
 
@@ -877,8 +903,15 @@ def parse_properties_text(text):
     o19props.parse_properties_text (this file must stay standalone)."""
     props = {}
     logical = []
-    for raw in text.splitlines():
-        line = raw.lstrip()
+    # java.util.Properties ends a line at \n, \r or \r\n only (never at
+    # \f, \x85 or the other characters str.splitlines() honours) and
+    # strips only space, tab and form feed
+    physical = re.split(r"\r\n|\r|\n", text)
+    # a continuation backslash on the last physical line still yields the
+    # record (Java drops the backslash and keeps the pair)
+    physical.append("")
+    for raw in physical:
+        line = raw.lstrip(" \t\f")
         if not logical and (not line or line[0] in ("#", "!")):
             continue
         # an odd run of trailing backslashes: the LAST one continues the
@@ -932,10 +965,11 @@ def double_encoded_predicate(col):
     # BINARY comparison across charsets compares different byte strings
     u = "CONVERT({0} USING utf8mb4)".format(c)
     down = "CONVERT({0} USING latin1)".format(u)
-    # doubled backslash on purpose: the server's string parser drops the
-    # backslash of an unknown escape, so a single one reaches the regex
-    # engine as 'x00' and matches the wrong characters
-    return ("{0} IS NOT NULL AND {1} REGEXP '[^\\\\x00-\\\\x7F]' AND "
+    # "contains a non-ASCII character" as a byte-vs-character length test:
+    # every server evaluates it identically, unlike a REGEXP class with
+    # \x escapes, which the Spencer engine of MySQL < 8 / MariaDB < 10.0.5
+    # (the assessment hosts) reads as a literal bracket expression
+    return ("{0} IS NOT NULL AND LENGTH({1}) <> CHAR_LENGTH({1}) AND "
             "BINARY CONVERT({2} USING utf8mb4) = BINARY {1} AND "
             "BINARY CONVERT(CONVERT(BINARY {2} USING utf8mb4) USING binary) "
             "= BINARY {2}".format(c, u, down))
@@ -1013,8 +1047,10 @@ _BATCH_ESCAPES = {"0": "\0", "t": "\t", "n": "\n", "\\": "\\"}
 
 
 def _unescape_batch(value):
-    """Undo the client's batch-mode escaping of one value (the bare
-    NULL marker \\N is not an escape and stays as it is)."""
+    """Undo the client's batch-mode escaping of one value. (SQL NULL is
+    printed as the four letters NULL, like a stored string 'NULL'; the
+    checks here only count and list NOT NULL columns, so nothing needs
+    to tell the two apart.)"""
     if "\\" not in value:
         return value
     out = []
@@ -1156,6 +1192,21 @@ def run_checks(query, properties=None, province="on", accepted=(),
     def count_live(manifest_name, where=None):
         return count(tables[manifest_name], where)
 
+    # --- B4: password-protected (encrypted) casemgmt notes ---------------
+    # judged on the data: a note with a password is stored encrypted and
+    # the key handling is outside the standard import path
+    locked_notes = 0
+    if "casemgmt_note" in tables:
+        locked_notes = count_live(
+            "casemgmt_note", "password IS NOT NULL AND password <> ''")
+    if locked_notes:
+        findings.append(finding(
+            "B4-encrypted-notes", BLOCKER,
+            "{0} password-protected (encrypted) casemgmt note(s)"
+            .format(locked_notes),
+            "Key handling for encrypted notes is outside the standard "
+            "import path. No --accept flag exists for this."))
+
     # --- B2: tables the manifest does not know ---------------------------
     unknown = sorted(t for t in tables if t not in KNOWN_TABLES)
     unknown_with_rows = {}
@@ -1188,7 +1239,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "patient data in {0} table(s) that do not exist in CARLOS"
             .format(len(patient_rows)),
             "These records become ARCHIVE-ONLY after migration (o19_archive "
-            "schema + CSV export) — the forms/modules were removed from "
+            "schema + CSV export) - the forms/modules were removed from "
             "CARLOS. The clinic must sign this off.",
             accept="archived-forms", data=patient_rows))
 
@@ -1292,16 +1343,28 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "(--role-template overrides the choice); a role granting "
                 "nothing is left as it is. A stock role the clinic "
                 "renamed appears here too and keeps its grants.",
-                data={"roles": ", ".join(custom)}))
+                data={"roles": custom}))
     if "secUserRole" in tables:
         n = count_live("secUserRole", "activeyn IS NULL")
         if n:
+            will = 0
+            if "provider" in tables and "security" in tables:
+                # exactly the rows the import activates
+                will = count_live(
+                    "secUserRole",
+                    "activeyn IS NULL AND LOWER(role_name) <> 'admin' AND "
+                    "provider_no IN (SELECT provider_no FROM {0}) AND "
+                    "provider_no IN (SELECT provider_no FROM {1} WHERE "
+                    "status = '1')".format(_ident(tables["security"]),
+                                           _ident(tables["provider"])))
             findings.append(finding(
                 "roles-activeyn-null", ADVISORY,
                 "{0} role assignment(s) have activeyn NULL".format(n),
                 "CARLOS counts only activeyn = 1; the import sets it to 1 "
-                "for providers whose account is active and lists them in "
-                "roles-details.txt."))
+                "for {0} of them (non-admin roles of live accounts) and "
+                "leaves {1} as they are (admin assignments, accounts "
+                "without a login, inactive providers); all listed in "
+                "roles-details.txt.".format(will, max(n - will, 0))))
         if "provider" in tables and "security" in tables:
             # the import's P7 advisory after the activeyn-NULL rows of
             # live accounts have been activated: an active provider WITH
@@ -1333,7 +1396,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 .format(n),
                 "b_ExpireSet with a past or missing expiry makes CARLOS "
                 "refuse the login; the import leaves the rows as they are "
-                "and lists them — extend or clear the expiry before "
+                "and lists them - extend or clear the expiry before "
                 "go-live."))
     if "preventions" in tables and LEGACY_PREVENTION_TYPES:
         legacy = ", ".join("'{0}'".format(_sql_literal(t))
@@ -1417,14 +1480,17 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "CARLOS has no LDAP authentication: staff could not log in "
                 "after cutover. Provision local credentials first. No "
                 "--accept flag exists for this."))
-        # B4: encrypted casemgmt notes
+        # B4: encrypted casemgmt notes — judged on the rows below, not on
+        # the property: casemgmt.note.password.enabled=true is the stock
+        # O19 default and says nothing about whether a note was ever locked
         if properties.get("casemgmt.note.password.enabled", "") \
-                .lower() in ("true", "yes", "on"):
+                .lower() in ("true", "yes", "on") and not locked_notes:
             findings.append(finding(
-                "B4-encrypted-notes", BLOCKER,
-                "password-protected casemgmt notes are enabled",
-                "Key handling for encrypted notes is outside the standard "
-                "import path. No --accept flag exists for this."))
+                "notes-password-enabled", ADVISORY,
+                "casemgmt.note.password.enabled is set (the stock O19 "
+                "default) but no note carries a password",
+                "Nothing is encrypted; CARLOS has no reader for that key "
+                "and the props phase drops it."))
         dropped = {}
         for key in sorted(properties):
             for prefix in DROPPED_PROP_PREFIXES:
@@ -1444,7 +1510,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "no-properties", ADVISORY,
             "oscar.properties not provided",
             "Property-based checks (LDAP, encrypted notes, removed-module "
-            "keys) were skipped — rerun with --properties for the full "
+            "keys) were skipped - rerun with --properties for the full "
             "assessment."))
 
     # --- charset / mojibake sampling --------------------------------------
@@ -1594,9 +1660,11 @@ def render_text(report):
         lines.append("acknowledged: " + ", ".join(report["acknowledged"]))
     lines.append("")
     lines.append("Next step on a 'go': bundle the three inputs on this "
-                 "server and ship them to the CARLOS host —")
+                 "server and ship them to the CARLOS host:")
     lines.append("  mysqldump --single-transaction --quick <db> | gzip "
                  "> o19.sql.gz")
+    lines.append("    (MySQL 5.6+: add --set-gtid-purged=OFF; the import "
+                 "refuses a dump that sets GTID_PURGED)")
     lines.append("  tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz "
                  "<context-dir>")
     lines.append("  tar -czf - o19.sql.gz o19-documents.tar.gz "
@@ -1604,7 +1672,8 @@ def render_text(report):
     lines.append("    | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt "
                  "-pass file:PASSFILE \\")
     lines.append("    -out o19-bundle.tar.gz.enc")
-    lines.append("  sha256sum o19-bundle.tar.gz.enc   # send the digest with the "
+    lines.append("  sha256sum o19-bundle.tar.gz.enc   # send the digest with "
+                 "the "
                  "password, separately from the file")
     lines.append("Migration output must receive a technical review before "
                  "clinical use.")
@@ -1632,8 +1701,9 @@ def main(argv=None):
                     "oscar.properties (recommended)")
     ap.add_argument("--province", default="on", choices=["on", "bc"])
     ap.add_argument("--accept", action="append", default=[],
-                    metavar="CLASS", help="acknowledge a blocker class "
-                    "(repeatable)")
+                    metavar="CLASS", choices=list(ACCEPT_IDS),
+                    help="acknowledge a blocker class (repeatable): "
+                    + ", ".join(ACCEPT_IDS))
     ap.add_argument("--json", metavar="PATH",
                     help="also write the machine-readable report here")
     try:
@@ -1694,10 +1764,21 @@ def main(argv=None):
     try:
         report = run_checks(query, properties=props,
                             province=args.province, accepted=args.accept)
-        sys.stdout.write(render_text(report))
+        # the machine report first: a rendering problem must never cost it
         if args.json:
             with open(args.json, "w") as fh:
                 json.dump(report, fh, indent=1, sort_keys=True)
+        text = render_text(report)
+        # bytes, not str: a 2014-era Python under LANG=C would refuse any
+        # non-ASCII character in a role or table name on the way out
+        buf = getattr(sys.stdout, "buffer", None)
+        if buf is not None:
+            sys.stdout.flush()
+            buf.write(text.encode("utf-8"))
+            buf.flush()
+        else:
+            sys.stdout.write(text)
+        if args.json:
             print("json report written to " + args.json)
     except Exception as exc:
         print("ERROR: preflight could not complete: {0}".format(exc),

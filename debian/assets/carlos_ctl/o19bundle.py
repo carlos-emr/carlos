@@ -307,7 +307,8 @@ def _decrypt_to(bundle: str, dest_tar: str, cipher: str,
 
 def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
                 cipher: str = DEFAULT_CIPHER,
-                openssl_opts: Optional[List[str]] = None) -> Dict[str, object]:
+                openssl_opts: Optional[List[str]] = None,
+                expected_sha256: Optional[str] = None) -> Dict[str, object]:
     """Decrypt (if needed), verify, classify and extract a bundle.
 
     Members land directly in workdir (0700, created if needed). Returns
@@ -319,10 +320,32 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     encrypted, gzipped = bundle_kind(bundle)
     os.makedirs(workdir, mode=0o700, exist_ok=True)
 
+    actual = sha256_file(bundle)
+    if expected_sha256 and actual != expected_sha256:
+        # the caller verified a digest on ITS read of the file; the file
+        # this function reads must be that one
+        die("the bundle changed on disk between its digest check and "
+            "opening it — obtain it again")
+
     tar_path = bundle
     if encrypted:
         tar_path = os.path.join(workdir,
                                 ".bundle.tar.gz" if gzipped else ".bundle.tar")
+    try:
+        return _open_bundle(bundle, tar_path, workdir, encrypted, gzipped,
+                            pass_spec, cipher, openssl_opts, actual)
+    finally:
+        # the decrypted plaintext never outlives this call, whichever
+        # refusal ended it
+        if encrypted and os.path.exists(tar_path):
+            os.unlink(tar_path)
+
+
+def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
+                 gzipped: bool, pass_spec: Optional[str], cipher: str,
+                 openssl_opts: Optional[List[str]], actual: str
+                 ) -> Dict[str, object]:
+    if encrypted:
         log("decrypting bundle ...")
         _decrypt_to(bundle, tar_path, cipher, openssl_opts or [], pass_spec)
         # a wrong key that openssl does not catch (no -pbkdf2 header)
@@ -344,6 +367,15 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
         members = classify_members(names)
     except ValueError as exc:
         die(str(exc))
+    # the listing knows the expanded size: refused before extraction fills
+    # the state volume (a .tar.gz bundle can expand far beyond its size)
+    needed = listed_size(cp.stdout.splitlines())
+    st = os.statvfs(workdir)
+    free = st.f_bavail * st.f_frsize
+    if needed and free < needed:
+        die("insufficient disk under {0} for the bundle's members: {1} MB "
+            "free, ~{2} MB needed".format(workdir, free // 1048576,
+                                          needed // 1048576))
 
     extract_flags = "-xzf" if gzipped else "-xf"
     # ownership/permissions come from the host policy (chmod below), never
@@ -357,7 +389,7 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
         die("bundle extraction failed")
 
     result: Dict[str, object] = {
-        "bundle_sha256": sha256_file(bundle),
+        "bundle_sha256": actual,
         "members": {},
     }
     for role in ("dump", "documents", "properties"):
@@ -372,6 +404,4 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
         os.chmod(path, 0o600)
         result[role] = path
         result["members"][name] = sha256_file(path)
-    if encrypted:
-        os.unlink(tar_path)
     return result

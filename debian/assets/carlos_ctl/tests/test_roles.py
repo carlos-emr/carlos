@@ -133,7 +133,11 @@ class TestStatementShapes(unittest.TestCase):
         self.assertIn("SET ur.activeyn = 1", sql)
         self.assertIn("ur.activeyn IS NULL", sql)
         self.assertIn("p.status = '1'", sql)
-        self.assertIn("JOIN `carlos`.security s", sql)
+        # EXISTS, never a join: a provider with two logins counts once
+        self.assertIn("EXISTS (SELECT 1 FROM `carlos`.security s", sql)
+        self.assertNotIn("JOIN", sql)
+        # the seed's system pseudo-provider is never a live account
+        self.assertIn("p.provider_no <> '-1'", sql)
         self.assertIn("activeyn IS NULL",
                       o19roles.activeyn_candidates_sql("carlos"))
         # admin assignments are never activated automatically: CARLOS
@@ -143,9 +147,24 @@ class TestStatementShapes(unittest.TestCase):
                       o19roles.activeyn_candidates_sql("carlos"))
         self.assertIn("LOWER(ur.role_name) = 'admin'",
                       o19roles.activeyn_admin_left_sql("carlos"))
+        dangling = o19roles.dangling_role_assignments_sql(
+            "carlos", ["HRMAdmin", "Site Manager"])
         self.assertIn("ur.role_name IN ('HRMAdmin', 'Site Manager')",
-                      o19roles.dangling_role_assignments_sql(
-                          "carlos", ["HRMAdmin", "Site Manager"]))
+                      dangling)
+        # the NULL rows step 3 activates count as active assignments here
+        self.assertIn("ur.activeyn = 1 OR (ur.activeyn IS NULL AND EXISTS",
+                      dangling)
+        # the remaining count is the complement: rows of accounts that
+        # are NOT live, so the dormant admin rows are not counted twice
+        remaining = o19roles.activeyn_null_remaining_sql("carlos")
+        self.assertIn("activeyn IS NULL AND NOT (EXISTS", remaining)
+
+    def test_system_pseudo_provider_gets_no_membership_or_link(self):
+        for sql in ([o19roles.provider_facility_statement("carlos"),
+                     o19roles.fallback_membership_candidates_sql("carlos"),
+                     o19roles.providers_without_membership_sql("carlos")]
+                    + o19roles.membership_statements("carlos")):
+            self.assertIn("provider_no <> '-1'", sql)
 
     def test_every_write_is_idempotent(self):
         writes = (o19roles.snapshot_statements("c", "a")
@@ -367,9 +386,11 @@ class TestDiffPruneNormalise(unittest.TestCase):
                                                         ["Inf", "Var"])
         self.assertIn("BINARY prevention_type NOT IN ('Inf', 'Var')", unknown)
         # valid under ONLY_FULL_GROUP_BY: this read runs on the plain client
-        self.assertTrue(unknown.startswith("SELECT MIN(prevention_type), "
-                                           "COUNT(*)"))
+        self.assertTrue(unknown.startswith(
+            "SELECT IFNULL(MIN(prevention_type), '<NULL>'), COUNT(*)"))
         self.assertIn("GROUP BY BINARY prevention_type ORDER BY 1", unknown)
+        # a NULL type renders as unconfigured too, so it is listed
+        self.assertIn("WHERE prevention_type IS NULL OR BINARY", unknown)
 
 
 class TestRichTextLetter(unittest.TestCase):
@@ -446,6 +467,29 @@ class TestRichTextLetter(unittest.TestCase):
         # already disabled legacy rows are not touched again
         self.assertEqual(o19roles.rtl_plan(
             [("1", "letter", "0", "x", "0", "1", "0")])[0], [])
+
+    def test_rtl_derived_clinic_form_without_the_sink_is_left_alone(self):
+        # 8-column rows: the last flag is the RptByExample.do sink
+        canonical = ("2", "Rich Text Letter", "1",
+                     "Rich Text Letter Generator 2026.3.0", "1", "0", "1",
+                     "0")
+        clone = ("57", "Consult Letter - Dr Smith", "1", "Our letter",
+                 "0", "0", "0", "0")
+        sink = ("58", "Old copy", "1", "x", "0", "0", "0", "1")
+        dead = ("59", "Older copy", "1", "x", "0", "1", "0", "0")
+        legacy = ("1", "letter", "1", "letter generator", "0", "0", "0", "0")
+        disable, scripts, restore, notes = o19roles.rtl_plan(
+            [canonical, clone, sink, dead, legacy])
+        self.assertEqual(disable, ["58", "59", "1"])
+        self.assertEqual(scripts, [])
+        joined = "\n".join(notes)
+        self.assertIn("fid 57: Rich Text Letter-derived clinic form", joined)
+        # form names never reach the report (they can carry a clinician's
+        # name); fids are enough for the review
+        self.assertNotIn("Dr Smith", joined)
+        self.assertNotIn("Old copy", joined)
+        self.assertIn("form_html LIKE '%RptByExample.do%'",
+                      o19roles.rtl_rows_sql("carlos"))
 
     def test_no_rtl_at_all_seeds_then_fixes(self):
         disable, scripts, restore, notes = o19roles.rtl_plan([])

@@ -36,12 +36,17 @@ class TestStateLedger(unittest.TestCase):
                          "abc123")
         self.assertFalse(o19import.phase_done(reloaded, "etl"))
 
-    def test_corrupt_state_file_resets_cleanly(self):
+    def test_corrupt_state_file_is_fatal_not_fresh(self):
+        # a fresh ledger would re-sweep a mid-import target and send the
+        # operator to the wrong remedy
         os.makedirs(self.state_dir, exist_ok=True)
         with open(o19import.state_path(self.state_dir), "w") as fh:
             fh.write("{not json")
-        state = o19import.load_state(self.state_dir)
-        self.assertEqual(state["phases"], {})
+        with self.assertRaises(SystemExit):
+            o19import.load_state(self.state_dir)
+
+    def test_absent_state_file_is_a_fresh_run(self):
+        self.assertEqual(o19import.load_state(self.state_dir)["phases"], {})
 
     def test_accepted_flags_persist_in_state(self):
         state = o19import.load_state(self.state_dir)
@@ -83,10 +88,8 @@ class TestPristineGate(unittest.TestCase):
     def test_missing_seed_rows_also_violate(self):
         # fewer rows than the seed is just as non-stock as extra rows
         counts = self.seeds()
-        seeded_table = next(iter(counts))
+        seeded_table = next(t for t, n in counts.items() if n > 0)
         counts[seeded_table] = 0
-        if o19map_schema.SEED_ROW_COUNTS[seeded_table] == 0:
-            self.skipTest("no non-zero seeded table in manifest")
         v = o19import.pristine_violations(counts)
         self.assertTrue(any(seeded_table in x for x in v))
 
@@ -213,13 +216,53 @@ class TestResumeContract(unittest.TestCase):
         self.assertIn("--resume", msg)
         self.assertIn("check-pristine", msg)
 
-    def test_resume_or_dry_run_proceeds(self):
+    def test_resume_proceeds_but_a_dry_run_over_a_run_in_progress_does_not(
+            self):
         state = {"phases": {"stage": {"status": "done"},
                             "backup": {"status": "done"}}}
         self.assertIsNone(o19import.require_resume_for_existing_state(
             state, True, False))
-        self.assertIsNone(o19import.require_resume_for_existing_state(
-            state, False, True))
+        # a dry run re-extracts the bundle and would rewrite the inputs
+        # the real run resumes from: refused, with the two ways out
+        msg = o19import.require_resume_for_existing_state(state, False, True)
+        self.assertIsNotNone(msg)
+        self.assertIn("--resume", msg)
+        self.assertIn("--cleanup", msg)
+
+    def test_assessment_refusal_covers_ledger_and_interrupted_cleanup(self):
+        import tempfile
+        import shutil
+        d = tempfile.mkdtemp(prefix="o19assess-")
+        self.addCleanup(shutil.rmtree, d)
+        self.assertIsNone(o19import.assessment_refusal({"phases": {}}, d))
+        self.assertIsNone(o19import.assessment_refusal(
+            {"phases": {"stage": {"status": "done"}}}, d))
+        self.assertIn("--resume", o19import.assessment_refusal(
+            {"phases": {"backup": {"status": "done"}}}, d))
+        from carlos_ctl import o19etl
+        o19etl.save_progress(d, {"tables": {"demographic": {"done": True}},
+                                 "dump_sha256": "x"})
+        self.assertIn("etl ledger", o19import.assessment_refusal(
+            {"phases": {}}, d))
+        self.assertIn("--cleanup again", o19import.assessment_refusal(
+            {"phases": {}, "cleanup": "in-progress"}, d))
+
+    def test_resume_hint_follows_recorded_phases(self):
+        self.assertEqual(o19import.resume_hint({"phases": {}}), "")
+        self.assertEqual(o19import.resume_hint(
+            {"phases": {"stage": {"status": "done"}}}), "")
+        self.assertEqual(o19import.resume_hint(
+            {"phases": {"check-pristine": {"status": "done"}}}), " --resume")
+
+    def test_error_text_never_carries_a_credential_literal(self):
+        sql = ("CREATE USER 'o19_import'@'localhost' IDENTIFIED BY "
+               "'s3cr3t-password-value'")
+        text = o19import.redact_statement(sql)
+        self.assertNotIn("s3cr3t", text)
+        self.assertIn("IDENTIFIED BY '<redacted>'", text)
+        # masked BEFORE the width cut: a truncated literal cannot leak
+        self.assertNotIn("s3cr3t", o19import.redact_statement(sql, 60))
+        self.assertEqual(o19import.redact_statement("SELECT 1"), "SELECT 1")
 
     def test_etl_started_reads_the_ledger(self):
         from carlos_ctl import o19etl
@@ -274,6 +317,24 @@ class TestCleanupGate(unittest.TestCase):
         self.assertTrue(archived.startswith("state.json.completed-"))
         self.assertEqual(o19import.load_state(self.state_dir)["phases"], {})
         self.assertIsNone(o19import.archive_state(self.state_dir))
+
+    def test_every_run_file_is_retired_with_the_state(self):
+        # the ETL ledger and the properties fragments included; the
+        # break-glass credentials file deliberately not
+        o19import.save_state(self.state_dir,
+                             {"phases": {"verify": {"status": "done"}}})
+        for name in o19import.RUN_FILES + ("admin-credentials.txt",):
+            with open(os.path.join(self.state_dir, name), "w") as fh:
+                fh.write("x")
+        self.assertIn("etl-progress.json", o19import.RUN_FILES)
+        self.assertIn("o19-derived-carlos.properties", o19import.RUN_FILES)
+        archived = o19import.archive_state(self.state_dir)
+        suffix = archived[len("state.json"):]
+        left = sorted(os.listdir(self.state_dir))
+        for name in o19import.RUN_FILES:
+            self.assertNotIn(name, left)
+            self.assertIn(name + suffix, left)
+        self.assertIn("admin-credentials.txt", left)
 
 
 class TestDevModePolicy(unittest.TestCase):
@@ -516,3 +577,83 @@ class TestHeadCollations(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVerifyPhaseFiles(unittest.TestCase):
+    """run_p7 writes its per-patient lines and the roles findings to the
+    root-only files and replaces the P7 block on every rerun."""
+
+    def setUp(self):
+        import tempfile
+        import shutil
+        self.state_dir = tempfile.mkdtemp(prefix="o19p7-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+        from carlos_ctl import o19roles
+        self._parity = o19import._row_parity
+        self._checks = o19roles.verify_role_checks
+        o19import._row_parity = lambda ctx: (["t: 1 -> 1"], [])
+        self.private = ["expired logins: fixture.expired"]
+        o19roles.verify_role_checks = lambda *a, **k: (
+            ["role 'doctor' present"], [], ["1 login(s) import expired"],
+            list(self.private))
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        from carlos_ctl import o19roles
+        o19import._row_parity = self._parity
+        o19roles.verify_role_checks = self._checks
+
+    def _ctx(self):
+        def query(sql, db=None):
+            if "COUNT(*) FROM `o19_import`.demographic" in sql:
+                return [["2"]]
+            if "ORDER BY RAND()" in sql:
+                return [["7"], ["9"]]
+            if "billing_on_cheader1 GROUP BY" in sql:
+                return []
+            if "WHERE `demographic_no` = 7" in sql \
+                    or "WHERE `demographicNo` = 7" in sql:
+                return [["1"]]
+            return [["0"]] if "COUNT(*)" in sql else []
+        return {"state_dir": self.state_dir, "state": {"phases": {}},
+                "query": query, "target_db": "carlos"}
+
+    def test_private_files_carry_the_identifiers_and_report_the_counts(
+            self):
+        ctx = self._ctx()
+        o19import.run_p7(ctx)
+        details = os.path.join(self.state_dir, "verify-details.txt")
+        self.assertEqual(os.stat(details).st_mode & 0o777, 0o600)
+        with open(details) as fh:
+            text = fh.read()
+        self.assertIn("spot checks on 2 of 2 patient(s)", text)
+        with open(os.path.join(self.state_dir, "report.txt")) as fh:
+            report = fh.read()
+        self.assertNotIn("patient 7", report)
+        self.assertNotIn("fixture.expired", report)
+        self.assertIn("1 login(s) import expired", report)
+        roles = os.path.join(self.state_dir, "roles-details.txt")
+        with open(roles) as fh:
+            self.assertIn("P7 verify:\nexpired logins: fixture.expired",
+                          fh.read())
+        self.assertTrue(o19import.phase_done(ctx["state"], "verify"))
+
+    def test_rerun_replaces_the_verify_block(self):
+        o19import.write_private(
+            os.path.join(self.state_dir, "roles-details.txt"),
+            "activated: 1=doctor\nP7 verify:\nstale line\n")
+        ctx = self._ctx()
+        o19import.run_p7(ctx)
+        with open(os.path.join(self.state_dir, "roles-details.txt")) as fh:
+            text = fh.read()
+        self.assertIn("activated: 1=doctor\n", text)
+        self.assertNotIn("stale line", text)
+        self.assertEqual(text.count("P7 verify:"), 1)
+        # a second run with nothing private still rewrites the block
+        self.private[:] = []
+        ctx = self._ctx()
+        o19import.run_p7(ctx)
+        with open(os.path.join(self.state_dir, "roles-details.txt")) as fh:
+            text = fh.read()
+        self.assertNotIn("fixture.expired", text)
+        self.assertEqual(text.count("P7 verify:"), 1)
