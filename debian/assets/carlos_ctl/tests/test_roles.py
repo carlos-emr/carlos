@@ -159,6 +159,16 @@ class TestStatementShapes(unittest.TestCase):
         remaining = o19roles.activeyn_null_remaining_sql("carlos")
         self.assertIn("activeyn IS NULL AND NOT (EXISTS", remaining)
 
+    def test_role_names_fold_like_the_pad_space_collation(self):
+        # trailing spaces and case are insignificant to the column; a
+        # LEADING space is significant and stays so
+        self.assertEqual(o19roles.custom_roles(
+            ["Triage Nurse "], [("triage nurse", "_rx", "x", "0")],
+            ["doctor"]), ["Triage Nurse "])
+        self.assertEqual(o19roles.custom_roles(
+            [" Triage Nurse"], [("Triage Nurse", "_rx", "x", "0")],
+            ["doctor"]), [])
+
     def test_system_pseudo_provider_gets_no_membership_or_link(self):
         for sql in ([o19roles.provider_facility_statement("carlos"),
                      o19roles.fallback_membership_candidates_sql("carlos"),

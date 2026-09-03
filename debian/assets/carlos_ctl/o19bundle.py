@@ -24,6 +24,7 @@ tested); the thin execution helpers at the bottom go through util.run.
 
 import hashlib
 import os
+import shutil
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
@@ -320,25 +321,36 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     encrypted, gzipped = bundle_kind(bundle)
     os.makedirs(workdir, mode=0o700, exist_ok=True)
 
-    actual = sha256_file(bundle)
-    if expected_sha256 and actual != expected_sha256:
-        # the caller verified a digest on ITS read of the file; the file
-        # this function reads must be that one
-        die("the bundle changed on disk between its digest check and "
-            "opening it — obtain it again")
-
-    tar_path = bundle
+    # one private snapshot (0600, in the 0700 workdir) is what gets hashed,
+    # decrypted and extracted: the digest recorded is the digest of the
+    # bytes that were opened, whatever happens to the operator's path
+    # meanwhile. The disk check budgets two bundle sizes on this volume.
+    snapshot = os.path.join(workdir, ".bundle.in")
+    tar_path = snapshot
     if encrypted:
         tar_path = os.path.join(workdir,
                                 ".bundle.tar.gz" if gzipped else ".bundle.tar")
     try:
-        return _open_bundle(bundle, tar_path, workdir, encrypted, gzipped,
+        for stale in (snapshot, tar_path):
+            if os.path.exists(stale):
+                os.unlink(stale)  # an interrupted earlier attempt
+        fd = os.open(snapshot, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as out, open(bundle, "rb") as src:
+            shutil.copyfileobj(src, out, 1 << 20)
+        actual = sha256_file(snapshot)
+        if expected_sha256 and actual != expected_sha256:
+            # the caller verified a digest on ITS read of the file; the
+            # bytes opened here must be those
+            die("the bundle changed on disk between its digest check and "
+                "opening it — obtain it again")
+        return _open_bundle(snapshot, tar_path, workdir, encrypted, gzipped,
                             pass_spec, cipher, openssl_opts, actual)
     finally:
-        # the decrypted plaintext never outlives this call, whichever
-        # refusal ended it
-        if encrypted and os.path.exists(tar_path):
-            os.unlink(tar_path)
+        # neither the snapshot nor the decrypted plaintext outlives this
+        # call, whichever refusal ended it
+        for path in (snapshot, tar_path):
+            if path != bundle and os.path.exists(path):
+                os.unlink(path)
 
 
 def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,

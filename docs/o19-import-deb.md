@@ -221,7 +221,7 @@ gate has no override.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the
    throwaway staging account, removes the extracted bundle and retires the
    run's `state.json`, ETL ledger, report, private files and the properties
-   fragment (renamed with one `.completed-<time>` suffix, so the finished
+   fragment (renamed with one `.completed-<timestamp>` suffix, so the finished
    run can neither be resumed nor mistaken for a fresh one; only
    `admin-credentials.txt` stays under its own name); the `o19_archive` schema
    (removed-module data + dropped-column shadows + the OSCAR 19 token
@@ -294,7 +294,7 @@ given clinic — that list is the clinic's sign-off.
   than quoted. Rename it in the source and re-export.
 - *manifest column(s) not in the target schema* — the installed package's
   manifest names a column the deployed Flyway level lacks; report it.
-- *ETL pre-checks failed* on a `--resume` say *no further writes were
+- *ETL pre-checks failed* on a `--resume` says *no further writes were
   made*: the earlier phases' writes stand; fix the condition and resume.
 - *province 'bc': the OSCAR 19 import supports Ontario deployments only* —
   P0 refuses a non-Ontario host before sweeping it (the seed floors are

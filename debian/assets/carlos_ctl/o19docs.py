@@ -218,7 +218,9 @@ def image_refs(form_html: str) -> List[str]:
             quote = ""
             end = -1
         if end < 0:
-            tail = re.match(r"[^\s\"'<>]*", form_html[start:])
+            # unquoted: up to whitespace, a quote, a tag end or the closing
+            # parenthesis of a CSS url(...) wrapper
+            tail = re.match(r"[^\s\"'()<>]*", form_html[start:])
             value = tail.group(0) if tail else ""
         else:
             value = form_html[start:end]

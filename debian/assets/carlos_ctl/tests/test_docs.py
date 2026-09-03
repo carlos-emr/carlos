@@ -394,11 +394,12 @@ class TestEformImageRefs(unittest.TestCase):
                 '<img src="${oscar_image_path}logo.png&amp;x=1">'
                 '<img src=${oscar_image_path}bare.gif width=3>'
                 '<img src="${oscar_image_path}a.png#top">'
-                '<img src="${oscar_image_path}sub/deep.png">')
+                '<img src="${oscar_image_path}sub/deep.png">'
+                '<div style="background:url(${oscar_image_path}bg.png)">')
         self.assertEqual(o19docs.image_refs(html),
                          sorted(["my scan[1].png", "my logo.png",
                                  "logo.png", "bare.gif", "a.png",
-                                 "sub/deep.png"]))
+                                 "sub/deep.png", "bg.png"]))
 
     def test_subdirectory_references_are_blocking(self):
         root = tempfile.mkdtemp()

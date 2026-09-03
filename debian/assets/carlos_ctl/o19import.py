@@ -419,10 +419,13 @@ def run_p0(ctx) -> None:
             die("flyway validate failed — the carlos schema does not match "
                 "the deployed application (run carlos-ctl db-migrate first)")
 
-    if not ctx.get("resume") and not dev:
+    recorded = set(ctx["state"].get("phases", {})) - {"stage"}
+    if not (ctx.get("resume") and (recorded or etl_started(ctx["state_dir"])))\
+            and not dev:
         # a previous import's archive schema would be inherited whole
         # (its tables are per-table DROP+CREATE) and its rows exported
-        # into this clinic's document tree
+        # into this clinic's document tree; only a resume of a RECORDED
+        # run may find its own archive here
         left = query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
                      "WHERE SCHEMA_NAME = '{0}'".format(ARCHIVE_SCHEMA))
         if left:
@@ -1123,9 +1126,10 @@ def run_cleanup(ctx) -> None:
     for host in STAGING_ACCOUNT_HOSTS:
         ctx["query"]("DROP USER IF EXISTS '{0}'@'{1}'".format(STAGING_USER,
                                                              host))
-    bundle_dir = os.path.join(ctx["state_dir"], "bundle")
-    if os.path.isdir(bundle_dir):
-        shutil.rmtree(bundle_dir)
+    for name in ("bundle", "bundle-assess"):
+        bundle_dir = os.path.join(ctx["state_dir"], name)
+        if os.path.isdir(bundle_dir):
+            shutil.rmtree(bundle_dir)
     for name in (".stage-client.cnf", "state.json.tmp",
                  "etl-progress.json.tmp"):
         path = os.path.join(ctx["state_dir"], name)

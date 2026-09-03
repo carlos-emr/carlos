@@ -386,9 +386,10 @@ def non_role_named_roles(target_roles: Sequence[str]) -> List[str]:
 
 
 def _fold(name: str) -> str:
-    """Compare like the role_name column: case-insensitive, trailing
-    spaces ignored (PAD SPACE collation)."""
-    return (name or "").strip().lower()
+    """Compare like the role_name column: case-insensitive, TRAILING
+    spaces ignored (PAD SPACE collation); a leading space is significant
+    there and stays significant here."""
+    return (name or "").rstrip(" ").lower()
 
 
 def role_pairs(rows: Sequence[Sequence[str]],

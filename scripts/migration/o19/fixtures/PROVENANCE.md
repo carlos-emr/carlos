@@ -29,8 +29,8 @@ content (clearly-fake values only — no real clinic or patient data):
   clinician's legacy password hash (also quoted in `docs/Password_System.md`;
   not a secret). The rows this file adds carry fixed timestamps; the
   fixture dump itself is not byte-reproducible (the upstream seed writes
-  NOW() values and mysqldump stamps its completion time) — only the
-  documents tar and the unencrypted bundles are.
+  NOW() values and mysqldump stamps its completion time), nor are the
+  bundles that embed it — only the documents tar is.
 - `documents/` — manifest + generator for a deterministic placeholder
   OscarDocument tree (no binaries committed), plus the matching fixture
   database rows.

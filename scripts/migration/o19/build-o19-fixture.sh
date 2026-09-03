@@ -139,7 +139,7 @@ if [ "$WITH_UPDATES" = 1 ]; then
   # it); the anchors the rehearsal depends on must have survived
   anchors=$(run_sql -N -B "$DB" -e "SELECT (SELECT COUNT(*) FROM secUserRole WHERE provider_no='999998'), (SELECT COUNT(*) FROM Facility), (SELECT COUNT(*) FROM clinic)")
   case "$anchors" in
-    2*) ;;
+    2$'\t'[1-9]*$'\t'[1-9]*) ;;
     *) echo "error: after --with-updates the seed clinician's roles, Facility or clinic rows are gone ($anchors)" >&2
        exit 1 ;;
   esac

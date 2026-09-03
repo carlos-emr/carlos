@@ -1131,8 +1131,21 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                     "admin_provider_no"):
                 # a previous import's break-glass password (cleanup keeps
                 # the file on purpose): set aside, never overwritten
-                os.replace(cred_path, cred_path + ".previous-"
-                           + time.strftime("%Y%m%dT%H%M%S"))
+                stamp = time.strftime("%Y%m%dT%H%M%S")
+                n = 0
+                while True:
+                    aside = "{0}.previous-{1}{2}".format(
+                        cred_path, stamp, "-{0}".format(n) if n else "")
+                    try:
+                        # O_EXCL: a second import in the same second must
+                        # not overwrite the first one's set-aside file
+                        os.close(os.open(aside, os.O_WRONLY | os.O_CREAT
+                                         | os.O_EXCL, 0o600))
+                    except FileExistsError:
+                        n += 1
+                        continue
+                    os.replace(cred_path, aside)
+                    break
             # file-first, before any SQL touches accounts (bootstrap-admin's
             # contract: never leave a credential that exists only in memory)
             fd = os.open(cred_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
