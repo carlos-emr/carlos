@@ -287,6 +287,15 @@ async function main() {
       // Nothing was saved by the test: Save is still the only persisting control.
       assert(!(await frame.locator('#msg').isVisible()), 'Save alert appeared during a connection test');
       await screenshot(page, config.screenshotDir, 'fax-config-test-result');
+
+      // A result only describes the credentials that were tested: editing the account
+      // number must clear it, so a stale "successful" line can never sit beside unverified
+      // values. Restore the value afterwards so the save step persists the tested account.
+      await frame.locator('#faxUser').fill(`${config.srfax.accessId}9`);
+      await result.waitFor({ state: 'hidden', timeout: 5000 });
+      assert((await result.innerText()).trim() === '', 'Connection result text survived a credential edit');
+      await frame.locator('#faxUser').fill(config.srfax.accessId);
+      assert(!(await result.isVisible()), 'Connection result reappeared after restoring the account number');
     });
 
     await step('save persists the account and masks the password on reload', async () => {

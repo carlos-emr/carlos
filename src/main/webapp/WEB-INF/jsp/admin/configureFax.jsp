@@ -254,6 +254,9 @@
                 setState(this);
             });
 
+            // Any edit to the credentials makes a displayed connection-test result stale.
+            $("#faxUser, #faxPasswd, #providerType").on("input change", invalidateTestConnectionResult);
+
             getFaxSchedularStatus();
             updateMiddlewareFieldsVisibility();
             getPendingIncomingFaxes();
@@ -265,12 +268,25 @@
         // instead of surfacing later as a scheduler error. The form's hidden method=configure
         // entry is dropped before appending method=testConnection: with two "method" values
         // the server would read the first one and save instead of test.
+        // A result is only meaningful for the exact credentials that were tested. Each click
+        // takes a new sequence number; editing the account number or password bumps it and
+        // hides the result, so a late callback for superseded values is dropped and a green
+        // "successful" line can never sit beside credentials that were never verified.
+        var testConnectionSeq = 0;
+
+        function invalidateTestConnectionResult() {
+            testConnectionSeq++;
+            $("#testConnectionResult").hide().text("").removeClass("text-success text-danger text-muted");
+            $("#testSrfaxConnectionBtn").prop("disabled", false);
+        }
+
         function testSrfaxConnection() {
             var fields = $("#configFrm").serializeArray().filter(function (field) {
                 return field.name !== "method";
             });
             fields.push({ name: "method", value: "testConnection" });
 
+            var seq = ++testConnectionSeq;
             var resultEl = $("#testConnectionResult");
             resultEl.removeClass("text-success text-danger").addClass("text-muted")
                     .text(configureFaxTestConnectionTesting).show();
@@ -282,15 +298,18 @@
                 data: $.param(fields),
                 dataType: "json",
                 success: function (data) {
+                    if (seq !== testConnectionSeq) { return; } // credentials changed meanwhile
                     resultEl.removeClass("text-muted text-success text-danger")
                             .addClass(data.success ? "text-success" : "text-danger")
                             .text(data.message || (data.success ? "OK" : configureFaxTestConnectionFailed));
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
+                    if (seq !== testConnectionSeq) { return; }
                     resultEl.removeClass("text-muted text-success").addClass("text-danger")
                             .text(configureFaxTestConnectionFailed + " " + (errorThrown || textStatus));
                 },
                 complete: function () {
+                    if (seq !== testConnectionSeq) { return; }
                     $("#testSrfaxConnectionBtn").prop("disabled", false);
                 }
             });

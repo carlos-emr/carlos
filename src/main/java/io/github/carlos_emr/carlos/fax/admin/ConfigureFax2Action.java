@@ -372,7 +372,7 @@ public class ConfigureFax2Action extends ActionSupport {
             }
             if (isPasswordUnchanged(faxPassword)) {
                 // The mask sentinel means "keep what is stored": test with the stored credential.
-                FaxConfig stored = configId != null && configId > 0
+                FaxConfig stored = configId != null
                         ? SpringUtils.getBean(FaxConfigDao.class).find(configId.intValue())
                         : null;
                 if (stored == null || StringUtils.isBlank(stored.getFaxPasswd())) {
@@ -402,15 +402,17 @@ public class ConfigureFax2Action extends ActionSupport {
     }
 
     /**
-     * Parses the hidden config id posted by the form; {@code -1}/blank (no stored row yet) and
-     * malformed values both resolve to {@code null}.
+     * Parses the hidden config id posted by the form. Blank, malformed, and non-positive values
+     * ({@code -1} is the form's "no stored row yet" marker; ids are 1-based) all resolve to
+     * {@code null}, so a caller can never mistake them for a persisted row.
      */
     private static Integer parseConfigId(String rawId) {
         if (StringUtils.isBlank(rawId)) {
             return null;
         }
         try {
-            return Integer.parseInt(rawId.trim());
+            int id = Integer.parseInt(rawId.trim());
+            return id > 0 ? id : null;
         } catch (NumberFormatException e) {
             return null;
         }
