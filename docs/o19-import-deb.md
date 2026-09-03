@@ -186,7 +186,7 @@ conveyed (a recorded sign-off, never a default), `--accept
 carry-credentials` when the dump holds live OAuth consumer secrets or
 signing keys (`ServiceClient`, `oscarKeys`, `publicKeys` rows are copied
 verbatim and keep working against the migrated system — the preflight
-reports it as blocker B6 and the ETL pre-checks refuse without the
+reports it as blocker B9 and the ETL pre-checks refuse without the
 sign-off; rotate or verify them before go-live), and
 `--statement-timeout SECONDS` to bound every SQL statement of the import
 (MariaDB `max_statement_time`; a sparse or crafted dump cannot then hold
@@ -283,6 +283,12 @@ given clinic — that list is the clinic's sign-off.
   a file whose content differs from the tar stops it.
 - *--skip-documents cannot retire it* — the tree was already restored from
   a tar in this run; resume with that tar (reconciliation is what is left).
+- *--resume: no import is recorded* — the workspace holds nothing beyond a
+  staged dump (what a dry run or assessment leaves); run the import without
+  `--resume`. The flag never starts a fresh import.
+- *insufficient disk under … to open the bundle* — the state volume takes a
+  private copy of the bundle (and its decrypted form, for an encrypted one)
+  before the members can be sized; free space there and re-run.
 - *ETL pre-checks failed: NOT NULL target column(s)* — the CARLOS schema
   gained a required column the manifest doesn't cover yet; report it (the
   fix is a `value_exprs` curation entry + regenerated manifest).
@@ -310,7 +316,7 @@ given clinic — that list is the clinic's sign-off.
   (its verdict was recorded before the first write).
 - *the dump carries live credentials* — `ServiceClient` / `oscarKeys` /
   `publicKeys` rows; acknowledge with `--accept carry-credentials` (the
-  preflight lists it as B6) and rotate or verify them before go-live.
+  preflight lists it as B9) and rotate or verify them before go-live.
 - *non-numeric value(s) in a column CARLOS stores as a number* — the copy
   would store 0 for them under the import's `sql_mode=''`; curate a
   `value_exprs` entry or fix the values in the source.

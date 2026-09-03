@@ -242,9 +242,10 @@ flags are not recorded; it still runs the P0 gates, and it is refused over a
 workspace whose import is in progress);
 .B \-\-resume
 continues an interrupted real import (required whenever a previous run left
-state behind beyond a staged dump \(em state is never continued implicitly;
-once the data copy has started, only the emptiness sweep is skipped on
-resume);
+state behind beyond a staged dump \(em state is never continued implicitly,
+and the flag is refused when no run is recorded, so it never starts a fresh
+import; once the data copy has started, only the emptiness sweep is skipped
+on resume);
 .B \-\-restage
 drops and re-restores the staging schema (clearing the recorded preflight
 verdict);

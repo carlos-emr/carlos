@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 from carlos_ctl import o19bundle
 
@@ -317,6 +318,24 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
         res = o19bundle.open_bundle(
             plain, dest, expected_sha256=o19bundle.sha256_file(plain))
         self.assertEqual(res["bundle_sha256"], o19bundle.sha256_file(plain))
+
+    def test_too_little_headroom_refuses_before_any_copy_is_made(self):
+        plain = os.path.join(self.work, "b.tar")
+        self._tar(plain, gz=False)
+        enc = plain + ".enc"
+        self._enc(plain, enc)
+        dest = tempfile.mkdtemp(dir=self.work)
+
+        class Exactly:  # free space == one plain bundle
+            f_frsize = 1
+            f_bavail = os.path.getsize(enc)
+
+        with mock.patch.object(o19bundle.os, "statvfs",
+                               return_value=Exactly()):
+            # an encrypted bundle needs room for its decrypted twin too
+            with self.assertRaises(SystemExit):
+                o19bundle.open_bundle(enc, dest, "file:" + self.passfile)
+            self.assertEqual(os.listdir(dest), [])
 
     def test_gz_named_but_not_gz_is_refused(self):
         bogus = os.path.join(self.work, "b.tar.gz")

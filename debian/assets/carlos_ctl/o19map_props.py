@@ -593,10 +593,12 @@ KEYS = {
         'd': 'carry',
     },
     'HL7_A04_TRANSPORT_ADDR': {
-        'd': 'carry',
+        'd': 'dropped-flag',
+        'advisory': 'misc',
     },
     'HL7_A04_TRANSPORT_PORT': {
-        'd': 'carry',
+        'd': 'dropped-flag',
+        'advisory': 'misc',
     },
     'HOME_DIR': {
         'd': 'translate',

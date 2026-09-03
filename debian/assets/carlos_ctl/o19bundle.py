@@ -330,6 +330,17 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     if encrypted:
         tar_path = os.path.join(workdir,
                                 ".bundle.tar.gz" if gzipped else ".bundle.tar")
+    # the snapshot (and, for an encrypted bundle, its decrypted twin) land
+    # on the state volume before the tar listing can size the members:
+    # refused while nothing has been written rather than filling the volume
+    needed = os.path.getsize(bundle) * (2 if encrypted else 1)
+    st = os.statvfs(workdir)
+    free = st.f_bavail * st.f_frsize
+    if free < needed:
+        die("insufficient disk under {0} to open the bundle: {1} MB free, "
+            "~{2} MB needed for its private copy{3}".format(
+                workdir, free // 1048576, needed // 1048576,
+                " and decrypted form" if encrypted else ""))
     try:
         for stale in (snapshot, tar_path):
             if os.path.exists(stale):

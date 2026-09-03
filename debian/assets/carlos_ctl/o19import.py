@@ -564,17 +564,21 @@ def strip_client_identity(args: List[str]) -> List[str]:
     return out
 
 
-def staging_client_argv(base_argv: List[str], client_cnf: str) -> List[str]:
+def staging_client_argv(base_argv: List[str], client_cnf: str,
+                        statement_timeout: int = 0) -> List[str]:
     """The restore client's argv: the connection tail of the root argv
     (socket/host/port), identity replaced by the throwaway staging account
     read from a 0600 defaults file (never argv), and --one-database so a
-    statement addressed at another schema is skipped rather than run."""
+    statement addressed at another schema is skipped rather than run.
+    --statement-timeout bounds the dump's own statements too (one crafted
+    INSERT could otherwise hold the restore forever)."""
     tail = strip_client_identity(list(base_argv)[1:])
+    init = ("SET SESSION sql_log_bin=0, FOREIGN_KEY_CHECKS=0, "
+            "UNIQUE_CHECKS=0, sql_mode=''")
+    if statement_timeout:
+        init += ", max_statement_time={0}".format(int(statement_timeout))
     return (["mariadb", "--defaults-extra-file=" + client_cnf] + tail
-            + ["--one-database",
-               "--init-command=SET SESSION sql_log_bin=0, "
-               "FOREIGN_KEY_CHECKS=0, UNIQUE_CHECKS=0, sql_mode=''",
-               STAGING_SCHEMA])
+            + ["--one-database", "--init-command=" + init, STAGING_SCHEMA])
 
 
 # the account is created for both host patterns: a socket connection
@@ -736,7 +740,8 @@ def run_p1(ctx) -> None:
     query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
     query("CREATE DATABASE `{0}`".format(STAGING_SCHEMA))
     client_cnf = os.path.join(ctx["state_dir"], ".stage-client.cnf")
-    restore_argv = staging_client_argv(ctx["query"].base_argv, client_cnf)
+    restore_argv = staging_client_argv(ctx["query"].base_argv, client_cnf,
+                                       ctx.get("statement_timeout", 0))
     grant_staging_account(query, client_cnf)
 
     try:
@@ -927,7 +932,8 @@ def _row_parity(ctx):
         admin_provider_no=progress.get("admin_provider_no"),
         appended=progress.get("roles", {}).get("appended"),
         dst_info=o19etl.introspect_columns(ctx["query"], ctx["target_db"]),
-        archive_schema=ctx.get("archive_schema", ARCHIVE_SCHEMA))
+        archive_schema=ctx.get("archive_schema", ARCHIVE_SCHEMA),
+        pruned_property_prefixes=o19_preflight.DROPPED_PROP_PREFIXES)
 
 
 def run_p4(ctx) -> None:
@@ -960,7 +966,7 @@ def run_p4(ctx) -> None:
             "nothing further runs until this is explained".format(
                 len(bad), ctx["state_dir"]))
     mark_done(ctx["state_dir"], ctx["state"], "etl")
-    log("etl complete — row parity clean for {0} copy tables"
+    log("etl complete — row parity clean for {0} table(s)"
         .format(len(ok)))
 
 
@@ -1276,7 +1282,8 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                              "holding the packaged data-fixup scripts "
                              "(Rich Text Letter); default "
                              "/usr/share/carlos-emr/schema/o19-fixups")
-        ap.add_argument("--statement-timeout", type=int, default=0,
+        ap.add_argument("--statement-timeout", type=_nonnegative_seconds,
+                        default=0,
                         metavar="SECONDS",
                         help="bound every SQL statement of the import to "
                              "this many seconds (MariaDB max_statement_time; "
@@ -1570,6 +1577,21 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     }
 
 
+def _nonnegative_seconds(text: str) -> int:
+    """argparse type for --statement-timeout: 0 (no bound) or a positive
+    whole number of seconds; a negative value would only fail at the
+    first SQL statement, as an invalid session setting."""
+    try:
+        seconds = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "expected a whole number of seconds, not {0!r}".format(text))
+    if seconds < 0:
+        raise argparse.ArgumentTypeError(
+            "must be 0 (no bound) or a positive number of seconds")
+    return seconds
+
+
 def require_resume_for_existing_state(state: Dict, resume: bool,
                                       dry_run: bool) -> Optional[str]:
     """The message refusing a rerun over recorded state without --resume
@@ -1587,6 +1609,21 @@ def require_resume_for_existing_state(state: Dict, resume: bool,
     return ("a previous import left state behind ({0}). Pass --resume to "
             "continue it, or --cleanup after a verified import; state is "
             "never continued implicitly.".format(done))
+
+
+def nothing_to_resume_refusal(state: Dict, resume: bool,
+                              etl_begun: bool) -> Optional[str]:
+    """The message refusing --resume when no run is recorded (None when
+    the flag matches one). A staged dump alone is what a dry run or an
+    assessment leaves behind, not a run: the flag must never start a
+    fresh import silently. Pure, for the state tests."""
+    if not resume:
+        return None
+    if (set(state.get("phases", {})) - {"stage"}) or etl_begun:
+        return None
+    return ("--resume: no import is recorded under {0} (a staged dump "
+            "alone is not a run) — start the import without --resume"
+            .format(STATE_DIR))
 
 
 def _target_db(dev_target: bool) -> str:
@@ -1684,8 +1721,13 @@ def _cmd_import_o19(argv) -> int:
             o19etl.validate_admin_user(args.admin_user)
         except ValueError as exc:
             die(str(exc))
+    state = load_state(STATE_DIR)
     refusal = require_resume_for_existing_state(
-        load_state(STATE_DIR), args.resume, args.dry_run)
+        state, args.resume, args.dry_run)
+    if refusal:
+        die(refusal)
+    refusal = nothing_to_resume_refusal(
+        state, args.resume, etl_started(STATE_DIR))
     if refusal:
         die(refusal)
     if not args.dry_run:

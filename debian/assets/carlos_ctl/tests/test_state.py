@@ -229,6 +229,20 @@ class TestResumeContract(unittest.TestCase):
         self.assertIn("--resume", msg)
         self.assertIn("--cleanup", msg)
 
+    def test_resume_with_nothing_recorded_is_refused(self):
+        # the flag must match a recorded run: over an empty workspace, or
+        # one holding only a staged dump, it would silently start afresh
+        refuse = o19import.nothing_to_resume_refusal
+        self.assertIn("--resume", refuse({"phases": {}}, True, False))
+        self.assertIsNotNone(refuse(
+            {"phases": {"stage": {"status": "done"}}}, True, False))
+        self.assertIsNone(refuse(
+            {"phases": {"stage": {"status": "done"},
+                        "backup": {"status": "done"}}}, True, False))
+        # an ETL ledger with writes is a recorded run even without phases
+        self.assertIsNone(refuse({"phases": {}}, True, True))
+        self.assertIsNone(refuse({"phases": {}}, False, False))
+
     def test_assessment_refusal_covers_ledger_and_interrupted_cleanup(self):
         import tempfile
         import shutil
@@ -276,6 +290,28 @@ class TestResumeContract(unittest.TestCase):
         self.assertFalse(o19import.etl_started(d))
         o19etl.save_progress(d, {"tables": {}, "admin_provider_no": "7"})
         self.assertTrue(o19import.etl_started(d))
+
+
+class TestStatementTimeoutFlag(unittest.TestCase):
+
+    def test_restore_client_carries_the_timeout_when_set(self):
+        argv = o19import.staging_client_argv(
+            ["mariadb", "--protocol=socket", "--user=root"], "/tmp/c.cnf",
+            statement_timeout=30)
+        init = [a for a in argv if a.startswith("--init-command=")][0]
+        self.assertIn("max_statement_time=30", init)
+        argv = o19import.staging_client_argv(
+            ["mariadb", "--protocol=socket", "--user=root"], "/tmp/c.cnf")
+        self.assertNotIn("max_statement_time", " ".join(argv))
+
+    def test_negative_or_non_numeric_seconds_are_refused_by_the_parser(
+            self):
+        import argparse
+        self.assertEqual(o19import._nonnegative_seconds("0"), 0)
+        self.assertEqual(o19import._nonnegative_seconds("45"), 45)
+        for bad in ("-1", "x", "1.5"):
+            with self.assertRaises(argparse.ArgumentTypeError):
+                o19import._nonnegative_seconds(bad)
 
 
 class TestCleanupGate(unittest.TestCase):

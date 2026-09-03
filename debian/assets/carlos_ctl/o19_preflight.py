@@ -1195,7 +1195,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
     def count_live(manifest_name, where=None):
         return count(tables[manifest_name], where)
 
-    # --- B6: live credentials the copy carries verbatim ------------------
+    # --- B9: live credentials the copy carries verbatim ------------------
     carried = {}
     for t in CREDENTIAL_TABLES:
         if t in tables:
@@ -1204,7 +1204,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 carried[t] = n
     if carried:
         findings.append(finding(
-            "B6-credentials-carried", BLOCKER,
+            "B9-credentials-carried", BLOCKER,
             "{0} credential table(s) carry live secrets ({1} row(s))".format(
                 len(carried), sum(carried.values())),
             "OAuth consumer secrets and signing keys are copied verbatim and "

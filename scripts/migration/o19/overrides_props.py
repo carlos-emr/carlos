@@ -231,10 +231,12 @@ KEYS = {
     "save_as_xml": {"d": "carry"},
     # the CAISI program-module switch (isPropertyActive("program"))
     "program": {"d": "carry"},
-    # HL7 A04 (ADT) generation: the transport address is a clinic setting
+    # HL7 A04 (ADT) generation: only the switch has a CARLOS reader; the
+    # transport address and port are not consulted, so a clinic that set
+    # them is told rather than shown them as carried
     "HL7_A04_GENERATION": {"d": "carry"},
-    "HL7_A04_TRANSPORT_ADDR": {"d": "carry"},
-    "HL7_A04_TRANSPORT_PORT": {"d": "carry"},
+    "HL7_A04_TRANSPORT_ADDR": {"d": "dropped-flag", "advisory": "misc"},
+    "HL7_A04_TRANSPORT_PORT": {"d": "dropped-flag", "advisory": "misc"},
     # deployment-owned on the deb host (binaries, log retention)
     "WKHTMLTOPDF_COMMAND": {"d": "deploy-owned"},
     "WKHTMLTOPDF_ARGS": {"d": "deploy-owned"},
@@ -247,7 +249,11 @@ KEYS = {
     "OMD_HRM_PORT": {"d": "dropped-flag", "advisory": "hrm"},
     "OMD_HRM_REMOTE_DIR": {"d": "dropped-flag", "advisory": "hrm"},
     "OMD_HRM_AUTH_KEY_FILENAME": {"d": "dropped-flag", "advisory": "hrm"},
-    # legacy JSP forward targets: CARLOS routes through Struts actions
+    # post-upload forward targets: CARLOS still reads DOC_FORWARD,
+    # RA_FORWORD and TA_FORWARD, but its defaults are Struts routes and a
+    # clinic value names an O19 JSP path CARLOS no longer serves — reported
+    # for the operator to re-point in the CARLOS override, never carried
+    # as-is (EA_FORWORD has no reader left)
     "DOC_FORWARD": {"d": "dropped-flag", "advisory": "misc"},
     "EA_FORWORD": {"d": "dropped-flag", "advisory": "misc"},
     "RA_FORWORD": {"d": "dropped-flag", "advisory": "misc"},

@@ -206,7 +206,7 @@ class TestVerdicts(unittest.TestCase):
                                properties=clean_props())
         self.assertEqual(report["verdict"], "go-with-acknowledgements")
         ids = {f["id"]: f for f in report["findings"]}
-        b6 = ids["B6-credentials-carried"]
+        b6 = ids["B9-credentials-carried"]
         self.assertEqual(b6["severity"], pf.BLOCKER)
         self.assertEqual(b6["accept"], "carry-credentials")
         self.assertEqual(b6["data"], {"ServiceClient": 2, "oscarKeys": 1})
@@ -218,7 +218,7 @@ class TestVerdicts(unittest.TestCase):
         # empty credential tables are not a finding
         report = pf.run_checks(FakeDb(base_tables(ServiceClient=0)),
                                properties=clean_props())
-        self.assertNotIn("B6-credentials-carried",
+        self.assertNotIn("B9-credentials-carried",
                          {f["id"] for f in report["findings"]})
 
     def test_bc_province_is_a_hard_no_go(self):

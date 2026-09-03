@@ -32,7 +32,7 @@ import json
 import os
 import re
 import time
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import o19map_schema
 from .util import log, warn
@@ -343,17 +343,32 @@ def merge_statement(table: str, entry: dict, src_schema: str,
 
 def merge_missing_count_sql(table: str, entry: dict, src_schema: str,
                             dst_schema: str, dst_cols: Dict[str, dict],
-                            archive_schema: Optional[str] = None) -> str:
+                            archive_schema: Optional[str] = None,
+                            exclude: Optional[str] = None) -> str:
     """Staging rows of a merge table that have NO target twin on the
     natural key — the reverse of the merge's own anti-join, so after the
-    merge the count must be 0 (excluded removed-module rows aside)."""
+    merge the count must be 0 (excluded removed-module rows aside).
+    `exclude` is a further staging-side predicate (alias `s`) for rows a
+    later step deliberately removes from the target again."""
     sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE NOT EXISTS (SELECT 1 "
            "FROM `{2}`.`{1}` d WHERE {3})".format(
                src_schema, table, dst_schema,
                merge_join(entry, archive_schema, dst_cols)))
-    if entry.get("merge_exclude"):
-        sql += " AND NOT ({0})".format(entry["merge_exclude"])
+    for predicate in (entry.get("merge_exclude"), exclude):
+        if predicate:
+            sql += " AND NOT ({0})".format(predicate)
     return sql
+
+
+def pruned_property_predicate(prefixes: Sequence[str]) -> str:
+    """Staging-side (alias `s`) predicate for the removed-module
+    `property` rows the roles post-step prunes from the target after the
+    merge (o19roles.property_prune_statements, same LIKE shape): the
+    reverse parity must not expect their twins."""
+    likes = ["s.`name` LIKE '{0}%'".format(
+        _sql_str(p).replace("_", "\\_").replace("%", "\\%"))
+        for p in prefixes]
+    return " OR ".join(likes) if likes else "FALSE"
 
 
 NUMERIC_TYPES = ("tinyint", "smallint", "mediumint", "int", "integer",
@@ -361,9 +376,12 @@ NUMERIC_TYPES = ("tinyint", "smallint", "mediumint", "int", "integer",
 STRING_TYPES = ("char", "varchar", "tinytext", "text", "mediumtext",
                 "longtext", "enum")
 #: what the server would accept as a number without coercion; anything
-#: else becomes 0 under sql_mode='' (the ETL executor), silently
-NUMERIC_LITERAL_SQL_RE = ("^[[:space:]]*[-+]?([0-9]+(\\.[0-9]*)?|"
-                          "\\.[0-9]+)([eE][-+]?[0-9]+)?[[:space:]]*$")
+#: else becomes 0 under sql_mode='' (the ETL executor), silently. The dot
+#: is a bracket class: inside a SQL string literal the server consumes a
+#: backslash before the regex engine sees the pattern, so `\.` would
+#: match any character
+NUMERIC_LITERAL_SQL_RE = ("^[[:space:]]*[-+]?([0-9]+([.][0-9]*)?|"
+                          "[.][0-9]+)([eE][-+]?[0-9]+)?[[:space:]]*$")
 
 
 def coercion_precheck_sql(table: str, entry: dict, src_schema: str,
@@ -1568,7 +1586,8 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
                admin_provider_no: Optional[str] = None,
                appended: Optional[Dict[str, int]] = None,
                dst_info: Optional[Dict[str, Dict[str, dict]]] = None,
-               archive_schema: Optional[str] = None
+               archive_schema: Optional[str] = None,
+               pruned_property_prefixes: Optional[Sequence[str]] = None
                ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) comparing staging vs target counts for
     every copy-class table. The tolerated deltas are the break-glass
@@ -1588,10 +1607,14 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
         if entry["class"] == "merge" and dst_info is not None \
                 and table in dst_info:
             # the reverse of the merge's anti-join: every staging row (the
-            # excluded removed-module rows aside) must have a target twin
+            # excluded removed-module rows aside) must have a target twin;
+            # the property rows the roles step pruned again are not twins
+            exclude = None
+            if table == "property" and pruned_property_prefixes:
+                exclude = pruned_property_predicate(pruned_property_prefixes)
             missing = int(plain_query(merge_missing_count_sql(
                 table, entry, src_schema, dst_schema, dst_info[table],
-                archive_schema))[0][0])
+                archive_schema, exclude))[0][0])
             if missing:
                 bad.append("{0}: {1} staging row(s) have no target twin "
                            "after the merge".format(table, missing))
