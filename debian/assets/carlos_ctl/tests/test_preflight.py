@@ -206,10 +206,10 @@ class TestVerdicts(unittest.TestCase):
                                properties=clean_props())
         self.assertEqual(report["verdict"], "go-with-acknowledgements")
         ids = {f["id"]: f for f in report["findings"]}
-        b6 = ids["B9-credentials-carried"]
-        self.assertEqual(b6["severity"], pf.BLOCKER)
-        self.assertEqual(b6["accept"], "carry-credentials")
-        self.assertEqual(b6["data"], {"ServiceClient": 2, "oscarKeys": 1})
+        b9 = ids["B9-credentials-carried"]
+        self.assertEqual(b9["severity"], pf.BLOCKER)
+        self.assertEqual(b9["accept"], "carry-credentials")
+        self.assertEqual(b9["data"], {"ServiceClient": 2, "oscarKeys": 1})
         self.assertIn("carry-credentials", report["required_accepts"])
         report = pf.run_checks(FakeDb(base_tables(ServiceClient=2)),
                                properties=clean_props(),
