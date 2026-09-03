@@ -58,6 +58,13 @@ tar -czf - o19.sql.gz o19-documents.tar.gz oscar.properties \
       -pass file:PASSFILE -out o19-bundle.tar.gz.enc
 ```
 
+The three members sit at the archive root as plain files, with no
+directory prefix: exactly one `*.sql` or `*.sql.gz`, exactly one
+`*.properties`, and at most one `*.tar`/`*.tar.gz` of documents. Anything
+else in the archive, a member reached through a path, or a name beginning
+with `-`, is refused. The bundle file itself must be named `.tar`, `.tar.gz`,
+`.tar.enc` or `.tar.gz.enc`.
+
 ```bash
 sha256sum o19-bundle.tar.gz.enc
 ```
@@ -85,6 +92,38 @@ sudo carlos-ctl import-o19 \
     [--accept CLASS ...]        # the sign-offs preflight listed
 ```
 
+`--admin-user` names the break-glass administrator created before the
+seeded clinician is removed. It must be 1 to 30 characters of letters,
+digits, `_`, `.`, `@` or `-`; it may not be the seeded `carlosdoc`; and it
+may not collide with a login the dump already carries.
+
+The host needs, before the run: roughly 2.5 times the **uncompressed** dump
+free on `/var/lib/mysql` (staging restore, the copy into the target and the
+archive schema), and twice the bundle plus twice the expanded documents tar
+free on `/var/lib/carlos-emr`. MariaDB must be 10.5 or newer, because the
+restore runs under a schema-scoped account that needs `BINLOG ADMIN`, and
+the server must have no replicas attached: the import's binlog-off bulk copy
+is not replica-safe, and a server with replicas is refused.
+
+Every blocker is cleared by one explicit `--accept` class, recorded in the
+report as the clinic's sign-off. There are nine:
+
+| class | what it acknowledges |
+|---|---|
+| `archived-forms` | patient data in removed-module tables becomes archive-only |
+| `unknown-as-archive` | tables and columns the manifest does not know are archived whole |
+| `dropped-columns` | columns CARLOS dropped held data (kept in shadow tables) |
+| `charset-repair` | double-encoded text is repaired row by row during the copy |
+| `olis-gone` | OLIS was in use; CARLOS has no OLIS module |
+| `no-documents` | import without the documents tree (with `--skip-documents`) |
+| `no-pre-backup` | no pre-import snapshot, or the backup unit failed |
+| `unverified-bundle` | open a bundle whose digest was never conveyed |
+| `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
+
+The assessment can evaluate only five of them (`archived-forms`,
+`unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`)
+plus `unverified-bundle`; the rest belong to phases it never runs.
+
 Phases (state under `/var/lib/carlos-emr/o19-import/`): stock-deploy gate
 → pre-import backup → staged restore → preflight → data copy with
 row-parity gate → documents restore with blocking reconciliation →
@@ -93,8 +132,11 @@ restore so the rollback point exists before any clinic-supplied SQL
 executes. The restore itself runs as a throwaway database account whose
 grants stop at the `o19_import` schema, with the client's `--one-database`
 switch on, and a dump carrying `USE` / `CREATE DATABASE` statements (a
-`mysqldump --databases` dump) is refused before a byte reaches the server:
-nothing in the dump can address the live schema. A rerun over existing
+`mysqldump --databases` dump) is refused: the head of the stream is
+checked before the client starts, and the rest is scanned as it is fed,
+with the staging schema dropped on a hit. The account's grants and
+`--one-database` are the backstops, so nothing in the dump can address the
+live schema either way. A rerun over existing
 state requires `--resume` (a staged dump left behind by a dry run or an
 assessment does not count); it is never continued implicitly. Once the
 data copy has started, a resumed run re-checks the schema, replica and
@@ -112,8 +154,9 @@ manifest does not know are never dropped: whole tables are archived under
 shadow-captured as `<table>__unknown_cols`. Tables the manifest classifies
 `reference` keep the CARLOS seed (their O19 rows, every column, are not
 copied), `archive` tables are archived whole, and `drop` tables are
-report-only by declaration — the preflight and ETL reports name each one
-that holds rows.
+report-only by declaration — the ETL report names each one that holds
+rows (the preflight sweeps the archive-class and patient-data tables, not
+the drop-class ones).
 
 What the import does with credentials: every clinic login keeps working
 (legacy password hashes upgrade to bcrypt on first login) but **all users
@@ -161,10 +204,14 @@ starting `Rich Text Letter Generator`, as the database compares them); the
 step re-reads the row afterwards and reports "modernised" only when it is,
 otherwise it says what to apply by hand (an edited subject). A form that
 was disabled stays disabled; a clinic with no stock row gets a new, enabled
-Rich Text Letter. The per-run files (`report.txt`, the `*-details.txt`
-files, `privilege-diff.txt`, the preflight outputs) are retired with the
-same `.completed-<timestamp>` suffix as `state.json` when the import is
-cleaned up, so a later import in the same directory starts its own.
+Rich Text Letter. The per-run files are retired with the same
+`.completed-<timestamp>` suffix as `state.json` when the import is cleaned
+up, so a later import in the same directory starts its own: `report.txt`,
+`etl-progress.json`, `preflight.txt`, `preflight.json`, the `*-details.txt`
+files, `privilege-diff.txt` and `o19-derived-carlos.properties` (with its
+`.dry-run` twin). `admin-credentials.txt` is deliberately not among them; a
+previous run's copy is set aside as `admin-credentials.txt.previous-<stamp>`
+rather than overwritten.
 
 On the CARLOS host the `carlos-emr` service must be stopped for the
 whole import (`carlos-ctl stop`); a real run or `--resume` refuses while it
@@ -180,7 +227,9 @@ re-extract the bundle and rewrite the recorded inputs; its `--accept` flags
 are not recorded — sign-offs persist only from a real run),
 `--dump/--documents/--properties` instead of a bundle,
 `--bundle-openssl-opt` for bundles encrypted by an older openssl
-(`-md md5`, no `-pbkdf2`), `--skip-documents` with `--accept no-documents`,
+(`-md md5`, no `-pbkdf2`) — note that any `--bundle-openssl-opt` **replaces**
+the default `-pbkdf2 -iter 200000` rather than adding to it, so pass the
+creator's complete derivation options — `--skip-documents` with `--accept no-documents`,
 `--accept unverified-bundle` to open a bundle whose digest was never
 conveyed (a recorded sign-off, never a default), `--accept
 carry-credentials` when the dump holds live OAuth consumer secrets or
@@ -188,17 +237,40 @@ signing keys (`ServiceClient`, `oscarKeys`, `publicKeys` rows are copied
 verbatim and keep working against the migrated system — the preflight
 reports it as blocker B9 and the ETL pre-checks refuse without the
 sign-off; rotate or verify them before go-live), and
-`--statement-timeout SECONDS` to bound every SQL statement of the import
-(MariaDB `max_statement_time`; a sparse or crafted dump cannot then hold
-one statement forever; 0, the default, means no bound).
+`--statement-timeout SECONDS` to bound every SQL statement of the import,
+the staged restore's own client included (MariaDB `max_statement_time`; a
+sparse or crafted dump cannot then hold one statement forever; 0, the
+default, means no bound). `--bundle-cipher NAME` names the openssl cipher an
+`.enc` bundle was made with (default `aes-256-cbc`), and `--province` may
+only restate the host's configured province.
+
+Unlike the assessment, `import-o19` has no verdict codes: it exits 0 when the
+import completed and 1 on any refusal or failure.
 
 `carlos-ctl o19-preflight` is the assessment-only form on the CARLOS host:
 capacity checks, staged restore and the go/no-go report, with the exit
 code as the verdict (0 go, 1 acknowledgements required, 2 no-go) and 3 for
 any failure of the tool itself (an unreachable server, bad flags, a refused
 dump, insufficient disk — never a verdict code); it records no verdict and
-no sign-off, and refuses a workspace whose import is in progress. With
-`--province bc` it stages first and then reports the province as a no-go.
+no sign-off, and refuses a workspace whose import is in progress.
+`--province` may only restate the host's configured province: a value that
+differs from `/etc/carlos-emr/carlos-emr.env` is refused before anything is
+staged. On a host configured for BC the assessment stages first and then
+reports the province as a no-go.
+
+Invoke it the same way as the import, minus the writing flags:
+
+```bash
+sudo carlos-ctl o19-preflight \
+    --bundle /srv/migration/o19-bundle.tar.gz.enc \
+    --bundle-sha256 <digest> --bundle-pass file:/srv/migration/passfile
+```
+
+(or `--dump` plus `--properties` instead of a bundle). It accepts only the
+blocker classes it can evaluate — `archived-forms`, `unknown-as-archive`,
+`olis-gone`, `dropped-columns`, `carry-credentials` — plus
+`unverified-bundle` for its own bundle intake; the phase sign-offs belong to
+phases it never runs, and nothing it is passed is recorded.
 
 `--dev-target` and `--mariadb-arg` exist for development databases only
 (the devcontainer, where the database is a separate container reached over
@@ -310,8 +382,32 @@ given clinic — that list is the clinic's sign-off.
   than quoted. Rename it in the source and re-export.
 - *manifest column(s) not in the target schema* — the installed package's
   manifest names a column the deployed Flyway level lacks; report it.
-- *ETL pre-checks failed* on a `--resume` says *no further writes were
-  made*: the earlier phases' writes stand; fix the condition and resume.
+- *ETL pre-checks failed (nothing was written)* — the copy refused before
+  touching the target. On a `--resume` whose copy had already started the
+  same message reads *(no further writes were made)*: the earlier phases'
+  writes stand. Either way, fix the condition and `--resume`.
+- *ETL pre-checks failed: … value(s) longer than the target column* — the
+  clinic's column is wider than CARLOS's. The import refuses to truncate
+  clinical text; shorten the values on the OSCAR 19 side, or report the
+  column so the manifest can carry it.
+- *double-encoded text detected in: …* — the clinic's OSCAR 19 stored latin1
+  bytes as UTF-8 (classic mojibake). Re-run with `--accept charset-repair`
+  to apply the per-row latin1 to utf8mb4 repair during the copy; the
+  preflight reports it as an advisory first.
+- *B8: text that looks double-encoded but does not round-trip …* — thrice
+  encoded or otherwise unrepairable text. No flag overrides this; the rows
+  need manual investigation on the OSCAR 19 side.
+- *the dump uses collation(s) unavailable on this server* — the OSCAR 19
+  server had collations this MariaDB lacks. Re-take the dump on a server
+  whose collations match, or install them.
+- *the dump has no '-- Dump completed' trailer* — it is truncated or the
+  mysqldump was interrupted. Take a fresh one.
+- *the dump carries SET @@GLOBAL.GTID_PURGED* — a MySQL 5.6+ GTID directive
+  MariaDB rejects. Re-take it with `mysqldump --set-gtid-purged=OFF`.
+- *this database server has replicas attached* — the binlog-off bulk copy is
+  not replica-safe. Detach them for the duration of the import.
+- *cannot grant BINLOG ADMIN to the staging account* — the server is older
+  than MariaDB 10.5; the schema-scoped restore account needs that privilege.
   Once the copy has started a resume does not re-run the preflight either
   (its verdict was recorded before the first write).
 - *the dump carries live credentials* — `ServiceClient` / `oscarKeys` /

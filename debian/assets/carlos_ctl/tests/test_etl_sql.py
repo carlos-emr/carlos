@@ -632,6 +632,39 @@ class TestRowParity(unittest.TestCase):
                             for line in ok))
 
 
+class TestPrecheckScope(unittest.TestCase):
+    """A pre-check refusal must not tell a resumed run that nothing was
+    written: the earlier phases' writes stand."""
+
+    def setUp(self):
+        import tempfile
+        import shutil
+        self.dir = tempfile.mkdtemp(prefix="o19scope-")
+        self.addCleanup(shutil.rmtree, self.dir)
+
+    def _ledger(self, payload):
+        import json
+        import os
+        with open(os.path.join(self.dir, "etl-progress.json"), "w") as fh:
+            json.dump(payload, fh)
+
+    def test_untouched_target_says_nothing_was_written(self):
+        self.assertEqual(o19etl.precheck_scope(self.dir),
+                         "nothing was written")
+        self._ledger({"tables": {}})
+        self.assertEqual(o19etl.precheck_scope(self.dir),
+                         "nothing was written")
+
+    def test_a_ledger_with_work_says_no_further_writes(self):
+        self._ledger({"tables": {"demographic": {"done": True}}})
+        self.assertEqual(o19etl.precheck_scope(self.dir),
+                         "no further writes were made")
+        # the break-glass admin alone is already a write to the target
+        self._ledger({"tables": {}, "admin_provider_no": "999"})
+        self.assertEqual(o19etl.precheck_scope(self.dir),
+                         "no further writes were made")
+
+
 class TestMergeReverseParity(unittest.TestCase):
 
     ENTRY = {"class": "merge", "cols": ["id", "code", "label"],

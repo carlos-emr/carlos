@@ -149,10 +149,15 @@ Principles:
 
 - Restore staging with the dump's declared charset; copy via `INSERT…SELECT` into
   utf8mb4 targets (server converts).
-- Pre-copy scan flags double-encoded UTF-8 (bytes matching
-  `Ã[€-¿]`-class patterns in name/note/text columns) and applies the standard
-  `CONVERT(BINARY CONVERT(col USING latin1) USING utf8mb4)` repair per column,
-  gated by a dry-run sample report the operator approves.
+- Pre-copy scan flags double-encoded UTF-8 with a byte-aligned predicate —
+  the value must round-trip to latin1 unchanged, those bytes must form valid
+  UTF-8, and a non-ASCII character must be present, tested as
+  `LENGTH(col) <> CHAR_LENGTH(col)` rather than a `REGEXP` class (the Spencer
+  engine of MySQL < 8 and MariaDB < 10.0.5 misreads the class, and a hex
+  substring match flags innocent text such as `1,800`) — and applies the
+  standard `CONVERT(BINARY CONVERT(col USING latin1) USING utf8mb4)` repair
+  per row, gated by `--accept charset-repair`. Text that looks double-encoded
+  but does not round-trip is B8, and no flag overrides it.
 
 ### 4.5 Seed-row reconciliation (fresh CARLOS DB vs incoming dump)
 
@@ -243,7 +248,9 @@ importer therefore reconciles the role matrix instead of choosing one side:
   a packaged host has always booted once before an import.
 - `property` merges on `(name, provider_no)` (CARLOS defaults stand, clinic keys
   append; O19 writes `''` and CARLOS NULL for a global key — `NULLIF` makes them
-  one key) and rows of removed modules (`PREFLIGHT_DROPPED_PROP_PREFIXES`) are
+  one key) and rows of removed modules (`PREFLIGHT_DROPPED_PROP_PREFIXES` in
+  `overrides_schema.py`, generated into the preflight as
+  `DROPPED_PROP_PREFIXES`) are
   pruned.
 - The privilege merge keeps every CARLOS seed grant, appends every clinic grant
   whose (role, object) the seed does not hold, and omits only grants on objects
@@ -280,9 +287,11 @@ importer therefore reconciles the role matrix instead of choosing one side:
   to disable, scripts, rows to re-disable) is persisted before the first write,
   so a crash between the enable script and the re-disable cannot make a hidden
   form visible on resume. Missing fixup scripts are a broken package install:
-  the step fails closed and resumes once they are back. Any other RTL-titled row
-  such as O19's 2010 `letter` is disabled — it carries the `RptByExample.do`
-  sink.
+  the step fails closed and resumes once they are back. An RTL-titled row that is not canonical is
+  disabled only when it is O19's 2010 `letter`, or still carries the
+  `RptByExample.do` sink, or a dead attach route; a clinic copy with none of
+  those is a clinic form and is reported (privately, by fid), never
+  disabled.
 - `value_exprs` now also cover `document.receivedDate` (= `observationdate`) and
   `tickler.creation_date` (= legacy `update_date`, else `service_date`, else the
   fixed `UNKNOWN_DATE_SENTINEL` `1970-01-02 00:00:00` rather than the import time,
@@ -364,11 +373,14 @@ Two coordinated deliverables:
 
 **(a) `carlos` repo — `scripts/migration/o19/` (the engine)**
 
-- `o19-schema-map.yaml` — the versioned manifest: table classes (§4.1), column
+- `o19map_schema.py` — the versioned manifest (generated into the deb by
+  `scripts/migration/o19/generate_manifests.py` from the curated overlay
+  `overrides_schema.py`): table classes (§4.1), column
   mappings, per-column value expressions, archive/drop lists. Generated initially
   from the schema diff (this analysis), then hand-curated and code-reviewed.
-- `o19_import.py` (or shell+SQL) — phases: `preflight`, `stage`, `etl`,
-  `documents`, `verify`, each idempotent and resumable; writes a single
+- `o19import.py` — phases P0 pristine/capacity, P1 stage, P2 preflight,
+  P3 backup, P4 ETL (with the roles post-step), P5
+  documents, P6 props, P7 verify, each idempotent and resumable; writes a single
   machine+human readable report.
 - `preflight` — the go/no-go gate, specified in §6.1.
 - `verify` (§7) gate.
@@ -377,7 +389,9 @@ Two coordinated deliverables:
 
 Preflight is a **read-only feasibility check** that decides whether this
 migration path is viable for a given clinic *before* anything is written. It
-runs in two modes with identical checks:
+runs in two modes with the same checks, except that column-level unknown
+detection needs the staged schema and therefore runs in import mode only
+(the assessment reports it as deferred):
 
 - **Assessment mode** — a standalone script (`o19-preflight`, no CARLOS install
   required) run against the *live O19 database + properties file at the clinic*,
@@ -391,30 +405,51 @@ Every finding has a severity; the outcome is the worst severity found:
 **BLOCKER — the import refuses to proceed until remediated or explicitly
 signed off:**
 
+B1-B5, B8a-B8e and B9 are emitted by the preflight itself; B6 (the
+pristine sweep), B7 (capacity, headroom, replicas and the dump pre-checks)
+and B8 (the charset gate) are enforced by the import driver and reported
+with the same severity.
+
 | # | Check | Detail |
 |---|---|---|
 | B1 | **Patient data in tables CARLOS doesn't have** | Row counts on the curated patient-data subset of the 202 O19-only tables (`formONAREnhancedRecord*`, `formAR`, `formONAR`, `formType2Diabetes`, `formIntakeHx`, `intake*`, `Ocan*`, `eyeform*`/`Eyeform*`, `hsfo_*`, CAISI bed/room/admission-adjacent tables). Non-zero rows → blocker naming the table, its row count, and the disposition on offer (archive + CSV, §4.6). Cleared only by the operator passing an explicit per-class acknowledgement (e.g. `--accept archived-forms`), which is recorded in the report as the clinic's sign-off |
-| B2 | **Unknown tables/columns with data** | Anything in the dump not classified in `o19-schema-map.yaml` (vendor forks — WELL/KAI, OMD patches) with rows → blocker until a human classifies it (manifest update or `--accept unknown-as-archive`). Unknown never silently drops |
-| B3 | **Data in O19 columns CARLOS dropped** | Non-null/non-default counts on the flagged columns of the 39 tables in Appendix C (e.g. `drugs.dispensingUnits` ≠ empty means the dispensing workflow was in use). Above-threshold usage → blocker with per-column counts |
-| B4 | **Encrypted casemgmt notes** | Encryption markers in `casemgmt_note` / site config → blocker (key handling not in scope of the standard path) |
+| B2 | **Unknown tables/columns with data** | Anything in the dump not classified by the schema manifest `o19map_schema.py` (vendor forks — WELL/KAI, OMD patches) with rows → blocker until a human classifies it (manifest update or `--accept unknown-as-archive`). Unknown never silently drops |
+| B3 | **Data in O19 columns CARLOS dropped** | Non-null/non-empty counts on the curated flagged columns (`document.fileSignature`, `drugs.dispensingUnits` — a non-empty value means the dispensing workflow was in use). Any row → blocker with per-column counts, cleared by `--accept dropped-columns`; the values are shadow-captured in `o19_archive`. The full dropped-column inventory is Appendix C |
+| B4 | **Encrypted casemgmt notes** | `casemgmt_note` rows carrying a password (the note is stored encrypted) → blocker, no `--accept` flag (key handling is not in scope of the standard path). The property `casemgmt.note.password.enabled=true` is the stock O19 default and on its own is only an advisory |
 | B5 | **LDAP authentication in use** | `ldap.enabled=true` in properties → blocker: staff cannot log in to CARLOS via LDAP; local credentials must be provisioned first |
 | B6 | **Target not pristine** (import mode only) | CARLOS schema contains clinic data beyond the known seed rows → refuse |
 | B7 | **Capacity/compatibility** | Insufficient disk for staging + archive + documents; dump collations unavailable on the target MariaDB; dump truncated/incomplete (missing `-- Dump completed`) |
+| B8a | **Province not Ontario** | Only the Ontario manifest is curated; no `--accept` flag |
+| B8b | **Case-colliding table names** | A case-sensitive server holds a vendor table differing from a manifest table only by case; no `--accept` flag |
+| B8c | **OLIS was configured** | Rows in any `OLIS*` table: lab querying through OLIS stops at cutover. Cleared by `--accept olis-gone` once the clinic is told |
+| B8d | **No enabled `Facility`, or no `clinic` row** | CARLOS cannot log anyone in without an enabled facility, and letterheads and requisitions dereference the clinic row; refused before the first write; no `--accept` flag |
+| B8e | **A check could not be completed** | A count failed (privilege, corrupt table): an unreadable table is never treated as empty; no `--accept` flag |
 | B8 | **Unrepairable text encoding** | Charset sampling (§4.4) finds mixed/double-encoded text the standard repair can't normalize deterministically |
 | B9 | **Live credentials carried** | rows in `ServiceClient` / `oscarKeys` / `publicKeys` (OAuth consumer secrets, signing keys) are copied verbatim and keep working → blocker cleared by `--accept carry-credentials`; rotate or verify before go-live |
 
 **ADVISORY — reported prominently, does not stop the import:**
 
-- Removed-module data that auto-archives without workflow impact (OLIS logs,
-  Integrator/sharing tables, report-runner templates) — itemized so the clinic
-  knows what becomes archive-only.
+- Removed-module data that auto-archives without workflow impact
+  (Integrator/sharing tables, report-runner templates, removed-module config
+  and log tables) — itemized so the clinic knows what becomes archive-only.
+  OLIS is the exception: rows in any `OLIS*` table are a blocker cleared by
+  `--accept olis-gone`, because lab querying through OLIS stops at cutover.
 - **Properties fallout**: every clinic-set key classified `dropped-flag` (§8.1
   rule 6) — the "many keys no longer needed" list — grouped by module, plus the
-  `deploy-owned` keys that will be ignored. OLIS and eRx keys escalate the
-  matching module advisory; `ldap.*` escalates to B5.
-- Providers with no `security` row, disabled accounts, stale `secUserRole`
-  entries — hygiene items that surface as confusing login behavior later
-  (the roles advisories of §4.5).
+  `deploy-owned` keys that will be ignored. Removed-module keys are grouped by
+  module prefix into one advisory; `ldap.*` is excluded from it and escalates
+  to B5. OLIS escalates on table rows, not on keys.
+- Clinic-custom roles, `secUserRole` rows with `activeyn` NULL (with how many
+  the import will activate), active accounts that will hold no active role
+  after the import, and logins that expire on `b_ExpireSet` — hygiene items
+  that surface as confusing login behavior later (the roles advisories
+  of §4.5).
+- Clinic-data conditions the import will change or cannot render: legacy
+  prevention type codes, a legacy Rich Text Letter eForm, `property` rows of
+  removed modules that will be pruned, dashboard indicator templates querying
+  tables CARLOS removed, double-encoded text the ETL will repair, and — when
+  no properties file is supplied — the property-based checks that were
+  skipped.
 - Documents are not assessed by the preflight (no tar is read); full
   reconciliation runs as a hard gate in the `documents` phase (§5).
 
@@ -464,7 +499,7 @@ charset analysis only. Rollback = restore the pre-import snapshot (already a
 - **Referential spot checks**: demographics ↔ appointments ↔ notes ↔ documents ↔
   drugs joined on ids for N random patients; billing invoice totals per fiscal
   year match to the cent.
-- **Files**: document reconciliation (§5.3) clean.
+- **Files**: document reconciliation (§5, step 3) clean.
 - **App-level smoke**: the existing Playwright UI test suite (`ui-tests` skills,
   tests 1–9: login, demographic search, appointments, Rx, ticklers, encounter,
   ON billing, labs, preventions) run against the migrated database — this is the
@@ -514,7 +549,7 @@ active (~432 documented). ~260 keys exist on both sides; ~190 active O19 keys
 have no CARLOS counterpart at all.
 
 **Translation rules, applied in order by a `props` importer phase driven by a
-`o19-properties-map.yaml` manifest:**
+`o19map_props.py` manifest (curated in `overrides_props.py`):**
 
 1. **Baseline-diff first.** Only keys whose clinic value differs from the O19
    *default* value (repo `oscar_mcmaster.properties`) are considered — a clinic
@@ -575,9 +610,13 @@ until the operator merges it — properties translation is deliberately the one
 non-automatic step in the turnkey flow, because it is where machine-specific and
 clinic-specific configuration meet.
 
-`o19-properties-map.yaml` lives beside `o19-schema-map.yaml` in
-`scripts/migration/o19/` and is seeded from the key diff summarized above, then
-curated in review like the schema manifest.
+`o19map_props.py` ships beside `o19map_schema.py` in the deb; both are
+generated by `scripts/migration/o19/generate_manifests.py` from the curated
+overlays `overrides_props.py` and `overrides_schema.py`, and both carry the
+manifest version `o19map-2` (`PROPS_MAP_VERSION` and `SCHEMA_MAP_VERSION` —
+plain `o19map-N` tokens, deliberately not CalVer-shaped so they cannot be
+misread as a CARLOS release). The props manifest is seeded from the key diff
+summarized above, then curated in review like the schema manifest.
 
 ## 9. Risks & open decisions
 
@@ -616,8 +655,8 @@ checks, UI smoke — before clinical use.
   (`SCHEMA_MAP_VERSION` is a plain `o19map-N` token, deliberately not
   CalVer-shaped). `test_manifest_integrity.py` (22 checks, stdlib unittest)
   refuses any unclassified table.
-- Current classification (580 O19 tables at commit `a7900d5`): 338 copy /
-  31 merge / 27 reference / 156 archive (patient-data subset flagged for the
+- Current classification (580 O19 tables at commit `a7900d5`): 336 copy /
+  35 merge / 25 reference / 156 archive (patient-data subset flagged for the
   B1 blocker; includes the three shared OAuth/session token tables, which
   are archived rather than restored live) / 28 drop / 0 unknown. Three
   copy-class credential tables (`ServiceClient`, `oscarKeys`, `publicKeys`)
@@ -1011,11 +1050,59 @@ re-verified against the code, plus a CodeRabbit pass), re-rehearsed (done):**
   is the `carry-credentials` sign-off — preflight blocker B9 and an ETL
   pre-check refusal without it.
 
+**Cubic follow-ups on the round above (done):** `open_bundle` copies the
+operator's file into a private 0600 snapshot inside the 0700 workdir, then
+hashes and extracts that snapshot, so the recorded digest is the digest of
+the bytes actually opened; the snapshot and any decrypted plaintext are
+removed on every exit, and a stale `.bundle.tar` from an interrupted attempt
+is cleared before the digest check. The leftover-`o19_archive` gate is
+bypassed only by a `--resume` of a recorded run (phases beyond `stage`, or an
+ETL ledger), never by the flag alone, and `--cleanup` also removes the
+assessment workdir. A previous break-glass credentials file is set aside
+under an `O_EXCL`-unique `.previous-<stamp>` name, so two imports in the same
+second cannot overwrite one another. Role names fold trailing spaces only
+(PAD SPACE; a leading space stays significant), and an eForm image reference
+inside a CSS `url(...)` wrapper stops at the closing parenthesis.
+
+**Cubic round 3, and a parity gap the rehearsal surfaced (done):** the state
+volume is checked for the bundle's private copy (and its decrypted form)
+before anything is written, so a large bundle cannot fill the volume ahead of
+the member-size gate; `--resume` with nothing recorded is refused instead of
+silently starting a fresh import; `--statement-timeout` also bounds the
+staged restore's own client and rejects negative values at parse time; the
+coercion pre-check's numeric-literal class uses `[.]`, because inside a SQL
+string literal the server consumes the backslash of `\.` and the dot then
+matched any character, so `1,800` passed the check (verified live against
+MariaDB); the reverse merge parity no longer expects target twins for the
+removed-module `property` rows the roles step prunes after the merge (the
+rehearsal's `INTEGRATOR_` row read as a false mismatch);
+`HL7_A04_TRANSPORT_ADDR` and `_PORT` have no CARLOS reader and are reported
+rather than shown as carried; and the carried-credentials blocker is B9,
+since B6-B8 were already taken by the table in §6.1.
+
+**Documentation audit round (done):** four read-only audits compared the
+operator guide, the man page, this plan, and the fixture READMEs, module
+docstrings and CLI help against the code. Corrections: the ETL pre-check
+refusal now says *no further writes were made* on a resume whose copy had
+started (the guide had promised wording the code never emitted); the
+`o19-preflight` verb's `--help` no longer describes itself as an import and
+advertises only the classes it can evaluate; `--bundle-cipher` and
+`--province` gained help text; the man page's EXIT STATUS section no longer
+contradicts the verdict-as-status contract, and gained a FILES entry for the
+import workspace; this plan's charset predicate, B3 and B4 rows, OLIS
+disposition, RTL rule, classification counts and manifest names were brought
+back in line with the code, and the blocker table now covers every class the
+preflight emits.
+
 **All milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,
 the BC manifest pass (§10.6), and the carlos-podman `import-o19` catch-up.
 
 ## 10. Implementation work breakdown
+
+*Original plan, kept as the record of intent; the artefact names here are the
+ones first proposed (the manifests shipped as generated Python modules
+instead). §9a records what was actually built.*
 
 1. `carlos`: commit generated schema-diff tooling + `o19-schema-map.yaml` seed
    (from this analysis), engine skeleton with `preflight`+`stage`; ship

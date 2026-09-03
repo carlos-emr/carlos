@@ -1,7 +1,8 @@
 # OSCAR 19 → CARLOS migration tooling (experimental)
 
 Development-side tooling for the `carlos-ctl import-o19` clinic importer.
-Design and operational spec: `docs/oscar19-to-carlos-migration-plan.md`.
+Design and operational spec: `docs/oscar19-to-carlos-migration-plan.md`;
+operator runbook for the shipped verbs: `docs/o19-import-deb.md`.
 The importer itself ships with the Debian package
 (`debian/assets/carlos_ctl/o19*.py`); this directory holds what does NOT
 ship — the manifest generator, its curation overlays, and rehearsal fixtures.
@@ -19,14 +20,30 @@ overrides_schema.py      hand-curated table/column classifications (durable)
 overrides_props.py       hand-curated oscar.properties dispositions (durable)
 build-o19-fixture.sh     builds the rehearsal database + turnkey inputs
 fixtures/                vendored O19 demo data & stock properties
-                         (PROVENANCE.md), synthetic clinic properties,
-                         documents-tree manifest/generator + fixture rows
+                         (PROVENANCE.md), synthetic clinic properties and
+                         role/legacy-data cases (demo-data/roles.sql),
+                         documents-tree manifest/generator + fixture rows,
+                         documents/make-o19-bundle.sh (packs the inputs into
+                         every --bundle variant used by the rehearsal)
 ```
+
+## Packing the rehearsal bundles
+
+```bash
+scripts/migration/o19/fixtures/documents/make-o19-bundle.sh \
+    /tmp/o19-inputs /tmp/o19-bundles
+```
+
+Writes `o19-bundle.tar`, `.tar.gz`, `.tar.enc` and `.tar.gz.enc`, the matching
+`o19-bundle.sha256` (what `--bundle-sha256` verifies) and
+`bundle-password.txt`. The password is a fixed test value: rehearsal and test
+use only, never a clinic handoff.
 
 ## Regenerating the manifests
 
 ```bash
-git clone --depth 1 https://bitbucket.org/oscaremr/oscar.git /tmp/oscar19
+git clone --branch OSCAR_19_RC1 --depth 1 \
+    https://bitbucket.org/oscaremr/oscar.git /tmp/oscar19
 python3 scripts/migration/o19/generate_manifests.py --oscar-src /tmp/oscar19
 cd debian/assets && python3 -m unittest discover -s carlos_ctl/tests -t .
 ```
@@ -69,7 +86,7 @@ documents-phase reconciliation gate is exercised), and `oscar.properties`
 (the synthetic clinic-example file covering every props disposition).
 `--with-olis` additionally loads `olis/olisinit.sql` to exercise the
 OLIS-dropped path. `--with-updates` applies the O19 `updates/*.sql` patch
-history best-effort before the demo data (real dumps carry ~281 privilege
+history best-effort before the demo data (real dumps carry ~280 privilege
 rows those patches add; 2006-era patches routinely fail on a modern server,
 each failure is named with its diagnostic, and a failed file may have applied
 its earlier statements — a rehearsal input, not a clinic). Note that

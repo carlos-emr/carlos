@@ -12,7 +12,8 @@ the schema/replica/disk gates but not the emptiness sweep P0 already
 passed. Execution order on a real import is P0, P3, P1, P2, P4..P7: the
 rollback snapshot exists before any clinic-supplied SQL executes. --dry-run
 and the o19-preflight verb run P0 (capacity checks only for the latter),
-P1 and P2 without recording a verdict:
+P1 and P2 without recording a verdict; --dry-run additionally emits the
+P6 properties report, marked as a dry-run fragment:
 
   P0 check-pristine  stock-initial-deploy gate (manifest-driven emptiness
                      sweep; hard refusal, no --accept; --dev-target
@@ -1218,9 +1219,16 @@ RUN_FILES = ("report.txt", "roles-details.txt", "privilege-diff.txt",
 def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog=prog,
-        description="OSCAR 19 clinic import (experimental). Migration "
-                    "output should receive a technical review before "
-                    "clinical use.")
+        description=(
+            "OSCAR 19 clinic import (experimental). Migration output "
+            "should receive a technical review before clinical use."
+            if import_mode else
+            "OSCAR 19 migration feasibility check (experimental): the "
+            "capacity gates, a staged restore and the go/no-go report. "
+            "Writes nothing to the EMR schema and records neither a "
+            "verdict nor a sign-off; the exit status is the verdict "
+            "(0 go, 1 acknowledgements required, 2 no-go, 3 tool "
+            "failure)."))
     ap.add_argument("--bundle", metavar="FILE",
                     help="single handoff archive (.tar/.tar.gz/.tar.enc/"
                          ".tar.gz.enc) holding dump + documents tar + "
@@ -1235,7 +1243,10 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                          "(openssl enc has no integrity check of its own); "
                          "required for --bundle unless --accept "
                          "unverified-bundle is given")
-    ap.add_argument("--bundle-cipher", default=o19bundle.DEFAULT_CIPHER)
+    ap.add_argument("--bundle-cipher", metavar="NAME",
+                    default=o19bundle.DEFAULT_CIPHER,
+                    help="openssl cipher the .enc bundle was created with "
+                         "(default: " + o19bundle.DEFAULT_CIPHER + ")")
     ap.add_argument("--bundle-openssl-opt", action="append", default=[],
                     metavar="OPT",
                     help="passthrough openssl option for legacy bundles "
@@ -1244,11 +1255,23 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                     help="mysqldump of the O19 database (.sql or .sql.gz)")
     ap.add_argument("--properties", metavar="FILE",
                     help="the clinic's deployed oscar.properties")
-    ap.add_argument("--province", choices=["on", "bc"])
+    ap.add_argument("--province", choices=["on", "bc"],
+                    help="restate the host's configured province; a value "
+                         "that differs from it is refused (default: the "
+                         "host's own). The import supports Ontario")
+    # the assessment evaluates only the preflight blockers, and opens
+    # bundles: the phase sign-offs (backup, documents, charset repair)
+    # belong to phases it never runs. choices stay the full set so a
+    # script may pass an import-side flag harmlessly.
+    advertised = (ACCEPT_CLASSES if import_mode else
+                  tuple(o19_preflight.ACCEPT_IDS) + ("unverified-bundle",))
     ap.add_argument("--accept", action="append", default=[],
                     metavar="CLASS", choices=list(ACCEPT_CLASSES),
                     help="acknowledge a blocker class (repeatable): "
-                         + ", ".join(ACCEPT_CLASSES))
+                         + ", ".join(advertised)
+                         + ("" if import_mode else
+                            " (not recorded: this verb persists no "
+                            "sign-off)"))
     ap.add_argument("--restage", action="store_true",
                     help="drop and re-restore the staging schema (also "
                          "clears the recorded preflight verdict)")
@@ -1290,8 +1313,11 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                              "0 = no bound). A sparse or crafted dump "
                              "cannot then hold one statement forever")
         ap.add_argument("--dry-run", action="store_true",
-                        help="run P0-P2 + reports only; no writes beyond "
-                             "the throwaway staging schema")
+                        help="run P0-P2 plus the properties report; no "
+                             "writes beyond the throwaway staging schema. "
+                             "--accept flags are NOT recorded, and a "
+                             "workspace whose import is in progress is "
+                             "refused")
         ap.add_argument("--resume", action="store_true",
                         help="continue a previous run from its recorded "
                              "state (required whenever state exists)")

@@ -13,7 +13,8 @@
 #
 # Usage:
 #   build-o19-fixture.sh --oscar-src /path/to/oscar --out /path/out \
-#       [--db o19_fixture] [--with-olis] [--mysql-cmd mariadb] \
+#       [--db o19_fixture] [--with-olis] [--with-updates] \
+#       [--mysql-cmd mariadb] \
 #       [--mysql-arg -uroot] [--mysql-arg --host=127.0.0.1] ... \
 #       [--mysql-password-file /path/to/passfile]
 #
@@ -23,7 +24,8 @@
 # order (best effort: a real clinic database carries years of these patches,
 # which add ~280 privilege rows and extra roles; a script that fails on a
 # modern server is reported and skipped). Default off: the stock init set
-# keeps the fixture deterministic.
+# keeps the fixture's CONTENT stable from run to run (the dump itself is
+# never byte-reproducible - see fixtures/PROVENANCE.md).
 # Repeatable --mysql-arg values pass client options through. The password
 # never travels on the command line (visible in process listings and shell
 # history): give it via --mysql-password-file (exported as MYSQL_PWD into

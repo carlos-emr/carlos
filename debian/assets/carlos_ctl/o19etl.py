@@ -996,6 +996,18 @@ def normalize_table_case(plain, src_schema: str,
     return lines
 
 
+def precheck_scope(state_dir: str) -> str:
+    """How a pre-check refusal must describe what already stands. Before
+    the copy has written anything the whole import is untouched; on a
+    resume whose ledger records work, the earlier phases' writes remain
+    and only the copy stopped, so "nothing was written" would be a lie.
+    Reads the ledger without binding it to a dump or manifest."""
+    progress = load_progress(state_dir)
+    if progress.get("admin_provider_no") or progress.get("tables"):
+        return "no further writes were made"
+    return "nothing was written"
+
+
 def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     """Execute P4. make_password_hash() -> (password, bcrypt_hash, pin)
     so the crypto (and its bcrypt dependency) stays injectable."""
@@ -1013,7 +1025,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # class is refused outright (root runs every statement below)
     odd = unsafe_identifiers(src_info)
     if odd:
-        die("ETL pre-checks failed (nothing was written): the staged dump "
+        die("ETL pre-checks failed ({0}): the staged dump ".format(
+            precheck_scope(state_dir)) + 
             "carries {0} table/column name(s) outside the accepted "
             "identifier class [A-Za-z0-9_$] — not an OSCAR 19 clinic "
             "dump as shipped; rename them in the source and re-export: {1}"
@@ -1156,8 +1169,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         problems.extend(o19roles.validate_role_templates(
             ctx["role_templates"], customs, o19map_schema.STOCK_ROLE_NAMES))
     if problems:
-        die("ETL pre-checks failed (nothing was written):\n  "
-            + "\n  ".join(problems))
+        die("ETL pre-checks failed ({0}):\n  ".format(
+            precheck_scope(state_dir)) + "\n  ".join(problems))
 
     # enum values outside the target set fall to the column default —
     # counted up front so the fallback is never silent

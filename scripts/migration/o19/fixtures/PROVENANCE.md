@@ -35,5 +35,8 @@ content (clearly-fake values only — no real clinic or patient data):
   OscarDocument tree (no binaries committed), plus the matching fixture
   database rows.
 
-Do not edit the vendored files: re-vendor from upstream and update the
+`demo-data/demo.sql` and `properties/oscar_mcmaster.properties` carry no
+CARLOS header on purpose: they are upstream files, kept as close to verbatim
+as the redaction above allows, so that re-vendoring is a copy rather than a
+merge. Do not edit the vendored files: re-vendor from upstream and update the
 commit hash above instead.

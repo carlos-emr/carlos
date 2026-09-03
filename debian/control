@@ -84,6 +84,9 @@ Description: CARLOS EMR - Canadian electronic medical record (single-host deploy
  MariaDB as "mysql". Root is used only by the package maintainer scripts and
  by the certificate-renewal timer.
  .
+ An experimental migration path imports an existing OSCAR 19 clinic into a
+ fresh install; see carlos-ctl(8), verbs import-o19 and o19-preflight.
+ .
  For a container-based, multi-pod deployment with an observability stack see
  the carlos-podman project instead.
 

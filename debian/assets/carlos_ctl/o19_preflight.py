@@ -9,16 +9,19 @@ in two modes with identical checks:
 * ASSESSMENT MODE (standalone, at the clinic): copy THIS ONE FILE to the
   OSCAR 19 server and run it against the live database before any backup is
   shipped. It is deliberately self-contained and runs on the old Python 3
-  found on 2014-era Ubuntu (no f-strings, stdlib only) and talks to MySQL by
-  shelling out to the mysql/mariadb command-line client:
+  found on 2014-era Ubuntu — Python 3.4 and newer (no f-strings, no
+  annotations, stdlib only) — and talks to MySQL by shelling out to the
+  mysql/mariadb command-line client:
 
       python3 o19_preflight.py --db oscar --mysql-cmd mysql \\
           --mysql-arg=-uroot --mysql-password-file /root/.o19pw \\
-          --properties /path/to/oscar.properties
+          --properties /path/to/oscar.properties --province on
 
   (--mysql-arg values start with '-', so the =form is required; the
   password travels via MYSQL_PWD from --mysql-password-file, never argv —
-  a bare interactive -p would prompt once per query and is refused.)
+  a bare interactive -p would prompt once per query and is refused.
+  --province on|bc selects the provincial profile the checks assume,
+  default on.)
 
 * IMPORT MODE: `carlos-ctl import-o19` imports this module and calls
   run_checks() against the restored o19_import staging schema, passing the
@@ -28,7 +31,12 @@ Exit codes: 0 = go; 1 = go-with-acknowledgements (blockers exist but every
 one names the --accept flag that clears it); 2 = no-go (a blocker needs
 remediation, not a flag); 3 = the check itself could not run (bad
 arguments, unreadable file, database error) — never confused with a
-verdict. The JSON report (--json) is the machine contract.
+verdict. Blocker classes this mode can acknowledge (--accept, repeatable):
+archived-forms, unknown-as-archive, olis-gone, dropped-columns and
+carry-credentials (B9 — live OAuth consumer secrets or signing keys the
+copy would carry verbatim; rotate or verify them before go-live). The
+remaining import-side sign-offs belong to phases this mode never runs.
+The JSON report (--json) is the machine contract.
 
 Migration output should receive a technical review — verification report,
 spot checks, UI smoke — before clinical use.

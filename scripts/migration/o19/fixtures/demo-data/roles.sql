@@ -6,8 +6,10 @@
 -- value is clearly fake; no real clinic, person or patient. Exercises the M8
 -- roles post-step: a clinic-custom role, an assignment with activeyn NULL, an
 -- expired login, a document-queue object, a patient-scoped lockout, a clinic
--- override of a stock grant, a legacy prevention type code and a removed-module
--- property key.
+-- override of a stock grant, a grant on an object CARLOS no longer checks,
+-- legacy prevention type codes beside the valid DTaP, a removed-module
+-- property key, and an indicatorTemplate row whose SQL carries an embedded
+-- line break (the preflight scan must see it through the client's escapes).
 
 -- a clinic-custom role copied from the stock nurse role with one deviation
 -- on _rx (the chooser picks the closest stock role — `Nurse Manager` in the

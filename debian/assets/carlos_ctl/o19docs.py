@@ -4,7 +4,9 @@
 
 Restores the clinic's OscarDocument tree into the deb layout
 (/var/lib/carlos-emr/OscarDocument/carlos/…), renames the O19 context
-directory, rewrites HRMDocument absolute paths, and runs the BLOCKING
+directory, relocates HRM reports flat under document/ (refusing when two
+HRMDocument rows would reach the same basename by different paths) and
+rewrites their absolute paths, then runs the BLOCKING
 reconciliation of docs plan §5: every `document.docfilename` and every
 eForm `${oscar_image_path}` asset must resolve to a real file; orphan
 files are report-only; derived cache directories (`document_cache`, …)

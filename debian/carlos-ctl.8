@@ -69,7 +69,7 @@ Repair
 after a failed migration.
 .TP
 .B db-apply-settings
-Restart MariaDB if — and only if — its running values disagree with the
+Restart MariaDB if \(em and only if \(em its running values disagree with the
 packaged drop\-in (checked first, so an upgrade that changes nothing never
 bounces the database).
 .TP
@@ -127,7 +127,7 @@ failure the running rules keep serving and the command says so.
 .SS Backups
 .TP
 .B backup full
-Take a backup now, by starting the same systemd unit the nightly timer runs —
+Take a backup now, by starting the same systemd unit the nightly timer runs \(em
 so a manual run and a timer run are the identical code path, with the unit's
 sandbox and its read capability. The job itself executes as the
 .B carlos\-backup
@@ -202,26 +202,28 @@ report, spot checks, UI smoke \(em before clinical use.
 Import an OSCAR 19 clinic backup into a STOCK initial deploy (a fresh
 Flyway schema holding only its seed rows; anything else is refused with no
 override). Inputs: either
-.B --bundle
+.B \-\-bundle
 .I FILE
 \(em one archive (.tar/.tar.gz/.tar.enc/.tar.gz.enc; .enc is
 openssl password-based encryption, unlocked with
-.BR --bundle-pass ;
+.BR \-\-bundle-pass ;
 the digest the clinic conveyed separately is checked with
-.B --bundle-sha256
+.B \-\-bundle-sha256
 before the bundle is opened, because openssl enc has no integrity check of
 its own)
 holding the dump, the OscarDocument tar and oscar.properties at its root
 \(em or the three
-.BR --dump / --documents / --properties
+.BR \-\-dump / \-\-documents / \-\-properties
 flags.
-.B --admin-user
+.B \-\-admin-user
 names the break-glass administrator created before the seeded clinician is
-removed. The clinic's role matrix is merged under CARLOS's seeded grants
+removed; it is required for a real import and refused only by
+.BR \-\-dry-run .
+The clinic's role matrix is merged under CARLOS's seeded grants
 (CARLOS wins on the same role and object, clinic rows append) and
 clinic-custom roles receive the CARLOS-era privileges of the closest stock
 role;
-.B --role-template
+.B \-\-role-template
 .I CUSTOM=STOCK
 (repeatable, case-insensitive) overrides that choice; the mapping is
 recorded in the import ledger once it validates and bound once the backfill
@@ -238,8 +240,9 @@ unit is refused (its startup writes rows the row-parity gate would reject).
 .B \-\-dry-run
 stages and reports without writing to the EMR schema (its
 .B \-\-accept
-flags are not recorded; it still runs the P0 gates, and it is refused over a
-workspace whose import is in progress);
+flags are not recorded; it still runs the stock\-deploy, capacity and
+server\-compatibility gates, and it is refused over a workspace whose import
+is in progress);
 .B \-\-resume
 continues an interrupted real import (required whenever a previous run left
 state behind beyond a staged dump \(em state is never continued implicitly,
@@ -250,9 +253,12 @@ on resume);
 drops and re-restores the staging schema (clearing the recorded preflight
 verdict);
 .B \-\-cleanup
-drops the staging schema and the throwaway staging account, removes the
-extracted bundle, retires the run's ledgers, report and private files with a
-.I .completed-<time>
+drops the staging schema and the throwaway staging account, removes both
+extracted bundle trees
+.RI ( bundle/ " and " bundle-assess/ ),
+retires the run's ledgers, report, private files and the derived properties
+fragment with a
+.I .completed-<timestamp>
 suffix and keeps the o19_archive schema and
 .I admin-credentials.txt
 \(em allowed after verification or while nothing has been written to the
@@ -261,7 +267,9 @@ before the staged restore, which runs as a throwaway account limited to the
 staging schema; a dump carrying USE or CREATE DATABASE statements is
 refused.
 .B \-\-dev-target
-and
+(which needs
+.BR \-\-mariadb-arg ,
+and is implied by it) and
 .B \-\-mariadb-arg
 serve development databases only and are refused on a packaged host
 .RB ( \-\-fixups-dir
@@ -272,25 +280,25 @@ source tree.
 .RS
 .PP
 Options:
-.BR \-\-bundle " FILE" ,
+.BR \-\-bundle " FILE,"
 .BR \-\-bundle-pass " SPEC"
 (openssl \-pass spec: file:PATH, env:VAR, fd:N, stdin),
-.BR \-\-bundle-sha256 " HEX" ,
+.BR \-\-bundle-sha256 " HEX,"
 .BR \-\-bundle-cipher " NAME"
-(default aes-256-cbc),
+(default aes\-256\-cbc),
 .BR \-\-bundle-openssl-opt " OPT"
 (repeatable passthrough for legacy bundles, e.g. \-md then md5);
-.BR \-\-dump " FILE" ,
-.BR \-\-documents " FILE" ,
-.BR \-\-properties " FILE" ;
-.BR \-\-skip-documents
+.BR \-\-dump " FILE,"
+.BR \-\-documents " FILE,"
+.BR \-\-properties " FILE;"
+.B \-\-skip-documents
 (needs
 .BR "\-\-accept no-documents" );
 .BR \-\-province " on|bc"
 (must match the host's configured province; the import supports Ontario);
-.BR \-\-admin-user " NAME" ;
-.BR \-\-role-template " CUSTOM=STOCK" ;
-.BR \-\-accept " CLASS" ;
+.BR \-\-admin-user " NAME;"
+.BR \-\-role-template " CUSTOM=STOCK;"
+.BR \-\-accept " CLASS;"
 .BR \-\-dry-run ,
 .BR \-\-resume ,
 .BR \-\-restage ,
@@ -299,8 +307,8 @@ Options:
 (bound every SQL statement of the import to this many seconds, MariaDB
 max_statement_time; 0 = no bound, the default);
 .BR \-\-dev-target ,
-.BR \-\-mariadb-arg " ARG" ,
-.BR \-\-fixups-dir " DIR" .
+.BR \-\-mariadb-arg " ARG,"
+.BR \-\-fixups-dir " DIR."
 .PP
 Sign-off classes for
 .BR \-\-accept :
@@ -310,10 +318,10 @@ Sign-off classes for
 (tables the manifest does not know are archived whole),
 .B dropped-columns
 (columns CARLOS dropped are shadow-captured),
-.B olis-gone
-(OLIS data is archive-only),
 .B charset-repair
 (double-encoded text is repaired per row),
+.B olis-gone
+(OLIS data is archive-only),
 .B no-documents
 (import without the documents tree),
 .B no-pre-backup
@@ -330,7 +338,8 @@ the report and survives \-\-resume.
 Stage a dump and run only the capacity checks and the go/no-go feasibility
 check; the exit status is the verdict (0 go, 1 acknowledgements required,
 2 no-go) and 3 for any failure of the tool itself (unreachable server, bad
-flags, refused dump, disk); nothing is recorded as a sign-off and a
+flags, refused dump, insufficient disk); nothing is recorded as a sign-off
+and a
 workspace whose import is in progress is refused untouched. Options:
 .BR \-\-bundle ,
 .BR \-\-bundle-pass ,
@@ -343,12 +352,20 @@ workspace whose import is in progress is refused untouched. Options:
 .BR \-\-accept ,
 .BR \-\-restage ,
 .BR \-\-mariadb-arg ,
-.BR \-\-dev-target
+.B \-\-dev-target
 as for
 .BR import-o19 .
 For an assessment BEFORE backups are shipped, copy
-/usr/lib/carlos-emr/carlos_ctl/o19_preflight.py to the OSCAR 19 server and
-run it there standalone.
+.I /usr/lib/carlos\-emr/carlos_ctl/o19_preflight.py
+to the OSCAR 19 server and run it there standalone. The standalone form
+takes its own flags \(em
+.BR \-\-db ", " \-\-mysql-cmd ", " \-\-mysql-arg ", "
+.BR \-\-mysql-password-file ", " \-\-properties ", " \-\-province ", "
+.BR \-\-accept " and " \-\-json
+\(em not this verb's, and its
+.B \-\-accept
+knows only the five classes an assessment can acknowledge: archived\-forms,
+unknown\-as\-archive, olis\-gone, dropped\-columns and carry\-credentials.
 .SH FILES
 .TP
 .I /etc/carlos-emr/carlos-emr.env
@@ -368,9 +385,42 @@ WAF policy and site exclusions.
 .TP
 .I /etc/nginx/sites-available/carlos-emr
 The front door.
+.TP
+.I /var/lib/carlos-emr/o19-import/
+Workspace of an OSCAR 19 import (root\-only, created by
+.BR import-o19 ):
+.I state.json
+and
+.I etl-progress.json
+(the ledgers a
+.B \-\-resume
+continues from),
+.I report.txt
+(the verification report),
+.I preflight.txt
+and
+.IR preflight.json ,
+the root\-only
+.IR verify-details.txt ,
+.I roles-details.txt
+and
+.IR privilege-diff.txt ,
+the derived
+.I o19-derived-carlos.properties
+fragment, and
+.I admin-credentials.txt
+(the break\-glass administrator's password, kept by
+.B \-\-cleanup
+when everything else is retired).
 .SH EXIT STATUS
 .B check
-exits non\-zero when any check fails. Other commands exit non\-zero on error.
+exits non\-zero when any check fails.
+.B o19-preflight
+reports its verdict as its status: 0 go, 1 go with acknowledgements, 2
+no\-go, and 3 when the tool itself failed \(em so 1 and 2 are answers, not
+errors. Every other command, including
+.BR import-o19 ,
+exits 0 on success and non\-zero on error.
 .SH SEE ALSO
 .BR nginx (8),
 .BR certbot (1),
