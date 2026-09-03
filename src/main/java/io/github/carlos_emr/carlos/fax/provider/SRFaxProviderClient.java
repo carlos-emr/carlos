@@ -33,12 +33,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import org.apache.cxf.common.util.Base64Utility;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.NameValuePair;
@@ -351,7 +353,10 @@ public class SRFaxProviderClient implements FaxProviderClient {
             }
             throw e;
         }
-        ensureSuccess(root, "SRFax rejected the account number or password");
+        // A JSON "Failed" body carries SRFax's own reason (an invalid access code/password,
+        // but also account-state or request problems), so keep the prefix neutral and let the
+        // provider text say what went wrong. Only the bare 401/403 above is a credential verdict.
+        ensureSuccess(root, "SRFax connection test failed");
         logger.info("SRFax connection test succeeded");
     }
 
@@ -658,10 +663,21 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 .setResponseTimeout(Timeout.ofSeconds(60))
                 .build();
 
+        // RequestConfig no longer carries the TCP connect timeout (httpclient5 >= 5.2); without
+        // this the connect phase falls back to the 3-minute default, which would pin a scheduler
+        // thread or an admin's connection test on an unreachable host far longer than the
+        // 30s/60s budget above suggests.
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(30))
+                .build();
+
         HttpPost httpPost = new HttpPost(endpoint);
         httpPost.setConfig(requestConfig);
 
         try (CloseableHttpClient client = HttpClients.custom()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDefaultConnectionConfig(connectionConfig)
+                        .build())
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
             httpPost.setEntity(new UrlEncodedFormEntity(params));

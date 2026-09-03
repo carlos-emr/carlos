@@ -283,25 +283,25 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return the digits unchanged for a plain ten digit number")
     void shouldReturnDigitsUnchanged_forPlainTenDigitNumber() {
-        assertThat(ConfigureFax2Action.normalizeFaxNumber("4165550100", 1)).isEqualTo("4165550100");
+        assertThat(ConfigureFax2Action.normalizeFaxNumber("4165550100")).isEqualTo("4165550100");
     }
 
     @Test
     @DisplayName("should strip punctuation and a leading country code from an eleven digit number")
     void shouldStripCountryCodeAndPunctuation_fromElevenDigitNumber() {
-        assertThat(ConfigureFax2Action.normalizeFaxNumber("1 (416) 555-0100", 1)).isEqualTo("4165550100");
+        assertThat(ConfigureFax2Action.normalizeFaxNumber("1 (416) 555-0100")).isEqualTo("4165550100");
     }
 
     @Test
     @DisplayName("should strip dashes from a formatted ten digit number")
     void shouldStripDashes_fromFormattedTenDigitNumber() {
-        assertThat(ConfigureFax2Action.normalizeFaxNumber("416-555-0100", 1)).isEqualTo("4165550100");
+        assertThat(ConfigureFax2Action.normalizeFaxNumber("416-555-0100")).isEqualTo("4165550100");
     }
 
     @Test
     @DisplayName("should throw IllegalArgumentException for a nine digit number")
     void shouldThrowIllegalArgumentException_forNineDigitNumber() {
-        assertThatThrownBy(() -> ConfigureFax2Action.normalizeFaxNumber("416555010", 1))
+        assertThatThrownBy(() -> ConfigureFax2Action.normalizeFaxNumber("416555010"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("10-digit North American number");
     }
@@ -309,7 +309,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should throw IllegalArgumentException for a twelve digit number")
     void shouldThrowIllegalArgumentException_forTwelveDigitNumber() {
-        assertThatThrownBy(() -> ConfigureFax2Action.normalizeFaxNumber("124165550100", 1))
+        assertThatThrownBy(() -> ConfigureFax2Action.normalizeFaxNumber("124165550100"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("10-digit North American number");
     }
@@ -317,17 +317,9 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should throw IllegalArgumentException for a null fax number")
     void shouldThrowIllegalArgumentException_forNullFaxNumber() {
-        assertThatThrownBy(() -> ConfigureFax2Action.normalizeFaxNumber(null, 1))
+        assertThatThrownBy(() -> ConfigureFax2Action.normalizeFaxNumber(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("10-digit North American number");
-    }
-
-    @Test
-    @DisplayName("should include the one-based account row number in the validation message")
-    void shouldIncludeAccountRowNumber_inValidationMessage() {
-        assertThatThrownBy(() -> ConfigureFax2Action.normalizeFaxNumber("12345", 3))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("account row 3.");
     }
 
     @Test
@@ -350,7 +342,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             String body = response.getContentAsString();
             assertThat(body)
                     .contains("\"success\":false")
-                    .contains("account row 1.");
+                    .contains("Your SRFax fax number must be a 10-digit North American number.");
             // The IllegalArgumentException aborts the save loop (and the wipe-path fallback
             // save further down) before any row is persisted.
             verify(faxConfigDao, never()).saveEntity(any());
@@ -547,7 +539,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         grantConfigureWrite(true);
         stubProviderClient();
         org.mockito.Mockito.doThrow(new FaxProviderException(
-                "SRFax rejected the account number or password: Invalid Access Code / Password"))
+                "SRFax connection test failed: Invalid Access Code / Password"))
                 .when(providerClient).verifyConnection(any(FaxConfig.class));
         request.setMethod("POST");
         setTestConnectionParams("-1", "123456", "test-secret-pw");
@@ -810,7 +802,9 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         grantConfigureWrite(true);
         stubProviderClient();
         request.setMethod("POST");
-        setTestConnectionParams("1", "123456", "test-secret-pw");
+        // -1 is the form's "no stored row" marker, so configId is null: the message must be
+        // built without a NullPointerException and without a literal "null" id.
+        setTestConnectionParams("-1", "123456", "test-secret-pw");
         request.setParameter("providerType", "BOGUS<script>");
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
@@ -825,8 +819,8 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             String body = response.getContentAsString();
             assertThat(body)
                     .contains("\"success\":false")
-                    .contains("Invalid provider type 'BOGUSscript'");
-            assertThat(body).doesNotContain("<script>");
+                    .contains("Invalid provider type 'BOGUSscript'. Valid values are");
+            assertThat(body).doesNotContain("<script>").doesNotContain("null");
             verifyNoInteractions(providerClientFactory, providerClient);
         }
     }

@@ -45,9 +45,11 @@ default it only saves when no account is configured yet or the stored account is
 its own fake test account (otherwise the step is reported as SKIP).
 `SRFAX_LIVE=true` saves the real values you supplied; set
 `FAX_CONFIG_ALLOW_OVERWRITE=true` to force the save on a shared dev instance.
-Screenshots follow the same rule and are never captured in live mode unless
-`FAX_CONFIG_SCREENSHOTS=always` is set, so credential-bearing images do not land
-in shared artifact directories by accident.
+Screenshots follow the same rule, and additionally require that the values the
+run types are the built-in fake ones; they are never captured in live mode or
+with real `SRFAX_*` values exported unless `FAX_CONFIG_SCREENSHOTS=always` is
+set, so credential-bearing images do not land in shared artifact directories by
+accident.
 
 ## Loopback
 

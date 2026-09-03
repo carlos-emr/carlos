@@ -133,7 +133,7 @@ if (config.srfax.live) {
 
 const results = [];
 const PASSWORD_MASK = '**********';
-const TEST_CONNECTION_TIMEOUT_MS = 90000; // SRFaxProviderClient: 30s connection-request + 60s response timeout
+const TEST_CONNECTION_TIMEOUT_MS = 120000; // SRFaxProviderClient: 30s connect + 60s response, plus headroom
 
 function record(name, passed, details) {
   results.push({ name, passed, details });
@@ -161,11 +161,21 @@ async function step(name, fn) {
 // (masked) password field. Take them only when no real account can be on the page:
 // fake mode with an empty/fake stored account. Live mode, or a real stored account,
 // needs the explicit FAX_CONFIG_SCREENSHOTS=always opt-in.
+// Both what is already stored and what this run types into the form must be the
+// fake constants: real SRFAX_* values exported without SRFAX_LIVE=true still land
+// on the page before the first screenshot.
+function usingFakeValues() {
+  return config.srfax.accessId === FAKE_ACCESS_ID
+    && config.srfax.pass === FAKE_PASS
+    && config.srfax.email === FAKE_EMAIL
+    && config.srfax.faxNumber === FAKE_FAX_NUMBER;
+}
+
 function screenshotAllowed(existingAccountNumber) {
   if (config.screenshotsAlways) {
     return true;
   }
-  if (config.srfax.live) {
+  if (config.srfax.live || !usingFakeValues()) {
     return false;
   }
   return existingAccountNumber === '' || existingAccountNumber === FAKE_ACCESS_ID;

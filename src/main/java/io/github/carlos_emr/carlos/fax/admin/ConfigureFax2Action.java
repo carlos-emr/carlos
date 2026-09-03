@@ -196,7 +196,7 @@ public class ConfigureFax2Action extends ActionSupport {
                     try {
                         id = Integer.parseInt(faxConfigIds[idx]);
                     } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("Invalid configuration ID for account row " + (idx + 1) + ".");
+                        throw new IllegalArgumentException("Invalid fax configuration id.");
                     }
                     FaxConfig.ProviderType providerType = resolveProviderType(providerTypes, idx, id);
                     validateConfigRow(providerType, faxUrl, siteUser, sitePasswd, faxUsers, faxPasswds, faxNumbers, senderEmails, inboxQueues, idx, id);
@@ -229,7 +229,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxPasswds[idx] = null;
                         }
 
-                        savedFaxConfig.setFaxNumber(normalizeFaxNumber(faxNumbers[idx], idx + 1));
+                        savedFaxConfig.setFaxNumber(normalizeFaxNumber(faxNumbers[idx]));
                         savedFaxConfig.setSenderEmail(senderEmails[idx]);
                         savedFaxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
                         savedFaxConfig.setAccountName(accountNames[idx]);
@@ -256,7 +256,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             faxPasswds[idx] = null;
                         }
 
-                        faxConfig.setFaxNumber(normalizeFaxNumber(faxNumbers[idx], idx + 1));
+                        faxConfig.setFaxNumber(normalizeFaxNumber(faxNumbers[idx]));
                         faxConfig.setSenderEmail(senderEmails[idx]);
                         faxConfig.setQueue(Integer.parseInt(inboxQueues[idx]));
                         faxConfig.setAccountName(accountNames[idx]);
@@ -501,21 +501,20 @@ public class ConfigureFax2Action extends ActionSupport {
      * <p>Strips formatting characters and drops a leading North American country code from an
      * 11-digit entry. Rejects anything that does not normalize to exactly 10 digits — the
      * column is varchar(10), so an unvalidated longer value would be silently truncated and
-     * then fail to match {@code faxes.fax_line} in the sender/status-updater joins.</p>
+     * then fail to match {@code faxes.faxline} in the sender/status-updater joins.</p>
      *
      * @param rawFaxNumber admin-entered fax number (may carry punctuation/spaces)
-     * @param rowNumber 1-based account row index for the error message
      * @return exactly 10 digits
      * @throws IllegalArgumentException when the value cannot be normalized to 10 digits
      */
-    static String normalizeFaxNumber(String rawFaxNumber, int rowNumber) {
+    static String normalizeFaxNumber(String rawFaxNumber) {
         String digits = rawFaxNumber == null ? "" : rawFaxNumber.trim().replaceAll("\\D", "");
         if (digits.length() == 11 && digits.startsWith("1")) {
             digits = digits.substring(1);
         }
         if (digits.length() != 10) {
-            throw new IllegalArgumentException(
-                    "Fax number must be a 10-digit North American number for account row " + rowNumber + ".");
+            // The page renders a single account, so no row number in the message.
+            throw new IllegalArgumentException("Your SRFax fax number must be a 10-digit North American number.");
         }
         return digits;
     }
@@ -593,8 +592,10 @@ public class ConfigureFax2Action extends ActionSupport {
         } catch (IllegalArgumentException ex) {
             // Sanitize user input before including in error message to prevent XSS
             String sanitizedInput = providerTypes[idx].replaceAll("[^a-zA-Z0-9_]", "");
-            String errorMsg = String.format("Invalid provider type '%s' for fax config id %d. Valid values are: MIDDLEWARE, SRFAX",
-                    sanitizedInput, faxConfigId);
+            // faxConfigId is null for a row that has no stored id yet (the form posts -1).
+            String errorMsg = "Invalid provider type '" + sanitizedInput + "'"
+                    + (faxConfigId == null ? "" : " for fax config id " + faxConfigId)
+                    + ". Valid values are: MIDDLEWARE, SRFAX";
             MiscUtils.getLogger().error("Invalid provider type for fax config id {}: {}", faxConfigId, providerTypes[idx], ex);
             throw new IllegalArgumentException(errorMsg);
         }

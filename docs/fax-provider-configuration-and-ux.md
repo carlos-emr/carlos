@@ -51,8 +51,8 @@ Steps:
    HTTP 403: Forbidden). Check that the account number is the numeric SRFax account number, not
    your login email.` when SRFax answers with a bare HTTP 401/403 (its usual response to a bad
    `access_id`/`access_pwd` pair); when SRFax instead returns a JSON `Failed` body, the message
-   is `Connection failed: SRFax rejected the account number or password` followed by SRFax's
-   own reason text. A non-numeric account number (for example the login email) is refused
+   is `Connection failed: SRFax connection test failed: ` followed by SRFax's own reason text
+   (for example `Invalid Access Code / Password`). A non-numeric account number (for example the login email) is refused
    before anything is sent to SRFax, on both the test and the save. When the
    password field still shows the mask (`**********`), the stored password for that config is
    tested instead; with no stored config the page asks you to enter the password.

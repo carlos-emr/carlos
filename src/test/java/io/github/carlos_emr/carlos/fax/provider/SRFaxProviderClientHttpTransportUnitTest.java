@@ -220,11 +220,13 @@ class SRFaxProviderClientHttpTransportUnitTest extends CarlosUnitTestBase {
         // Given - SRFax reports a bad access_id/access_pwd pair as a failed Status
         responseBody = "{\"Status\":\"Failed\",\"Result\":\"Invalid Access Code / Password\"}";
 
-        // Then - fail closed with the provider reason, which carries no credential
+        // Then - fail closed with SRFax's own reason (which carries no credential) behind a
+        // neutral prefix: a JSON failure is not necessarily a credential verdict
         assertThatThrownBy(() -> client.verifyConnection(config))
                 .isInstanceOf(FaxProviderException.class)
-                .hasMessageContaining("rejected the account number or password")
-                .hasMessageContaining("Invalid Access Code / Password");
+                .hasMessageContaining("SRFax connection test failed")
+                .hasMessageContaining("Invalid Access Code / Password")
+                .satisfies(e -> assertThat(e.getMessage()).doesNotContain("rejected the account number"));
     }
 
     @ParameterizedTest(name = "bare HTTP {0} is explained as rejected credentials")
