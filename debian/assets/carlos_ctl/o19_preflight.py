@@ -1163,6 +1163,12 @@ def _like_prefix(value):
     return _sql_literal(value).replace("_", "\\_").replace("%", "\\%") + "%"
 
 
+def _chunks(seq, size):
+    """`seq` in slices of at most `size`. IN () lists go to the batch
+    client as one command line, so the long exact-key list is split."""
+    return [seq[i:i + size] for i in range(0, len(seq), size)]
+
+
 _WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -1638,6 +1644,20 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 _like_prefix(prefix)))
             if n:
                 removed[prefix] = n
+        # exact-named keys as well as prefixes: the props overlay drops
+        # most removed-module keys by prefix, but a good number by exact
+        # name (KEYS entries), and the import prunes BOTH — counting only
+        # the prefixes understated what the operator is about to lose.
+        # Chunked because a clinic property table is queried through the
+        # batch client and this list is long.
+        for chunk in _chunks(DROPPED_PROP_KEYS, 200):
+            n = count_live("property", "name IN ({0})".format(
+                ", ".join("'{0}'".format(_sql_literal(k)) for k in chunk)))
+            if isinstance(n, tuple):
+                removed["(exact keys)"] = n
+                break
+            if n:
+                removed["(exact keys)"] = removed.get("(exact keys)", 0) + n
         if removed:
             findings.append(finding(
                 "property-removed-module-keys", ADVISORY,
@@ -1694,11 +1714,19 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "Nothing is encrypted; CARLOS has no reader for that key "
                 "and the props phase drops it."))
         dropped = {}
+        exact = set(DROPPED_PROP_KEYS)
         for key in sorted(properties):
+            if key.startswith("ldap."):
+                continue
             for prefix in DROPPED_PROP_PREFIXES:
-                if key.startswith(prefix) and not key.startswith("ldap."):
+                if key.startswith(prefix):
                     dropped.setdefault(prefix, []).append(key)
                     break
+            else:
+                # not prefix-classified: the overlay may still drop it by
+                # exact name, and the props phase itemises it either way
+                if key in exact:
+                    dropped.setdefault("(exact keys)", []).append(key)
         if dropped:
             findings.append(finding(
                 "dropped-properties", ADVISORY,

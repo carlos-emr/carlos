@@ -322,6 +322,34 @@ class TestAdvisories(unittest.TestCase):
                          ["born_sftp_host", "born_sftp_password"])
         self.assertIn("util.erx.", f["data"])
 
+    def test_exact_named_dropped_keys_are_counted_too(self):
+        # most removed-module keys are classified by prefix, but a good
+        # number by exact name. The import prunes both, so an assessment
+        # that counted only the prefixes understated what the clinic
+        # loses — and the operator sees this list, not the manifest.
+        exact = [k for k in pf.DROPPED_PROP_KEYS
+                 if not any(k.startswith(p)
+                            for p in pf.DROPPED_PROP_PREFIXES)]
+        self.assertTrue(exact, "no exact-only dropped key in the manifest")
+        props = clean_props()
+        props[exact[0]] = "whatever"
+        report = pf.run_checks(FakeDb(base_tables()), properties=props)
+        self.assertEqual(report["verdict"], "go")
+        f = [x for x in report["findings"]
+             if x["id"] == "dropped-properties"][0]
+        self.assertEqual(f["data"]["(exact keys)"], [exact[0]])
+
+    def test_exact_named_property_rows_are_counted_too(self):
+        # the same gap on the property TABLE side: `name IN (...)`, not
+        # just the prefix LIKEs
+        db = FakeDb(base_tables(),
+                    where_counts={("property", "name IN ("): 3})
+        report = pf.run_checks(db, properties=clean_props())
+        f = [x for x in report["findings"]
+             if x["id"] == "property-removed-module-keys"][0]
+        self.assertEqual(f["data"]["(exact keys)"], 3)
+        self.assertEqual(f["severity"], pf.ADVISORY)
+
     def test_archive_config_rows_are_advisory_not_blocking(self):
         db = FakeDb(base_tables(report_template=4))
         report = pf.run_checks(db, properties=clean_props())
