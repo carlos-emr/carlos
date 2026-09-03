@@ -387,6 +387,21 @@ case "$1" in
         # answer sneaks a space in. env_get() and the round-trip reads below
         # strip the surrounding quotes, so this stays consistent with every
         # reader of the file.
+        #
+        # INVARIANT — escaped characters are write-only, they do NOT round-trip.
+        # The readers below (the CARLOS_JAVA_XMS/XMX equality check and the
+        # deploy-probe's CARLOS_SERVER_NAME/CARLOS_BIND_IP reads) strip the
+        # surrounding quotes but do NOT un-escape, so a value that was escaped
+        # here reads back with its backslashes intact. That is deliberate and
+        # safe: set_env_key only ever writes a fixed, constrained set of keys —
+        # a hostname, an IP, on/bc, a timezone, a heap size — none of whose
+        # legitimate values contain `\`, `"`, `$` or a backtick, so the escape
+        # pass is a no-op for every value these keys can actually hold. The
+        # escaping exists purely to neutralise a garbage/hostile debconf answer
+        # for the shell that sources this file; such a value is already invalid
+        # for its key (a "hostname" with a backtick will not resolve), so a
+        # non-identical read-back of it changes nothing. Do NOT widen these
+        # writes to free-form keys without teaching the readers to un-escape.
         set_env_key() {
             key="$1" value="$2"
             SEK_KEY="${key}" SEK_VALUE="${value}" awk '
