@@ -411,6 +411,39 @@ def check_disk_headroom(dump_bytes: int, bundle_size: int,
     return None
 
 
+def process_grant_state(rows) -> str:
+    """Whether PROCESS is held: "held", "absent" or "unknown" for the PROCESS privilege, read from
+    `SHOW GRANTS` output.
+
+    Token-aware on purpose. A substring search for "PROCESS" matches any
+    identifier containing it — an account whose only grant is
+    `SELECT ON \\`hl7_processing\\`.*` holds no PROCESS at all, yet made a
+    substring test go quiet and restored the very blind spot this check
+    closes. So only the privilege list is examined: the text between
+    `GRANT` and the first ` ON `, split on commas.
+
+    Returns "unknown" rather than "absent" whenever nothing parses as a
+    grant line, so an unfamiliar server dialect can never turn this into
+    a false refusal that blocks a clinic's migration. Only a positive
+    "absent" refuses.
+    """
+    parsed = False
+    for row in rows or []:
+        if not row or not row[0]:
+            continue
+        upper = str(row[0]).upper().strip()
+        if not upper.startswith("GRANT ") or " ON " not in upper:
+            # role grants ("GRANT `r1`@`%` TO ...") and anything else we
+            # do not recognise: not evidence either way
+            continue
+        parsed = True
+        privileges = upper.split(" ON ", 1)[0][len("GRANT "):]
+        for privilege in privileges.split(","):
+            if privilege.strip() in ("PROCESS", "ALL PRIVILEGES"):
+                return "held"
+    return "absent" if parsed else "unknown"
+
+
 def documents_expanded_size(tar_path: str) -> int:
     """Expanded footprint of the documents archive (sum of member sizes
     from the archive's own headers); the archive's own size is what a
@@ -490,12 +523,10 @@ def run_p0_capacity(ctx) -> None:
     # is itself unavailable or unparseable (a false refusal here would
     # block an import for no reason).
     try:
-        grants = " ".join(str(r[0]) for r in (query("SHOW GRANTS") or [])
-                          if r and r[0])
+        grant_rows = query("SHOW GRANTS")
     except RuntimeError:
-        grants = ""
-    if grants and "ALL PRIVILEGES" not in grants.upper() \
-            and "PROCESS" not in grants.upper():
+        grant_rows = None
+    if process_grant_state(grant_rows) == "absent":
         die("the database account this import runs as does not hold the "
             "PROCESS privilege, so information_schema.PROCESSLIST shows "
             "only its own threads and an attached replica would go "

@@ -10,6 +10,7 @@ Run (from debian/assets):
 
 import inspect
 import os
+import textwrap
 import unittest
 
 from carlos_ctl import o19etl, o19map_schema
@@ -1017,14 +1018,47 @@ class TestAbsentTableDisposition(unittest.TestCase):
         self.assertTrue(clear)
         self.assertIn("the target's own rows were cleared", note)
 
-    def test_the_note_does_not_depend_on_this_run_doing_the_delete(self):
-        # the report block is rebuilt from scratch every run, so a resume
-        # that skips the (already done) delete must still say it happened
-        # — otherwise the fact P0's tolerance rests on vanishes from the
-        # shareable report on the second attempt
-        first = o19etl.absent_table_disposition("log", "copy", self.TOL, True)
-        again = o19etl.absent_table_disposition("log", "copy", self.TOL, True)
-        self.assertEqual(first[1], again[1])
+    def test_the_report_line_is_not_nested_under_the_delete_guard(self):
+        # The regression this guards is a CALL-SITE one and cannot be
+        # expressed against the helper: absent_table_disposition is pure,
+        # so `f(x) == f(x)` holds for any implementation, broken ones
+        # included. What went wrong was that the note was only produced
+        # when THIS run did the delete, so --resume dropped it from the
+        # shareable report — taking with it the one fact P0's tolerance
+        # rests on. `absent_tables` is rebuilt from scratch every run, so
+        # the line has to be appended outside the idempotency guard.
+        src = textwrap.dedent(inspect.getsource(o19etl.run_etl))
+        start = src.index("clear, note = absent_table_disposition")
+        guard = src.index('if clear and not progress["tables"]', start)
+        append = src.index("absent_tables.append(", start)
+        self.assertLess(guard, append, "the append moved above the guard")
+
+        lines = src.split("\n")
+
+        def line_no(offset):
+            return src.count("\n", 0, offset)
+
+        def indent(i):
+            return len(lines[i]) - len(lines[i].lstrip())
+
+        # the guard's block is the run of more-indented lines after it;
+        # the append must fall OUTSIDE it, or a resumed run (which skips
+        # the delete) would skip the report line with it
+        g, a = line_no(guard), line_no(append)
+        body_end = g + 1
+        while body_end < len(lines) and (
+                not lines[body_end].strip()
+                or indent(body_end) > indent(g)):
+            body_end += 1
+        self.assertFalse(
+            g < a < body_end,
+            "absent_tables.append sits inside the absent_cleared guard "
+            "(lines {0}..{1}): a resumed run would not report the "
+            "clear".format(g, body_end))
+        # and the note itself must come from the helper, not be recomputed
+        # in the branch where it could be made conditional again
+        branch = src[start:src.index("continue", append)]
+        self.assertNotIn("note =", branch.replace("clear, note =", ""))
 
     def test_a_tolerated_table_missing_from_the_target_is_left_alone(self):
         clear, note = o19etl.absent_table_disposition(

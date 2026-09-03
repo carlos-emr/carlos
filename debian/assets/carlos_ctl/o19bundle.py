@@ -162,14 +162,19 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
             "properties": props[0]}
 
 
-#: everything reading a clinic archive can raise. zlib.error is the
-#: one that does NOT descend from OSError: a gzip member whose deflate
-#: stream is corrupt mid-body surfaces it unwrapped through tarfile, and
-#: a truncated multi-GB scp is exactly how that happens. Letting it
-#: escape costs more than a traceback — for the o19-preflight verb an
-#: uncaught exception exits 1, and exit 1 IS the "go with
-#: acknowledgements" verdict.
-ARCHIVE_ERRORS = (tarfile.TarError, zlib.error, OSError, EOFError)
+#: what reading a clinic archive raises that does NOT descend from
+#: OSError, and so has to be named explicitly:
+#:   * zlib.error — a gzip member whose deflate stream is corrupt
+#:     mid-body surfaces it unwrapped through tarfile;
+#:   * ValueError — tarfile parses GNU sparse pax headers with bare
+#:     int()/unpack calls (_proc_gnusparse_01/_10, _apply_pax_info), so a
+#:     `tar --sparse` archive cut inside a sparse member raises it.
+#: Both are reached by the same event: a truncated multi-GB scp. Letting
+#: either escape costs more than a traceback — for the o19-preflight verb
+#: an uncaught exception exits 1, and exit 1 IS the "go with
+#: acknowledgements" verdict, so a crash reads as a migration verdict.
+ARCHIVE_ERRORS = (tarfile.TarError, zlib.error, ValueError, OSError,
+                  EOFError)
 
 
 def read_tar_entries(path: str, gzipped: bool

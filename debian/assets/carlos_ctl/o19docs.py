@@ -988,7 +988,9 @@ def run_docs(ctx) -> None:
             "tar instead, restore the pre-import snapshot first. An eForm "
             "image reference that ESCAPES eform/images is not a missing "
             "file and no tar can clear it: correct that form's form_html "
-            "in the target (or disable the form), then --resume."
+            "in the target, then --resume. (Disabling the form does not "
+            "clear it — the check reads every eform row that mentions "
+            "oscar_image_path, whatever its status.)"
             .format(len(problems), details_path, ctx_root))
     o19import.mark_done(state_dir, state, "documents", tar_sha256=tar_sha,
                         restored=True)

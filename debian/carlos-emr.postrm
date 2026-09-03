@@ -135,10 +135,47 @@ case "$1" in
         # Heap dumps are PHI, so they are NOT removed here — see the notice
         # below.
 
-        cat >&2 <<'NOTICE'
-carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED.
+        # `carlos-ctl destroy-data` may have been run BEFORE purge, in
+        # which case the clinical databases are already gone. A notice
+        # that promises a retained `oscar` — and, below, tells the
+        # operator to sign in with a clinic provider login that went with
+        # it — is then actively wrong at the moment they are deciding what
+        # this host still holds. Probe, but NEVER fail the postrm on it:
+        # mariadb may be stopped or its client already removed, and in
+        # that case the notice asserts nothing either way.
+        O19_DB=unknown
+        if command -v mariadb >/dev/null 2>&1; then
+            O19_SCHEMA=""
+            O19_RC=0
+            O19_SCHEMA=$(mariadb --protocol=socket --user=root -N -B -e \
+                "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA \
+                 WHERE SCHEMA_NAME = 'oscar'" 2>/dev/null) || O19_RC=$?
+            if [ "$O19_RC" -ne 0 ]; then
+                O19_DB=unknown
+            elif [ -n "$O19_SCHEMA" ]; then
+                O19_DB=present
+            else
+                O19_DB=absent
+            fi
+        fi
 
-  kept: the `oscar` and `drugref2` databases and their accounts
+        cat >&2 <<'NOTICE'
+carlos-emr: purge complete. THIS PURGE REMOVED NOTHING BELONGING TO THE
+CLINICAL RECORD.
+NOTICE
+        case "$O19_DB" in
+          present) echo "
+  kept: the \`oscar\` and \`drugref2\` databases and their accounts" >&2 ;;
+          absent)  echo "
+  gone: the \`oscar\` and \`drugref2\` databases are no longer on this host --
+        they were destroyed before this purge (carlos-ctl destroy-data), not
+        by it. Everything below that depends on them is gone with them." >&2 ;;
+          *)       echo "
+  kept: the \`oscar\` and \`drugref2\` databases and their accounts, if they
+        were still present -- this purge did not touch them (the database
+        could not be reached to confirm)" >&2 ;;
+        esac
+        cat >&2 <<'NOTICE'
   kept: /var/lib/carlos-emr/OscarDocument   (patient documents)
   kept: /var/lib/carlos-emr/heapdumps        (JVM heap dumps — treat as PHI)
   kept: /var/backups/carlos-emr              (backups and the restic repository)
@@ -156,6 +193,11 @@ carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED
         break-glass credential note and the derived properties fragment were
         removed (shredded unless a warning above says otherwise), the rest is
         the record of what the migration did)
+NOTICE
+        # only meaningful where an import actually ran, and only a live
+        # account where the database survived it
+        if [ -d "${STATE}/o19-import" ] && [ "$O19_DB" = present ]; then
+            cat >&2 <<'NOTICE'
   NOTE: the import's break-glass administrator account still EXISTS in the
         retained `oscar` database, and the note holding its password is now
         gone. The clinic's own provider logins came across with the import
@@ -164,6 +206,18 @@ carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED
         `carlosdoc` credential, and the import deletes that account. With no
         usable login left, the password must be reset directly in the
         `security` table of the retained database.
+NOTICE
+        elif [ -d "${STATE}/o19-import" ] && [ "$O19_DB" = absent ]; then
+            cat >&2 <<'NOTICE'
+  NOTE: the import's break-glass administrator account went with the `oscar`
+        database when it was destroyed; the note holding its password has now
+        been removed too. Nothing here is recoverable as a login. A reinstall
+        starts from a fresh schema whose seeded `carlosdoc` credential
+        `carlos-ctl bootstrap-admin` will reset.
+NOTICE
+        fi
+
+        cat >&2 <<'NOTICE'
 
 To destroy the data deliberately, reinstall the package and run
   carlos-ctl destroy-data --confirm <server-name>

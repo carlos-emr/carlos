@@ -844,3 +844,50 @@ class TestVerifyPhaseFiles(unittest.TestCase):
             text = fh.read()
         self.assertNotIn("fixture.expired", text)
         self.assertEqual(text.count("P7 verify:"), 1)
+
+
+class TestProcessGrantState(unittest.TestCase):
+    """The replica gate's PROCESS-privilege determination.
+
+    Without PROCESS the server does not error on
+    information_schema.PROCESSLIST — it silently restricts the rows to
+    the caller's own threads, so the binlog-dump count comes back 0 and
+    an attached replica goes unnoticed by a binlog-off bulk copy.
+    """
+
+    def test_all_privileges_is_held(self):
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost` "
+              "WITH GRANT OPTION"]]), "held")
+
+    def test_process_inside_a_privilege_list_is_held(self):
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT SELECT, PROCESS, RELOAD ON *.* TO `x`@`h`"]]), "held")
+
+    def test_a_privilege_from_an_active_role_is_held(self):
+        # MariaDB expands an enabled default role in SHOW GRANTS
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT PROCESS ON *.* TO `o19role`"]]), "held")
+
+    def test_an_identifier_containing_process_is_not_the_privilege(self):
+        # the fail-OPEN this replaces: a substring test went quiet for an
+        # account holding no PROCESS at all, because one of its grants
+        # named a schema called hl7_processing
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT USAGE ON *.* TO `o19np`@`localhost`"],
+             ["GRANT SELECT ON `hl7_processing`.* TO `o19np`@`localhost`"]]),
+            "absent")
+
+    def test_a_table_named_processlist_is_not_the_privilege(self):
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT SELECT ON `db`.`processlist_cache` TO `u`@`h`"]]),
+            "absent")
+
+    def test_an_unparseable_dialect_is_unknown_not_absent(self):
+        # only a POSITIVE determination may refuse: an unfamiliar server
+        # must never turn this into a false refusal blocking a migration
+        for rows in ([["SOMETHING ELSE ENTIRELY"]],
+                     [["GRANT `r1`@`%` TO `u`@`%`"]],
+                     [], None):
+            self.assertEqual(o19import.process_grant_state(rows),
+                             "unknown", repr(rows))
