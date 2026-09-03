@@ -319,6 +319,28 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
+     * Verifies the SRFax account number / password pair with a read-only inbox probe.
+     *
+     * <p>Issues the same {@code Get_Fax_Inbox} (unread-only) call the scheduler poll uses, which
+     * SRFax rejects with a failed {@code Status} when {@code access_id}/{@code access_pwd} are
+     * wrong. Nothing is downloaded or marked read, so the probe is safe to repeat from the
+     * admin page. Credentials are never logged.</p>
+     */
+    @Override
+    public void verifyConnection(FaxConfig faxConfig) throws FaxProviderException {
+        requireMatchingProviderType(faxConfig);
+        validateCredentials(faxConfig);
+
+        List<NameValuePair> params = createAuthParams(faxConfig);
+        params.add(new BasicNameValuePair("action", ACTION_GET_INBOX));
+        params.add(new BasicNameValuePair("sViewedStatus", "UNREAD"));
+
+        JsonNode root = postForm(getSrfaxApiUrl(), params);
+        ensureSuccess(root, "SRFax rejected the account number or password");
+        logger.info("SRFax connection test succeeded");
+    }
+
+    /**
      * Downloads a specific fax document from SRFax without marking it as read.
      *
      * <p>This is the first phase of the three-phase import strategy: download the fax content
@@ -655,7 +677,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     private void validateCredentials(FaxConfig faxConfig) throws FaxProviderException {
         if (faxConfig.getFaxUser() == null || faxConfig.getFaxUser().trim().isEmpty()) {
-            throw new FaxProviderException("SRFax username (faxUser) is not configured for this fax account");
+            throw new FaxProviderException("SRFax account number (faxUser) is not configured for this fax account");
         }
         if (faxConfig.getFaxPasswd() == null || faxConfig.getFaxPasswd().trim().isEmpty()) {
             throw new FaxProviderException("SRFax password is not configured for this fax account");

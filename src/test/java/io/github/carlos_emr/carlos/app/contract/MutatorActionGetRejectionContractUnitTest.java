@@ -300,8 +300,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // Fax admin queue: CancelFax/ResendFax/SetCompleted mutate and reject GET/HEAD before
         // dispatch; viewFax/fetchFaxStatus stay verb-open (see ManageFaxes2ActionUnitTest).
         "io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action",
-        // Fax admin config: configure/restartFaxScheduler mutate and reject GET/HEAD;
-        // getFaxSchedularStatus/getPendingIncomingFaxes stay verb-open (see ConfigureFax2ActionUnitTest).
+        // Fax admin config: configure/restartFaxScheduler mutate and reject GET/HEAD, and
+        // testConnection (forwards submitted credentials to the provider) is held to the same
+        // POST-only rule; getFaxSchedularStatus/getPendingIncomingFaxes stay verb-open
+        // (see ConfigureFax2ActionUnitTest).
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).

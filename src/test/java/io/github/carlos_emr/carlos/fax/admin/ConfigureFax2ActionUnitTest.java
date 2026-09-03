@@ -25,6 +25,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -80,6 +84,8 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
     private FaxManager faxManager;
     private FaxConfigDao faxConfigDao;
+    private FaxProviderClientFactory providerClientFactory;
+    private FaxProviderClient providerClient;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
@@ -118,6 +124,25 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(FaxManager.class, faxManager);
         registerMock(FaxConfigDao.class, faxConfigDao);
+
+        // testConnection() resolves the provider client through the factory at call time.
+        providerClientFactory = mock(FaxProviderClientFactory.class);
+        providerClient = mock(FaxProviderClient.class);
+        registerMock(FaxProviderClientFactory.class, providerClientFactory);
+    }
+
+    /** Stubs the factory to hand back the mocked provider client for any config. */
+    private void stubProviderClient() throws FaxProviderException {
+        when(providerClientFactory.getClient(any(FaxConfig.class))).thenReturn(providerClient);
+    }
+
+    /** Sets the form fields testConnection() reads (same names the Configure Fax form posts). */
+    private void setTestConnectionParams(String id, String faxUser, String faxPassword) {
+        request.setParameter("method", "testConnection");
+        request.setParameter("id", id);
+        request.setParameter("faxUser", faxUser);
+        request.setParameter("faxPassword", faxPassword);
+        request.setParameter("providerType", "SRFAX");
     }
 
     private void grantConfigureWrite(boolean granted) {
@@ -431,6 +456,182 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             // SRFAX is the documented default: a MIDDLEWARE row re-saved through the UI migrates.
             assertThat(savedCaptor.getValue().getProviderType()).isEqualTo(FaxConfig.ProviderType.SRFAX);
             assertThat(response.getContentAsString()).contains("\"success\":true");
+        }
+    }
+
+    @Test
+    @DisplayName("should send 405 on GET with method testConnection before contacting the provider")
+    void shouldSend405_onGetTestConnection() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setMethod("GET");
+        setTestConnectionParams("1", "123456", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            // Submitted credentials must never travel to the provider on a GET.
+            verifyNoInteractions(providerClientFactory, providerClient);
+        }
+    }
+
+    @Test
+    @DisplayName("should throw SecurityException when the admin fax write privilege is missing on testConnection")
+    void shouldThrowSecurityException_whenTestConnectionWritePrivilegeMissing() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(false);
+        stubProviderClient();
+        request.setMethod("POST");
+        setTestConnectionParams("1", "123456", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            ConfigureFax2Action action = new ConfigureFax2Action();
+
+            assertThatThrownBy(action::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("(_admin.fax)");
+            verifyNoInteractions(providerClientFactory, providerClient);
+        }
+    }
+
+    @Test
+    @DisplayName("should return a success JSON body when the provider verifies the connection")
+    void shouldReturnSuccessJson_whenProviderVerifiesConnection() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setMethod("POST");
+        // -1 is the form's "no stored row yet" id: a brand-new account being tested before save.
+        setTestConnectionParams("-1", "123456", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            String result = new ConfigureFax2Action().execute();
+
+            ArgumentCaptor<FaxConfig> probeCaptor = ArgumentCaptor.forClass(FaxConfig.class);
+            verify(providerClient).verifyConnection(probeCaptor.capture());
+            // The probe carries the submitted values and the SRFax provider type...
+            assertThat(probeCaptor.getValue().getFaxUser()).isEqualTo("123456");
+            assertThat(probeCaptor.getValue().getFaxPasswd()).isEqualTo("test-secret-pw");
+            assertThat(probeCaptor.getValue().getProviderType()).isEqualTo(FaxConfig.ProviderType.SRFAX);
+            // ...nothing is persisted, and the JSON body reports success.
+            verify(faxConfigDao, never()).saveEntity(any());
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":true")
+                    .contains("Connection successful");
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+        }
+    }
+
+    @Test
+    @DisplayName("should return the provider failure message when verification fails")
+    void shouldReturnProviderMessage_whenVerificationFails() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        org.mockito.Mockito.doThrow(new FaxProviderException(
+                "SRFax rejected the account number or password: Invalid Access Code / Password"))
+                .when(providerClient).verifyConnection(any(FaxConfig.class));
+        request.setMethod("POST");
+        setTestConnectionParams("-1", "123456", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":false")
+                    .contains("Connection failed")
+                    .contains("Invalid Access Code / Password");
+        }
+    }
+
+    @Test
+    @DisplayName("should use the stored password when the mask sentinel is submitted for testConnection")
+    void shouldUseStoredPassword_whenMaskSentinelSubmittedForTestConnection() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+
+        FaxConfig stored = new FaxConfig();
+        stored.setId(1);
+        stored.setProviderType(FaxConfig.ProviderType.SRFAX);
+        stored.setFaxUser("123456");
+        stored.setFaxPasswd("stored-secret-value");
+        when(faxConfigDao.find(1)).thenReturn(stored);
+
+        request.setMethod("POST");
+        setTestConnectionParams("1", "123456", ConfigureFax2Action.PASSWORD_MASK_SENTINEL);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            ArgumentCaptor<FaxConfig> probeCaptor = ArgumentCaptor.forClass(FaxConfig.class);
+            verify(providerClient).verifyConnection(probeCaptor.capture());
+            // The sentinel never reaches the provider; the stored credential is tested instead.
+            assertThat(probeCaptor.getValue().getFaxPasswd()).isEqualTo("stored-secret-value");
+            assertThat(response.getContentAsString()).contains("\"success\":true");
+        }
+    }
+
+    @Test
+    @DisplayName("should ask for the password when the mask sentinel is submitted with no stored config")
+    void shouldRejectTest_whenSentinelSubmittedWithoutStoredConfig() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setMethod("POST");
+        setTestConnectionParams("-1", "123456", ConfigureFax2Action.PASSWORD_MASK_SENTINEL);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            verifyNoInteractions(providerClient);
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":false")
+                    .contains("Enter the SRFax password");
+        }
+    }
+
+    @Test
+    @DisplayName("should never echo the submitted credentials in the testConnection response")
+    void shouldNotEchoCredentials_inTestConnectionResponse() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        org.mockito.Mockito.doThrow(new FaxProviderException("SRFax API communication failure"))
+                .when(providerClient).verifyConnection(any(FaxConfig.class));
+        request.setMethod("POST");
+        setTestConnectionParams("-1", "987654", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            String body = response.getContentAsString();
+            assertThat(body).contains("\"success\":false");
+            assertThat(body).doesNotContain("test-secret-pw");
+            assertThat(body).doesNotContain("987654");
         }
     }
 

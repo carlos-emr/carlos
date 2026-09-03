@@ -32,6 +32,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
+import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -80,9 +83,12 @@ public class ConfigureFax2Action extends ActionSupport {
 
         // configure() rewrites fax_config rows (credentials included) and restartFaxScheduler()
         // restarts the polling scheduler — both are mutations and must never ride a GET/HEAD.
+        // testConnection() is not a persistence mutation, but it forwards submitted credentials
+        // to the provider, so it is held to the same POST-only rule (no credential in a URL).
         // getFaxSchedularStatus/getPendingIncomingFaxes are read-only and stay verb-open.
-        // configureFax.jsp issues all four calls via POST, so no UI change is required.
-        boolean mutator = "configure".equals(method) || "restartFaxScheduler".equals(method);
+        // configureFax.jsp issues all of these calls via POST, so no UI change is required.
+        boolean mutator = "configure".equals(method) || "restartFaxScheduler".equals(method)
+                || "testConnection".equals(method);
         String httpMethod = request.getMethod();
         if (mutator && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
@@ -102,6 +108,8 @@ public class ConfigureFax2Action extends ActionSupport {
             return null;
         } else if ("configure".equals(method)) {
             return configure();
+        } else if ("testConnection".equals(method)) {
+            return testConnection();
         }
 
         // Default case: action called without a method parameter
@@ -325,6 +333,90 @@ public class ConfigureFax2Action extends ActionSupport {
     }
 
     /**
+     * Verifies the submitted provider credentials with a read-only provider probe, without
+     * saving anything.
+     *
+     * <p>Backs the "Test SRFax connection" button on Configure Fax. The form values are used
+     * as submitted so an admin can check a new account number/password before saving. When the
+     * password field still carries the {@link #PASSWORD_MASK_SENTINEL} (the admin did not retype
+     * it), the stored credential for the submitted config id is used instead. The response is
+     * {@code {success, message}} and never carries the credentials; provider failure messages
+     * are status strings (for example an SRFax "Invalid Access Code / Password" result).</p>
+     *
+     * @return {@link #NONE}: the JSON response has been written and Struts result resolution
+     *         must not run (the sibling JSON methods in this class still return {@code null}
+     *         and are left as-is)
+     * @throws SecurityException when the session lacks {@code _admin.fax} write rights
+     */
+    public String testConnection() {
+        requireLoggedInWithPrivilege("_admin.fax", "w");
+
+        try {
+            String faxUser = StringUtils.trimToEmpty(request.getParameter("faxUser"));
+            String faxPassword = request.getParameter("faxPassword");
+            String[] providerTypes = request.getParameterValues("providerType");
+            Integer configId = parseConfigId(request.getParameter("id"));
+
+            if (faxUser.isEmpty()) {
+                sendJsonError("Enter the SRFax account number to test the connection.");
+                return NONE;
+            }
+
+            FaxConfig probe = new FaxConfig();
+            probe.setProviderType(resolveProviderType(providerTypes, 0, configId));
+            probe.setFaxUser(faxUser);
+
+            if (faxPassword == null || StringUtils.isBlank(faxPassword)) {
+                sendJsonError("Enter the SRFax password to test the connection.");
+                return NONE;
+            }
+            if (isPasswordUnchanged(faxPassword)) {
+                // The mask sentinel means "keep what is stored": test with the stored credential.
+                FaxConfig stored = configId != null && configId > 0
+                        ? SpringUtils.getBean(FaxConfigDao.class).find(configId.intValue())
+                        : null;
+                if (stored == null || StringUtils.isBlank(stored.getFaxPasswd())) {
+                    sendJsonError("Enter the SRFax password to test the connection.");
+                    return NONE;
+                }
+                probe.setFaxPasswd(stored.getFaxPasswd());
+            } else {
+                probe.setFaxPasswd(faxPassword.trim());
+            }
+            // Drop the request copy of the credential as soon as the probe carries it.
+            faxPassword = null;
+
+            FaxProviderClient client = SpringUtils.getBean(FaxProviderClientFactory.class).getClient(probe);
+            client.verifyConnection(probe);
+            sendJsonSuccess("Connection successful. SRFax accepted the account number and password.");
+        } catch (FaxProviderException | IllegalArgumentException e) {
+            // Provider status text / validation text only — never the submitted values.
+            MiscUtils.getLogger().warn("Fax connection test failed: {}", e.getMessage());
+            sendJsonError("Connection failed: " + (e.getMessage() == null ? "provider error" : e.getMessage()));
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Fax connection test failed unexpectedly", e);
+            sendJsonError("Connection test failed unexpectedly. Check the logs for details.");
+        }
+        // Direct-response contract: the JSON body is written; stop Struts result resolution.
+        return NONE;
+    }
+
+    /**
+     * Parses the hidden config id posted by the form; {@code -1}/blank (no stored row yet) and
+     * malformed values both resolve to {@code null}.
+     */
+    private static Integer parseConfigId(String rawId) {
+        if (StringUtils.isBlank(rawId)) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(rawId.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
      * Normalizes an admin-entered fax number to the 10-digit form stored in fax_config.
      *
      * <p>Strips formatting characters and drops a leading North American country code from an
@@ -463,34 +555,34 @@ public class ConfigureFax2Action extends ActionSupport {
             }
         }
         if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
-            throw new IllegalArgumentException("Fax user is required for account row " + (idx + 1) + ".");
+            throw new IllegalArgumentException("SRFax account number is required.");
         }
         if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
-            throw new IllegalArgumentException("Fax number is required for account row " + (idx + 1) + ".");
+            throw new IllegalArgumentException("Your SRFax fax number is required.");
         }
         if (senderEmails == null || idx >= senderEmails.length || StringUtils.isBlank(senderEmails[idx])) {
-            throw new IllegalArgumentException("Sender email is required for account row " + (idx + 1) + ".");
+            throw new IllegalArgumentException("Sender email is required.");
         }
         if (inboxQueues == null || idx >= inboxQueues.length || StringUtils.isBlank(inboxQueues[idx])) {
-            throw new IllegalArgumentException("Inbox queue is required for account row " + (idx + 1) + ".");
+            throw new IllegalArgumentException("Inbox queue is required.");
         }
 
         try {
             Integer.parseInt(inboxQueues[idx]);
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("Inbox queue must be a numeric value for account row " + (idx + 1) + ".");
+            throw new IllegalArgumentException("Inbox queue must be a numeric value.");
         }
 
         // Basic format check to give immediate, actionable feedback in admin UX.
         if (!senderEmails[idx].contains("@")) {
-            throw new IllegalArgumentException("Sender email must be valid for account row " + (idx + 1) + ".");
+            throw new IllegalArgumentException("Sender email must be a valid email address (for example, you@clinic.example).");
         }
 
         if (providerType == FaxConfig.ProviderType.SRFAX) {
             boolean missingPassword = faxPasswds == null || idx >= faxPasswds.length || StringUtils.isBlank(faxPasswds[idx]);
             boolean isNewConfigRow = faxConfigId == null || faxConfigId <= 0;
             if (isNewConfigRow && missingPassword) {
-                throw new IllegalArgumentException("SRFax password is required for new SRFax account row " + (idx + 1) + ".");
+                throw new IllegalArgumentException("SRFax password is required for a new SRFax account.");
             }
         }
     }

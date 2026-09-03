@@ -31,6 +31,17 @@ Never commit real values. Source them from a file outside the repo:
     set -a; . /secure/path/srfax.env; set +a
     node scripts/e2e/fax/backbone-loopback.js
 
+## Configure Fax page check (no fax pages used)
+
+`scripts/fax-configure-playwright-checks.js` (`npm run test:fax-configure-playwright`)
+is the committed browser check for the admin page itself: it walks
+Administration > Faxes > Configure Fax, asserts the field guidance (account
+number vs. login email, sender/notification email, 10-digit fax number,
+password mask), clicks **Test SRFax connection**, saves, and re-reads the row.
+It runs with fake defaults anywhere; export the same `SRFAX_*` variables and
+`SRFAX_LIVE=true` to assert the live connection test succeeds against a real
+development account.
+
 ## Loopback
 
 A fax sent to the account's own `SRFAX_FAX_NUMBER` is delivered back to the

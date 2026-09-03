@@ -193,4 +193,35 @@ class SRFaxProviderClientHttpTransportUnitTest extends CarlosUnitTestBase {
                         .as("connection refused must be classified transient for retry")
                         .isTrue());
     }
+
+    @Test
+    @DisplayName("should send a read-only inbox probe with the credentials for verifyConnection")
+    void shouldSendInboxProbe_forVerifyConnection() throws Exception {
+        // Given - a success response with an empty inbox is enough to prove the credentials
+        responseBody = "{\"Status\":\"Success\",\"Result\":[]}";
+
+        // When
+        client.verifyConnection(config);
+
+        // Then - the probe is the same unread-only inbox listing the scheduler uses
+        assertThat(recordedBody)
+                .contains("action=Get_Fax_Inbox")
+                .contains("sViewedStatus=UNREAD")
+                .contains("access_id=" + DUMMY_ACCESS_ID)
+                .contains("access_pwd=" + DUMMY_ACCESS_PWD)
+                .contains("sResponseFormat=JSON");
+    }
+
+    @Test
+    @DisplayName("should surface the provider failure text when verifyConnection is rejected")
+    void shouldThrowWithProviderText_whenVerifyConnectionRejected() {
+        // Given - SRFax reports a bad access_id/access_pwd pair as a failed Status
+        responseBody = "{\"Status\":\"Failed\",\"Result\":\"Invalid Access Code / Password\"}";
+
+        // Then - fail closed with the provider reason, which carries no credential
+        assertThatThrownBy(() -> client.verifyConnection(config))
+                .isInstanceOf(FaxProviderException.class)
+                .hasMessageContaining("rejected the account number or password")
+                .hasMessageContaining("Invalid Access Code / Password");
+    }
 }
