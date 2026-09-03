@@ -56,10 +56,10 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
-[ -n "$OSCAR_SRC" ] && [ -n "$OUT" ] || {
+if [ -z "$OSCAR_SRC" ] || [ -z "$OUT" ]; then
   echo "usage: build-o19-fixture.sh --oscar-src DIR --out DIR [options]" >&2
   exit 2
-}
+fi
 SQLDIR="$OSCAR_SRC/database/mysql"
 [ -f "$SQLDIR/oscarinit.sql" ] || {
   echo "ERROR: $OSCAR_SRC is not an OSCAR checkout (no database/mysql/oscarinit.sql)" >&2
