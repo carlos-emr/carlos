@@ -197,7 +197,29 @@ class TestVerdicts(unittest.TestCase):
         self.assertEqual(rc, pf.EXIT_TOOL_ERROR)
         self.assertEqual(set(pf.ACCEPT_IDS),
                          {"archived-forms", "unknown-as-archive",
-                          "olis-gone", "dropped-columns"})
+                          "olis-gone", "dropped-columns",
+                          "carry-credentials"})
+
+    def test_live_credentials_are_a_blocker_cleared_by_sign_off(self):
+        report = pf.run_checks(FakeDb(base_tables(ServiceClient=2,
+                                                  oscarKeys=1)),
+                               properties=clean_props())
+        self.assertEqual(report["verdict"], "go-with-acknowledgements")
+        ids = {f["id"]: f for f in report["findings"]}
+        b6 = ids["B6-credentials-carried"]
+        self.assertEqual(b6["severity"], pf.BLOCKER)
+        self.assertEqual(b6["accept"], "carry-credentials")
+        self.assertEqual(b6["data"], {"ServiceClient": 2, "oscarKeys": 1})
+        self.assertIn("carry-credentials", report["required_accepts"])
+        report = pf.run_checks(FakeDb(base_tables(ServiceClient=2)),
+                               properties=clean_props(),
+                               accepted=["carry-credentials"])
+        self.assertEqual(report["verdict"], "go")
+        # empty credential tables are not a finding
+        report = pf.run_checks(FakeDb(base_tables(ServiceClient=0)),
+                               properties=clean_props())
+        self.assertNotIn("B6-credentials-carried",
+                         {f["id"] for f in report["findings"]})
 
     def test_bc_province_is_a_hard_no_go(self):
         report = pf.run_checks(FakeDb(base_tables()),

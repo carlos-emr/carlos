@@ -398,6 +398,7 @@ signed off:**
 | B3 | **Data in O19 columns CARLOS dropped** | Non-null/non-default counts on the flagged columns of the 39 tables in Appendix C (e.g. `drugs.dispensingUnits` ≠ empty means the dispensing workflow was in use). Above-threshold usage → blocker with per-column counts |
 | B4 | **Encrypted casemgmt notes** | Encryption markers in `casemgmt_note` / site config → blocker (key handling not in scope of the standard path) |
 | B5 | **LDAP authentication in use** | `ldap.enabled=true` in properties → blocker: staff cannot log in to CARLOS via LDAP; local credentials must be provisioned first |
+| B6 | **Live credentials carried** | rows in `ServiceClient` / `oscarKeys` / `publicKeys` (OAuth consumer secrets, signing keys) are copied verbatim and keep working → blocker cleared by `--accept carry-credentials`; rotate or verify before go-live |
 | B6 | **Target not pristine** (import mode only) | CARLOS schema contains clinic data beyond the known seed rows → refuse |
 | B7 | **Capacity/compatibility** | Insufficient disk for staging + archive + documents; dump collations unavailable on the target MariaDB; dump truncated/incomplete (missing `-- Dump completed`) |
 | B8 | **Unrepairable text encoding** | Charset sampling (§4.4) finds mixed/double-encoded text the standard repair can't normalize deterministically |
@@ -997,6 +998,18 @@ re-verified against the code, plus a CodeRabbit pass), re-rehearsed (done):**
   space, tab and form feed, keeps a record whose last line ends in a
   continuation backslash and joins UTF-16 escape pairs — in the props
   phase and the standalone preflight alike.
+- **Follow-ups folded in rather than deferred:** every stock O19 property
+  key now has a disposition (the test suite pins zero `unknown` stock
+  keys); merge tables get a reverse parity check (every staging row has a
+  target twin, excluded removed-module rows aside); a text-in-O19 /
+  number-in-CARLOS column is pre-checked so no value is coerced to 0; the
+  per-table report lines (id maps, dangling keys, shadows, unknown tables)
+  are kept in the ETL ledger so a resumed run's report is complete; a
+  resume after the copy started does not re-run the preflight;
+  `--statement-timeout` bounds every statement (`max_statement_time`);
+  carrying live credentials (`ServiceClient`, `oscarKeys`, `publicKeys`)
+  is the `carry-credentials` sign-off — preflight blocker B6 and an ETL
+  pre-check refusal without it.
 
 **All milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,

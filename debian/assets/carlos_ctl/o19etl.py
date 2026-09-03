@@ -341,6 +341,54 @@ def merge_statement(table: str, entry: dict, src_schema: str,
     return sql
 
 
+def merge_missing_count_sql(table: str, entry: dict, src_schema: str,
+                            dst_schema: str, dst_cols: Dict[str, dict],
+                            archive_schema: Optional[str] = None) -> str:
+    """Staging rows of a merge table that have NO target twin on the
+    natural key — the reverse of the merge's own anti-join, so after the
+    merge the count must be 0 (excluded removed-module rows aside)."""
+    sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE NOT EXISTS (SELECT 1 "
+           "FROM `{2}`.`{1}` d WHERE {3})".format(
+               src_schema, table, dst_schema,
+               merge_join(entry, archive_schema, dst_cols)))
+    if entry.get("merge_exclude"):
+        sql += " AND NOT ({0})".format(entry["merge_exclude"])
+    return sql
+
+
+NUMERIC_TYPES = ("tinyint", "smallint", "mediumint", "int", "integer",
+                 "bigint", "decimal", "numeric", "float", "double", "real")
+STRING_TYPES = ("char", "varchar", "tinytext", "text", "mediumtext",
+                "longtext", "enum")
+#: what the server would accept as a number without coercion; anything
+#: else becomes 0 under sql_mode='' (the ETL executor), silently
+NUMERIC_LITERAL_SQL_RE = ("^[[:space:]]*[-+]?([0-9]+(\\.[0-9]*)?|"
+                          "\\.[0-9]+)([eE][-+]?[0-9]+)?[[:space:]]*$")
+
+
+def coercion_precheck_sql(table: str, entry: dict, src_schema: str,
+                          dst_cols: Dict[str, dict],
+                          src_cols: Dict[str, dict]) -> List[Tuple[str, str]]:
+    """(column, COUNT-sql) pairs for columns that are text in the dump and
+    numeric in CARLOS: every non-empty value must parse as a number, or the
+    copy would store 0 for it. A non-zero count is a pre-check refusal."""
+    out = []
+    renames = entry.get("renames", {})
+    for c in entry.get("cols", []):
+        d = dst_cols.get(c)
+        s = src_cols.get(renames.get(c, c))
+        if not d or not s:
+            continue
+        if d["type"] in NUMERIC_TYPES and s["type"] in STRING_TYPES:
+            src_name = renames.get(c, c)
+            sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE s.`{2}` IS NOT "
+                   "NULL AND TRIM(s.`{2}`) <> '' AND s.`{2}` NOT REGEXP "
+                   "'{3}'".format(src_schema, table, src_name,
+                                  NUMERIC_LITERAL_SQL_RE))
+            out.append((c, sql))
+    return out
+
+
 def idmap_statements(table: str, entry: dict, src_schema: str,
                      dst_schema: str, archive_schema: str,
                      dst_cols: Optional[Dict[str, dict]] = None) -> List[str]:
@@ -658,6 +706,22 @@ def missing_required_columns(entry: dict,
                 and not info["auto_increment"]):
             out.append(col)
     return sorted(out)
+
+
+def credential_rows(plain, src_schema: str,
+                    src_info: Dict[str, Dict[str, dict]]
+                    ) -> List[Tuple[str, int]]:
+    """(table, rows) for every CREDENTIAL_TABLES table the dump carries
+    with at least one row."""
+    out = []
+    for table in getattr(o19map_schema, "CREDENTIAL_TABLES", ()):
+        if table not in src_info:
+            continue
+        n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
+            src_schema, table))[0][0])
+        if n:
+            out.append((table, n))
+    return out
 
 
 def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
@@ -1005,6 +1069,15 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                 problems.append(
                     "{0}.{1}: {2} value(s) longer than the target column — "
                     "refusing to truncate".format(table, col, n))
+        for col, sql in coercion_precheck_sql(
+                table, entry, src, dst_info[table], src_info[table]):
+            n = int(query(sql)[0][0])
+            if n:
+                problems.append(
+                    "{0}.{1}: {2} non-numeric value(s) in a column CARLOS "
+                    "stores as a number — the copy would store 0 for them; "
+                    "curate a value_exprs entry or fix the source"
+                    .format(table, col, n))
     # the roles post-step's own preconditions, predicted from staging (the
     # tables involved are id-intact copies): refuse here, before the first
     # write, rather than after the whole copy
@@ -1045,6 +1118,16 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     elif not int(plain(o19roles.clinic_count_sql(src))[0][0]):
         problems.append("the dump has no `clinic` row — letterheads, "
                         "requisitions and consultations dereference it")
+    # OAuth consumer secrets, signing keys: copied verbatim, they keep
+    # working after cutover — carrying them is a recorded sign-off
+    carried = credential_rows(plain, src, src_info)
+    if carried and "carry-credentials" not in ctx["accepted"]:
+        problems.append("the dump carries live credentials ({0}) — they "
+                        "would keep working against the migrated system; "
+                        "acknowledge with --accept carry-credentials and "
+                        "rotate/verify them before go-live".format(
+                            ", ".join("{0}: {1} row(s)".format(t, n)
+                                      for t, n in carried)))
     if ctx.get("role_templates") and "secRole" in src_info:
         stage_roles = [r[0] for r in plain(
             "SELECT role_name FROM `{0}`.secRole".format(src))]
@@ -1193,10 +1276,14 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     counts = {"copy": 0, "merge": 0, "archive": 0, "drop": 0,
               "reference": 0, "rows": 0, "unknown_archived": 0,
               "unknown_column_shadows": 0}
-    idmap_lines: List[str] = []
-    fk_lines: List[str] = []
-    drop_lines: List[str] = []
-    shadow_notes: List[str] = []
+    # per-table findings are persisted in the ledger as they are made, so
+    # a resumed run's report still carries the lines of tables the crashed
+    # run completed (they are never re-derived: the marks skip the work)
+    kept = progress.setdefault("report_lines", {})
+    idmap_lines: List[str] = kept.setdefault("idmap", [])
+    fk_lines: List[str] = kept.setdefault("fk", [])
+    drop_lines: List[str] = kept.setdefault("drop", [])
+    shadow_notes: List[str] = kept.setdefault("shadow", [])
     absent_tables: List[str] = []
     for table in etl_order(o19map_schema.TABLES):
         entry = o19map_schema.TABLES[table]
@@ -1220,9 +1307,10 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             counts[cls] += 1
             n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
                 src, table))[0][0])
-            if n:
-                drop_lines.append("{0}: {1} row(s) not migrated (removed "
-                                  "module infrastructure)".format(table, n))
+            line = ("{0}: {1} row(s) not migrated (removed module "
+                    "infrastructure)".format(table, n))
+            if n and line not in drop_lines:
+                drop_lines.append(line)
             continue
 
         if cls == "archive":
@@ -1258,6 +1346,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                             "{0}: {1} row(s) received a new id (map in "
                             "{2}.{3})".format(table, changed, arch,
                                               idmap_table(table)))
+                        save_progress(state_dir, progress)
                 tstate["done"] = True
                 save_progress(state_dir, progress)
             counts["merge"] += 1
@@ -1356,7 +1445,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # permission to drop)
     unknown_tables = sorted(t for t in src_info
                             if t not in o19map_schema.TABLES)
-    unknown_lines: List[str] = []
+    unknown_lines: List[str] = kept.setdefault("unknown", [])
     for table in unknown_tables:
         tstate = progress["tables"].setdefault(table, {})
         if tstate.get("done"):
@@ -1392,7 +1481,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     token_tables = [t for t in getattr(o19map_schema, "CREDENTIAL_TABLES",
                                        ()) if t in src_info]
     if token_tables:
-        report("API credentials copied verbatim — ROTATE/VERIFY before "
+        report("API credentials copied verbatim (sign-off carry-credentials "
+               "recorded when rows were present) — ROTATE/VERIFY before "
                "go-live (tokens issued by the OSCAR 19 install keep "
                "working): " + ", ".join(token_tables))
 
@@ -1476,7 +1566,9 @@ def appended_row_count_sql(table: str, src_schema: str,
 def row_parity(plain_query, src_schema: str, dst_schema: str,
                admin_user: Optional[str] = None,
                admin_provider_no: Optional[str] = None,
-               appended: Optional[Dict[str, int]] = None
+               appended: Optional[Dict[str, int]] = None,
+               dst_info: Optional[Dict[str, Dict[str, dict]]] = None,
+               archive_schema: Optional[str] = None
                ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) comparing staging vs target counts for
     every copy-class table. The tolerated deltas are the break-glass
@@ -1491,7 +1583,23 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
         "TABLE_SCHEMA = '{0}'".format(src_schema))}
     for table, entry in sorted(o19map_schema.TABLES.items()):
-        if entry["class"] != "copy" or table not in src_tables:
+        if table not in src_tables:
+            continue
+        if entry["class"] == "merge" and dst_info is not None \
+                and table in dst_info:
+            # the reverse of the merge's anti-join: every staging row (the
+            # excluded removed-module rows aside) must have a target twin
+            missing = int(plain_query(merge_missing_count_sql(
+                table, entry, src_schema, dst_schema, dst_info[table],
+                archive_schema))[0][0])
+            if missing:
+                bad.append("{0}: {1} staging row(s) have no target twin "
+                           "after the merge".format(table, missing))
+            else:
+                ok.append("{0}: merged, every staging row present"
+                          .format(table))
+            continue
+        if entry["class"] != "copy":
             continue
         src_n = int(plain_query("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
             src_schema, table))[0][0])

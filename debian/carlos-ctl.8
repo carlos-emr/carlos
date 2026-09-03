@@ -294,6 +294,9 @@ Options:
 .BR \-\-resume ,
 .BR \-\-restage ,
 .BR \-\-cleanup ;
+.BR \-\-statement-timeout " SECONDS"
+(bound every SQL statement of the import to this many seconds, MariaDB
+max_statement_time; 0 = no bound, the default);
 .BR \-\-dev-target ,
 .BR \-\-mariadb-arg " ARG" ,
 .BR \-\-fixups-dir " DIR" .
@@ -315,7 +318,10 @@ Sign-off classes for
 .B no-pre-backup
 (no pre-import restic snapshot; required when backups are not configured),
 .B unverified-bundle
-(open a bundle whose digest was never conveyed). Every class is recorded in
+(open a bundle whose digest was never conveyed),
+.B carry-credentials
+(the dump carries live OAuth consumer secrets or signing keys, copied
+verbatim; rotate or verify them before go-live). Every class is recorded in
 the report and survives \-\-resume.
 .RE
 .TP

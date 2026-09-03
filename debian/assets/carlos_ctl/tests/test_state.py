@@ -254,6 +254,11 @@ class TestResumeContract(unittest.TestCase):
         self.assertEqual(o19import.resume_hint(
             {"phases": {"check-pristine": {"status": "done"}}}), " --resume")
 
+    def test_statement_timeout_is_a_session_bound(self):
+        self.assertEqual(o19import.statement_timeout_prelude(600),
+                         "SET SESSION max_statement_time=600")
+        self.assertIn("carry-credentials", o19import.ACCEPT_CLASSES)
+
     def test_error_text_never_carries_a_credential_literal(self):
         sql = ("CREATE USER 'o19_import'@'localhost' IDENTIFIED BY "
                "'s3cr3t-password-value'")

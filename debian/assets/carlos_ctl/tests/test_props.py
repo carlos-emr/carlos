@@ -45,6 +45,27 @@ class TestBaselineDiff(unittest.TestCase):
                          {k for k, _, _ in result["rows"]})
 
 
+class TestEveryStockKeyIsClassified(unittest.TestCase):
+
+    def test_no_stock_key_is_left_unknown(self):
+        # every key the stock O19 file ships (secrets included) has a
+        # curated disposition: an "unknown" would only ever mean the
+        # overlay drifted from the vendored properties file
+        from carlos_ctl import o19map_props
+        keys = set(o19map_props.O19_DEFAULTS) | set(
+            o19map_props.SECRET_DEFAULT_KEYS)
+        unknown = sorted(k for k in keys
+                         if o19props.disposition(k)["d"] == "unknown")
+        self.assertEqual(unknown, [])
+        # the credential-bearing HRM user name is dropped, never carried
+        self.assertEqual(o19props.disposition("OMD_HRM_USER")["d"],
+                         "dropped-flag")
+        self.assertEqual(o19props.disposition("FILTER_ON_FACILITY")["d"],
+                         "carry")
+        self.assertEqual(
+            o19props.disposition("WKHTMLTOPDF_COMMAND")["d"], "deploy-owned")
+
+
 class TestDispositions(unittest.TestCase):
 
     def setUp(self):

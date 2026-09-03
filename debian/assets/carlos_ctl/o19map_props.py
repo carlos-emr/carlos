@@ -470,16 +470,43 @@ SECRET_DEFAULT_KEYS = [
 ]
 
 KEYS = {
+    'ALLOW_UPDATE_DOCUMENT_CONTENT': {
+        'd': 'carry',
+    },
+    'ALT_DISCHARGE_REASON': {
+        'd': 'dropped-flag',
+    },
+    'AUTO_GENERATE_PROVIDER_NO': {
+        'd': 'carry',
+    },
+    'AdtA09Handler.CHECK_IN_EARLY_ALLOWANCE': {
+        'd': 'dropped-flag',
+    },
+    'AdtA09Handler.CHECK_IN_LATE_ALLOWANCE': {
+        'd': 'dropped-flag',
+    },
     'BASE_DOCUMENT_DIR': {
         'd': 'deploy-owned',
     },
+    'BILLING_REVIEW_AUTO_PAYMENT': {
+        'd': 'carry',
+    },
     'BILLING_SUPERUSER': {
         'd': 'carry',
+    },
+    'CASELOAD_DEFAULT_ALL_PROVIDERS': {
+        'd': 'dropped-flag',
     },
     'CASEMANAGEMENT': {
         'd': 'carry',
     },
     'CMESort': {
+        'd': 'carry',
+    },
+    'COMMUNITY_ISSUE_CODETYPE': {
+        'd': 'carry',
+    },
+    'CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP': {
         'd': 'carry',
     },
     'CONSULTATION_AUTO_INCLUDE_ALLERGIES': {
@@ -512,16 +539,30 @@ KEYS = {
     'DOCUMENT_DIR': {
         'd': 'deploy-owned',
     },
+    'DOCUMENT_DOWNLOAD_METHOD': {
+        'd': 'dropped-flag',
+    },
+    'DOC_FORWARD': {
+        'd': 'dropped-flag',
+        'advisory': 'misc',
+    },
     'DX_QUICK_LIST_BILLING_REVIEW': {
         'd': 'carry',
     },
     'DX_QUICK_LIST_DEFAULT': {
         'd': 'carry',
     },
+    'EA_FORWORD': {
+        'd': 'dropped-flag',
+        'advisory': 'misc',
+    },
     'ECHART_SIGN_LINE': {
         'd': 'carry',
     },
     'ECHART_VERSIGN_LINE': {
+        'd': 'carry',
+    },
+    'ENABLE_CONFORMANCE_ONLY_FEATURES': {
         'd': 'carry',
     },
     'ENABLE_PREVENTION_BILLING': {
@@ -530,13 +571,31 @@ KEYS = {
     'ENCOUNTER_TIME_MANDATORY': {
         'd': 'carry',
     },
+    'FILTER_ON_FACILITY': {
+        'd': 'carry',
+    },
+    'FIRST_NATIONS_MODULE': {
+        'd': 'carry',
+    },
     'FORMS_PROMOTEXT': {
         'd': 'carry',
     },
     'GET_OHIP_INFO': {
         'd': 'carry',
     },
+    'HELP_SEARCH_URL': {
+        'd': 'dropped-flag',
+    },
     'HL7TEXT_LABS': {
+        'd': 'carry',
+    },
+    'HL7_A04_GENERATION': {
+        'd': 'carry',
+    },
+    'HL7_A04_TRANSPORT_ADDR': {
+        'd': 'carry',
+    },
+    'HL7_A04_TRANSPORT_PORT': {
         'd': 'carry',
     },
     'HOME_DIR': {
@@ -566,11 +625,37 @@ KEYS = {
     'LAB_NOMATCH_NAMES': {
         'd': 'carry',
     },
+    'NEW_BC_TELEPLAN': {
+        'd': 'carry',
+    },
     'NEW_CONTACTS_UI': {
         'd': 'carry',
     },
     'NEW_CONTACTS_UI_EXTERNAL_CONTACT': {
         'd': 'carry',
+    },
+    'NEW_USER_PIN_CONTROL': {
+        'd': 'carry',
+    },
+    'OMD_HRM_AUTH_KEY_FILENAME': {
+        'd': 'dropped-flag',
+        'advisory': 'hrm',
+    },
+    'OMD_HRM_IP': {
+        'd': 'dropped-flag',
+        'advisory': 'hrm',
+    },
+    'OMD_HRM_PORT': {
+        'd': 'dropped-flag',
+        'advisory': 'hrm',
+    },
+    'OMD_HRM_REMOTE_DIR': {
+        'd': 'dropped-flag',
+        'advisory': 'hrm',
+    },
+    'OMD_HRM_USER': {
+        'd': 'dropped-flag',
+        'advisory': 'hrm',
     },
     'ONEDT_ARCHIVE': {
         'd': 'translate',
@@ -588,6 +673,9 @@ KEYS = {
         'd': 'translate',
         't': 'docpath',
     },
+    'ORN_PILOT': {
+        'd': 'dropped-flag',
+    },
     'PGP_BIN': {
         'd': 'carry',
     },
@@ -603,6 +691,13 @@ KEYS = {
     'PREVENTION': {
         'd': 'carry',
     },
+    'PREVENTION_CLASSIC_VIEW': {
+        'd': 'carry',
+    },
+    'RA_FORWORD': {
+        'd': 'dropped-flag',
+        'advisory': 'misc',
+    },
     'RENAL_DOSING_DS': {
         'd': 'carry',
     },
@@ -613,10 +708,19 @@ KEYS = {
     'RX_ALLERGY_CHECKING': {
         'd': 'carry',
     },
+    'RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER': {
+        'd': 'carry',
+    },
+    'SHOW_FILE_IMPORT_SEARCH': {
+        'd': 'carry',
+    },
     'SHOW_PREVENTION_STOP_SIGNS': {
         'd': 'carry',
     },
     'SINGLE_PAGE_CHART': {
+        'd': 'carry',
+    },
+    'SOB_CHECKALL': {
         'd': 'carry',
     },
     'SUPERUSER': {
@@ -624,6 +728,13 @@ KEYS = {
     },
     'Support_Contact': {
         'd': 'carry',
+    },
+    'TA_FORWARD': {
+        'd': 'dropped-flag',
+        'advisory': 'misc',
+    },
+    'TESTING': {
+        'd': 'dropped-flag',
     },
     'TIME_FORMAT': {
         'd': 'carry',
@@ -640,11 +751,38 @@ KEYS = {
     'TOMCAT_TRUSTSTORE_PASSWORD': {
         'd': 'deploy-owned',
     },
+    'TORONTO_RFQ': {
+        'd': 'carry',
+    },
+    'TRANSPORTATION_TIME_MANDATORY': {
+        'd': 'dropped-flag',
+    },
+    'USE_CAISI_LOGO': {
+        'd': 'dropped-flag',
+    },
+    'USE_NEW_ECHART': {
+        'd': 'dropped-flag',
+    },
     'USE_NEW_PATIENT_CONSENT_MODULE': {
+        'd': 'carry',
+    },
+    'VMSTAT_LOGGING_PERIOD': {
+        'd': 'dropped-flag',
+    },
+    'Vendor_Product': {
         'd': 'carry',
     },
     'WCB_FORM_REQUIRED_CODES': {
         'd': 'carry',
+    },
+    'WKHTMLTOPDF_ARGS': {
+        'd': 'deploy-owned',
+    },
+    'WKHTMLTOPDF_COMMAND': {
+        'd': 'deploy-owned',
+    },
+    'admin.hph': {
+        'd': 'dropped-flag',
     },
     'allowMultipleSameDayGroupAppt': {
         'd': 'carry',
@@ -654,6 +792,9 @@ KEYS = {
     },
     'appt_formTbl': {
         'd': 'carry',
+    },
+    'appt_intake_form': {
+        'd': 'dropped-flag',
     },
     'backup_path': {
         'd': 'deploy-owned',
@@ -670,7 +811,28 @@ KEYS = {
     'buildtag': {
         'd': 'deploy-owned',
     },
+    'casemgmt.note.password.enabled': {
+        'd': 'dropped-flag',
+    },
+    'ckd_notification_scheme': {
+        'd': 'dropped-flag',
+    },
+    'clientdropbox': {
+        'd': 'dropped-flag',
+    },
     'clinic_no': {
+        'd': 'carry',
+    },
+    'clinic_view': {
+        'd': 'carry',
+    },
+    'cobalt': {
+        'd': 'dropped-flag',
+    },
+    'confidentiality_statement.v1': {
+        'd': 'carry',
+    },
+    'confidentiality_statement.v2': {
         'd': 'carry',
     },
     'consultation_dynamic_labelling_enabled': {
@@ -682,6 +844,9 @@ KEYS = {
     },
     'consultation_signature_enabled': {
         'd': 'carry',
+    },
+    'contact.required.program': {
+        'd': 'dropped-flag',
     },
     'dataCenterId': {
         'd': 'carry',
@@ -740,6 +905,15 @@ KEYS = {
     'displayNotesOnScheduleScreen': {
         'd': 'carry',
     },
+    'documentUploader.maxNumberOfFiles': {
+        'd': 'dropped-flag',
+    },
+    'drugref_route': {
+        'd': 'carry',
+    },
+    'drugref_route_search': {
+        'd': 'carry',
+    },
     'drugref_url': {
         'd': 'translate',
         't': 'drugref',
@@ -759,8 +933,17 @@ KEYS = {
     'eform_signature_enabled': {
         'd': 'carry',
     },
+    'enable_create_child_record': {
+        'd': 'dropped-flag',
+    },
+    'enable_rx_custom_methodone_suboxone': {
+        'd': 'dropped-flag',
+    },
     'enable_rx_watermark': {
         'd': 'carry',
+    },
+    'enable_wait_list_email_notifications': {
+        'd': 'dropped-flag',
     },
     'faxEnable': {
         'd': 'dropped-flag',
@@ -786,6 +969,9 @@ KEYS = {
         'd': 'dropped-flag',
         'advisory': 'fax',
     },
+    'groupModuleEnabled': {
+        'd': 'dropped-flag',
+    },
     'hl7_a04_build_dir': {
         'd': 'translate',
         't': 'docpath',
@@ -796,6 +982,9 @@ KEYS = {
     },
     'host': {
         'd': 'deploy-owned',
+    },
+    'inPatient': {
+        'd': 'carry',
     },
     'inactive_statuses': {
         'd': 'carry',
@@ -809,6 +998,12 @@ KEYS = {
     },
     'lab_req_include_chartno': {
         'd': 'carry',
+    },
+    'labreq_CKD': {
+        'd': 'dropped-flag',
+    },
+    'log.purge.minDays': {
+        'd': 'deploy-owned',
     },
     'log.purge.mysqldump': {
         'd': 'deploy-owned',
@@ -837,8 +1032,14 @@ KEYS = {
     'new_flowsheet_enabled': {
         'd': 'carry',
     },
+    'new_label_print': {
+        'd': 'carry',
+    },
     'onare_labreqver': {
         'd': 'carry',
+    },
+    'ontariomd_cds_diabetes_link': {
+        'd': 'dropped-flag',
     },
     'orn_labreqver': {
         'd': 'carry',
@@ -846,6 +1047,13 @@ KEYS = {
     'oscarMeasurement_css': {
         'd': 'dropped-flag',
         'advisory': 'misc',
+    },
+    'oscarMeasurement_css_download_method': {
+        'd': 'dropped-flag',
+        'advisory': 'misc',
+    },
+    'oscarMeasurements.orderGroupById': {
+        'd': 'carry',
     },
     'oscar_port': {
         'd': 'deploy-owned',
@@ -874,6 +1082,15 @@ KEYS = {
     'printPDF_referring_prac': {
         'd': 'carry',
     },
+    'professionalContact.required.program': {
+        'd': 'dropped-flag',
+    },
+    'professionalContact.required.workPhone': {
+        'd': 'dropped-flag',
+    },
+    'program': {
+        'd': 'carry',
+    },
     'project_home': {
         'd': 'deploy-owned',
     },
@@ -887,8 +1104,14 @@ KEYS = {
         'd': 'carry',
         'validate': 'url',
     },
+    'rma_enabled': {
+        'd': 'carry',
+    },
     'rx.allow_rerx': {
         'd': 'carry',
+    },
+    'rx.enable_internal_dispensing': {
+        'd': 'dropped-flag',
     },
     'rx_enhance': {
         'd': 'carry',
@@ -902,6 +1125,12 @@ KEYS = {
     },
     'rx_strict_med_term': {
         'd': 'carry',
+    },
+    'save_as_xml': {
+        'd': 'carry',
+    },
+    'schedule.groupsFromPrograms': {
+        'd': 'dropped-flag',
     },
     'schedule_templatecode': {
         'd': 'carry',
@@ -956,6 +1185,12 @@ KEYS = {
     },
     'visittype': {
         'd': 'carry',
+    },
+    'wait_list_email_notification_period': {
+        'd': 'dropped-flag',
+    },
+    'wait_list_email_notification_program_ids': {
+        'd': 'dropped-flag',
     },
     'warnOnDeleteBill': {
         'd': 'carry',

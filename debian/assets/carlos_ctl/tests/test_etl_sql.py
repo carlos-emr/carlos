@@ -632,6 +632,68 @@ class TestRowParity(unittest.TestCase):
                             for line in ok))
 
 
+class TestMergeReverseParity(unittest.TestCase):
+
+    ENTRY = {"class": "merge", "cols": ["id", "code", "label"],
+             "merge_keys": ["code"], "surrogate_pk": "id",
+             "merge_exclude": "s.`code` = 'dead'"}
+    DST = {"id": col("int"), "code": col(), "label": col()}
+
+    def test_missing_count_is_the_reverse_anti_join(self):
+        sql = o19etl.merge_missing_count_sql("t", self.ENTRY, "stage",
+                                             "carlos", self.DST)
+        self.assertTrue(sql.startswith(
+            "SELECT COUNT(*) FROM `stage`.`t` s WHERE NOT EXISTS (SELECT 1 "
+            "FROM `carlos`.`t` d WHERE d.`code` <=> s.`code`)"))
+        self.assertTrue(sql.endswith("AND NOT (s.`code` = 'dead')"))
+
+    def test_row_parity_checks_merge_tables_in_reverse(self):
+        table = next(t for t, e in o19map_schema.TABLES.items()
+                     if e["class"] == "merge")
+        entry = o19map_schema.TABLES[table]
+        dst_info = {table: {c: col() for c in entry["cols"]}}
+
+        def q(sql):
+            if "information_schema" in sql:
+                return [[table]]
+            if "NOT EXISTS" in sql:
+                return [["3"]]
+            return [["0"]]
+        ok, bad = o19etl.row_parity(q, "stage", "carlos", dst_info=dst_info)
+        self.assertTrue(any("3 staging row(s) have no target twin" in b
+                            for b in bad), bad)
+        # without the target columns merge tables are not judged (fakes)
+        ok, bad = o19etl.row_parity(q, "stage", "carlos")
+        self.assertEqual(bad, [])
+
+
+class TestCoercionPrecheck(unittest.TestCase):
+
+    def test_text_into_numeric_columns_must_parse(self):
+        entry = {"class": "copy", "cols": ["archived", "name"]}
+        dst = {"archived": col("tinyint"), "name": col()}
+        src = {"archived": col("char", char_len=1), "name": col()}
+        pairs = o19etl.coercion_precheck_sql("allergies", entry, "stage",
+                                             dst, src)
+        self.assertEqual([c for c, _ in pairs], ["archived"])
+        sql = pairs[0][1]
+        self.assertIn("TRIM(s.`archived`) <> ''", sql)
+        self.assertIn("NOT REGEXP", sql)
+        # same type on both sides: nothing to check
+        self.assertEqual(o19etl.coercion_precheck_sql(
+            "t", entry, "stage", dst, {"archived": col("tinyint"),
+                                       "name": col()}), [])
+
+    def test_numeric_literal_class_accepts_numbers_only(self):
+        import re
+        rx = re.compile(o19etl.NUMERIC_LITERAL_SQL_RE.replace(
+            "[[:space:]]", r"\s").replace("\\\\", "\\"))
+        for good in ("0", "1", "-3", "+4.5", ".5", "7.", "1e3", " 12 "):
+            self.assertTrue(rx.match(good), good)
+        for bad in ("yes", "1,800", "12abc", "", "-"):
+            self.assertFalse(rx.match(bad), bad)
+
+
 class TestManifestDrivenGeneration(unittest.TestCase):
     """The generators must work over every real manifest entry, not just
     synthetic ones — catch malformed entries at test time."""

@@ -182,7 +182,15 @@ are not recorded — sign-offs persist only from a real run),
 `--bundle-openssl-opt` for bundles encrypted by an older openssl
 (`-md md5`, no `-pbkdf2`), `--skip-documents` with `--accept no-documents`,
 `--accept unverified-bundle` to open a bundle whose digest was never
-conveyed (a recorded sign-off, never a default).
+conveyed (a recorded sign-off, never a default), `--accept
+carry-credentials` when the dump holds live OAuth consumer secrets or
+signing keys (`ServiceClient`, `oscarKeys`, `publicKeys` rows are copied
+verbatim and keep working against the migrated system — the preflight
+reports it as blocker B6 and the ETL pre-checks refuse without the
+sign-off; rotate or verify them before go-live), and
+`--statement-timeout SECONDS` to bound every SQL statement of the import
+(MariaDB `max_statement_time`; a sparse or crafted dump cannot then hold
+one statement forever; 0, the default, means no bound).
 
 `carlos-ctl o19-preflight` is the assessment-only form on the CARLOS host:
 capacity checks, staged restore and the go/no-go report, with the exit
@@ -208,7 +216,9 @@ gate has no override.
 2. `carlos-ctl backup full` — the post-import snapshot.
 3. **Technical review before clinical use**:
    `/var/lib/carlos-emr/o19-import/report.txt` (row parity with the
-   break-glass delta itemized, referential spot checks, billing totals per
+   break-glass delta itemized — copy tables to the row, merge tables in
+   reverse: every staging row has a target twin — referential spot checks,
+   billing totals per
    fiscal year, documents reconciliation, archive/dropped inventory, the
    credential tables copied verbatim to rotate/verify, the `roles:` lines
    and the verify advisories), plus manual spot checks and a UI smoke of
@@ -296,6 +306,14 @@ given clinic — that list is the clinic's sign-off.
   manifest names a column the deployed Flyway level lacks; report it.
 - *ETL pre-checks failed* on a `--resume` says *no further writes were
   made*: the earlier phases' writes stand; fix the condition and resume.
+  Once the copy has started a resume does not re-run the preflight either
+  (its verdict was recorded before the first write).
+- *the dump carries live credentials* — `ServiceClient` / `oscarKeys` /
+  `publicKeys` rows; acknowledge with `--accept carry-credentials` (the
+  preflight lists it as B6) and rotate or verify them before go-live.
+- *non-numeric value(s) in a column CARLOS stores as a number* — the copy
+  would store 0 for them under the import's `sql_mode=''`; curate a
+  `value_exprs` entry or fix the values in the source.
 - *province 'bc': the OSCAR 19 import supports Ontario deployments only* —
   P0 refuses a non-Ontario host before sweeping it (the seed floors are
   generated from the Ontario migration set).

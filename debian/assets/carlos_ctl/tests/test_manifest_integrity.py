@@ -308,6 +308,8 @@ class TestPreflightDriftLock(unittest.TestCase):
         from carlos_ctl import o19_preflight as pf
         self.assertEqual(pf.SCHEMA_MAP_VERSION,
                          o19map_schema.SCHEMA_MAP_VERSION)
+        self.assertEqual(sorted(pf.CREDENTIAL_TABLES),
+                         sorted(o19map_schema.CREDENTIAL_TABLES))
         self.assertEqual(
             pf.PATIENT_DATA_TABLES,
             sorted(t for t, e in o19map_schema.TABLES.items()

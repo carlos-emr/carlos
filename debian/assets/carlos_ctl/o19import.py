@@ -58,7 +58,7 @@ ARCHIVE_SCHEMA = "o19_archive"
 ACCEPT_CLASSES = (
     "archived-forms", "unknown-as-archive", "dropped-columns",
     "charset-repair", "olis-gone", "no-documents", "no-pre-backup",
-    "unverified-bundle",
+    "unverified-bundle", "carry-credentials",
 )
 
 DUMP_COMPLETED_MARKER = b"-- Dump completed"
@@ -134,7 +134,15 @@ def sha256_file(path: str) -> str:
 # database access (connection seam)
 # --------------------------------------------------------------------------
 
-def make_query(mariadb_args: Optional[List[str]]) -> Callable:
+def statement_timeout_prelude(seconds: int) -> str:
+    """The session setting that bounds every statement's run time (MariaDB
+    max_statement_time; 0 = unlimited). A crafted dump cannot make one
+    statement run forever when the operator sets a bound."""
+    return "SET SESSION max_statement_time={0}".format(int(seconds))
+
+
+def make_query(mariadb_args: Optional[List[str]],
+               statement_timeout: int = 0) -> Callable:
     """query(sql, db=None) -> rows. Default: root over the unix socket
     exactly like dbops.db_root; --mariadb-arg overrides the client argv
     tail for dev environments (and implies --dev-target)."""
@@ -144,6 +152,9 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
 
     def query(sql, db=None):
         argv = list(base) + list(CLIENT_COMMON_ARGS)
+        if statement_timeout:
+            argv.append("--init-command="
+                        + statement_timeout_prelude(statement_timeout))
         if db:
             argv.append(db)
         # statements go through STDIN, never argv: /proc/<pid>/cmdline is
@@ -769,6 +780,20 @@ def run_p1(ctx) -> None:
 
 def run_p2(ctx) -> Dict:
     query = ctx["query"]
+    prior = ctx["state"].get("phases", {}).get("preflight", {})
+    if ctx.get("resume") and prior.get("status") == "done" \
+            and etl_started(ctx["state_dir"]):
+        # the verdict was recorded before the copy began and the staging
+        # schema has since been normalised (table case); re-running the
+        # checks could only refuse a target that is mid-import by design
+        log("resume: preflight verdict '{0}' recorded at {1}; the copy has "
+            "started — not re-assessed".format(prior.get("verdict"),
+                                               prior.get("at")))
+        report_append(ctx["state_dir"], "P2 preflight",
+                      "resumed: verdict recorded on the original run")
+        return {"verdict": prior.get("verdict"), "exit_code": 0,
+                "acknowledged": prior.get("acknowledged", []),
+                "required_accepts": []}
 
     def pf_query(sql):
         return query(sql, db=STAGING_SCHEMA)
@@ -867,10 +892,14 @@ def _make_password_hash():
     return password, hashed, pin
 
 
-def make_etl_query(base_argv: List[str]) -> Callable:
+def make_etl_query(base_argv: List[str],
+                   statement_timeout: int = 0) -> Callable:
     """Statement executor with the bulk-copy session prelude."""
     prelude = ("SET SESSION sql_log_bin=0, FOREIGN_KEY_CHECKS=0, "
                "UNIQUE_CHECKS=0, sql_mode=''")
+    if statement_timeout:
+        prelude += ", " + statement_timeout_prelude(
+            statement_timeout).replace("SET SESSION ", "")
 
     def query(sql, db=None):
         argv = list(base_argv) + ["--init-command=" + prelude] \
@@ -889,22 +918,24 @@ def make_etl_query(base_argv: List[str]) -> Callable:
 
 def _row_parity(ctx):
     """Parity with the exact break-glass delta (the admin identity the ETL
-    recorded in its ledger)."""
+    recorded in its ledger); merge tables are checked in reverse (every
+    staging row has a target twin), which needs the target's columns."""
     progress = o19etl.load_progress(ctx["state_dir"])
-    return o19etl.row_parity(ctx["query"], STAGING_SCHEMA, ctx["target_db"],
-                             admin_user=(progress.get("admin_user")
-                                         or ctx.get("admin_user")),
-                             admin_provider_no=progress.get(
-                                 "admin_provider_no"),
-                             appended=progress.get("roles", {}).get(
-                                 "appended"))
+    return o19etl.row_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"],
+        admin_user=(progress.get("admin_user") or ctx.get("admin_user")),
+        admin_provider_no=progress.get("admin_provider_no"),
+        appended=progress.get("roles", {}).get("appended"),
+        dst_info=o19etl.introspect_columns(ctx["query"], ctx["target_db"]),
+        archive_schema=ctx.get("archive_schema", ARCHIVE_SCHEMA))
 
 
 def run_p4(ctx) -> None:
     if phase_done(ctx["state"], "etl"):
         log("etl: already complete — skipping")
         return
-    ctx["query_etl"] = make_etl_query(ctx["query"].base_argv)
+    ctx["query_etl"] = make_etl_query(ctx["query"].base_argv,
+                                      ctx.get("statement_timeout", 0))
     ctx["src_schema"] = STAGING_SCHEMA
     ctx["archive_schema"] = ARCHIVE_SCHEMA
     ctx["dump_sha256"] = ctx["state"].get("phases", {}).get(
@@ -1245,6 +1276,12 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                              "holding the packaged data-fixup scripts "
                              "(Rich Text Letter); default "
                              "/usr/share/carlos-emr/schema/o19-fixups")
+        ap.add_argument("--statement-timeout", type=int, default=0,
+                        metavar="SECONDS",
+                        help="bound every SQL statement of the import to "
+                             "this many seconds (MariaDB max_statement_time; "
+                             "0 = no bound). A sparse or crafted dump "
+                             "cannot then hold one statement forever")
         ap.add_argument("--dry-run", action="store_true",
                         help="run P0-P2 + reports only; no writes beyond "
                              "the throwaway staging schema")
@@ -1509,7 +1546,9 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     return {
         "state_dir": state_dir,
         "state": state,
-        "query": make_query(args.mariadb_arg),
+        "query": make_query(args.mariadb_arg,
+                            getattr(args, "statement_timeout", 0)),
+        "statement_timeout": getattr(args, "statement_timeout", 0),
         "province": _province(args),
         "accepted": accepted,
         "dev_target": dev_target,

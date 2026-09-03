@@ -822,7 +822,10 @@ INFO = "info"
 #: the blocker classes an assessment can acknowledge (a subset of the
 #: import verb's --accept classes; a typo must not read as "accepted")
 ACCEPT_IDS = ("archived-forms", "unknown-as-archive", "olis-gone",
-              "dropped-columns")
+              "dropped-columns", "carry-credentials")
+#: copy-class tables whose rows are live credentials (OAuth consumer
+#: secrets, signing keys); mirrors o19map_schema.CREDENTIAL_TABLES
+CREDENTIAL_TABLES = ("ServiceClient", "oscarKeys", "publicKeys")
 
 # exit code for "the check itself failed" — distinct from every verdict
 EXIT_TOOL_ERROR = 3
@@ -1191,6 +1194,23 @@ def run_checks(query, properties=None, province="on", accepted=(),
 
     def count_live(manifest_name, where=None):
         return count(tables[manifest_name], where)
+
+    # --- B6: live credentials the copy carries verbatim ------------------
+    carried = {}
+    for t in CREDENTIAL_TABLES:
+        if t in tables:
+            n = count_live(t)
+            if n:
+                carried[t] = n
+    if carried:
+        findings.append(finding(
+            "B6-credentials-carried", BLOCKER,
+            "{0} credential table(s) carry live secrets ({1} row(s))".format(
+                len(carried), sum(carried.values())),
+            "OAuth consumer secrets and signing keys are copied verbatim and "
+            "keep working against the migrated system. Acknowledge with "
+            "--accept carry-credentials and rotate/verify them before "
+            "go-live.", accept="carry-credentials", data=carried))
 
     # --- B4: password-protected (encrypted) casemgmt notes ---------------
     # judged on the data: a note with a password is stored encrypted and
