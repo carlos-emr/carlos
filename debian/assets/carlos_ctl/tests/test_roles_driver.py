@@ -68,7 +68,8 @@ class FakeDb(object):
         }
         self.answers.update(over)
         prune = o19roles.property_prune_statements(
-            DST, o19_preflight.DROPPED_PROP_PREFIXES)
+            DST, o19_preflight.DROPPED_PROP_PREFIXES,
+            o19_preflight.DROPPED_PROP_KEYS)
         self.prune_counts = {c: self.answers["property_counts"].get(p, 0)
                              for p, c, _d in prune}
         prev = o19roles.prevention_type_statements(
@@ -206,6 +207,39 @@ class TestCleanRun(RunRolesBase):
         self.assertEqual(ledger["rtl_plan"][1],
                          list(o19roles.RTL_FIXUP_SCRIPTS))
         self.assertTrue(saves)  # save() called for every mark
+
+    def test_the_spelling_step_reports_the_drift_it_repaired(self):
+        # the security-relevant case: CARLOS matches role names exactly
+        # while the database matches them case-insensitively, so a
+        # provider whose privilege rows carry a different spelling can
+        # log in and open nothing
+        db = FakeDb(spelling_drift=4,
+                    comma_roles=[["Nurse, RN"], ["Locum, Dr"]])
+        progress, _saves = self.run_roles(db)
+        ledger = progress["roles"]
+        self.assertTrue(ledger.get("role_spelling"))
+        self.assertTrue(ledger.get("role_comma_listed"))
+        for sql in o19roles.role_spelling_statements(DST):
+            self.assertIn(sql, db.writes)
+        report = "\n".join(self.reports)
+        self.assertIn("4 active assignment(s)", report)
+        self.assertIn("2 role name(s) contain a comma", report)
+        # the names are a person's; they go to the private file only
+        self.assertNotIn("Nurse, RN", report)
+        details = self.private("roles-details.txt")
+        self.assertIn("Nurse, RN", details)
+
+    def test_no_drift_leaves_the_report_quiet(self):
+        db = FakeDb()
+        progress, _saves = self.run_roles(db)
+        self.assertTrue(progress["roles"].get("role_spelling"))
+        report = "\n".join(self.reports)
+        self.assertNotIn("active assignment(s) named a role", report)
+        self.assertNotIn("contain a comma", report)
+        # the alignment runs regardless: it is idempotent, and a clean
+        # target must stay clean
+        for sql in o19roles.role_spelling_statements(DST):
+            self.assertIn(sql, db.writes)
 
     def test_writes_are_the_builders_output_in_order(self):
         db = FakeDb()

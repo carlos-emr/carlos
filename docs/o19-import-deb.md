@@ -377,11 +377,11 @@ given clinic — that list is the clinic's sign-off.
   never goes live with unreadable documents. Restoring a *different* tar
   is not a recovery path — the phase records the tar it restored and
   refuses another one; that needs the pre-import snapshot first.
-  Separately reported, not blocking: eForm image references CARLOS cannot
-  route to (a subdirectory, a query suffix, a path that escapes
-  `eform/images`). The asset is present and only the form's HTML is
-  wrong, so no tar can fix it — each needs `eform.form_html` edited in
-  the target after go-live. HRM report files are moved from the whole `hrm/`
+  An eForm image reference that escapes `eform/images` is blocking too.
+  Separately reported, not blocking: references CARLOS cannot route to
+  because the form names a subdirectory or carries a query suffix while
+  the asset itself is present. No tar can fix those — each needs
+  `eform.form_html` edited in the target after go-live. HRM report files are moved from the whole `hrm/`
   tree (O19 nests them under `hrm/sftp_downloads/<date>/decrypted/`) into
   `document/` and every `HRMDocument.reportFile` is rewritten to its
   basename there; identical copies of one name are folded, differing

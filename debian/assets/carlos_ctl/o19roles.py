@@ -599,9 +599,17 @@ def stock_role_appends_sql(src_schema: str, archive_schema: str,
     return sql + " ORDER BY s.roleUserGroup, s.objectName"
 
 
-def property_prune_statements(dst_schema: str, prefixes: Sequence[str]
+def property_prune_statements(dst_schema: str, prefixes: Sequence[str],
+                              keys: Sequence[str] = ()
                               ) -> List[Tuple[str, str, str]]:
-    """(prefix, count-sql, delete-sql) per removed-module property prefix."""
+    """(name, count-sql, delete-sql) per removed-module property prefix,
+    then per removed-module property KEY.
+
+    Both halves matter: a key the overlay classifies by name rather than
+    by prefix is dropped from oscar.properties, and without the exact
+    match its `property` table row survives the import and CARLOS reads
+    it back — the same drift the prefix list was derived to close, one
+    level down."""
     out = []
     for prefix in prefixes:
         like = "'{0}%'".format(_sql_str(prefix).replace("_", "\\_")
@@ -612,6 +620,15 @@ def property_prune_statements(dst_schema: str, prefixes: Sequence[str]
                 dst_schema, like),
             "DELETE FROM `{0}`.property WHERE name LIKE {1}".format(
                 dst_schema, like)))
+    for key in keys:
+        # exact, so a key that is a prefix of a live one cannot take it
+        literal = "'{0}'".format(_sql_str(key))
+        out.append((
+            key,
+            "SELECT COUNT(*) FROM `{0}`.property WHERE name = {1}".format(
+                dst_schema, literal),
+            "DELETE FROM `{0}`.property WHERE name = {1}".format(
+                dst_schema, literal)))
     return out
 
 
@@ -936,7 +953,10 @@ def role_spelling_drift_sql(dst_schema: str) -> str:
     drops the clinic's `Nurse` ones, and secUserRole (replace_seed) still
     says `Nurse`: every grant on that role becomes inert and the provider
     can log in but open nothing."""
-    return ("SELECT COUNT(*) FROM `{0}`.secUserRole ur JOIN "
+    # DISTINCT ur.id: one role can carry many differently-spelled
+    # privilege rows, and the figure this returns is reported as the
+    # number of affected ASSIGNMENTS, not of grants
+    return ("SELECT COUNT(DISTINCT ur.id) FROM `{0}`.secUserRole ur JOIN "
             "`{0}`.secObjPrivilege p ON p.roleUserGroup = ur.role_name "
             "WHERE ur.activeyn = 1 AND BINARY p.roleUserGroup <> "
             "BINARY ur.role_name".format(dst_schema))
@@ -1382,7 +1402,8 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     if not ledger.get("property_pruned"):
         from . import o19_preflight
         stmts = property_prune_statements(
-            dst, o19_preflight.DROPPED_PROP_PREFIXES)
+            dst, o19_preflight.DROPPED_PROP_PREFIXES,
+            o19_preflight.DROPPED_PROP_KEYS)
 
         def plan_prune():
             out = []

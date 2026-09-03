@@ -769,6 +769,57 @@ DROPPED_PROP_PREFIXES = [
     'vendor',
     'software',
 ]
+DROPPED_PROP_KEYS = [
+    'ALT_DISCHARGE_REASON',
+    'AdtA09Handler.CHECK_IN_EARLY_ALLOWANCE',
+    'AdtA09Handler.CHECK_IN_LATE_ALLOWANCE',
+    'CASELOAD_DEFAULT_ALL_PROVIDERS',
+    'DOCUMENT_DOWNLOAD_METHOD',
+    'DOC_FORWARD',
+    'EA_FORWORD',
+    'HELP_SEARCH_URL',
+    'HL7_A04_TRANSPORT_ADDR',
+    'HL7_A04_TRANSPORT_PORT',
+    'OMD_HRM_AUTH_KEY_FILENAME',
+    'OMD_HRM_IP',
+    'OMD_HRM_PORT',
+    'OMD_HRM_REMOTE_DIR',
+    'OMD_HRM_USER',
+    'ORN_PILOT',
+    'RA_FORWORD',
+    'TA_FORWARD',
+    'TESTING',
+    'TRANSPORTATION_TIME_MANDATORY',
+    'USE_CAISI_LOGO',
+    'USE_NEW_ECHART',
+    'VMSTAT_LOGGING_PERIOD',
+    'admin.hph',
+    'appt_intake_form',
+    'casemgmt.note.password.enabled',
+    'ckd_notification_scheme',
+    'clientdropbox',
+    'cobalt',
+    'contact.required.program',
+    'documentUploader.maxNumberOfFiles',
+    'enable_create_child_record',
+    'enable_rx_custom_methodone_suboxone',
+    'enable_wait_list_email_notifications',
+    'faxIdentifier',
+    'faxKeystore',
+    'faxLogo',
+    'faxURI',
+    'groupModuleEnabled',
+    'labreq_CKD',
+    'ontariomd_cds_diabetes_link',
+    'oscarMeasurement_css',
+    'oscarMeasurement_css_download_method',
+    'professionalContact.required.program',
+    'professionalContact.required.workPhone',
+    'rx.enable_internal_dispensing',
+    'schedule.groupsFromPrograms',
+    'wait_list_email_notification_period',
+    'wait_list_email_notification_program_ids',
+]
 STOCK_ROLE_NAMES = [
     'CAISI ADMIN',
     'Case Manager',
@@ -1124,20 +1175,29 @@ def dropped_table_references(text, dropped_tables):
     return sorted(t for t in dropped_tables if t.lower() in words)
 
 
-#: server error text that means "this table or column is not at this
-#: patch level" rather than "the query failed". Matched on the client's
-#: error prefix so a row id or a table name that happens to contain the
-#: number cannot be mistaken for one.
-_ABSENT_OBJECT_RE = re.compile(
-    r"ERROR\s+(1054|1146)\b|Unknown column|doesn't exist", re.I)
+#: the two server errors that mean "this table or column is not at this
+#: patch level": 1146 unknown table, 1054 unknown column.
+_ABSENT_OBJECT_CODES = ("1054", "1146")
+_ERROR_CODE_RE = re.compile(r"ERROR\s+(\d+)")
+#: the English texts, for a client that reports no numeric code. NOT a
+#: bare "doesn't exist": MariaDB's 1932 reads "doesn't exist in engine"
+#: and means a CORRUPT table, which must stay a hard no-go rather than
+#: be waved through as patch-level variance.
+_ABSENT_OBJECT_TEXT_RE = re.compile(
+    r"Unknown column|doesn't exist(?!\s+in\s+engine)", re.I)
 
 
 def _absent_object(text):
     """True when a failed query names a table or column the dump does not
     carry. The importer anticipates patch-level variance (o19etl has a
     branch for a Facility with no `disabled` column), so this must not
-    be reported as a failed check."""
-    return bool(_ABSENT_OBJECT_RE.search(text or ""))
+    be reported as a failed check — but everything else must be, so the
+    numeric code decides whenever the client gave one."""
+    text = text or ""
+    code = _ERROR_CODE_RE.search(text)
+    if code:
+        return code.group(1) in _ABSENT_OBJECT_CODES
+    return bool(_ABSENT_OBJECT_TEXT_RE.search(text))
 
 
 #: the identifier class o19etl.IDENTIFIER_RE accepts; a name outside it

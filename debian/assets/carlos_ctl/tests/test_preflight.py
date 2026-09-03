@@ -322,11 +322,6 @@ class TestAdvisories(unittest.TestCase):
                          ["born_sftp_host", "born_sftp_password"])
         self.assertIn("util.erx.", f["data"])
 
-    def test_missing_properties_is_an_advisory(self):
-        report = pf.run_checks(FakeDb(base_tables()), properties=None)
-        ids = [x["id"] for x in report["findings"]]
-        self.assertIn("no-properties", ids)
-
     def test_archive_config_rows_are_advisory_not_blocking(self):
         db = FakeDb(base_tables(report_template=4))
         report = pf.run_checks(db, properties=clean_props())

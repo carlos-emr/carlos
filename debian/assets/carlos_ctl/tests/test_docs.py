@@ -521,6 +521,26 @@ class TestEformImageRefs(unittest.TestCase):
             o19docs.image_refs("curl(${oscar_image_path}odd).png "),
             ["odd).png"])
 
+    def test_a_reference_that_escapes_the_image_dir_still_blocks(self):
+        # unlike a subdirectory or a query suffix, this is not a form
+        # addressing a PRESENT asset wrongly: no migration should
+        # complete carrying a traversal-shaped reference
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root)
+        os.makedirs(os.path.join(root, "document"))
+        os.makedirs(os.path.join(root, "eform", "images"))
+
+        def query(sql):
+            if ".eform" in sql:
+                return [("11", "Escaping",
+                         '<img src="${oscar_image_path}../../etc/x.png">')]
+            return []
+
+        problems, _lines, _private = o19docs.reconcile(query, "o19_import",
+                                                       root)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("escapes eform/images", problems[0])
+
     def test_subdirectory_references_are_reported_not_blocking(self):
         root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, root)

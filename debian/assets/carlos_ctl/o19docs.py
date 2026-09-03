@@ -660,7 +660,11 @@ def reconcile(query, dst_schema: str, ctx_root: str
             if not asset:
                 continue  # a bare `#fragment`: no request is made
             if not contained(image_dir, asset):
-                unroutable.append(
+                # a traversal-shaped reference stays BLOCKING: unlike a
+                # subdirectory or a query suffix it is not a form
+                # addressing a present asset wrongly, and the operator
+                # should not be able to complete a migration carrying one
+                problems.append(
                     "eForm '{0}' (fid {1}) image reference escapes "
                     "eform/images: {2}".format(form_name, fid, ref))
             elif "/" in asset or "\\" in asset:
@@ -684,13 +688,14 @@ def reconcile(query, dst_schema: str, ctx_root: str
                         "asset: {2}".format(form_name, fid, ref))
     lines.append("{0} eForm image reference(s) checked".format(checked))
     if unroutable:
-        # These three shapes are the form HTML addressing the image
-        # wrongly, not a missing file: the asset is on disk and the only
-        # fix is an edit to eform.form_html in the target. Blocking a
-        # cutover on them would leave the operator with a refusal they
-        # cannot clear (there is no --accept for it, and no tar can
-        # change a form's HTML), for a broken image on a template —
-        # never an unreadable clinical record. Reported, not blocking.
+        # These two shapes are the form HTML addressing a PRESENT image
+        # wrongly, not a missing file: the only fix is an edit to
+        # eform.form_html in the target. Blocking a cutover on them would
+        # leave the operator with a refusal they cannot clear (there is
+        # no --accept for it, and no tar can change a form's HTML), for a
+        # broken image on a template — never an unreadable clinical
+        # record. Reported, not blocking. A reference that ESCAPES
+        # eform/images is a different shape and stays blocking above.
         lines.append("{0} eForm image reference(s) name an asset CARLOS "
                      "cannot route to (report-only; the assets are "
                      "present — each needs eform.form_html edited in the "

@@ -1025,8 +1025,13 @@ re-verified against the code, plus a CodeRabbit pass), re-rehearsed (done):**
   `HRMDocument` rows reaching one basename through different paths are
   refused before the rewrite; eForm image references are decoded the way
   the image route receives them (whole attribute value, entities and
-  percent-encoding, a second query parameter cut) and a subdirectory
-  reference is a blocking problem.
+  percent-encoding, a second query parameter cut). A reference that
+  ESCAPES `eform/images` is a blocking problem; a reference that merely
+  names a subdirectory or carries a query suffix while the asset itself
+  is present is reported with the `eform.form_html` edit it needs, not
+  blocked — no tar and no `--accept` can clear those, so blocking would
+  leave the operator with a refusal they cannot act on for a broken
+  image on a form template.
 - **Orchestration:** the preflight verb exits 3 on every tool failure
   (never a verdict code); credential literals are masked in every SQL error
   text and a half-created staging account is dropped; `--province` may only

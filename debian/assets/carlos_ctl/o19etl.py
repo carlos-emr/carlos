@@ -383,15 +383,17 @@ def merge_missing_count_sql(table: str, entry: dict, src_schema: str,
     return sql
 
 
-def pruned_property_predicate(prefixes: Sequence[str]) -> str:
+def pruned_property_predicate(prefixes: Sequence[str],
+                              keys: Sequence[str] = ()) -> str:
     """Staging-side (alias `s`) predicate for the removed-module
     `property` rows the roles post-step prunes from the target after the
-    merge (o19roles.property_prune_statements, same LIKE shape): the
-    reverse parity must not expect their twins."""
-    likes = ["s.`name` LIKE '{0}%'".format(
+    merge (o19roles.property_prune_statements, same LIKE and equality
+    shapes): the reverse parity must not expect their twins."""
+    parts = ["s.`name` LIKE '{0}%'".format(
         _sql_str(p).replace("_", "\\_").replace("%", "\\%"))
         for p in prefixes]
-    return " OR ".join(likes) if likes else "FALSE"
+    parts += ["s.`name` = '{0}'".format(_sql_str(k)) for k in keys]
+    return " OR ".join(parts) if parts else "FALSE"
 
 
 NUMERIC_TYPES = ("tinyint", "smallint", "mediumint", "int", "integer",
@@ -830,9 +832,15 @@ def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
             cap = d.get("octet_len") or d["char_len"]
             if not cap:
                 continue
-            sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE "
-                   "LENGTH(CONVERT({2} USING utf8mb4)) > {3}".format(
-                       src_schema, table, expr, cap))
+            # a BLOB is bytes, not text: converting it through utf8mb4
+            # would measure a re-encoding of binary data (and could
+            # reject a perfectly valid scanned document). Only the TEXT
+            # family is measured as the target will store it.
+            measure = ("OCTET_LENGTH({0})".format(expr)
+                       if d["type"].endswith("blob")
+                       else "LENGTH(CONVERT({0} USING utf8mb4))".format(expr))
+            sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE {2} > {3}"
+                   .format(src_schema, table, measure, cap))
             out.append((c, sql))
         elif d["char_len"] and s["char_len"] \
                 and d["char_len"] < s["char_len"]:
@@ -913,14 +921,17 @@ def save_progress(state_dir: str, progress: Dict) -> None:
     o19import.durable_json(_progress_path(state_dir), progress)
 
 
-# anchored on the client's error prefix: a bare "1054" substring test
-# also matched a table name, a row id or a byte offset carrying those
-# digits, and would then silently classify a real failure as "absent at
-# this patch level" — in the P7 spot check that skips a verification
-# join, and in detect_repairs it would pass a failed charset scan as
-# clean
-ABSENT_OBJECT_RE = re.compile(r"ERROR\s+(1054|1146)\b", re.I)
-ABSENT_OBJECT_MARKERS = ("Unknown column", "doesn't exist")
+# The numeric code decides whenever the client gave one: a bare "1054"
+# substring test also matched a table name, a row id or a byte offset
+# carrying those digits, and a bare "doesn't exist" also matches
+# MariaDB's 1932 "doesn't exist in engine", which means a CORRUPT table.
+# Either way a real failure would be classified as "absent at this patch
+# level" — in the P7 spot check that silently skips a verification join,
+# and in detect_repairs it would pass a failed charset scan as clean.
+ABSENT_OBJECT_CODES = ("1054", "1146")
+ERROR_CODE_RE = re.compile(r"ERROR\s+(\d+)")
+ABSENT_OBJECT_TEXT_RE = re.compile(
+    r"Unknown column|doesn't exist(?!\s+in\s+engine)", re.I)
 
 
 class QueryError(RuntimeError):
@@ -941,9 +952,11 @@ def _absent_object_error(exc: Exception) -> bool:
     text = getattr(exc, "stderr", None)
     if text is None:
         text = str(exc)
-    if ABSENT_OBJECT_RE.search(text or ""):
-        return True
-    return any(m in text for m in ABSENT_OBJECT_MARKERS)
+    text = text or ""
+    code = ERROR_CODE_RE.search(text)
+    if code:
+        return code.group(1) in ABSENT_OBJECT_CODES
+    return bool(ABSENT_OBJECT_TEXT_RE.search(text))
 
 
 def detect_repairs(query, src_schema: str, accepted,
@@ -1116,7 +1129,11 @@ def precheck_scope(state_dir: str) -> str:
     if not isinstance(progress, dict):
         return unreadable
     tables = progress.get("tables")
-    if tables is not None and not isinstance(tables, dict):
+    # load_progress setdefaults "tables" to {} on every path, so a ledger
+    # without one as a mapping is not a shape this writer produces —
+    # and "nothing was written" is the one wrong answer for a shape we
+    # do not recognise
+    if not isinstance(tables, dict):
         return unreadable
     if progress.get("admin_provider_no") or tables:
         return "no further writes were made"
@@ -1770,7 +1787,8 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
                appended: Optional[Dict[str, int]] = None,
                dst_info: Optional[Dict[str, Dict[str, dict]]] = None,
                archive_schema: Optional[str] = None,
-               pruned_property_prefixes: Optional[Sequence[str]] = None
+               pruned_property_prefixes: Optional[Sequence[str]] = None,
+               pruned_property_keys: Optional[Sequence[str]] = None
                ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) comparing staging vs target counts for
     every copy-class table. The tolerated deltas are the break-glass
@@ -1800,8 +1818,11 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
             # excluded removed-module rows aside) must have a target twin;
             # the property rows the roles step pruned again are not twins
             exclude = None
-            if table == "property" and pruned_property_prefixes:
-                exclude = pruned_property_predicate(pruned_property_prefixes)
+            if table == "property" and (pruned_property_prefixes
+                                        or pruned_property_keys):
+                exclude = pruned_property_predicate(
+                    pruned_property_prefixes or (),
+                    pruned_property_keys or ())
             missing = int(plain_query(merge_missing_count_sql(
                 table, entry, src_schema, dst_schema, dst_info[table],
                 archive_schema, exclude))[0][0])

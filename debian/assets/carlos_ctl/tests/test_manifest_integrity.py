@@ -329,6 +329,16 @@ class TestDroppedPrefixesTrackTheFileRules(unittest.TestCase):
         self.assertEqual(sorted(o19_preflight.DROPPED_PROP_PREFIXES),
                          derived)
 
+    def test_every_dropped_flag_key_is_embedded(self):
+        # a key classified by NAME rather than by prefix has the same
+        # problem one level down: dropped from oscar.properties while
+        # its `property` table row survives and CARLOS reads it back
+        from carlos_ctl import o19_preflight
+        derived = sorted(k for k, spec in o19map_props.KEYS.items()
+                         if spec.get("d") == "dropped-flag")
+        self.assertEqual(sorted(o19_preflight.DROPPED_PROP_KEYS), derived)
+        self.assertTrue(derived)
+
 
 class TestPreflightDriftLock(unittest.TestCase):
     """The data embedded in o19_preflight.py must be exactly derivable from

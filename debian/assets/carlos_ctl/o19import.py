@@ -41,6 +41,7 @@ import os
 import re
 import shutil
 import subprocess
+import tarfile
 import sys
 import time
 from typing import Callable, Dict, List, Optional
@@ -420,7 +421,7 @@ def documents_expanded_size(tar_path: str) -> int:
     try:
         entries = o19bundle.read_tar_entries(tar_path,
                                              tar_path.endswith(".gz"))
-    except Exception as exc:
+    except (tarfile.TarError, OSError, EOFError) as exc:
         warn("cannot read the documents archive ({0}); using its file size "
              "for the disk check".format(str(exc)[:200]))
         return os.path.getsize(tar_path)
@@ -480,13 +481,21 @@ def run_p0_capacity(ctx) -> None:
             break
         except RuntimeError:
             continue
-    dump_threads = []
     try:
         dump_threads = query(
             "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE "
             "COMMAND IN ('Binlog Dump', 'Binlog Dump GTID')")
-    except RuntimeError:
-        dump_threads = []
+    except RuntimeError as exc:
+        # this is the RELIABLE half of the check — SHOW REPLICA HOSTS
+        # only sees replicas that registered a report_host. Failing open
+        # here would let the import silently diverge an attached replica,
+        # which is unrecoverable without re-importing.
+        die("cannot determine whether replicas are attached (the "
+            "information_schema.PROCESSLIST probe failed: {0}). The "
+            "import's binlog-off bulk copy is not replica-safe, so it "
+            "will not proceed on an unknown answer: grant the import "
+            "account PROCESS, or detach the replicas and say so."
+            .format(str(exc).strip()[:200]))
     connected = 0
     if dump_threads and dump_threads[0] and dump_threads[0][0]:
         try:
@@ -1139,7 +1148,8 @@ def _row_parity(ctx):
         appended=progress.get("roles", {}).get("appended"),
         dst_info=o19etl.introspect_columns(ctx["query"], ctx["target_db"]),
         archive_schema=ctx.get("archive_schema", ARCHIVE_SCHEMA),
-        pruned_property_prefixes=o19_preflight.DROPPED_PROP_PREFIXES)
+        pruned_property_prefixes=o19_preflight.DROPPED_PROP_PREFIXES,
+        pruned_property_keys=o19_preflight.DROPPED_PROP_KEYS)
 
 
 def run_p4(ctx) -> None:
@@ -1311,18 +1321,35 @@ def run_p7(ctx) -> None:
     agg = ("SELECT IFNULL(YEAR(billing_date),0), COUNT(*), "
            "IFNULL(SUM(CAST(total AS DECIMAL(14,2))),0) FROM "
            "`{0}`.billing_on_cheader1 GROUP BY 1 ORDER BY 1")
-    try:
-        s_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(src))}
-        d_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(dst))}
-    except RuntimeError as exc:
-        if not o19etl._absent_object_error(exc):
-            raise
-        # tolerated the same way the parity and spot-check loops tolerate
-        # it: this table is absent at some patch levels, and a completed
-        # import must not end on a raw "table doesn't exist"
+
+    def billing_totals(schema):
+        """The aggregate, or None when this schema has no such table —
+        judged per SIDE. Clearing BOTH on one absence would let a dump
+        without the table pass verification against a target that has
+        rows in it."""
+        try:
+            return {r[0]: (r[1], r[2]) for r in query(agg.format(schema))}
+        except RuntimeError as exc:
+            if not o19etl._absent_object_error(exc):
+                raise
+            return None
+
+    s_rows = billing_totals(src)
+    d_rows = billing_totals(dst)
+    if s_rows is None and d_rows is None:
+        # absent at this patch level on both sides: tolerated the same
+        # way the parity and spot-check loops tolerate it, rather than
+        # ending a completed import on a raw "table doesn't exist"
         s_rows = d_rows = {}
         lines.append("billing totals: billing_on_cheader1 absent from "
-                     "this dump")
+                     "both schemas")
+    elif s_rows is None or d_rows is None:
+        problems.append(
+            "billing_on_cheader1 exists in {0} but not in {1} — "
+            "verification cannot compare billing totals".format(
+                dst if s_rows is None else src,
+                src if s_rows is None else dst))
+        s_rows = d_rows = {}
     if s_rows != d_rows:
         for year in sorted(set(s_rows) | set(d_rows)):
             if s_rows.get(year) != d_rows.get(year):
@@ -1861,7 +1888,7 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
                 "oscar.properties from the clinic; nothing has been "
                 "staged or written.".format(inputs["properties"], exc))
     if getattr(args, "skip_documents", False) \
-            and "no-documents" not in args.accept:
+            and "no-documents" not in accepted:
         die("--skip-documents requires --accept no-documents (the missing "
             "documents are a recorded sign-off, not a default)")
     if inputs["documents"] is None and import_mode \

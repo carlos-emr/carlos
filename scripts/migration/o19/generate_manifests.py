@@ -975,6 +975,13 @@ def emit_preflight_data(tables, ov, props_ov,
     lines.append("DROPPED_PROP_PREFIXES = " + _fmt(
         [p for p, spec in props_ov.PREFIX_RULES
          if spec.get("d") == "dropped-flag"]))
+    # …and the keys classified by NAME rather than by prefix. Without
+    # these the same drift reappears one level down: the key is dropped
+    # from oscar.properties while its `property` table row survives the
+    # import and CARLOS reads it back.
+    lines.append("DROPPED_PROP_KEYS = " + _fmt(
+        sorted(k for k, spec in props_ov.KEYS.items()
+               if spec.get("d") == "dropped-flag")))
     lines.append("STOCK_ROLE_NAMES = "
                  + _fmt(list(extras.get("stock_role_names", []))))
     lines.append("LEGACY_PREVENTION_TYPES = "
