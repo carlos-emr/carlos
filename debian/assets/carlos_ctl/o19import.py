@@ -329,23 +329,62 @@ def uncompressed_size(path: str) -> int:
     return total
 
 
+DATADIR_FALLBACKS = ("/var/lib/mysql", "/var/lib/mariadb")
+
+
+def server_datadir(query=None) -> str:
+    """Where the server actually keeps its data. On Ubuntu 26.04 MariaDB
+    moved to /var/lib/mariadb for MySQL co-installability, so the old
+    constant names a path that does not exist — and _statvfs_nearest
+    would then quietly measure /var/lib or / instead of the volume that
+    fills. Ask the server; fall back to whichever default exists."""
+    if query is not None:
+        try:
+            rows = query("SELECT @@datadir")
+            if rows and rows[0] and rows[0][0]:
+                return rows[0][0]
+        except (RuntimeError, IndexError):
+            pass
+    for path in DATADIR_FALLBACKS:
+        if os.path.isdir(path):
+            return path
+    return DATADIR_FALLBACKS[0]
+
+
 def check_disk_headroom(dump_bytes: int, bundle_size: int,
-                        documents_size: int = 0) -> Optional[str]:
+                        documents_size: int = 0,
+                        datadir: str = "") -> Optional[str]:
     """None if fine, else a message. dump_bytes is the UNCOMPRESSED dump
     size: the database volume needs roughly 2.5x that (staging restore +
     the copy into the target + archive schema); the state volume needs
-    the bundle expanded (x2) plus the documents tar extracted (x2)."""
-    needs = (("database volume", "/var/lib/mysql", int(dump_bytes * 2.5)),
+    the bundle expanded (x2) plus the documents tar extracted (x2).
+
+    Requirements on the SAME filesystem are summed before they are
+    compared: on the single-root VM this normally runs on, checking each
+    against the same free figure lets a host pass both and then fill up
+    part-way through."""
+    needs = (("database volume", datadir or server_datadir(),
+              int(dump_bytes * 2.5)),
              ("state volume", STATE, bundle_size * 2 + documents_size * 2))
+    by_device: Dict[int, List] = {}
     for label, path, needed in needs:
         if needed <= 0:
             continue
         st = _statvfs_nearest(path)
-        free = st.f_bavail * st.f_frsize
+        try:
+            dev = os.stat(path).st_dev
+        except OSError:
+            dev = -len(by_device) - 1     # unresolvable: keep it separate
+        entry = by_device.setdefault(dev, [[], 0, st.f_bavail * st.f_frsize,
+                                           path])
+        entry[0].append(label)
+        entry[1] += needed
+    for labels, needed, free, path in by_device.values():
         if free < needed:
             return ("insufficient disk on {0} ({1}): {2} MB free, "
                     "~{3} MB needed".format(
-                        label, path, free // 1048576, needed // 1048576))
+                        " + ".join(labels), path, free // 1048576,
+                        needed // 1048576))
     return None
 
 
@@ -384,20 +423,45 @@ def run_p0_capacity(ctx) -> None:
     verdict."""
     query = ctx["query"]
 
-    # replicas double every byte of the ETL — refuse rather than surprise.
-    try:
-        replicas = query("SHOW REPLICA HOSTS")
-    except RuntimeError:
+    # Replicas would silently diverge: the whole ETL runs with
+    # sql_log_bin=0, so a replica keeps the pristine seed while the
+    # primary holds the clinic's chart, and nothing downstream compares
+    # them. SHOW REPLICA HOSTS lists only replicas that registered a
+    # report_host (unset by default), so a conventionally configured
+    # replica is invisible to it — the dump threads are the reliable
+    # signal and are checked as well.
+    replicas = []
+    for probe in ("SHOW REPLICA HOSTS", "SHOW SLAVE HOSTS"):
         try:
-            replicas = query("SHOW SLAVE HOSTS")
+            replicas = query(probe)
+            break
         except RuntimeError:
-            replicas = []
-    if replicas:
-        die("this database server has replicas attached — the import's "
-            "binlog-off bulk copy is not replica-safe. Detach them first.")
+            continue
+    dump_threads = []
+    try:
+        dump_threads = query(
+            "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE "
+            "COMMAND IN ('Binlog Dump', 'Binlog Dump GTID')")
+    except RuntimeError:
+        dump_threads = []
+    connected = 0
+    if dump_threads and dump_threads[0] and dump_threads[0][0]:
+        try:
+            connected = int(dump_threads[0][0])
+        except ValueError:
+            connected = 0
+    if replicas or connected:
+        die("this database server has replicas attached ({0} registered, "
+            "{1} live binlog dump thread(s)) — the import's binlog-off "
+            "bulk copy is not replica-safe and the replicas would keep "
+            "the pristine seed. Detach them first.".format(
+                len(replicas), connected))
 
     stage = ctx["state"].get("phases", {}).get("stage", {})
-    if not phase_done(ctx["state"], "stage"):
+    # --restage drops the staged dump and restores this one, but P1 pops
+    # the stage phase only later — so without the restage arm the gate
+    # would size the NEW dump from the OLD one's recorded figure
+    if ctx.get("restage") or not phase_done(ctx["state"], "stage"):
         log("measuring the dump's uncompressed size for the disk check ...")
         dump_bytes = uncompressed_size(ctx["dump"])
         ctx["dump_uncompressed"] = dump_bytes
@@ -411,7 +475,7 @@ def run_p0_capacity(ctx) -> None:
         docs_bytes = documents_expanded_size(ctx["documents"])
         ctx["documents_size"] = docs_bytes
     headroom = check_disk_headroom(dump_bytes, ctx.get("bundle_size", 0),
-                                   docs_bytes)
+                                   docs_bytes, server_datadir(query))
     if headroom:
         die(headroom)
 
@@ -575,13 +639,24 @@ def staging_client_argv(base_argv: List[str], client_cnf: str,
     read from a 0600 defaults file (never argv), and --one-database so a
     statement addressed at another schema is skipped rather than run.
     --statement-timeout bounds the dump's own statements too (one crafted
-    INSERT could otherwise hold the restore forever)."""
+    INSERT could otherwise hold the restore forever).
+
+    --user is repeated on the argv even though the defaults file already
+    names it: --defaults-extra-file does NOT suppress the other option
+    files, and ~/.my.cnf is read AFTER it. A root ~/.my.cnf carrying
+    `[client] user=root` would otherwise silently connect the clinic's
+    dump as root, and every backstop this function exists for — the
+    schema-scoped grants, --one-database — would be gone. A command-line
+    option outranks every option file. --local-infile=0 closes the same
+    class for a system defaults file that enables it."""
     tail = strip_client_identity(list(base_argv)[1:])
     init = ("SET SESSION sql_log_bin=0, FOREIGN_KEY_CHECKS=0, "
             "UNIQUE_CHECKS=0, sql_mode=''")
     if statement_timeout:
         init += ", max_statement_time={0}".format(int(statement_timeout))
-    return (["mariadb", "--defaults-extra-file=" + client_cnf] + tail
+    return (["mariadb", "--defaults-extra-file=" + client_cnf,
+             "--user=" + STAGING_USER, "--local-infile=0",
+             "--max-allowed-packet=1G"] + tail
             + ["--one-database", "--init-command=" + init, STAGING_SCHEMA])
 
 
@@ -648,6 +723,44 @@ def revoke_staging_account(query, client_cnf: str) -> None:
             os.unlink(client_cnf)
 
 
+# an incomplete line longer than this is carried as "mid-line" instead:
+# its start was scanned in an earlier buffer, and an unbounded carry
+# would hold a single-line dump entirely in memory
+DUMP_CARRY_MAX = 1 << 16
+
+
+class RedirectScanner:
+    """Scans a dump chunk by chunk for a redirecting statement, tracking
+    line starts across chunk boundaries.
+
+    dump_redirect_marker anchors on `^`, so it must only ever see a
+    buffer that begins a line. A fixed-size carry gets this wrong in both
+    directions: it misses a marker split across the boundary (`CREATE`
+    plus whitespace ending one chunk), and it matches `^` in the middle
+    of a clinical note that happens to start the carry."""
+
+    def __init__(self):
+        self.carry = b""       # the trailing incomplete line, a line start
+        self.mid_line = False  # the next buffer opens inside a line
+
+    def feed(self, chunk: bytes) -> Optional[str]:
+        buf = self.carry + chunk
+        scan = buf
+        if self.mid_line:
+            nl = buf.find(b"\n")
+            scan = buf[nl + 1:] if nl >= 0 else b""
+        marker = dump_redirect_marker(scan)
+        nl = buf.rfind(b"\n")
+        partial = buf[nl + 1:] if nl >= 0 else buf
+        if nl < 0 or len(partial) > DUMP_CARRY_MAX:
+            # one line longer than the carry bound: its start was scanned
+            # already, so the next buffer opens mid-line
+            self.carry, self.mid_line = b"", True
+        else:
+            self.carry, self.mid_line = partial, False
+        return marker
+
+
 def _stream_dump(opener: List[str], restore_argv: List[str]):
     """Pipe the dump through the restore client, scanning every chunk for
     redirecting statements. Returns (source_rc, client_rc, tail_bytes,
@@ -656,7 +769,7 @@ def _stream_dump(opener: List[str], restore_argv: List[str]):
     sink = subprocess.Popen(restore_argv,                    # nosec B603
                             stdin=subprocess.PIPE)
     tail = b""
-    carry = b"\n"
+    scanner = RedirectScanner()
     broken = False
     redirect = None
     try:
@@ -667,11 +780,10 @@ def _stream_dump(opener: List[str], restore_argv: List[str]):
             # the whole stream is scanned, not only its head: a USE /
             # CREATE DATABASE anywhere would steer the rest of the dump
             # (the account's grants and --one-database are the backstops)
-            redirect = dump_redirect_marker(carry + chunk)
+            redirect = scanner.feed(chunk)
             if redirect:
                 broken = True
                 break
-            carry = chunk[-32:]
             try:
                 sink.stdin.write(chunk)
             except BrokenPipeError:
@@ -706,6 +818,15 @@ def run_p1(ctx) -> None:
                 "skipping")
             return
         if not ctx["restage"]:
+            if etl_started(ctx["state_dir"]):
+                # do not offer --restage here: the next gate refuses it,
+                # and the operator would spend a round trip finding out
+                die("a different dump was offered, but the ETL has "
+                    "already copied from the one staged earlier — the "
+                    "two cannot be mixed and --restage will not be "
+                    "accepted. Restore the pre-import snapshot and start "
+                    "over, or re-run with the dump this workspace "
+                    "staged.")
             die("a different dump was already staged — pass --restage to "
                 "drop {0} and restore this one".format(STAGING_SCHEMA))
     if ctx["restage"] and etl_started(ctx["state_dir"]):
@@ -757,9 +878,11 @@ def run_p1(ctx) -> None:
     if redirect:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
         die(redirect)
-    if src_rc != 0:
-        query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
-        die("reading the dump failed (corrupt archive?)")
+    # the CLIENT first: when it dies on a statement it may not run, the
+    # write end breaks and the source is terminated, so src_rc is
+    # non-zero for a perfectly good dump. Reporting "corrupt archive"
+    # there sends the operator to re-fetch a file that is fine, and the
+    # message naming the actual cause is never reached.
     if rc != 0:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
         die("restore into {0} failed — see the client error above. The "
@@ -768,6 +891,9 @@ def run_p1(ctx) -> None:
             "statements must be re-taken without them (mysqldump "
             "--skip-triggers --set-gtid-purged=OFF, no --databases)"
             .format(STAGING_SCHEMA))
+    if src_rc != 0:
+        query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
+        die("reading the dump failed (corrupt archive?)")
     if DUMP_COMPLETED_MARKER not in tail:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
         die("the dump has no '-- Dump completed' trailer — it is truncated "
@@ -775,8 +901,14 @@ def run_p1(ctx) -> None:
 
     n_tables = query("SELECT COUNT(*) FROM information_schema.TABLES "
                      "WHERE TABLE_SCHEMA = '{0}'".format(STAGING_SCHEMA))
+    if ctx.get("dump_uncompressed") is None:
+        # never record None: every later resume reads this back through
+        # `or ctx["dump_size"]`, which is the COMPRESSED size for a .gz —
+        # an order of magnitude too lax on the one volume that must not
+        # fill
+        ctx["dump_uncompressed"] = uncompressed_size(ctx["dump"])
     mark_done(ctx["state_dir"], ctx["state"], "stage", dump_sha256=dump_sha,
-              uncompressed_bytes=ctx.get("dump_uncompressed"))
+              uncompressed_bytes=ctx["dump_uncompressed"])
     report_append(ctx["state_dir"], "P1 stage",
                   "restored {0} ({1} tables) from {2}\nsha256 {3}".format(
                       STAGING_SCHEMA, n_tables[0][0],
@@ -1034,10 +1166,26 @@ def run_p7(ctx) -> None:
     # they go to a separate root-only file, not the shareable report.
     total = int(query("SELECT COUNT(*) FROM `{0}`.demographic"
                       .format(src))[0][0])
+    # Deterministic, and derived from the dump: an unseeded ORDER BY
+    # RAND() draws a NEW sample on every attempt, so a failed
+    # verification could be re-run until a sample happened to miss the
+    # affected patients — and verify-details.txt, which is truncated per
+    # pass, would then say "clean" with nothing recording the mismatch.
+    seed = int(ctx["state"].get("phases", {}).get("stage", {})
+               .get("dump_sha256", "0")[:12] or "0", 16)
     sample = [r[0] for r in query(
-        "SELECT demographic_no FROM `{0}`.demographic ORDER BY RAND() "
-        "LIMIT {1}".format(src, SPOT_CHECK_PATIENTS))]
-    sample = [demo for demo in sample if demo.isdigit()]
+        "SELECT demographic_no FROM `{0}`.demographic ORDER BY "
+        "RAND({1}) LIMIT {2}".format(src, seed, SPOT_CHECK_PATIENTS))]
+    # isascii() too: '٣'.isdigit() is True, and the value is
+    # interpolated unquoted into the join predicates below
+    sample = [demo for demo in sample
+              if demo.isascii() and demo.isdigit()]
+    # any patient a previous attempt found a mismatch for is re-checked
+    # alongside the sample, so a fix is proved rather than out-drawn
+    prev_verify = ctx["state"].get("phases", {}).get("verify", {})
+    for demo in prev_verify.get("mismatched", []):
+        if demo not in sample and demo.isascii() and demo.isdigit():
+            sample.append(demo)
     if total and not sample:
         problems.append("spot check drew no patients from {0} demographic "
                         "row(s)".format(total))
@@ -1086,8 +1234,18 @@ def run_p7(ctx) -> None:
     agg = ("SELECT IFNULL(YEAR(billing_date),0), COUNT(*), "
            "IFNULL(SUM(CAST(total AS DECIMAL(14,2))),0) FROM "
            "`{0}`.billing_on_cheader1 GROUP BY 1 ORDER BY 1")
-    s_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(src))}
-    d_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(dst))}
+    try:
+        s_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(src))}
+        d_rows = {r[0]: (r[1], r[2]) for r in query(agg.format(dst))}
+    except RuntimeError as exc:
+        if not o19etl._absent_object_error(exc):
+            raise
+        # tolerated the same way the parity and spot-check loops tolerate
+        # it: this table is absent at some patch levels, and a completed
+        # import must not end on a raw "table doesn't exist"
+        s_rows = d_rows = {}
+        lines.append("billing totals: billing_on_cheader1 absent from "
+                     "this dump")
     if s_rows != d_rows:
         for year in sorted(set(s_rows) | set(d_rows)):
             if s_rows.get(year) != d_rows.get(year):
@@ -1120,6 +1278,21 @@ def run_p7(ctx) -> None:
     if r_adv:
         lines.append("ADVISORIES (review before go-live):\n  "
                      + "\n  ".join(r_adv))
+
+    if total and not checked:
+        # every join table absent at this patch level: "all checks
+        # passed" after zero referential checks is not a verification
+        problems.append("no referential spot check could run ({0} "
+                        "patient(s) in staging, every join table absent) "
+                        "— verification cannot vouch for this import"
+                        .format(total))
+    # record the patients a mismatch was seen for so the next attempt
+    # re-checks them instead of drawing past them
+    mismatched = sorted({ln.split()[1].rstrip(":") for ln in details
+                         if ln.startswith("patient ")})
+    ctx["state"].setdefault("phases", {}).setdefault("verify", {})
+    ctx["state"]["phases"]["verify"]["mismatched"] = mismatched
+    save_state(ctx["state_dir"], ctx["state"])
 
     report_append(ctx["state_dir"], "P7 verify",
                   "\n".join(lines)
@@ -1694,12 +1867,19 @@ def webapp_running_refusal() -> Optional[str]:
     chart. Checked on every real run and resume of a packaged host."""
     if not os.path.exists(ENV_FILE):
         return None  # a development database, no service unit
-    cp = run(["systemctl", "is-active", "--quiet", "carlos-emr"])
-    if cp.returncode == 0:
-        return ("carlos-emr is running — stop it for the duration of the "
+    # NOT `is-active --quiet`: a unit still starting reports
+    # ActiveState=activating, for which is-active exits 3 — and Tomcat
+    # takes tens of seconds to reach `active`, so the guard would be
+    # inert for exactly the window in which the startup listener writes
+    # its rows. dbops.py makes the same correction for the backup units.
+    state = run(["systemctl", "show", "-p", "ActiveState", "--value",
+                 "carlos-emr"], capture_output=True).stdout.strip()
+    if state in ("active", "activating", "reloading", "deactivating"):
+        return ("carlos-emr is {0} — stop it for the duration of the "
                 "import (`carlos-ctl stop`, or `systemctl stop carlos-emr`) "
                 "and re-run; start it again only after the verified import "
-                "and the properties fragment have been applied")
+                "and the properties fragment have been applied".format(
+                    state))
     return None
 
 

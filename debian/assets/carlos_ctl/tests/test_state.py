@@ -419,19 +419,70 @@ class TestStagingRestore(unittest.TestCase):
             b"\n-- MySQL dump\nINSERT INTO `t` VALUES ('use this');\n"
             b"/*!40101 SET NAMES utf8 */;\n"))
 
+    def test_redirect_markers_survive_every_spelling(self):
+        for text in (b"\nUse `oscar`;\n", b"\n  USE `oscar`;\n",
+                     b"\n\tcreate  database x;\n",
+                     b"\nCreate Database x;\n"):
+            self.assertIsNotNone(o19import.dump_redirect_marker(text), text)
+        # anchored: the word inside a value or a comment is data
+        for text in (b"\nINSERT INTO t VALUES ('use oscar');\n",
+                     b"-- USE is mentioned here\n"):
+            self.assertIsNone(o19import.dump_redirect_marker(text), text)
+
+    def _scan(self, chunks):
+        scanner = o19import.RedirectScanner()
+        for chunk in chunks:
+            found = scanner.feed(chunk)
+            if found:
+                return found
+        return None
+
+    def test_a_marker_split_across_a_chunk_boundary_is_caught(self):
+        # `CREATE` plus more whitespace than any fixed-size carry would
+        # hold: neither chunk contains the marker on its own
+        self.assertIsNotNone(self._scan(
+            [b"INSERT INTO t VALUES (1);\nCREATE" + b" " * 4096,
+             b"DATABASE evil;\n"]))
+        self.assertIsNotNone(self._scan([b"x;\n", b"USE other;\n"]))
+
+    def test_a_note_that_starts_a_chunk_is_not_a_marker(self):
+        # `^` must not match mid-line: the buffer the scanner carries is
+        # always a line start, so clinical text cannot forge one
+        self.assertIsNone(self._scan(
+            [b"INSERT INTO n VALUES ('a b c ",
+             b"use the inhaler twice daily');\n"]))
+
+    def test_a_line_longer_than_the_carry_bound_stays_mid_line(self):
+        big = (b"INSERT INTO n VALUES ('" + b"x" * (o19import.DUMP_CARRY_MAX * 2)
+               + b" use it');\n")
+        half = len(big) // 2
+        self.assertIsNone(self._scan([big[:half], big[half:]]))
+        # and a real marker on the line AFTER it is still caught
+        self.assertIsNotNone(self._scan(
+            [big[:half], big[half:] + b"USE other;\n"]))
+
     def test_restore_argv_replaces_identity_and_scopes_the_database(self):
         argv = o19import.staging_client_argv(
             ["mariadb", "--protocol=socket", "--user=root"], "/s/.cnf")
-        self.assertEqual(argv[:3], ["mariadb", "--defaults-extra-file=/s/.cnf",
-                                    "--protocol=socket"])
+        self.assertEqual(argv[:2], ["mariadb",
+                                    "--defaults-extra-file=/s/.cnf"])
+        self.assertIn("--protocol=socket", argv)
         self.assertNotIn("--user=root", argv)
         self.assertIn("--one-database", argv)
         self.assertEqual(argv[-1], o19import.STAGING_SCHEMA)
+        # the identity is repeated ON THE ARGV: --defaults-extra-file does
+        # not suppress ~/.my.cnf, which is read after it and would
+        # otherwise connect the clinic's dump as root
+        self.assertIn("--user=" + o19import.STAGING_USER, argv)
+        self.assertLess(argv.index("--defaults-extra-file=/s/.cnf"),
+                        argv.index("--user=" + o19import.STAGING_USER))
+        self.assertIn("--local-infile=0", argv)
         # a dev seam's own credentials are stripped the same way
         argv = o19import.staging_client_argv(
             ["mariadb", "--host=db", "-uroot", "-psecret",
              "--defaults-file=/x"], "/s/.cnf")
-        self.assertEqual([a for a in argv if a.startswith(("-u", "-p"))], [])
+        self.assertEqual([a for a in argv
+                          if a.startswith(("-uroot", "-psecret"))], [])
         self.assertIn("--host=db", argv)
         self.assertNotIn("--defaults-file=/x", argv)
 
@@ -666,7 +717,10 @@ class TestVerifyPhaseFiles(unittest.TestCase):
         def query(sql, db=None):
             if "COUNT(*) FROM `o19_import`.demographic" in sql:
                 return [["2"]]
-            if "ORDER BY RAND()" in sql:
+            if "ORDER BY RAND(" in sql:
+                # the sample is seeded from the recorded dump digest, so
+                # a re-run draws the SAME patients
+                self.assertIn("RAND(0)", sql)
                 return [["7"], ["9"]]
             if "billing_on_cheader1 GROUP BY" in sql:
                 return []
