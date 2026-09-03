@@ -612,7 +612,9 @@ public class ConfigureFax2Action extends ActionSupport {
             throw new IllegalArgumentException("SRFax account number is required.");
         }
         if (providerType == FaxConfig.ProviderType.SRFAX && !isSrfaxAccountNumber(faxUsers[idx])) {
-            throw new IllegalArgumentException(ACCOUNT_NUMBER_NOT_NUMERIC_DEFAULT);
+            // Same localized message the connection test shows, so save and test agree.
+            throw new IllegalArgumentException(
+                    text("admin.configureFax.test.accountNumberNotNumeric", ACCOUNT_NUMBER_NOT_NUMERIC_DEFAULT));
         }
         if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
             throw new IllegalArgumentException("Your SRFax fax number is required.");

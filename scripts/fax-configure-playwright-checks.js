@@ -51,8 +51,12 @@
  *   SRFAX_ACCESS_ID (account number), SRFAX_PASS, SRFAX_USER (login email, used as
  *   the sender/notification email), SRFAX_FAX_NUMBER (10 digits), SRFAX_LIVE.
  *
- * Never prints any SRFAX_* value; screenshots go to FAX_CONFIG_SCREENSHOT_DIR,
- * which must be outside the repository when real values are in play.
+ * Never prints any SRFAX_* value. Screenshots go to FAX_CONFIG_SCREENSHOT_DIR
+ * (default /tmp) but are only taken when they cannot carry a real account: fake
+ * mode with no real account stored on the page. In SRFAX_LIVE=true mode, or when
+ * the page already shows a real account, screenshots are skipped unless
+ * FAX_CONFIG_SCREENSHOTS=always is set, so CI artifacts and shared dev runs never
+ * pick up a real account number, sender email, or a filled password field.
  *
  * SIDE EFFECT: the save step leaves the fax_config row configured with the
  * supplied (or fake) account values and the gateway ENABLED with polling on, the
@@ -109,6 +113,7 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.FAX_CONFIG_SCREENSHOT_DIR || '/tmp',
   allowOverwrite: process.env.FAX_CONFIG_ALLOW_OVERWRITE === 'true',
+  screenshotsAlways: process.env.FAX_CONFIG_SCREENSHOTS === 'always',
   srfax: {
     accessId: process.env.SRFAX_ACCESS_ID || FAKE_ACCESS_ID,
     pass: process.env.SRFAX_PASS || FAKE_PASS,
@@ -150,6 +155,29 @@ async function step(name, fn) {
     record(name, false, error.message);
     throw error;
   }
+}
+
+// Screenshots of this page can carry an account number, a sender email and a filled
+// (masked) password field. Take them only when no real account can be on the page:
+// fake mode with an empty/fake stored account. Live mode, or a real stored account,
+// needs the explicit FAX_CONFIG_SCREENSHOTS=always opt-in.
+function screenshotAllowed(existingAccountNumber) {
+  if (config.screenshotsAlways) {
+    return true;
+  }
+  if (config.srfax.live) {
+    return false;
+  }
+  return existingAccountNumber === '' || existingAccountNumber === FAKE_ACCESS_ID;
+}
+
+let screenshotsSkipped = 0;
+async function shot(page, existingAccountNumber, name) {
+  if (!screenshotAllowed(existingAccountNumber)) {
+    screenshotsSkipped += 1;
+    return null;
+  }
+  return screenshot(page, config.screenshotDir, name);
 }
 
 function digitsOnly(value) {
@@ -272,12 +300,12 @@ async function main() {
       await frame.locator('#testSrfaxConnectionBtn').waitFor({ state: 'visible', timeout: 10000 });
       assert((await frame.locator('#faxUser').getAttribute('inputmode')) === 'numeric', 'Account number input is not inputmode=numeric');
 
-      await screenshot(page, config.screenshotDir, 'fax-config-page');
+      await shot(page, existing.accountNumber, 'fax-config-page');
     });
 
     await step('test connection reports a result before anything is saved', async () => {
       await fillSrfaxForm(frame, config.srfax);
-      await screenshot(page, config.screenshotDir, 'fax-config-filled');
+      await shot(page, existing.accountNumber, 'fax-config-filled');
 
       const configureCalls = recorder.requestLog.filter((entry) => /admin\/ManageFax/.test(entry.url)).length;
       await frame.locator('#testSrfaxConnectionBtn').click();
@@ -318,7 +346,7 @@ async function main() {
 
       // Nothing was saved by the test: Save is still the only persisting control.
       assert(!(await frame.locator('#msg').isVisible()), 'Save alert appeared during a connection test');
-      await screenshot(page, config.screenshotDir, 'fax-config-test-result');
+      await shot(page, existing.accountNumber, 'fax-config-test-result');
 
       // A result only describes the credentials that were tested: editing the account
       // number must clear it, so a stale "successful" line can never sit beside unverified
@@ -355,7 +383,7 @@ async function main() {
       const alertClass = (await alert.getAttribute('class')) || '';
       assert(/alert-success/.test(alertClass), `Save did not succeed: "${alertText}"`);
       assert(!alertText.includes(config.srfax.pass), 'Save response echoed the password');
-      await screenshot(page, config.screenshotDir, 'fax-config-saved');
+      await shot(page, existing.accountNumber, 'fax-config-saved');
 
       // Reload the direct route (the same gated action the nav iframe used) and
       // confirm the persisted values come back, password masked.
@@ -375,13 +403,17 @@ async function main() {
 
       const html = await direct.content();
       assert(!html.includes(config.srfax.pass), 'Rendered page contains the SRFax password');
-      await screenshot(direct, config.screenshotDir, 'fax-config-reloaded');
+      await shot(direct, existing.accountNumber, 'fax-config-reloaded');
       await direct.close();
     });
 
     await step('no page errors across the flow', async () => {
       assertNoPageErrors(recorder);
     });
+    if (screenshotsSkipped > 0) {
+      console.log(`SKIP ${screenshotsSkipped} screenshot(s): a real SRFax account could appear on the page; `
+        + 'set FAX_CONFIG_SCREENSHOTS=always to capture them anyway');
+    }
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
