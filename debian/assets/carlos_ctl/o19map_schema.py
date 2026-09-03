@@ -10567,13 +10567,13 @@ TABLES = {
     'secObjPrivilege': {
         'class': 'merge',
         'merge_keys': ['roleUserGroup', 'objectName'],
-        'merge_exclude': "s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN ('_admin.traceability', '_newCasemgmt.clearTempNotes', '_admin.pmm', '_caisi.documentationWarning ')",
+        'merge_exclude': "s.`objectName` IN ('_admin.traceability', '_newCasemgmt.clearTempNotes', '_caisi.documentationWarning', '_caisi.documentationWarning ', '_pmm.editProgram.schedules', '_pmm.functionalCentre')",
         'cols': ['roleUserGroup', 'objectName', 'privilege', 'priority', 'provider_no'],
     },
     'secObjectName': {
         'class': 'merge',
         'merge_keys': ['objectName'],
-        'merge_exclude': "s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN ('_admin.traceability', '_newCasemgmt.clearTempNotes', '_admin.pmm', '_caisi.documentationWarning ')",
+        'merge_exclude': "s.`objectName` IN ('_admin.traceability', '_newCasemgmt.clearTempNotes', '_caisi.documentationWarning', '_caisi.documentationWarning ', '_pmm.editProgram.schedules', '_pmm.functionalCentre')",
         'cols': ['objectName', 'description', 'orgapplicable'],
         'dropped': {
             'note': {
@@ -10768,7 +10768,7 @@ TABLES = {
             'creation_date',
         ],
         'value_exprs': {
-            'creation_date': "COALESCE(NULLIF(s.`update_date`, '0001-01-01 00:00:00'), s.`service_date`, NOW())",
+            'creation_date': "COALESCE(NULLIF(s.`update_date`, '0001-01-01 00:00:00'), s.`service_date`, '1970-01-02 00:00:00')",
         },
         'fk_remap': {
             'category_id': 'tickler_category',
@@ -20946,6 +20946,7 @@ SEED_ROW_COUNTS = {
     'app_lookuptable': 13,
     'app_lookuptable_fields': 40,
     'appointment_status': 15,
+    'bed_type': 1,
     'billcenter': 9,
     'billing_payment_type': 8,
     'billingservice': 11472,
@@ -20970,9 +20971,14 @@ SEED_ROW_COUNTS = {
     'frm_labreq_preset': 193,
     'groups_tbl': 1,
     'issue': 71,
+    'lst_admission_status': 2,
+    'lst_discharge_reason': 3,
     'lst_field_category': 4,
     'lst_gender': 4,
+    'lst_organization': 3,
     'lst_orgcd': 2,
+    'lst_program_type': 3,
+    'lst_sector': 4,
     'lst_service_restriction': 3,
     'measurementType': 348,
     'mygroup': 1,
@@ -20988,7 +20994,7 @@ SEED_ROW_COUNTS = {
     'scheduleholiday': 28,
     'scheduletemplate': 1,
     'scheduletemplatecode': 23,
-    'secObjPrivilege': 513,
+    'secObjPrivilege': 514,
     'secObjectName': 133,
     'secRole': 33,
     'secUserRole': 2,

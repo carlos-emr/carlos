@@ -60,10 +60,16 @@ defaults file (`--mysql-arg --defaults-extra-file=FILE`), or a pre-set
 
 Creates a **latin1** `o19_fixture` database (init scripts in
 `createdatabase_generic.sh` order, then the vendored `release/demo.sql` demo
-dataset and the fixture document rows) and emits the three turnkey inputs:
+dataset, the fixture document rows and `demo-data/roles.sql` — the synthetic
+role/privilege and legacy-data cases the roles post-step reconciles) and
+emits the three turnkey inputs:
 `o19-fixture.sql.gz`, `o19-documents.tar.gz` (generated placeholder tree —
 includes one deliberate missing-file row and one orphan file so the
 documents-phase reconciliation gate is exercised), and `oscar.properties`
 (the synthetic clinic-example file covering every props disposition).
 `--with-olis` additionally loads `olis/olisinit.sql` to exercise the
-OLIS-dropped path.
+OLIS-dropped path. `--with-updates` applies the O19 `updates/*.sql` patch
+history best-effort before the demo data (real dumps carry ~281 privilege
+rows those patches add; 2006-era patches routinely fail on a modern server,
+each failure is named with its diagnostic, and a failed file may have applied
+its earlier statements — a rehearsal input, not a clinic).

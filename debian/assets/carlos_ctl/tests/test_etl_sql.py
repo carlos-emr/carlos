@@ -20,6 +20,28 @@ def col(dtype="varchar", nullable=True, char_len=0, column_type=None,
             "has_default": has_default, "auto_increment": auto_increment}
 
 
+def selected_expr(sql, target_col):
+    """The SELECT expression an INSERT ... SELECT feeds into target_col
+    (positional pairing of the column list and the select list, splitting
+    on top-level commas only)."""
+    head, rest = sql.split(") SELECT ", 1)
+    targets = [c.strip("` ") for c in head.split("(", 1)[1].split(",")]
+    body = rest.rsplit(" FROM ", 1)[0]
+    exprs, depth, cur = [], 0, ""
+    for ch in body:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            exprs.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    exprs.append(cur.strip())
+    return dict(zip(targets, exprs))[target_col]
+
+
 class TestCopyStatement(unittest.TestCase):
 
     ENTRY = {"class": "copy", "cols": ["id", "name"], "chunk_by": "id"}
@@ -130,11 +152,17 @@ class TestMergeStatement(unittest.TestCase):
         doc = o19map_schema.TABLES["document"]
         sql = o19etl.copy_statement("document", doc, "src", "dst",
                                     {c: col() for c in doc["cols"]})
-        self.assertIn("s.`observationdate`", sql)
+        # bound to the TARGET column, not merely present somewhere in the
+        # select list (observationdate is copied as itself too)
+        self.assertEqual(selected_expr(sql, "receivedDate"),
+                         "s.`observationdate`")
         tick = o19map_schema.TABLES["tickler"]
         sql = o19etl.copy_statement("tickler", tick, "src", "dst",
                                     {c: col() for c in tick["cols"]})
-        self.assertIn("NULLIF(s.`update_date`, '0001-01-01 00:00:00')", sql)
+        self.assertEqual(selected_expr(sql, "creation_date"),
+                         "COALESCE(NULLIF(s.`update_date`, '0001-01-01 "
+                         "00:00:00'), s.`service_date`, "
+                         "'1970-01-02 00:00:00')")
 
     def test_surrogate_pk_is_excluded_from_the_insert(self):
         entry = {"class": "merge", "cols": ["id", "type"],
@@ -522,7 +550,8 @@ class TestRowParity(unittest.TestCase):
         self.assertEqual(len(bad), 1)
         self.assertIn("demographic: staging 100 -> target 90", bad[0])
 
-    def test_only_the_admin_identity_rows_are_tolerated(self):
+    def test_without_a_ledger_only_the_admin_identity_rows_are_tolerated(
+            self):
         def q(sql):
             if "information_schema" in sql:
                 return [["provider"], ["demographic"]]

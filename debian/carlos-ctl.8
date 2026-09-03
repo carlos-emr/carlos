@@ -223,7 +223,10 @@ clinic-custom roles receive the CARLOS-era privileges of the closest stock
 role;
 .B --role-template
 .I CUSTOM=STOCK
-(repeatable) overrides that choice. Blockers found by the built-in preflight
+(repeatable, case-insensitive) overrides that choice; the mapping is recorded
+in the import ledger and a
+.B --resume
+continues with it (a different mapping is refused). Blockers found by the built-in preflight
 are cleared only by explicit
 .B --accept
 sign-off flags, recorded in the report.

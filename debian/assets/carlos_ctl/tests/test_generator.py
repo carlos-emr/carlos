@@ -79,20 +79,23 @@ class TestGenerator(unittest.TestCase):
         stripped = self.gen.strip_line_comments(text)
         self.assertEqual(self.gen.count_insert_rows(stripped), {"t": 3})
 
-    def test_seed_counter_skips_insert_ignore_tuples(self):
-        # a forward migration's INSERT IGNORE may be a no-op on a database
-        # that already holds the row, so it must not raise the P0 floor
+    def test_seed_counter_counts_insert_ignore_tuples(self):
+        # forward migrations seed whole lookup tables with INSERT IGNORE
+        # (V1.0.5: bed_type, lst_*); skipping them left copy-class floors
+        # of 0 that every Flyway-built target violated at P0
         text = ("INSERT INTO `t` VALUES (1,'a'),(2,'b');\n"
                 "INSERT IGNORE INTO `t` (a, b) VALUES (3,'c');\n"
                 "INSERT IGNORE INTO `u` VALUES (1,'z');\n")
-        self.assertEqual(self.gen.count_insert_rows(text), {"t": 2})
+        self.assertEqual(self.gen.count_insert_rows(text), {"t": 3, "u": 1})
 
     def test_seed_string_column_reads_the_quoted_field(self):
         text = ("INSERT INTO `secRole` VALUES (1,'doctor','doctor'),"
-                "(2,'Site Manager','Site Manager'),\n(3,'O\\'Neil','x');\n"
+                "(2,'Site Manager','Site Manager'),\n(3,'O\\'Neil','x'),"
+                "(4,'O''Brien','x'),(5,'back\\\\slash','x');\n"
                 "INSERT INTO `other` VALUES (9,'nope','n');\n")
         self.assertEqual(self.gen.seed_string_column(text, "secRole", 1),
-                         ["doctor", "Site Manager", "O'Neil"])
+                         ["doctor", "Site Manager", "O'Neil", "O'Brien",
+                          "back\\slash"])
 
     def test_prevention_type_map_parses_direct_updates_only(self):
         text = ("UPDATE preventions SET prevention_type = 'Inf' WHERE "

@@ -390,15 +390,15 @@ class Schema:
 def count_insert_rows(text: str) -> Dict[str, int]:
     """Count VALUES tuples per table (extended INSERTs counted per tuple).
 
-    INSERT IGNORE tuples are NOT counted: they are how forward migrations
-    re-add a row that may already exist, so they can be no-ops and would
-    over-state the P0 seed floor."""
+    INSERT IGNORE tuples count too: forward migrations seed whole tables
+    that way (V1.0.5's lst_* lookups, bed_type), and skipping them left
+    those copy-class tables with a floor of 0 that every Flyway-built
+    target violates. A re-added row that a later migration deletes is
+    accounted for by SEED_COUNT_DELETIONS, not by the counter."""
     counts: Dict[str, int] = {}
     for m in _INSERT_RE.finditer(text):
         table = m.group(2)
         i = m.end()
-        if m.group(1):
-            continue
         # walk tuples: '(' ... ')' [, '(' ... ')']* until ';'
         n = len(text)
         rows = 0
@@ -417,6 +417,25 @@ def count_insert_rows(text: str) -> Dict[str, int]:
             break
         counts[table] = counts.get(table, 0) + rows
     return counts
+
+
+def _unquote_sql(body: str) -> str:
+    """Undo SQL string-literal escaping: `\\'`, doubled `''` and `\\\\`."""
+    out = []
+    i = 0
+    n = len(body)
+    while i < n:
+        c = body[i]
+        if c == "\\" and i + 1 < n:
+            out.append(body[i + 1])
+            i += 2
+        elif c == "'" and i + 1 < n and body[i + 1] == "'":
+            out.append("'")
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def seed_string_column(text: str, table: str, index: int) -> List[str]:
@@ -438,7 +457,7 @@ def seed_string_column(text: str, table: str, index: int) -> List[str]:
             if len(fields) > index:
                 f = fields[index].strip()
                 if len(f) >= 2 and f[0] == f[-1] and f[0] in "'\"":
-                    out.append(f[1:-1].replace("\\'", "'"))
+                    out.append(_unquote_sql(f[1:-1]))
             i = end
             while i < n and text[i] in " \r\n\t":
                 i += 1

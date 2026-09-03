@@ -1023,8 +1023,10 @@ def dropped_table_references(text, dropped_tables):
     mentions as whole words (dashboard indicators keep SQL in XML)."""
     if not text:
         return []
-    words = set(_WORD_RE.findall(text))
-    return sorted(t for t in dropped_tables if t in words)
+    # case-insensitive: the O19 host may have run with
+    # lower_case_table_names=1, so a template may spell a table either way
+    words = set(w.lower() for w in _WORD_RE.findall(text))
+    return sorted(t for t in dropped_tables if t.lower() in words)
 
 
 def _count(query, table, where=None):
@@ -1212,6 +1214,23 @@ def run_checks(query, properties=None, province="on", accepted=(),
     # only secUserRole rows with activeyn = 1; the importer reconciles the
     # role matrix, so these findings tell the clinic what the import will
     # do rather than block it.
+    if "Facility" in tables:
+        n = count_live("Facility", "disabled = 0")
+        if n == 0:
+            findings.append(finding(
+                "facility-none-enabled", BLOCKER,
+                "no enabled Facility row",
+                "CARLOS cannot log anyone in without an enabled Facility; "
+                "the import refuses the dump before writing. Enable a "
+                "Facility in the source and re-export."))
+    if "clinic" in tables:
+        n = count_live("clinic")
+        if n == 0:
+            findings.append(finding(
+                "clinic-missing", BLOCKER,
+                "the clinic table is empty",
+                "Letterheads, requisitions and consultations dereference the "
+                "clinic row; the import refuses the dump before writing."))
     if "secRole" in tables:
         custom = []
         try:
@@ -1228,10 +1247,15 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "roles-custom", ADVISORY,
                 "{0} clinic-custom role(s) not in the CARLOS role catalogue"
                 .format(len(custom)),
-                "Their O19 grants are carried; CARLOS-era privileges (fax, "
-                "email, pharmacy edit, ...) are filled in from the closest "
-                "stock role and reported for review (--role-template "
-                "overrides the choice).", data={"roles": ", ".join(custom)}))
+                "Their O19 grants are carried. Roles holding at least one "
+                "grant get the CARLOS-era privileges (fax, email, pharmacy "
+                "edit, ...) of the closest stock role, reported for review "
+                "(--role-template overrides the choice); a role granting "
+                "nothing is left as it is. O19 stock names CARLOS renamed "
+                "(Registered Nurse -> RN, Registered Practical Nurse -> "
+                "RPN, Moderator/Student (OSCAR Learning) -> moderator/"
+                "student) appear here too and keep their grants.",
+                data={"roles": ", ".join(custom)}))
     if "secUserRole" in tables:
         n = count_live("secUserRole", "activeyn IS NULL")
         if n:
@@ -1241,16 +1265,20 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "CARLOS counts only activeyn = 1; the import sets it to 1 "
                 "for providers whose account is active and lists them in "
                 "roles-details.txt."))
-        if "provider" in tables:
+        if "provider" in tables and "security" in tables:
+            # same predicate as the import's P7 advisory: an active
+            # provider WITH a login and no active role
             n = count_live(
                 "provider",
-                "status = '1' AND provider_no NOT IN (SELECT provider_no "
-                "FROM {0} WHERE activeyn = 1)".format(
-                    _ident(tables["secUserRole"])))
+                "status = '1' AND provider_no IN (SELECT provider_no FROM "
+                "{1}) AND provider_no NOT IN (SELECT provider_no FROM {0} "
+                "WHERE activeyn = 1)".format(
+                    _ident(tables["secUserRole"]),
+                    _ident(tables["security"])))
             if n:
                 findings.append(finding(
                     "roles-providers-without-active-role", ADVISORY,
-                    "{0} active provider(s) hold no active role".format(n),
+                    "{0} active account(s) hold no active role".format(n),
                     "They can log in but reach nothing until a role is "
                     "assigned in Administration."))
     if "security" in tables:
@@ -1265,14 +1293,17 @@ def run_checks(query, properties=None, province="on", accepted=(),
     if "preventions" in tables and LEGACY_PREVENTION_TYPES:
         legacy = ", ".join("'{0}'".format(_sql_literal(t))
                            for t in LEGACY_PREVENTION_TYPES)
-        n = count_live("preventions", "prevention_type IN ({0})".format(legacy))
+        # BINARY: legacy 'dTaP' must not count the valid 'DTaP' rows
+        n = count_live("preventions",
+                       "BINARY prevention_type IN ({0})".format(legacy))
         if n:
             findings.append(finding(
                 "prevention-legacy-types", ADVISORY,
                 "{0} prevention(s) use legacy type codes".format(n),
                 "CARLOS renders Health Canada codes (Flu -> Inf, VZ -> Var, "
-                "...); the import normalises these rows and reports any "
-                "code it cannot map."))
+                "...); the import normalises the codes it knows (exact, "
+                "case-sensitive match) and reports every other code it "
+                "cannot render, which stays as it is for review."))
     if "eform" in tables:
         n = count_live(
             "eform",

@@ -907,6 +907,28 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                 problems.append(
                     "{0}.{1}: {2} value(s) longer than the target column — "
                     "refusing to truncate".format(table, col, n))
+    # the roles post-step's own preconditions, predicted from staging (the
+    # tables involved are id-intact copies): refuse here, before the first
+    # write, rather than after the whole copy
+    from . import o19roles
+    if "Facility" in src_info and not int(plain(
+            o19roles.enabled_facility_count_sql(src))[0][0]):
+        problems.append("the dump has no enabled Facility row — CARLOS "
+                        "cannot log anyone in without one; enable a "
+                        "Facility in the source and re-export")
+    if "clinic" in src_info and not int(plain(
+            o19roles.clinic_count_sql(src))[0][0]):
+        problems.append("the dump has no `clinic` row — letterheads, "
+                        "requisitions and consultations dereference it")
+    if ctx.get("role_templates") and "secRole" in src_info:
+        stage_roles = [r[0] for r in plain(
+            "SELECT role_name FROM `{0}`.secRole".format(src))]
+        stage_rows = plain("SELECT roleUserGroup, objectName, privilege, "
+                           "priority FROM `{0}`.secObjPrivilege".format(src))
+        customs = o19roles.custom_roles(
+            stage_roles, stage_rows, o19map_schema.STOCK_ROLE_NAMES)
+        problems.extend(o19roles.validate_role_templates(
+            ctx["role_templates"], customs, o19map_schema.STOCK_ROLE_NAMES))
     if problems:
         die("ETL pre-checks failed (nothing was written):\n  "
             + "\n  ".join(problems))

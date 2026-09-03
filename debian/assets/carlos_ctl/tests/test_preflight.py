@@ -217,12 +217,14 @@ class TestRoleAdvisories(unittest.TestCase):
     def db(self):
         return FakeDb(
             base_tables(secRole=5, secUserRole=4, security=3, preventions=2,
-                        eform=1, property=2, indicatorTemplate=1),
+                        eform=1, property=2, indicatorTemplate=1, Facility=1,
+                        clinic=1),
             where_counts={
                 ("secUserRole", "activeyn IS NULL"): 3,
                 ("provider", "NOT IN (SELECT provider_no"): 2,
                 ("security", "b_ExpireSet = 1"): 1,
-                ("preventions", "prevention_type IN ('"): 2,
+                ("preventions", "BINARY prevention_type IN ('"): 2,
+                ("Facility", "disabled = 0"): 1,
                 ("eform", "Rich Text Letter"): 1,
                 ("property", "name LIKE 'INTEGRATOR\\_%'"): 2,
             },
@@ -261,9 +263,33 @@ class TestRoleAdvisories(unittest.TestCase):
                     "rtl-legacy-form", "prevention-legacy-types"):
             self.assertNotIn(fid, ids)
 
+    def test_missing_facility_or_clinic_blocks(self):
+        db = FakeDb(base_tables(Facility=1, clinic=0),
+                    where_counts={("Facility", "disabled = 0"): 0})
+        report = pf.run_checks(db, properties=clean_props())
+        ids = {f["id"]: f for f in report["findings"]}
+        self.assertEqual(ids["facility-none-enabled"]["severity"], pf.BLOCKER)
+        self.assertEqual(ids["clinic-missing"]["severity"], pf.BLOCKER)
+        self.assertEqual(report["verdict"], "no-go")
+
+    def test_role_advisory_texts_state_the_exceptions(self):
+        report = pf.run_checks(self.db(), properties=clean_props())
+        ids = {f["id"]: f for f in report["findings"]}
+        self.assertIn("granting nothing is left",
+                      ids["roles-custom"]["detail"])
+        self.assertIn("cannot render",
+                      ids["prevention-legacy-types"]["detail"])
+        # the same predicate as P7: only providers WITH a login
+        self.assertIn("account(s)",
+                      ids["roles-providers-without-active-role"]["title"])
+
     def test_dropped_table_scan_matches_whole_words_only(self):
         self.assertEqual(pf.dropped_table_references(
             "select * from phr_documents_x, phr_documents", ["phr_documents"]),
+            ["phr_documents"])
+        # case-insensitive: lower_case_table_names hosts spell either way
+        self.assertEqual(pf.dropped_table_references(
+            "select * from PHR_DOCUMENTS", ["phr_documents"]),
             ["phr_documents"])
         self.assertEqual(pf.dropped_table_references(None, ["x"]), [])
         self.assertEqual(pf._like_prefix("util.erx."), "util.erx.%")

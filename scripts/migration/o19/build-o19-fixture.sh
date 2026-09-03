@@ -118,13 +118,22 @@ if [ "$WITH_OLIS" = 1 ]; then
 fi
 
 if [ "$WITH_UPDATES" = 1 ]; then
-  for f in $(ls "$SQLDIR"/updates/*.sql | sort); do
-    if ! run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
-         "$DB" < "$f" 2>/dev/null; then
-      echo "warning: $(basename "$f") failed on this server — skipped" >&2
+  # best-effort by design: 2006-era patches routinely fail on a modern
+  # server. The client stops at the first failing statement, so a file
+  # that fails may have applied its earlier statements (MyISAM has no
+  # transactions) — the fixture is a rehearsal input, not a clinic, and
+  # every failure is named with its diagnostic so a systematic cause
+  # (wrong client options, wrong server) is visible.
+  UPDATE_FAILURES=0
+  for f in "$SQLDIR"/updates/*.sql; do   # glob: paths with spaces survive
+    [ -e "$f" ] || continue
+    if ! err=$(run_sql --init-command="SET SESSION sql_mode='', FOREIGN_KEY_CHECKS=0, default_storage_engine=MyISAM" \
+               "$DB" < "$f" 2>&1 >/dev/null); then
+      UPDATE_FAILURES=$((UPDATE_FAILURES + 1))
+      echo "warning: $(basename "$f") stopped at its first error (earlier statements of the file may have applied): ${err##*$'\n'}" >&2
     fi
   done
-  echo "loading updates/*.sql ... done"
+  echo "loading updates/*.sql ... done ($UPDATE_FAILURES file(s) failed, see warnings)"
 fi
 
 load "vendored demo.sql" "$SCRIPT_DIR/fixtures/demo-data/demo.sql"

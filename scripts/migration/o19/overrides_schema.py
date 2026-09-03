@@ -42,6 +42,12 @@ archive-by-default).
 
 SCHEMA_MAP_VERSION = "o19map-2"
 
+# A tickler with neither a usable update_date nor a service_date (both are
+# nullable/sentinel in O19) gets this fixed creation_date rather than the
+# import time: reproducible across re-imports and visibly "unknown" in the
+# UI. Safely inside the TIMESTAMP range in every session time zone.
+UNKNOWN_DATE_SENTINEL = "1970-01-02 00:00:00"
+
 # --- shared-table class overrides -----------------------------------------
 
 # CARLOS-owned data: the dump's rows are ignored entirely.
@@ -132,18 +138,28 @@ CLASS_MERGE = {
     "lst_gender": ["code"],
 }
 
-# Rows a merge-class table must NOT accept from the dump: objects of modules
-# CARLOS removed (their code checks nothing, and they would only clutter the
-# admin UI's role matrix). Predicates address the staging alias `s`.
+# Rows a merge-class table must NOT accept from the dump: privilege objects
+# no CARLOS code checks AND no CARLOS seed grants (verified against both;
+# a dead object only clutters the admin UI's role matrix). The list is
+# explicit and small on purpose: carrying a dead object is clutter, dropping
+# a live one locks a clinic-custom role out — `_pmm.*` objects, for example,
+# are still checked by the program-management code and seeded for stock
+# roles, so they are carried. `_caisi.documentationWarning ` is spelled with
+# a trailing space in the O19 seed; both spellings are listed. Predicates
+# address the staging alias `s`.
 MERGE_EXCLUDE = {
-    "secObjPrivilege": ("s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN "
-                        "('_admin.traceability', "
-                        "'_newCasemgmt.clearTempNotes', '_admin.pmm', "
-                        "'_caisi.documentationWarning ')"),
-    "secObjectName": ("s.`objectName` LIKE '\\_pmm%' OR s.`objectName` IN "
-                      "('_admin.traceability', "
-                      "'_newCasemgmt.clearTempNotes', '_admin.pmm', "
-                      "'_caisi.documentationWarning ')"),
+    "secObjPrivilege": ("s.`objectName` IN ('_admin.traceability', "
+                        "'_newCasemgmt.clearTempNotes', "
+                        "'_caisi.documentationWarning', "
+                        "'_caisi.documentationWarning ', "
+                        "'_pmm.editProgram.schedules', "
+                        "'_pmm.functionalCentre')"),
+    "secObjectName": ("s.`objectName` IN ('_admin.traceability', "
+                      "'_newCasemgmt.clearTempNotes', "
+                      "'_caisi.documentationWarning', "
+                      "'_caisi.documentationWarning ', "
+                      "'_pmm.editProgram.schedules', "
+                      "'_pmm.functionalCentre')"),
 }
 
 # Seed rows a later Flyway migration DELETEs again (the static tuple count
@@ -372,7 +388,7 @@ VALUE_EXPRS = {
     "document": {"receivedDate": "s.`observationdate`"},
     "tickler": {"creation_date": "COALESCE(NULLIF(s.`update_date`, "
                                  "'0001-01-01 00:00:00'), s.`service_date`, "
-                                 "NOW())"},
+                                 "'" + UNKNOWN_DATE_SENTINEL + "')"},
     # property merges on (name, provider_no); O19 writes '' where CARLOS
     # writes NULL for a global key, so both spell the key the same way
     "property": {"provider_no": "NULLIF(s.`provider_no`, '')"},

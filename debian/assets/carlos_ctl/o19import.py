@@ -23,10 +23,11 @@ P1 and P2 without recording a verdict:
                      import mode with column-level checks)
   P3 backup          restic snapshot via the systemd backup unit (rollback
                      point)
-  P4 etl             manifest-driven copy into the carlos schema      (M4)
+  P4 etl             manifest-driven copy into the carlos schema, then
+                     the roles/privileges post-step (o19roles)     (M4, M8)
   P5 documents       OscarDocument restore + reconciliation           (M5)
   P6 props           oscar.properties translation                     (M6)
-  P7 verify          row parity + spot checks                         (M4+)
+  P7 verify          row parity + spot checks + role checks       (M4+, M8)
 
 Every migration's output should receive a technical review — verification
 report, spot checks, UI smoke — before clinical use.
@@ -145,15 +146,35 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
 
 
 # batch mode escapes \0 \t \n \\ inside values, so a bare "\r" (a CRLF
-# eForm) is DATA; only "\n" separates rows — never str.splitlines()
+# eForm) is DATA; only "\n" separates rows — never str.splitlines(). The
+# escapes are decoded per value AFTER splitting, so a role name carrying a
+# backslash or tab reaches the callers (and their _sql_str) as stored.
 CLIENT_COMMON_ARGS = ("--default-character-set=utf8mb4", "-N", "-B")
+
+_BATCH_ESCAPES = {"0": "\0", "t": "\t", "n": "\n", "\\": "\\"}
+
+
+def unescape_batch(value: str) -> str:
+    if "\\" not in value:
+        return value
+    out = []
+    i = 0
+    while i < len(value):
+        c = value[i]
+        if c == "\\" and i + 1 < len(value) and value[i + 1] in _BATCH_ESCAPES:
+            out.append(_BATCH_ESCAPES[value[i + 1]])
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def batch_rows(stdout: str) -> List[List[str]]:
     lines = stdout.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
-    return [line.split("\t") for line in lines]
+    return [[unescape_batch(v) for v in line.split("\t")] for line in lines]
 
 
 # --------------------------------------------------------------------------
@@ -212,11 +233,15 @@ def startup_row_counts(query, db: str) -> Dict[str, int]:
 def tolerate_startup_rows(counts: Dict[str, int],
                           startup: Dict[str, int]) -> Dict[str, int]:
     """The sweep's counts with the startup-created rows subtracted (pure,
-    for the tests): only copy-class tables the sweep knows are touched."""
+    for the tests): only copy-class tables the sweep knows are touched,
+    and at most ONE row per table — the webapp creates each exactly once
+    (it returns early when the program/site exists), so a second `OSCAR`
+    program or `Main Clinic` site is not a first-start artifact and stays
+    a violation."""
     adjusted = dict(counts)
     for table, n in startup.items():
         if table in adjusted:
-            adjusted[table] = max(0, adjusted[table] - n)
+            adjusted[table] = max(0, adjusted[table] - min(n, 1))
     return adjusted
 
 
@@ -788,9 +813,11 @@ def make_etl_query(base_argv: List[str]) -> Callable:
     prelude = ("SET SESSION sql_log_bin=0, FOREIGN_KEY_CHECKS=0, "
                "UNIQUE_CHECKS=0, sql_mode=''")
 
-    def query(sql):
+    def query(sql, db=None):
         argv = list(base_argv) + ["--init-command=" + prelude] \
             + list(CLIENT_COMMON_ARGS)
+        if db:
+            argv.append(db)
         cp = run(argv, input=sql, capture_output=True, errors="replace")
         if cp.returncode != 0:
             raise o19etl.QueryError(
@@ -971,7 +998,8 @@ def run_p7(ctx) -> None:
         existing = ""
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as fh:
-                existing = fh.read()
+                # a failed-then-resumed verify rewrites its own block
+                existing = fh.read().split("P7 verify:\n")[0]
         write_private(path, existing + "P7 verify:\n"
                       + "\n".join(r_private) + "\n")
     if r_adv:
@@ -1309,6 +1337,17 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         # sign-offs persist only from a real run: a dry run's --accept is
         # an experiment, not a recorded acknowledgement
         state["accepted"] = accepted
+    recorded_map = state.get("inputs", {}).get("schema_map_version")
+    if (recorded_map and recorded_map != o19map_schema.SCHEMA_MAP_VERSION
+            and any(phase_done(state, ph) for ph in ("etl", "documents",
+                                                     "props", "verify"))):
+        # the ETL ledger refuses a manifest change on its own; this covers
+        # a resume whose ETL is already marked done and would skip P4
+        die("this import ran with manifest {0}; the installed carlos-ctl "
+            "carries {1}. A finished ETL cannot be continued under a "
+            "different manifest — restore the pre-import snapshot and "
+            "start over.".format(recorded_map,
+                                 o19map_schema.SCHEMA_MAP_VERSION))
     state.setdefault("inputs", {}).update({
         "dump": os.path.basename(inputs["dump"]) if inputs["dump"] else None,
         "bundle_sha256": inputs.get("bundle_sha256"),

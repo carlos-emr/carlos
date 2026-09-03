@@ -87,9 +87,10 @@ Principles:
 1. **The dump restores verbatim** into `o19_import` with
    `SET sql_mode=''`/`FOREIGN_KEY_CHECKS=0` and the dump's own charset directives,
    so nothing is lost or mangled at ingest.
-2. **CARLOS reference data wins.** ICD-9/10, OHIP service codes, `lst_*`/ctl
-   lookup rows, measurement map, prevention config etc. come from Flyway, not from
-   the dump — except tables in the "clinic-authored" list (§4.2).
+2. **CARLOS reference data wins.** ICD-9/10, OHIP service codes, measurement
+   map, prevention config etc. come from Flyway, not from the dump — except
+   tables in the "clinic-authored" list (§4.2). Seeded lookup tables the clinic
+   also edits are `replace_seed` or `merge` (§4.1), never silently dropped.
 3. **Clinic data copies with explicit column lists** from a generated, versioned
    mapping manifest (§6). Copies preserve primary keys (`demographic_no`,
    `provider_no`, document ids, …) because cross-table references in OSCAR are by
@@ -107,7 +108,7 @@ Principles:
 | Class | Handling |
 |---|---|
 | `copy` | Shared table, clinic data → copy shared columns; CARLOS-added columns take their defaults |
-| `reference` | Shared table, CARLOS-seeded reference data → keep CARLOS rows, ignore dump (e.g. `icd9`, `icd10`, `billingservice` official codes, CAISI `lst_*` lookups, `secPrivilege`) |
+| `reference` | Shared table, CARLOS-seeded reference data → keep CARLOS rows, ignore dump (e.g. `icd9`, `icd10`, `secPrivilege`; the full list is `CLASS_REFERENCE` in `overrides_schema.py`) |
 | `merge` | Shared table containing both seed and clinic rows → anti-join on a natural key: CARLOS seed rows win, clinic rows append (e.g. `property`, `encounterForm`, private billing codes in `billingservice`, the role matrix `secObjPrivilege`/`secObjectName`, `lst_gender`) |
 | `archive` | O19-only table with patient/clinic data → copy into `o19_archive` + CSV export (see §5) |
 | `drop` | O19-only table from removed infrastructure with no clinical value → recorded in report only (Integrator, sharing/XDS, `cr_*` cookie-revolver, report-runner templates, temp tables) |
@@ -122,8 +123,8 @@ Principles:
 - `measurementType`/`measurementMap` customizations, custom `preventions` config
   (`preventionsConfig`-style properties), `mygroup` schedule groups,
   `scheduletemplate*`, `appointmentType`, `lookup` lists edited by the clinic.
-- `property`, `ProviderPreference`, `UserProperty` — per-provider settings; copy
-  but let CARLOS defaults stand for keys that no longer exist.
+- `property` (the `UserProperty` entity) merges on `(name, provider_no)` with
+  removed-module keys pruned (§4.5); `ProviderPreference` copies as clinic data.
 
 ### 4.3 Column-level rules
 
@@ -189,9 +190,15 @@ importer therefore reconciles the role matrix instead of choosing one side:
 - A **clinic-custom role** (not a CARLOS stock role name) receives the CARLOS-era
   grants — objects the clinic's O19 never had (`_fax`, `_email`, `_rx.editPharmacy`,
   `_admin.flowsheet`, …) — of the stock role its imported privilege set resembles
-  most (Jaccard over (object, privilege) pairs, floor 0.3, ties alphabetical),
-  `INSERT IGNORE` so nothing imported is overwritten; `--role-template CUSTOM=STOCK`
-  overrides the choice. Below the floor nothing is guessed and the role is reported.
+  most (Jaccard over (object, privilege) pairs against stock role names only —
+  never the seed's `-1`/provider pseudo-groups — floor `ROLE_TEMPLATE_MIN_JACCARD`
+  = 0.3, ties alphabetical), `INSERT IGNORE` so nothing imported is overwritten;
+  `--role-template CUSTOM=STOCK` (case-insensitive, like the column) overrides the
+  choice and is bound to the ETL ledger like `--admin-user`: a resume continues
+  with the recorded mapping and a different one is refused. Below the floor
+  nothing is guessed and the role is reported for manual grants; a custom role
+  holding no imported grant is left alone (P7 lists it as granting nothing).
+  Role names are compared case-insensitively throughout (`Doctor` is `doctor`).
 - `secUserRole.activeyn` NULL grants nothing in CARLOS; the import sets it to 1 for
   providers whose account is active (`status = '1'` with a `security` row) and lists
   them in `roles-details.txt`. The break-glass admin's cloned roles are created
@@ -200,38 +207,72 @@ importer therefore reconciles the role matrix instead of choosing one side:
   webapp's first start creates program `OSCAR` plus a membership for the seeded
   clinician (deleted by the import). The post-step creates `OSCAR` if absent, gives
   every active provider without any membership a row there (role_id = the clinic's
-  own `secRole.role_no` for its first active role, else `doctor`), and links every
-  active provider to the first enabled `Facility`. An import with no enabled
-  `Facility` or no `clinic` row is refused (clinic data is never invented).
+  own `secRole.role_no`: `doctor` when held, else the active role with the most
+  privilege rows; a provider with no active role gets the clinic role with the
+  fewest — least privilege until an administrator assigns one — counted in the
+  report and listed in `roles-details.txt`), and links every active provider to
+  the first enabled `Facility`. An import with no enabled `Facility` or no
+  `clinic` row is refused by the ETL pre-checks against staging, before the first
+  write (preflight reports the same as blockers).
 - The P0 sweep tolerates exactly the rows the webapp creates on first start
   (`STARTUP_CREATED_ROWS`: the `OSCAR` program and membership, the `Main Clinic`
   site and its provider link) and the seed script deletes them before the copy —
   a packaged host has always booted once before an import.
 - `property` merges on `(name, provider_no)` (CARLOS defaults stand, clinic keys
-  append; the fixture's `''` and CARLOS's NULL spell a global key the same way) and
-  rows of removed modules (`PREFLIGHT_DROPPED_PROP_PREFIXES`) are pruned.
+  append; O19 writes `''` and CARLOS NULL for a global key — `NULLIF` makes them
+  one key) and rows of removed modules (`PREFLIGHT_DROPPED_PROP_PREFIXES`) are
+  pruned.
+- The privilege merge leaves behind only grants on objects no CARLOS code checks
+  and no CARLOS seed grants (`MERGE_EXCLUDE`, an explicit list — `_pmm.*` objects
+  are live and carried). `privilege-diff.txt` itemises three things for the
+  review: clinic grants CARLOS's seed overrode on the same (role, object), clinic
+  grants on stock roles the seed does not hold (appended, so a stock role is wider
+  than the seed), and the excluded grants.
 - Data normalisation CARLOS ships only as post-baseline scripts never reaches
   imported rows through Flyway (it ran on the empty deploy first), so the post-step
   applies it: `preventions.prevention_type` legacy codes follow the generated
-  `PREVENTION_TYPE_MAP` (from `update-2026-03-10-standardize-prevention-types.sql`),
-  and the Rich Text Letter eForm is brought to 2026.3.0 with the packaged scripts
-  under `/usr/share/carlos-emr/schema/o19-fixups/` (the v1 seed first when the
-  clinic has no `Rich Text Letter` row; any other RTL-titled row such as O19's
-  2010 `letter` is disabled — it carries the `RptByExample.do` sink).
+  `PREVENTION_TYPE_MAP` (from `update-2026-03-10-standardize-prevention-types.sql`)
+  with a **binary** compare — the column's collation is case-insensitive and the
+  map's `dTaP` would otherwise drag the valid pediatric `DTaP` into `Tdap` (the
+  upstream script has that latent defect; codes the map does not know stay as
+  they are and are reported) — and the Rich Text Letter eForm is brought to
+  2026.3.0 with the packaged scripts under `/usr/share/carlos-emr/schema/o19-fixups/`
+  run through the ETL executor (`sql_mode=''`). The scripts address
+  `form_name = 'Rich Text Letter'` with `subject LIKE 'Rich Text Letter Generator%'`
+  only, so: the v1 seed runs first when no such row exists; only the route fix
+  runs when a marked row still calls a dead JSP route; a canonical row the clinic
+  had disabled is re-disabled afterwards; a row whose subject was edited is
+  reported, not claimed fixed; after the scripts the step re-reads the rows and
+  reports "modernised" only if a canonical row carries the marker with live
+  routes (P7 repeats that check as an advisory). Any other RTL-titled row such
+  as O19's 2010 `letter` is disabled — it carries the `RptByExample.do` sink.
 - `value_exprs` now also cover `document.receivedDate` (= `observationdate`) and
-  `tickler.creation_date` (= legacy `update_date`, else `service_date`), and a
+  `tickler.creation_date` (= legacy `update_date`, else `service_date`, else the
+  fixed `UNKNOWN_DATE_SENTINEL` `1970-01-02 00:00:00` rather than the import time,
+  so a re-import is reproducible and the value is visibly unknown), and a
   synthesized column is always part of the copied column list (the earlier
   `pharmacyInfo.uid` entry was never written).
 - P7 verifies the guarantees (roles present, admin usable, facility/clinic/program
   rows, memberships, seed floor) and reports clinic-data conditions as advisories
   (active accounts with no active role, roles granting nothing, expired logins,
-  empty `OscarJobType`). Row parity tolerates the appended rows the roles ledger
-  recorded, and only those.
+  empty `OscarJobType`, RTL not current). Row parity tolerates the appended rows
+  the roles ledger recorded, and only those. The ledger records what the database
+  holds AFTER each write (the same "rows without a staging twin" count parity
+  measures) and persists every decision (who gets activated, who gets the
+  fallback role, which template, which counts) BEFORE the write, so a crash
+  between a write and its mark leaves nothing unrecorded on resume.
+- P0's tolerance of startup-created rows is capped at one row per table (the
+  webapp creates each exactly once); the seed floors count `INSERT IGNORE`
+  tuples (V1.0.5 seeds `bed_type`/`lst_*` only that way) — a first cut that
+  skipped them made P0 refuse every Flyway-built host, masked in rehearsal by
+  the dev-target advisory sweep.
 
-Still maintainer-side (Flyway, for stock installs): promote the prevention-type and
-RTL scripts, seed the `OSCAR` program and default site, and fix the seed's
-`_masterlink`/`_masterLink` split and the ~30 code-referenced objects with no
-seeded grant.
+Still maintainer-side (Flyway, for stock installs): promote the prevention-type
+script **with a binary compare** (`update-2026-03-10-standardize-prevention-types.sql`
+rewrites `DTaP` on a `_ci` collation; decide `H1N1 -> Inf` while `H1N1` is a
+rendered code) and the RTL scripts, seed the `OSCAR` program and default site,
+and fix the seed's `_masterlink`/`_masterLink` split and the ~30 code-referenced
+objects with no seeded grant.
 
 ### 4.6 O19 modules removed from CARLOS — data disposition
 
@@ -546,7 +587,7 @@ checks, UI smoke — before clinical use.
     `report_filter`) are archived, and twins O19's own updates already dropped
     (`facility`, `Vacancy`) fall to the unknown-table flow on unpatched sites.
 - Seeded shared tables get three explicit treatments: `reference` (CARLOS
-  wins: ICD, security objects, error codes…), **`replace_seed`** (seed rows
+  wins: ICD, `secPrivilege`, error codes…), **`replace_seed`** (seed rows
   deleted, clinic rows copied id-intact because clinic data references those
   ids: `issue`, `program`, `clinic`, schedule config, role matrix), and
   `merge` on a natural key with surrogate-id reassignment flagged for the ETL

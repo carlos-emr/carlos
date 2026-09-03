@@ -138,7 +138,7 @@ class TestRowParityExpectations(unittest.TestCase):
                                     admin_provider_no="100001")
         self.assertEqual(len(bad), 1)
 
-    def test_parity_without_admin_identity_tolerates_nothing(self):
+    def test_parity_without_admin_identity_or_ledger_tolerates_nothing(self):
         def q(sql):
             if "information_schema" in sql:
                 return [["ProviderPreference"]]

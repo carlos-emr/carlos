@@ -169,12 +169,43 @@ class TestSchemaManifest(unittest.TestCase):
         self.assertEqual(gender["merge_keys"], ["code"])
 
     def test_privilege_seed_floor_reflects_later_deletions(self):
-        # 514 baseline tuples, minus the carlosdoc denial V1.0.9 deletes;
-        # the V1.0.6 INSERT IGNORE is not counted (a live target holds 514)
+        # 514 baseline tuples + the V1.0.6 INSERT IGNORE row - the carlosdoc
+        # denial V1.0.9 deletes = 514, which is what a live target holds
         self.assertEqual(o19map_schema.SEED_ROW_COUNTS["secObjPrivilege"],
-                         513)
+                         514)
         self.assertEqual(o19map_schema.SEED_ROW_COUNTS["secObjectName"],
                          133)
+
+    def test_insert_ignore_seeded_lookups_keep_their_floors(self):
+        # V1.0.5 seeds these copy-class tables with INSERT IGNORE only; a
+        # floor of 0 made P0 refuse every Flyway-built host (review round)
+        expected = {"bed_type": 1, "lst_sector": 4, "lst_organization": 3,
+                    "lst_discharge_reason": 3, "lst_admission_status": 2,
+                    "lst_program_type": 3}
+        for table, floor in expected.items():
+            self.assertEqual(o19map_schema.SEED_ROW_COUNTS.get(table), floor,
+                             table)
+            self.assertEqual(o19map_schema.TABLES[table]["class"], "copy")
+
+    def test_merge_exclusions_name_dead_objects_only(self):
+        # every excluded object is one no CARLOS code checks and no CARLOS
+        # seed grants (the `_pmm%` pattern of the first cut caught live
+        # objects); the list is explicit, never a wildcard
+        exclude = o19map_schema.TABLES["secObjPrivilege"]["merge_exclude"]
+        self.assertNotIn("LIKE", exclude)
+        self.assertIn("'_admin.traceability'", exclude)
+        self.assertNotIn("'_admin.pmm'", exclude)  # seeded by CARLOS
+
+    def test_prevention_map_case_collisions_are_the_known_ones(self):
+        # 'dTaP'/'dTap' -> 'Tdap' collide case-insensitively with the valid
+        # pediatric code 'DTaP'; the importer and preflight compare BINARY,
+        # so the collision is harmless — pin it so a new one is noticed
+        known = {k.casefold(): k for k in o19map_schema.KNOWN_PREVENTION_TYPES}
+        case_only = sorted(k for k in o19map_schema.PREVENTION_TYPE_MAP
+                           if k.casefold() in known and known[k.casefold()]
+                           != k)
+        self.assertEqual(case_only, ["dTaP", "dTap"])
+        self.assertEqual(o19map_schema.PREVENTION_TYPE_MAP["Flu"], "Inf")
 
     def test_startup_created_rows_name_copy_tables(self):
         # the seed script deletes them before the id-intact copy; a merge
@@ -197,8 +228,8 @@ class TestSchemaManifest(unittest.TestCase):
         for canonical in set(o19map_schema.PREVENTION_TYPE_MAP.values()):
             self.assertIn(canonical, o19map_schema.KNOWN_PREVENTION_TYPES,
                           "map targets a code PreventionItems.xml lacks")
-        self.assertGreater(o19map_schema.ROLE_TEMPLATE_MIN_JACCARD, 0)
-        self.assertLess(o19map_schema.ROLE_TEMPLATE_MIN_JACCARD, 1)
+        # the operator docs quote this value
+        self.assertEqual(o19map_schema.ROLE_TEMPLATE_MIN_JACCARD, 0.3)
 
     def test_value_expr_targets_are_copied_columns(self):
         # a synthesized column that is not in `cols` is silently never

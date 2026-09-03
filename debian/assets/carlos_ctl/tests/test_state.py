@@ -129,10 +129,11 @@ class TestPristineGate(unittest.TestCase):
             counts, {"program": 1, "program_provider": 1, "site": 1,
                      "providersite": 1})
         self.assertEqual(o19import.pristine_violations(adjusted), [])
-        # a second OSCAR program is still a violation
+        # a second OSCAR program is still a violation — even when the live
+        # predicate count says 2: the webapp creates each row exactly once
         counts["program"] += 1
         adjusted = o19import.tolerate_startup_rows(
-            counts, {"program": 1, "program_provider": 1, "site": 1,
+            counts, {"program": 2, "program_provider": 1, "site": 1,
                      "providersite": 1})
         self.assertTrue(any(v.startswith("program:")
                             for v in o19import.pristine_violations(adjusted)))

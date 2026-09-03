@@ -133,10 +133,12 @@ override_dh_auto_install:
 	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
-	# Data-fixup scripts the OSCAR 19 importer replays on IMPORTED rows
-	# (Rich Text Letter seed + 2026.3.0 modernisation, prevention type
-	# codes): Flyway runs on the empty deploy before an import and never
-	# sees clinic data, so carlos-ctl import-o19 applies these itself.
+	# Data-fixup scripts for IMPORTED rows: Flyway runs on the empty deploy
+	# before an import and never sees clinic data, so carlos-ctl import-o19
+	# replays the Rich Text Letter seed + 2026.3.0 scripts itself. The
+	# prevention-type script is shipped for reference only — the importer
+	# applies the same mappings from its generated manifest (binary
+	# compare), not by running the file.
 	install -d $(STAGE)/$(SHAREDIR)/schema/o19-fixups
 	install -m 0644 database/mysql/updates/update-2012-07-12.sql \
 	  database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
