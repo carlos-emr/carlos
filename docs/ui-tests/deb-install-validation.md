@@ -94,6 +94,10 @@ critical answer: it keeps the published dev credential
 it **only** on a disposable machine that will never hold patient data — which
 this VM is.
 
+The province answer also accepts `other`, which resolves to the Ontario schema
+and `billregion=ON` — preseeding it exercises the alias without changing what
+gets installed.
+
 ```bash
 cat > /tmp/carlos-preseed.txt <<'EOF'
 carlos-emr carlos-emr/server-name string localhost

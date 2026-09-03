@@ -827,7 +827,7 @@ def _demo_assemble_stream(s, out, artifact: str, pieces: list) -> None:
     # columns added after 2012.
     out.write("SET SESSION sql_mode='';\n")
     out.write("SET FOREIGN_KEY_CHECKS=0;\n")
-    if s.province == "bc":
+    if s.schema_province == "bc":
         # The sanctioned exception to add-only: swap the real BC
         # specialist directory for the fake demo list. bc/V1.0.6 seeds it
         # into THREE tables — billingreferral (~10,700 referring
@@ -868,7 +868,7 @@ def cmd_demo_data(argv) -> int:
     require_db_root()
     s = config.load()
 
-    artifact = os.path.join(DEMO_DIR, f"demo-additive-{s.province}.sql.gz")
+    artifact = os.path.join(DEMO_DIR, f"demo-additive-{s.schema_province}.sql.gz")
     if not os.path.isfile(artifact):
         die(f"{artifact} is missing — this carlos-emr package was built "
             "without the demonstration dataset (reinstall the package)")
@@ -963,7 +963,7 @@ def cmd_demo_data(argv) -> int:
         os.path.join(DEMO_DIR, "demo-hrm-report.sql"),
         os.path.join(DEMO_DIR, "demo-name-sanitization.sql"),
     ]
-    if s.province == "on":
+    if s.schema_province == "on":
         # formLabReq07/10 exist only in the Ontario schema; the BC load would
         # fail on the missing tables.
         pieces.append(os.path.join(DEMO_DIR, "demo-name-sanitization-on.sql"))

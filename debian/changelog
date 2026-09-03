@@ -1,3 +1,16 @@
+carlos-emr (2026.09.0~snapshot19) resolute; urgency=medium
+
+  * The install wizard's billing-province question offers a third answer,
+    "other", below Ontario and British Columbia, for a clinic in a province
+    CARLOS does not implement billing for. It is an alias for the Ontario
+    answer: the same common+on migrations and the same billregion=ON, so the
+    deployment is an Ontario one in every respect and nothing downstream
+    distinguishes the two. It exists so the installer no longer requires such
+    a clinic to claim a province it is not in. CARLOS_PROVINCE records the
+    answer verbatim and remains fixed at first install.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Thu, 03 Sep 2026 03:12:17 +0000
+
 carlos-emr (2026.09.0~snapshot18) resolute; urgency=medium
 
   * Document upload name collisions retain their recoverable JSON response but
