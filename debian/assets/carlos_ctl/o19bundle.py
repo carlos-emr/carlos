@@ -333,6 +333,12 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     # the snapshot (and, for an encrypted bundle, its decrypted twin) land
     # on the state volume before the tar listing can size the members:
     # refused while nothing has been written rather than filling the volume
+    # an interrupted earlier attempt left copies here: clear them BEFORE
+    # measuring, or their bytes are counted as consumed and the resume is
+    # refused for space it is about to reclaim
+    for stale in (snapshot, tar_path):
+        if os.path.lexists(stale):
+            os.unlink(stale)
     needed = os.path.getsize(bundle) * (2 if encrypted else 1)
     st = os.statvfs(workdir)
     free = st.f_bavail * st.f_frsize
@@ -342,9 +348,6 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
                 workdir, free // 1048576, needed // 1048576,
                 " and decrypted form" if encrypted else ""))
     try:
-        for stale in (snapshot, tar_path):
-            if os.path.exists(stale):
-                os.unlink(stale)  # an interrupted earlier attempt
         fd = os.open(snapshot, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as out, open(bundle, "rb") as src:
             shutil.copyfileobj(src, out, 1 << 20)

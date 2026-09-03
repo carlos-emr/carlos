@@ -680,6 +680,62 @@ class TestMergeReverseParity(unittest.TestCase):
             "FROM `carlos`.`t` d WHERE d.`code` <=> s.`code`)"))
         self.assertTrue(sql.endswith("AND NOT (s.`code` = 'dead')"))
 
+    def test_pruned_property_rows_are_not_expected_back(self):
+        # the roles step deletes removed-module property rows from the
+        # target after the merge; the reverse count must skip them, with
+        # the same LIKE escaping the prune itself uses
+        from carlos_ctl import o19roles
+        pred = o19etl.pruned_property_predicate(["INTEGRATOR_", "a%b"])
+        self.assertIn("s.`name` LIKE 'INTEGRATOR\\_%'", pred)
+        self.assertIn("s.`name` LIKE 'a\\%b%'", pred)
+        self.assertEqual(o19etl.pruned_property_predicate([]), "FALSE")
+        # and it must agree with the statement that does the deleting
+        stmts = o19roles.property_prune_statements("carlos", ["INTEGRATOR_"])
+        self.assertIn("'INTEGRATOR\\_%'", stmts[0][2])
+        sql = o19etl.merge_missing_count_sql(
+            "property", self.ENTRY, "stage", "carlos", self.DST,
+            exclude=pred)
+        self.assertTrue(sql.endswith(
+            "AND NOT (s.`code` = 'dead') AND NOT ({0})".format(pred)))
+
+    def test_row_parity_applies_the_prune_only_to_property(self):
+        entry = o19map_schema.TABLES["property"]
+        dst_info = {"property": {c: col() for c in entry["cols"]}}
+        seen = []
+
+        def q(sql):
+            if "information_schema" in sql:
+                return [["property"]]
+            seen.append(sql)
+            return [["0"]]
+
+        o19etl.row_parity(q, "stage", "carlos", dst_info=dst_info,
+                          pruned_property_prefixes=["INTEGRATOR_"])
+        self.assertTrue(any("INTEGRATOR\\_%" in x for x in seen), seen)
+
+    def test_row_parity_drops_fk_remaps_whose_parent_is_absent(self):
+        # the copy drops them too, so no id map exists: joining through
+        # one would reference a table that was never created
+        table = next((t for t, e in o19map_schema.TABLES.items()
+                      if e["class"] == "merge" and e.get("fk_remap")), None)
+        if table is None:
+            self.skipTest("no merge table carries fk_remap")
+        entry = o19map_schema.TABLES[table]
+        dst_info = {table: {c: col() for c in entry["cols"]}}
+        seen = []
+
+        def q(sql):
+            if "information_schema" in sql:
+                return [[table]]      # the parent is NOT in the dump
+            seen.append(sql)
+            return [["0"]]
+
+        o19etl.row_parity(q, "stage", "carlos", dst_info=dst_info)
+        for parent in set(entry["fk_remap"].values()):
+            self.assertFalse(
+                any("{0}__idmap".format(parent) in x for x in seen),
+                "parity joined through a missing id map for " + parent)
+
     def test_row_parity_checks_merge_tables_in_reverse(self):
         table = next(t for t, e in o19map_schema.TABLES.items()
                      if e["class"] == "merge")
@@ -719,11 +775,15 @@ class TestCoercionPrecheck(unittest.TestCase):
 
     def test_numeric_literal_class_accepts_numbers_only(self):
         import re
-        rx = re.compile(o19etl.NUMERIC_LITERAL_SQL_RE.replace(
-            "[[:space:]]", r"\s").replace("\\\\", "\\"))
+        # the pattern travels inside a SQL string literal, whose parser
+        # consumes one backslash before the regex engine sees it: model
+        # that, or a `\.` that degrades to "any character" still passes
+        self.assertNotIn("\\", o19etl.NUMERIC_LITERAL_SQL_RE)
+        served = re.sub(r"\\(.)", r"\1", o19etl.NUMERIC_LITERAL_SQL_RE)
+        rx = re.compile(served.replace("[[:space:]]", r"\s"))
         for good in ("0", "1", "-3", "+4.5", ".5", "7.", "1e3", " 12 "):
             self.assertTrue(rx.match(good), good)
-        for bad in ("yes", "1,800", "12abc", "", "-"):
+        for bad in ("yes", "1,800", "12/34", "12abc", "", "-"):
             self.assertFalse(rx.match(bad), bad)
 
 

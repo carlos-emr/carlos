@@ -398,6 +398,10 @@ def coercion_precheck_sql(table: str, entry: dict, src_schema: str,
         if not d or not s:
             continue
         if d["type"] in NUMERIC_TYPES and s["type"] in STRING_TYPES:
+            if c in entry.get("value_exprs", {}):
+                # the manifest already rewrites this column; the refusal
+                # names curating one as the remedy, so honour it
+                continue
             src_name = renames.get(c, c)
             sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE s.`{2}` IS NOT "
                    "NULL AND TRIM(s.`{2}`) <> '' AND s.`{2}` NOT REGEXP "
@@ -1001,8 +1005,17 @@ def precheck_scope(state_dir: str) -> str:
     the copy has written anything the whole import is untouched; on a
     resume whose ledger records work, the earlier phases' writes remain
     and only the copy stopped, so "nothing was written" would be a lie.
-    Reads the ledger without binding it to a dump or manifest."""
-    progress = load_progress(state_dir)
+    Reads the ledger without binding it to a dump or manifest, and
+    never fails: it only chooses a phrase for another refusal, so an
+    unreadable ledger must not replace that refusal with its own."""
+    try:
+        with open(_progress_path(state_dir), encoding="utf-8") as fh:
+            progress = json.load(fh)
+    except FileNotFoundError:
+        return "nothing was written"
+    except (OSError, ValueError):
+        return "the ETL ledger could not be read, so assume earlier " \
+               "writes stand"
     if progress.get("admin_provider_no") or progress.get("tables"):
         return "no further writes were made"
     return "nothing was written"
@@ -1479,12 +1492,14 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     for table in unknown_tables:
         tstate = progress["tables"].setdefault(table, {})
         if tstate.get("done"):
-            counts["unknown_archived"] += 1
+            if not tstate.get("empty"):
+                counts["unknown_archived"] += 1
             continue
         n = int(plain("SELECT COUNT(*) FROM `{0}`.{1}".format(
             src, ident(table)))[0][0])
         if n == 0:
             unknown_lines.append("{0}: empty, not archived".format(table))
+            tstate["empty"] = True
         else:
             for sql in archive_statements(table, src, arch):
                 query(sql)
@@ -1616,6 +1631,13 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
     for table, entry in sorted(o19map_schema.TABLES.items()):
         if table not in src_tables:
             continue
+        if entry.get("fk_remap"):
+            # the copy dropped remaps whose parent is absent from this
+            # dump, so no id map exists for them: the parity join must
+            # drop them too or it references a table that was never made
+            entry = dict(entry, fk_remap={
+                c: parent for c, parent in entry["fk_remap"].items()
+                if parent in src_tables})
         if entry["class"] == "merge" and dst_info is not None \
                 and table in dst_info:
             # the reverse of the merge's anti-join: every staging row (the

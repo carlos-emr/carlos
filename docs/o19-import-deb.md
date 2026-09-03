@@ -308,7 +308,8 @@ gate has no override.
    `admin-credentials.txt` stays under its own name); the `o19_archive` schema
    (removed-module data + dropped-column shadows + the OSCAR 19 token
    tables, which are never copied live) and its CSV export under
-   `OscarDocument/carlos/o19_archive_export/` are kept for the clinic.
+   `/var/lib/carlos-emr/o19-import/o19-archive-export/` (root-only) are
+   kept for the clinic; copy them out deliberately when handing them over.
    Cleanup is allowed after a passed verification, or while nothing has
    been written to the target (after a dry run or an aborted assessment) —
    never on a mid-import workspace, whose only resume ledger it would

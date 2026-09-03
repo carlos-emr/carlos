@@ -332,7 +332,8 @@ objects with no seeded grant.
 | Integrator/sharing/PHR/Indivo/BORN (`Integrator*`, `sharing_*`, `phr_*`, `indivoDocs`, `BORN*`), cookie-revolver `cr_*`, report-runner `report_*`, MDS raw (`mdsZCL`, `mdsZCT`), `RedirectLink*`, temp/backup tables | **drop** (report only) |
 
 Everything classified `archive` also produces a per-table CSV under
-`…/o19_archive_export/` inside the documents tree so the clinic holds a readable
+`…/o19-import/o19-archive-export/` in the root-only state directory (never
+inside the documents tree, which the service account owns) so the clinic holds a readable
 copy independent of MariaDB.
 
 ## 5. Documents tar

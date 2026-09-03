@@ -222,7 +222,12 @@ def image_refs(form_html: str) -> List[str]:
         if end < 0:
             # unquoted: up to whitespace, a quote, a tag end or the closing
             # parenthesis of a CSS url(...) wrapper
-            tail = re.match(r"[^\s\"'()<>]*", form_html[start:])
+            # ')' ends a CSS url(...) wrapper, but is legitimate in a
+            # filename: only treat it as a terminator inside such a wrapper
+            stop = (r"[^\s\"'()<>]*"
+                    if form_html[:m.start()].rstrip().endswith("url(")
+                    else r"[^\s\"'<>]*")
+            tail = re.match(stop, form_html[start:])
             value = tail.group(0) if tail else ""
         else:
             value = form_html[start:end]
@@ -537,7 +542,10 @@ def reconcile(query, dst_schema: str, ctx_root: str
         fid, form_name, html = r[0], r[1], r[2]
         for ref in image_refs(html):
             checked += 1
-            asset = image_ref_lookup(ref)
+            # image_refs already stripped the fragment and query and
+            # percent-decoded: decoding twice would split a name that
+            # legitimately contains '#' or '&' as %23 / %26
+            asset = ref
             if not asset:
                 continue  # a bare `#fragment`: no request is made
             if not contained(image_dir, asset):
@@ -782,7 +790,7 @@ def run_docs(ctx) -> None:
         private(["P5 reconciliation notes:"] + private_lines)
     csv_lines = export_archive_csv(
         query, ctx.get("archive_schema", "o19_archive"),
-        os.path.join(ctx_root, "o19_archive_export"))
+        os.path.join(state_dir, "o19-archive-export"))
     o19import.report_append(
         state_dir, "P5 reconciliation",
         "\n".join(lines + ["archive CSV export:"]

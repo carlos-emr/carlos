@@ -730,12 +730,12 @@ def rtl_plan(rows: Sequence[Sequence[str]]
                              "build (clinic edits to the template are not "
                              "kept; the original row stays in the staging "
                              "schema until --cleanup)".format(fid))
-        elif form_name.lower() == RTL_FORM_NAME.lower():
+        elif _fold(form_name) == _fold(RTL_FORM_NAME):
             notes.append("fid {0}: named 'Rich Text Letter' but its subject "
                          "does not start with '{1}' — the packaged scripts "
                          "cannot address it; review by hand".format(
                              fid, RTL_SUBJECT_PREFIX))
-        elif (form_name.lower() == RTL_LEGACY_FORM_NAME
+        elif (_fold(form_name) == RTL_LEGACY_FORM_NAME
               or (len(row) > 5 and str(row[5]) == "1")
               or (len(row) > 7 and str(row[7]) == "1")):
             if str(status) != "0":
@@ -779,10 +779,10 @@ def verify_role_checks(query: Callable, dst_schema: str,
 
     # role_name is UNIQUE under a case-insensitive collation; `Doctor` is
     # the doctor role to the database and to Java's getRoleByName
-    roles = {r[0].lower() for r in query(
+    roles = {_fold(r[0]) for r in query(
         "SELECT role_name FROM `{0}`.secRole".format(dst_schema))}
     for name, _ in GUARANTEED_ROLES:
-        if name.lower() in roles:
+        if _fold(name) in roles:
             ok.append("role '{0}' present".format(name))
         else:
             problems.append("role '{0}' missing from secRole".format(name))

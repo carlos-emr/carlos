@@ -65,8 +65,11 @@ DUMP_COMPLETED_MARKER = b"-- Dump completed"
 # statements a `mysqldump --databases/--all-databases` emits that would
 # redirect the restore out of the staging schema, and a MySQL-only GTID
 # directive the restricted staging account cannot execute anyway
-DUMP_REDIRECT_MARKERS = (b"\nUSE ", b"\nCREATE DATABASE", b"\nuse ",
-                         b"\ncreate database")
+#: a statement that would steer the restore out of the staging schema.
+#: Matched case-insensitively and allowing leading blanks: mysqldump only
+#: ever emits the upper-case forms, so the spellings this catches beyond
+#: those are precisely the hand-crafted ones
+DUMP_REDIRECT_RE = re.compile(rb"(?im)^[ \t]*(use\b|create\s+database\b)")
 DUMP_GTID_MARKER = b"GTID_PURGED"
 STAGING_USER = "o19_import"
 SPOT_CHECK_PATIENTS = 10
@@ -187,7 +190,8 @@ unescape_batch = o19docs.unescape_batch_field
 #: statement fragments that carry a credential: the error text (stderr,
 #: and whatever transcript the operator pastes) never shows what follows
 CREDENTIAL_SQL_RE = re.compile(
-    r"(IDENTIFIED\s+BY\s+|PASSWORD\s*\(\s*|password\s*=\s*)'[^']*'",
+    r"(IDENTIFIED\s+BY\s+(?:PASSWORD\s+)?|PASSWORD\s*\(\s*"
+    r"|password\s*=\s*)'(?:[^'\\]|\\.)*'",
     re.IGNORECASE)
 
 
@@ -513,13 +517,13 @@ def dump_redirect_marker(data: bytes) -> Optional[str]:
     """The refusal message when a dump fragment carries a statement that
     would steer the restore out of the staging schema (or a MySQL GTID
     directive), else None. `data` must start at a line boundary."""
-    for marker in DUMP_REDIRECT_MARKERS:
-        if marker in data:
-            return ("the dump carries a {0} statement — it was taken with "
-                    "--databases/--all-databases and would redirect the "
-                    "restore at the live schema. Re-take it as "
-                    "`mysqldump <o19-db> > o19.sql` (no --databases)"
-                    .format(marker.strip().decode("ascii").upper()))
+    hit = DUMP_REDIRECT_RE.search(data)
+    if hit:
+        return ("the dump carries a {0} statement — it was taken with "
+                "--databases/--all-databases and would redirect the "
+                "restore at the live schema. Re-take it as "
+                "`mysqldump <o19-db> > o19.sql` (no --databases)"
+                .format(hit.group(1).decode("ascii", "replace").upper()))
     if DUMP_GTID_MARKER in data:
         return ("the dump carries SET @@GLOBAL.GTID_PURGED (a MySQL 5.6+ "
                 "GTID directive MariaDB rejects) — re-take it with "
@@ -915,7 +919,9 @@ def make_etl_query(base_argv: List[str],
         if cp.returncode != 0:
             raise o19etl.QueryError(
                 "ETL statement failed ({0} ...): {1}".format(
-                    sql[:120], cp.stderr.strip()), cp.stderr)
+                    redact_statement(sql, 120),
+                    CREDENTIAL_SQL_RE.sub(r"\1'<redacted>'",
+                                          cp.stderr.strip())), cp.stderr)
         return batch_rows(cp.stdout)
 
     return query
@@ -1054,8 +1060,12 @@ def run_p7(ctx) -> None:
             except RuntimeError as exc:
                 if o19etl._absent_object_error(exc):
                     continue  # table absent at this patch level
-                die("verification query failed: {0}".format(
-                    str(exc).strip()[:300]))
+                # the statement carries a demographic_no: name the table
+                # and the server's reason, never the statement itself
+                die("verification query failed on the {0} spot check: "
+                    "{1}".format(table,
+                                 getattr(exc, "stderr", "").strip()[:300]
+                                 or "see the server log"))
             checked += 1
             if s != d:
                 details.append(
@@ -1734,6 +1744,10 @@ def _cmd_import_o19(argv) -> int:
         die("this command needs root (or --mariadb-arg for a dev database)")
 
     if args.cleanup:
+        if args.dry_run:
+            die("--cleanup has no dry-run mode: it drops the staging "
+                "schema and retires this run's ledgers and reports. Run "
+                "it without --dry-run when the import is verified.")
         ctx = _make_ctx_for_cleanup(args)
         run_cleanup(ctx)
         return 0
