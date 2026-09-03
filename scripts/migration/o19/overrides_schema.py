@@ -142,9 +142,9 @@ CLASS_MERGE = {
 # no CARLOS code checks AND no CARLOS seed grants (verified against both;
 # a dead object only clutters the admin UI's role matrix). The list is
 # explicit and small on purpose: carrying a dead object is clutter, dropping
-# a live one locks a clinic-custom role out — `_pmm.*` objects, for example,
-# are still checked by the program-management code and seeded for stock
-# roles, so they are carried. `_caisi.documentationWarning ` is spelled with
+# a live one locks a clinic-custom role out — the `_pmm.*` objects the
+# program-management code still checks (and the seed grants) are carried;
+# only two dead ones are listed. `_caisi.documentationWarning ` is spelled with
 # a trailing space in the O19 seed; both spellings are listed. Predicates
 # address the staging alias `s`.
 MERGE_EXCLUDE = {
@@ -380,14 +380,18 @@ VALUE_EXPRS = {
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},
-    # CARLOS-added columns whose default would misrepresent history
-    # (plan §4.3): a document's received date is the O19 observation date;
-    # a tickler's creation timestamp is its legacy update stamp (O19's
-    # column default is 0001-01-01), else its service date — never the
-    # import time the column default would stamp on every row
+    # document.receivedDate is nullable with no default: it would simply
+    # be NULL for every imported row; the O19 observation date is the
+    # honest value
     "document": {"receivedDate": "s.`observationdate`"},
-    "tickler": {"creation_date": "COALESCE(NULLIF(s.`update_date`, "
-                                 "'0001-01-01 00:00:00'), s.`service_date`, "
+    # O19's update_date default (0001-01-01) and MySQL zero dates count
+    # as absent; the target is a NOT NULL TIMESTAMP, so no NULLIF is
+    # added by the sanitizer and the zero dates must be caught here
+    "tickler": {"creation_date": "COALESCE(NULLIF(NULLIF(s.`update_date`, "
+                                 "'0001-01-01 00:00:00'), "
+                                 "'0000-00-00 00:00:00'), "
+                                 "NULLIF(s.`service_date`, "
+                                 "'0000-00-00 00:00:00'), "
                                  "'" + UNKNOWN_DATE_SENTINEL + "')"},
     # property merges on (name, provider_no); O19 writes '' where CARLOS
     # writes NULL for a global key, so both spell the key the same way

@@ -281,9 +281,31 @@ class TestRoleAdvisories(unittest.TestCase):
         db = FakeDb({"demographic": 40, "provider": 3})
         report = pf.run_checks(db, properties=clean_props())
         ids = {f["id"]: f for f in report["findings"]}
+        self.assertEqual(ids["facility-none-enabled"]["severity"], pf.BLOCKER)
+        self.assertEqual(ids["clinic-missing"]["severity"], pf.BLOCKER)
+        self.assertEqual(report["verdict"], "no-go")
         self.assertEqual(ids["facility-none-enabled"]["title"],
                          "no Facility table")
         self.assertEqual(ids["clinic-missing"]["title"], "no clinic table")
+
+    def test_stock_roles_are_recognised_case_insensitively(self):
+        db = FakeDb(base_tables(secRole=2),
+                    rows={"SELECT role_name FROM `secRole`": [["Doctor"],
+                                                                ["ADMIN"]]})
+        report = pf.run_checks(db, properties=clean_props())
+        self.assertNotIn("roles-custom",
+                         {f["id"] for f in report["findings"]})
+
+    def test_client_batch_escapes_are_decoded_per_value(self):
+        self.assertEqual(pf._unescape_batch("a\\tb\\nc\\\\d"),
+                         "a\tb\nc\\d")
+        self.assertEqual(pf._unescape_batch("\\N"), "\\N")  # NULL marker
+        # the reason it matters: a line break before the table name
+        self.assertEqual(pf.dropped_table_references(
+            pf._unescape_batch("SELECT 1\\nFROM\\tphr_documents"),
+            ["phr_documents"]), ["phr_documents"])
+        self.assertEqual(pf.dropped_table_references(
+            "SELECT 1\\nFROM\\tphr_documents", ["phr_documents"]), [])
 
     def test_role_advisory_texts_state_the_exceptions(self):
         report = pf.run_checks(self.db(), properties=clean_props())

@@ -160,8 +160,9 @@ class TestMergeStatement(unittest.TestCase):
         sql = o19etl.copy_statement("tickler", tick, "src", "dst",
                                     {c: col() for c in tick["cols"]})
         self.assertEqual(selected_expr(sql, "creation_date"),
-                         "COALESCE(NULLIF(s.`update_date`, '0001-01-01 "
-                         "00:00:00'), s.`service_date`, "
+                         "COALESCE(NULLIF(NULLIF(s.`update_date`, "
+                         "'0001-01-01 00:00:00'), '0000-00-00 00:00:00'), "
+                         "NULLIF(s.`service_date`, '0000-00-00 00:00:00'), "
                          "'1970-01-02 00:00:00')")
 
     def test_surrogate_pk_is_excluded_from_the_insert(self):

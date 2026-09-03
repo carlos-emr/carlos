@@ -128,29 +128,43 @@ role matrix under CARLOS's seeded grants (CARLOS wins on the same
 role/object, clinic rows append), gives clinic-custom roles that hold at
 least one grant the CARLOS-era privileges of the closest stock role
 (`--role-template 'Custom Role=doctor'` overrides the choice, repeatable,
-case-insensitive; the mapping is recorded and a `--resume` continues with
-it — a different one is refused), activates `activeyn`-NULL assignments of
-live accounts, and creates the program membership and facility link every
-**active** provider lacks. Exceptions the report states explicitly: a
+case-insensitive; once the backfill has decided on it the mapping is
+recorded and a `--resume` continues with it — a different one is refused;
+before that a resume may add or correct the flag), activates
+`activeyn`-NULL assignments of live accounts — except `admin` assignments,
+which CARLOS deliberately treats as inactive when NULL: those stay dormant
+and are listed — and creates the program membership and facility link
+every **active** provider lacks. Exceptions the report states explicitly: a
 custom role no stock role resembles (similarity below 0.3) gets **no**
 CARLOS-era grants and is listed for manual grants in Administration; a
-provider with no active role gets a membership with the least-privileged
-clinic role and is listed in `roles-details.txt`. The `roles:` lines of the
-report say what was done; `privilege-diff.txt` (root-only) itemises the
-clinic grants the CARLOS seed overrode, the clinic grants on stock roles the
-seed does not hold (appended), and the grants on objects CARLOS no longer
-checks (not carried); `roles-details.txt` names the providers whose
-assignments were activated, who received the fallback membership, and who
-hold no role. Prevention type codes the importer knows (`Flu`, `VZ`, …) are
+template that holds none of the CARLOS-era objects (every nurse- or
+receptionist-class stock role — the seed grants them to doctor/admin only)
+adds nothing; a provider with no active role gets a membership with the
+least-privileged clinic role and is listed in `roles-details.txt`. The
+`roles:` lines of the report say what was done; `privilege-diff.txt`
+(root-only) itemises the clinic grants the CARLOS seed overrode, the seed
+grants on the clinic's roles that the clinic's own matrix did not hold (a
+removed grant comes back), the clinic grants on stock roles the seed does
+not hold (appended; those on `_admin*` objects are named in the report),
+and the grants on objects CARLOS no longer checks (not carried);
+`roles-details.txt` names the providers whose assignments were activated
+(provider = role), whose dormant admin rows were left alone, who received
+the fallback membership, who hold an assignment to a re-added CARLOS-only
+role, who hold no role, and whose logins are expired. Prevention type codes
+the importer knows (`Flu`, `VZ`, …) are
 normalised to the Health Canada codes with an exact, case-sensitive match;
 codes it cannot map stay as they are and are listed for review (they render
 as unconfigured). The Rich Text Letter eForm is brought to 2026.3.0 from the
 packaged scripts under `/usr/share/carlos-emr/schema/o19-fixups/` when the
 clinic's row is the stock one (`form_name` `Rich Text Letter`, subject
-starting `Rich Text Letter Generator`); the step re-reads the row afterwards
-and reports "modernised" only when it is, otherwise it says what to apply by
-hand (missing scripts, an edited subject). A form the clinic had disabled
-stays disabled.
+starting `Rich Text Letter Generator`, as the database compares them); the
+step re-reads the row afterwards and reports "modernised" only when it is,
+otherwise it says what to apply by hand (an edited subject). A form that
+was disabled stays disabled; a clinic with no stock row gets a new, enabled
+Rich Text Letter. The per-run files (`report.txt`, the `*-details.txt`
+files, `privilege-diff.txt`, the preflight outputs) are retired with the
+same `.completed-<timestamp>` suffix as `state.json` when the import is
+cleaned up, so a later import in the same directory starts its own.
 
 Useful variants: `--dry-run` (stage + preflight + properties report only;
 its `--accept` flags are not recorded — sign-offs persist only from a real
@@ -234,21 +248,37 @@ given clinic — that list is the clinic's sign-off.
   gained a required column the manifest doesn't cover yet; report it (the
   fix is a `value_exprs` curation entry + regenerated manifest).
 - *ETL pre-checks failed: the dump has no enabled Facility row* / *no
-  `clinic` row* — nothing was written. CARLOS cannot log anyone in without
-  an enabled `Facility`, and letterheads and requisitions dereference the
-  `clinic` row; enable or create them on the OSCAR 19 side and re-export
-  (preflight reports the same two conditions as blockers).
+  `clinic` row* / *the dump has no X table — not an OSCAR 19 clinic dump*
+  — nothing was written. CARLOS cannot log anyone in without an enabled
+  `Facility`, letterheads and requisitions dereference the `clinic` row,
+  and the roles step reads a fixed set of core tables; enable or create
+  them on the OSCAR 19 side and re-export (preflight reports the Facility
+  and clinic conditions as blockers).
+- *ETL pre-checks failed: the server's sql_mode carries
+  NO_BACKSLASH_ESCAPES* (or `ANSI_QUOTES`) — the import quotes clinic
+  values with backslash escapes and refuses to run under those modes;
+  clear them in the server configuration for the import.
+- *province 'bc': the OSCAR 19 import supports Ontario deployments only* —
+  P0 refuses a non-Ontario host before sweeping it (the seed floors are
+  generated from the Ontario migration set).
 - *`--role-template 'X': not a clinic-custom role with imported grants`* /
   *`'Y' is not a CARLOS stock role`* — the flag names a role the dump does
   not have, a stock role name (those need no template), a role with no
   grants, or an unknown template. Fix the flag and `--resume`; nothing was
-  written for that step. A `--resume` that passes a *different* mapping
-  than the one recorded is refused; pass the same mapping or none.
-- *roles: Rich Text Letter — fixup scripts missing* or *scripts ran but no
-  row carries the 2026.3.0 marker* — not fatal: the import completes and P7
-  lists it as an advisory. Apply the scripts under
-  `/usr/share/carlos-emr/schema/o19-fixups/` by hand (they address the row
-  named `Rich Text Letter` with a subject starting `Rich Text Letter
-  Generator`; a clinic-edited subject needs a manual edit first).
+  written for that step and the bad mapping was not recorded. Once the
+  backfill has decided, a `--resume` that passes a *different* mapping is
+  refused; pass the same mapping or none.
+- *roles: Rich Text Letter fixup script(s) missing* — the package is
+  incomplete (they ship under `/usr/share/carlos-emr/schema/o19-fixups/`);
+  reinstall `carlos-emr` and `--resume`. *scripts ran but no row carries
+  the 2026.3.0 marker* — not fatal: the import completes and P7 lists it
+  as an advisory; apply the scripts by hand (they address the row named
+  `Rich Text Letter` with a subject starting `Rich Text Letter Generator`;
+  a clinic-edited subject needs a manual edit first).
+- *this import completed under manifest X … run --cleanup* — a package
+  upgrade after a finished import; there is nothing to resume, retire the
+  run with `--cleanup`.
+- *P5 reconciliation FAILURES* — the offending document names are in
+  `documents-details.txt` (root-only); the report carries the count.
 - A failed run keeps its state for diagnosis; the documented rollback is
   restoring the pre-import restic snapshot.

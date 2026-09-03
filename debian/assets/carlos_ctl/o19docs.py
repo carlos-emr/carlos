@@ -46,7 +46,10 @@ def _sql_str(value: str) -> str:
     """SQL string-literal escaping for values interpolated into generated
     statements (mirrors dbops.sql_escape; kept local so the pure helpers
     stay importable without the deployment modules)."""
-    return value.replace("\\", "\\\\").replace("'", "\\'")
+    # NUL is encoded too: the client refuses a raw NUL in a statement, and
+    # decoded batch values may carry one
+    return (value.replace("\\", "\\\\").replace("'", "\\'")
+            .replace("\0", "\\0"))
 
 
 def contained(root: str, relative: str) -> bool:
@@ -422,6 +425,18 @@ def reconcile(query, dst_schema: str, ctx_root: str
     return problems, lines
 
 
+def _raw_rows(query, sql):
+    r"""Rows with the client's batch escapes still in place, so SQL NULL
+    (the bare token backslash-N) can be told from a stored two-character
+    backslash-N (which the client escapes as backslash-backslash-N). Fakes
+    without a `raw` parameter answer decoded rows; there the two are
+    indistinguishable and both become an empty CSV field."""
+    try:
+        return query(sql, raw=True)
+    except TypeError:
+        return query(sql)
+
+
 def export_archive_csv(query, archive_schema: str, out_dir: str
                        ) -> List[str]:
     """Write every o19_archive table as CSV so the clinic holds a readable
@@ -436,7 +451,7 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE "
             "TABLE_SCHEMA = '{0}' AND TABLE_NAME = '{1}' ORDER BY "
             "ORDINAL_POSITION".format(archive_schema, table))]
-        rows = query("SELECT * FROM `{0}`.`{1}`".format(
+        rows = _raw_rows(query, "SELECT * FROM `{0}`.`{1}`".format(
             archive_schema, table))
         path = os.path.join(out_dir, table + ".csv")
         # created with the final mode: the rows are archived clinical data
@@ -447,7 +462,8 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
             for r in rows:
                 # the batch client prints SQL NULL as the two characters
                 # \N — that is not a value, so it becomes an empty field
-                writer.writerow([None if v == "\\N" else v for v in r])
+                writer.writerow([None if v == "\\N"
+                                 else unescape_batch_field(v) for v in r])
         os.chmod(path, 0o640)
         lines.append("{0}.csv: {1} row(s)".format(table, len(rows)))
     return lines
@@ -561,8 +577,15 @@ def run_docs(ctx) -> None:
         "\n".join(lines + ["archive CSV export:"]
                   + ["  " + line for line in csv_lines]))
     if problems:
-        o19import.report_append(state_dir, "P5 reconciliation FAILURES",
-                                "\n".join(problems[:100]))
+        # document names can carry patient names: itemised in the private
+        # file, counted in the shareable report
+        o19import.write_private(
+            os.path.join(state_dir, "documents-details.txt"),
+            "P5 reconciliation failures:\n" + "\n".join(problems) + "\n")
+        o19import.report_append(
+            state_dir, "P5 reconciliation FAILURES",
+            "{0} problem(s) — itemised in documents-details.txt "
+            "(root-only)".format(len(problems)))
         die("documents reconciliation FAILED ({0} problem(s)) — the "
             "clinical record must not go live with unreadable documents:"
             "\n  ".format(len(problems)) + "\n  ".join(problems[:20])

@@ -181,8 +181,8 @@ importer therefore reconciles the role matrix instead of choosing one side:
   roles, per-provider overrides (`roleUserGroup` = provider_no), patient-scoped
   lockouts (`_eChart$<demo>`, `_all`), document-queue objects (`_queue.<id>`).
   Grants on objects no CARLOS code checks (the removed traceability report's
-  object, `_newCasemgmt.clearTempNotes`, …; `MERGE_EXCLUDE`) are not
-  carried (`MERGE_EXCLUDE`). Every clinic grant the seed overrode is itemised in
+  object, `_newCasemgmt.clearTempNotes`, …; the explicit `MERGE_EXCLUDE` list)
+  are not carried. Every clinic grant the seed overrode is itemised in
   `privilege-diff.txt` (root-only) for the technical review.
 - `secRole`/`secUserRole` stay **replace_seed** (clinic ids are referenced by
   `program_provider.role_id`); the post-step re-adds CARLOS-only roles (`HRMAdmin`,
@@ -195,15 +195,25 @@ importer therefore reconciles the role matrix instead of choosing one side:
   never the seed's `-1`/provider pseudo-groups — floor `ROLE_TEMPLATE_MIN_JACCARD`
   = 0.3, ties alphabetical), `INSERT IGNORE` so nothing imported is overwritten;
   `--role-template CUSTOM=STOCK` (case-insensitive, like the column) overrides the
-  choice and is bound to the ETL ledger like `--admin-user`: a resume continues
-  with the recorded mapping and a different one is refused. Below the floor
-  nothing is guessed and the role is reported for manual grants; a custom role
-  holding no imported grant is left alone (P7 lists it as granting nothing).
-  Role names are compared case-insensitively throughout (`Doctor` is `doctor`).
+  choice. The mapping is recorded in the ETL ledger once it has validated and
+  the backfill has decided on it; until then a resume may add or change the
+  flag (reported), after that a different mapping is refused and a resume
+  without the flag continues with the recorded one — a typo therefore never
+  wedges the import. Below the floor nothing is guessed and the role is reported
+  for manual grants; a template that holds none of the CARLOS-era objects (every
+  nurse/receptionist-class stock role: the seed grants them to `doctor`/`admin`
+  only) adds nothing and says so; a custom role holding no imported grant is
+  left alone (P7 lists it as granting nothing if an active account holds it).
+  Role names are compared case-insensitively throughout — importer and preflight
+  alike (`Doctor` is `doctor`); `admin` as a template is flagged in the report.
 - `secUserRole.activeyn` NULL grants nothing in CARLOS; the import sets it to 1 for
-  providers whose account is active (`status = '1'` with a `security` row) and lists
-  them in `roles-details.txt`. The break-glass admin's cloned roles are created
-  active.
+  assignments of providers whose account is active (`status = '1'` with a
+  `security` row) and lists them (provider = role) in `roles-details.txt`, with a
+  per-role tally in the report — except `admin` assignments: CARLOS treats a NULL
+  admin row as inactive on purpose (`SecUserRoleDaoImpl`), so those stay dormant
+  and are listed for an explicit decision. Active assignments to the CARLOS-only
+  roles the step re-adds (they granted nothing in O19) are counted in the report
+  and listed privately. The break-glass admin's cloned roles are created active.
 - Case management fails closed without `program_provider` membership, and the
   webapp's first start creates program `OSCAR` plus a membership for the seeded
   clinician (deleted by the import). The post-step creates `OSCAR` if absent, gives
@@ -212,9 +222,17 @@ importer therefore reconciles the role matrix instead of choosing one side:
   privilege rows; a provider with no active role gets the clinic role with the
   fewest — least privilege until an administrator assigns one — counted in the
   report and listed in `roles-details.txt`), and links every active provider to
-  the first enabled `Facility`. An import with no enabled `Facility` or no
-  `clinic` row is refused by the ETL pre-checks against staging, before the first
-  write (preflight reports the same as blockers).
+  the first enabled `Facility`. The membership report counts what this run
+  actually inserted per statement. An import with no enabled `Facility` or no
+  `clinic` row — or a dump lacking any table the step reads (`Facility`,
+  `clinic`, `provider`, `security`, `secRole`, `secUserRole`, `secObjPrivilege`,
+  `secObjectName`, `program`, `program_provider`, `provider_facility`,
+  `preventions`, `eform`, `property`) — is refused by the ETL pre-checks against
+  staging, before the first write (preflight reports the Facility/clinic
+  conditions as blockers). The same pre-check refuses a server whose `sql_mode`
+  carries `NO_BACKSLASH_ESCAPES` or `ANSI_QUOTES` (the plain client quotes clinic
+  values with backslash escapes), and P0 refuses a non-Ontario province up front
+  (the seed floors are Ontario's).
 - The P0 sweep tolerates exactly the rows the webapp creates on first start
   (`STARTUP_CREATED_ROWS`: the `OSCAR` program and membership, the `Main Clinic`
   site and its provider link) and the seed script deletes them before the copy —
@@ -226,11 +244,15 @@ importer therefore reconciles the role matrix instead of choosing one side:
 - The privilege merge keeps every CARLOS seed grant, appends every clinic grant
   whose (role, object) the seed does not hold, and omits only grants on objects
   no CARLOS code checks and no seed grants (`MERGE_EXCLUDE`, an explicit list —
-  `_pmm.*` objects are live and carried). `privilege-diff.txt` itemises three
-  things for the
-  review: clinic grants CARLOS's seed overrode on the same (role, object), clinic
-  grants on stock roles the seed does not hold (appended, so a stock role is wider
-  than the seed), and the excluded grants.
+  the `_pmm.*` objects the program-management code still checks are carried;
+  only `_pmm.editProgram.schedules` and `_pmm.functionalCentre` are listed).
+  `privilege-diff.txt` itemises four things for the review: clinic grants
+  CARLOS's seed overrode on the same (role, object); seed grants on roles the
+  clinic has whose (role, object) the clinic's matrix did not hold at all (a
+  grant the clinic removed comes back, so the role can do more than in O19);
+  clinic grants on stock roles the seed does not hold (appended, so a stock role
+  is wider than the seed — appends on `_admin*` objects are named in the report
+  line); and the excluded grants.
 - Data normalisation CARLOS ships only as post-baseline scripts never reaches
   imported rows through Flyway (it ran on the empty deploy first), so the post-step
   applies it: `preventions.prevention_type` legacy codes follow the generated
@@ -242,17 +264,26 @@ importer therefore reconciles the role matrix instead of choosing one side:
   2026.3.0 with the packaged scripts under `/usr/share/carlos-emr/schema/o19-fixups/`
   run through the ETL executor (`sql_mode=''`). The scripts address
   `form_name = 'Rich Text Letter'` with `subject LIKE 'Rich Text Letter Generator%'`
-  only, so: the v1 seed runs first when no such row exists; only the route fix
-  runs when a marked row still calls a dead JSP route; a canonical row the clinic
-  had disabled is re-disabled afterwards; a row whose subject was edited is
-  reported, not claimed fixed; after the scripts the step re-reads the rows and
-  reports "modernised" only if a canonical row carries the marker with live
-  routes (P7 repeats that check as an advisory). Any other RTL-titled row such
-  as O19's 2010 `letter` is disabled — it carries the `RptByExample.do` sink.
+  only — evaluated by the database under the column collation, so the planner
+  and the scripts agree on which row is canonical — so: the v1 seed runs first
+  when no such row exists (the clinic then gets a new, ENABLED Rich Text Letter,
+  and the seeded `eform` row is recorded for row parity); only the route fix runs
+  when a marked row still calls a dead JSP route; a canonical row that was
+  disabled (O19's own seed ships it so) is re-disabled afterwards; a row whose
+  subject was edited is reported, not claimed fixed; after the scripts the step
+  re-reads the rows and reports "modernised" only if a canonical row carries the
+  marker with live routes (P7 repeats that check as an advisory). The plan (rows
+  to disable, scripts, rows to re-disable) is persisted before the first write,
+  so a crash between the enable script and the re-disable cannot make a hidden
+  form visible on resume. Missing fixup scripts are a broken package install:
+  the step fails closed and resumes once they are back. Any other RTL-titled row
+  such as O19's 2010 `letter` is disabled — it carries the `RptByExample.do`
+  sink.
 - `value_exprs` now also cover `document.receivedDate` (= `observationdate`) and
   `tickler.creation_date` (= legacy `update_date`, else `service_date`, else the
   fixed `UNKNOWN_DATE_SENTINEL` `1970-01-02 00:00:00` rather than the import time,
-  so a re-import is reproducible and the value is visibly unknown), and a
+  so a re-import is reproducible and the value is visibly unknown; O19's
+  `0001-01-01` column default and MySQL zero dates count as absent), and a
   synthesized column is always part of the copied column list (the earlier
   `pharmacyInfo.uid` entry was never written).
 - P7 verifies the guarantees (roles present, admin usable, facility/clinic/program
@@ -884,9 +915,15 @@ NULL), that a target whose webapp had booted once was refused by P0 and
 would fail at startup after the import (the `OSCAR` program membership of a
 deleted provider), and that case management needs `program_provider` rows.
 §4.5 documents the reconciliation; the manifest is `o19map-2`. The rehearsal
-fixture gained `roles.sql` (a custom role, a NULL `activeyn`, an expired
-login, a queue object, a patient lockout, a legacy prevention code, a
-removed-module property key, a clinic override of a stock grant).
+fixture gained `roles.sql` (a custom role, NULL `activeyn` rows including a
+dormant admin one, an expired login, a queue object, a patient lockout, a
+grant on a dead object, legacy prevention codes `Flu` and `dTaP` next to the
+valid `DTaP`, a removed-module property key, a clinic override of a stock
+grant, an indicator template naming a removed table after a line break).
+Three review rounds followed (seed floors, binary prevention compare,
+crash-safe ledger, a single batch decoder, the template-binding order, the
+persisted RTL plan, the seeded `eform` row in row parity, dormant admin rows
+left alone, a fourth privilege-diff section).
 
 **All milestones complete.** Next steps beyond this round: run the
 Playwright UI suite against a migrated database under a full app deploy,

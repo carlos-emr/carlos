@@ -175,6 +175,12 @@ class TestAdminUserSafety(unittest.TestCase):
         with self.assertRaises(ValueError):
             o19etl.seed_admin_cleanup_statements("carlos", "x'y", "1")
 
+    def test_nul_is_encoded_not_passed_raw(self):
+        # the client refuses a raw NUL in a statement; decoded batch
+        # values may carry one
+        self.assertEqual(o19etl._sql_str("a\0b"), "a\\0b")
+        self.assertEqual(o19etl._sql_str("a\\'b"), "a\\\\\\'b")
+
     def test_hash_and_pin_are_escaped(self):
         stmts = o19etl.seed_admin_statements(
             "carlos", "bg", "100001", "{bcrypt}$2b$12$a'b", "12'4")

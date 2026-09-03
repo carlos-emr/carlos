@@ -307,12 +307,16 @@ class TestArchiveCsvExport(unittest.TestCase):
         out = tempfile.mkdtemp(prefix="o19docs-csv-")
         self.addCleanup(shutil.rmtree, out)
 
-        def q(sql):
+        def q(sql, raw=False):
             if "information_schema.TABLES" in sql:
                 return [["formONAR"]]
             if "information_schema.COLUMNS" in sql:
                 return [["ID"], ["note"]]
-            return [["1", "line1\nline2"], ["2", "back\\nslash"]]
+            # the export asks for RAW rows and decodes them itself: a
+            # newline arrives as backslash-n, a stored backslash-n as
+            # backslash-backslash-n
+            self.assertTrue(raw)
+            return [["1", "line1\\nline2"], ["2", "back\\\\nslash"]]
 
         lines = o19docs.export_archive_csv(q, "o19_archive", out)
         self.assertEqual(lines, ["formONAR.csv: 2 row(s)"])
@@ -320,7 +324,7 @@ class TestArchiveCsvExport(unittest.TestCase):
             content = fh.read()
         self.assertIn("ID,note", content)
         self.assertIn('"line1\nline2"', content)
-        self.assertIn("back\\nslash", content)  # not decoded a second time
+        self.assertIn("back\\nslash", content)  # decoded exactly once
 
 
 class TestArchiveCsvNulls(unittest.TestCase):
@@ -329,20 +333,20 @@ class TestArchiveCsvNulls(unittest.TestCase):
         out = tempfile.mkdtemp(prefix="o19docs-csvnull-")
         self.addCleanup(shutil.rmtree, out)
 
-        def q(sql):
+        def q(sql, raw=False):
             if "information_schema.TABLES" in sql:
                 return [["t"]]
             if "information_schema.COLUMNS" in sql:
                 return [["a"], ["b"]]
-            # values arrive decoded from the client wrapper; \N (SQL NULL)
-            # is the one marker the decoder leaves alone
-            return [["1", "\\N"], ["\\N", "x\ty"]]
+            # raw rows: SQL NULL is the bare token \N; a STORED two-
+            # character \N arrives escaped and must survive as data
+            return [["1", "\\N"], ["\\N", "x\\ty"], ["3", "\\\\N"]]
         o19docs.export_archive_csv(q, "arch", out)
         with open(os.path.join(out, "t.csv"), newline="") as fh:
             text = fh.read()
-        self.assertNotIn("\\N", text)
         self.assertIn("1,\r\n", text)
         self.assertIn(",x\ty", text)
+        self.assertIn("3,\\N", text)  # the stored value, not NULL
 
 
 if __name__ == "__main__":

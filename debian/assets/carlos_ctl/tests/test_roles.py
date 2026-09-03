@@ -136,6 +136,16 @@ class TestStatementShapes(unittest.TestCase):
         self.assertIn("JOIN `carlos`.security s", sql)
         self.assertIn("activeyn IS NULL",
                       o19roles.activeyn_candidates_sql("carlos"))
+        # admin assignments are never activated automatically: CARLOS
+        # treats a NULL admin row as inactive on purpose
+        self.assertIn("LOWER(ur.role_name) <> 'admin'", sql)
+        self.assertIn("LOWER(ur.role_name) <> 'admin'",
+                      o19roles.activeyn_candidates_sql("carlos"))
+        self.assertIn("LOWER(ur.role_name) = 'admin'",
+                      o19roles.activeyn_admin_left_sql("carlos"))
+        self.assertIn("ur.role_name IN ('HRMAdmin', 'Site Manager')",
+                      o19roles.dangling_role_assignments_sql(
+                          "carlos", ["HRMAdmin", "Site Manager"]))
 
     def test_every_write_is_idempotent(self):
         writes = (o19roles.snapshot_statements("c", "a")
@@ -320,6 +330,12 @@ class TestDiffPruneNormalise(unittest.TestCase):
         itemised = o19roles.excluded_grants_sql("o19_import")
         self.assertTrue(itemised.startswith(
             "SELECT s.roleUserGroup, s.objectName, s.privilege FROM"))
+        restored = o19roles.restored_seed_grants_sql("o19_import",
+                                                     "o19_archive")
+        self.assertIn("d.roleUserGroup IN (SELECT role_name FROM "
+                      "`o19_import`.secRole)", restored)
+        self.assertIn("NOT EXISTS (SELECT 1 FROM `o19_import`."
+                      "secObjPrivilege s", restored)
         appends = o19roles.stock_role_appends_sql("o19_import", "o19_archive",
                                                   ["doctor", "nurse"])
         self.assertIn("s.roleUserGroup IN ('doctor', 'nurse')", appends)
@@ -350,15 +366,18 @@ class TestDiffPruneNormalise(unittest.TestCase):
         unknown = o19roles.unknown_prevention_types_sql("carlos",
                                                         ["Inf", "Var"])
         self.assertIn("BINARY prevention_type NOT IN ('Inf', 'Var')", unknown)
-        self.assertIn("GROUP BY BINARY prevention_type", unknown)
+        # valid under ONLY_FULL_GROUP_BY: this read runs on the plain client
+        self.assertTrue(unknown.startswith("SELECT MIN(prevention_type), "
+                                           "COUNT(*)"))
+        self.assertIn("GROUP BY BINARY prevention_type ORDER BY 1", unknown)
 
 
 class TestRichTextLetter(unittest.TestCase):
 
     LEGACY = ("12", "Rich Text Letter", "1", "Rich Text Letter Generator "
-                                            "v2.1", "0", "1")
+                                            "v2.1", "0", "1", "1")
     MODERN = ("12", "Rich Text Letter", "1", "Rich Text Letter Generator "
-                                            "2026.3.0", "1", "0")
+                                            "2026.3.0", "1", "0", "1")
 
     def test_rows_are_found_by_title_and_flagged_by_version_and_route(self):
         sql = o19roles.rtl_rows_sql("carlos")
@@ -366,6 +385,9 @@ class TestRichTextLetter(unittest.TestCase):
                       sql)
         self.assertIn("form_html LIKE '%RTL 2026.3.0%'", sql)
         self.assertIn("form_html LIKE '%../eform/attachEform.jsp%'", sql)
+        # the database decides "canonical" with the scripts' own predicate
+        self.assertIn("(" + o19roles.RTL_CANONICAL_PREDICATE + ")", sql)
+        self.assertIn("OR (" + o19roles.RTL_CANONICAL_PREDICATE + ")", sql)
 
     def test_canonical_legacy_row_gets_the_fixups(self):
         disable, scripts, restore, notes = o19roles.rtl_plan([self.LEGACY])
@@ -384,14 +406,19 @@ class TestRichTextLetter(unittest.TestCase):
         # a crash between modernize and the route fix, or a form modernised
         # before the route fix existed: the marker alone is not "current"
         row = ("12", "Rich Text Letter", "1", "Rich Text Letter Generator "
-                                             "2026.3.0", "1", "1")
+                                             "2026.3.0", "1", "1", "1")
         self.assertEqual(o19roles.fixup_scripts_needed([row]),
                          [o19roles.RTL_ROUTE_FIX_SCRIPT])
         self.assertFalse(o19roles.rtl_current([row]))
 
     def test_edited_subject_is_out_of_reach_and_reported(self):
-        row = ("12", "Rich Text Letter", "1", "Our clinic letter", "0", "1")
+        row = ("12", "Rich Text Letter", "1", "Our clinic letter", "0", "1",
+               "0")
         disable, scripts, restore, notes = o19roles.rtl_plan([row])
+        # a case variant the database calls canonical is canonical
+        self.assertTrue(o19roles.is_rtl_canonical(
+            ("13", "rich text letter", "1", "RICH TEXT LETTER GENERATOR",
+             "0", "1", "1")))
         # not canonical: the seed is applied (the scripts cannot address
         # this row), the row itself is neither disabled nor claimed fixed
         self.assertEqual(disable, [])
@@ -401,24 +428,24 @@ class TestRichTextLetter(unittest.TestCase):
 
     def test_clinic_disabled_canonical_row_is_re_disabled_after_fixups(self):
         row = ("12", "Rich Text Letter", "0", "Rich Text Letter Generator "
-                                             "v2.1", "0", "1")
+                                             "v2.1", "0", "1", "1")
         disable, scripts, restore, notes = o19roles.rtl_plan([row])
         self.assertEqual(disable, [])
         self.assertEqual(restore, ["12"])
         self.assertIn(o19roles.RTL_ENABLE_SCRIPT, scripts)
         self.assertTrue(any("left disabled" in n for n in notes))
-        self.assertFalse(any("clinic had this form" in n for n in notes))
 
     def test_letter_named_row_is_disabled_and_seed_added_when_absent(self):
-        rows = [("1", "letter", "1", "letter generator", "0", "1")]
+        rows = [("1", "letter", "1", "letter generator", "0", "1", "0")]
         disable, scripts, restore, notes = o19roles.rtl_plan(rows)
+        self.assertTrue(any("ENABLED Rich Text Letter" in n for n in notes))
         self.assertEqual(disable, ["1"])
         self.assertEqual(scripts[0], o19roles.RTL_SEED_SCRIPT)
         self.assertEqual(scripts[1:], list(o19roles.RTL_FIXUP_SCRIPTS))
         self.assertTrue(any("legacy" in n for n in notes))
         # already disabled legacy rows are not touched again
         self.assertEqual(o19roles.rtl_plan(
-            [("1", "letter", "0", "x", "0", "1")])[0], [])
+            [("1", "letter", "0", "x", "0", "1", "0")])[0], [])
 
     def test_no_rtl_at_all_seeds_then_fixes(self):
         disable, scripts, restore, notes = o19roles.rtl_plan([])
@@ -438,7 +465,7 @@ class TestVerifyRoleChecks(unittest.TestCase):
             "grants": "600", "no_role": [], "no_grant": [], "locked": [],
             "jobs": "1", "rtl": [["12", "Rich Text Letter", "1",
                                   "Rich Text Letter Generator 2026.3.0",
-                                  "1", "0"]],
+                                  "1", "0", "1"]],
         }
         answers.update(over)
 
@@ -505,7 +532,7 @@ class TestVerifyRoleChecks(unittest.TestCase):
 
     def test_rtl_not_current_is_an_advisory_not_a_failure(self):
         ok, bad, adv, private = o19roles.verify_role_checks(
-            self.make_query(rtl=[["1", "letter", "0", "x", "0", "1"]]),
+            self.make_query(rtl=[["1", "letter", "0", "x", "0", "1", "0"]]),
             "carlos", "100001", 513)
         self.assertEqual(bad, [])
         self.assertTrue(any("Rich Text Letter" in a for a in adv))
@@ -542,7 +569,10 @@ class TestParityWithAppendedRows(unittest.TestCase):
     def test_appended_row_keys_cover_only_role_step_tables(self):
         self.assertEqual(set(o19etl.APPENDED_ROW_KEYS),
                          {"secRole", "program", "program_provider",
-                          "provider_facility"})
+                          "provider_facility", "eform"})
+        # every roles-step table is refused by the pre-checks when absent
+        for table in o19etl.APPENDED_ROW_KEYS:
+            self.assertIn(table, o19etl.ROLES_STEP_TABLES)
         self.assertIsNone(o19etl.appended_row_count_sql("demographic",
                                                         "s", "d"))
         sql = o19etl.appended_row_count_sql("program_provider", "stage",
@@ -606,6 +636,10 @@ class TestPackagedFixups(unittest.TestCase):
             self.assertRegex(text, r"`?form_name`? = 'Rich Text Letter'",
                              name)
             self.assertIn("Rich Text Letter Generator%", text, name)
+        # the planner's predicate is the scripts' WHERE, backticks aside
+        self.assertEqual(o19roles.RTL_CANONICAL_PREDICATE,
+                         "form_name = 'Rich Text Letter' AND subject LIKE "
+                         "'Rich Text Letter Generator%'")
         with open(os.path.join(updates, o19roles.RTL_ROUTE_FIX_SCRIPT),
                   encoding="utf-8") as fh:
             route_fix = fh.read()

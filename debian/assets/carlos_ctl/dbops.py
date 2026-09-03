@@ -53,7 +53,10 @@ def sql_escape(value: str) -> str:
     """SQL string-literal escaping for generated passwords interpolated into
     account DDL. Belt and braces: everything this tool generates is
     alphanumeric already."""
-    return value.replace("\\", "\\\\").replace("'", "\\'")
+    # NUL is encoded too: the client refuses a raw NUL in a statement, and
+    # decoded batch values may carry one
+    return (value.replace("\\", "\\\\").replace("'", "\\'")
+            .replace("\0", "\\0"))
 
 
 # --- raw client passthrough (verb: db) --------------------------------------

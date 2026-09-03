@@ -420,7 +420,10 @@ def count_insert_rows(text: str) -> Dict[str, int]:
 
 
 def _unquote_sql(body: str) -> str:
-    """Undo SQL string-literal escaping: `\\'`, doubled `''` and `\\\\`."""
+    """Undo SQL string-literal quoting: backslash-escaped characters
+    (`\\'`, `\\\\`; any other `\\x` becomes `x`, which is what the seeds
+    contain) and doubled `''`. Not a full MySQL unescaper — it serves the
+    role-name and prevention-code columns only."""
     out = []
     i = 0
     n = len(body)

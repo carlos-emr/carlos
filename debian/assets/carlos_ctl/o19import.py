@@ -89,7 +89,8 @@ def load_state(state_dir: str) -> Dict:
 def save_state(state_dir: str, state: Dict) -> None:
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
     tmp = state_path(state_dir) + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         json.dump(state, fh, indent=1, sort_keys=True)
     os.replace(tmp, state_path(state_dir))
 
@@ -129,7 +130,7 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
     if mariadb_args:
         base = ["mariadb"] + list(mariadb_args)
 
-    def query(sql, db=None):
+    def query(sql, db=None, raw=False):
         argv = list(base) + list(CLIENT_COMMON_ARGS)
         if db:
             argv.append(db)
@@ -139,7 +140,7 @@ def make_query(mariadb_args: Optional[List[str]]) -> Callable:
         if cp.returncode != 0:
             raise o19etl.QueryError("SQL failed ({0}): {1}".format(
                 sql[:80], cp.stderr.strip()), cp.stderr)
-        return batch_rows(cp.stdout)
+        return batch_rows(cp.stdout, raw=raw)
 
     query.base_argv = base  # type: ignore[attr-defined]
     return query
@@ -158,10 +159,14 @@ CLIENT_COMMON_ARGS = ("--default-character-set=utf8mb4", "-N", "-B")
 unescape_batch = o19docs.unescape_batch_field
 
 
-def batch_rows(stdout: str) -> List[List[str]]:
+def batch_rows(stdout: str, raw: bool = False) -> List[List[str]]:
     lines = stdout.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
+    if raw:
+        # the archive CSV export decodes itself, after telling SQL NULL
+        # (the bare token \N) from a stored two-character \N
+        return [line.split("\t") for line in lines]
     return [[unescape_batch(v) for v in line.split("\t")] for line in lines]
 
 
@@ -366,6 +371,13 @@ def run_p0_capacity(ctx) -> None:
 def run_p0(ctx) -> None:
     query = ctx["query"]
     dev = ctx["dev_target"]
+    if ctx.get("province") != "on":
+        # the seed floors are generated from the Ontario migration set;
+        # sweeping a BC host against them would refuse it for the wrong
+        # reason before the preflight's own province gate is reached
+        die("province {0!r}: the OSCAR 19 import supports Ontario "
+            "deployments only (the BC manifest pass is outstanding)"
+            .format(ctx.get("province")))
     run_p0_capacity(ctx)
 
     if not dev:
@@ -893,6 +905,13 @@ def write_private(path: str, text: str) -> None:
         fh.write(text)
 
 
+def append_private(path: str, text: str) -> None:
+    """Append to a 0600 file without a read-truncate-write window."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
 def run_p7(ctx) -> None:
     if phase_done(ctx["state"], "verify"):
         log("verify: already passed — skipping")
@@ -979,15 +998,15 @@ def run_p7(ctx) -> None:
         o19map_schema.SEED_ROW_COUNTS.get("secObjPrivilege", 0))
     lines.append("roles/privileges: {0} check(s) passed".format(len(r_ok)))
     problems.extend(r_bad)
-    if r_private:
-        # the roles post-step already wrote this file (activated
-        # assignments); the verify findings are appended, never replace it
-        path = os.path.join(ctx["state_dir"], "roles-details.txt")
-        existing = ""
-        if os.path.isfile(path):
-            with open(path, encoding="utf-8") as fh:
-                # a failed-then-resumed verify rewrites its own block
-                existing = fh.read().split("P7 verify:\n")[0]
+    # the roles post-step already wrote this file (activated assignments);
+    # the verify findings are appended as one block that a re-run replaces
+    # — also when the re-run has nothing private to say
+    path = os.path.join(ctx["state_dir"], "roles-details.txt")
+    existing = ""
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as fh:
+            existing = fh.read().split("P7 verify:\n")[0]
+    if existing or r_private:
         write_private(path, existing + "P7 verify:\n"
                       + "\n".join(r_private) + "\n")
     if r_adv:
@@ -1060,13 +1079,28 @@ def run_cleanup(ctx) -> None:
 
 def archive_state(state_dir: str) -> Optional[str]:
     """Retire state.json so the finished run can never be --resume'd or
-    mistaken for a fresh one; reports stay where they are."""
+    mistaken for a fresh one. The run's report and private files are
+    retired with the same suffix, so a later import in the same state
+    directory starts its own (the next roles step would otherwise append
+    to the old lists and P7 would rewrite the wrong block)."""
     path = state_path(state_dir)
     if not os.path.exists(path):
         return None
-    target = path + ".completed-" + time.strftime("%Y%m%dT%H%M%S")
+    suffix = ".completed-" + time.strftime("%Y%m%dT%H%M%S")
+    for name in RUN_FILES:
+        run_file = os.path.join(state_dir, name)
+        if os.path.exists(run_file):
+            os.replace(run_file, run_file + suffix)
+    target = path + suffix
     os.replace(path, target)
     return os.path.basename(target)
+
+
+#: per-run outputs retired alongside state.json (admin-credentials.txt is
+#: deliberately not among them: the operator is told where it is)
+RUN_FILES = ("report.txt", "roles-details.txt", "privilege-diff.txt",
+             "verify-details.txt", "documents-details.txt", "preflight.txt",
+             "preflight.json")
 
 
 # --------------------------------------------------------------------------
@@ -1331,6 +1365,11 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
                                                      "props", "verify"))):
         # the ETL ledger refuses a manifest change on its own; this covers
         # a resume whose ETL is already marked done and would skip P4
+        if phase_done(state, "verify"):
+            die("this import completed under manifest {0} (the installed "
+                "carlos-ctl carries {1}): nothing is left to resume — run "
+                "--cleanup to retire it".format(
+                    recorded_map, o19map_schema.SCHEMA_MAP_VERSION))
         die("this import ran with manifest {0}; the installed carlos-ctl "
             "carries {1}. A finished ETL cannot be continued under a "
             "different manifest — restore the pre-import snapshot and "

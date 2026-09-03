@@ -29,9 +29,14 @@ STAGE_ROWS = [["doctor", "_rx", "x", "0"], ["Triage Nurse", "_rx", "r", "0"],
 STAGE_OBJECTS = [["_rx"], ["_tickler"], ["_admin"]]
 TARGET_ROLES = [["doctor"], ["admin"], ["nurse"], ["Triage Nurse"], ["123"]]
 RTL_LEGACY = [["12", "Rich Text Letter", "1",
-               "Rich Text Letter Generator v2.1", "0", "1"]]
+               "Rich Text Letter Generator v2.1", "0", "1", "1"]]
 RTL_MODERN = [["12", "Rich Text Letter", "1",
-               "Rich Text Letter Generator 2026.3.0", "1", "0"]]
+               "Rich Text Letter Generator 2026.3.0", "1", "0", "1"]]
+RTL_DISABLED = [["12", "Rich Text Letter", "0",
+                 "Rich Text Letter Generator v2.1", "0", "1", "1"]]
+RTL_ENABLED_MODERN = [["12", "Rich Text Letter", "1",
+                       "Rich Text Letter Generator 2026.3.0", "1", "0",
+                       "1"]]
 
 
 class FakeDb(object):
@@ -47,13 +52,17 @@ class FakeDb(object):
                                           [RTL_LEGACY, RTL_MODERN]))
         self.answers = {
             "twinless": {"secRole": 3, "provider_facility": 2, "program": 1,
-                         "program_provider": 5},
-            "counts": {"secRole": 36, "provider_facility": 8},
+                         "program_provider": 5, "eform": 0},
+            "counts": {"secRole": 36, "provider_facility": 8,
+                       "program_provider": 40},
             "facility": 1, "clinic": 1,
-            "activeyn_candidates": [["999902"]], "activeyn_left": 1,
+            "activeyn_candidates": [["999902", "doctor"]],
+            "admin_left": [["999904"]], "activeyn_left": 1,
+            "dangling": [["999905", "Site Manager"]],
             "without_membership": 5, "fallback": [["999903"]],
             "pending": 1, "property_counts": {"INTEGRATOR_": 1},
             "prevention_counts": {"Flu": 1}, "unknown": [["Weird", "2"]],
+            "restored": [["receptionist", "_billing", "r", "0"]],
         }
         self.answers.update(over)
         prune = o19roles.property_prune_statements(
@@ -91,6 +100,14 @@ class FakeDb(object):
             return [[str(a["clinic"])]]
         if sql == o19roles.activeyn_candidates_sql(DST):
             return a["activeyn_candidates"]
+        if sql == o19roles.activeyn_admin_left_sql(DST):
+            return a["admin_left"]
+        if sql.startswith("SELECT ur.provider_no, ur.role_name FROM "
+                          "`{0}`.secUserRole ur WHERE ur.activeyn = 1 AND "
+                          "ur.role_name IN (".format(DST)):
+            return a["dangling"]
+        if sql == o19roles.restored_seed_grants_sql(SRC, ARCH):
+            return a["restored"]
         if sql == o19roles.activeyn_null_remaining_sql(DST):
             return [[str(a["activeyn_left"])]]
         if sql == o19roles.providers_without_membership_sql(DST):
@@ -179,7 +196,10 @@ class TestCleanRun(RunRolesBase):
         # what row_parity will measure, not a before/after delta
         self.assertEqual(ledger["appended"],
                          {"secRole": 3, "provider_facility": 2, "program": 1,
-                          "program_provider": 5})
+                          "program_provider": 5, "eform": 0})
+        # the RTL plan is persisted before the first write
+        self.assertEqual(ledger["rtl_plan"][1],
+                         list(o19roles.RTL_FIXUP_SCRIPTS))
         self.assertTrue(saves)  # save() called for every mark
 
     def test_writes_are_the_builders_output_in_order(self):
@@ -191,6 +211,8 @@ class TestCleanRun(RunRolesBase):
                                                                      ARCH))
         self.assertIn(o19roles.provider_facility_statement(DST), w)
         self.assertIn(o19roles.activeyn_update_statement(DST), w)
+        self.assertNotIn("'admin'", o19roles.activeyn_update_statement(DST)
+                         .replace("<> 'admin'", ""))
         self.assertIn(o19roles.oscar_program_statement(DST), w)
         for sql in o19roles.membership_statements(DST):
             self.assertIn(sql, w)
@@ -211,18 +233,27 @@ class TestCleanRun(RunRolesBase):
         db = FakeDb()
         self.run_roles(db)
         details = self.private("roles-details.txt")
-        self.assertIn("999902", details)   # activated assignment
+        self.assertIn("999902=doctor", details)   # activated assignment
+        self.assertIn("999904", details)   # dormant admin row, left alone
         self.assertIn("999903", details)   # least-privilege membership
+        self.assertIn("999905=Site Manager", details)  # dangling assignment
+        self.assertIn("123", details)      # digit-named secRole row
         report = "\n".join(self.reports)
-        self.assertNotIn("999902", report)
-        self.assertNotIn("999903", report)
-        self.assertIn("1 the least-privileged clinic role", report)
+        for pn in ("999902", "999903", "999904", "999905", "123"):
+            self.assertNotIn(pn, report)
+        self.assertIn("doctor x1", report)
+        self.assertIn("1 NULL admin assignment(s) of active accounts left "
+                      "inactive", report)
+        self.assertIn("1 active assignment(s) to them now carry", report)
+        self.assertIn("1 secRole row(s) named like non-role groups", report)
         diff = self.private("privilege-diff.txt")
         self.assertIn("doctor | _billing | r/0 -> x/0", diff)
+        self.assertIn("receptionist | _billing | r/0", diff)  # restored
         self.assertIn("admin | _admin.consult | x/0", diff)
         self.assertIn("nurse | _admin.traceability | x", diff)
-        self.assertIn("secRole rows named like non-role groups", report)
-        self.assertIn("123", report)  # a role name, not an identifier
+        self.assertIn("administration objects: admin/_admin.consult", report)
+        self.assertIn("1 seed grant(s) on the clinic's roles have no clinic "
+                      "row", report)
         self.assertIn("modernised to 2026.3.0", report)
         self.assertIn("Weird (2)", report)
 
@@ -273,6 +304,7 @@ class TestRoleTemplateBinding(RunRolesBase):
         db = FakeDb()
         progress, _ = self.run_roles(
             db, role_templates={"triage nurse": "Doctor"})
+        # recorded once it validated, in the spelling the operator gave
         self.assertEqual(progress["roles"]["role_templates"],
                          {"triage nurse": "Doctor"})
         # normalised to the exact spellings of the tables
@@ -282,14 +314,49 @@ class TestRoleTemplateBinding(RunRolesBase):
         self.assertEqual(progress["roles"]["backfill"]["templates"],
                          {"Triage Nurse": "doctor"})
 
-    def test_resume_with_a_different_mapping_is_refused(self):
+    def test_resume_with_a_different_mapping_is_refused_once_decided(self):
         db = FakeDb()
         progress, _ = self.run_roles(
             db, role_templates={"Triage Nurse": "doctor"})
-        del progress["roles"]["backfill"]
+        del progress["roles"]["backfill"]  # the plan is still there
         with self.assertRaises(SystemExit):
             self.run_roles(db, progress, role_templates={"Triage Nurse":
                                                          "nurse"})
+        # a case-only variant of the recorded mapping is the same mapping
+        n = len(db.writes)
+        self.run_roles(db, progress, role_templates={"triage nurse":
+                                                     "DOCTOR"})
+        self.assertGreater(len(db.writes), n)
+
+    def test_flag_added_or_changed_before_the_decision_is_taken(self):
+        # a crash in step 3, then a resume that adds the flag: nothing
+        # depended on the mapping yet, so it is accepted and reported
+        db = FakeDb(fail_on=o19roles.activeyn_update_statement(DST))
+        progress = {"tables": {}}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db, progress)
+        self.assertNotIn("role_templates", progress["roles"])
+        self.run_roles(db, progress, role_templates={"Triage Nurse":
+                                                     "doctor"})
+        self.assertEqual(progress["roles"]["role_templates"],
+                         {"Triage Nurse": "doctor"})
+        self.assertIn(o19roles.backfill_statement(DST, ARCH, "Triage Nurse",
+                                                  "doctor", ["_fax"]),
+                      db.writes)
+
+    def test_typo_in_the_flag_is_recoverable_by_the_hinted_resume(self):
+        db = FakeDb()
+        progress = {"tables": {}}
+        with self.assertRaises(SystemExit):
+            self.run_roles(db, progress, role_templates={"Triage Nurse":
+                                                         "nrse"})
+        # the bad mapping was never recorded
+        self.assertNotIn("role_templates", progress["roles"])
+        self.assertNotIn("backfill_plan", progress["roles"])
+        self.run_roles(db, progress, role_templates={"Triage Nurse":
+                                                     "nurse"})
+        self.assertEqual(progress["roles"]["backfill"]["templates"],
+                         {"Triage Nurse": "nurse"})
 
     def test_resume_without_the_flag_continues_with_the_recorded_mapping(
             self):
@@ -326,12 +393,14 @@ class TestRichTextLetterOutcome(RunRolesBase):
         self.assertIn("apply by hand", outcome)
         self.assertNotIn("modernised", outcome)
 
-    def test_missing_scripts_are_an_outcome_not_a_crash(self):
+    def test_missing_scripts_fail_closed_before_any_rtl_write(self):
+        # a broken package install, not a clinic condition: die, resumable
         os.remove(os.path.join(self.fixups, o19roles.RTL_MODERNIZE_SCRIPT))
         db = FakeDb()
-        progress, _ = self.run_roles(db)
-        self.assertIn(o19roles.RTL_MODERNIZE_SCRIPT,
-                      progress["roles"]["rtl"]["outcome"])
+        progress = {"tables": {}}
+        with self.assertRaises(SystemExit):
+            self.run_roles(db, progress)
+        self.assertFalse(progress["roles"].get("rtl"))
         self.assertFalse(any(sql.startswith("-- update-") for sql in
                              db.writes))
 
@@ -340,6 +409,33 @@ class TestRichTextLetterOutcome(RunRolesBase):
         progress, _ = self.run_roles(db)
         self.assertEqual(progress["roles"]["rtl"]["scripts"], [])
         self.assertEqual(progress["roles"]["rtl"]["outcome"], "unchanged")
+
+    def test_clinic_disabled_form_stays_disabled_across_a_crash(self):
+        # the enable script flips the row on; a crash before the restore
+        # must not lose the decision — the plan was persisted first
+        db = FakeDb(rtl_sequence=[RTL_DISABLED, RTL_ENABLED_MODERN,
+                                  RTL_ENABLED_MODERN],
+                    fail_on=o19roles.RTL_ROUTE_FIX_SCRIPT)
+        progress = {"tables": {}}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db, progress)
+        self.assertEqual(progress["roles"]["rtl_plan"][2], ["12"])
+        self.run_roles(db, progress)
+        self.assertIn(o19roles.rtl_disable_statement(DST, "12"), db.writes)
+        self.assertEqual(progress["roles"]["rtl"]["restored_disabled"],
+                         ["12"])
+        self.assertIn("modernised", progress["roles"]["rtl"]["outcome"])
+
+    def test_seed_path_records_the_new_eform_row_for_parity(self):
+        db = FakeDb(rtl_sequence=[[], RTL_MODERN], twinless={
+            "secRole": 3, "provider_facility": 2, "program": 1,
+            "program_provider": 5, "eform": 1})
+        progress, _ = self.run_roles(db)
+        self.assertEqual(progress["roles"]["rtl"]["scripts"][0],
+                         o19roles.RTL_SEED_SCRIPT)
+        self.assertEqual(progress["roles"]["appended"]["eform"], 1)
+        self.assertIn("ENABLED Rich Text Letter",
+                      "\n".join(self.reports))
 
 
 if __name__ == "__main__":

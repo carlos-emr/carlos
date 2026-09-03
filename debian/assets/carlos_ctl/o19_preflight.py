@@ -997,12 +997,38 @@ def make_cli_query(mysql_cmd, mysql_args, db, env=None):
                                else "client exited {0}".format(
                                    proc.returncode))
         text = out.decode("utf-8", "replace")
-        # batch output escapes \0 \t \n \\ in values; only "\n" ends a row
+        # batch output escapes \0 \t \n \\ in values; only "\n" ends a
+        # row, and each value is decoded after the split (an indicator
+        # template's line breaks must not glue the escape letter onto the
+        # next word)
         lines = text.split("\n")
         if lines and lines[-1] == "":
             lines.pop()
-        return [line.split("\t") for line in lines]
+        return [[_unescape_batch(v) for v in line.split("\t")]
+                for line in lines]
     return query
+
+
+_BATCH_ESCAPES = {"0": "\0", "t": "\t", "n": "\n", "\\": "\\"}
+
+
+def _unescape_batch(value):
+    """Undo the client's batch-mode escaping of one value (the bare
+    NULL marker \\N is not an escape and stays as it is)."""
+    if "\\" not in value:
+        return value
+    out = []
+    i = 0
+    n = len(value)
+    while i < n:
+        c = value[i]
+        if c == "\\" and i + 1 < n and value[i + 1] in _BATCH_ESCAPES:
+            out.append(_BATCH_ESCAPES[value[i + 1]])
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def _sql_literal(value):
@@ -1209,35 +1235,47 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "(values are preserved in o19_archive shadow tables).",
             accept="dropped-columns", data=b3_hits))
 
-    # --- roles, privileges and CARLOS-required data (M8, all advisory) ---
+    # --- roles, privileges and CARLOS-required data (M8) -----------------
+    # two blockers the importer refuses on as well, then advisories
     # CARLOS's privilege check is exact-match, deny-by-default and counts
     # only secUserRole rows with activeyn = 1; the importer reconciles the
     # role matrix, so these findings tell the clinic what the import will
     # do rather than block it.
-    # a missing table counts as zero rows: the importer refuses both
-    n = count_live("Facility", "disabled = 0") if "Facility" in tables else 0
-    if n == 0:
+    # a missing table counts as zero rows: the importer refuses both. A
+    # count that FAILED is not zero rows — the query-errors blocker
+    # already covers it, so the row-count blocker is not raised on top
+    n = (_count(query, tables["Facility"], "disabled = 0")
+         if "Facility" in tables else 0)
+    if isinstance(n, tuple):
+        query_errors["Facility [disabled = 0]"] = n[1]
+    elif n == 0:
         findings.append(finding(
             "facility-none-enabled", BLOCKER,
             "no enabled Facility row" if "Facility" in tables
             else "no Facility table",
             "CARLOS cannot log anyone in without an enabled Facility; "
             "the import refuses the dump before writing. Enable a "
-            "Facility in the source and re-export."))
-    n = count_live("clinic") if "clinic" in tables else 0
-    if n == 0:
+            "Facility in the source and re-export. No --accept flag "
+            "exists for this."))
+    n = _count(query, tables["clinic"]) if "clinic" in tables else 0
+    if isinstance(n, tuple):
+        query_errors["clinic"] = n[1]
+    elif n == 0:
         findings.append(finding(
             "clinic-missing", BLOCKER,
             "the clinic table is empty" if "clinic" in tables
             else "no clinic table",
             "Letterheads, requisitions and consultations dereference the "
-            "clinic row; the import refuses the dump before writing."))
+            "clinic row; the import refuses the dump before writing. No "
+            "--accept flag exists for this."))
     if "secRole" in tables:
         custom = []
+        # compared like the column's collation and like the importer
+        stock = set(r.lower() for r in STOCK_ROLE_NAMES)
         try:
             for row in query("SELECT role_name FROM {0} ORDER BY role_name"
                              .format(_ident(tables["secRole"]))):
-                if row and row[0] and row[0] not in STOCK_ROLE_NAMES:
+                if row and row[0] and row[0].lower() not in stock:
                     custom.append(row[0])
         except Exception as exc:
             text = str(exc).strip()
@@ -1252,10 +1290,8 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "grant get the CARLOS-era privileges (fax, email, pharmacy "
                 "edit, ...) of the closest stock role, reported for review "
                 "(--role-template overrides the choice); a role granting "
-                "nothing is left as it is. O19 stock names CARLOS renamed "
-                "(Registered Nurse -> RN, Registered Practical Nurse -> "
-                "RPN, Moderator/Student (OSCAR Learning) -> moderator/"
-                "student) appear here too and keep their grants.",
+                "nothing is left as it is. A stock role the clinic "
+                "renamed appears here too and keeps its grants.",
                 data={"roles": ", ".join(custom)}))
     if "secUserRole" in tables:
         n = count_live("secUserRole", "activeyn IS NULL")
@@ -1267,30 +1303,38 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "for providers whose account is active and lists them in "
                 "roles-details.txt."))
         if "provider" in tables and "security" in tables:
-            # same predicate as the import's P7 advisory: an active
-            # provider WITH a login and no active role
+            # the import's P7 advisory after the activeyn-NULL rows of
+            # live accounts have been activated: an active provider WITH
+            # a login, no active role and no NULL row the import will
+            # activate (those are counted in roles-activeyn-null)
             n = count_live(
                 "provider",
                 "status = '1' AND provider_no IN (SELECT provider_no FROM "
                 "{1}) AND provider_no NOT IN (SELECT provider_no FROM {0} "
-                "WHERE activeyn = 1)".format(
+                "WHERE activeyn = 1 OR (activeyn IS NULL AND "
+                "LOWER(role_name) <> 'admin'))".format(
                     _ident(tables["secUserRole"]),
                     _ident(tables["security"])))
             if n:
                 findings.append(finding(
                     "roles-providers-without-active-role", ADVISORY,
-                    "{0} active account(s) hold no active role".format(n),
+                    "{0} active account(s) will hold no active role after "
+                    "import".format(n),
                     "They can log in but reach nothing until a role is "
-                    "assigned in Administration."))
+                    "assigned in Administration (a NULL admin assignment "
+                    "is deliberately not activated by the import)."))
     if "security" in tables:
         n = count_live("security", "b_ExpireSet = 1 AND (date_ExpireDate IS "
                                    "NULL OR date_ExpireDate < NOW())")
         if n:
             findings.append(finding(
                 "security-locked", ADVISORY,
-                "{0} login(s) are expired and import locked".format(n),
-                "b_ExpireSet with a past or missing expiry refuses the "
-                "login; extend or clear the expiry before go-live."))
+                "{0} login(s) will be refused after import (expired)"
+                .format(n),
+                "b_ExpireSet with a past or missing expiry makes CARLOS "
+                "refuse the login; the import leaves the rows as they are "
+                "and lists them — extend or clear the expiry before "
+                "go-live."))
     if "preventions" in tables and LEGACY_PREVENTION_TYPES:
         legacy = ", ".join("'{0}'".format(_sql_literal(t))
                            for t in LEGACY_PREVENTION_TYPES)
@@ -1315,9 +1359,13 @@ def run_checks(query, properties=None, province="on", accepted=(),
             findings.append(finding(
                 "rtl-legacy-form", ADVISORY,
                 "{0} legacy Rich Text Letter form(s)".format(n),
-                "The O19 form carries a raw-SQL sink and pre-CARLOS routes; "
-                "the import applies the 2026.3.0 form and disables legacy "
-                "copies."))
+                "The O19 form carries a raw-SQL sink and pre-CARLOS routes. "
+                "The import brings the stock row (named 'Rich Text Letter', "
+                "subject starting 'Rich Text Letter Generator') to "
+                "2026.3.0 (a disabled one stays disabled), disables other "
+                "RTL-titled copies, seeds a new ENABLED form when no stock "
+                "row exists, and reports a row whose subject was edited "
+                "for hand review."))
     if "property" in tables:
         removed = {}
         for prefix in DROPPED_PROP_PREFIXES:

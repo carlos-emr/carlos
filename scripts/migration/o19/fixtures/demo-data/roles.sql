@@ -9,8 +9,9 @@
 -- override of a stock grant, a legacy prevention type code and a removed-module
 -- property key.
 
--- a clinic-custom role resembling the stock nurse role (its CARLOS-era grants
--- come from that template), with one deviation on _rx; the copied nurse set
+-- a clinic-custom role copied from the stock nurse role with one deviation
+-- on _rx (the chooser picks the closest stock role — `Nurse Manager` in the
+-- rehearsal — and that template holds no CARLOS-era objects); the nurse set
 -- includes _pmm objects, which CARLOS still checks and the merge carries.
 -- Timestamps are fixed so the fixture dump is reproducible.
 INSERT INTO `secRole` (`role_name`, `description`)
@@ -27,13 +28,16 @@ INSERT INTO `provider` (`provider_no`, `last_name`, `first_name`, `provider_type
   ('999901', 'FIXTURE', 'TRIAGE', 'nurse', 'Triage', '1', '999998', '2019-06-01 09:00:00'),
   ('999902', 'FIXTURE', 'NULLROLE', 'doctor', 'Family Practice', '1', '999998', '2019-06-01 09:00:00'),
   ('999903', 'FIXTURE', 'EXPIRED', 'doctor', 'Family Practice', '1', '999998', '2019-06-01 09:00:00');
-INSERT INTO `security` (`user_name`, `password`, `provider_no`, `pin`, `b_ExpireSet`, `date_ExpireDate`, `forcePasswordReset`, `storageVersion`) VALUES
-  ('fixture.triage',   '-51-282443-97-5-9410489-60-1021-45-127-12435464-32', '999901', '1111', 1, '2100-01-01', 0, 1),
-  ('fixture.nullrole', '-51-282443-97-5-9410489-60-1021-45-127-12435464-32', '999902', '1111', 1, '2100-01-01', 0, 1),
-  ('fixture.expired',  '-51-282443-97-5-9410489-60-1021-45-127-12435464-32', '999903', '1111', 1, '2020-01-01', 0, 1);
+INSERT INTO `security` (`user_name`, `password`, `provider_no`, `pin`, `b_ExpireSet`, `date_ExpireDate`, `forcePasswordReset`, `storageVersion`, `lastUpdateDate`) VALUES
+  ('fixture.triage',   '-51-282443-97-5-9410489-60-1021-45-127-12435464-32', '999901', '1111', 1, '2100-01-01', 0, 1, '2019-06-01 09:00:00'),
+  ('fixture.nullrole', '-51-282443-97-5-9410489-60-1021-45-127-12435464-32', '999902', '1111', 1, '2100-01-01', 0, 1, '2019-06-01 09:00:00'),
+  ('fixture.expired',  '-51-282443-97-5-9410489-60-1021-45-127-12435464-32', '999903', '1111', 1, '2020-01-01', 0, 1, '2019-06-01 09:00:00');
+-- 999902 also carries a dormant admin assignment: the import activates the
+-- doctor row and leaves the admin row inactive (listed for the review)
 INSERT INTO `secUserRole` (`provider_no`, `role_name`, `orgcd`, `activeyn`, `lastUpdateDate`) VALUES
   ('999901', 'Triage Nurse', 'R0000001', 1,    '2019-06-01 09:00:00'),
   ('999902', 'doctor',       'R0000001', NULL, '2019-06-01 09:00:00'),
+  ('999902', 'admin',        'R0000001', NULL, '2019-06-01 09:00:00'),
   ('999903', 'doctor',       'R0000001', 1,    '2019-06-01 09:00:00');
 
 -- a second document queue with its privilege object, stored as CARLOS and
@@ -71,3 +75,8 @@ INSERT INTO `preventions` (`demographic_no`, `creation_date`, `prevention_date`,
 -- a removed-module key in the property table
 INSERT INTO `property` (`name`, `value`, `provider_no`)
   VALUES ('INTEGRATOR_fixture_sync', 'true', NULL);
+
+-- a dashboard indicator whose SQL names a removed-module table after a line
+-- break (the preflight scan must see it through the client's batch escapes)
+INSERT INTO `indicatorTemplate` (`dashboardId`, `name`, `category`, `subCategory`, `framework`, `frameworkVersion`, `definition`, `template`, `active`)
+  VALUES (NULL, 'Fixture legacy indicator', 'fixture', 'fixture', 'fixture', '2019-06-01', 'fixture', 'SELECT COUNT(*)\nFROM\tphr_documents', 1);

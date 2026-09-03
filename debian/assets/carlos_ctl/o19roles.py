@@ -74,6 +74,10 @@ RTL_FORM_NAME = "Rich Text Letter"
 #: `subject LIKE 'Rich Text Letter Generator%'`; a row whose subject a
 #: clinic edited is out of their reach and is reported, not claimed fixed
 RTL_SUBJECT_PREFIX = "Rich Text Letter Generator"
+#: the scripts' WHERE, verbatim (test_scripts_match_the_rows_the_planner_
+#: calls_canonical pins it against the packaged files)
+RTL_CANONICAL_PREDICATE = ("form_name = 'Rich Text Letter' AND subject LIKE "
+                           "'Rich Text Letter Generator%'")
 RTL_VERSION_MARKER = "RTL 2026.3.0"
 #: public JSP routes the 2026-06-29 route fix rewrites; their presence in
 #: form_html means that fix is still due whatever the version marker says
@@ -245,22 +249,54 @@ def providers_without_membership_sql(dst_schema: str) -> str:
             "WHERE pp.provider_no = pr.provider_no)".format(dst_schema))
 
 
+#: the one role the import never activates on its own: CARLOS treats a
+#: NULL admin assignment as inactive on purpose (SecUserRoleDaoImpl —
+#: "an inactive admin assignment (activeyn = 0 or legacy NULL) must not
+#: grant admin access"), so a dormant admin row stays dormant and is
+#: reported for an explicit decision
+ADMIN_ROLE = "admin"
+
+
 def activeyn_candidates_sql(dst_schema: str) -> str:
-    """provider_no of every NULL-activeyn role row whose account is live
-    (provider status '1' with a security row) — the rows the import
-    activates."""
+    """(provider_no, role_name) of every NULL-activeyn role row whose
+    account is live (provider status '1' with a security row) — the rows
+    the import activates — except `admin` assignments."""
+    return ("SELECT ur.provider_no, ur.role_name FROM `{0}`.secUserRole ur "
+            "JOIN `{0}`.provider p ON p.provider_no = ur.provider_no "
+            "JOIN `{0}`.security s ON s.provider_no = ur.provider_no "
+            "WHERE ur.activeyn IS NULL AND p.status = '1' AND "
+            "LOWER(ur.role_name) <> '{1}' ORDER BY ur.provider_no, "
+            "ur.role_name".format(dst_schema, ADMIN_ROLE))
+
+
+def activeyn_admin_left_sql(dst_schema: str) -> str:
+    """provider_no of live accounts whose NULL-activeyn row is an `admin`
+    assignment — left as it is, listed for the review."""
     return ("SELECT DISTINCT ur.provider_no FROM `{0}`.secUserRole ur "
             "JOIN `{0}`.provider p ON p.provider_no = ur.provider_no "
             "JOIN `{0}`.security s ON s.provider_no = ur.provider_no "
-            "WHERE ur.activeyn IS NULL AND p.status = '1' "
-            "ORDER BY ur.provider_no".format(dst_schema))
+            "WHERE ur.activeyn IS NULL AND p.status = '1' AND "
+            "LOWER(ur.role_name) = '{1}' ORDER BY ur.provider_no"
+            .format(dst_schema, ADMIN_ROLE))
 
 
 def activeyn_update_statement(dst_schema: str) -> str:
     return ("UPDATE `{0}`.secUserRole ur JOIN `{0}`.provider p ON "
             "p.provider_no = ur.provider_no JOIN `{0}`.security s ON "
             "s.provider_no = ur.provider_no SET ur.activeyn = 1 "
-            "WHERE ur.activeyn IS NULL AND p.status = '1'".format(dst_schema))
+            "WHERE ur.activeyn IS NULL AND p.status = '1' AND "
+            "LOWER(ur.role_name) <> '{1}'".format(dst_schema, ADMIN_ROLE))
+
+
+def dangling_role_assignments_sql(dst_schema: str,
+                                  role_names: Sequence[str]) -> str:
+    """Active assignments to the CARLOS-only roles the step re-added:
+    they granted nothing in O19 (no secRole row) and now carry the CARLOS
+    seed's grants — listed for the review."""
+    names = ", ".join("'{0}'".format(_sql_str(r)) for r in role_names)
+    return ("SELECT ur.provider_no, ur.role_name FROM `{0}`.secUserRole ur "
+            "WHERE ur.activeyn = 1 AND ur.role_name IN ({1}) ORDER BY "
+            "ur.provider_no, ur.role_name".format(dst_schema, names))
 
 
 def activeyn_null_remaining_sql(dst_schema: str) -> str:
@@ -280,9 +316,12 @@ def carlos_era_objects(seed_rows: Sequence[Sequence[str]],
                        stage_rows: Sequence[Sequence[str]],
                        stage_objects: Sequence[str]) -> List[str]:
     """Objects the CARLOS seed grants that the clinic's O19 never knew:
-    absent from its secObjectName AND from every one of its grants."""
-    known = set(stage_objects) | {r[1] for r in stage_rows}
-    return sorted({r[1] for r in seed_rows} - known)
+    absent from its secObjectName AND from every one of its grants
+    (compared like the column's collation: `_masterlink` knows
+    `_masterLink`)."""
+    known = {o.lower() for o in stage_objects} | {r[1].lower()
+                                                   for r in stage_rows}
+    return sorted({r[1] for r in seed_rows if r[1].lower() not in known})
 
 
 def custom_roles(target_roles: Sequence[str],
@@ -294,10 +333,10 @@ def custom_roles(target_roles: Sequence[str],
     # Java's getRoleByName matches the same way: `Doctor` IS the stock
     # role, and a grant row spelled `triage nurse` belongs to `Triage
     # Nurse`
-    granted = {r[0].casefold() for r in stage_rows if is_role_group(r[0])}
-    stock = {r.casefold() for r in stock_roles}
+    granted = {r[0].lower() for r in stage_rows if is_role_group(r[0])}
+    stock = {r.lower() for r in stock_roles}
     return sorted(r for r in target_roles
-                  if r.casefold() in granted and r.casefold() not in stock)
+                  if r.lower() in granted and r.lower() not in stock)
 
 
 def non_role_named_roles(target_roles: Sequence[str]) -> List[str]:
@@ -310,7 +349,7 @@ def non_role_named_roles(target_roles: Sequence[str]) -> List[str]:
 def role_pairs(rows: Sequence[Sequence[str]],
                role: str) -> Set[Tuple[str, str]]:
     return {(r[1], (r[2] or "").strip()) for r in rows
-            if r[0].casefold() == role.casefold()}
+            if r[0].lower() == role.lower()}
 
 
 def jaccard(a: Set, b: Set) -> float:
@@ -334,8 +373,8 @@ def choose_template(custom: str, stage_rows: Sequence[Sequence[str]],
     best_role, best = None, -1.0
     candidates = {r[0] for r in seed_rows if is_role_group(r[0])}
     if stock_roles is not None:
-        stock_fold = {s.casefold() for s in stock_roles}
-        candidates = {c for c in candidates if c.casefold() in stock_fold}
+        stock_fold = {s.lower() for s in stock_roles}
+        candidates = {c for c in candidates if c.lower() in stock_fold}
     for role in sorted(candidates):
         score = jaccard(mine, role_pairs(seed_rows, role))
         if score > best:
@@ -363,7 +402,7 @@ def backfill_statement(dst_schema: str, archive_schema: str, custom: str,
 def parse_role_templates(values: Optional[Sequence[str]]) -> Dict[str, str]:
     """--role-template 'Custom Role=doctor' (repeatable) -> {custom: stock}.
     Malformed entries and two different templates for one role raise
-    ValueError; an exact repeat is tolerated."""
+    ValueError; an exact or case-only repeat is tolerated."""
     out: Dict[str, str] = {}
     for raw in values or ():
         if "=" not in raw:
@@ -377,10 +416,10 @@ def parse_role_templates(values: Optional[Sequence[str]]) -> Dict[str, str]:
         # collation), so `Triage Nurse=nurse` and `triage nurse=doctor`
         # conflict; an exact or case-only repeat of the same mapping is
         # tolerated and the first spelling kept
-        twin = next((k for k in out if k.casefold() == custom.casefold()),
+        twin = next((k for k in out if k.lower() == custom.lower()),
                     None)
         if twin is not None:
-            if out[twin].casefold() != stock.casefold():
+            if out[twin].lower() != stock.lower():
                 raise ValueError("--role-template names {0!r} twice"
                                  .format(custom))
             continue
@@ -391,7 +430,7 @@ def parse_role_templates(values: Optional[Sequence[str]]) -> Dict[str, str]:
 def same_role_templates(a: Dict[str, str], b: Dict[str, str]) -> bool:
     """Equality up to case, like the role_name column."""
     def fold(m):
-        return {c.casefold(): t.casefold() for c, t in m.items()}
+        return {c.lower(): t.lower() for c, t in m.items()}
     return fold(a) == fold(b)
 
 
@@ -401,13 +440,13 @@ def validate_role_templates(overrides: Dict[str, str],
     """Problems with operator overrides (case-insensitive, like the
     role_name column's collation)."""
     problems = []
-    custom_fold = {c.casefold() for c in customs}
-    stock_fold = {r.casefold() for r in stock_roles}
+    custom_fold = {c.lower() for c in customs}
+    stock_fold = {r.lower() for r in stock_roles}
     for custom, stock in sorted(overrides.items()):
-        if custom.casefold() not in custom_fold:
+        if custom.lower() not in custom_fold:
             problems.append("--role-template {0!r}: not a clinic-custom role "
                             "with imported grants".format(custom))
-        if stock.casefold() not in stock_fold:
+        if stock.lower() not in stock_fold:
             problems.append("--role-template {0!r}: {1!r} is not a CARLOS "
                             "stock role".format(custom, stock))
     return problems
@@ -418,11 +457,11 @@ def normalise_role_templates(overrides: Dict[str, str],
                              stock_roles: Sequence[str]) -> Dict[str, str]:
     """Overrides re-keyed to the exact target/seed spellings (the INSERT
     must name the rows as the tables spell them). Validate first."""
-    custom_by = {c.casefold(): c for c in customs}
-    stock_by = {r.casefold(): r for r in stock_roles}
-    return {custom_by[c.casefold()]: stock_by[t.casefold()]
+    custom_by = {c.lower(): c for c in customs}
+    stock_by = {r.lower(): r for r in stock_roles}
+    return {custom_by[c.lower()]: stock_by[t.lower()]
             for c, t in overrides.items()
-            if c.casefold() in custom_by and t.casefold() in stock_by}
+            if c.lower() in custom_by and t.lower() in stock_by}
 
 
 def backfill_pending_count_sql(dst_schema: str, archive_schema: str,
@@ -473,6 +512,20 @@ def excluded_grants_sql(src_schema: str) -> Optional[str]:
     return ("SELECT s.roleUserGroup, s.objectName, s.privilege FROM "
             "`{0}`.secObjPrivilege s WHERE {1} ORDER BY s.roleUserGroup, "
             "s.objectName".format(src_schema, exclude))
+
+
+def restored_seed_grants_sql(src_schema: str, archive_schema: str) -> str:
+    """CARLOS seed grants on roles the clinic HAS (a secRole row) whose
+    (role, object) the clinic's own matrix does not hold at all — the
+    clinic had removed or never held them, the merge keeps the seed's
+    row, so after import the role can do more than it could in O19."""
+    return ("SELECT d.roleUserGroup, d.objectName, d.privilege, d.priority "
+            "FROM `{1}`.`{2}` d WHERE d.roleUserGroup IN (SELECT role_name "
+            "FROM `{0}`.secRole) AND NOT EXISTS (SELECT 1 FROM "
+            "`{0}`.secObjPrivilege s WHERE s.roleUserGroup = d.roleUserGroup "
+            "AND s.objectName = d.objectName) ORDER BY d.roleUserGroup, "
+            "d.objectName".format(src_schema, archive_schema,
+                                  snapshot_table("secObjPrivilege")))
 
 
 def stock_role_appends_sql(src_schema: str, archive_schema: str,
@@ -535,10 +588,11 @@ def unknown_prevention_types_sql(dst_schema: str,
     known_list = ", ".join("'{0}'".format(_sql_str(k)) for k in known)
     # BINARY like the rewrite: a code differing from a known one only by
     # case is not rendered either, so it must be listed for review
-    return ("SELECT prevention_type, COUNT(*) FROM `{0}`.preventions "
+    # MIN() keeps the statement valid under ONLY_FULL_GROUP_BY (this read
+    # runs through the plain client, under the host's own sql_mode)
+    return ("SELECT MIN(prevention_type), COUNT(*) FROM `{0}`.preventions "
             "WHERE BINARY prevention_type NOT IN ({1}) GROUP BY "
-            "BINARY prevention_type ORDER BY prevention_type"
-            .format(dst_schema, known_list))
+            "BINARY prevention_type ORDER BY 1".format(dst_schema, known_list))
 
 
 def rtl_rows_sql(dst_schema: str) -> str:
@@ -548,10 +602,14 @@ def rtl_rows_sql(dst_schema: str) -> str:
     marker, still calls a dead attachment route."""
     dead = " OR ".join("form_html LIKE '%{0}%'".format(_sql_str(r))
                        for r in RTL_DEAD_ROUTES)
+    # the 7th column is the scripts' own WHERE, evaluated by the database
+    # under the column collation (case-insensitive, trailing spaces
+    # ignored) so the planner and the scripts agree on "canonical"
     return ("SELECT fid, form_name, status, subject, "
-            "form_html LIKE '%{1}%', ({3}) FROM `{0}`.eform WHERE form_html "
-            "LIKE '%{2}%' ORDER BY fid".format(
-                dst_schema, RTL_VERSION_MARKER, RTL_TITLE_MARKER, dead))
+            "form_html LIKE '%{1}%', ({3}), ({4}) FROM `{0}`.eform WHERE "
+            "form_html LIKE '%{2}%' OR ({4}) ORDER BY fid".format(
+                dst_schema, RTL_VERSION_MARKER, RTL_TITLE_MARKER, dead,
+                RTL_CANONICAL_PREDICATE))
 
 
 def rtl_disable_statement(dst_schema: str, fid: str) -> str:
@@ -561,7 +619,11 @@ def rtl_disable_statement(dst_schema: str, fid: str) -> str:
 
 def is_rtl_canonical(row: Sequence[str]) -> bool:
     """A row the packaged scripts can address: named `Rich Text Letter`
-    with a subject starting `Rich Text Letter Generator`."""
+    with a subject starting `Rich Text Letter Generator`. The database's
+    verdict (7th column of rtl_rows_sql, its own collation) wins; the
+    Python test is the fallback for shorter rows."""
+    if len(row) > 6:
+        return str(row[6]) == "1"
     return (row[1] == RTL_FORM_NAME
             and (row[3] or "").startswith(RTL_SUBJECT_PREFIX))
 
@@ -616,7 +678,7 @@ def rtl_plan(rows: Sequence[Sequence[str]]
                              "build (clinic edits to the template are not "
                              "kept; the original row stays in the staging "
                              "schema until --cleanup)".format(fid))
-        elif form_name == RTL_FORM_NAME:
+        elif form_name.lower() == RTL_FORM_NAME.lower():
             notes.append("fid {0}: named 'Rich Text Letter' but its subject "
                          "does not start with '{1}' — the packaged scripts "
                          "cannot address it; review by hand".format(
@@ -629,7 +691,8 @@ def rtl_plan(rows: Sequence[Sequence[str]]
                          .format(fid, form_name))
     if not any(is_rtl_canonical(r) for r in rows):
         notes.append("no addressable 'Rich Text Letter' row: the v1 seed is "
-                     "applied before the fixups")
+                     "applied before the fixups — the clinic gets a new, "
+                     "ENABLED Rich Text Letter eForm")
     return disable, scripts, restore, notes
 
 
@@ -658,10 +721,10 @@ def verify_role_checks(query: Callable, dst_schema: str,
 
     # role_name is UNIQUE under a case-insensitive collation; `Doctor` is
     # the doctor role to the database and to Java's getRoleByName
-    roles = {r[0].casefold() for r in query(
+    roles = {r[0].lower() for r in query(
         "SELECT role_name FROM `{0}`.secRole".format(dst_schema))}
     for name, _ in GUARANTEED_ROLES:
-        if name.casefold() in roles:
+        if name.lower() in roles:
             ok.append("role '{0}' present".format(name))
         else:
             problems.append("role '{0}' missing from secRole".format(name))
@@ -784,8 +847,10 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     ledger records is either taken from the database AFTER the write
     (appended-row counts are the same anti-join row parity checks) or
     decided and persisted BEFORE the write (private lists, planned
-    counts), so a resume after a crash between a write and its mark
-    reports the same facts as an uninterrupted run."""
+    counts, the RTL plan), so a resume after a crash between a write and
+    its mark reports the same facts as an uninterrupted run. Report lines
+    are emitted before the mark: a crash in between repeats a line on
+    resume rather than losing it."""
     from .util import die
     from . import o19import
     query = ctx["query_etl"]
@@ -822,27 +887,27 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
         return stored
 
     def append_private(lines):
-        existing = ""
-        if os.path.isfile(details_path):
-            with open(details_path, encoding="utf-8") as fh:
-                existing = fh.read()
-        o19import.write_private(details_path,
-                                existing + "\n".join(lines) + "\n")
+        o19import.append_private(details_path, "\n".join(lines) + "\n")
 
-    # 0. --role-template is bound to the ledger like --admin-user: the
-    #    mapping the import decided on is the one a resume continues with
+    # 0. --role-template: the mapping is bound to the ledger once the
+    #    backfill has DECIDED on it (validated, planned); until then a
+    #    resume may add or change the flag, and the change is reported
     requested = dict(ctx.get("role_templates") or {})
     recorded = ledger.get("role_templates")
-    if recorded is None:
-        mark("role_templates", requested)
-        recorded = requested
-    elif requested and not same_role_templates(requested, recorded):
-        die("roles: this import recorded --role-template {0}; the resume "
-            "passes {1}. Resume with the recorded mapping (or without the "
-            "flag) — a changed template would graft a second stock role's "
-            "grants onto the custom role.".format(
-                _fmt_templates(recorded), _fmt_templates(requested)))
-    overrides = dict(recorded)
+    bound = "backfill_plan" in ledger or bool(ledger.get("backfill"))
+    if requested and recorded is not None \
+            and not same_role_templates(requested, recorded):
+        if bound:
+            die("roles: this import decided the custom-role templates with "
+                "--role-template {0}; the resume passes {1}. Resume with the "
+                "recorded mapping (or without the flag) — a changed "
+                "template would graft a second stock role's grants onto "
+                "the custom role.".format(_fmt_templates(recorded),
+                                          _fmt_templates(requested)))
+        report("roles: --role-template changed from {0} to {1} before the "
+               "backfill decided — the new mapping is used".format(
+                   _fmt_templates(recorded), _fmt_templates(requested)))
+    overrides = dict(requested or recorded or {})
 
     # 1. hard-coded role names, CARLOS-only roles
     if not ledger.get("roles_appended"):
@@ -852,15 +917,27 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
         query(carlos_role_append_statement(dst, arch))
         added = count("secRole") - before
         record_appended("secRole")
-        mark("roles_appended")
         if appended["secRole"]:
             names = [r[0] for r in plain(
                 "SELECT role_name FROM `{0}`.secRole WHERE role_name NOT IN "
                 "(SELECT role_name FROM `{1}`.secRole) ORDER BY role_name"
                 .format(dst, src))]
+            # an O19 assignment to such a role granted nothing there (no
+            # secRole row) and carries the CARLOS seed's grants now
+            dangling = plain(dangling_role_assignments_sql(dst, names))
+            if dangling and not ledger.get("roles_appended_listed"):
+                append_private(["active assignments to CARLOS-only roles "
+                                "(granted nothing in O19, seed grants now): "
+                                + ", ".join("{0}={1}".format(r[0], r[1])
+                                            for r in dangling)])
+                mark("roles_appended_listed")
             report("roles: {0} CARLOS role(s) added to the clinic's "
-                   "catalogue ({1} this run): {2}".format(
-                       appended["secRole"], added, ", ".join(names)))
+                   "catalogue ({1} this run): {2}{3}".format(
+                       appended["secRole"], added, ", ".join(names),
+                       ("; {0} active assignment(s) to them now carry the "
+                        "CARLOS seed's grants (see roles-details.txt)"
+                        .format(len(dangling))) if dangling else ""))
+        mark("roles_appended")
 
     # 2. facility / clinic guarantees, facility links (run_etl pre-checks
     #    the same conditions against staging before the first write; this
@@ -880,32 +957,58 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
         query(provider_facility_statement(dst))
         added = count("provider_facility") - before
         record_appended("provider_facility")
-        mark("facility_links")
         if appended["provider_facility"]:
             report("roles: {0} active provider(s) linked to the first "
                    "enabled facility (they had no provider_facility row; "
                    "{1} this run)".format(appended["provider_facility"],
                                           added))
+        mark("facility_links")
 
     # 3. activeyn normalisation (user decision: activate rows of live
-    #    accounts, report every one). The list is decided and written
-    #    to the private file BEFORE the UPDATE (file-first).
+    #    accounts, report every one) — except admin assignments, which
+    #    CARLOS deliberately treats as inactive when NULL. The lists are
+    #    decided and written to the private file BEFORE the UPDATE.
     if not ledger.get("activeyn"):
-        candidates = plan("activeyn", lambda: [
-            r[0] for r in plain(activeyn_candidates_sql(dst))])
-        if candidates and not ledger.get("activeyn_listed"):
-            append_private(["secUserRole.activeyn set to 1 for active "
-                            "accounts: " + ", ".join(candidates)])
+        decided = plan("activeyn", lambda: {
+            "activated": [[r[0], r[1]] for r in
+                          plain(activeyn_candidates_sql(dst))],
+            "admin_left": [r[0] for r in plain(activeyn_admin_left_sql(dst))],
+        })
+        candidates = decided["activated"]
+        admin_left = decided["admin_left"]
+        if (candidates or admin_left) and not ledger.get("activeyn_listed"):
+            lines = []
+            if candidates:
+                lines.append("secUserRole.activeyn set to 1 for active "
+                             "accounts (provider=role): " + ", ".join(
+                                 "{0}={1}".format(p, r)
+                                 for p, r in candidates))
+            if admin_left:
+                lines.append("admin assignments with activeyn NULL left "
+                             "inactive (activate in Administration if "
+                             "intended): " + ", ".join(admin_left))
+            append_private(lines)
             mark("activeyn_listed")
         if candidates:
             query(activeyn_update_statement(dst))
         remaining = n(activeyn_null_remaining_sql(dst))
-        mark("activeyn", {"activated_providers": len(candidates),
+        by_role: Dict[str, int] = {}
+        for _p, role in candidates:
+            by_role[role] = by_role.get(role, 0) + 1
+        report("roles: secUserRole.activeyn was NULL for {0} assignment(s) "
+               "of active accounts — set to 1 (CARLOS counts only "
+               "activeyn = 1){1}; {2} NULL admin assignment(s) of active "
+               "accounts left inactive (CARLOS treats a NULL admin row as "
+               "inactive on purpose; listed in roles-details.txt); {3} "
+               "NULL row(s) of inactive accounts left as they were".format(
+                   len(candidates),
+                   (": " + ", ".join("{0} x{1}".format(r, c) for r, c in
+                                     sorted(by_role.items())))
+                   if by_role else "",
+                   len(admin_left), remaining))
+        mark("activeyn", {"activated_assignments": len(candidates),
+                          "admin_left_inactive": len(admin_left),
                           "null_rows_left": remaining})
-        report("roles: secUserRole.activeyn was NULL for {0} active "
-               "account(s) — set to 1 (CARLOS counts only activeyn = 1); "
-               "{1} NULL row(s) of inactive accounts left as they were"
-               .format(len(candidates), remaining))
 
     # 4. OSCAR program + memberships (after activeyn: role_id follows the
     #    provider's active role)
@@ -917,21 +1020,29 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
             [r[0] for r in plain(fallback_membership_candidates_sql(dst))]])
         if fallback and not ledger.get("program_listed"):
             append_private(["program membership with the least-privileged "
-                            "clinic role (no active role held): "
-                            + ", ".join(fallback)])
+                            "clinic role (no active role with a secRole "
+                            "row): " + ", ".join(fallback)])
             mark("program_listed")
-        for sql in membership_statements(dst):
-            query(sql)
+        with_role, least = membership_statements(dst)
+        before = count("program_provider")
+        query(with_role)
+        added_role = count("program_provider") - before
+        query(least)
+        added_least = count("program_provider") - before - added_role
         record_appended("program_provider")
-        mark("program")
+        still = n(providers_without_membership_sql(dst))
         report("roles: program '{0}' {1}; {2} active provider(s) had no "
-               "program membership — {3} membership row(s) now carry the "
-               "provider's active role, {4} the least-privileged clinic "
-               "role because the provider holds no active role (listed in "
-               "roles-details.txt; assign a role in Administration)".format(
-                   OSCAR_PROGRAM,
-                   "created" if appended["program"] else "present",
-                   missing, max(0, missing - len(fallback)), len(fallback)))
+               "program membership — this run created {3} membership "
+               "row(s) carrying the provider's active role and {4} with "
+               "the least-privileged clinic role (providers holding no "
+               "active role with a secRole row: {5}, listed in "
+               "roles-details.txt; assign a role in Administration){6}"
+               .format(OSCAR_PROGRAM,
+                       "created" if appended["program"] else "present",
+                       missing, added_role, added_least, len(fallback),
+                       ("; {0} still without membership — P7 will fail"
+                        .format(still)) if still else ""))
+        mark("program")
 
     # 5. custom-role backfill of CARLOS-era grants
     if not ledger.get("backfill"):
@@ -950,14 +1061,27 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
         problems = validate_role_templates(overrides, customs, stock)
         if problems:
             die("roles: " + "; ".join(problems) + " — fix the flag and "
-                "--resume (the completed sub-steps are kept)")
+                "--resume (the completed sub-steps are kept; the mapping "
+                "is not recorded until it validates)")
+        if ledger.get("role_templates") is None \
+                or not same_role_templates(overrides,
+                                           ledger["role_templates"]):
+            mark("role_templates", overrides)
         overrides = normalise_role_templates(overrides, customs, stock)
         lines = ["CARLOS-era objects absent from the clinic's O19 ({0}): {1}"
                  .format(len(era), ", ".join(era) or "none")]
         odd = non_role_named_roles(target_roles)
         if odd:
-            lines.append("secRole rows named like non-role groups, left "
-                         "untouched by the backfill: " + ", ".join(odd))
+            # digit-named rows are most plausibly provider numbers: the
+            # names go to the private file, the count to the report
+            if not ledger.get("backfill_odd_listed"):
+                append_private(["secRole rows named like non-role groups, "
+                                "left untouched by the backfill: "
+                                + ", ".join(odd)])
+                mark("backfill_odd_listed")
+            lines.append("{0} secRole row(s) named like non-role groups "
+                         "(digits, _all, _queue.*) left untouched by the "
+                         "backfill (see roles-details.txt)".format(len(odd)))
 
         def decide():
             chosen, skipped = {}, {}
@@ -1001,23 +1125,27 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                        "admin-class roles do)")
             else:
                 why = ""
+            if template.lower() == ADMIN_ROLE:
+                why += " — admin-class template: review the grants"
             lines.append("custom role {0!r}: template {1!r} ({2}), {3} "
                          "CARLOS-era grant(s) added{4}".format(
                              custom, template, how, added, why))
+        report("roles: {0} clinic-custom role(s)\n  ".format(len(customs))
+               + "\n  ".join(lines))
         mark("backfill", {"templates": {c: t for c, (t, _s) in
                                         decided["templates"].items()},
                           "customs": customs})
-        report("roles: {0} clinic-custom role(s)\n  ".format(len(customs))
-               + "\n  ".join(lines))
     elif requested:
         report("roles: --role-template already applied by the run that "
                "performed the backfill (recorded: {0})".format(
-                   _fmt_templates(recorded)))
+                   _fmt_templates(ledger.get("role_templates") or {})))
 
-    # 6. privilege diff (clinic grants CARLOS's seed overrode), stock-role
-    #    appends and exclusions — all itemised for the technical review
+    # 6. privilege diff (clinic grants CARLOS's seed overrode), restored
+    #    seed grants, stock-role appends and exclusions — all itemised for
+    #    the technical review
     if not ledger.get("diff"):
         diff = plain(privilege_diff_sql(src, arch))
+        restored = plain(restored_seed_grants_sql(src, arch))
         appends = plain(stock_role_appends_sql(
             src, arch, o19map_schema.STOCK_ROLE_NAMES))
         excluded_sql = excluded_grants_sql(src)
@@ -1027,6 +1155,13 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                 "role | object | clinic privilege/priority -> CARLOS"]
         for r in diff:
             text.append("{0} | {1} | {2}/{3} -> {4}/{5}".format(*r))
+        text += ["", "CARLOS seed grants on roles the clinic has but whose "
+                     "(role, object) the clinic's matrix did not hold — the "
+                     "role can do more than in O19: {0}".format(
+                         len(restored)),
+                 "role | object | privilege/priority"]
+        for r in restored:
+            text.append("{0} | {1} | {2}/{3}".format(*r))
         text += ["", "clinic grants on stock roles the CARLOS seed does not "
                      "hold (appended as the clinic had them): {0}".format(
                          len(appends)),
@@ -1040,48 +1175,68 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
             text.append("{0} | {1} | {2}".format(*r))
         o19import.write_private(os.path.join(state_dir, "privilege-diff.txt"),
                                 "\n".join(text) + "\n")
-        mark("diff", {"overridden": len(diff), "appended": len(appends),
-                      "excluded": len(excluded)})
+        admin_appends = [r for r in appends
+                         if r[1].lower().startswith("_admin")]
         report("roles: {0} clinic grant(s) differ from the CARLOS seed on "
-               "the same (role, object) — CARLOS's value stands; {1} clinic "
-               "grant(s) on stock roles have no CARLOS seed row and were "
-               "appended; {2} grant(s) on objects no CARLOS code checks not "
-               "carried — all itemised in privilege-diff.txt for the "
-               "technical review".format(len(diff), len(appends),
-                                         len(excluded)))
+               "the same (role, object) — CARLOS's value stands; {1} seed "
+               "grant(s) on the clinic's roles have no clinic row (the "
+               "role can do more than in O19); {2} clinic grant(s) on "
+               "stock roles have no CARLOS seed row and were appended{3}; "
+               "{4} grant(s) on objects no CARLOS code checks not carried "
+               "— all itemised in privilege-diff.txt for the technical "
+               "review".format(
+                   len(diff), len(restored), len(appends),
+                   (" (administration objects: " + ", ".join(
+                       "{0}/{1}".format(r[0], r[1]) for r in admin_appends)
+                    + ")") if admin_appends else "",
+                   len(excluded)))
+        mark("diff", {"overridden": len(diff), "restored": len(restored),
+                      "appended": len(appends), "excluded": len(excluded)})
 
     # 7. removed-module keys in the property table
     if not ledger.get("property_pruned"):
         from . import o19_preflight
         stmts = property_prune_statements(
             dst, o19_preflight.DROPPED_PROP_PREFIXES)
-        pruned = plan("property_pruned", lambda: [
-            [prefix, n(count_sql)] for prefix, count_sql, _d in stmts
-            if n(count_sql)])
+
+        def plan_prune():
+            out = []
+            for prefix, count_sql, _d in stmts:
+                c = n(count_sql)
+                if c:
+                    out.append([prefix, c])
+            return out
+
+        pruned = plan("property_pruned", plan_prune)
         for prefix, _c, delete_sql in stmts:
             if any(p == prefix for p, _n in pruned):
                 query(delete_sql)
-        mark("property_pruned", {"pruned": pruned})
         if pruned:
             report("roles: property rows of removed modules pruned: "
                    + ", ".join("{0} ({1})".format(p, c) for p, c in pruned))
+        mark("property_pruned", {"pruned": pruned})
 
     # 8. prevention type codes (binary compare — see
     #    prevention_type_statements)
     if not ledger.get("prevention_types"):
         stmts = prevention_type_statements(
             dst, o19map_schema.PREVENTION_TYPE_MAP)
-        applied = plan("prevention_types", lambda: [
-            [legacy, canonical, n(count_sql)]
-            for legacy, canonical, count_sql, _u in stmts if n(count_sql)])
+
+        def plan_prevention():
+            out = []
+            for legacy, canonical, count_sql, _u in stmts:
+                c = n(count_sql)
+                if c:
+                    out.append([legacy, canonical, c])
+            return out
+
+        applied = plan("prevention_types", plan_prevention)
         due = {legacy for legacy, _c, _n in applied}
         for legacy, _canonical, _count_sql, update_sql in stmts:
             if legacy in due:
                 query(update_sql)
         unknown = plain(unknown_prevention_types_sql(
             dst, o19map_schema.KNOWN_PREVENTION_TYPES))
-        mark("prevention_types", {"applied": applied,
-                                  "unknown": len(unknown)})
         report("roles: prevention types normalised: {0}{1}".format(
             ", ".join("{0} -> {1} ({2})".format(*a) for a in applied)
             or "none needed",
@@ -1089,50 +1244,64 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
              "unconfigured; review): " + ", ".join(
                  "{0} ({1})".format(r[0], r[1]) for r in unknown))
             if unknown else ""))
+        mark("prevention_types", {"applied": applied,
+                                  "unknown": len(unknown)})
 
-    # 9. Rich Text Letter
+    # 9. Rich Text Letter — the plan (which rows to disable, which scripts
+    #    to run, which canonical rows to re-disable) is persisted BEFORE
+    #    the first write: the enable script flips every canonical row on,
+    #    so a resume could not otherwise tell a clinic-disabled form apart
     if not ledger.get("rtl"):
         rows = plain(rtl_rows_sql(dst))
-        disable, scripts, restore, notes = rtl_plan(rows)
+        decided = plan("rtl", lambda: list(rtl_plan(rows)))
+        disable, scripts, restore, notes = (
+            list(decided[0]), list(decided[1]), list(decided[2]),
+            list(decided[3]))
+        fixups_dir = ctx.get("fixups_dir") or DEFAULT_FIXUPS_DIR
+        missing = [s for s in scripts
+                   if not os.path.isfile(os.path.join(fixups_dir, s))]
+        if missing:
+            # a broken package install, not a clinic condition: fail
+            # closed, resumable once the scripts are back
+            die("roles: Rich Text Letter fixup script(s) missing from {0}: "
+                "{1} — reinstall carlos-emr (they ship under "
+                "schema/o19-fixups/) and --resume".format(
+                    fixups_dir, ", ".join(missing)))
         for fid in disable:
             query(rtl_disable_statement(dst, fid))
-        outcome = "unchanged" if not scripts else ""
         if scripts:
-            fixups_dir = ctx.get("fixups_dir") or DEFAULT_FIXUPS_DIR
-            missing = [s for s in scripts
-                       if not os.path.isfile(os.path.join(fixups_dir, s))]
-            if missing:
-                outcome = ("fixup scripts missing from {0}: {1} — apply the "
-                           "Rich Text Letter 2026.3.0 SQL by hand before "
-                           "go-live".format(fixups_dir, ", ".join(missing)))
+            for script in scripts:
+                with open(os.path.join(fixups_dir, script),
+                          encoding="utf-8") as fh:
+                    # ETL executor (sql_mode='' — the 2012 seed omits
+                    # NOT NULL columns), target as default database: the
+                    # scripts use DELIMITER (a client directive) and
+                    # unqualified table names
+                    query(fh.read(), db=dst)
+            for fid in restore:
+                query(rtl_disable_statement(dst, fid))
+            after = plain(rtl_rows_sql(dst))
+            if rtl_current(after):
+                outcome = "modernised to 2026.3.0 via {0}".format(
+                    ", ".join(scripts))
             else:
-                for script in scripts:
-                    with open(os.path.join(fixups_dir, script),
-                              encoding="utf-8") as fh:
-                        # ETL executor (sql_mode='' — the 2012 seed omits
-                        # NOT NULL columns), target as default database:
-                        # the scripts use DELIMITER (a client directive)
-                        # and unqualified table names
-                        query(fh.read(), db=dst)
-                for fid in restore:
-                    query(rtl_disable_statement(dst, fid))
-                after = plain(rtl_rows_sql(dst))
-                if rtl_current(after) or (restore and any(
-                        is_rtl_canonical(r) and str(r[4]) == "1"
-                        for r in after)):
-                    outcome = "modernised to 2026.3.0 via {0}".format(
-                        ", ".join(scripts))
-                else:
-                    outcome = ("scripts ran ({0}) but no 'Rich Text Letter' "
-                               "row carries the 2026.3.0 marker with live "
-                               "attachment routes — the scripts match "
-                               "form_name = 'Rich Text Letter' AND subject "
-                               "LIKE '{1}%'; apply by hand before go-live"
-                               .format(", ".join(scripts), RTL_SUBJECT_PREFIX))
-        mark("rtl", {"disabled": disable, "restored_disabled": restore,
-                     "scripts": scripts, "outcome": outcome})
+                outcome = ("scripts ran ({0}) but no 'Rich Text Letter' row "
+                           "carries the 2026.3.0 marker with live "
+                           "attachment routes — the scripts match {1}; "
+                           "apply by hand before go-live".format(
+                               ", ".join(scripts), RTL_CANONICAL_PREDICATE))
+        elif disable:
+            outcome = ("current; {0} legacy row(s) disabled".format(
+                len(disable)))
+        else:
+            outcome = "unchanged"
+        # the v1 seed adds an eform row with a fresh fid: row parity
+        # tolerates exactly the rows recorded here (0 on every other path)
+        record_appended("eform")
         report("roles: Rich Text Letter — {0}{1}".format(
             outcome, ("\n  " + "\n  ".join(notes)) if notes else ""))
+        mark("rtl", {"disabled": disable, "restored_disabled": restore,
+                     "scripts": scripts, "outcome": outcome})
 
 
 def _fmt_templates(mapping: Dict[str, str]) -> str:

@@ -14,7 +14,7 @@ Run (from debian/assets):
 
 import unittest
 
-from carlos_ctl import o19map_props, o19map_schema
+from carlos_ctl import o19etl, o19map_props, o19map_schema
 
 VALID_CLASSES = {"copy", "merge", "reference", "archive", "drop"}
 VALID_DISPOSITIONS = {
@@ -150,7 +150,7 @@ class TestSchemaManifest(unittest.TestCase):
         self.assertEqual(priv["class"], "merge")
         self.assertEqual(priv["merge_keys"], ["roleUserGroup", "objectName"])
         self.assertNotIn("surrogate_pk", priv)
-        self.assertIn("_pmm", priv.get("merge_exclude", ""))
+        self.assertIn("merge_exclude", priv)  # the dead-object list
         obj = o19map_schema.TABLES["secObjectName"]
         self.assertEqual(obj["class"], "merge")
         self.assertEqual(obj["merge_keys"], ["objectName"])
@@ -186,6 +186,17 @@ class TestSchemaManifest(unittest.TestCase):
             self.assertEqual(o19map_schema.SEED_ROW_COUNTS.get(table), floor,
                              table)
             self.assertEqual(o19map_schema.TABLES[table]["class"], "copy")
+
+    def test_appended_row_keys_are_raw_copied_columns(self):
+        # row parity joins the appended-row keys raw; a charset repair or
+        # value_expr on a key column would break the twin join silently
+        for table, keys in o19etl.APPENDED_ROW_KEYS.items():
+            entry = o19map_schema.TABLES[table]
+            self.assertEqual(entry["class"], "copy", table)
+            for k in keys:
+                self.assertIn(k, entry["cols"], table)
+                self.assertNotIn(k, entry.get("value_exprs", {}), table)
+                self.assertNotIn(k, entry.get("charset_scan", []), table)
 
     def test_merge_exclusions_name_dead_objects_only(self):
         # every excluded object is one no CARLOS code checks and no CARLOS

@@ -121,7 +121,10 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
 def _sql_str(value: str) -> str:
     """SQL string-literal escaping (mirrors dbops.sql_escape, kept local so
     the pure statement builders import nothing from the deployment)."""
-    return value.replace("\\", "\\\\").replace("'", "\\'")
+    # NUL is encoded too: the client refuses a raw NUL in a statement, and
+    # decoded batch values may carry one
+    return (value.replace("\\", "\\\\").replace("'", "\\'")
+            .replace("\0", "\\0"))
 
 
 ADMIN_USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@\-]{0,29}$")
@@ -695,8 +698,11 @@ def load_progress(state_dir: str, dump_sha256: Optional[str] = None,
 
 
 def save_progress(state_dir: str, progress: Dict) -> None:
+    # 0600 like the private text files: the roles ledger plans carry
+    # provider numbers
     tmp = _progress_path(state_dir) + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         json.dump(progress, fh)
     os.replace(tmp, _progress_path(state_dir))
 
@@ -836,10 +842,18 @@ def normalize_table_case(plain, src_schema: str,
     lower-cased) to the manifest spelling, so every later lookup matches.
     Returns report lines."""
     by_lower = {t.lower(): t for t in o19map_schema.TABLES}
+    present = set(src_tables)
     lines = []
     for live in sorted(src_tables):
         want = by_lower.get(live.lower())
         if want and want != live:
+            if want in present:
+                # both spellings exist (an old CAISI twin next to the
+                # current table): the preflight blocks case twins; here
+                # it is left alone rather than failing with error 1050
+                lines.append("{0} left as is: {1} also exists".format(
+                    live, want))
+                continue
             plain("RENAME TABLE `{0}`.`{1}` TO `{0}`.`{2}`".format(
                 src_schema, live, want))
             lines.append("{0} -> {1}".format(live, want))
@@ -911,9 +925,25 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # tables involved are id-intact copies): refuse here, before the first
     # write, rather than after the whole copy
     from . import o19roles
-    # a dump WITHOUT these tables is refused as well: the copy loop skips
-    # tables absent from staging, which would leave CARLOS's seeded
-    # Facility/clinic rows standing in for the clinic's
+    # every plain-client statement interpolates values with backslash
+    # escaping; a server mode that disables it (or ANSI_QUOTES) would turn
+    # a quoted clinic value into SQL. The ETL executor pins sql_mode='';
+    # the plain client runs under the server's own, so it is checked once
+    mode = plain("SELECT @@SESSION.sql_mode")[0][0].upper()
+    for flag in ("NO_BACKSLASH_ESCAPES", "ANSI_QUOTES"):
+        if flag in mode:
+            problems.append("the server's sql_mode carries {0}; the import "
+                            "quotes clinic values with backslash escapes "
+                            "and refuses to run under it — clear it for "
+                            "the import".format(flag))
+    # tables the roles post-step reads from staging: a dump without them
+    # is not an OSCAR 19 clinic dump, and the copy loop would skip the
+    # absent ones, leaving CARLOS's seeded rows standing in for the
+    # clinic's (Facility/clinic are the ones that also gate login)
+    for table in ROLES_STEP_TABLES:
+        if table not in src_info and table not in ("Facility", "clinic"):
+            problems.append("the dump has no {0} table — not an OSCAR 19 "
+                            "clinic dump".format(table))
     if "Facility" not in src_info:
         problems.append("the dump has no Facility table — not an OSCAR 19 "
                         "clinic dump")
@@ -1020,7 +1050,9 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             cred_path = os.path.join(state_dir, "admin-credentials.txt")
             # file-first, before any SQL touches accounts (bootstrap-admin's
             # contract: never leave a credential that exists only in memory)
-            with open(cred_path, "w", encoding="utf-8") as fh:
+            fd = os.open(cred_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                         0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write("break-glass administrator (created by import-o19)\n"
                          "user: {0}\nprovider_no: {1}\npassword: {2}\n"
                          "pin: {3}\nforced password reset on first login\n"
@@ -1087,7 +1119,10 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             continue
 
         if cls == "archive":
+            # counted from the ledger, so a resumed run reports the same
+            # figure as the first
             if tstate.get("done"):
+                counts["archive"] += 1
                 continue
             for sql in archive_statements(table, src, arch):
                 query(sql)
@@ -1290,7 +1325,17 @@ APPENDED_ROW_KEYS = {
     "program": ["name"],
     "program_provider": ["program_id", "provider_no", "role_id"],
     "provider_facility": ["provider_no", "facility_id"],
+    # the Rich Text Letter v1 seed adds one row with a fresh fid
+    "eform": ["fid"],
 }
+
+#: staging tables the roles post-step reads or appends to; refused by the
+#: ETL pre-checks when absent from the dump
+ROLES_STEP_TABLES = (
+    "Facility", "clinic", "provider", "security", "secRole", "secUserRole",
+    "secObjPrivilege", "secObjectName", "program", "program_provider",
+    "provider_facility", "preventions", "eform", "property",
+)
 
 
 def appended_row_count_sql(table: str, src_schema: str,
