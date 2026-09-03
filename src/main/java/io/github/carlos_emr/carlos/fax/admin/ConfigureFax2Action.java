@@ -382,7 +382,7 @@ public class ConfigureFax2Action extends ActionSupport {
             }
 
             if (faxPassword == null || StringUtils.isBlank(faxPassword)) {
-                sendJsonError(text("admin.configureFax.test.missingPassword",
+                sendJsonError(text("admin.configureFax.test.missingCredential",
                         "Enter the SRFax password to test the connection."));
                 return NONE;
             }
@@ -392,7 +392,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         ? SpringUtils.getBean(FaxConfigDao.class).find(configId.intValue())
                         : null;
                 if (stored == null || StringUtils.isBlank(stored.getFaxPasswd())) {
-                    sendJsonError(text("admin.configureFax.test.missingPassword",
+                    sendJsonError(text("admin.configureFax.test.missingCredential",
                             "Enter the SRFax password to test the connection."));
                     return NONE;
                 }
