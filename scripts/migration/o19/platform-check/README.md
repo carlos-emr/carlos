@@ -30,9 +30,10 @@ docker build --network host --build-arg https_proxy="$https_proxy" \
   -t carlos-u2604 scripts/migration/o19/platform-check
 ```
 
-`check.sh` needs only a POSIX shell, `python3`, `dash` and coreutils, so
-it also runs unchanged on a real 26.04 host or VM — the container is
-simply the cheapest way to get one.
+`check.sh` needs `bash` (it is a bash script, and shells out to `bash -n`
+and `bash -c` for the syntax and word-splitting checks), plus `python3`,
+`dash` and coreutils. Nothing else — so it also runs unchanged on a real
+26.04 host or VM; the container is simply the cheapest way to get one.
 
 ## What it covers
 

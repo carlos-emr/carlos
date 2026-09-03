@@ -864,6 +864,19 @@ class TestProcessGrantState(unittest.TestCase):
         self.assertEqual(o19import.process_grant_state(
             [["GRANT SELECT, PROCESS, RELOAD ON *.* TO `x`@`h`"]]), "held")
 
+    def test_all_privileges_on_one_schema_is_not_global_process(self):
+        # PROCESS is a GLOBAL privilege, so only a grant `ON *.*` can
+        # carry it. `ALL PRIVILEGES ON `somedb`.*` is everything the
+        # SCHEMA level offers, which does not include PROCESS — reading
+        # it as global was the same fail-open in a new place.
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT ALL PRIVILEGES ON `somedb`.* TO `u`@`h`"]]), "absent")
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT ALL PRIVILEGES ON `db`.`t` TO `u`@`h`"]]), "absent")
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT USAGE ON *.* TO `u`@`h`"],
+             ["GRANT ALL PRIVILEGES ON `oscar`.* TO `u`@`h`"]]), "absent")
+
     def test_a_privilege_from_an_active_role_is_held(self):
         # MariaDB expands an enabled default role in SHOW GRANTS
         self.assertEqual(o19import.process_grant_state(

@@ -106,7 +106,16 @@ verdict "$(bash -n scripts/migration/o19/build-o19-fixture.sh; echo $?)" \
   "build-o19-fixture.sh parses" "build-o19-fixture.sh syntax"
 
 hdr "carlos_ctl unit suite under this python3"
-( cd debian/assets && python3 -m unittest discover -s carlos_ctl/tests -t . 2>&1 | tail -3 )
+# the status is CAPTURED, not piped: `... | tail -3` reports tail's exit
+# code, so a suite that failed to even import would have been summarised
+# in three quiet lines and counted as a pass by a harness whose whole job
+# is catching that.
+suite_out=$(cd debian/assets && python3 -m unittest discover \
+    -s carlos_ctl/tests -t . 2>&1)
+suite_rc=$?
+echo "$suite_out" | tail -3
+verdict "$suite_rc" "unit suite passes on this interpreter" \
+  "unit suite FAILED on this interpreter"
 
 hdr "o19_preflight.py is standalone and import-clean"
 python3 -c "

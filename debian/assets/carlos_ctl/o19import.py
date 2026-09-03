@@ -437,8 +437,16 @@ def process_grant_state(rows) -> str:
             # do not recognise: not evidence either way
             continue
         parsed = True
-        privileges = upper.split(" ON ", 1)[0][len("GRANT "):]
-        for privilege in privileges.split(","):
+        head, rest = upper.split(" ON ", 1)
+        # PROCESS is a GLOBAL privilege: only a grant `ON *.*` can carry
+        # it. `GRANT ALL PRIVILEGES ON `somedb`.*` is all privileges the
+        # SCHEMA level has, which does not include PROCESS — reading it
+        # as global was the same fail-open in a new place.
+        scope = rest.split(" TO ", 1)[0].strip() if " TO " in rest \
+            else rest.strip()
+        if scope != "*.*":
+            continue
+        for privilege in head[len("GRANT "):].split(","):
             if privilege.strip() in ("PROCESS", "ALL PRIVILEGES"):
                 return "held"
     return "absent" if parsed else "unknown"
