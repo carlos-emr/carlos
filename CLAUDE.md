@@ -47,6 +47,11 @@
   `MIDDLEWARE` is hidden from the UI but its transport code/enum are retained and remain
   selectable only via direct configuration/DB for legacy relay deployments.
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+  `FaxConfig.faxUser` is the numeric SRFax **account number** (`access_id`; UI label "SRFax
+  Account Number", never the login email); `senderEmail` is the notification address only. The
+  page's **Test SRFax connection** button posts `method=testConnection` (POST-only, read-only
+  `Get_Fax_Inbox` probe via `FaxProviderClient.verifyConnection`) so bad credentials are
+  reported before saving. Browser check: `scripts/fax-configure-playwright-checks.js`.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.

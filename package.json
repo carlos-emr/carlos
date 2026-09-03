@@ -26,6 +26,7 @@
     "test:eform-admin-schedule-nav-playwright": "node scripts/eform-admin-schedule-navigation-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
+    "test:fax-configure-playwright": "node scripts/fax-configure-playwright-checks.js",
     "test:tickler-note-dialog-playwright": "node scripts/tickler-note-dialog-playwright-checks.js",
     "test:logout-session-invalidation-playwright": "node scripts/logout-session-invalidation-playwright-checks.js",
     "test:multiple-session-playwright": "node scripts/multiple-session-playwright-checks.js",
