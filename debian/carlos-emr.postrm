@@ -82,6 +82,21 @@ case "$1" in
         # is a liability. The account it describes still exists in the retained
         # database; a reinstall issues a fresh one.
         rm -f "${CONF_DIR}/initial-admin.txt"
+        # Same rule for the OSCAR 19 import's break-glass credential note
+        # and the derived properties fragment, which carries the clinic's
+        # carried secrets (fax, OAuth, mail) in clear. Both are 0600 under
+        # a 0700 directory, which is no protection at all once the disk
+        # leaves the building. The rest of the workspace is a record of
+        # the import and is KEPT — it is named in the notice below.
+        if [ -d "${STATE}/o19-import" ]; then
+            find "${STATE}/o19-import" -maxdepth 1 -type f \
+                \( -name 'admin-credentials.txt*' \
+                   -o -name 'o19-derived-carlos.properties*' \) \
+                -exec shred -u {} + 2>/dev/null \
+              || find "${STATE}/o19-import" -maxdepth 1 -type f \
+                   \( -name 'admin-credentials.txt*' \
+                      -o -name 'o19-derived-carlos.properties*' \) -delete
+        fi
 
         # Tomcat scratch, the WAF spool and the ACME webroot: all rebuilt on
         # the next install, none of it a record of anything.
@@ -105,6 +120,10 @@ carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED
   kept: the `carlos` and `carlos-backup` system accounts, because files on this
         host are still owned by them and a reused uid would silently inherit
         patient documents
+  kept: /var/lib/carlos-emr/o19-import       (an OSCAR 19 import's ledgers,
+        reports and the CSV export of its archive-only clinical records — the
+        break-glass credential note and the derived properties fragment were
+        SHREDDED, the rest is the record of what the migration did)
 
 To destroy the data deliberately, reinstall the package and run
   carlos-ctl destroy-data --confirm <server-name>
@@ -112,6 +131,8 @@ or do it by hand:
   sudo mariadb -e "DROP DATABASE oscar; DROP DATABASE drugref2;"
   sudo shred -u /etc/carlos-emr/carlos.properties /etc/carlos-emr/backup.env
   sudo rm -rf /var/lib/carlos-emr /var/backups/carlos-emr /var/log/carlos-emr
+    (/var/lib/carlos-emr includes the o19-import workspace and its CSV export
+     of the archive-only records — hand those to the clinic first)
 NOTICE
 
         if [ -d /run/systemd/system ] && nginx -t >/dev/null 2>&1; then

@@ -158,6 +158,17 @@ class TestPristineGate(unittest.TestCase):
         counts["demographic"] = 1
         self.assertTrue(o19import.pristine_violations(counts))
 
+    def test_the_rollback_hint_follows_what_p3_actually_did(self):
+        # every refusal downstream of P3 names the snapshot; P3 can be
+        # told to skip it, and handing the operator a remedy that does
+        # not exist is worst at the point they have least time
+        self.assertEqual(o19import.rollback_hint({}),
+                         "restore the pre-import restic snapshot")
+        skipped = {"phases": {"backup": {"skipped": "no-pre-backup"}}}
+        hint = o19import.rollback_hint(skipped)
+        self.assertIn("NO pre-import snapshot", hint)
+        self.assertIn("destroy-data", hint)
+
     def test_startup_row_counts_follow_the_manifest(self):
         def q(sql):
             if "information_schema" in sql:

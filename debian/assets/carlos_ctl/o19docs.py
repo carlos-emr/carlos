@@ -573,7 +573,18 @@ def apply_ownership(root: str, dev_target: bool) -> None:
     if dev_target or os.geteuid() != 0:
         warn("skipping chown of {0} (dev target)".format(root))
         return
-    cp = run(["chown", "-R",
+    # -h: chown FOLLOWS symlinks by default. This tree is owned by the
+    # unprivileged service account, which can plant one; a root-run
+    # `chown -R carlos:carlos` would then hand that account ownership of
+    # whatever the link points at. The tar and merge paths refuse links,
+    # so one here is foreign — refused rather than repaired.
+    stray = run(["find", root, "-type", "l"], capture_output=True)
+    if stray.returncode == 0 and stray.stdout.strip():
+        die("the documents tree holds {0} symbolic link(s); the import "
+            "never creates one, so these are foreign. Remove them from "
+            "{1} and re-run with --resume.".format(
+                len(stray.stdout.split()), root))
+    cp = run(["chown", "-Rh",
               "{0}:{0}".format(SERVICE_USER), root])
     if cp.returncode != 0:
         die("chown of the documents tree failed")

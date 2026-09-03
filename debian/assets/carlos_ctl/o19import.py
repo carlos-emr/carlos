@@ -427,6 +427,25 @@ def documents_expanded_size(tar_path: str) -> int:
     return max(o19bundle.entries_size(entries), os.path.getsize(tar_path))
 
 
+def rollback_hint(state: Dict) -> str:
+    """How to get back to a stock deploy, given what P3 actually did.
+
+    Every refusal downstream of P3 used to name the pre-import snapshot.
+    P3 can be told to skip it (`--accept no-pre-backup`, or a backup unit
+    that failed), and it records that — so those refusals were handing
+    the operator a remedy that does not exist, at the point where they
+    have least time to discover it."""
+    backup = state.get("phases", {}).get("backup", {})
+    if backup.get("skipped"):
+        return ("there is NO pre-import snapshot (this run recorded "
+                "--accept no-pre-backup), so the target cannot be rolled "
+                "back: the way to a stock deploy is `carlos-ctl "
+                "destroy-data --confirm <server name>` plus `carlos-ctl "
+                "db-users` and `carlos-ctl db-migrate`, and the clinic "
+                "must re-export")
+    return "restore the pre-import restic snapshot"
+
+
 def resume_hint(state: Dict) -> str:
     """' --resume' when the workspace already records phases beyond the
     stage (a literal rerun of the hinted command is refused without it)."""
@@ -979,7 +998,17 @@ def run_p2(ctx) -> Dict:
 
     props = None
     if ctx.get("properties"):
-        props = o19_preflight.parse_properties(ctx["properties"])
+        # a malformed file raises ValueError; without this it would
+        # escape as a traceback, and it does so at P2 — after the
+        # pre-import snapshot and the full staging restore, although the
+        # check needs nothing but the file (_make_ctx runs it first now)
+        try:
+            props = o19_preflight.parse_properties(ctx["properties"])
+        except (ValueError, OSError) as exc:
+            die("cannot parse {0} as a java.util.Properties file ({1}) — "
+                "CARLOS would reject it too. Obtain a readable "
+                "oscar.properties from the clinic and --resume."
+                .format(ctx["properties"], exc))
     report = o19_preflight.run_checks(
         pf_query, properties=props, province=ctx["province"],
         accepted=ctx["accepted"], schema_map=o19map_schema,
@@ -1138,9 +1167,18 @@ def run_p4(ctx) -> None:
                       len(ok), len(bad))
                   + ("MISMATCHES:\n  " + "\n  ".join(bad) if bad else ""))
     if bad:
-        die("row parity failed for {0} table(s) — see {1}/report.txt; "
-            "nothing further runs until this is explained".format(
-                len(bad), ctx["state_dir"]))
+        # the copy is COMPLETE at this point: run_etl returned, so the
+        # target holds the clinic's data and every table is marked done
+        # in the ledger. A --resume re-enters, skips all of them, and
+        # re-computes the identical mismatch — saying "until this is
+        # explained" without saying that sent operators into a loop.
+        die("row parity failed for {0} table(s) — see {1}/report.txt for "
+            "the per-table mismatch. The copy is COMPLETE and the target "
+            "holds clinic data; a --resume will only re-check and "
+            "re-fail, and no flag overrides parity. {2}, and send "
+            "report.txt with the mismatch list.".format(
+                len(bad), ctx["state_dir"],
+                rollback_hint(ctx["state"]).capitalize()))
     mark_done(ctx["state_dir"], ctx["state"], "etl")
     log("etl complete — row parity clean for {0} table(s)"
         .format(len(ok)))
@@ -1338,9 +1376,9 @@ def run_p7(ctx) -> None:
                      if problems else "\nall checks passed"))
     if problems:
         die("verification FAILED ({0} problem(s)) — see {1}/report.txt. "
-            "State is left in place for diagnosis; rollback is the "
-            "pre-import restic snapshot.".format(
-                len(problems), ctx["state_dir"]))
+            "State is left in place for diagnosis; to roll back, {2}."
+            .format(len(problems), ctx["state_dir"],
+                    rollback_hint(ctx["state"])))
     mark_done(ctx["state_dir"], ctx["state"], "verify")
     log("verification passed — complete the technical review before "
         "go-live")
@@ -1810,6 +1848,17 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         # an assessment extracts into its own workdir: the real run's
         # members (what --resume continues from) are never replaced
         workdir_name="bundle" if real_run else "bundle-assess")
+    if inputs.get("properties"):
+        # needs nothing but the file, so it runs before P0 rather than at
+        # P2 — a typo in the clinic's oscar.properties should not cost a
+        # restic snapshot and an hour of restore first
+        try:
+            o19_preflight.parse_properties(inputs["properties"])
+        except (ValueError, OSError) as exc:
+            die("cannot parse {0} as a java.util.Properties file ({1}) — "
+                "CARLOS would reject it too. Obtain a readable "
+                "oscar.properties from the clinic; nothing has been "
+                "staged or written.".format(inputs["properties"], exc))
     if getattr(args, "skip_documents", False) \
             and "no-documents" not in args.accept:
         die("--skip-documents requires --accept no-documents (the missing "

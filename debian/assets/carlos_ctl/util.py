@@ -63,6 +63,15 @@ def run(cmd: List[str], **kw) -> subprocess.CompletedProcess:
     root. Secrets travel via stdin or the environment, never argv.
     """
     kw.setdefault("text", True)
+    # NOT the ambient locale: text=True without an encoding uses
+    # locale.getpreferredencoding(), and this seam carries clinic data —
+    # client output, tar listings, server errors. Under LANG=C that
+    # decodes UTF-8 as mojibake (silently, into the archive CSVs) or
+    # raises UnicodeDecodeError on a document name. The client is pinned
+    # to utf8mb4, so UTF-8 is the known wire encoding.
+    if kw.get("text", True) and "encoding" not in kw:
+        kw["encoding"] = "utf-8"
+        kw.setdefault("errors", "replace")
     return subprocess.run(cmd, **kw)  # nosec B603
 
 

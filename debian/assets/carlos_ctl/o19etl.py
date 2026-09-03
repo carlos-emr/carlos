@@ -37,6 +37,10 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 from . import o19map_schema
 from .util import warn
 
+# a copy is windowed over the id RANGE, so a sparse id space costs
+# windows rather than rows. Beyond this the range is not a table's id
+# space any more and building the list alone would exhaust memory.
+MAX_CHUNK_WINDOWS = 200000
 CHUNK_ROWS = 50000
 
 REPAIR_TEMPLATE = ("CONVERT(BINARY CONVERT({0} USING latin1) USING utf8mb4)")
@@ -1549,6 +1553,19 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                         query("DELETE FROM `{0}`.`{1}`".format(dst, table))
                     tstate["started"] = True
                     save_progress(state_dir, progress)
+                # bounded BEFORE the list is built: the id space comes
+                # from the dump, so one row with a BIGINT id near the
+                # type's ceiling asks for ~1.8e14 tuples and the process
+                # dies of memory exhaustion at P4, mid-write, with the
+                # OOM killer free to take mariadbd with it
+                span = (hi - lo) // CHUNK_ROWS + 1
+                if span > MAX_CHUNK_WINDOWS:
+                    die("{0}: its {1} column spans {2}..{3}, which needs "
+                        "{4} copy windows — the id space is far larger "
+                        "than the table. Renumber or remove the outlying "
+                        "row(s) in the source and re-export; nothing has "
+                        "been written for this table.".format(
+                            table, entry["chunk_by"], lo, hi, span))
                 windows = chunk_windows(lo, hi)
                 if len(windows) > 1000:
                     # id-range windows, not row windows: a sparse id space

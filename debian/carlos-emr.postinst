@@ -298,7 +298,25 @@ case "$1" in
         # failed deployments (the app's boot-time validate gate refuses a
         # schema behind the WAR — by design).
         MIGRATION_OK=1
-        if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+        # An OSCAR 19 import in progress owns this database until it says
+        # otherwise: it runs with the service stopped, and its row-parity
+        # gate rejects the rows the application's startup listener writes.
+        # An unattended upgrade landing mid-import would run Flyway
+        # against a half-copied schema and then START the webapp into it,
+        # costing the clinic a multi-hour rollback. The state file is the
+        # same predicate --resume uses.
+        if [ -s /var/lib/carlos-emr/o19-import/state.json ] \
+           && grep -q '"phases"' /var/lib/carlos-emr/o19-import/state.json \
+           && ! grep -q '"verify"' /var/lib/carlos-emr/o19-import/state.json
+        then
+            MIGRATION_OK=0
+            echo "carlos-emr: an OSCAR 19 import is in progress (see" >&2
+            echo "carlos-emr:   /var/lib/carlos-emr/o19-import/report.txt)." >&2
+            echo "carlos-emr: NOT migrating the schema and NOT starting the service:" >&2
+            echo "carlos-emr: both would corrupt the import. Finish it with" >&2
+            echo "carlos-emr:   sudo carlos-ctl import-o19 ... --resume" >&2
+            echo "carlos-emr: then run: sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
+        elif mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
             # mariadb-server was already running when this package's drop-in
             # was unpacked, so it is still on distribution defaults — STRICT
             # sql_mode and no binary log, neither of which this deployment can

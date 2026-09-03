@@ -1104,16 +1104,26 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     #    the same conditions against staging before the first write; this
     #    is the backstop)
     if not ledger.get("facility_links"):
+        # These are backstops for pre-checks that already ran against the
+        # STAGED dump before the first write. If one fires, the source
+        # was fine and the copy lost the row: an import defect, not a
+        # clinic condition — so "fix the source and re-export" would
+        # send the operator round a loop that cannot change the outcome.
         if not n(enabled_facility_count_sql(dst)):
-            die("roles: the imported clinic has no enabled Facility row — "
-                "CARLOS cannot log anyone in without one. Restore the "
-                "pre-import snapshot, fix the source (enable a Facility) "
-                "and re-run.")
+            die("roles: the copy did not carry an enabled Facility row "
+                "into {0}, although the staged dump had one (checked "
+                "before the first write). CARLOS cannot log anyone in "
+                "without it. This is an import defect, not a clinic "
+                "condition: re-exporting the same source will not change "
+                "it. Roll back and send {1}/report.txt.".format(
+                    dst, state_dir))
         if not n(clinic_count_sql(dst)):
-            die("roles: the imported clinic has no `clinic` row — "
-                "letterheads, requisitions and consultations dereference "
-                "it. Restore the pre-import snapshot, fix the source and "
-                "re-run.")
+            die("roles: the copy did not carry a `clinic` row into {0}, "
+                "although the staged dump had one (checked before the "
+                "first write); letterheads, requisitions and "
+                "consultations dereference it. This is an import defect, "
+                "not a clinic condition. Roll back and send "
+                "{1}/report.txt.".format(dst, state_dir))
         before = count("provider_facility")
         query(provider_facility_statement(dst))
         added = count("provider_facility") - before
