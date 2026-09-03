@@ -440,14 +440,15 @@ public class ConfigureFax2Action extends ActionSupport {
      * bundle gap can never blank out a response.
      */
     private String text(String key, String defaultText, Object... args) {
+        Locale locale = request.getLocale() == null ? Locale.ENGLISH : request.getLocale();
         String pattern = defaultText;
         try {
-            Locale locale = request.getLocale() == null ? Locale.ENGLISH : request.getLocale();
             pattern = ResourceBundle.getBundle("oscarResources", locale).getString(key);
         } catch (MissingResourceException e) {
             MiscUtils.getLogger().debug("Missing oscarResources key {}; using default text", key);
         }
-        return args.length == 0 ? pattern : new MessageFormat(pattern).format(args);
+        // Same locale for lookup and formatting so locale-sensitive placeholders agree with the text.
+        return args.length == 0 ? pattern : new MessageFormat(pattern, locale).format(args);
     }
 
     /**
