@@ -218,7 +218,7 @@ public class ConfigureFax2Action extends ActionSupport {
                             savedFaxConfig.setPasswd(sitePasswd.trim());
                         }
 
-                        savedFaxConfig.setFaxUser(faxUsers[idx]);
+                        savedFaxConfig.setFaxUser(faxUsers[idx].trim());
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             savedFaxConfig.setFaxPasswd(faxPasswds[idx].trim());
@@ -245,7 +245,7 @@ public class ConfigureFax2Action extends ActionSupport {
                         }
 
                         faxConfig.setUrl(resolvedFaxUrl);
-                        faxConfig.setFaxUser(faxUsers[idx]);
+                        faxConfig.setFaxUser(faxUsers[idx].trim());
 
                         if (faxPasswds != null && idx < faxPasswds.length && faxPasswds[idx] != null && !isPasswordUnchanged(faxPasswds[idx])) {
                             faxConfig.setFaxPasswd(faxPasswds[idx].trim());
@@ -428,6 +428,8 @@ public class ConfigureFax2Action extends ActionSupport {
     /**
      * SRFax {@code access_id} values are numeric account numbers. Enforced server-side on save
      * and on the connection test because the AJAX submit bypasses native input validation.
+     * Surrounding whitespace is tolerated here and trimmed before persisting/probing, so the
+     * saved value is exactly what was validated and sent to SRFax.
      */
     static boolean isSrfaxAccountNumber(String value) {
         return value != null && value.trim().matches("\\d+");

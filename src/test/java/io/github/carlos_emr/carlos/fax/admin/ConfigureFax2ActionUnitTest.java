@@ -116,6 +116,9 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         faxConfigDao = mock(FaxConfigDao.class);
 
         request = new MockHttpServletRequest();
+        // Messages resolve from oscarResources for the request locale; pin English so the
+        // substring assertions below are deterministic on any JVM default locale.
+        request.setPreferredLocales(java.util.List.of(java.util.Locale.ENGLISH));
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         response = new MockHttpServletResponse();
 
@@ -705,6 +708,31 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("\"success\":false")
                     .contains("digits only");
             verify(faxConfigDao, never()).saveEntity(any());
+        }
+    }
+
+    @Test
+    @DisplayName("should persist the trimmed account number when the submitted value has surrounding whitespace")
+    void shouldPersistTrimmedAccountNumber_whenSubmittedWithWhitespace() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(new ArrayList<>());
+        when(faxConfigDao.getCountAll()).thenReturn(1);
+
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("0", "4165550100", "test-secret-pw");
+        request.setParameter("faxUser", "  123456 ");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            ArgumentCaptor<FaxConfig> savedCaptor = ArgumentCaptor.forClass(FaxConfig.class);
+            verify(faxConfigDao).saveEntity(savedCaptor.capture());
+            // The stored access_id is exactly the validated digits, matching what the probe sends.
+            assertThat(savedCaptor.getValue().getFaxUser()).isEqualTo("123456");
         }
     }
 

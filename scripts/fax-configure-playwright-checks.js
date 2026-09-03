@@ -59,10 +59,10 @@
  * same end state an operator reaches. With fake defaults the scheduler will log
  * SRFax authentication failures until the row is corrected or disabled. To keep a
  * default run from clobbering a real configuration, the save step only runs when
- * the page shows no account yet, the account already belongs to a previous run of
- * this check, SRFAX_LIVE=true (you supplied the real values), or
- * FAX_CONFIG_ALLOW_OVERWRITE=true; otherwise it is reported as SKIP and the
- * connection-test and guidance checks still run.
+ * the page shows no account yet, the stored account number is this check's fake
+ * one, SRFAX_LIVE=true (you supplied the real values), or
+ * FAX_CONFIG_ALLOW_OVERWRITE=true; otherwise it is reported as SKIP (not PASS) and
+ * the connection-test and guidance checks still run.
  */
 
 'use strict';
@@ -133,6 +133,13 @@ const TEST_CONNECTION_TIMEOUT_MS = 90000; // client-side SRFax timeouts are 30s 
 function record(name, passed, details) {
   results.push({ name, passed, details });
   console.log(`${passed ? 'PASS' : 'FAIL'} ${name}${details && !passed ? `: ${details}` : ''}`);
+}
+
+// A skipped step is neither PASS nor FAIL: it is reported as SKIP with the reason so a
+// run can never claim coverage it did not exercise.
+function skip(name, reason) {
+  results.push({ name, passed: true, skipped: true, details: reason });
+  console.log(`SKIP ${name}: ${reason}`);
 }
 
 async function step(name, fn) {
@@ -324,23 +331,21 @@ async function main() {
     });
 
     // Saving overwrites the single fax_config row. Safe cases: no account configured yet,
-    // the row already belongs to a previous run of this check, live mode (the operator
-    // supplied the real values), or an explicit opt-in.
+    // the row holds this check's FAKE account number (a live run leaves the real number
+    // behind, so the account-name marker alone is NOT proof of ownership), live mode (the
+    // operator supplied the real values), or an explicit opt-in.
     const saveIsSafe = existing.accountNumber === ''
       || existing.accountNumber === FAKE_ACCESS_ID
-      || existing.accountName === ACCOUNT_NAME_MARKER
       || config.srfax.live
       || config.allowOverwrite;
+    const saveStep = 'save persists the account and masks the password on reload';
     if (!saveIsSafe) {
-      console.log('SKIP save persists the account and masks the password on reload: an existing '
-        + 'fax account is configured; set FAX_CONFIG_ALLOW_OVERWRITE=true (or SRFAX_LIVE=true with '
-        + 'real values) to let this check overwrite it');
+      skip(saveStep, 'an existing fax account is configured; set FAX_CONFIG_ALLOW_OVERWRITE=true '
+        + '(or SRFAX_LIVE=true with real values) to let this check overwrite it');
     }
 
-    await step('save persists the account and masks the password on reload', async () => {
-      if (!saveIsSafe) {
-        return;
-      }
+    // The skip path never enters step(), so it can never be recorded as a PASS.
+    await (saveIsSafe ? step : async () => {})(saveStep, async () => {
       await armSaveButton(frame);
       await frame.locator('#submit').click();
 
