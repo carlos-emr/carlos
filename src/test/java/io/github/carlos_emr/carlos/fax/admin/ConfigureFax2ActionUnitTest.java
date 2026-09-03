@@ -154,7 +154,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     private void setSrfaxAccountRowParams(String id, String faxNumber, String faxPassword) {
         request.setParameter("method", "configure");
         request.setParameter("id", id);
-        request.setParameter("faxUser", "srfax-account-1");
+        request.setParameter("faxUser", "123456");
         request.setParameter("faxPassword", faxPassword);
         request.setParameter("inboxQueue", "1");
         request.setParameter("activeState", "true");
@@ -633,6 +633,88 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(body).doesNotContain("test-secret-pw");
             assertThat(body).doesNotContain("987654");
         }
+    }
+
+    @Test
+    @DisplayName("should send 405 with Allow: POST on PUT with method testConnection before contacting the provider")
+    void shouldSend405_onPutTestConnection() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setMethod("PUT");
+        setTestConnectionParams("1", "123456", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            // The gate is POST-only, not merely "not GET": a PUT/PATCH/DELETE body must not
+            // carry credentials to the provider either.
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            verifyNoInteractions(providerClientFactory, providerClient);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a non-numeric account number on testConnection without contacting the provider")
+    void shouldRejectTestConnection_whenAccountNumberNotNumeric() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setMethod("POST");
+        // The classic mistake: the SRFax login email typed into the account-number field.
+        setTestConnectionParams("-1", "someone@example.com", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            verifyNoInteractions(providerClient);
+            String body = response.getContentAsString();
+            assertThat(body)
+                    .contains("\"success\":false")
+                    .contains("digits only")
+                    .contains("not your login email");
+            assertThat(body).doesNotContain("someone@example.com");
+        }
+    }
+
+    @Test
+    @DisplayName("should return a validation error without persisting when the account number is not numeric")
+    void shouldReturnRowValidationError_whenAccountNumberNotNumeric() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(new ArrayList<>());
+
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("0", "4165550100", "test-secret-pw");
+        request.setParameter("faxUser", "someone@example.com");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":false")
+                    .contains("digits only");
+            verify(faxConfigDao, never()).saveEntity(any());
+        }
+    }
+
+    @Test
+    @DisplayName("should accept a numeric account number for the digits-only rule")
+    void shouldAcceptDigits_forSrfaxAccountNumberRule() {
+        assertThat(ConfigureFax2Action.isSrfaxAccountNumber(" 440000 ")).isTrue();
+        assertThat(ConfigureFax2Action.isSrfaxAccountNumber("someone@example.com")).isFalse();
+        assertThat(ConfigureFax2Action.isSrfaxAccountNumber("")).isFalse();
+        assertThat(ConfigureFax2Action.isSrfaxAccountNumber(null)).isFalse();
     }
 
 }

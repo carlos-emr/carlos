@@ -54,10 +54,15 @@
  * Never prints any SRFAX_* value; screenshots go to FAX_CONFIG_SCREENSHOT_DIR,
  * which must be outside the repository when real values are in play.
  *
- * SIDE EFFECT: a passing run leaves the fax_config row configured with the
+ * SIDE EFFECT: the save step leaves the fax_config row configured with the
  * supplied (or fake) account values and the gateway ENABLED with polling on, the
  * same end state an operator reaches. With fake defaults the scheduler will log
- * SRFax authentication failures until the row is corrected or disabled.
+ * SRFax authentication failures until the row is corrected or disabled. To keep a
+ * default run from clobbering a real configuration, the save step only runs when
+ * the page shows no account yet, the account already belongs to a previous run of
+ * this check, SRFAX_LIVE=true (you supplied the real values), or
+ * FAX_CONFIG_ALLOW_OVERWRITE=true; otherwise it is reported as SKIP and the
+ * connection-test and guidance checks still run.
  */
 
 'use strict';
@@ -84,13 +89,26 @@ const FAKE_PASS = ['playwright', 'fake', 'srfax', 'pw'].join('-');
 const FAKE_EMAIL = 'fax-config-check@example.invalid';
 const FAKE_FAX_NUMBER = '5555550100';
 
+const ACCOUNT_NAME_MARKER = 'Playwright SRFax check';
+
+// The shared validateBaseUrl() restricts the host; additionally refuse a URL that
+// carries userinfo, so a credential-bearing BASE_URL can never reach Playwright's
+// navigation or the failure diagnostics (which print request URLs).
+function rejectEmbeddedCredentials(parsed) {
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials (user:pass@host)');
+  }
+  return parsed;
+}
+
 const config = {
-  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+  baseUrl: rejectEmbeddedCredentials(validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos')),
   chromePath: process.env.CHROME_PATH || '',
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.FAX_CONFIG_SCREENSHOT_DIR || '/tmp',
+  allowOverwrite: process.env.FAX_CONFIG_ALLOW_OVERWRITE === 'true',
   srfax: {
     accessId: process.env.SRFAX_ACCESS_ID || FAKE_ACCESS_ID,
     pass: process.env.SRFAX_PASS || FAKE_PASS,
@@ -101,10 +119,11 @@ const config = {
 };
 
 if (config.srfax.live) {
-  assert(
-    config.srfax.accessId !== FAKE_ACCESS_ID && config.srfax.pass !== FAKE_PASS,
-    'SRFAX_LIVE=true requires SRFAX_ACCESS_ID and SRFAX_PASS to be set in the environment',
-  );
+  // Live mode saves and enables the gateway with these values: all four must be real,
+  // otherwise a fake sender email or fax number would be persisted next to real credentials.
+  const missing = ['SRFAX_ACCESS_ID', 'SRFAX_PASS', 'SRFAX_USER', 'SRFAX_FAX_NUMBER']
+    .filter((name) => !process.env[name]);
+  assert(missing.length === 0, `SRFAX_LIVE=true requires ${missing.join(', ')} to be set in the environment`);
 }
 
 const results = [];
@@ -137,7 +156,7 @@ async function fillSrfaxForm(form, srfax) {
   await form.locator('#faxPasswd').fill(srfax.pass);
   await form.locator('#faxNumber').fill(srfax.faxNumber);
   await form.locator('#senderEmail').fill(srfax.email);
-  await form.locator('#accountName').fill('Playwright SRFax check');
+  await form.locator('#accountName').fill(ACCOUNT_NAME_MARKER);
   await form.locator('#on').check();
   const downloadCheckbox = form.locator('#downloadCheckbox');
   if (!(await downloadCheckbox.isChecked())) {
@@ -164,6 +183,7 @@ async function main() {
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const context = await browser.newContext({ viewport: { width: 1360, height: 1100 } });
   let page;
+  const existing = { accountNumber: '', accountName: '' };
 
   try {
     await step('login as an administrator', async () => {
@@ -204,6 +224,11 @@ async function main() {
       const frame = page.frameLocator('#myFrame');
       await frame.locator('#configFrm').waitFor({ state: 'visible', timeout: 30000 });
       await frame.locator('#faxUser').waitFor({ state: 'visible', timeout: 30000 });
+
+      // Snapshot what an operator would see before this check touches anything, to
+      // decide below whether saving is safe (never clobber a real account by default).
+      existing.accountNumber = (await frame.locator('#faxUser').inputValue()).trim();
+      existing.accountName = (await frame.locator('#accountName').inputValue()).trim();
     });
 
     const frame = page.frameLocator('#myFrame');
@@ -298,7 +323,24 @@ async function main() {
       assert(!(await result.isVisible()), 'Connection result reappeared after restoring the account number');
     });
 
+    // Saving overwrites the single fax_config row. Safe cases: no account configured yet,
+    // the row already belongs to a previous run of this check, live mode (the operator
+    // supplied the real values), or an explicit opt-in.
+    const saveIsSafe = existing.accountNumber === ''
+      || existing.accountNumber === FAKE_ACCESS_ID
+      || existing.accountName === ACCOUNT_NAME_MARKER
+      || config.srfax.live
+      || config.allowOverwrite;
+    if (!saveIsSafe) {
+      console.log('SKIP save persists the account and masks the password on reload: an existing '
+        + 'fax account is configured; set FAX_CONFIG_ALLOW_OVERWRITE=true (or SRFAX_LIVE=true with '
+        + 'real values) to let this check overwrite it');
+    }
+
     await step('save persists the account and masks the password on reload', async () => {
+      if (!saveIsSafe) {
+        return;
+      }
       await armSaveButton(frame);
       await frame.locator('#submit').click();
 

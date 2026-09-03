@@ -45,9 +45,13 @@ import io.github.carlos_emr.carlos.form.JSONUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -84,13 +88,16 @@ public class ConfigureFax2Action extends ActionSupport {
         // configure() rewrites fax_config rows (credentials included) and restartFaxScheduler()
         // restarts the polling scheduler — both are mutations and must never ride a GET/HEAD.
         // testConnection() is not a persistence mutation, but it forwards submitted credentials
-        // to the provider, so it is held to the same POST-only rule (no credential in a URL).
+        // to the provider, so it is held to the same rule. These three are POST-only: any other
+        // verb (GET/HEAD, and also PUT/PATCH/DELETE, which carry a body just like POST) is
+        // refused with 405 + Allow: POST before dispatch.
         // getFaxSchedularStatus/getPendingIncomingFaxes are read-only and stay verb-open.
         // configureFax.jsp issues all of these calls via POST, so no UI change is required.
         boolean mutator = "configure".equals(method) || "restartFaxScheduler".equals(method)
                 || "testConnection".equals(method);
         String httpMethod = request.getMethod();
-        if (mutator && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+        if (mutator && !"POST".equalsIgnoreCase(httpMethod)) {
+            response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             // Direct-response contract: NONE stops Struts result resolution after the
             // error response has been written.
@@ -358,7 +365,8 @@ public class ConfigureFax2Action extends ActionSupport {
             Integer configId = parseConfigId(request.getParameter("id"));
 
             if (faxUser.isEmpty()) {
-                sendJsonError("Enter the SRFax account number to test the connection.");
+                sendJsonError(text("admin.configureFax.test.missingAccountNumber",
+                        "Enter the SRFax account number to test the connection."));
                 return NONE;
             }
 
@@ -366,8 +374,16 @@ public class ConfigureFax2Action extends ActionSupport {
             probe.setProviderType(resolveProviderType(providerTypes, 0, configId));
             probe.setFaxUser(faxUser);
 
+            // The classic mistake is the login email in the account-number field: say so
+            // immediately instead of forwarding it to SRFax for a bare HTTP 403.
+            if (probe.getProviderType() == FaxConfig.ProviderType.SRFAX && !isSrfaxAccountNumber(faxUser)) {
+                sendJsonError(text("admin.configureFax.test.accountNumberNotNumeric", ACCOUNT_NUMBER_NOT_NUMERIC_DEFAULT));
+                return NONE;
+            }
+
             if (faxPassword == null || StringUtils.isBlank(faxPassword)) {
-                sendJsonError("Enter the SRFax password to test the connection.");
+                sendJsonError(text("admin.configureFax.test.missingPassword",
+                        "Enter the SRFax password to test the connection."));
                 return NONE;
             }
             if (isPasswordUnchanged(faxPassword)) {
@@ -376,7 +392,8 @@ public class ConfigureFax2Action extends ActionSupport {
                         ? SpringUtils.getBean(FaxConfigDao.class).find(configId.intValue())
                         : null;
                 if (stored == null || StringUtils.isBlank(stored.getFaxPasswd())) {
-                    sendJsonError("Enter the SRFax password to test the connection.");
+                    sendJsonError(text("admin.configureFax.test.missingPassword",
+                            "Enter the SRFax password to test the connection."));
                     return NONE;
                 }
                 probe.setFaxPasswd(stored.getFaxPasswd());
@@ -388,17 +405,49 @@ public class ConfigureFax2Action extends ActionSupport {
 
             FaxProviderClient client = SpringUtils.getBean(FaxProviderClientFactory.class).getClient(probe);
             client.verifyConnection(probe);
-            sendJsonSuccess("Connection successful. SRFax accepted the account number and password.");
+            sendJsonSuccess(text("admin.configureFax.test.success",
+                    "Connection successful. SRFax accepted the account number and password."));
         } catch (FaxProviderException | IllegalArgumentException e) {
             // Provider status text / validation text only — never the submitted values.
             MiscUtils.getLogger().warn("Fax connection test failed: {}", e.getMessage());
-            sendJsonError("Connection failed: " + (e.getMessage() == null ? "provider error" : e.getMessage()));
+            sendJsonError(text("admin.configureFax.test.failed", "Connection failed: {0}",
+                    e.getMessage() == null ? "provider error" : e.getMessage()));
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Fax connection test failed unexpectedly", e);
-            sendJsonError("Connection test failed unexpectedly. Check the logs for details.");
+            sendJsonError(text("admin.configureFax.test.unexpected",
+                    "Connection test failed unexpectedly. Check the logs for details."));
         }
         // Direct-response contract: the JSON body is written; stop Struts result resolution.
         return NONE;
+    }
+
+    /** English fallback for the digits-only rule; the localized text lives under the same key in the bundles. */
+    private static final String ACCOUNT_NUMBER_NOT_NUMERIC_DEFAULT =
+            "SRFax account number must contain digits only. It is the numeric account number from the SRFax portal, not your login email.";
+
+    /**
+     * SRFax {@code access_id} values are numeric account numbers. Enforced server-side on save
+     * and on the connection test because the AJAX submit bypasses native input validation.
+     */
+    static boolean isSrfaxAccountNumber(String value) {
+        return value != null && value.trim().matches("\\d+");
+    }
+
+    /**
+     * Resolves a user-facing message from {@code oscarResources} for the request locale (the
+     * same bundle the Configure Fax page renders with), formatting {@code {n}} placeholders with
+     * {@link MessageFormat}. Falls back to the English default when the key is missing so a
+     * bundle gap can never blank out a response.
+     */
+    private String text(String key, String defaultText, Object... args) {
+        String pattern = defaultText;
+        try {
+            Locale locale = request.getLocale() == null ? Locale.ENGLISH : request.getLocale();
+            pattern = ResourceBundle.getBundle("oscarResources", locale).getString(key);
+        } catch (MissingResourceException e) {
+            MiscUtils.getLogger().debug("Missing oscarResources key {}; using default text", key);
+        }
+        return args.length == 0 ? pattern : new MessageFormat(pattern).format(args);
     }
 
     /**
@@ -558,6 +607,9 @@ public class ConfigureFax2Action extends ActionSupport {
         }
         if (faxUsers == null || idx >= faxUsers.length || StringUtils.isBlank(faxUsers[idx])) {
             throw new IllegalArgumentException("SRFax account number is required.");
+        }
+        if (providerType == FaxConfig.ProviderType.SRFAX && !isSrfaxAccountNumber(faxUsers[idx])) {
+            throw new IllegalArgumentException(ACCOUNT_NUMBER_NOT_NUMERIC_DEFAULT);
         }
         if (faxNumbers == null || idx >= faxNumbers.length || StringUtils.isBlank(faxNumbers[idx])) {
             throw new IllegalArgumentException("Your SRFax fax number is required.");

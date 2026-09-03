@@ -47,7 +47,10 @@ Steps:
 2. Click **Test SRFax connection**. It POSTs the form values as entered (nothing is saved) to
    `/admin/ManageFax?method=testConnection`, which runs a read-only `Get_Fax_Inbox` probe
    through `FaxProviderClient.verifyConnection`. A wrong account number/password comes back
-   as `Connection failed: SRFax rejected the account number or password: ...`. When the
+   as `Connection failed: SRFax rejected the account number or password (SRFax API returned
+   HTTP 403: Forbidden). Check that the account number is the numeric SRFax account number, not
+   your login email.` A non-numeric account number (for example the login email) is refused
+   before anything is sent to SRFax, on both the test and the save. When the
    password field still shows the mask (`**********`), the stored password for that config is
    tested instead; with no stored config the page asks you to enter the password.
 3. Set **Enable Fax Gateway** to Enabled and tick **Poll for incoming faxes**, then click

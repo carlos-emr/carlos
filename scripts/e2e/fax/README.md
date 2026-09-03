@@ -40,7 +40,9 @@ number vs. login email, sender/notification email, 10-digit fax number,
 password mask), clicks **Test SRFax connection**, saves, and re-reads the row.
 It runs with fake defaults anywhere; export the same `SRFAX_*` variables and
 `SRFAX_LIVE=true` to assert the live connection test succeeds against a real
-development account.
+development account. Its save step overwrites the single fax account row, so by
+default it only saves when no account is configured yet (or the row is its own);
+set `FAX_CONFIG_ALLOW_OVERWRITE=true` to force it on a shared dev instance.
 
 ## Loopback
 
