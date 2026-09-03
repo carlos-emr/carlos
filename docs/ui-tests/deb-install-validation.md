@@ -223,6 +223,37 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
+# deletes its own prescription (and every other row it creates: drugs, DigitalSignature, faxes,
+# FaxClientLog, fax_config), so it needs no fixture script id. It cannot remove FILES: each run
+# leaves one prescription_<providerNo><millis>.pdf under DOCUMENT_DIR plus the .pdf/.txt pair in
+# the fax spool (fax_file_location) that the fax scheduler consumes. Harmless on a throwaway VM. Two prerequisites, both
+# operator-staged like the consultation stamp checks:
+#   1. rx_fax_enabled=true in /etc/carlos-emr/carlos.properties (rx_signature_enabled is already
+#      true by default), then `carlos-ctl restart`. Without rx_fax the Fax buttons never render.
+#   2. the same provider stamp PNG the consultation checks stage, consult_sig_999998.png, in the
+#      eForm image dir (CarlosDocument/eform/images and .../carlos/eform/images).
+# It also stages a destination fax number on the patient's active pharmacies and restores their
+# original value on cleanup: the demo dataset ships pharmacies with a blank fax, and the servlet
+# refuses such a prescription with "Valid fax number not found", so without it the check would be
+# measuring the missing pharmacy number rather than the signature gate.
+export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
+# Rx reprint / re-prescribe check (rx-fax-reprint-represcribe-playwright-checks.js). Same two
+# prerequisites as the fax check above, and it reuses RX_FAX_PROVIDER_NO / RX_FAX_DEMOGRAPHIC_NO.
+# It creates one prescription through the UI and removes it (with its drugs row and stored
+# signature) in a finally; it reprints and re-prescribes only that row, so no pre-existing patient
+# record is touched, and it writes no files. Like the fax check it stages, and then restores, a fax
+# number on the patient's active pharmacies — ViewScript2 folds `hasFaxNumber` into the Fax button,
+# so without one the pad assertions would not isolate the stamp.
+# It reaches the reprint list the way an operator does: the "Reprint" link in the drug-profile
+# section head reveals a cell that starts hidden, and that link only renders with `_rx` write
+# access. It tolerates one known pre-existing page error (issue #3578, expandPreview writing into
+# the preview iframe before it has parsed) and fails on any other.
+# Optional: RX_EXPECTED_BUILD_TAG makes the About-page assertion exact instead of merely
+# "looks like a version" — set it to the tag the packaged WAR should carry, which is
+# "<pom version> (carlos-emr-deb <debian/changelog version>)", e.g.
+#   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha11-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot18)'
+# Leave it unset when validating a WAR you did not build through the packaging.
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below

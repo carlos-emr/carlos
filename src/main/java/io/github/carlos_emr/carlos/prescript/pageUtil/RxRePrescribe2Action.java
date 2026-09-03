@@ -274,16 +274,38 @@ public String saveDigitalSignature() throws IOException {
     
     // Extract and validate digital signature ID from request (can be null to remove signature)
     String digitalSignatureIdParam = request.getParameter("digitalSignatureId");
-    if (digitalSignatureIdParam != null && !digitalSignatureIdParam.matches("\\d{1,9}")) {
+    // A null parameter is legitimate: it CLEARS the link. A present one must name a real signature,
+    // which means positive — "0" matches the digit pattern but is not an id. Storing 0 would leave
+    // the row and the fax path permanently disagreeing: digital_signature_id is then non-null, so
+    // ViewScript2's faxTargetSigned lights the Fax button, while resolveSignatureImage looks up
+    // signature 0, finds no metadata, and refuses the fax as unsigned — after having overwritten
+    // whatever stamp the row carried.
+    boolean signatureIdMalformed = digitalSignatureIdParam != null
+            && (!digitalSignatureIdParam.matches("\\d{1,9}") || Integer.parseInt(digitalSignatureIdParam) <= 0);
+    if (signatureIdMalformed) {
         logger.warn("Invalid digitalSignatureId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         return NONE;
     }
     Integer digitalSignatureId = digitalSignatureIdParam == null ? null : Integer.valueOf(digitalSignatureIdParam);
 
-    // Extract and validate required script ID parameter
+    // Extract and validate required script ID parameter.
+    //
+    // Accept the same range the callers emit. ViewScript2's firstValidScriptId admits 1-10 digits
+    // that parse to a POSITIVE int, so a 9-digit cap here would reject a legitimate high script
+    // number and leave the drawn signature unlinked while the page believed it was saved. Parse
+    // defensively even so: 10 digits can still overflow an int (9999999999), and that must be a
+    // 400 like any other malformed id, never a 500.
     String scriptId = request.getParameter("scriptId");
-    if (scriptId == null || !scriptId.matches("\\d{1,9}")) {
+    int scriptNo = 0;
+    if (scriptId != null && scriptId.matches("\\d{1,10}")) {
+        try {
+            scriptNo = Integer.parseInt(scriptId);
+        } catch (NumberFormatException ignored) {
+            scriptNo = 0;
+        }
+    }
+    if (scriptNo <= 0) {
         logger.warn("Invalid scriptId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         return NONE;
@@ -294,16 +316,45 @@ public String saveDigitalSignature() throws IOException {
     
     // Update the prescription with the digital signature
     PrescriptionManager prescriptionManager = SpringUtils.getBean(PrescriptionManager.class);
-    prescriptionManager.setPrescriptionSignature(loggedInInfo, Integer.parseInt(scriptId), digitalSignatureId);
+
+    // scriptId is request-supplied, and the check above is a GLOBAL _rx write check (null target).
+    // Without this, any user holding _rx write could attach or clear a signature on any patient's
+    // prescription by walking script ids. Resolve the row first and re-check the right against the
+    // patient it actually belongs to. (Verifying the signature's own ownership is tracked in #3581.)
+    // Fully qualified: this file's unqualified `Prescription` is RxPrescriptionData.Prescription,
+    // while the manager returns the persisted model type.
+    io.github.carlos_emr.carlos.commn.model.Prescription targetPrescription =
+        prescriptionManager.getPrescription(loggedInInfo, Integer.valueOf(scriptNo));
+    if (targetPrescription == null || targetPrescription.getDemographicId() == null) {
+        logger.warn("Digital signature not linked: prescription not found");
+        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        return NONE;
+    }
+    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
+            String.valueOf(targetPrescription.getDemographicId()))) {
+        throw new SecurityException("missing required sec object (_rx)");
+    }
+    // The link is what makes the script "signed" for the fax gate. If the row does not exist the
+    // manager returns false; report that as a failure rather than a 200, otherwise the page would
+    // treat the script as stored-signed (and enable Fax) for a signature that was never linked.
+    if (!prescriptionManager.setPrescriptionSignature(loggedInInfo, scriptNo, digitalSignatureId)) {
+        logger.warn("Digital signature not linked: prescription not found");
+        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        return NONE;
+    }
     
     // Log the action for audit trail
     // Note: Using REPRINT constant as this is related to prescription printing/signing workflow
+    // The patient logged is the PERSISTED prescription's, never the session bean's. scriptId is
+    // request-supplied and is authorized above against the row it actually resolves to, so the two
+    // can differ; recording the bean's patient would file this signature event under whichever
+    // chart happens to be open rather than the one that was signed.
     LogAction.addLog(loggedInInfo.getLoggedInProviderNo(),
                       LogConst.REPRINT,
                       LogConst.CON_PRESCRIPTION, 
                       scriptId, 
                       ip, 
-                      "" + beanRX.getDemographicNo());
+                      String.valueOf(targetPrescription.getDemographicId()));
     
     // Return null for Ajax-style calls that don't require a view forward
     return null;
