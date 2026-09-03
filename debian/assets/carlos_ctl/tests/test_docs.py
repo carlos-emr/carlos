@@ -401,6 +401,24 @@ class TestEformImageRefs(unittest.TestCase):
                                  "logo.png", "bare.gif", "a.png",
                                  "sub/deep.png", "bg.png"]))
 
+    def test_the_css_wrapper_is_recognised_however_it_is_written(self):
+        # CSS keywords are case-insensitive and whitespace is allowed
+        # around the parenthesis; missing the wrapper leaves the closing
+        # ')' on the filename, so a present image reads as missing
+        for wrapper in ("url(", "URL(", "Url (", "url( ", "URL ( "):
+            html = ('<div style="background:{0}${{oscar_image_path}}'
+                    'bg.png)">'.format(wrapper))
+            self.assertEqual(o19docs.image_refs(html), ["bg.png"],
+                             "wrapper {0!r}".format(wrapper))
+        # outside a wrapper ')' stays part of the name, and a word that
+        # merely ends in "url" is not one
+        self.assertEqual(
+            o19docs.image_refs("<img src=${oscar_image_path}my(1).png>"),
+            ["my(1).png"])
+        self.assertEqual(
+            o19docs.image_refs("curl(${oscar_image_path}odd).png "),
+            ["odd).png"])
+
     def test_subdirectory_references_are_blocking(self):
         root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, root)

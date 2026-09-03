@@ -223,9 +223,12 @@ def image_refs(form_html: str) -> List[str]:
             # unquoted: up to whitespace, a quote, a tag end or the closing
             # parenthesis of a CSS url(...) wrapper
             # ')' ends a CSS url(...) wrapper, but is legitimate in a
-            # filename: only treat it as a terminator inside such a wrapper
-            stop = (r"[^\s\"'()<>]*"
-                    if form_html[:m.start()].rstrip().endswith("url(")
+            # filename: only treat it as a terminator inside such a
+            # wrapper. CSS keywords are case-insensitive and whitespace
+            # is allowed on both sides of the parenthesis, so `URL(` and
+            # `url ( ` are the same wrapper as `url(`.
+            wrapper = re.search(r"(?i)\burl\s*\(\s*$", form_html[:m.start()])
+            stop = (r"[^\s\"'()<>]*" if wrapper
                     else r"[^\s\"'<>]*")
             tail = re.match(stop, form_html[start:])
             value = tail.group(0) if tail else ""

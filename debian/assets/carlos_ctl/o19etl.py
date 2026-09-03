@@ -1008,16 +1008,26 @@ def precheck_scope(state_dir: str) -> str:
     and only the copy stopped, so "nothing was written" would be a lie.
     Reads the ledger without binding it to a dump or manifest, and
     never fails: it only chooses a phrase for another refusal, so an
-    unreadable ledger must not replace that refusal with its own."""
+    unreadable ledger must not replace that refusal with its own.
+    A ledger that parses but is not the mapping the writer produces is
+    treated as unreadable rather than as an empty one — claiming
+    "nothing was written" off a shape we do not recognise is the one
+    wrong answer."""
+    unreadable = ("the ETL ledger could not be read, so assume earlier "
+                  "writes stand")
     try:
         with open(_progress_path(state_dir), encoding="utf-8") as fh:
             progress = json.load(fh)
     except FileNotFoundError:
         return "nothing was written"
     except (OSError, ValueError):
-        return "the ETL ledger could not be read, so assume earlier " \
-               "writes stand"
-    if progress.get("admin_provider_no") or progress.get("tables"):
+        return unreadable
+    if not isinstance(progress, dict):
+        return unreadable
+    tables = progress.get("tables")
+    if tables is not None and not isinstance(tables, dict):
+        return unreadable
+    if progress.get("admin_provider_no") or tables:
         return "no further writes were made"
     return "nothing was written"
 
@@ -1039,12 +1049,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # class is refused outright (root runs every statement below)
     odd = unsafe_identifiers(src_info)
     if odd:
-        die("ETL pre-checks failed ({0}): the staged dump ".format(
-            precheck_scope(state_dir))
-            +             "carries {0} table/column name(s) outside the accepted "
-            "identifier class [A-Za-z0-9_$] — not an OSCAR 19 clinic "
-            "dump as shipped; rename them in the source and re-export: {1}"
-            .format(len(odd), ", ".join(repr(x) for x in odd[:10])))
+        die("ETL pre-checks failed ({0}): the staged dump "
+            .format(precheck_scope(state_dir))
+            + "carries {0} table/column name(s) outside the accepted "
+              "identifier class [A-Za-z0-9_$] — not an OSCAR 19 clinic "
+              "dump as shipped; rename them in the source and re-export: "
+              "{1}".format(len(odd),
+                           ", ".join(repr(x) for x in odd[:10])))
     renamed = normalize_table_case(plain, src, list(src_info))
     if renamed:
         report("staged table names normalised to the manifest spelling "

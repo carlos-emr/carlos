@@ -664,6 +664,18 @@ class TestPrecheckScope(unittest.TestCase):
         self.assertEqual(o19etl.precheck_scope(self.dir),
                          "no further writes were made")
 
+    def test_a_ledger_of_the_wrong_shape_fails_closed(self):
+        # valid JSON that is not the writer's mapping: the scope is a
+        # phrase inside someone else's refusal, so it must neither raise
+        # (which would replace that refusal) nor claim the target is
+        # untouched (which would send the operator down the wrong path)
+        unreadable = ("the ETL ledger could not be read, so assume "
+                      "earlier writes stand")
+        for payload in ([], "x", 3, None, {"tables": "oops"}):
+            self._ledger(payload)
+            self.assertEqual(o19etl.precheck_scope(self.dir), unreadable,
+                             "ledger payload {0!r}".format(payload))
+
 
 class TestMergeReverseParity(unittest.TestCase):
 
