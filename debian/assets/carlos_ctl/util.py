@@ -28,7 +28,8 @@ STATE = "/var/lib/carlos-emr"
 
 _TTY = sys.stdout.isatty()
 RED, GREEN, YELLOW, RESET = (
-    ("\033[31m", "\033[32m", "\033[33m", "\033[0m") if _TTY else ("", "", "", "")
+    ("\033[31m", "\033[32m", "\033[33m", "\033[0m") if _TTY
+    else ("", "", "", "")
 )
 
 
@@ -121,7 +122,8 @@ def prop_get(path: str, key: str) -> Optional[str]:
     try:
         with open(path, encoding=PROPERTIES_ENCODING) as fh:
             for line in fh:
-                m = re.match(rf"^\s*{re.escape(key)}\s*=\s*(.*)$", line.rstrip("\n"))
+                m = re.match(rf"^\s*{re.escape(key)}\s*=\s*(.*)$",
+                             line.rstrip("\n"))
                 if m:
                     found = m.group(1)
     except OSError:

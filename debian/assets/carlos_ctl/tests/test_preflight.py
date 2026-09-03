@@ -376,8 +376,8 @@ class TestRoleAdvisories(unittest.TestCase):
                 ("property", "name LIKE 'INTEGRATOR\\_%'"): 2,
             },
             rows={
-                "SELECT role_name FROM `secRole`": [["doctor"],
-                                                     ["Triage Nurse"]],
+                "SELECT role_name FROM `secRole`": [
+                    ["doctor"], ["Triage Nurse"]],
                 "FROM `indicatorTemplate`": [
                     ["1", "Old dashboard", "SELECT 1 FROM phr_documents"],
                     ["2", "Fine", "SELECT 1 FROM demographic"]],
@@ -404,8 +404,8 @@ class TestRoleAdvisories(unittest.TestCase):
 
     def test_clean_role_data_raises_no_role_advisory(self):
         db = FakeDb(base_tables(secRole=2, secUserRole=2, security=3),
-                    rows={"SELECT role_name FROM `secRole`": [["doctor"],
-                                                                ["admin"]]})
+                    rows={"SELECT role_name FROM `secRole`": [
+                        ["doctor"], ["admin"]]})
         report = pf.run_checks(db, properties=clean_props())
         ids = {f["id"] for f in report["findings"]}
         for fid in ("roles-custom", "roles-activeyn-null", "security-locked",
@@ -433,8 +433,8 @@ class TestRoleAdvisories(unittest.TestCase):
 
     def test_stock_roles_are_recognised_case_insensitively(self):
         db = FakeDb(base_tables(secRole=2),
-                    rows={"SELECT role_name FROM `secRole`": [["Doctor"],
-                                                                ["ADMIN"]]})
+                    rows={"SELECT role_name FROM `secRole`": [
+                        ["Doctor"], ["ADMIN"]]})
         report = pf.run_checks(db, properties=clean_props())
         self.assertNotIn("roles-custom",
                          {f["id"] for f in report["findings"]})

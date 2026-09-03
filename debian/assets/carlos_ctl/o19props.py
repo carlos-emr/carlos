@@ -432,8 +432,8 @@ def run_props(ctx) -> None:
     dry = bool(ctx.get("dry_run"))
     # a dry run never overwrites the reviewed fragment of a real run
     fragment_path = os.path.join(
-        state_dir, "o19-derived-carlos.properties" + (".dry-run" if dry
-                                                       else ""))
+        state_dir,
+        "o19-derived-carlos.properties" + (".dry-run" if dry else ""))
     text = render_fragment(result)
     if dry:
         # ASCII only: the fragment is written as ISO-8859-1 (what

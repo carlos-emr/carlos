@@ -219,8 +219,8 @@ def source_expr(table_entry: dict, target_col: str,
     if parent and archive_schema:
         lookup = "(SELECT m.new_id FROM `{0}`.`{1}` m WHERE m.old_id = {2})" \
             .format(archive_schema, idmap_table(parent), expr)
-        expr = lookup if nullable else "IFNULL({0}, {1})".format(lookup,
-                                                                  expr)
+        expr = lookup if nullable else "IFNULL({0}, {1})".format(
+            lookup, expr)
     return expr
 
 
@@ -1760,8 +1760,8 @@ def appended_row_count_sql(table: str, src_schema: str,
         return None
     join = " AND ".join("d.`{0}` <=> s.`{0}`".format(k) for k in keys)
     return ("SELECT COUNT(*) FROM `{0}`.`{1}` d WHERE NOT EXISTS (SELECT 1 "
-            "FROM `{2}`.`{1}` s WHERE {3})".format(dst_schema, table,
-                                                     src_schema, join))
+            "FROM `{2}`.`{1}` s WHERE {3})".format(
+                dst_schema, table, src_schema, join))
 
 
 def row_parity(plain_query, src_schema: str, dst_schema: str,

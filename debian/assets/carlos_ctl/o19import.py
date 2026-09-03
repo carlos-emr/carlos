@@ -730,8 +730,8 @@ def staging_account_statements(password: str) -> List[str]:
     pw = dbops.sql_escape(password)
     out = []
     for host in STAGING_ACCOUNT_HOSTS:
-        out.append("DROP USER IF EXISTS '{0}'@'{1}'".format(STAGING_USER,
-                                                          host))
+        out.append("DROP USER IF EXISTS '{0}'@'{1}'".format(
+            STAGING_USER, host))
         out.append("CREATE USER '{0}'@'{1}' IDENTIFIED BY '{2}'".format(
             STAGING_USER, host, pw))
         out.append("GRANT ALL PRIVILEGES ON `{0}`.* TO '{1}'@'{2}'".format(
@@ -773,8 +773,8 @@ def grant_staging_account(query, client_cnf: str) -> None:
 def revoke_staging_account(query, client_cnf: str) -> None:
     try:
         for host in STAGING_ACCOUNT_HOSTS:
-            query("DROP USER IF EXISTS '{0}'@'{1}'".format(STAGING_USER,
-                                                          host))
+            query("DROP USER IF EXISTS '{0}'@'{1}'".format(
+                STAGING_USER, host))
     finally:
         if os.path.exists(client_cnf):
             os.unlink(client_cnf)
@@ -1036,8 +1036,9 @@ def run_p2(ctx) -> Dict:
     if report["verdict"] == "go-with-acknowledgements":
         die("preflight requires explicit sign-off — rerun with: "
             "{0}{1}".format(
-            " ".join("--accept " + a for a in report["required_accepts"]),
-            resume_hint(ctx["state"])))
+                " ".join("--accept " + a
+                         for a in report["required_accepts"]),
+                resume_hint(ctx["state"])))
     mark_done(ctx["state_dir"], ctx["state"], "preflight",
               verdict=report["verdict"],
               acknowledged=report["acknowledged"])
@@ -1420,8 +1421,8 @@ def run_cleanup(ctx) -> None:
         .format(STAGING_SCHEMA, ARCHIVE_SCHEMA))
     ctx["query"]("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
     for host in STAGING_ACCOUNT_HOSTS:
-        ctx["query"]("DROP USER IF EXISTS '{0}'@'{1}'".format(STAGING_USER,
-                                                             host))
+        ctx["query"]("DROP USER IF EXISTS '{0}'@'{1}'".format(
+            STAGING_USER, host))
     for name in ("bundle", "bundle-assess"):
         bundle_dir = os.path.join(ctx["state_dir"], name)
         if os.path.isdir(bundle_dir):

@@ -417,10 +417,10 @@ class TestDiffPruneNormalise(unittest.TestCase):
 
 class TestRichTextLetter(unittest.TestCase):
 
-    LEGACY = ("12", "Rich Text Letter", "1", "Rich Text Letter Generator "
-                                            "v2.1", "0", "1", "1")
-    MODERN = ("12", "Rich Text Letter", "1", "Rich Text Letter Generator "
-                                            "2026.3.0", "1", "0", "1")
+    LEGACY = ("12", "Rich Text Letter", "1",
+              "Rich Text Letter Generator v2.1", "0", "1", "1")
+    MODERN = ("12", "Rich Text Letter", "1",
+              "Rich Text Letter Generator 2026.3.0", "1", "0", "1")
 
     def test_rows_are_found_by_title_and_flagged_by_version_and_route(self):
         sql = o19roles.rtl_rows_sql("carlos")
@@ -448,8 +448,8 @@ class TestRichTextLetter(unittest.TestCase):
     def test_marked_row_with_dead_routes_gets_only_the_route_fix(self):
         # a crash between modernize and the route fix, or a form modernised
         # before the route fix existed: the marker alone is not "current"
-        row = ("12", "Rich Text Letter", "1", "Rich Text Letter Generator "
-                                             "2026.3.0", "1", "1", "1")
+        row = ("12", "Rich Text Letter", "1",
+               "Rich Text Letter Generator 2026.3.0", "1", "1", "1")
         self.assertEqual(o19roles.fixup_scripts_needed([row]),
                          [o19roles.RTL_ROUTE_FIX_SCRIPT])
         self.assertFalse(o19roles.rtl_current([row]))
@@ -470,8 +470,8 @@ class TestRichTextLetter(unittest.TestCase):
         self.assertFalse(o19roles.rtl_current([row]))
 
     def test_clinic_disabled_canonical_row_is_re_disabled_after_fixups(self):
-        row = ("12", "Rich Text Letter", "0", "Rich Text Letter Generator "
-                                             "v2.1", "0", "1", "1")
+        row = ("12", "Rich Text Letter", "0",
+               "Rich Text Letter Generator v2.1", "0", "1", "1")
         disable, scripts, restore, notes = o19roles.rtl_plan([row])
         self.assertEqual(disable, [])
         self.assertEqual(restore, ["12"])
@@ -564,8 +564,8 @@ class TestVerifyRoleChecks(unittest.TestCase):
             "grants": "600", "no_role": [], "no_grant": [], "locked": [],
             "jobs": "1", "spelling_drift": "0",
             "rtl": [["12", "Rich Text Letter", "1",
-                                  "Rich Text Letter Generator 2026.3.0",
-                                  "1", "0", "1"]],
+                     "Rich Text Letter Generator 2026.3.0",
+                     "1", "0", "1"]],
         }
         answers.update(over)
 

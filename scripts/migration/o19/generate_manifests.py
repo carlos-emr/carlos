@@ -201,8 +201,8 @@ def strip_line_comments(text: str) -> str:
                 i += 1
             i += 1
             continue
-        if c == "#" or (c == "-" and text[i:i + 3] in ("-- ", "--\t", "--\n",
-                                                        "--\r")
+        if c == "#" or (c == "-"
+                        and text[i:i + 3] in ("-- ", "--\t", "--\n", "--\r")
                         or text[i:i + 2] == "--" and i + 2 == n):
             while i < n and text[i] != "\n":
                 i += 1
