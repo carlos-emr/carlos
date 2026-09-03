@@ -32,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -52,12 +54,14 @@ import javax.crypto.spec.SecretKeySpec;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -677,7 +681,9 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
 
             new ConfigureFax2Action().execute();
 
-            verifyNoInteractions(providerClient);
+            // The digits check runs before the client is resolved, so neither the factory nor
+            // the client may be touched.
+            verifyNoInteractions(providerClientFactory, providerClient);
             String body = response.getContentAsString();
             assertThat(body)
                     .contains("\"success\":false")
@@ -743,6 +749,169 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(ConfigureFax2Action.isSrfaxAccountNumber("someone@example.com")).isFalse();
         assertThat(ConfigureFax2Action.isSrfaxAccountNumber("")).isFalse();
         assertThat(ConfigureFax2Action.isSrfaxAccountNumber(null)).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0} with method testConnection is refused with 405")
+    @ValueSource(strings = {"HEAD", "PATCH", "DELETE"})
+    @DisplayName("should send 405 with Allow: POST on every non-POST verb for testConnection")
+    void shouldSend405_onNonPostVerbsForTestConnection(String verb) throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setMethod(verb);
+        setTestConnectionParams("1", "123456", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            verifyNoInteractions(providerClientFactory, providerClient);
+        }
+    }
+
+    @Test
+    @DisplayName("should report the provider as unsupported when testConnection targets a MIDDLEWARE row")
+    void shouldReturnUnsupportedProviderMessage_whenTestConnectionProviderIsMiddleware() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        // A legacy relay client without a verifyConnection override: exercise the interface
+        // default rather than a stub, so the contract for non-SRFax providers is what is pinned.
+        FaxProviderClient middlewareClient = mock(FaxProviderClient.class);
+        when(middlewareClient.getProviderType()).thenReturn(FaxConfig.ProviderType.MIDDLEWARE);
+        doCallRealMethod().when(middlewareClient).verifyConnection(any(FaxConfig.class));
+        when(providerClientFactory.getClient(any(FaxConfig.class))).thenReturn(middlewareClient);
+        request.setMethod("POST");
+        // Middleware rows carry a relay username, so the SRFax digits rule must not apply.
+        setTestConnectionParams("1", "relay-user", "test-secret-pw");
+        request.setParameter("providerType", "MIDDLEWARE");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            String body = response.getContentAsString();
+            assertThat(body)
+                    .contains("\"success\":false")
+                    .contains("Connection test is not supported for provider MIDDLEWARE");
+            assertThat(body).doesNotContain("test-secret-pw");
+        }
+    }
+
+    @Test
+    @DisplayName("should return a sanitized validation failure when testConnection posts an unknown provider type")
+    void shouldReturnValidationFailure_whenTestConnectionProviderTypeInvalid() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setMethod("POST");
+        setTestConnectionParams("1", "123456", "test-secret-pw");
+        request.setParameter("providerType", "BOGUS<script>");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            // resolveProviderType throws IllegalArgumentException: it must be caught and
+            // rendered as a JSON failure (not escape as an HTML error page), with the raw
+            // input sanitized, and before the client is ever resolved.
+            String body = response.getContentAsString();
+            assertThat(body)
+                    .contains("\"success\":false")
+                    .contains("Invalid provider type 'BOGUSscript'");
+            assertThat(body).doesNotContain("<script>");
+            verifyNoInteractions(providerClientFactory, providerClient);
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse to re-save a legacy row whose stored account number is not numeric")
+    void shouldReturnRowValidationError_whenStoredLegacyAccountNumberNotNumeric() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        // A row saved before the digits rule existed, holding the login email as access_id.
+        FaxConfig legacy = new FaxConfig();
+        legacy.setId(1);
+        legacy.setProviderType(FaxConfig.ProviderType.SRFAX);
+        legacy.setFaxUser("someone@example.com");
+        legacy.setFaxPasswd("stored-secret");
+        legacy.setFaxNumber("4165550100");
+        List<FaxConfig> stored = new ArrayList<>();
+        stored.add(legacy);
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(stored);
+
+        request.setMethod("POST");
+        // Re-submitting the row unchanged, password left as the mask sentinel.
+        setSrfaxAccountRowParams("1", "4165550100", "**********");
+        request.setParameter("faxUser", "someone@example.com");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            // The rule applies to legacy rows too: the admin is told to fix the value rather
+            // than silently re-persisting an access_id SRFax will keep rejecting.
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":false")
+                    .contains("digits only");
+            verify(faxConfigDao, never()).saveEntity(any());
+        }
+    }
+
+    @Test
+    @DisplayName("should answer in the page language when the first preferred locale has no bundle")
+    void shouldResolveMessageInPageLanguage_whenFirstPreferredLocaleHasNoBundle() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        // The fmt taglib renders this page in French for "de-DE,fr" (no German bundle); the
+        // JSON response must pick the same bundle rather than the JVM default locale.
+        request.setPreferredLocales(List.of(Locale.GERMANY, Locale.FRENCH));
+        request.setMethod("POST");
+        setTestConnectionParams("-1", "", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":false")
+                    .contains("Saisissez le num")
+                    .doesNotContain("Enter the SRFax account number");
+        }
+    }
+
+    @Test
+    @DisplayName("should fall back to English when no preferred locale has a bundle")
+    void shouldFallBackToEnglish_whenNoPreferredLocaleHasBundle() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        request.setPreferredLocales(List.of(Locale.GERMANY));
+        request.setMethod("POST");
+        setTestConnectionParams("-1", "", "test-secret-pw");
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new ConfigureFax2Action().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"success\":false")
+                    .contains("Enter the SRFax account number to test the connection.");
+        }
     }
 
 }

@@ -37,7 +37,7 @@ An SRFax account gives you three things: a **login email**, a **password**, and 
 | Account number (SRFax portal: Account > Account Details) | **SRFax Account Number** (`faxUser`) | `fax_config.faxUser` | `access_id` on every API call |
 | Account password | **SRFax Password** (`faxPassword`) | `fax_config.faxPasswd` (AES) | `access_pwd` on every API call |
 | Login email | **Sender / Notification Email** (`senderEmail`) | `fax_config.senderEmail` | `sSenderEmail` on `Queue_Fax` (delivery notifications); never used to authenticate |
-| Fax number assigned to the account | **Your SRFax Fax Number** (`faxNumber`) | `fax_config.faxNumber` (10 digits) | `sCallerID` on outbound sends; join key to `fax_job.fax_line` |
+| Fax number assigned to the account | **Your SRFax Fax Number** (`faxNumber`) | `fax_config.faxNumber` (10 digits) | `sCallerID` on outbound sends; join key to `faxes.faxline` |
 | (your choice) | **Account Name** | `fax_config.accountName` | display label inside CARLOS |
 
 Steps:
@@ -49,7 +49,10 @@ Steps:
    through `FaxProviderClient.verifyConnection`. A wrong account number/password comes back
    as `Connection failed: SRFax rejected the account number or password (SRFax API returned
    HTTP 403: Forbidden). Check that the account number is the numeric SRFax account number, not
-   your login email.` A non-numeric account number (for example the login email) is refused
+   your login email.` when SRFax answers with a bare HTTP 401/403 (its usual response to a bad
+   `access_id`/`access_pwd` pair); when SRFax instead returns a JSON `Failed` body, the message
+   is `Connection failed: SRFax rejected the account number or password` followed by SRFax's
+   own reason text. A non-numeric account number (for example the login email) is refused
    before anything is sent to SRFax, on both the test and the save. When the
    password field still shows the mask (`**********`), the stored password for that config is
    tested instead; with no stored config the page asks you to enter the password.

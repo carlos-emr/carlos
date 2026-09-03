@@ -133,7 +133,7 @@ if (config.srfax.live) {
 
 const results = [];
 const PASSWORD_MASK = '**********';
-const TEST_CONNECTION_TIMEOUT_MS = 90000; // client-side SRFax timeouts are 30s connect / 60s response
+const TEST_CONNECTION_TIMEOUT_MS = 90000; // SRFaxProviderClient: 30s connection-request + 60s response timeout
 
 function record(name, passed, details) {
   results.push({ name, passed, details });
@@ -226,15 +226,10 @@ async function main() {
       await assertNotErrorPage(page, 'post-login page');
     });
 
-    // The admin shell dismisses nothing itself, but wirePage() dismisses every
-    // dialog it sees — and dismissing a beforeunload prompt CANCELS navigation.
-    // Accept beforeunload so the reload after save behaves like a real click on
-    // "Leave"; every other dialog keeps the recorder's dismiss behaviour.
-    page.on('dialog', async (dialog) => {
-      if (dialog.type() === 'beforeunload') {
-        await dialog.accept().catch(() => {});
-      }
-    });
+    // wirePage() dismisses every dialog it sees, and dismissing a beforeunload
+    // prompt CANCELS navigation. The page only arms that prompt while Save is
+    // enabled, and a successful save re-disables Save, so the reload below runs
+    // only after a save and never meets the prompt. Do not reload mid-edit.
 
     await step('navigate Administration > Faxes > Configure Fax', async () => {
       await gotoApp(page, config.baseUrl, '/administration');

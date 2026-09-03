@@ -40,6 +40,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * HTTP transport tests for {@link SRFaxProviderClient} against a local mock server.
@@ -225,19 +227,50 @@ class SRFaxProviderClientHttpTransportUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("Invalid Access Code / Password");
     }
 
-    @Test
-    @DisplayName("should explain a bare HTTP 403 as rejected credentials for verifyConnection")
-    void shouldExplainForbidden_asRejectedCredentialsForVerifyConnection() {
-        // Given - SRFax answers a wrong access_id/access_pwd with a bare 403, not a JSON body
-        responseStatus = 403;
-        responseBody = "Forbidden";
+    @ParameterizedTest(name = "bare HTTP {0} is explained as rejected credentials")
+    @ValueSource(ints = {401, 403})
+    @DisplayName("should explain a bare HTTP 401/403 as rejected credentials for verifyConnection")
+    void shouldExplainHttpStatus_asRejectedCredentialsForVerifyConnection(int status) {
+        // Given - SRFax answers a wrong access_id/access_pwd with a bare status, not a JSON body
+        responseStatus = status;
+        responseBody = status == 401 ? "Unauthorized" : "Forbidden";
 
-        // Then - the admin sees what a 403 means here, not just the transport status
+        // Then - the admin sees what the status means here, not just the transport status
         assertThatThrownBy(() -> client.verifyConnection(config))
                 .isInstanceOf(FaxProviderException.class)
                 .hasMessageContaining("rejected the account number or password")
-                .hasMessageContaining("HTTP 403")
+                .hasMessageContaining("HTTP " + status)
                 .hasMessageContaining("not your login email")
                 .satisfies(e -> assertThat(((FaxProviderException) e).isTransient()).isFalse());
+    }
+
+    @Test
+    @DisplayName("should pass a server error through untouched for verifyConnection")
+    void shouldPassThroughServerError_forVerifyConnection() {
+        // Given - SRFax itself is failing; this says nothing about the credentials
+        responseStatus = 500;
+        responseBody = "internal error";
+
+        // Then - no credential advice is attached to a non-credential failure
+        assertThatThrownBy(() -> client.verifyConnection(config))
+                .isInstanceOf(FaxProviderException.class)
+                .hasMessageContaining("HTTP 500")
+                .satisfies(e -> assertThat(e.getMessage()).doesNotContain("rejected the account number"));
+    }
+
+    @Test
+    @DisplayName("should keep a connection failure transient and credential-neutral for verifyConnection")
+    void shouldKeepTransientFailure_forVerifyConnection() {
+        // Given - SRFax is unreachable (connection refused on the just-freed port)
+        server.stop(0);
+
+        // Then - an outage is reported as such, never as a wrong account number or password
+        assertThatThrownBy(() -> client.verifyConnection(config))
+                .isInstanceOf(FaxProviderException.class)
+                .hasMessageContaining("communication failure")
+                .satisfies(e -> {
+                    assertThat(((FaxProviderException) e).isTransient()).isTrue();
+                    assertThat(e.getMessage()).doesNotContain("rejected the account number");
+                });
     }
 }

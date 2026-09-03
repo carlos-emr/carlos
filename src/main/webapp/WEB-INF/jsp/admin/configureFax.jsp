@@ -210,7 +210,12 @@
             }
         };
 
-        $(document).keypress(function () {
+        $(document).keypress(function (e) {
+            // Enter/Space on the Test button is not an edit: it must not arm Save (and the
+            // unsaved-changes prompt) for a form whose values have not changed.
+            if (e.target && e.target.id === "testSrfaxConnectionBtn") {
+                return;
+            }
             $("#submit").prop("disabled", false);
             $(this).off();
         });
@@ -288,8 +293,10 @@
 
             var seq = ++testConnectionSeq;
             var resultEl = $("#testConnectionResult");
+            // Show the aria-live region before writing to it so screen readers announce the
+            // "Testing" text and the result that replaces it.
             resultEl.removeClass("text-success text-danger").addClass("text-muted")
-                    .text(configureFaxTestConnectionTesting).show();
+                    .show().text(configureFaxTestConnectionTesting);
             $("#testSrfaxConnectionBtn").prop("disabled", true);
 
             $.ajax({

@@ -41,8 +41,13 @@ password mask), clicks **Test SRFax connection**, saves, and re-reads the row.
 It runs with fake defaults anywhere; export the same `SRFAX_*` variables and
 `SRFAX_LIVE=true` to assert the live connection test succeeds against a real
 development account. Its save step overwrites the single fax account row, so by
-default it only saves when no account is configured yet (or the row is its own);
-set `FAX_CONFIG_ALLOW_OVERWRITE=true` to force it on a shared dev instance.
+default it only saves when no account is configured yet or the stored account is
+its own fake test account (otherwise the step is reported as SKIP).
+`SRFAX_LIVE=true` saves the real values you supplied; set
+`FAX_CONFIG_ALLOW_OVERWRITE=true` to force the save on a shared dev instance.
+Screenshots follow the same rule and are never captured in live mode unless
+`FAX_CONFIG_SCREENSHOTS=always` is set, so credential-bearing images do not land
+in shared artifact directories by accident.
 
 ## Loopback
 

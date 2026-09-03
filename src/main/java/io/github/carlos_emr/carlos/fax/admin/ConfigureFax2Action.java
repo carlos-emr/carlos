@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -442,15 +443,39 @@ public class ConfigureFax2Action extends ActionSupport {
      * bundle gap can never blank out a response.
      */
     private String text(String key, String defaultText, Object... args) {
-        Locale locale = request.getLocale() == null ? Locale.ENGLISH : request.getLocale();
+        Locale locale = resolveBundleLocale();
         String pattern = defaultText;
         try {
-            pattern = ResourceBundle.getBundle("oscarResources", locale).getString(key);
+            pattern = ResourceBundle.getBundle("oscarResources", locale, NO_FALLBACK_CONTROL).getString(key);
         } catch (MissingResourceException e) {
             MiscUtils.getLogger().debug("Missing oscarResources key {}; using default text", key);
         }
         // Same locale for lookup and formatting so locale-sensitive placeholders agree with the text.
         return args.length == 0 ? pattern : new MessageFormat(pattern, locale).format(args);
+    }
+
+    /** Bundle lookup without the JVM-default-locale fallback, so an unsupported locale is a miss, not a surprise. */
+    private static final ResourceBundle.Control NO_FALLBACK_CONTROL =
+            ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES);
+
+    /**
+     * Picks the locale the way the page's {@code fmt} taglib does: the first Accept-Language entry
+     * that has an {@code oscarResources} bundle, else English. Plain {@code getBundle(name, locale)}
+     * would instead fall back to the JVM default locale for an unsupported first choice (say
+     * {@code de-DE,fr}), answering in a different language than the page the admin is looking at.
+     */
+    private Locale resolveBundleLocale() {
+        Enumeration<Locale> preferred = request.getLocales();
+        while (preferred != null && preferred.hasMoreElements()) {
+            Locale candidate = preferred.nextElement();
+            try {
+                ResourceBundle.getBundle("oscarResources", candidate, NO_FALLBACK_CONTROL);
+                return candidate;
+            } catch (MissingResourceException e) {
+                // no bundle for this preference; try the next one
+            }
+        }
+        return Locale.ENGLISH;
     }
 
     /**
