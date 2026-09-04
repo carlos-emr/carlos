@@ -338,7 +338,9 @@ gate has no override.
    timestamps), a verdict line, **what arrived** (per-table row counts for
    every class: copy tables to the row with the break-glass delta itemized,
    merge tables in reverse — every staging row has a target twin —,
-   preserved tables counted three ways, preserved columns counted by
+   preserved tables counted in every home they have (three for an
+   archived, removed-module or unclassified table; two for a reference
+   or merge table, which have no live twin), preserved columns counted by
    non-null value), **what did not arrive and where it went instead**
    (absent tables, reference tables CARLOS's own data won, removed-module
    and unclassified tables, preserved columns), then findings ordered by

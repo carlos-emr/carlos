@@ -1120,6 +1120,10 @@ class TestVerifyPhaseFiles(unittest.TestCase):
     """run_p7 writes its per-patient lines and the roles findings to the
     root-only files and replaces the P7 block on every rerun."""
 
+    #: a real-shaped digest, so the RAND() seed the run derives is a
+    #: value only the digest produces
+    DUMP_SHA256 = "9f2c4a1b7e30" + "0" * 52
+
     def setUp(self):
         import tempfile
         import shutil
@@ -1133,6 +1137,7 @@ class TestVerifyPhaseFiles(unittest.TestCase):
         #: staging-side row count for patient 7; equal to the target's 1
         #: for a clean run, raised by a test that wants a real mismatch
         self.staging_rows_for_7 = 1
+        self.expected_seed = int(self.DUMP_SHA256[:12], 16)
         o19roles.verify_role_checks = lambda *a, **k: (
             ["role 'doctor' present"], [], ["1 login(s) import expired"],
             list(self.private))
@@ -1149,8 +1154,12 @@ class TestVerifyPhaseFiles(unittest.TestCase):
                 return [["2"]]
             if "ORDER BY RAND(" in sql:
                 # the sample is seeded from the recorded dump digest, so
-                # a re-run draws the SAME patients
-                self.assertIn("RAND(0)", sql)
+                # a re-run draws the SAME patients. The fixture state
+                # below carries a digest for exactly this reason: with
+                # none, the code falls back to "0" and the assertion
+                # cannot tell a digest-derived seed from a constant --
+                # `seed = 0` in the shipped code would pass it.
+                self.assertIn("RAND({0})".format(self.expected_seed), sql)
                 return [["7"], ["9"]]
             if "billing_on_cheader1 GROUP BY" in sql:
                 return []
@@ -1163,7 +1172,9 @@ class TestVerifyPhaseFiles(unittest.TestCase):
                 return [[str(self.staging_rows_for_7)]] \
                     if "`o19_import`" in sql else [["1"]]
             return [["0"]] if "COUNT(*)" in sql else []
-        return {"state_dir": self.state_dir, "state": {"phases": {}},
+        return {"state_dir": self.state_dir,
+                "state": {"phases": {"stage": {
+                    "dump_sha256": self.DUMP_SHA256}}},
                 "query": query, "target_db": "carlos"}
 
     def test_private_files_carry_the_identifiers_and_report_the_counts(

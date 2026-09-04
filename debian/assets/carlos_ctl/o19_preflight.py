@@ -35,7 +35,9 @@ verdict. Blocker classes this mode can acknowledge (--accept, repeatable):
 archived-forms, unknown-as-archive, olis-gone, dropped-columns,
 carry-credentials (B9 — live OAuth consumer secrets or signing keys the
 copy would carry verbatim; rotate or verify them before go-live) and
-charset-repair (B8 — double-encoded text repaired per row on the copy). The
+charset-repair (double-encoded text repaired per row on the copy; B8 is
+the neighbouring HARD stop for text that does not round-trip, which no
+flag clears). The
 remaining import-side sign-offs belong to phases this mode never runs.
 The JSON report (--json) is the machine contract.
 

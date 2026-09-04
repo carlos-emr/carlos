@@ -383,8 +383,10 @@ Two coordinated deliverables:
   from the schema diff (this analysis), then hand-curated and code-reviewed.
 - `o19import.py` — phases P0 pristine/capacity, P1 stage, P2 preflight,
   P3 backup, P4 ETL (with the roles post-step), P5
-  documents, P6 props, P7 verify, each idempotent and resumable; writes a single
-  machine+human readable report.
+  documents, P6 props, P7 verify, each idempotent and resumable; writes a
+  chronological phase log (`report.txt`) and, at the end of P7, the
+  operator's validation report in both renderings
+  (`import-report.txt` / `.json`).
 - `preflight` — the go/no-go gate, specified in §6.1.
 - `verify` (§7) gate.
 
@@ -735,8 +737,8 @@ the suite to 73 passing tests. P4–P7 stop with an explicit
 `o19etl.py` — pure statement generation over runtime `information_schema`
 introspection of both schemas, executed with the binlog-off session prelude:
 `copy` (explicit column lists, renames, `value_exprs`; zero-date NULLIF only
-where the target is nullable; enum out-of-set values fall to NULL/first
-member; charset repair wraps only confirmed-mojibake columns after a
+where the target is nullable; enum out-of-set values fall to the target
+column's introspected DEFAULT; charset repair wraps only confirmed-mojibake columns after a
 round-trip check that hard-blocks as B8), PK-window chunking with
 `etl-progress.json` checkpoints, `merge` anti-joins on natural keys with
 surrogate-id reassignment, `replace_seed` delete-then-copy, `archive` +

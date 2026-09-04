@@ -145,6 +145,46 @@ class TestGenerator(unittest.TestCase):
 
 
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestTheDdlParser(unittest.TestCase):
+
+    """Parse cases where getting it wrong drops a column silently.
+
+    A column the parser cannot see is not copied, not listed as
+    `dropped`, not shadow-captured and invisible to the unruled-rename
+    gate -- a silent data drop, not a parse warning."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gen = load_generator()
+
+    def parse(self, ddl, mode="union"):
+        schema = self.gen.Schema(mode)
+        schema.feed(ddl)
+        return schema
+
+    def test_a_backticked_reserved_word_is_a_column_not_a_constraint(self):
+        # MySQL requires the quoting precisely so a column may be called
+        # `key`; O19 has one (phr_document_ext.`key`)
+        s = self.parse("CREATE TABLE t (`id` int, `key` varchar(255), "
+                       "`value` text, PRIMARY KEY (`id`));")
+        self.assertEqual(sorted(s.tables["t"]), ["id", "key", "value"])
+        self.assertEqual(s.pks["t"], ["id"])
+
+    def test_an_unquoted_constraint_clause_is_still_not_a_column(self):
+        # the other direction: the fix must not turn KEY/UNIQUE clauses
+        # into columns called "key" and "unique"
+        s = self.parse("CREATE TABLE t (id int, name varchar(20), "
+                       "PRIMARY KEY (id), KEY name_idx (name), "
+                       "UNIQUE KEY u (name));")
+        self.assertEqual(sorted(s.tables["t"]), ["id", "name"])
+        self.assertEqual(s.pks["t"], ["id"])
+
+    def test_a_primary_key_with_an_index_prefix_keeps_the_bare_name(self):
+        s = self.parse("CREATE TABLE t (`code` varchar(64), "
+                       "PRIMARY KEY (`code`(20)));")
+        self.assertEqual(s.pks["t"], ["code"])
+
+
 class TestPreservedColumnsFitTheRow(unittest.TestCase):
     """Every CARLOS table the manifest widens must have room for the
     columns it will gain, measured against the REAL migration schema.

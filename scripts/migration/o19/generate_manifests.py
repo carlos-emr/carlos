@@ -262,11 +262,21 @@ class Schema:
             part = part.strip()
             if not part:
                 continue
-            m = re.match(r"`?(\w+)`?\s*(.*)", part, re.S)
+            m = re.match(r"(`?)(\w+)`?\s*(.*)", part, re.S)
             if not m:
                 continue
-            first = m.group(1)
-            if first.lower() in COLUMN_KEYWORDS:
+            quoted, first = m.group(1) == "`", m.group(2)
+            # A BACKTICKED first token is a column name, never a
+            # constraint keyword -- MySQL requires the quoting precisely
+            # so a column may be called `key`, `index` or `check`. Without
+            # this, such a column vanished from the map entirely: not
+            # copied, not listed as dropped, not shadow-captured, and
+            # invisible to the unruled-rename gate, which is a silent
+            # data drop rather than a parse warning. O19 has one live
+            # case (`key` in phr_document_ext), harmless today only
+            # because that table is archive-class and carries no column
+            # map.
+            if not quoted and first.lower() in COLUMN_KEYWORDS:
                 pm = re.match(r"primary\s+key\s*\((.*)\)", part, re.I | re.S)
                 if pm:
                     # `col`(20) -- MySQL allows an index prefix in a
@@ -276,7 +286,7 @@ class Schema:
                     pk = [c.strip().split("(")[0].strip().strip("`")
                           for c in pm.group(1).split(",")]
                 continue
-            ctype = re.sub(r"\s+", " ", m.group(2)).strip().rstrip(",")
+            ctype = re.sub(r"\s+", " ", m.group(3)).strip().rstrip(",")
             inline_pk = re.search(r"\bprimary\s+key\b", ctype, re.I)
             if inline_pk and not pk:
                 pk = [first]
