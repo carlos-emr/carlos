@@ -40,13 +40,24 @@
 const { chromium } = require('playwright');
 
 /*
- * Hosts that are unambiguously this machine. TLS verification may only be
- * skipped for these: the check logs in with real credentials, so any other
- * target has to prove its certificate. A packaged install is reached the same
- * way the other packaged-install checks reach one — forward a loopback port to
- * the container's 443 and point BASE_URL at the forward.
+ * Two tiers, because the two decisions they gate carry different risk.
+ *
+ * Loopback: traffic cannot leave this machine, so nothing but this machine can
+ * answer it. TLS verification may only be skipped here — the check logs in with
+ * real credentials, and a self-signed certificate from anywhere else is exactly
+ * what certificate verification exists to reject. A packaged install is reached
+ * the way the other packaged-install checks reach one: forward a loopback port
+ * to the container's 443 and point BASE_URL at the forward.
  */
-const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+
+/*
+ * Plus the devcontainer's compose service names, which resolve to sibling
+ * containers on the Docker bridge network. Not loopback — so they never get a
+ * TLS bypass — but still inside the developer's own machine, and nothing serves
+ * TLS on them, so cleartext is allowed for these and nothing else.
+ */
+const LOCAL_HTTP_HOSTS = new Set([...LOOPBACK_HOSTS, 'db', 'carlos']);
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -70,8 +81,12 @@ function normalizeHost(rawHost) {
   return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
 }
 
-function isExactLocalHost(rawHost) {
-  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
+function isLoopbackHost(rawHost) {
+  return LOOPBACK_HOSTS.has(normalizeHost(rawHost));
+}
+
+function isLocalHttpHost(rawHost) {
+  return LOCAL_HTTP_HOSTS.has(normalizeHost(rawHost));
 }
 
 function validateBaseUrl(rawBaseUrl) {
@@ -91,12 +106,12 @@ function validateBaseUrl(rawBaseUrl) {
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
-  // This check logs in with real credentials, so anything that is not plainly
-  // loopback must at least carry them over TLS — and, per the context below,
-  // prove its certificate while doing it. Same rule as
+  // This check logs in with real credentials, so anything outside this machine
+  // must at least carry them over TLS — and, per the context below, prove its
+  // certificate while doing it. Same rule as
   // scripts/flu-billing-report-playwright-checks.js.
-  if (!isExactLocalHost(host) && parsed.protocol !== 'https:') {
-    throw new Error(`Non-loopback BASE_URL host ${host} must use https`);
+  if (!isLocalHttpHost(host) && parsed.protocol !== 'https:') {
+    throw new Error(`Non-local BASE_URL host ${host} must use https`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
@@ -574,7 +589,7 @@ async function checkResizeIframeCallers(page) {
   const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isExactLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: isLoopbackHost(baseUrl.hostname),
       viewport: { width: 1440, height: 900 },
     });
     const page = await login(context);
