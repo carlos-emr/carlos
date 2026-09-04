@@ -838,136 +838,201 @@ def default_nondefault_expr(coltype: str, col: str) -> str:
     return "s.`{0}` IS NOT NULL AND s.`{0}` <> ''".format(col)
 
 
-def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
-    """Classify every table into the manifest: `copy`, `merge`, `archive`,
-    `reference` or `seed`, with its column mapping, chunk key, dropped
-    columns and renames.
+class TableRules(object):
+    """Every overlay ruling `build_tables` consults, resolved once.
 
-    Shared tables are classified by the overlays; tables only OSCAR 19
-    has become archive. The overlays decide policy, this decides shape."""
-    tables: Dict[str, dict] = {}
-    shared = sorted(set(o19.tables) & set(carlos.tables))
-    o19_only = sorted(set(o19.tables) - set(carlos.tables))
+    The classification and the six checks that follow it read the same
+    sixteen buckets. Passing them one by one made each helper's signature
+    a transcription of this class, which is how a helper ends up reading a
+    bucket it was never meant to see."""
 
-    merge_keys = dict(ov.CLASS_MERGE)
-    reference = set(ov.CLASS_REFERENCE)
-    archive_shared = set(getattr(ov, "ARCHIVE_SHARED", ()))
-    replace_seed = set(getattr(ov, "REPLACE_SEED", ()))
-    archive_patient = set(ov.ARCHIVE_PATIENT)
-    archive_other = set(ov.ARCHIVE_OTHER)
-    drop = set(ov.DROP)
-    renames = dict(getattr(ov, "RENAMES", {}))          # table -> {target: source}
-    value_exprs = dict(getattr(ov, "VALUE_EXPRS", {}))  # table -> {target: expr}
-    fk_remap = dict(getattr(ov, "FK_REMAP", {}))        # child -> {col: parent}
-    b3 = set(ov.B3_COLUMNS)                             # {(table, col)}
-    b3_exprs = dict(getattr(ov, "B3_NONDEFAULT_EXPRS", {}))
-    chunk_tables = set(ov.CHUNK_TABLES)
-    charset_scan = dict(ov.CHARSET_SCAN)
-    merge_exclude = dict(getattr(ov, "MERGE_EXCLUDE", {}))
-    startup_rows = list(getattr(ov, "STARTUP_CREATED_ROWS", []))
+    def __init__(self, ov):
+        self.ov = ov
+        self.merge_keys = dict(ov.CLASS_MERGE)
+        self.reference = set(ov.CLASS_REFERENCE)
+        self.archive_shared = set(getattr(ov, "ARCHIVE_SHARED", ()))
+        self.replace_seed = set(getattr(ov, "REPLACE_SEED", ()))
+        self.archive_patient = set(ov.ARCHIVE_PATIENT)
+        self.archive_other = set(ov.ARCHIVE_OTHER)
+        self.drop = set(ov.DROP)
+        # table -> {target: source}
+        self.renames = dict(getattr(ov, "RENAMES", {}))
+        # table -> {target: expr}
+        self.value_exprs = dict(getattr(ov, "VALUE_EXPRS", {}))
+        # child -> {col: parent}
+        self.fk_remap = dict(getattr(ov, "FK_REMAP", {}))
+        self.b3 = set(ov.B3_COLUMNS)                     # {(table, col)}
+        self.b3_exprs = dict(getattr(ov, "B3_NONDEFAULT_EXPRS", {}))
+        self.chunk_tables = set(ov.CHUNK_TABLES)
+        self.charset_scan = dict(ov.CHARSET_SCAN)
+        self.merge_exclude = dict(getattr(ov, "MERGE_EXCLUDE", {}))
+        self.startup_rows = list(getattr(ov, "STARTUP_CREATED_ROWS", []))
+        self.not_renames = dict(getattr(ov, "NOT_RENAMES", {}))
+        self.not_renamed_tables = dict(
+            getattr(ov, "NOT_RENAMED_TABLES", {}))
 
-    for t in shared:
-        entry: Dict[str, object] = {}
-        if t in reference:
-            entry["class"] = "reference"
-            tables[t] = entry
-            continue
-        if t in archive_shared:
-            tables[t] = {"class": "archive"}
-            continue
-        if t in merge_keys:
-            entry["class"] = "merge"
-            entry["merge_keys"] = list(merge_keys[t])
-            if t in merge_exclude:
-                entry["merge_exclude"] = merge_exclude[t]
-            for k in merge_keys[t]:
-                if k not in carlos.tables[t]:
-                    raise SystemExit(
-                        "merge key {}.{} not a CARLOS column".format(t, k))
-            pk = carlos.pks.get(t) or []
-            if (len(pk) == 1 and pk[0] not in merge_keys[t]
-                    and "int" in carlos.tables[t].get(pk[0], "").lower()):
-                # integer surrogate id off the natural key: the ETL must
-                # reassign it on appended rows instead of copying the
-                # clinic's id (which may collide with a CARLOS seed row).
-                entry["surrogate_pk"] = pk[0]
-            elif pk and set(pk) != set(merge_keys[t]):
-                # no surrogate to reassign: the anti-join key must BE the
-                # primary key, or two rows differing only in a non-key
-                # column would both try to insert the same PK
+
+def _shared_table_class(t, carlos, r):
+    """The class ruling for one shared table, and the merge keys that
+    come with it.
+
+    Returns the entry; `reference` and `archive` are complete as
+    they stand, everything else goes on to be given columns."""
+    reference, archive_shared = r.reference, r.archive_shared
+    merge_keys, merge_exclude = r.merge_keys, r.merge_exclude
+    replace_seed = r.replace_seed
+
+    entry: Dict[str, object] = {}
+    if t in reference:
+        entry["class"] = "reference"
+        return entry
+    if t in archive_shared:
+        return {"class": "archive"}
+    if t in merge_keys:
+        entry["class"] = "merge"
+        entry["merge_keys"] = list(merge_keys[t])
+        if t in merge_exclude:
+            entry["merge_exclude"] = merge_exclude[t]
+        for k in merge_keys[t]:
+            if k not in carlos.tables[t]:
                 raise SystemExit(
-                    "merge keys for {} must equal its primary key {} (no "
-                    "surrogate id to reassign); got {}".format(
-                        t, pk, merge_keys[t]))
-        else:
-            entry["class"] = "copy"
-            if t in replace_seed:
-                entry["replace_seed"] = True
-        t_ren = renames.get(t, {})
-        # MySQL column names are case-insensitive: `displayOrder` and
-        # `displayorder` are the same column, so matching must fold case
-        # (the ETL still SELECTs the O19 side's actual spelling).
-        o19_by_lower = {c.lower(): c for c in o19.tables[t]}
-        cols: List[str] = []
-        ren_out: Dict[str, str] = {}
-        mapped_sources = set()
-        for target in carlos.tables[t]:
-            source = o19_by_lower.get(t_ren.get(target, target).lower())
-            if source is not None:
-                cols.append(target)
-                mapped_sources.add(source)
-                if source != target:
-                    ren_out[target] = source
-        # a value_exprs target the dump lacks (a CARLOS-added column such
-        # as pharmacyInfo.uid or tickler.creation_date) is still copied —
-        # from its expression, not a source column — so it joins the map
-        for col in value_exprs.get(t, {}):
-            if col in carlos.tables[t] and col not in cols:
-                cols.append(col)
-        entry["cols"] = cols
-        if ren_out:
-            entry["renames"] = ren_out
-        dropped: Dict[str, dict] = {}
-        for source_col, coltype in o19.tables[t].items():
-            if source_col in mapped_sources:
-                continue
-            d: Dict[str, object] = {
-                "nondefault": b3_exprs.get(
-                    (t, source_col),
-                    default_nondefault_expr(coltype, source_col)),
-            }
-            if (t, source_col) in b3:
-                d["b3"] = True
-            dropped[source_col] = d
-        if dropped:
-            entry["dropped"] = dropped
-        if t in value_exprs:
-            entry["value_exprs"] = dict(value_exprs[t])
-        if t in fk_remap:
-            for col, parent in fk_remap[t].items():
-                if col not in cols:
-                    raise SystemExit("fk_remap {}.{} is not a copied column"
-                                     .format(t, col))
-                if parent not in merge_keys or parent not in carlos.tables:
-                    raise SystemExit(
-                        "fk_remap {}.{} names {} which is not a merge-class "
-                        "table".format(t, col, parent))
-            entry["fk_remap"] = dict(fk_remap[t])
-        if t in chunk_tables:
-            pk = carlos.pks.get(t) or o19.pks.get(t) or []
-            if len(pk) != 1:
+                    "merge key {}.{} not a CARLOS column".format(t, k))
+        pk = carlos.pks.get(t) or []
+        if (len(pk) == 1 and pk[0] not in merge_keys[t]
+                and "int" in carlos.tables[t].get(pk[0], "").lower()):
+            # integer surrogate id off the natural key: the ETL must
+            # reassign it on appended rows instead of copying the
+            # clinic's id (which may collide with a CARLOS seed row).
+            entry["surrogate_pk"] = pk[0]
+        elif pk and set(pk) != set(merge_keys[t]):
+            # no surrogate to reassign: the anti-join key must BE the
+            # primary key, or two rows differing only in a non-key
+            # column would both try to insert the same PK
+            raise SystemExit(
+                "merge keys for {} must equal its primary key {} (no "
+                "surrogate id to reassign); got {}".format(
+                    t, pk, merge_keys[t]))
+    else:
+        entry["class"] = "copy"
+        if t in replace_seed:
+            entry["replace_seed"] = True
+    return entry
+
+
+def _shared_table_columns(t, o19, carlos, r):
+    """(cols, renames, mapped_sources) for one shared table: which
+    CARLOS columns the dump can fill, and from which O19 column."""
+    renames, value_exprs = r.renames, r.value_exprs
+
+    t_ren = renames.get(t, {})
+    # MySQL column names are case-insensitive: `displayOrder` and
+    # `displayorder` are the same column, so matching must fold case
+    # (the ETL still SELECTs the O19 side's actual spelling).
+    o19_by_lower = {c.lower(): c for c in o19.tables[t]}
+    cols: List[str] = []
+    ren_out: Dict[str, str] = {}
+    mapped_sources = set()
+    for target in carlos.tables[t]:
+        source = o19_by_lower.get(t_ren.get(target, target).lower())
+        if source is not None:
+            cols.append(target)
+            mapped_sources.add(source)
+            if source != target:
+                ren_out[target] = source
+    # a value_exprs target the dump lacks (a CARLOS-added column such
+    # as pharmacyInfo.uid or tickler.creation_date) is still copied —
+    # from its expression, not a source column — so it joins the map
+    for col in value_exprs.get(t, {}):
+        if col in carlos.tables[t] and col not in cols:
+            cols.append(col)
+    return cols, ren_out, mapped_sources
+
+
+def _dropped_columns(t, o19, mapped_sources, r):
+    """The O19 columns of one shared table that CARLOS has no home
+    for, each with the predicate that decides whether a row holds
+    anything but the column's default."""
+    b3, b3_exprs = r.b3, r.b3_exprs
+
+    dropped: Dict[str, dict] = {}
+    for source_col, coltype in o19.tables[t].items():
+        if source_col in mapped_sources:
+            continue
+        d: Dict[str, object] = {
+            "nondefault": b3_exprs.get(
+                (t, source_col),
+                default_nondefault_expr(coltype, source_col)),
+        }
+        if (t, source_col) in b3:
+            d["b3"] = True
+        dropped[source_col] = d
+    return dropped
+
+
+def _apply_table_rules(t, entry, o19, carlos, cols, r):
+    """The remaining per-table overlay rulings: synthesized values,
+    id remapping, the chunk key and the charset scan list."""
+    value_exprs, fk_remap = r.value_exprs, r.fk_remap
+    merge_keys = r.merge_keys
+    chunk_tables, charset_scan = r.chunk_tables, r.charset_scan
+
+    if t in value_exprs:
+        entry["value_exprs"] = dict(value_exprs[t])
+    if t in fk_remap:
+        for col, parent in fk_remap[t].items():
+            if col not in cols:
+                raise SystemExit("fk_remap {}.{} is not a copied column"
+                                 .format(t, col))
+            if parent not in merge_keys or parent not in carlos.tables:
                 raise SystemExit(
-                    "chunk table {} needs a single-column PK, found {}"
-                    .format(t, pk))
-            entry["chunk_by"] = pk[0]
-        if t in charset_scan:
-            for c in charset_scan[t]:
-                if c not in carlos.tables[t] or c not in o19.tables[t]:
-                    raise SystemExit(
-                        "charset_scan column {}.{} missing on one side"
-                        .format(t, c))
-            entry["charset_scan"] = list(charset_scan[t])
-        tables[t] = entry
+                    "fk_remap {}.{} names {} which is not a merge-class "
+                    "table".format(t, col, parent))
+        entry["fk_remap"] = dict(fk_remap[t])
+    if t in chunk_tables:
+        pk = carlos.pks.get(t) or o19.pks.get(t) or []
+        if len(pk) != 1:
+            raise SystemExit(
+                "chunk table {} needs a single-column PK, found {}"
+                .format(t, pk))
+        entry["chunk_by"] = pk[0]
+    if t in charset_scan:
+        for c in charset_scan[t]:
+            if c not in carlos.tables[t] or c not in o19.tables[t]:
+                raise SystemExit(
+                    "charset_scan column {}.{} missing on one side"
+                    .format(t, c))
+        entry["charset_scan"] = list(charset_scan[t])
+
+
+def classify_shared_table(t, o19, carlos, r):
+    """One shared table's manifest entry: its class, the columns the dump
+    can fill, the columns it cannot, and the overlay rulings that apply.
+
+    Split out of `build_tables` so a single table's fate is nameable. The
+    order matters and is the original's: the class decides whether
+    columns are even asked for, and `dropped` is what the rename refusals
+    downstream read."""
+    entry = _shared_table_class(t, carlos, r)
+    if entry["class"] in ("reference", "archive"):
+        return entry
+    cols, ren_out, mapped_sources = _shared_table_columns(t, o19, carlos, r)
+    entry["cols"] = cols
+    if ren_out:
+        entry["renames"] = ren_out
+    dropped = _dropped_columns(t, o19, mapped_sources, r)
+    if dropped:
+        entry["dropped"] = dropped
+    _apply_table_rules(t, entry, o19, carlos, cols, r)
+    return entry
+
+
+def _warn_unknown_overlay_tables(o19, carlos, r):
+    """Overlay entries naming a table neither side has: a warning, not
+    a refusal -- a patch level that lacks the table is ordinary."""
+    archive_patient, archive_other = r.archive_patient, r.archive_other
+    drop, reference = r.drop, r.reference
+    replace_seed, merge_keys = r.replace_seed, r.merge_keys
+    archive_shared, chunk_tables = r.archive_shared, r.chunk_tables
 
     # overlay entries naming tables that exist on neither side are stale
     # (typo, or the table moved between patch levels) — surface them.
@@ -982,6 +1047,14 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
         for name in sorted(names - all_names):
             print("warning: overlay {} names unknown table {}"
                   .format(bucket, name), file=sys.stderr)
+
+
+def _refuse_inverted_buckets(o19, carlos, r):
+    """A bucket meaning 'CARLOS has no such table' that now names one
+    CARLOS does have."""
+    archive_patient, archive_other = r.archive_patient, r.archive_other
+    drop = r.drop
+
     # ... but a name that exists on BOTH sides while sitting in a bucket
     # that means "CARLOS does not have this table" is not a typo to
     # warn about, it is a ruling that has silently inverted. These three
@@ -1011,6 +1084,14 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             "the copy deliberately:\n  " + "\n  ".join(
                 "{0} names {1}, which now exists on both sides".format(
                     bucket, name) for bucket, name in inverted))
+
+
+def _refuse_stale_column_rules(carlos, tables, r):
+    """Column-level overlay entries that no longer describe the diff."""
+    ov = r.ov
+    b3, value_exprs = r.b3, r.value_exprs
+    merge_exclude, startup_rows = r.merge_exclude, r.startup_rows
+
     # column-level overlay entries that no longer describe the diff are
     # errors, not warnings: a stale B3 flag silently un-blocks a workflow
     # the clinic may still use, a stale VALUE_EXPR silently stops
@@ -1048,6 +1129,12 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
                 "STARTUP_CREATED_ROWS names {}, which is not a copy-class "
                 "table".format(t))
 
+
+def _refuse_unruled_column_renames(o19, carlos, tables, r):
+    """A column dropped on one side while a column on the other goes
+    unwritten -- how a rename hides."""
+    not_renames = r.not_renames
+
     # -- renames: a decision, never an accident ---------------------------
     # Columns are matched by NAME (case-folded), so a genuine rename is
     # invisible twice over: the O19 column falls into `dropped` and the
@@ -1055,7 +1142,6 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
     # deliberate alone. The signature is the CO-OCCURRENCE, so refuse to
     # emit a manifest while any table has both an unmatched O19 column
     # and an unfilled CARLOS column that nobody has ruled on.
-    not_renames = dict(getattr(ov, "NOT_RENAMES", {}))
     for (t, col), reason in sorted(not_renames.items()):
         # `"   "` is truthy, and a ruling whose reason is whitespace is
         # not a ruling -- it is the refusal being switched off quietly
@@ -1094,6 +1180,12 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             "RENAMES[table][carlos_col] = o19_col or as a NOT_RENAMES "
             "entry with a reason:\n  " + "\n  ".join(unruled))
 
+
+def _refuse_unruled_table_renames(o19, carlos, o19_only, r):
+    """The same question one level up: an O19-only table archived while
+    a CARLOS table with almost the same columns keeps its seed."""
+    not_renamed_tables = r.not_renamed_tables
+
     # The same question one level up: a table renamed between O19 and
     # CARLOS classifies as O19-only `archive` while its CARLOS twin keeps
     # its Flyway seed, and nothing says so. Jaccard rather than a
@@ -1118,7 +1210,6 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             overlap = len(ca & cb) / float(len(union))
             if overlap >= 0.70:
                 candidates[(a, b)] = (overlap, len(ca), len(cb))
-    not_renamed_tables = dict(getattr(ov, "NOT_RENAMED_TABLES", {}))
     for pair, reason in sorted(not_renamed_tables.items()):
         if not isinstance(reason, str) or not reason.strip():
             raise SystemExit(
@@ -1145,6 +1236,12 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             "as a NOT_RENAMED_TABLES entry keyed (o19_table, "
             "carlos_table) with a reason:\n  " + "\n  ".join(twins))
 
+
+def _classify_o19_only(tables, o19_only, r):
+    """Tables only OSCAR 19 has: archived, dropped, or unknown."""
+    archive_patient, archive_other = r.archive_patient, r.archive_other
+    drop = r.drop
+
     for t in o19_only:
         if t in archive_patient:
             tables[t] = {"class": "archive", "patient_data": True,
@@ -1155,6 +1252,35 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             tables[t] = {"class": "drop"}
         else:
             tables[t] = {"class": "unknown"}
+
+
+def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
+    """Classify every table into the manifest: `copy`, `merge`, `archive`,
+    `reference` or `seed`, with its column mapping, chunk key, dropped
+    columns and renames.
+
+    Shared tables are classified by the overlays; tables only OSCAR 19
+    has become archive. The overlays decide policy, this decides shape.
+
+    The refusals below run AFTER every shared table is classified because
+    each reads the finished entries -- a stale B3 flag is one that names
+    no dropped column, and an unruled rename is a dropped column facing
+    an unwritten one. They are ordered cheapest-refusal-first only so the
+    maintainer sees the simplest problem first."""
+    r = TableRules(ov)
+    shared = sorted(set(o19.tables) & set(carlos.tables))
+    o19_only = sorted(set(o19.tables) - set(carlos.tables))
+
+    tables = {}
+    for t in shared:
+        tables[t] = classify_shared_table(t, o19, carlos, r)
+
+    _warn_unknown_overlay_tables(o19, carlos, r)
+    _refuse_inverted_buckets(o19, carlos, r)
+    _refuse_stale_column_rules(carlos, tables, r)
+    _refuse_unruled_column_renames(o19, carlos, tables, r)
+    _refuse_unruled_table_renames(o19, carlos, o19_only, r)
+    _classify_o19_only(tables, o19_only, r)
     return tables
 
 
