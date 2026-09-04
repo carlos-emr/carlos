@@ -638,6 +638,24 @@ def etl_order(tables: Dict[str, dict]) -> List[str]:
     return order
 
 
+#: Prefix for the copies that keep OSCAR 19 data inside the LIVE CARLOS
+#: schema when the schema has no home for it: a table CARLOS does not have
+#: arrives as `import_archived_<table>`, so nothing the dump carried is
+#: reachable only from a schema the nightly backup does not dump and
+#: `--cleanup` is free to drop.
+#:
+#: 16 characters onto the longest archived table name (37) is 53, and the
+#: swap suffixes below take it to 58 -- inside MySQL's 64-character
+#: identifier limit. `o19_archive` still gets its own untouched copy; this
+#: is a second home, not a replacement for it.
+ARCHIVED_PREFIX = "import_archived_"
+
+
+def archived_table(table: str) -> str:
+    """The live-schema name under which `table` is preserved."""
+    return ARCHIVED_PREFIX + table
+
+
 #: Suffixes for the build-aside swap below. Short on purpose: the longest
 #: archived table name is 37 characters and the longest shadow suffix is
 #: `__unknown_cols`, so `<37>__unknown_cols__old` is 56 -- comfortably
@@ -686,17 +704,25 @@ def rebuild_statements(archive_schema: str, final: str,
 
 
 def archive_statements(table: str, src_schema: str,
-                       archive_schema: str) -> List[str]:
+                       archive_schema: str,
+                       dest_table: Optional[str] = None) -> List[str]:
     # unknown (unclassified) tables reach here under the dump's own
     # names: quoted, never trusted
-    """DROP/CREATE/INSERT that copy one staging table verbatim into the
-    archive schema.
+    """DROP/CREATE/INSERT that copy one staging table verbatim into
+    `archive_schema`, under `dest_table` when it differs from the source
+    name.
 
     Used for the tables CARLOS has no home for (removed modules, dropped
     columns, the OSCAR 19 token tables) and for unclassified tables the
     dump carries under names this tool never chose -- hence `ident`,
-    which doubles an embedded backtick rather than trusting the name."""
+    which doubles an embedded backtick rather than trusting the name.
+
+    Called twice per preserved table: once into `o19_archive` under the
+    source name (the verification copy), once into the live schema under
+    `import_archived_<table>` (the copy the clinic keeps and the nightly
+    backup dumps)."""
     src = ident(table)
+    dest = dest_table or table
 
     def build(scratch: str) -> List[str]:
         name = ident(scratch)
@@ -706,7 +732,21 @@ def archive_statements(table: str, src_schema: str,
             "INSERT INTO `{0}`.{1} SELECT * FROM `{2}`.{3}".format(
                 archive_schema, name, src_schema, src),
         ]
-    return rebuild_statements(archive_schema, table, build)
+    return rebuild_statements(archive_schema, dest, build)
+
+
+def preserve_statements(table: str, src_schema: str, archive_schema: str,
+                        dst_schema: str) -> List[str]:
+    """Both copies of one preserved table: `o19_archive`.`<table>` and
+    `<target>`.`import_archived_<table>`.
+
+    Ordered archive-first on purpose. Each half is its own build-aside
+    swap, so neither is ever absent while it is the only copy; running
+    the archive half first means the live twin is built while a second
+    copy already exists outside staging."""
+    return (archive_statements(table, src_schema, archive_schema)
+            + archive_statements(table, src_schema, dst_schema,
+                                 archived_table(table)))
 
 
 def _context_cols(entry: dict) -> List[str]:
@@ -1685,6 +1725,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     idmap_lines: List[str] = kept.setdefault("idmap", [])
     fk_lines: List[str] = kept.setdefault("fk", [])
     drop_lines: List[str] = kept.setdefault("drop", [])
+    reference_lines: List[str] = kept.setdefault("reference", [])
     shadow_notes: List[str] = kept.setdefault("shadow", [])
     absent_tables: List[str] = []
     # tables whose target rows P0 tolerated because this copy deletes them
@@ -1713,14 +1754,40 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         tstate = progress["tables"].setdefault(table, {})
 
         if cls == "reference":
+            # CARLOS's own reference rows win, but the clinic's are not
+            # thrown away: they go to o19_archive so a curated local code
+            # can still be found afterwards. No live twin -- the table
+            # exists in CARLOS already, holding CARLOS's rows.
             counts[cls] += 1
+            if not tstate.get("done"):
+                for sql in archive_statements(table, src, arch):
+                    query(sql)
+                tstate["done"] = True
+                save_progress(state_dir, progress)
+            n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
+                src, table))[0][0])
+            line = ("{0}: {1} row(s) kept at {2}.{0} (CARLOS reference "
+                    "data wins in the live table)".format(table, n, arch))
+            if n and line not in reference_lines:
+                reference_lines.append(line)
             continue
         if cls == "drop":
+            # NOT report-only any more: these rows used to be counted and
+            # then destroyed with the staging schema at --cleanup. They
+            # are removed-module infrastructure CARLOS has no home for,
+            # which is a reason not to give them a live table of their
+            # own -- not a reason to delete the clinic's only copy.
             counts[cls] += 1
             n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
                 src, table))[0][0])
+            if n and not tstate.get("done"):
+                for sql in preserve_statements(table, src, arch, dst):
+                    query(sql)
+                tstate["done"] = True
+                save_progress(state_dir, progress)
             line = ("{0}: {1} row(s) not migrated (removed module "
-                    "infrastructure)".format(table, n))
+                    "infrastructure); preserved at {2}.{0} and {3}.{4}"
+                    .format(table, n, arch, dst, archived_table(table)))
             if n and line not in drop_lines:
                 drop_lines.append(line)
             continue
@@ -1731,7 +1798,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             if tstate.get("done"):
                 counts["archive"] += 1
                 continue
-            for sql in archive_statements(table, src, arch):
+            for sql in preserve_statements(table, src, arch, dst):
                 query(sql)
             tstate["done"] = True
             save_progress(state_dir, progress)
@@ -1883,10 +1950,11 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             unknown_lines.append("{0}: empty, not archived".format(table))
             tstate["empty"] = True
         else:
-            for sql in archive_statements(table, src, arch):
+            for sql in preserve_statements(table, src, arch, dst):
                 query(sql)
-            unknown_lines.append("{0}: {1} row(s) archived to {2}".format(
-                table, n, arch))
+            unknown_lines.append(
+                "{0}: {1} row(s) preserved at {2}.{0} and {3}.{4}".format(
+                    table, n, arch, dst, archived_table(table)))
             counts["unknown_archived"] += 1
         tstate["done"] = True
         save_progress(state_dir, progress)
@@ -1894,8 +1962,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         report("unknown (unclassified) tables:\n  "
                + "\n  ".join(unknown_lines))
     if drop_lines:
-        report("drop-class tables holding rows (report-only, per the "
-               "manifest):\n  " + "\n  ".join(drop_lines))
+        report("removed-module tables: no CARLOS home, nothing orphaned "
+               "either — their rows are preserved, not deleted:\n  "
+               + "\n  ".join(drop_lines))
+    if reference_lines:
+        report("reference tables where CARLOS's own data wins; the "
+               "clinic's rows are preserved for comparison:\n  "
+               + "\n  ".join(reference_lines))
     if shadow_notes:
         report("dropped-column capture:\n  " + "\n  ".join(shadow_notes))
     if idmap_lines:
@@ -1920,11 +1993,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     query(force_reset_statement(dst))
     report("forcePasswordReset set for every imported user")
     report("ETL complete: {0} copied, {1} merged, {2} archived, "
-           "{3} reference (CARLOS wins), {4} dropped (report-only), "
-           "{5} unknown table(s) archived".format(
+           "{3} reference (CARLOS wins, clinic rows kept in {6}), "
+           "{4} removed-module table(s) preserved, {5} unknown table(s) "
+           "preserved. Preserved tables live at {6}.<table> and "
+           "{7}.{8}<table>".format(
                counts["copy"], counts["merge"], counts["archive"],
                counts["reference"], counts["drop"],
-               counts["unknown_archived"]))
+               counts["unknown_archived"], arch, dst, ARCHIVED_PREFIX))
     return counts
 
 
@@ -1998,6 +2073,84 @@ def appended_row_count_sql(table: str, src_schema: str,
     return ("SELECT COUNT(*) FROM `{0}`.`{1}` d WHERE NOT EXISTS (SELECT 1 "
             "FROM `{2}`.`{1}` s WHERE {3})".format(
                 dst_schema, table, src_schema, join))
+
+
+def schema_tables(plain_query, schema: str) -> set:
+    """The table names `schema` currently holds."""
+    return {r[0] for r in plain_query(
+        "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
+        "TABLE_SCHEMA = '{0}'".format(schema))}
+
+
+#: Manifest classes whose rows CARLOS itself never stores, and so are
+#: only ever reachable through a preserved copy. `reference` is here too:
+#: the live table exists but holds CARLOS's own rows, so the clinic's are
+#: preserved in `o19_archive` alone (no live twin would be meaningful --
+#: the name is taken).
+PRESERVED_CLASSES = ("archive", "drop", "reference")
+
+
+def preserved_parity(plain_query, src_schema: str, dst_schema: str,
+                     archive_schema: str) -> Tuple[List[str], List[str]]:
+    """(ok_lines, mismatch_lines) proving no staging row was orphaned.
+
+    `row_parity` checks the tables CARLOS has a home for. This checks the
+    rest -- archive, removed-module (`drop`), reference and the
+    unclassified tables a clinic's own fork carries -- by counting each
+    one in staging and in every home it is supposed to have reached:
+    `o19_archive`.`<table>` always, and `<target>`.`import_archived_
+    <table>` for everything but `reference`.
+
+    Counting, not assuming. Until this existed the archive schema had
+    never been row-verified at all, and `--cleanup` was allowed to drop
+    staging on the strength of a verification that had not looked at it.
+
+    An empty staging table is not preserved and is not a mismatch: there
+    is nothing to lose. A table that HOLDS ROWS and has no verified home
+    is the mismatch this function exists to name."""
+    ok, bad = [], []
+    src_tables = schema_tables(plain_query, src_schema)
+    arch_tables = schema_tables(plain_query, archive_schema)
+    dst_tables = schema_tables(plain_query, dst_schema)
+
+    def count(schema: str, table: str) -> int:
+        return int(plain_query("SELECT COUNT(*) FROM `{0}`.{1}".format(
+            schema, ident(table)))[0][0])
+
+    for table in sorted(src_tables):
+        entry = o19map_schema.TABLES.get(table)
+        cls = entry["class"] if entry else "unknown"
+        if entry and cls not in PRESERVED_CLASSES:
+            continue        # copy/merge: row_parity's business
+        src_n = count(src_schema, table)
+        if src_n == 0:
+            continue
+        homes = [(archive_schema, table, arch_tables)]
+        if cls != "reference":
+            homes.append((dst_schema, archived_table(table), dst_tables))
+        counts = []
+        for schema, name, present in homes:
+            if name not in present:
+                bad.append("{0}: {1} staging row(s) and no copy at {2}.{3}"
+                           .format(table, src_n, schema, name))
+                counts = None
+                break
+            counts.append((schema, name, count(schema, name)))
+        if counts is None:
+            continue
+        wrong = [(schema, name, n) for schema, name, n in counts
+                 if n != src_n]
+        if wrong:
+            bad.append("{0}: staging {1} row(s), but {2}".format(
+                table, src_n, "; ".join(
+                    "{0}.{1} holds {2}".format(schema, name, n)
+                    for schema, name, n in wrong)))
+        else:
+            ok.append("{0} ({1}): staging {2} -> {3}".format(
+                table, cls, src_n, ", ".join(
+                    "{0}.{1} {2}".format(schema, name, n)
+                    for schema, name, n in counts)))
+    return ok, bad
 
 
 def row_parity(plain_query, src_schema: str, dst_schema: str,

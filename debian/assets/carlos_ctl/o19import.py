@@ -43,7 +43,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Sequence
 
 from . import dbops, o19_preflight, o19bundle, o19docs, o19etl, o19map_schema
 from .util import (BACKUP_ENV, ENV_FILE, STATE, die, genpw, genrandom, log,
@@ -421,7 +421,7 @@ def check_disk_headroom(dump_bytes: int, bundle_size: int,
 
 
 def process_grant_state(rows) -> str:
-    """Whether PROCESS is held: "held", "absent" or "unknown" for the PROCESS privilege, read from
+    """Whether PROCESS is held: "held", "absent" or "unknown", read from
     `SHOW GRANTS` output.
 
     Token-aware on purpose. A substring search for "PROCESS" matches any
@@ -601,6 +601,41 @@ def run_p0_capacity(ctx) -> None:
         die(headroom)
 
 
+def inherited_import_refusal(archive_present: bool,
+                             kept_tables: Sequence[str],
+                             target_db: str) -> Optional[str]:
+    """Why this host may not import a second clinic, or None.
+
+    Two leftovers of a previous import, both of which would silently mix
+    two clinics' records:
+
+    * the `o19_archive` schema, inherited whole (its tables are rebuilt
+      per table, so a table this dump does not carry survives) and then
+      exported into this clinic's document tree;
+    * the `import_archived_` tables in the LIVE schema. The emptiness
+      sweep cannot see these -- it iterates the manifest, and a
+      preserved table is by definition not in it -- so without this they
+      would take the second clinic's rows under the first's names, in
+      the schema the application reads.
+
+    Pure so the refusal can be tested without a database; the caller
+    supplies what it found."""
+    if archive_present:
+        return ("the archive schema {0} of a previous import exists — run "
+                "`import-o19 --cleanup` for that run, or drop the schema "
+                "once the clinic holds its CSV export, before importing "
+                "another clinic on this host".format(ARCHIVE_SCHEMA))
+    if kept_tables:
+        names = sorted(kept_tables)
+        return ("the target schema {0} already holds {1} table(s) "
+                "preserved by a previous import ({2}{3}) — this host has "
+                "imported a clinic already. Export and drop them before "
+                "importing another clinic, or --resume the run that made "
+                "them.".format(target_db, len(names), ", ".join(names[:5]),
+                               ", ..." if len(names) > 5 else ""))
+    return None
+
+
 def run_p0(ctx) -> None:
     """P0 -- refuse anything but a stock, province-matched, pristine target.
 
@@ -635,11 +670,14 @@ def run_p0(ctx) -> None:
         # run may find its own archive here
         left = query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA "
                      "WHERE SCHEMA_NAME = '{0}'".format(ARCHIVE_SCHEMA))
-        if left:
-            die("the archive schema {0} of a previous import exists — run "
-                "`import-o19 --cleanup` for that run, or drop the schema "
-                "once the clinic holds its CSV export, before importing "
-                "another clinic on this host".format(ARCHIVE_SCHEMA))
+        kept = [r[0] for r in query(
+            "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
+            "TABLE_SCHEMA = '{0}' AND TABLE_NAME LIKE '{1}%'".format(
+                ctx["target_db"], o19etl.ARCHIVED_PREFIX))]
+        refusal = inherited_import_refusal(bool(left), kept,
+                                           ctx["target_db"])
+        if refusal:
+            die(refusal)
     prior = ctx["state"].get("phases", {}).get("check-pristine", {})
     if ctx.get("resume") and prior.get("status") == "done" \
             and prior.get("pristine") is True \
@@ -1272,17 +1310,27 @@ def make_etl_query(base_argv: List[str],
 def _row_parity(ctx):
     """Parity with the exact break-glass delta (the admin identity the ETL
     recorded in its ledger); merge tables are checked in reverse (every
-    staging row has a target twin), which needs the target's columns."""
+    staging row has a target twin), which needs the target's columns.
+
+    Two halves, and the second is what makes "nothing was orphaned" a
+    measurement rather than a claim: `row_parity` covers the tables
+    CARLOS has a home for, `preserved_parity` counts every other staging
+    table against the copies it was preserved into. Their results are
+    concatenated, so one mismatch anywhere fails the phase."""
+    archive = ctx.get("archive_schema", ARCHIVE_SCHEMA)
     progress = o19etl.load_progress(ctx["state_dir"])
-    return o19etl.row_parity(
+    ok, bad = o19etl.row_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"],
         admin_user=(progress.get("admin_user") or ctx.get("admin_user")),
         admin_provider_no=progress.get("admin_provider_no"),
         appended=progress.get("roles", {}).get("appended"),
         dst_info=o19etl.introspect_columns(ctx["query"], ctx["target_db"]),
-        archive_schema=ctx.get("archive_schema", ARCHIVE_SCHEMA),
+        archive_schema=archive,
         pruned_property_prefixes=o19_preflight.DROPPED_PROP_PREFIXES,
         pruned_property_keys=o19_preflight.DROPPED_PROP_KEYS)
+    kept_ok, kept_bad = o19etl.preserved_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive)
+    return ok + kept_ok, bad + kept_bad
 
 
 def run_p4(ctx) -> None:
@@ -1597,6 +1645,36 @@ def cleanup_refusal(state: Dict, state_dir: str,
             "it with --resume, or restore the pre-import snapshot.")
 
 
+def cleanup_data_refusal(started: bool,
+                         mismatches: Sequence[str]) -> Optional[str]:
+    """Why the staging schema may not be dropped now, or None.
+
+    `cleanup_refusal` asks whether the RUN is in a state to be retired;
+    this asks whether the DATA is. They are different questions, and only
+    the second one stands between a clinic and a lost table: --cleanup
+    used to be permitted on `phase_done(state, "verify")` alone, while
+    the verification behind it had never once counted an archived row.
+
+    A run whose ETL never started is allowed through: nothing was copied,
+    so staging holds only a restore of the operator's own dump and the
+    parity below would flag every table for the wrong reason. Once the
+    copy has started, every staging table holding rows must have a
+    verified home -- in the target, in `o19_archive`, or in an
+    `import_archived_` twin -- before staging goes. `--dev-target` waives
+    the ledger question, never this one: a scratch database is a reason
+    to skip bookkeeping, not a licence to drop rows that exist nowhere
+    else."""
+    if not started or not mismatches:
+        return None
+    shown = list(mismatches)[:10]
+    return ("--cleanup would drop the staging schema, but {0} table(s) "
+            "have no verified home outside it:\n  {1}{2}\nStaging is the "
+            "clinic's only remaining copy of those rows. Resolve the "
+            "mismatch (or --resume the import) before cleaning up."
+            .format(len(mismatches), "\n  ".join(shown),
+                    "\n  ..." if len(mismatches) > len(shown) else ""))
+
+
 def run_cleanup(ctx) -> None:
     """Retire a finished run: drop the staging schema and its throwaway
     account, remove the extracted bundle, and suffix this run's ledgers,
@@ -1611,6 +1689,18 @@ def run_cleanup(ctx) -> None:
     refusal = cleanup_refusal(state, ctx["state_dir"], ctx["dev_target"])
     if refusal:
         die(refusal)
+    # the data question, asked separately from the run question above and
+    # never waived: staging is dropped a few lines below, and a table
+    # holding rows with no verified home would go with it
+    staging_left = ctx["query"](
+        "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE "
+        "SCHEMA_NAME = '{0}'".format(STAGING_SCHEMA))
+    if staging_left:
+        started = etl_started(ctx["state_dir"])
+        _ok, bad = _row_parity(ctx) if started else ([], [])
+        refusal = cleanup_data_refusal(started, bad)
+        if refusal:
+            die(refusal)
     # marked first: a cleanup interrupted half-way is "run --cleanup
     # again", never a workspace a later --resume misreads
     if os.path.exists(state_path(ctx["state_dir"])):

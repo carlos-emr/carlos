@@ -678,6 +678,107 @@ class TestRowParity(unittest.TestCase):
                             for line in ok))
 
 
+class TestPreservedParity(unittest.TestCase):
+    """The count that makes "no data orphaned" a measurement.
+
+    Every staging table CARLOS itself has no home for -- archive,
+    removed-module, reference and the unclassified tables a clinic's own
+    fork carries -- has to be found again, row for row, in the copies it
+    was preserved into. Before this existed the archive schema had never
+    been row-verified at all.
+    """
+
+    #: one real table of each preserved class, plus a table the manifest
+    #: never classified (a clinic customisation)
+    ARCHIVED = next(t for t, e in o19map_schema.TABLES.items()
+                    if e["class"] == "archive")
+    DROPPED = next(t for t, e in o19map_schema.TABLES.items()
+                   if e["class"] == "drop")
+    REFERENCE = next(t for t, e in o19map_schema.TABLES.items()
+                     if e["class"] == "reference")
+    UNKNOWN = "clinic_custom_notes"
+
+    def query(self, staging, archive, live):
+        """A fake answering information_schema table lists and COUNT(*).
+
+        `staging`/`archive`/`live` are {table: rows}; a table absent from
+        one of them is absent from that schema entirely, which is the
+        case the parity has to catch."""
+        def q(sql):
+            for schema, rows in (("stage", staging), ("arch", archive),
+                                 ("carlos", live)):
+                if "TABLE_SCHEMA = '{0}'".format(schema) in sql:
+                    return [[t] for t in sorted(rows)]
+            for schema, rows in (("`stage`.", staging), ("`arch`.", archive),
+                                 ("`carlos`.", live)):
+                if schema in sql:
+                    name = sql.split(schema, 1)[1].strip().strip("`")
+                    return [[str(rows[name])]]
+            raise AssertionError("unexpected query: " + sql)
+        return q
+
+    def parity(self, staging, archive, live):
+        return o19etl.preserved_parity(
+            self.query(staging, archive, live), "stage", "carlos", "arch")
+
+    def prefixed(self, table):
+        return o19etl.ARCHIVED_PREFIX + table
+
+    def test_a_preserved_table_present_in_both_homes_passes(self):
+        ok, bad = self.parity(
+            {self.ARCHIVED: 5, self.UNKNOWN: 3},
+            {self.ARCHIVED: 5, self.UNKNOWN: 3},
+            {self.prefixed(self.ARCHIVED): 5,
+             self.prefixed(self.UNKNOWN): 3})
+        self.assertEqual(bad, [])
+        self.assertEqual(len(ok), 2)
+
+    def test_a_missing_live_twin_is_a_mismatch(self):
+        ok, bad = self.parity({self.ARCHIVED: 5}, {self.ARCHIVED: 5}, {})
+        self.assertEqual(len(bad), 1)
+        self.assertIn("no copy at carlos.{0}".format(
+            self.prefixed(self.ARCHIVED)), bad[0])
+
+    def test_a_missing_archive_copy_is_a_mismatch(self):
+        ok, bad = self.parity({self.ARCHIVED: 5}, {},
+                              {self.prefixed(self.ARCHIVED): 5})
+        self.assertEqual(len(bad), 1)
+        self.assertIn("no copy at arch.{0}".format(self.ARCHIVED), bad[0])
+
+    def test_a_short_preserved_copy_is_a_mismatch(self):
+        ok, bad = self.parity({self.ARCHIVED: 5}, {self.ARCHIVED: 5},
+                              {self.prefixed(self.ARCHIVED): 4})
+        self.assertEqual(len(bad), 1)
+        self.assertIn("staging 5 row(s)", bad[0])
+        self.assertIn("holds 4", bad[0])
+
+    def test_a_removed_module_table_is_checked_like_any_other(self):
+        # the rows --cleanup used to destroy: they now have to be found
+        # in both homes before the drop is allowed
+        ok, bad = self.parity({self.DROPPED: 7}, {self.DROPPED: 7}, {})
+        self.assertEqual(len(bad), 1)
+        self.assertIn(self.DROPPED, bad[0])
+
+    def test_a_reference_table_needs_the_archive_copy_only(self):
+        # the live table exists holding CARLOS's own rows -- the clinic's
+        # go to the archive schema, and a live twin would have nowhere to
+        # live under a name that is already taken
+        ok, bad = self.parity({self.REFERENCE: 9}, {self.REFERENCE: 9}, {})
+        self.assertEqual(bad, [])
+        self.assertEqual(len(ok), 1)
+
+    def test_an_empty_staging_table_needs_no_copy(self):
+        # nothing to orphan, so nothing to require
+        ok, bad = self.parity({self.ARCHIVED: 0}, {}, {})
+        self.assertEqual((ok, bad), ([], []))
+
+    def test_copy_class_tables_are_left_to_row_parity(self):
+        copied = next(t for t, e in o19map_schema.TABLES.items()
+                      if e["class"] == "copy")
+        ok, bad = self.parity({copied: 40}, {}, {})
+        self.assertEqual((ok, bad), ([], []))
+
+
 class TestPrecheckScope(unittest.TestCase):
     """A pre-check refusal must not tell a resumed run that nothing was
     written: the earlier phases' writes stand."""

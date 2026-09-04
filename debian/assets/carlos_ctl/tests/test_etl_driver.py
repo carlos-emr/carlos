@@ -276,27 +276,56 @@ class TestTheCopyPath(EtlDriverBase):
         self.assertIn("FROM `o19_import`.`AppDefinition` s", inserts[0])
         self.assertEqual(counts["copy"], 6)
 
-    def test_a_reference_table_is_never_written(self):
-        # CARLOS's own Flyway seed wins; the O19 rows are not copied
-        db, _lines, counts = self.run_etl()
-        self.assertEqual(self.writes_matching(db, r"`icd9`"), [])
+    def test_a_reference_table_keeps_carlos_rows_and_archives_the_clinics(
+            self):
+        # CARLOS's own Flyway seed wins in the live table, but the
+        # clinic's rows are not thrown away -- they are the only record
+        # of a locally curated code
+        db, lines, counts = self.run_etl(counts={(SRC, "icd9"): 12})
+        self.assertEqual(
+            self.writes_matching(db, r"INTO `carlos`\.`icd9`"), [])
+        self.assertIn("CREATE TABLE `o19_archive`.`icd9__new` LIKE "
+                      "`o19_import`.`icd9`", db.writes)
         self.assertEqual(counts["reference"], 1)
+        self.assertIn("icd9: 12 row(s) kept at o19_archive.icd9",
+                      self.report_text(lines))
 
-    def test_an_archive_table_is_copied_whole_to_the_archive_schema(self):
+    def test_an_archive_table_lands_in_both_the_archive_and_the_live_schema(
+            self):
+        # requirement B: o19_archive is the verification copy, and the
+        # live twin is what the nightly backup dumps and --cleanup keeps
         db, _lines, counts = self.run_etl()
         self.assertIn("CREATE TABLE `o19_archive`.`Eyeform__new` LIKE "
                       "`o19_import`.`Eyeform`", db.writes)
         self.assertIn("INSERT INTO `o19_archive`.`Eyeform__new` SELECT * "
                       "FROM `o19_import`.`Eyeform`", db.writes)
+        self.assertIn("CREATE TABLE `carlos`.`import_archived_Eyeform__new` "
+                      "LIKE `o19_import`.`Eyeform`", db.writes)
+        self.assertIn("INSERT INTO `carlos`.`import_archived_Eyeform__new` "
+                      "SELECT * FROM `o19_import`.`Eyeform`", db.writes)
         self.assertEqual(counts["archive"], 1)
 
-    def test_no_archive_rebuild_ever_drops_the_live_copy(self):
-        # the archive is the clinic's only copy of what CARLOS has no
-        # home for; every DROP the rebuild issues must name a scratch
+    def test_the_archive_copy_is_written_before_the_live_twin(self):
+        # each half is its own build-aside swap, but ordering still
+        # matters: the live twin is built while a copy already exists
+        # outside staging
         db, _lines, _counts = self.run_etl()
-        for sql in self.writes_matching(db, r"^DROP TABLE .*`o19_archive`"):
+        arch = db.writes.index("INSERT INTO `o19_archive`.`Eyeform__new` "
+                               "SELECT * FROM `o19_import`.`Eyeform`")
+        live = db.writes.index("INSERT INTO `carlos`."
+                               "`import_archived_Eyeform__new` SELECT * "
+                               "FROM `o19_import`.`Eyeform`")
+        self.assertLess(arch, live)
+
+    def test_no_rebuild_ever_drops_a_live_preserved_table(self):
+        # a preserved table is the clinic's only copy of what CARLOS has
+        # no home for; every DROP either rebuild issues must name a
+        # scratch, in the archive schema and in the live one alike
+        db, _lines, _counts = self.run_etl()
+        for sql in self.writes_matching(
+                db, r"^DROP TABLE .*(`o19_archive`|import_archived_)"):
             self.assertRegex(sql, r"__(new|old)`$",
-                             "a DROP named a live archive table: " + sql)
+                             "a DROP named a live preserved table: " + sql)
 
     def test_a_merge_table_is_merged_and_gets_an_id_map(self):
         db, _lines, counts = self.run_etl()
@@ -325,21 +354,35 @@ class TestTheCopyPath(EtlDriverBase):
 
 
 class TestTheDropClass(EtlDriverBase):
-    """The one lossy path in the current design, pinned so the change that
-    ends it is visible in the diff."""
+    """Removed-module tables: no CARLOS home, and no deletion either.
 
-    def test_drop_class_rows_are_counted_and_not_copied(self):
+    These rows used to be counted and then destroyed with the staging
+    schema at --cleanup, with a passed verification. They now take the
+    preserved path like any other table CARLOS cannot hold."""
+
+    def test_drop_class_rows_are_preserved_not_migrated(self):
         db, lines, counts = self.run_etl(
             counts={(SRC, "sharing_actor"): 7})
+        # still not migrated: the live CARLOS table is untouched
         self.assertEqual(
-            self.writes_matching(db, r"`carlos`\.`sharing_actor`"), [])
+            self.writes_matching(db, r"INTO `carlos`\.`sharing_actor`"), [])
+        self.assertIn("INSERT INTO `o19_archive`.`sharing_actor__new` "
+                      "SELECT * FROM `o19_import`.`sharing_actor`",
+                      db.writes)
+        self.assertIn("INSERT INTO `carlos`."
+                      "`import_archived_sharing_actor__new` SELECT * FROM "
+                      "`o19_import`.`sharing_actor`", db.writes)
         self.assertEqual(counts["drop"], 1)
-        self.assertIn("sharing_actor: 7 row(s) not migrated",
-                      self.report_text(lines))
+        text = self.report_text(lines)
+        self.assertIn("sharing_actor: 7 row(s) not migrated", text)
+        self.assertIn("preserved at o19_archive.sharing_actor and "
+                      "carlos.import_archived_sharing_actor", text)
 
-    def test_an_empty_drop_table_earns_no_report_line(self):
-        _db, lines, _counts = self.run_etl(counts={})
+    def test_an_empty_drop_table_is_neither_copied_nor_reported(self):
+        db, lines, _counts = self.run_etl(counts={})
         self.assertNotIn("sharing_actor", self.report_text(lines))
+        self.assertEqual(
+            self.writes_matching(db, r"sharing_actor"), [], db.writes)
 
 
 class TestAbsentTables(EtlDriverBase):
@@ -413,12 +456,17 @@ class TestUnknownTables(EtlDriverBase):
         return FakeDb(src_columns=cols,
                       counts={(SRC, "clinic_custom_notes"): rows})
 
-    def test_a_populated_unknown_table_is_archived(self):
+    def test_a_populated_unknown_table_is_preserved_in_both_schemas(self):
         db, lines, counts = self.run_etl(db=self.with_custom_table(4))
         self.assertTrue(self.writes_matching(
             db, r"`o19_archive`\.`clinic_custom_notes`"), db.writes)
+        self.assertTrue(self.writes_matching(
+            db, r"`carlos`\.`import_archived_clinic_custom_notes"),
+            db.writes)
         self.assertEqual(counts["unknown_archived"], 1)
-        self.assertIn("clinic_custom_notes: 4 row(s) archived",
+        self.assertIn("clinic_custom_notes: 4 row(s) preserved at "
+                      "o19_archive.clinic_custom_notes and "
+                      "carlos.import_archived_clinic_custom_notes",
                       self.report_text(lines))
 
     def test_an_empty_unknown_table_is_reported_but_not_materialised(self):
@@ -481,8 +529,11 @@ class TestTheEtlSummary(EtlDriverBase):
         _db, lines, counts = self.run_etl()
         text = self.report_text(lines)
         self.assertIn("ETL complete: 6 copied, 1 merged, 1 archived, "
-                      "1 reference (CARLOS wins), 1 dropped (report-only), "
-                      "0 unknown table(s) archived", text)
+                      "1 reference (CARLOS wins, clinic rows kept in "
+                      "o19_archive), 1 removed-module table(s) preserved, "
+                      "0 unknown table(s) preserved", text)
+        self.assertIn("Preserved tables live at o19_archive.<table> and "
+                      "carlos.import_archived_<table>", text)
         self.assertEqual(counts["copy"], 6)
 
     def test_every_password_is_force_reset_after_the_copy(self):

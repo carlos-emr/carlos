@@ -400,6 +400,71 @@ class TestCleanupGate(unittest.TestCase):
             False)
         self.assertIsNotNone(msg)
 
+    def test_a_verified_run_still_may_not_drop_a_homeless_table(self):
+        """The hole this closes: --cleanup was permitted on a passed
+        verify alone, and the verification behind it had never counted an
+        archived row -- so it dropped staging while staging held the only
+        copy of every removed-module table."""
+        msg = o19import.cleanup_data_refusal(
+            True, ["cr_user: 12 staging row(s) and no copy at "
+                   "carlos.import_archived_cr_user"])
+        self.assertIsNotNone(msg)
+        self.assertIn("no verified home", msg)
+        self.assertIn("cr_user", msg)
+
+    def test_a_clean_parity_lets_cleanup_through(self):
+        self.assertIsNone(o19import.cleanup_data_refusal(True, []))
+
+    def test_a_run_that_never_copied_is_not_measured(self):
+        # staging holds a restore of the operator's own dump and nothing
+        # was written, so every table would flag for the wrong reason
+        self.assertIsNone(o19import.cleanup_data_refusal(
+            False, ["demographic: staging 100 -> target 0"]))
+
+    def test_the_refusal_lists_at_most_ten_tables(self):
+        msg = o19import.cleanup_data_refusal(
+            True, ["t{0}: homeless".format(i) for i in range(14)])
+        self.assertIn("14 table(s)", msg)
+        self.assertIn("t9: homeless", msg)
+        self.assertNotIn("t10: homeless", msg)
+
+
+class TestInheritedImportRefusal(unittest.TestCase):
+    """A host that has already imported a clinic must not quietly take a
+    second one's rows into the same tables."""
+
+    def test_an_inherited_archive_schema_is_refused(self):
+        msg = o19import.inherited_import_refusal(True, [], "carlos")
+        self.assertIn("o19_archive", msg)
+
+    def test_preserved_tables_left_in_the_live_schema_are_refused(self):
+        # the emptiness sweep cannot see these: it iterates the manifest,
+        # and a preserved table is by definition not in it
+        msg = o19import.inherited_import_refusal(
+            False, ["import_archived_cr_user", "import_archived_Eyeform"],
+            "carlos")
+        self.assertIn("2 table(s)", msg)
+        self.assertIn("import_archived_Eyeform", msg)
+        self.assertIn("--resume", msg)
+
+    def test_the_listing_is_capped(self):
+        msg = o19import.inherited_import_refusal(
+            False, ["import_archived_t{0}".format(i) for i in range(9)],
+            "carlos")
+        self.assertIn("9 table(s)", msg)
+        self.assertIn(", ...", msg)
+
+    def test_a_pristine_host_is_not_refused(self):
+        self.assertIsNone(
+            o19import.inherited_import_refusal(False, [], "carlos"))
+
+
+class TestStateArchiving(unittest.TestCase):
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19archivestate-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+
     def test_state_is_archived_so_the_run_cannot_be_resumed(self):
         o19import.save_state(self.state_dir,
                              {"phases": {"verify": {"status": "done"}}})
