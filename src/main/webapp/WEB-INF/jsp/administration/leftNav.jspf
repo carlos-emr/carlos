@@ -907,6 +907,10 @@ $(document).ready(function(){
 		var source = $(this).attr('rel');
 		var submitForm = $(this).data('submit-form');
 		var iframeTitle = $(this).data('frame-title') || $.trim($(this).text()) || "Administration page";
+		if (typeof resetFrameSizing === 'function') {
+			// Start from the CSS aspect box; the previous section may have grown it.
+			resetFrameSizing();
+		}
 		$("#dynamic-content").addClass("dynamic-iframe-content");
 		$("#dynamic-content").empty().append($("<iframe>", {
 			id: "myFrame",
@@ -916,6 +920,21 @@ $(document).ready(function(){
 			role: "region",
 			"aria-live": "polite"
 		}).css("border", "0"));
+		// Every document the frame loads — the first one AND every in-frame
+		// navigation after it (a link, a form post, a wizard's "Next") — has to
+		// bring the shell back to the top of the new page. Without this, a reader
+		// who scrolled the SHELL down to reach a control near the bottom of the
+		// frame stays parked at that offset while the frame swaps in a new
+		// document, and sees the middle of it: the schedule week-setting "Next"
+		// saved the schedule and loaded the calendar step, and the reader
+		// reported that clicking it did nothing (alpha10). Only a handful of
+		// legacy pages call parent.parent.resizeIframe() themselves, so this has
+		// to be driven from the shell to cover the rest.
+		$("#myFrame").on("load", function () {
+			if (typeof scrollFramedContentIntoView === 'function') {
+				scrollFramedContentIntoView(this);
+			}
+		});
 		if (submitForm) {
 			var form = document.getElementById(submitForm);
 			if (form) {
