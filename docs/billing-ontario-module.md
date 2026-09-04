@@ -228,7 +228,9 @@ through its own `ViewBillingOn2Action`.
 Region resolution rules (`Billing2Action.execute`):
 
 1. If `billRegion` request parameter is present and non-empty, use it.
-2. Otherwise, fall back to `CarlosProperties.getProperty("billregion")`.
+2. Otherwise, fall back to the `billregion` value stored in
+   `CarlosProperties` (read raw, not via `getProperty()`, which logs a WARN
+   and substitutes a default for any key it cannot find).
 3. Anything not equal to `"ON"` (including null) routes to BC. Historical
    behaviour: BC was the original deployment.
 

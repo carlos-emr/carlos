@@ -84,7 +84,16 @@ public final class Billing2Action extends ActionSupport {
         String region = request.getParameter("billRegion");
         if (region == null || region.isEmpty()) {
             CarlosProperties props = CarlosProperties.getInstance();
-            region = props == null ? null : props.getProperty("billregion");
+            // Raw Hashtable read, not getProperty(): the CarlosProperties
+            // override builds and logs a WARN for every key it cannot find and
+            // substitutes a PROPERTY_DEFAULTS entry. `billregion` is legitimately
+            // absent on an install that never set it, and this is the fall-back
+            // path, so a miss is expected rather than exceptional — going through
+            // getProperty() would turn each such request into log noise. load()
+            // populates this instance directly and there is no defaults parent,
+            // so get() reads exactly what getProperty() would have found.
+            Object configured = props == null ? null : props.get("billregion");
+            region = configured instanceof String stored ? stored : null;
         }
         return "ON".equals(region) ? "ON" : "BC";
     }
