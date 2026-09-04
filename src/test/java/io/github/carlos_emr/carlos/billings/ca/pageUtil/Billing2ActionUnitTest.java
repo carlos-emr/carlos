@@ -106,12 +106,14 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         // Capture the real singleton BEFORE stubbing the static accessor, then
-        // hand that same object back from getInstance(). Tests then drive the
-        // fall-back through the class's real getProperty() validation rather
-        // than a mock that cannot go stale against it.
+        // hand that same object back from getInstance(). The action reads
+        // billregion straight out of this object's Hashtable storage, so the
+        // tests seed and clear that same storage and exercise the real lookup
+        // rather than a mock that cannot go stale against it.
         realProperties = CarlosProperties.getInstance();
-        // Hashtable.get, not getProperty: the override logs and substitutes a
-        // default for a missing key, which would corrupt the saved value.
+        // Hashtable.get, not getProperty: the override logs a WARN and returns
+        // a PROPERTY_DEFAULTS substitute for a missing key, which would corrupt
+        // the value being saved for restoration.
         originalBillRegion = realProperties.get(BILLREGION);
 
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
