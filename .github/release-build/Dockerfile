@@ -11,6 +11,9 @@
 # and nothing else. Maven and git come from the base image's Ubuntu archive,
 # exactly as they do in the development container.
 #
+# Lives under .github/ with the other CI-owned configuration (pmd/, spotbugs/,
+# codeql/); the top-level release/ directory is gitignored.
+#
 # KEEP THE BASE DIGEST IN SYNC with .devcontainer/development/Dockerfile so the
 # release WAR is compiled by the same JDK build that CI verified it with.
 #
