@@ -162,9 +162,12 @@ function seedProvider(providerNo, lastName) {
 }
 
 function removeProvider(providerNo) {
-  // Ordered by the foreign keys that reference provider.provider_no.
+  // Ordered by the foreign keys that reference provider.provider_no. Errors are
+  // NOT swallowed: a cleanup that half-fails leaves a seeded provider and an
+  // `admin` grant behind in the target database, which must never be reported
+  // as a clean run.
   for (const table of ['secUserRole', 'program_provider', 'provider_facility', 'security']) {
-    try { sql(`DELETE FROM ${table} WHERE provider_no='${providerNo}'`); } catch { /* table may not reference it */ }
+    sql(`DELETE FROM ${table} WHERE provider_no='${providerNo}'`);
   }
   sql(`DELETE FROM provider WHERE provider_no='${providerNo}'`);
 }
@@ -213,11 +216,23 @@ async function run() {
     const select = row.locator('select[name="roleNew"]').first();
     await select.selectOption(SUPER_ROOT_ROLE);
     const addButton = row.locator('input[name="submit"][value="Add"]').first();
-    // The Add button is disabled until the change handler runs; selectOption
-    // fires it, but assert rather than assume so a UI change fails loudly.
-    await addButton.waitFor({ state: 'attached', timeout: 30000 });
-    await addButton.evaluate((el) => { el.disabled = false; });
-    await addButton.click();
+    // The Add button ships disabled; the select's onchange (enableAddRoleButton)
+    // is what enables it for a role the provider does not already hold. Wait for
+    // that to happen rather than clearing `disabled` here: forcing it would let
+    // this check pass even when a real user cannot submit the assignment at all.
+    // Playwright's click() waits for the element to be enabled as part of its
+    // actionability checks, so a handler that never enables the button surfaces
+    // here as a timeout instead of a silently forced click.
+    let addButtonEnabled = true;
+    let addButtonDetail = '';
+    try {
+      await addButton.click({ timeout: 30000 });
+    } catch (error) {
+      addButtonEnabled = false;
+      addButtonDetail = `Add stayed disabled after selecting "${SUPER_ROOT_ROLE}"`;
+    }
+    check('the role change handler enables Add, and the click submits',
+      addButtonEnabled, addButtonDetail);
     await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
     await page.screenshot({ path: shot('assign-role-assigned'), fullPage: true });
 
@@ -227,9 +242,23 @@ async function run() {
   } finally {
     if (browser) await browser.close();
     if (seeded) {
-      try { removeProvider(providerNo); } catch (error) {
-        console.error(`cleanup failed for provider ${providerNo}: ${error.message}`);
+      let cleanupError = '';
+      try {
+        removeProvider(providerNo);
+      } catch (error) {
+        cleanupError = error.message;
       }
+      // Verify, rather than trust, that nothing was left behind — then fail the
+      // run if it was, so a stale fixture can never hide behind a green result.
+      let leftover = 'unknown';
+      try {
+        leftover = sql(`SELECT COUNT(*) FROM provider WHERE provider_no='${providerNo}'`);
+      } catch (error) {
+        leftover = `unreadable (${error.message})`;
+      }
+      check(`fixture provider ${providerNo} removed`,
+        leftover === '0' && cleanupError === '',
+        cleanupError ? `${cleanupError} (provider rows: ${leftover})` : `provider rows: ${leftover}`);
     }
     cleanupMysqlDefaultsFile();
   }
