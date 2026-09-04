@@ -101,9 +101,8 @@ queries are `ch1_id`-based).
 The version line is global across `common` + the applied province and must never go at or below
 the high-water mark (`migration/README.md`). `common/V1.0.17` and `bc/V1.0.18` are both above the
 previous high-water mark (`common/V1.0.16`); the next free number for **any** location is now
-`V1.0.19`. `database/mysql/migration/README.md` and `common/README.md` list the migrations and the
-high-water mark and should be updated to mention V1.0.17/V1.0.18 (those files are write-protected
-for the AI assistant and were left for a maintainer).
+`V1.0.19`. `database/mysql/migration/README.md` and `common/README.md` (the migration registry and
+high-water mark) were updated in the same change.
 
 ## Evaluated and rejected
 
@@ -158,7 +157,6 @@ this review):
 | `hl7TextInfo.obr_date` is `varchar(20)` | The index works because HL7 timestamps sort lexically, but a typed `DATETIME` column would make range predicates robust and cheaper. Entity + DAO change plus a backfill. |
 | `DemographicDaoImpl` search wraps columns in `lower()` | Redundant under `utf8mb4_general_ci`; removing it (and preferring prefix `LIKE` over `REGEXP` for plain keywords) is the single biggest win available for patient search. |
 | `demographicExt`.`demographic_no` shadows `uk_demo_ext` | Drop once `uk_demo_ext` is confirmed present on all managed databases (see rejected table). |
-| `database/mysql/migration/README.md` layout list and high-water statement, and `common/README.md` (which still says V1.0.13/V1.0.14) | Update to V1.0.17 / V1.0.18, next free V1.0.19. |
 | `CREATE INDEX IF NOT EXISTS` no-ops on a same-name, different-column index | Shared caveat of the whole idiom. All names in V1.0.17/V1.0.18 are new and repo-unique; after migrating a converted datadir, spot-check `SHOW INDEX` for the tables above. |
 
 ## Sibling repositories
