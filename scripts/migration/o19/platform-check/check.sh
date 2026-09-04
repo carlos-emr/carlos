@@ -272,6 +272,32 @@ verdict $? "no carlos_ctl imports (standalone)" "imports the package"
 python3 debian/assets/carlos_ctl/o19_preflight.py --help >/dev/null 2>&1
 verdict $? "runs --help" "--help failed"
 
+# The file's own docstring promises "no f-strings, no annotations" because it
+# is copied alone to a 2014-era OSCAR 19 server. Stating that is not the same
+# as holding to it: a `def f(path: str) -> None` slipped in and survived a
+# review round, so the promise is checked here rather than remembered.
+# (Annotations parse on 3.4 -- this defends the stated contract and the
+# f-strings that would genuinely break it, in one pass.)
+python3 -c "
+import ast,sys
+src=open('debian/assets/carlos_ctl/o19_preflight.py').read()
+bad=[]
+for n in ast.walk(ast.parse(src)):
+    if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)):
+        if n.returns is not None or any(
+                a.annotation is not None
+                for a in list(n.args.args)+list(n.args.kwonlyargs)):
+            bad.append('def '+n.name)
+    elif isinstance(n,ast.AnnAssign):
+        bad.append('annotated assignment on line %d' % n.lineno)
+    elif isinstance(n,ast.JoinedStr):
+        bad.append('f-string on line %d' % n.lineno)
+print('  py3.4-incompatible or contract-breaking forms:', bad or 'none')
+sys.exit(1 if bad else 0)
+"
+verdict $? "no annotations or f-strings (Python 3.4 contract)" \
+  "carries annotations or f-strings the module docstring rules out"
+
 echo; echo "=== TOTAL: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0

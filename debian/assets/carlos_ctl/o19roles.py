@@ -1059,8 +1059,8 @@ class RolesRun(object):
     """
 
     def __init__(self, ctx, query, plain, report, state_dir, ledger,
-                 appended, details_path, n, count, mark, record_appended,
-                 plan, append_private):
+                 appended, n, count, mark, record_appended, plan,
+                 append_private):
         self.query = query
         self.plain = plain
         self.src = ctx["src_schema"]
@@ -1070,7 +1070,6 @@ class RolesRun(object):
         self.state_dir = state_dir
         self.ledger = ledger
         self.appended = appended
-        self.details_path = details_path
         self.n = n
         self.count = count
         self.mark = mark
@@ -1786,8 +1785,7 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     def append_private(lines):
         o19import.append_private(details_path, "\n".join(lines) + "\n")
     run = RolesRun(ctx, query, plain, report, state_dir, ledger, appended,
-                   details_path, n, count, mark, record_appended, plan,
-                   append_private)
+                   n, count, mark, record_appended, plan, append_private)
     requested, overrides = roles_bind_role_templates(run, ctx)
     roles_append_carlos_roles(run)
     roles_align_role_spelling(run)

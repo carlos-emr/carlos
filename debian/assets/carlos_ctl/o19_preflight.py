@@ -2233,7 +2233,7 @@ def render_text(report):
     return "\n".join(lines) + "\n"
 
 
-def write_private_json(path: str, report: dict) -> None:
+def write_private_json(path, report):
     """The machine report at 0600.
 
     This is the one tool in the set that runs on the SOURCE OSCAR 19
