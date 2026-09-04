@@ -13,11 +13,16 @@ FROM ubuntu:26.04
 # go direct. Harmless when no proxy is set.
 ARG https_proxy=
 ENV https_proxy=$https_proxy
-# hadolint ignore=DL3008
 # Deliberately unpinned. The whole point of this image is "whatever
 # Ubuntu 26.04 currently ships" — pinning the interpreter would make the
 # harness stop tracking the platform it exists to check, which is the
 # exact failure it was built to catch.
+#
+# The directive must be the line IMMEDIATELY above the instruction:
+# hadolint applies an inline ignore to the next instruction only, so with
+# the explanation in between it did nothing at all (verified: same DL3008
+# hit count as no directive).
+# hadolint ignore=DL3008
 RUN apt-get -qq update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
       python3 dash coreutils findutils tar gzip ca-certificates \
