@@ -13,6 +13,8 @@ import types
 import unittest
 from pathlib import Path
 
+from carlos_ctl import o19etl, o19map_schema
+
 GEN = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \
     "o19" / "generate_manifests.py"
 
@@ -140,6 +142,50 @@ class TestGenerator(unittest.TestCase):
         for name in ("o19map_schema.py", "o19map_props.py"):
             text = (ctl / name).read_text(encoding="utf-8")
             self.assertNotIn("GENERATED_AT", text)
+
+
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestPreservedColumnsFitTheRow(unittest.TestCase):
+    """Every CARLOS table the manifest widens must have room for the
+    columns it will gain, measured against the REAL migration schema.
+
+    The import adds `import_archived_<col>` to live tables, and MySQL
+    refuses an ALTER that would push a row past 65,535 declared bytes --
+    in the middle of the table loop, with the import part-written. The
+    ETL refuses that case up front; this asserts the shipped manifest is
+    never the case, so a future curation that drops a fat column from a
+    wide table fails the build rather than an operator's import.
+    """
+
+    #: what one added column is measured at: a varchar(255) in utf8mb4,
+    #: which is the widest ordinary shape an O19 text column takes. A
+    #: TEXT would count 10 bytes, so this is the generous direction.
+    PER_COLUMN_BYTES = 255 * 4 + 2
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gen = load_generator()
+        cls.carlos = cls.gen.load_schema(cls.gen.carlos_migration_files(
+            [cls.gen.MIGRATION_DIR / "common", cls.gen.MIGRATION_DIR / "on"]))
+
+    def test_every_widened_table_stays_inside_the_row_limit(self):
+        worst = (0, None)
+        for table, entry in sorted(o19map_schema.TABLES.items()):
+            dropped = entry.get("dropped") or {}
+            if not dropped or table not in self.carlos.tables:
+                continue
+            current = sum(o19etl.column_bytes(t)
+                          for t in self.carlos.tables[table].values())
+            after = current + self.PER_COLUMN_BYTES * len(dropped)
+            self.assertLess(after, o19etl.MAX_ROW_BYTES,
+                            "{0}: {1} bytes after {2} preserved column(s)"
+                            .format(table, after, len(dropped)))
+            worst = max(worst, (after, table))
+        # the measurement, not just the bound: if this drifts toward the
+        # ceiling the margin is worth re-reading rather than trusting
+        self.assertLess(worst[0], o19etl.MAX_ROW_BYTES // 2,
+                        "widest widened table is {1} at {0} bytes"
+                        .format(*worst))
 
 
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")

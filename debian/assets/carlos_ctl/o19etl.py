@@ -936,6 +936,89 @@ def oversized_preserved_names(src_info: Dict[str, Dict[str, dict]],
     return out
 
 
+#: MySQL's hard ceiling on the sum of a row's declared column widths.
+#: BLOB/TEXT contribute only their pointer, which is why a table can
+#: declare far more than this in text and still be legal. InnoDB's
+#: separate ~8126-byte IN-ROW limit is softer (DYNAMIC row format, the
+#: server default here, pushes long variable-length values off-page) and
+#: several CARLOS tables already rely on that, so it is not the gate.
+MAX_ROW_BYTES = 65535
+
+#: bytes per character assumed when measuring a declared width. CARLOS
+#: runs utf8mb4, which is also what the charset repair converts INTO, so
+#: 4 is what MySQL itself will use for the columns this adds. A latin1
+#: column is over-measured by this, which is the safe direction for a
+#: check that refuses before writing.
+CHARSET_MAX_LEN = 4
+
+_INT_WIDTHS = (("tinyint", 1), ("smallint", 2), ("mediumint", 3),
+               ("bigint", 8), ("int", 4), ("float", 4), ("double", 8),
+               ("datetime", 8), ("timestamp", 4), ("date", 3),
+               ("time", 3), ("year", 1), ("bit", 8))
+
+
+def column_bytes(column_type: str) -> int:
+    """The declared width one column contributes to the row limit.
+
+    An estimate on purpose, and deliberately not a re-implementation of
+    MySQL's own arithmetic: it decides a refusal, and the alternative to
+    an estimate here is the ALTER failing half-way through the table
+    loop with the import already part-written."""
+    t = (column_type or "").lower().strip()
+    m = re.match(r"(var)?char\s*\(\s*(\d+)", t)
+    if m:
+        # a VARCHAR also stores a 1-2 byte length prefix
+        return int(m.group(2)) * CHARSET_MAX_LEN + (2 if m.group(1) else 0)
+    for name, size in (("tinytext", 9), ("tinyblob", 9),
+                       ("mediumtext", 11), ("mediumblob", 11),
+                       ("longtext", 12), ("longblob", 12)):
+        if name in t:
+            return size
+    if "text" in t or "blob" in t:
+        return 10
+    m = re.match(r"(?:decimal|numeric)\s*\(\s*(\d+)", t)
+    if m:
+        return int(m.group(1)) // 2 + 2
+    for name, size in _INT_WIDTHS:
+        if t.startswith(name):
+            return size
+    if t.startswith("enum") or t.startswith("set"):
+        return 2
+    return 8            # unknown: a middling fixed width
+
+
+def oversized_rows(table: str, dst_cols: Dict[str, dict],
+                   plan: Sequence[Tuple[str, str, str]]) -> Optional[str]:
+    """Why this table cannot take its `import_archived_` columns, or None.
+
+    MySQL refuses an `ALTER TABLE ... ADD COLUMN` that would push the
+    row's declared width past `MAX_ROW_BYTES`, and it refuses it at the
+    ALTER -- which in the table loop means part-way through an import.
+    Checked before the first write instead.
+
+    Not a theoretical limit for a clinic that forked its schema: the
+    manifest's own curated columns leave every CARLOS table under a
+    quarter of the ceiling (the widest, formLabReq07, reaches 17 KB of
+    65 KB), but the columns a fork added are unbounded and arrive
+    unclassified."""
+    if not plan:
+        return None
+    current = sum(column_bytes(c.get("column_type"))
+                  for c in dst_cols.values())
+    added = sum(column_bytes(ctype) for _src, _target, ctype in plan)
+    if current + added <= MAX_ROW_BYTES:
+        return None
+    return ("{0}: preserving {1} column(s) on it would take the row from "
+            "roughly {2} to {3} bytes of declared width, past MySQL's "
+            "{4}-byte row limit ({5}). Their values are still captured to "
+            "the archive schema, but the live column cannot be added: "
+            "narrow or remove these columns in the source and re-export, "
+            "or migrate this table's fork columns by hand afterwards."
+            .format(table, len(plan), current, current + added,
+                    MAX_ROW_BYTES,
+                    ", ".join(t for _s, t, _c in plan)))
+
+
 def archived_column(col: str) -> str:
     """The live-schema column under which a source column is preserved."""
     return ARCHIVED_PREFIX + col
@@ -1736,12 +1819,19 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                  if o19map_schema.TABLES.get(t, {}).get("class",
                                                         "unknown")
                  in PRESERVED_CLASSES + ("unknown",)]
-    column_plans = {
-        t: [c for c, _target, _type in archived_column_plan(
-            effective.get(t, o19map_schema.TABLES[t]), src_info[t])]
+    plans = {t: archived_column_plan(
+        effective.get(t, o19map_schema.TABLES[t]), src_info[t])
         for t in sorted(effective)}
-    problems.extend(oversized_preserved_names(src_info, preserved,
-                                              column_plans))
+    problems.extend(oversized_preserved_names(
+        src_info, preserved,
+        {t: [c for c, _target, _type in p] for t, p in plans.items()}))
+    # ... and the OTHER ceiling: an identifier that fits can still be a
+    # column the row has no room for
+    for table in sorted(plans):
+        if table in dst_info:
+            wide = oversized_rows(table, dst_info[table], plans[table])
+            if wide:
+                problems.append(wide)
     if problems:
         die("ETL pre-checks failed ({0}):\n  ".format(
             precheck_scope(state_dir)) + "\n  ".join(problems))

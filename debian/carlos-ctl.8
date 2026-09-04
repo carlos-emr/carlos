@@ -274,7 +274,13 @@ in the EMR schema they are covered by the nightly
 dump, which does not cover
 .BR o19_archive .
 .B destroy-data
-drops the EMR schema and takes them with it. The pre-import backup is taken
+drops the EMR schema and takes them with it. They are invisible to
+Flyway, whose history and checksums the import never touches, so
+.B db-migrate
+and the application's boot gate behave exactly as before; a data
+migration written afterwards must name its columns, since a column-less
+.B INSERT
+binds by position and a preserved column widens the row. The pre-import backup is taken
 before the staged restore, which runs as a throwaway account limited to the
 staging schema; a dump carrying USE or CREATE DATABASE statements is
 refused.

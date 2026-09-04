@@ -888,6 +888,58 @@ class TestArchivedColumns(unittest.TestCase):
             {"t": ["c" * o19etl.MAX_PRESERVED_COLUMN]}), [])
 
 
+class TestRowSizeCeiling(unittest.TestCase):
+    """A preserved column that fits the identifier limit can still be a
+    column the ROW has no room for.
+
+    MySQL refuses the ALTER, and it refuses it in the middle of the table
+    loop with the import already part-written -- so the arithmetic is
+    done before the first write instead.
+    """
+
+    def dst(self, n, width=255):
+        return {"c{0}".format(i): {"column_type":
+                                   "varchar({0})".format(width)}
+                for i in range(n)}
+
+    def plan(self, n, coltype="varchar(255)"):
+        return [("src{0}".format(i), "import_archived_src{0}".format(i),
+                 coltype) for i in range(n)]
+
+    def test_a_table_with_room_is_not_refused(self):
+        self.assertIsNone(o19etl.oversized_rows(
+            "t", self.dst(10), self.plan(5)))
+
+    def test_a_row_pushed_past_the_limit_is_refused_before_any_write(self):
+        # 60 varchar(255) columns are ~61 KB; five more do not fit
+        msg = o19etl.oversized_rows("t", self.dst(60), self.plan(5))
+        self.assertIsNotNone(msg)
+        self.assertIn("past MySQL's 65535-byte row limit", msg)
+        self.assertIn("import_archived_src0", msg)
+        self.assertIn("still captured to the archive schema", msg)
+
+    def test_a_table_with_no_plan_is_never_refused(self):
+        self.assertIsNone(o19etl.oversized_rows("t", self.dst(60), []))
+
+    def test_text_columns_count_as_their_pointer_not_their_capacity(self):
+        # a LONGTEXT declares 4 GB and contributes 12 bytes; measuring it
+        # as its capacity would refuse every table that has one
+        self.assertLessEqual(o19etl.column_bytes("longtext"), 12)
+        self.assertIsNone(o19etl.oversized_rows(
+            "t", self.dst(10), self.plan(200, "longtext")))
+
+    def test_the_widths_follow_mysqls_own_arithmetic(self):
+        for coltype, expected in (("varchar(255)", 255 * 4 + 2),
+                                  ("char(3)", 12), ("int(11)", 4),
+                                  ("bigint(20)", 8), ("tinyint(1)", 1),
+                                  ("datetime", 8), ("date", 3),
+                                  ("decimal(10,2)", 7), ("text", 10),
+                                  ("mediumblob", 11),
+                                  ("enum('a','b')", 2)):
+            self.assertEqual(o19etl.column_bytes(coltype), expected,
+                             coltype)
+
+
 class TestArchivedColumnParity(unittest.TestCase):
     """A row count cannot see a column: a copy that named the prefixed
     column but fed it nothing passes `row_parity` unchanged."""

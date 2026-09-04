@@ -390,6 +390,45 @@ application reads either: no UI, no report, no API. `carlos-ctl
 destroy-data` drops the EMR schema and takes the `import_archived_`
 objects with it.
 
+### What this means for Flyway
+
+The import writes into the schema Flyway owns, so the contract is worth
+stating exactly:
+
+- **Flyway's history is untouched.** No migration is added, removed or
+  re-checksummed, so `flyway validate` — and the application's boot gate
+  (`carlos.flyway.onBoot=validate`), which is that same check — pass
+  after an import exactly as before. Flyway compares its history table
+  against the migration files; it does not diff the schema, so tables and
+  columns the import adds are invisible to it.
+- **Forward migrations keep applying.** `import_archived_` names cannot
+  collide with a CARLOS column or table name, and the columns are added
+  last, nullable and without a default.
+- **One rule this places on future migrations: name your columns.** A
+  column-less `INSERT INTO t VALUES (…)` binds by position, so it fails
+  with `ER_WRONG_VALUE_COUNT_ON_ROW` against a table the import widened —
+  aborting the migration, leaving a failed row in
+  `flyway_schema_history`, and (under the boot gate) stopping the
+  application until someone runs `flyway repair`. Thirteen tables the
+  genesis files seed positionally are in the manifest's curated set alone
+  (`security`, `property`, `secRole`, `Facility`, `ProviderPreference`,
+  the `lst_*` lookups …), and a clinic's own fork can widen any copied
+  table. `MigrationColumnListContractTest` fails the build on a new
+  migration that inserts positionally; the genesis and restore files are
+  grandfathered, because every deployment applies them long before an
+  import can widen anything.
+- **Row width is checked before the first write.** MySQL refuses an
+  `ALTER TABLE … ADD COLUMN` that would push a row past 65,535 declared
+  bytes, and it refuses it mid-import. The manifest's curated columns
+  leave every CARLOS table under half that ceiling (the widest,
+  `formLabReq07`, reaches about 27 KB), but a fork's columns are
+  unbounded, so the ETL measures and refuses up front rather than failing
+  part-way.
+- **A migration that drops and recreates a table** would take its
+  `import_archived_` columns with it. That is why `o19_archive` keeps its
+  own copy of everything preserved: the live columns are the convenient
+  copy, not the only one.
+
 Archive-only data has no UI even where its table looks familiar:
 deprecated antenatal forms (ONAR/AR), generic intake, OCAN, eyeform, drug
 dispensing records, CAISI beds/rooms, PHR copies, Integrator consents,
