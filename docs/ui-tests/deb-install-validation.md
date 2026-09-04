@@ -97,14 +97,17 @@ this VM is.
 The preseed below answers the province question with `on`. To validate the
 `other` alias instead, substitute `carlos-emr/province select other` and assert
 after the install that the env file records the answer while the rendered
-properties still name the Ontario billing region (`postinst` writes env values
-quoted, so match that form):
+properties still name the Ontario billing region. The two files are written by
+different code and do not share a format, so match each as it is actually
+written:
 
 ```bash
+# set_env_key writes env values quoted and unspaced
 lxc exec carlos-test -- grep '^CARLOS_PROVINCE=' /etc/carlos-emr/carlos-emr.env
 # expect CARLOS_PROVINCE="other"
-lxc exec carlos-test -- grep '^billregion=' /etc/carlos-emr/carlos.properties
-# expect billregion=ON
+# prop_set rewrites properties with spaces around the '='
+lxc exec carlos-test -- grep -E '^billregion[[:space:]]*=' /etc/carlos-emr/carlos.properties
+# expect billregion = ON
 ```
 
 `other` applies the Ontario migrations, so every other step in this runbook is
