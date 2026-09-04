@@ -60,3 +60,19 @@ document is not clipped, and that the sibling Schedule Management pages that cal
 `resizeIframe()` load without a browser exception. It scrolls the shell to the bottom
 before pressing each "Next" — the defect is invisible from a shell that was already at
 the top. It writes schedule rows, so run it against a disposable local/dev database.
+
+Point `BASE_URL` at a packaged install to run it through the real front door, which is
+what an operator actually uses:
+
+```
+BASE_URL=https://<host>/carlos TEST_PASSWORD=<password> \
+  node scripts/schedule-setting-playwright-checks.js
+```
+
+The wizard's `avail_hour` parameter carries markup-shaped values
+(`<MON>Standard</MON>…`). That reads like an XSS payload, but it does not score against
+CRS 3.3.8 at paranoia level 1 — libinjection's tag blacklist ignores three-letter tags
+other than XML and SVG, and the generic HTML-tag-handler rules are paranoia level 2. A
+full run against a packaged install with `SecRuleEngine On` logged zero denials, so the
+schedule routes need no WAF exclusion of their own. Re-check that if the paranoia level
+is ever raised.
