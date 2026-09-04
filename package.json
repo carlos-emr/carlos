@@ -16,6 +16,7 @@
     "test:add-login-account-playwright": "node scripts/add-login-account-playwright-checks.js",
     "test:logout-broadcast-playwright": "node scripts/logout-broadcast-playwright-checks.js",
     "test:echart-playwright": "node scripts/echart-playwright-checks.js",
+    "test:echart-new-patient-playwright": "node scripts/echart-new-patient-notes-playwright-checks.js",
     "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
     "test:eform-admin-playwright": "node scripts/eform-admin-playwright-checks.js",
     "test:eform-admin-crud-playwright": "node scripts/eform-admin-crud-playwright-checks.js",
