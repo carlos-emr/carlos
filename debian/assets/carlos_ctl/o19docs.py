@@ -320,7 +320,12 @@ def _same_file(src: str, dst_fd: int, name: str) -> bool:
     if not os.path.isfile(src) or os.path.islink(src):
         return False
     try:
-        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dst_fd)
+        # O_NONBLOCK because a FIFO left at a destination path makes a
+        # plain O_RDONLY open BLOCK until someone opens the write end --
+        # forever, in a root-run import, before the fstat below can
+        # reject it. Verified: the open never returns without this.
+        fd = os.open(name, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW,
+                     dir_fd=dst_fd)
     except OSError:
         # ELOOP (a symlink), ENOENT, or a directory: not an identical file
         return False

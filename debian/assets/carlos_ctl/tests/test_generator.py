@@ -351,6 +351,9 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
         self.assertEqual(self.mod.reject_password_args(
             ["--password=hunter2"]), ["--password"])
         self.assertEqual(self.mod.reject_password_args(["-phunter2"]), ["-p"])
+        # the BARE form is the one that makes the client PROMPT, which in
+        # a scripted oracle run means an indefinite wait on stdin
+        self.assertEqual(self.mod.reject_password_args(["-p"]), ["-p"])
 
     def test_an_innocent_client_argument_is_left_alone(self):
         # --protocol starts with "-p" too; refusing it would block a
@@ -422,6 +425,34 @@ class TestTheEntityNameCheckerReadsTheRightMember(unittest.TestCase):
             '    }\n'
             '    private String status;\n')
         self.assertEqual(got[2], {"name": "name"})
+
+    def test_a_statement_is_not_read_as_a_declaration(self):
+        """FIELD_RE itself, not parse_entity.
+
+        Driving this through an entity proves nothing: the nearest-member
+        rule picks the getter first, so the assertion passes with or
+        without the boundary guard. The regex has to be asked directly --
+        `re.search` is unanchored, so a bare keyword list is satisfied by
+        starting one character in and matching `eturn providerNo;`."""
+        self.assertIsNone(self.mod.FIELD_RE.search("        return "
+                                                   "providerNo;\n"))
+        self.assertIsNone(self.mod.FIELD_RE.search("        throw ex;\n"))
+        # and a real declaration is still found
+        self.assertEqual(
+            self.mod.FIELD_RE.search("    private String lastName;")
+            .group(1), "lastName")
+        self.assertEqual(
+            self.mod.FIELD_RE.search("    Integer formId;").group(1),
+            "formId")
+
+    def test_a_getter_shaped_comment_does_not_win(self):
+        # a Javadoc example between the annotation and the real field
+        # would otherwise be the nearest match
+        got = self.entity(
+            '    @Column(name = "last_name")\n'
+            '    /** e.g. public String getSomethingElse() { } */\n'
+            '    private String lastName;\n')
+        self.assertEqual(got[2], {"lastName": "last_name"})
 
     def test_a_field_annotation_still_binds_to_the_field(self):
         # the ordinary case must not regress: the field sits right after

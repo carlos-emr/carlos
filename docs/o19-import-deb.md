@@ -341,8 +341,9 @@ gate has no override.
    preserved tables counted in every home they have (three for an
    archived, removed-module or unclassified table; two for a reference
    or merge table, which get no `import_archived_` twin — a merge
-   table's rows land in the live CARLOS table itself), preserved
-   columns counted by
+   table's eligible rows land in the live CARLOS table itself, while
+   rows the manifest lists in `merge_exclude` stay archive-only),
+   preserved columns counted by
    non-null value), **what did not arrive and where it went instead**
    (absent tables, reference tables CARLOS's own data won, removed-module
    and unclassified tables, preserved columns), then findings ordered by

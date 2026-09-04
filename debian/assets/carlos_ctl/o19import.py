@@ -318,17 +318,25 @@ def decode_batch_stream(chunks) -> Iterator[List[str]]:
 
     A trailing empty line is dropped, so an empty result set yields
     nothing rather than one empty row -- matching `batch_rows`."""
-    pending = b""
+    # Chunks are HELD, not concatenated as they arrive: an archived
+    # TEXT/BLOB row can span hundreds of reads, and `pending += chunk`
+    # re-copies the whole unterminated row every time -- quadratic in the
+    # row's size, on exactly the rows that are already the largest.
+    held = []
     for chunk in chunks:
-        pending += chunk
-        parts = pending.split(b"\n")
-        pending = parts.pop()
+        if b"\n" not in chunk:
+            held.append(chunk)
+            continue
+        held.append(chunk)
+        parts = b"".join(held).split(b"\n")
+        held = [parts.pop()]
         for line in parts:
             yield [unescape_batch(v) for v in
                    line.decode("utf-8", "replace").split("\t")]
-    if pending:
+    tail = b"".join(held)
+    if tail:
         yield [unescape_batch(v) for v in
-               pending.decode("utf-8", "replace").split("\t")]
+               tail.decode("utf-8", "replace").split("\t")]
 
 
 def make_row_stream(mariadb_args: Optional[List[str]],

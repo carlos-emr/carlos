@@ -329,6 +329,20 @@ class TestMoveIntoPlace(unittest.TestCase):
         with open(dst) as fh:
             self.assertEqual(fh.read(), "phi")
 
+    def test_a_fifo_at_the_destination_does_not_hang_the_resume(self):
+        """A named pipe left in the documents tree must be REPORTED as a
+        collision, not opened and waited on.
+
+        A plain O_RDONLY open of a FIFO blocks until someone opens the
+        write end -- which, in a root-run import nobody is watching, is
+        forever. Measured: without O_NONBLOCK this call never returns."""
+        with open(self.src, "w") as fh:
+            fh.write("phi")
+        os.mkfifo(os.path.join(self.work, "pipe"))
+        fd = self.work_fd()
+        self.assertFalse(o19docs._same_file(self.src, fd, "pipe"),
+                         "a FIFO was treated as an identical file")
+
     def test_an_ordinary_directory_move_still_works(self):
         os.makedirs(self.src)
         with open(os.path.join(self.src, "a.pdf"), "w") as fh:
@@ -806,16 +820,29 @@ class TestArchiveCsvWindowing(unittest.TestCase):
         self.seen = []
 
     def query_for(self, total):
-        """A fake client: information_schema lookups, then ONE statement
-        returning every row."""
+        """The metadata client. It answers information_schema lookups and
+        REFUSES a row read: the rows must come through `stream`, or a
+        change that ignores `row_stream` would keep passing while the
+        export quietly loses its bounded-memory behaviour."""
         def q(sql):
             self.seen.append(sql)
             if sql.startswith("SELECT TABLE_NAME"):
                 return [["t"]]
             if sql.startswith("SELECT COLUMN_NAME"):
                 return [["a"]]
-            return [[str(i), "0"] for i in range(total)]
+            raise AssertionError(
+                "the export read rows through the buffered client "
+                "instead of the stream: " + sql)
         return q
+
+    def stream_for(self, total):
+        """The unbuffered row source, as `o19import.make_row_stream`
+        returns one: a generator, so a test that materialised it would
+        not be testing streaming either."""
+        def s(sql):
+            self.seen.append(sql)
+            return iter([[str(i), "0"] for i in range(total)])
+        return s
 
     def rows_written(self):
         with open(os.path.join(self.work, "t.csv")) as fh:
@@ -824,7 +851,8 @@ class TestArchiveCsvWindowing(unittest.TestCase):
     def test_the_table_is_read_in_one_statement(self):
         # it used to page with LIMIT/OFFSET, which re-sorts the whole
         # table per window because the ORDER BY carries no index
-        o19docs.export_archive_csv(self.query_for(25), "arch", self.work)
+        o19docs.export_archive_csv(self.query_for(25), "arch", self.work,
+                                   stream=self.stream_for(25))
         selects = [s for s in self.seen if s.startswith("SELECT a,")
                    or " FROM `arch`" in s]
         self.assertEqual(len(selects), 1, selects)
@@ -834,13 +862,15 @@ class TestArchiveCsvWindowing(unittest.TestCase):
     def test_every_row_arrives_exactly_once_and_in_order(self):
         # for an archive-only table this file is the only copy the clinic
         # keeps, so a repeated or dropped row is unrecoverable
-        o19docs.export_archive_csv(self.query_for(11), "arch", self.work)
+        o19docs.export_archive_csv(self.query_for(11), "arch", self.work,
+                                   stream=self.stream_for(11))
         self.assertEqual([r.strip('"') for r in self.rows_written()],
                          [str(i) for i in range(11)])
 
     def test_an_empty_table_writes_only_its_header(self):
         lines = o19docs.export_archive_csv(self.query_for(0), "arch",
-                                           self.work)
+                                           self.work,
+                                           stream=self.stream_for(0))
         self.assertEqual(self.rows_written(), [])
         self.assertIn("t.csv: 0 row(s)", lines)
 
@@ -882,6 +912,17 @@ class TestBatchStreamDecoding(unittest.TestCase):
         # a CRLF eForm carries "\r" as a stored value; text-mode line
         # iteration would split the row in half there
         self.assertEqual(self.rows(b"a\rb\tx\n"), [["a\rb", "x"]])
+
+    def test_a_row_spanning_many_chunks_is_not_recopied_per_chunk(self):
+        # an archived TEXT/BLOB row can span hundreds of reads; holding
+        # the chunks and joining once keeps that linear, where
+        # `pending += chunk` re-copied the whole row every time
+        big = b"x" * 4096
+        chunks = [big] * 200 + [b"\ty\n"]
+        rows = self.rows(*chunks)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], "x" * (4096 * 200))
+        self.assertEqual(rows[0][1], "y")
 
     def test_an_empty_result_yields_no_rows(self):
         self.assertEqual(self.rows(b""), [])

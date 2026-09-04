@@ -50,6 +50,11 @@ NAME_RE = re.compile(r'name\s*=\s*"([^"]+)"')
 #: @Column(name = "provider_no") came out as `p2_fallsOkConcerns`).
 FIELD_RE = re.compile(
     r'(?:(?:private|protected|public|static|final|transient|volatile)\s+)*'
+    # The lookbehind is what makes the keyword list WORK: `search` may
+    # begin anywhere, so without it the scan simply starts one character
+    # in and matches `eturn providerNo;` -- the guard reads as if it
+    # excludes statements while excluding nothing.
+    r'(?<![A-Za-z_\$])'
     r'(?!(?:return|throw|new|case|else|do|try|assert|break|continue|yield)'
     r'\b)'
     r'(?:[A-Za-z_$][\w<>,\[\]\.]*(?:\s*<[^;=]*>)?)\s+(\w+)\s*[;=]')
@@ -67,6 +72,16 @@ GETTER_RE = re.compile(
 QUOTES = '`"[]'
 
 
+#: Comment bodies, blanked (not deleted) so offsets inside the window
+#: still line up with the source they came from.
+COMMENT_RE = re.compile(r'(?s)/\*.*?\*/|//[^\n]*')
+
+
+def _uncommented(text):
+    """`text` with comment bodies replaced by spaces of the same length."""
+    return COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
+
+
 def parse_entity(path):
     """(class, table, {java field: db column}) for one .java file, or None
     when it declares no mapped columns."""
@@ -79,7 +94,11 @@ def parse_entity(path):
     for match in COLUMN_RE.finditer(src):
         # the field declaration follows the annotation; 400 chars is well
         # past any javadoc or further annotations between them
-        window = src[match.end():match.end() + 400]
+        # comments first: getter-shaped Javadoc or an example between
+        # the annotation and the real member would otherwise be the
+        # NEAREST match and win the ordering below. None occurs in this
+        # tree today; the tool's whole job is to not misreport quietly.
+        window = _uncommented(src[match.end():match.end() + 400])
         field = FIELD_RE.search(window)
         getter = GETTER_RE.search(window)
         # WHICHEVER COMES FIRST is the member this annotation is on. The

@@ -125,8 +125,62 @@ class MigrationColumnListContractUnitTest {
         // MySQL also treats `#` as a line comment; leaving it in
         // only ever produces a false offender, but a false
         // offender that fails the build is still a bug report
-        // somebody has to chase
-        return HASH_COMMENT.matcher(out).replaceAll(" ");
+        // somebody has to chase.
+        //
+        // Quote-aware, unlike the two above: a `#` INSIDE a string
+        // literal is data, and blanking from there to end-of-line would
+        // swallow a positional INSERT later on the same line — the check
+        // would then pass by not looking. `--` and `/*` cannot do this
+        // here because the migrations that carry them never place a
+        // statement after one on the same line, but `#` appears inside
+        // quoted values.
+        return stripHashComments(out);
+    }
+
+    /**
+     * {@code out} with {@code #} line comments removed, ignoring a
+     * {@code #} inside a single- or double-quoted SQL string.
+     */
+    private static String stripHashComments(String out) {
+        StringBuilder sb = new StringBuilder(out.length());
+        char quote = 0;
+        boolean inComment = false;
+        for (int i = 0; i < out.length(); i++) {
+            char c = out.charAt(i);
+            if (inComment) {
+                if (c == '\n') {
+                    inComment = false;
+                    sb.append(c);
+                } else {
+                    sb.append(' ');
+                }
+                continue;
+            }
+            if (quote != 0) {
+                // a doubled quote ('' or "") is an escaped quote, not the end
+                if (c == '\\' && i + 1 < out.length()) {
+                    sb.append(c).append(out.charAt(++i));
+                    continue;
+                }
+                if (c == quote) {
+                    quote = 0;
+                }
+                sb.append(c);
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                quote = c;
+                sb.append(c);
+                continue;
+            }
+            if (c == '#') {
+                inComment = true;
+                sb.append(' ');
+                continue;
+            }
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
     @Test
@@ -152,6 +206,23 @@ class MigrationColumnListContractUnitTest {
                         + "because import-o19 preserves unmapped OSCAR 19 columns as "
                         + "import_archived_<column> on the live table. Name the columns.")
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("A # inside a string does not hide a later positional INSERT")
+    void shouldStillSeeThePositionalInsert_whenAHashSitsInsideAString()
+            throws Exception {
+        // blanking from the `#` to end-of-line would swallow the INSERT
+        // that follows it, and the contract would pass by not looking
+        String sql = "INSERT INTO a (x) VALUES ('#'); INSERT INTO b VALUES (1);";
+        java.lang.reflect.Method m = MigrationColumnListContractUnitTest.class
+                .getDeclaredMethod("withoutComments", String.class);
+        m.setAccessible(true);
+        String stripped = (String) m.invoke(null, sql);
+        assertThat(POSITIONAL_INSERT.matcher(stripped).find())
+                .describedAs("the positional INSERT after a quoted '#' "
+                        + "was hidden by comment stripping: " + stripped)
+                .isTrue();
     }
 
     @Test
