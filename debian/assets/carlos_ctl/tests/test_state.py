@@ -7,11 +7,14 @@ Run (from debian/assets):
 """
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 from carlos_ctl import (o19etl, o19import, o19map_schema,
                         o19report)
@@ -1111,6 +1114,228 @@ class TestTheImportReport(unittest.TestCase):
             text = fh.read()
         self.assertIn("== P4 etl ==", text)
         self.assertIn("== P7 verify ==", text)
+
+
+class TestArgumentRefusals(unittest.TestCase):
+    """The refusals an operator meets first, before anything is staged.
+
+    A refusal nobody has driven is a claim, not a control -- and these
+    are the ones that decide whether an import runs at all.
+    """
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19args-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+        self.dump = os.path.join(self.state_dir, "o19.sql")
+        self.props = os.path.join(self.state_dir, "oscar.properties")
+        for path in (self.dump, self.props):
+            with open(path, "w") as fh:
+                fh.write("x\n")
+
+    def args(self, **over):
+        ns = argparse.Namespace(
+            bundle=None, bundle_pass=None, bundle_cipher=None,
+            bundle_openssl_opt=None, bundle_sha256=None, dump=None,
+            properties=None, documents=None, skip_documents=False,
+            accept=[])
+        for k, v in over.items():
+            setattr(ns, k, v)
+        return ns
+
+    def resolve(self, **over):
+        return o19import._resolve_inputs(self.args(**over), self.state_dir)
+
+    def refusal(self, **over):
+        """The message `die` printed, not the exit code it raised."""
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                self.resolve(**over)
+        return err.getvalue()
+
+    def test_a_bundle_and_loose_files_are_mutually_exclusive(self):
+        self.assertIn("mutually exclusive",
+                      self.refusal(bundle="b.enc", dump=self.dump))
+
+    def test_bundle_options_without_a_bundle_are_refused(self):
+        self.assertIn("need --bundle", self.refusal(bundle_sha256="abc"))
+
+    def test_neither_a_bundle_nor_the_loose_files_is_refused(self):
+        self.assertIn("either --bundle, or all of --dump and "
+                      "--properties", self.refusal(dump=self.dump))
+
+    def test_a_missing_documents_tar_is_named(self):
+        self.assertIn("--documents missing",
+                      self.refusal(dump=self.dump, properties=self.props,
+                                   skip_documents=False))
+
+    def test_a_path_that_is_not_there_is_named(self):
+        self.assertIn("no such file: /nope/docs.tar.gz",
+                      self.refusal(dump=self.dump, properties=self.props,
+                                   documents="/nope/docs.tar.gz",
+                                   skip_documents=True))
+
+    def test_the_loose_files_resolve_when_they_are_all_there(self):
+        inputs = self.resolve(dump=self.dump, properties=self.props,
+                              skip_documents=True)
+        self.assertEqual(inputs["dump"], self.dump)
+        self.assertIsNone(inputs["bundle_sha256"])
+
+
+class TestDocumentsRefusal(unittest.TestCase):
+    """The documents tree is not optional by default: a chart whose
+    scanned letters are missing looks complete in the UI."""
+
+    def test_skipping_without_the_sign_off_is_refused(self):
+        msg = o19import.documents_refusal(True, set(), None, True, False)
+        self.assertIn("requires --accept no-documents", msg)
+
+    def test_the_sign_off_permits_the_skip(self):
+        self.assertIsNone(o19import.documents_refusal(
+            True, {"no-documents"}, None, True, False))
+
+    def test_no_tar_and_no_sign_off_is_refused(self):
+        msg = o19import.documents_refusal(False, set(), None, True, False)
+        self.assertIn("no documents tar in the inputs", msg)
+
+    def test_a_recorded_sign_off_survives_a_resume(self):
+        # `accepted` is the MERGED set (this run's --accept plus the
+        # ledger's), so a resume without the flag is not refused
+        self.assertIsNone(o19import.documents_refusal(
+            False, {"no-documents"}, None, True, False))
+
+    def test_cleanup_needs_no_documents_at_all(self):
+        self.assertIsNone(o19import.documents_refusal(
+            False, set(), None, True, True))
+
+    def test_an_assessment_needs_no_documents_at_all(self):
+        self.assertIsNone(o19import.documents_refusal(
+            False, set(), None, False, False))
+
+
+class TestManifestChangeRefusal(unittest.TestCase):
+    """A carlos-emr upgrade between two runs of one import changes how
+    tables are classified: the second half would be copied under
+    different rules than the first."""
+
+    def state(self, recorded, **phases):
+        return {"inputs": {"schema_map_version": recorded},
+                "phases": {k: {"status": "done"} for k in phases}}
+
+    def test_an_unchanged_manifest_is_no_refusal(self):
+        self.assertIsNone(o19import.manifest_change_refusal(
+            self.state("o19map-2", etl=True), "o19map-2"))
+
+    def test_a_workspace_with_nothing_done_may_proceed(self):
+        # the copy has not started under the old manifest, so there is
+        # no half-classified import to protect
+        self.assertIsNone(o19import.manifest_change_refusal(
+            self.state("o19map-1", stage=True), "o19map-2"))
+
+    def test_a_half_finished_import_names_the_lossless_path(self):
+        msg = o19import.manifest_change_refusal(
+            self.state("o19map-1", etl=True), "o19map-2")
+        self.assertIn("A finished ETL cannot be continued", msg)
+        self.assertIn("reinstall the carlos-emr package version", msg)
+
+    def test_a_finished_import_is_told_to_clean_up_instead(self):
+        msg = o19import.manifest_change_refusal(
+            self.state("o19map-1", etl=True, verify=True), "o19map-2")
+        self.assertIn("nothing is left to resume", msg)
+        self.assertIn("--cleanup", msg)
+
+    def test_a_workspace_with_no_recorded_manifest_is_not_refused(self):
+        self.assertIsNone(o19import.manifest_change_refusal(
+            {"phases": {"etl": {"status": "done"}}}, "o19map-2"))
+
+
+class TestTheBackupPhase(unittest.TestCase):
+    """P3 takes the snapshot every rollback instruction in this tool
+    points at. It is the one phase whose failure an operator may sign
+    off, which is exactly why the sign-off has to be exact.
+
+    It had no test at all: the phase that decides whether a rollback
+    point exists was taken on trust.
+    """
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19backup-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+        self.units = []
+
+    def ctx(self, **over):
+        ctx = {"state_dir": self.state_dir, "state": {"phases": {}},
+               "accepted": set(), "dev_target": False}
+        ctx.update(over)
+        return ctx
+
+    def run_p3(self, ctx, configured=True, unit_rc=0):
+        real_exists = os.path.exists
+
+        def exists(path):
+            if path == o19import.BACKUP_ENV:
+                return configured
+            return real_exists(path)
+
+        def run(argv, **kw):
+            self.units.append(argv)
+            return argparse.Namespace(returncode=unit_rc, stdout="",
+                                      stderr="")
+        err = io.StringIO()
+        with mock.patch.object(o19import.os.path, "exists", exists), \
+                mock.patch.object(o19import, "run", run), \
+                contextlib.redirect_stderr(err):
+            try:
+                o19import.run_p3(ctx)
+            except SystemExit:
+                return err.getvalue()
+        return None
+
+    def test_no_backup_configuration_and_no_sign_off_is_refused(self):
+        msg = self.run_p3(self.ctx(), configured=False)
+        self.assertIn("backups are not configured", msg)
+        self.assertIn("--accept no-pre-backup", msg)
+        self.assertEqual(self.units, [])
+
+    def test_the_sign_off_records_the_phase_as_skipped(self):
+        ctx = self.ctx(accepted={"no-pre-backup"})
+        self.assertIsNone(self.run_p3(ctx, configured=False))
+        self.assertTrue(o19import.phase_done(ctx["state"], "backup"))
+        self.assertEqual(
+            ctx["state"]["phases"]["backup"]["skipped"], "no-pre-backup")
+        with open(os.path.join(self.state_dir, "report.txt")) as fh:
+            self.assertIn("SKIPPED (no backup configuration", fh.read())
+
+    def test_a_dev_target_needs_no_sign_off(self):
+        ctx = self.ctx(dev_target=True)
+        self.assertIsNone(self.run_p3(ctx, configured=False))
+        self.assertTrue(o19import.phase_done(ctx["state"], "backup"))
+
+    def test_a_failed_backup_unit_stops_the_import(self):
+        msg = self.run_p3(self.ctx(), unit_rc=1)
+        self.assertIn("Not proceeding without a rollback point", msg)
+        self.assertEqual(self.units,
+                         [["systemctl", "start", "carlos-emr-backup."
+                           "service"]])
+
+    def test_a_failed_unit_may_be_signed_off_and_says_so(self):
+        ctx = self.ctx(accepted={"no-pre-backup"})
+        self.assertIsNone(self.run_p3(ctx, unit_rc=1))
+        self.assertTrue(ctx["state"]["phases"]["backup"]["unit_failed"])
+        with open(os.path.join(self.state_dir, "report.txt")) as fh:
+            self.assertIn("FAILED and acknowledged", fh.read())
+
+    def test_a_taken_snapshot_records_the_rollback_point(self):
+        ctx = self.ctx()
+        self.assertIsNone(self.run_p3(ctx))
+        self.assertTrue(o19import.phase_done(ctx["state"], "backup"))
+        with open(os.path.join(self.state_dir, "report.txt")) as fh:
+            self.assertIn("pre-import restic snapshot taken", fh.read())
+
+    def test_a_completed_phase_is_not_taken_twice(self):
+        ctx = self.ctx(state={"phases": {"backup": {"status": "done"}}})
+        self.assertIsNone(self.run_p3(ctx))
+        self.assertEqual(self.units, [])
 
 
 class TestProcessGrantState(unittest.TestCase):

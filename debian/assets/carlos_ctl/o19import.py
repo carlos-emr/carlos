@@ -2108,6 +2108,55 @@ def _province(args) -> str:
     return chosen or configured
 
 
+def manifest_change_refusal(state: Dict,
+                            current_map: str) -> Optional[str]:
+    """Why this workspace may not continue under the installed manifest,
+    or None.
+
+    A carlos-emr upgrade between two runs of the same import changes how
+    tables are classified, so a resume would copy the rest of the clinic
+    under different rules than the first half. The ETL ledger refuses
+    that on its own; this covers the resume whose ETL is already marked
+    done and would skip P4 entirely -- and separates the finished import,
+    where there is nothing left to continue and the answer is --cleanup,
+    from the half-finished one, where it is a package downgrade."""
+    recorded = state.get("inputs", {}).get("schema_map_version")
+    if not recorded or recorded == current_map:
+        return None
+    if not any(phase_done(state, ph)
+               for ph in ("etl", "documents", "props", "verify")):
+        return None
+    if phase_done(state, "verify"):
+        return ("this import completed under manifest {0} (the installed "
+                "carlos-ctl carries {1}): nothing is left to resume — run "
+                "--cleanup to retire it".format(recorded, current_map))
+    return ("this import ran with manifest {0}; the installed carlos-ctl "
+            "carries {1}. A finished ETL cannot be continued under a "
+            "different manifest. Lossless path: reinstall the carlos-emr "
+            "package version that shipped manifest {0}, --resume, "
+            "--cleanup, then upgrade; otherwise restore the pre-import "
+            "snapshot and start over.".format(recorded, current_map))
+
+
+def documents_refusal(skip_documents: bool, accepted, documents,
+                      import_mode: bool, cleanup: bool) -> Optional[str]:
+    """Why the run may not proceed without a documents tree, or None.
+
+    The documents tar is not optional by default: a chart whose scanned
+    letters are missing looks complete in the UI, which is worse than a
+    refusal. Skipping it is a recorded sign-off, and the sign-off has to
+    be present in the MERGED set so it survives --resume."""
+    if skip_documents and "no-documents" not in accepted:
+        return ("--skip-documents requires --accept no-documents (the "
+                "missing documents are a recorded sign-off, not a "
+                "default)")
+    if (documents is None and import_mode and not skip_documents
+            and not cleanup and "no-documents" not in accepted):
+        return ("no documents tar in the inputs — pass --documents, or "
+                "--skip-documents with --accept no-documents")
+    return None
+
+
 def _resolve_inputs(args, state_dir: str, accepted=None,
                     recorded_digest: Optional[str] = None,
                     workdir_name: str = "bundle") -> Dict:
@@ -2363,40 +2412,23 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
                 "CARLOS would reject it too. Obtain a readable "
                 "oscar.properties from the clinic; nothing has been "
                 "staged or written.".format(inputs["properties"], exc))
-    if getattr(args, "skip_documents", False) \
-            and "no-documents" not in accepted:
-        die("--skip-documents requires --accept no-documents (the missing "
-            "documents are a recorded sign-off, not a default)")
-    if inputs["documents"] is None and import_mode \
-            and not getattr(args, "skip_documents", False) \
-            and not getattr(args, "cleanup", False):
-        # the merged set: a recorded no-documents sign-off survives --resume
-        if "no-documents" not in accepted:
-            die("no documents tar in the inputs — pass --documents, or "
-                "--skip-documents with --accept no-documents")
+    # the merged set on purpose: a recorded no-documents sign-off
+    # survives --resume
+    refusal = documents_refusal(
+        bool(getattr(args, "skip_documents", False)), accepted,
+        inputs["documents"], import_mode,
+        bool(getattr(args, "cleanup", False)))
+    if refusal:
+        die(refusal)
 
     if not getattr(args, "dry_run", False) and import_mode:
         # sign-offs persist only from a real run: a dry run's --accept is
         # an experiment, not a recorded acknowledgement
         state["accepted"] = accepted
-    recorded_map = state.get("inputs", {}).get("schema_map_version")
-    if (recorded_map and recorded_map != o19map_schema.SCHEMA_MAP_VERSION
-            and any(phase_done(state, ph) for ph in ("etl", "documents",
-                                                     "props", "verify"))):
-        # the ETL ledger refuses a manifest change on its own; this covers
-        # a resume whose ETL is already marked done and would skip P4
-        if phase_done(state, "verify"):
-            die("this import completed under manifest {0} (the installed "
-                "carlos-ctl carries {1}): nothing is left to resume — run "
-                "--cleanup to retire it".format(
-                    recorded_map, o19map_schema.SCHEMA_MAP_VERSION))
-        die("this import ran with manifest {0}; the installed carlos-ctl "
-            "carries {1}. A finished ETL cannot be continued under a "
-            "different manifest. Lossless path: reinstall the carlos-emr "
-            "package version that shipped manifest {0}, --resume, "
-            "--cleanup, then upgrade; otherwise restore the pre-import "
-            "snapshot and start over.".format(
-                recorded_map, o19map_schema.SCHEMA_MAP_VERSION))
+    refusal = manifest_change_refusal(state,
+                                      o19map_schema.SCHEMA_MAP_VERSION)
+    if refusal:
+        die(refusal)
     if real_run:
         # recorded by real runs only (an assessment must not re-point the
         # bundle sign-off or the manifest version); the manifest version
