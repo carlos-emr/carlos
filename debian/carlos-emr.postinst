@@ -468,7 +468,21 @@ sys.exit(0 if isinstance(v, dict) and v.get("status") == "done" else 1)
                     # one command. So say the command, with the address
                     # they already gave debconf — the answer was otherwise
                     # collected and silently discarded.
-                    if [ -n "${ACME_EMAIL}" ]; then
+                    #
+                    # Re-tested rather than assumed: cert_failed only WARNS
+                    # (it must not abort the configure), so reaching this
+                    # point does not mean a pair exists. Announcing "a
+                    # placeholder is in place" straight after "generation
+                    # FAILED" would contradict the line above it — and the
+                    # acme advice is worse than useless without one, since
+                    # certbot's HTTP-01 challenge is served by an nginx
+                    # that will not start until the pair exists.
+                    if [ ! -s "${CONF_DIR}/tls/fullchain.pem" ]; then
+                        echo "carlos-emr: TLS mode is 'acme' but no certificate could be placed;" >&2
+                        echo "carlos-emr: fix that first ('carlos-ctl cert selfsigned'), because" >&2
+                        echo "carlos-emr: certbot's challenge is served by nginx, which will not" >&2
+                        echo "carlos-emr: start without one. Then run 'carlos-ctl cert acme'." >&2
+                    elif [ -n "${ACME_EMAIL}" ]; then
                         echo "carlos-emr: TLS mode is 'acme' and a self-signed placeholder is in place." >&2
                         echo "carlos-emr: Once ${SERVER_NAME} resolves publicly and port 80 is reachable, run:" >&2
                         echo "carlos-emr:   sudo carlos-ctl cert acme ${ACME_EMAIL}" >&2

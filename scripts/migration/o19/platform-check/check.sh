@@ -32,9 +32,13 @@ hdr "maintainer scripts parse under the shells dpkg uses"
 for f in debian/carlos-emr.postinst debian/carlos-emr.postrm; do
   [ -f "$f" ] || { bad "$f missing"; continue; }
   if head -1 "$f" | grep -q 'bin/sh'; then SH=dash; else SH=bash; fi
+  # dpkg runs #!/bin/sh scripts under dash; check the declared shell, and
+  # dash as well when they differ (running dash twice just inflated the
+  # count by two)
   if $SH -n "$f" 2>/tmp/e; then ok "$SH -n $f"; else bad "$SH -n $f: $(cat /tmp/e)"; fi
-  # dpkg runs #!/bin/sh scripts under dash; check both regardless
-  if dash -n "$f" 2>/tmp/e; then ok "dash -n $f"; else bad "dash -n $f: $(cat /tmp/e)"; fi
+  if [ "$SH" != dash ]; then
+    if dash -n "$f" 2>/tmp/e; then ok "dash -n $f"; else bad "dash -n $f: $(cat /tmp/e)"; fi
+  fi
 done
 
 hdr "postinst OSCAR-19-in-progress gate: full ledger matrix"
@@ -62,10 +66,31 @@ check '{"phases":[]}'                              1 "phases not a dict -> GATE"
 check '[1,2]'                                      1 "top-level array -> GATE, no traceback"
 check 'not json at all'                            1 "corrupt JSON -> GATE (fail closed)"
 check ''                                           1 "empty file -> GATE (fail closed)"
-# and the real shell condition, including the -s test
+# The WHOLE shell condition, lifted from the postinst and re-pointed at a
+# scratch ledger -- not a hand-written model of it. A model passed happily
+# against a postinst whose gate tested the wrong path (`-f .../o19-WRONG/`),
+# which can never fire: dpkg would clobber an in-progress import, and this
+# harness would still have said 30/30.
+COND=$(sed -n '/^        if \[ -s \/var\/lib\/carlos-emr\/o19-import\/state.json \]/,/^        then$/p' \
+        debian/carlos-emr.postinst | sed '$d')
+LEDGER=/var/lib/carlos-emr/o19-import/state.json
+if [ -z "$COND" ]; then
+  bad "could not lift the gate condition from the postinst (shape changed?)"
+elif [ "$(printf '%s\n' "$COND" | grep -c -- "$LEDGER")" != 2 ]; then
+  # once in the [ -s ] test, once as python3's argv: if either moves, the
+  # substitution below would quietly test something else
+  bad "the postinst gate no longer references $LEDGER exactly twice"
+else
+  ok "gate condition lifted from the postinst (both ledger references)"
+fi
+# substitute the scratch path in, so the REAL condition runs unmodified
+# except for where it looks
+COND_T=$(printf '%s\n' "$COND" | sed "s|$LEDGER|$T/state.json|g")
 gate() { # file-content, expected "GATE"/"nogate"
   printf '%s' "$1" > "$T/state.json"
-  if [ -s "$T/state.json" ] && ! python3 -c "$PRED" "$T/state.json"; then echo GATE; else echo nogate; fi
+  # the lifted condition is `[ -s L ] && ! python3 ...`, so it succeeds
+  # exactly when the postinst would enter its gate branch
+  if eval "${COND_T#*if }"; then echo GATE; else echo nogate; fi
 }
 shell_gate() { # file-content, expected, pass-message, fail-message
   got=$(gate "$1")
@@ -83,15 +108,37 @@ shell_gate '{"phases":{"stage":{"status":"done"}}}' nogate \
   "assessment leftover gates the upgrade"
 rm -rf "$T"
 
-hdr "postrm shred fallback flag logic"
-O19_SHREDDED=1
-false || { O19_SHREDDED=0; true; }
-verdict "$([ "$O19_SHREDDED" = 0 ]; echo $?)" \
-  "fallback sets the flag" "fallback did not set the flag"
-O19_SHREDDED=1
-true || { O19_SHREDDED=0; true; }
-verdict "$([ "$O19_SHREDDED" = 1 ]; echo $?)" \
-  "successful shred leaves the flag set" "flag wrongly cleared"
+hdr "postrm credential-shred block (lifted from the postrm)"
+# The REAL block, not a model of it. Modelling `A || { X=0; }` proved
+# nothing: that sets X on every POSIX shell ever written, so the check
+# could not fail and said so twice. Lifting it exercises the actual
+# `shred || { fallback } || flag` chain, including the part with real
+# subtlety -- `find -exec shred {} +` exits 0 when nothing matches.
+SHRED_BLOCK=$(sed -n '/^        O19_SHREDDED=1$/,/^        fi$/p' \
+        debian/carlos-emr.postrm)
+if [ -z "$SHRED_BLOCK" ]; then
+  bad "could not lift the shred block from the postrm (shape changed?)"
+else
+  ok "shred block lifted from the postrm"
+  run_shred() { # stub-dir-on-PATH, expected "SHREDDED"/"FELLBACK"/"FAILED"
+    d=$(mktemp -d); mkdir -p "$d/state/o19-import"
+    printf 'secret\n' > "$d/state/o19-import/admin-credentials.txt"
+    got=$(PATH="$1:$PATH" STATE="$d/state" sh -c "
+      set -e
+      $SHRED_BLOCK
+      if [ \"\$O19_DELETE_FAILED\" = 1 ]; then echo FAILED
+      elif [ \"\$O19_SHREDDED\" = 0 ]; then echo FELLBACK
+      else echo SHREDDED; fi" 2>/dev/null)
+    rm -rf "$d"
+    [ "$got" = "$2" ]
+    verdict $? "shred path: $2" "shred path: expected $2, got ${got:-<none>}"
+  }
+  stubdir=$(mktemp -d)
+  run_shred /nonexistent-stub-dir SHREDDED
+  printf '#!/bin/sh\nexit 1\n' > "$stubdir/shred"; chmod +x "$stubdir/shred"
+  run_shred "$stubdir" FELLBACK
+  rm -rf "$stubdir"
+fi
 verdict "$(command -v shred >/dev/null; echo $?)" \
   "shred present (coreutils)" "shred absent - fallback would always fire"
 

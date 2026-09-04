@@ -1041,20 +1041,29 @@ class TestAbsentTableDisposition(unittest.TestCase):
         def indent(i):
             return len(lines[i]) - len(lines[i].lstrip())
 
-        # the guard's block is the run of more-indented lines after it;
-        # the append must fall OUTSIDE it, or a resumed run (which skips
-        # the delete) would skip the report line with it
-        g, a = line_no(guard), line_no(append)
-        body_end = g + 1
-        while body_end < len(lines) and (
-                not lines[body_end].strip()
-                or indent(body_end) > indent(g)):
-            body_end += 1
-        self.assertFalse(
-            g < a < body_end,
-            "absent_tables.append sits inside the absent_cleared guard "
-            "(lines {0}..{1}): a resumed run would not report the "
-            "clear".format(g, body_end))
+        # Pinning one textual shape was not enough: re-gating the report
+        # line on the ledger under a DIFFERENT name reproduced the exact
+        # regression and still passed. The invariant is broader — the
+        # report line must not be conditioned on ledger state at all,
+        # because `absent_tables` is rebuilt from scratch every run while
+        # the ledger remembers, so any such condition drops the line on
+        # --resume. So walk every block enclosing the append and assert
+        # none of them reads `progress`.
+        a = line_no(append)
+        enclosing = []
+        depth = indent(a)
+        for i in range(a - 1, line_no(start) - 1, -1):
+            if not lines[i].strip():
+                continue
+            if indent(i) < depth:
+                enclosing.append(lines[i])
+                depth = indent(i)
+        ledger_gated = [ln.strip() for ln in enclosing if "progress" in ln]
+        self.assertEqual(
+            ledger_gated, [],
+            "absent_tables.append is inside a block that reads the "
+            "ledger: a resumed run would not report the clear. "
+            "Offending condition(s): {0}".format(ledger_gated))
         # and the note itself must come from the helper, not be recomputed
         # in the branch where it could be made conditional again
         branch = src[start:src.index("continue", append)]

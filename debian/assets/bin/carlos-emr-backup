@@ -71,7 +71,14 @@ KEEP="${CARLOS_BACKUP_KEEP:---keep-daily 7 --keep-weekly 5 --keep-monthly 12}"
 # set to anything containing *, ? or [, a retention value would be silently
 # replaced by whatever the working directory happened to contain.
 KEEP_ARGS=()
-read -r -a KEEP_ARGS <<< "${KEEP}"
+# -d '' so the WHOLE value is consumed: backup.env is shell-sourced, so a
+# long policy may legally be written across several lines, and a plain
+# `read -r -a` stops at the first newline. That silently shortened
+# "--keep-daily 7 \n --keep-weekly 5 --keep-monthly 12" to just the daily
+# rule, and the next nightly run would have pruned every weekly and
+# monthly snapshot the operator asked to keep. `read` returns 1 at EOF
+# when it finds no NUL, which is the normal case here.
+read -r -d '' -a KEEP_ARGS < <(printf '%s' "${KEEP}") || true
 # How long shipped binary logs stay restorable. This bounds the
 # point-in-time window: a dump OLDER than this can still be restored, but
 # only to its own instant (no roll-forward). KEEP above does not govern it.
@@ -353,7 +360,7 @@ ship_binlogs() {
     # unquoted it would also glob, and a log name containing [ ? or *
     # would be silently rewritten into whatever the working directory
     # happens to contain.
-    if [ -n "${previous}" ] && ! printf '%s\n' "${logs}" | grep -qx "${previous}"; then
+    if [ -n "${previous}" ] && ! printf '%s\n' "${logs}" | grep -Fqx "${previous}"; then
         alert "binlog chain restarted — reshipping from the earliest available log" \
               "the marker (${previous}) names a log the server no longer lists; the binlog base name changed or the counter was reset. Shipping restarts from the earliest server-known log. Verify which full dump anchors your recovery chain before relying on point-in-time restore across the reset."
         previous=""
@@ -361,7 +368,14 @@ ship_binlogs() {
     last="$(printf '%s\n' "${logs}" | tail -1)"
 
     local name any=0 stream_failed=""
-    for name in ${logs}; do
+    # read, not `for name in ${logs}`: that expansion globs, so a log name
+    # containing [ ? or * became whatever the working directory held. It
+    # also disagreed with "${last}" above once that was quoted, and the
+    # comparison below is what stops the CURRENTLY-OPEN binlog — a
+    # half-written event — from being shipped. A here-string keeps the
+    # loop in this shell, so `any` and `stream_failed` still carry out.
+    while IFS= read -r name; do
+        [ -n "${name}" ] || continue
         [ "${name}" = "${last}" ] && continue
         # Compare on the numeric suffix, not the whole string: binlog names are
         # <base>.NNNNNN and only the counter moves. `sort` on the full name
@@ -419,7 +433,7 @@ ship_binlogs() {
             stream_failed="${name}"
             break
         fi
-    done
+    done <<< "${logs}"
 
     if [ "${any}" = 1 ]; then
         # Checked explicitly: this function is called as `ship_binlogs || …`,

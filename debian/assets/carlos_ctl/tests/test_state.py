@@ -891,6 +891,16 @@ class TestProcessGrantState(unittest.TestCase):
              ["GRANT SELECT ON `hl7_processing`.* TO `o19np`@`localhost`"]]),
             "absent")
 
+    def test_a_username_containing_process_on_a_global_grant(self):
+        # the case the scope check does NOT defend: this IS `ON *.*`, so
+        # only reading the privilege list keeps it honest. Every account
+        # has a `GRANT USAGE ON *.*` line, so any account whose NAME
+        # contains "process" would otherwise read as holding it.
+        self.assertEqual(o19import.process_grant_state(
+            [["GRANT USAGE ON *.* TO `hl7_process`@`localhost`"],
+             ["GRANT SELECT ON `oscar`.* TO `hl7_process`@`localhost`"]]),
+            "absent")
+
     def test_a_table_named_processlist_is_not_the_privilege(self):
         self.assertEqual(o19import.process_grant_state(
             [["GRANT SELECT ON `db`.`processlist_cache` TO `u`@`h`"]]),
