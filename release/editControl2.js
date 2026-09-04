@@ -393,6 +393,46 @@ function Select(selectname){
   	}
 }
 
+/**
+ * Turns designMode on in the editor iframe's CURRENT document. Every template load (blank.rtl or a
+ * clinic .rtl) navigates the iframe, and the parent's iframe.onload handler runs BEFORE the template's
+ * own <body onload="document.designMode='on'"> has executed, so parseTemplate() reached
+ * seteditControlContents() with designMode still off. That function refuses to write into a
+ * non-designMode iframe (it is the guard that stops saved letters vanishing), logged a console error
+ * on every new letter, and dropped the parsed template — harmless for the empty blank.rtl, but a
+ * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
+ * parse, is order-independent: the template's own onload then finds it already on.
+ */
+function enableEditorDesignMode() {
+	var frame = document.getElementById(cfg_editorname);
+	var frameDoc;
+	try { frameDoc = frame && frame.contentWindow ? frame.contentWindow.document : null; }
+	catch (e) { frameDoc = null; } // cross-origin frame: nothing to do (and nothing we could edit)
+	if (frameDoc && frameDoc.designMode !== 'on') { frameDoc.designMode = 'on'; }
+}
+
+/**
+ * Marks the letter dirty on edits so remotePrint() ("Save and then print") and confirmExit() know
+ * there is something to save. Registered on the iframe's CURRENT window and re-registered after
+ * every template load: loading blank.rtl (or a clinic .rtl) navigates the iframe, which replaces
+ * its Window object and silently drops every listener registered on the old one. Registering once
+ * from Start() therefore only ever covered the pre-template about:blank document, so on every NEW
+ * letter typing never set needToConfirm — the toolbar's Print printed the letter without saving it,
+ * and closing the window never warned about the unsaved text.
+ *
+ * `keypress` alone misses Backspace/Delete, paste, and the toolbar's execCommand formatting, all of
+ * which change what would be saved; `input` fires for those too. setDirtyFlag() is idempotent, so
+ * double-firing on ordinary typing is harmless.
+ */
+function attachDirtyFlagListener() {
+	if (typeof setDirtyFlag !== 'function') { return; }
+	var frame = document.getElementById(cfg_editorname);
+	var frameWindow = frame ? frame.contentWindow : null;
+	if (!frameWindow || typeof frameWindow.addEventListener !== 'function') { return; }
+	frameWindow.addEventListener('keypress', setDirtyFlag, true);
+	frameWindow.addEventListener('input', setDirtyFlag, true);
+}
+
 function existsTemplate(template) {
 	var exists = false;
 	$("#template option").each(function() { if ($(this).val() == template) { exists = true; } })
@@ -409,13 +449,17 @@ function loadDefaultTemplate() {
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); };
+		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
+		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
-		document.getElementById(cfg_editorname).srcdoc = blankTemplate;
-	}	
+		var blankFrame = document.getElementById(cfg_editorname);
+		// srcdoc navigates the iframe too, so the listener has to follow the new Window here as well.
+		blankFrame.onload = function() { enableEditorDesignMode(); attachDirtyFlagListener(); };
+		blankFrame.srcdoc = blankTemplate;
+	}
 }
 
 function loadTemplate(selectname){
@@ -433,7 +477,8 @@ function loadTemplate(selectname){
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); };
+		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
+		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
@@ -1077,16 +1122,18 @@ function submitFaxButton() {
 				$(this).remove();				
 			});
 			
-			// set eventlistener for the iframe to flag changes in the text displayed 
-			var agent = navigator.userAgent.toLowerCase(); //for non IE browsers
-			if ((agent.indexOf("msie") == -1) || (agent.indexOf("opera") != -1)) {
-				document.getElementById(cfg_editorname).contentWindow
-						.addEventListener('keypress', setDirtyFlag, true);
-			}
+			// set eventlistener for the iframe to flag changes in the text displayed
+			attachDirtyFlagListener();
 				
 			// set the HTML contents of this edit control from the value saved in OSCAR (if any)
 			var contents = document.getElementById('Letter').value;
 			if (contents.length == 0) {
+				// A NEW letter: the template dropdown has not loaded yet, so this parses the editor's
+				// initial about:blank document. Its designMode is off until enabled here, and
+				// seteditControlContents() refuses to write into a non-designMode frame — which
+				// logged "cannot set editor contents" on every new letter. The real template is
+				// parsed again from loadDefaultTemplate()'s onload once it has loaded.
+				enableEditorDesignMode();
 				parseTemplate();
 			} else {
 				// Decode HTML entities that saveRTL() encoded before saving.

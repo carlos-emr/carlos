@@ -115,6 +115,12 @@ $SQL carlos < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
 # the eform-rtl-attachment-* Playwright checks pin this.
 echo 'Rewiring Rich Text Letter attachment routes...'
 $SQL carlos < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# The snapshot's HRM rows name report files that never shipped, so every HRM
+# list is empty. Point one demographic-1 report at the fixture that
+# seed_data.sh copies into the document store (deb parity: carlos-ctl demo-data
+# applies the same file and copies the same fixture).
+echo 'Pointing a demo HRM report at the shipped fixture...'
+$SQL carlos < /scripts/demo-hrm-report.sql
 # development.sql truncate-reloads Facility with the old snapshot's
 # enableDigitalSignatures=0, undoing the V1.0.17 migration applied above.
 # Re-assert the product default so the demo environment exercises the

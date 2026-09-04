@@ -837,11 +837,16 @@ npm run test:eform-test-pattern-playwright
 npm run test:eform-rtl-attachment-routes-playwright
 npm run test:eform-rtl-attachment-types-playwright
 npm run test:eform-rtl-attachment-behavior-playwright
+npm run test:eform-rtl-attachment-pdf-playwright
 ```
 
 `eform-rtl-attachment-behavior` is the highest-value one: it exercises a saved Rich Text Letter
 through attachment selection and a merged eForm+attachment PDF download, which is the flow that the
-editor-on-the-render-surface bug blocked entirely.
+editor-on-the-render-surface bug blocked entirely. `eform-rtl-attachment-pdf` extends it per
+attachment family: a document, a lab result, an HRM report, another eForm, and an encounter form
+are each attached to their own letter and must show on the saved letter and add pages to the PDF
+from both download paths (toolbar Download and the form's `print=true` PDF button). It needs the
+demo document files and the HRM report fixture described in the smoke-test runbook.
 
 ### 3. Look at the PDF
 

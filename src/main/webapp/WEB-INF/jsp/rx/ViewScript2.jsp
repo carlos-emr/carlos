@@ -49,6 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
@@ -106,6 +107,29 @@
         <c:set var="ctx" value="${pageContext.request.contextPath}"/>
         <%!
             ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
+
+            /**
+             * The first candidate the fax/print servlet would accept as a script id, or "" when none
+             * qualify. This mirrors FrmCustomedPDFServlet.parsePositiveInt EXACTLY — 1-10 digits that
+             * parse to a positive {@code int} — so a value the servlet rejects (0, or a 10-digit value
+             * above Integer.MAX_VALUE such as 9999999999) can never "win" over a later valid source
+             * and reintroduce the unsigned-fax failure this helper prevents. Used to resolve the
+             * scriptId across request parameter, request attribute and stash.
+             */
+            private static String firstValidScriptId(String... candidates) {
+                for (String candidate : candidates) {
+                    if (candidate != null && candidate.matches("\\d{1,10}")) {
+                        try {
+                            if (Integer.parseInt(candidate) > 0) {
+                                return candidate;
+                            }
+                        } catch (NumberFormatException ignored) {
+                            // > Integer.MAX_VALUE: the servlet would reject it, so skip to the next.
+                        }
+                    }
+                }
+                return "";
+            }
         %>
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
@@ -136,7 +160,6 @@
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
-
 // for satellite clinics
             Vector vecAddressName = null;
             Vector vecAddress = null;
@@ -423,7 +446,7 @@
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                         // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
+                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                         text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
@@ -581,6 +604,83 @@
             String imageUrl = "";
             signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
+
+            // The saved script id for the fax/print request. On a fresh write (updateAndPrint /
+            // saveDrug) the id is set as a request ATTRIBUTE, not a parameter, so reading only the
+            // parameter yields "" and the fax request cannot identify the script — the stamp-signed
+            // prescription is then rejected as unsigned. Resolve parameter -> attribute -> the saved
+            // stash script number so every path faxes THIS script. Each source is accepted only if it
+            // is shaped like a real script id: a positive integer of 1-10 digits, matching the PDF
+            // servlet's own parsePositiveInt. That rejects the literal strings "null"/"undefined" a
+            // caller may build from a JS variable, "" , "0", and overlong values — any of which would
+            // otherwise be passed on and refused as unsigned — so a bad source falls through to the
+            // next rather than winning over a good id.
+            String scriptIdForFax = firstValidScriptId(
+                    StringUtils.noNull(request.getParameter("scriptId")),
+                    request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
+                    (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
+                            ? bean.getStashItem(0).getScript_no() : "");
+
+            // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
+            // patient; gate the Fax buttons on the same right so the page never offers a fax the
+            // server will refuse (a read-only reprint of a signed script would otherwise show an
+            // enabled Fax button and then a refusal).
+            //
+            // The gate MUST resolve the same target the server authorizes: the persisted prescription
+            // named by scriptIdForFax, NOT the session bean's demographic. scriptIdForFax can come
+            // from a request parameter, so it may name a script belonging to a different patient than
+            // the chart the bean holds; gating on the bean would then enable Fax for a fax the server
+            // refuses (or hide one it would allow). No id, or an id that resolves to nothing or to a
+            // row with no patient, means there is nothing faxable — closed, not open.
+            //
+            // Nothing in here may throw. hasPrivilege rethrows PatientDirectiveException
+            // (SecurityInfoManagerImpl) and the DAO lookup can fail on its own; from a JSP either is a
+            // 500 on the whole print/fax page rather than a disabled button. Any failure leaves the
+            // gate false: Fax off, page still renders.
+            // BOTH halves of the gate — may-I-fax and is-it-signed — must describe the SAME
+            // prescription, the one scriptIdForFax names, because that is the row the servlet signs
+            // from. Reading the permission from the persisted row and the signature from the session
+            // stash would let a stash holding a different script decide whether Fax lights up.
+            boolean canFaxScript = false;
+            boolean faxTargetSigned = false;
+            try {
+                if (!scriptIdForFax.isEmpty()) {
+                    io.github.carlos_emr.carlos.commn.model.Prescription faxTarget =
+                            SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.PrescriptionDao.class)
+                                    .find(Integer.parseInt(scriptIdForFax));
+                    if (faxTarget != null && faxTarget.getDemographicId() != null) {
+                        canFaxScript = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+                                .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+                                        "_rx", "w", String.valueOf(faxTarget.getDemographicId()));
+                        faxTargetSigned = faxTarget.getDigitalSignatureId() != null;
+                    }
+                }
+            } catch (RuntimeException e) {
+                io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                        .warn("Fax gate could not be resolved; leaving Fax disabled", e);
+                canFaxScript = false;
+                faxTargetSigned = false;
+            }
+            // The third condition on the Fax buttons: the servlet refuses a fax whose destination is
+            // not usable ("Valid fax number not found!"). Computed once here so the server-rendered
+            // disabled state and the JavaScript gate cannot drift apart — the initial markup must
+            // already reflect it, or the buttons render live until the first signature-pad event
+            // fires and a click in that window submits a fax the servlet rejects.
+            //
+            // Mirror the servlet's own test EXACTLY (FrmCustomedPDFServlet: pharmaFax is trimmed,
+            // stripped to digits, and refused below 7). A merely non-blank value is not enough: a
+            // pharmacy fax recorded as "N/A" or "555-12" is non-blank here but has fewer than seven
+            // digits there, so the page would offer a Fax the server then refuses.
+            boolean hasPharmacyFax = pharmacy != null && pharmacy.getFax() != null
+                    && pharmacy.getFax().trim().replaceAll("\\D", "").length() >= 7;
+            // The fourth condition, and the reason it is a variable both halves of the gate read:
+            // sendFax() reads frames['preview'].document, and the #preview iframe is only emitted
+            // inside `if (bean.getStashSize() > 0)` further down. With an empty stash the buttons
+            // would look live and the click would die on an undefined frame with nothing shown to
+            // the user. The signature pad, by contrast, IS rendered when the stash is empty, so a
+            // pad event can reach signatureHandler there — the JavaScript gate must carry this
+            // term too, or it re-enables buttons the server deliberately rendered disabled.
+            boolean previewAvailable = bean.getStashSize() > 0;
         %>
         <script type="text/javascript">
             var POLL_TIME = 1500;
@@ -602,7 +702,7 @@
                 let faxNumber = document.getElementById('faxNumber');
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
                 frames['preview'].document.getElementById('pdfId').value = '<%=signatureRequestId%>';
-                onPrint2('oscarRxFax', "<carlos:encode value='<%= StringUtils.noNull(request.getParameter("scriptId")) %>' context="javaScriptBlock"/>");
+                onPrint2('oscarRxFax', "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>");
 
             }
 
@@ -617,7 +717,15 @@
             var isSignatureDirty = false;
             var isSignatureSaved = false;
             <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
-            var hasFaxNumber = <%= pharmacy != null && pharmacy.getFax() != null && pharmacy.getFax().trim().length() > 0 ? "true" : "false" %>;
+            var hasFaxNumber = <%= hasPharmacyFax ? "true" : "false" %>;
+            var canFaxScript = <%= canFaxScript ? "true" : "false" %>;
+            // The script already carries a stored signature (the prescriber's stamp applied on write,
+            // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
+            // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
+            var hasStoredSignature = <%= faxTargetSigned ? "true" : "false" %>;
+            // Same stash term the server-rendered disabled attribute uses, so a pad event cannot
+            // re-enable Fax on a page that has no #preview iframe for sendFax() to read.
+            var hasPreview = <%= previewAvailable ? "true" : "false" %>;
             <% } %>
 
             function signatureHandler(e) {
@@ -625,7 +733,7 @@
                 isSignatureSaved = e.isSave;
                 e.target.onbeforeunload = null;
                 <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
-                let disabled = !hasFaxNumber || !e.isSave;
+                let disabled = !hasPreview || !hasFaxNumber || !canFaxScript || !(e.isSave || hasStoredSignature);
                 toggleFaxButtons(disabled);
                 <% } %>
                 if (e.isSave) {
@@ -635,11 +743,16 @@
                     }
 		<% }
 
-		if (bean.getStashSize() > 0) {
+		// Link the drawn signature to the script that will actually be FAXED, not to the stash
+		// row. The two can differ (scriptIdForFax may come from a request parameter), and the fax
+		// gate is now resolved from the fax target: linking to the stash row would flip the gate
+		// open while leaving the faxed prescription unsigned in storage, so the fax would then be
+		// refused as unsigned. Only the digits-validated scriptIdForFax is emitted here.
+		if (!scriptIdForFax.isEmpty()) {
 		%>
 		try {
 			let signId = new URLSearchParams(e.storedImageUrl.split('?')[1]).get('digitalSignatureId')
-			this.setDigitalSignatureToRx(signId, <%=bean.getStashItem(0).getScript_no() %>);
+			this.setDigitalSignatureToRx(signId, '<%= scriptIdForFax %>');
 		} catch (e) {
 			console.error(e);
 		}
@@ -655,6 +768,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 		credentials: 'same-origin',
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
+	}).then(function (response) {
+		// Once the drawn signature is linked to the script it is a STORED signature like the stamp
+		// was, so a later pad stroke or Clear must keep Fax enabled (see signatureHandler).
+		if (response.ok && typeof hasStoredSignature !== 'undefined') {
+			hasStoredSignature = true;
+		}
+	}).catch(function (error) {
+		console.error(error);
 	});
 }
 
@@ -884,8 +1005,16 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
 
 					<%
-						String isFaxDisabled = (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId()))
-								? "disabled" : "";
+						// Exactly the conditions the JavaScript gate applies, from the same values:
+						// same prescription for both halves (the persisted row scriptIdForFax names,
+						// never the session stash), and the same pharmacy-fax requirement.
+						//
+						// previewAvailable is declared once with the other gate terms above and
+						// read by both halves: enabling Fax requires BOTH a faxable record and the
+						// preview sendFax() depends on.
+						String isFaxDisabled =
+								(!canFaxScript || !faxTargetSigned || !hasPharmacyFax || !previewAvailable)
+										? "disabled" : "";
 					%>
                                         <tr>
 						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFax"/>"
@@ -936,7 +1065,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <%}%>
                                         <% if (CarlosProperties.getInstance().isRxSignatureEnabled()) { %>
                                         <%-- Topaz signature pad check removed - HTML5 signature is now standard --%>
-						<% if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId())) { %>
+                                        <%-- The pad is hidden once the script carries a stored signature, EXCEPT when that
+                                             signature is the prescriber's stamp applied automatically on write: the stamp is
+                                             a default, and drawing a signature here replaces it (saveDigitalSignature). --%>
+						<% boolean stampApplied = Boolean.TRUE.equals(request.getAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED));
+						   if (bean.getStashSize() == 0 || Objects.isNull(bean.getStashItem(0).getDigitalSignatureId()) || stampApplied) { %>
                                         <tr>
                                             <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgSignature"/></span></td>
                                         </tr>
