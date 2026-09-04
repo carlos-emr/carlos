@@ -412,8 +412,12 @@ def render_report(result: dict) -> str:
         lines.append("{0} ({1}):".format(d, len(by_d[d])))
         lines.extend("  " + line for line in by_d[d])
     if result["secrets"]:
+        # report_safe, like every other clinic-supplied name on this
+        # page: a key carrying an escaped line break would otherwise
+        # write its own lines into the operator's validation report
         lines.append("credentials imported — ROTATE/VERIFY before "
-                     "go-live: " + ", ".join(result["secrets"])
+                     "go-live: "
+                     + ", ".join(report_safe(k) for k in result["secrets"])
                      + " (values in the fragment only, masked here: "
                      + MASK + ")")
     for advisory, keys in sorted(result["advisories"].items()):
@@ -421,7 +425,8 @@ def render_report(result: dict) -> str:
             advisory, len(keys)))
     if result["unknown"]:
         lines.append("UNKNOWN key(s) needing classification: "
-                     + ", ".join(result["unknown"]))
+                     + ", ".join(report_safe(k)
+                                 for k in result["unknown"]))
     return "\n".join(lines)
 
 

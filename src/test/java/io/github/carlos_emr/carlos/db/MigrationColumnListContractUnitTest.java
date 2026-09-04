@@ -84,6 +84,17 @@ class MigrationColumnListContractUnitTest {
             Pattern.CASE_INSENSITIVE);
 
     /**
+     * Comment forms stripped before matching, and the whitespace run collapsed when an offender is
+     * reported. Compiled once: {@link #withoutComments} runs per migration file and the reporting
+     * one runs per match, so leaving them as {@code String.replaceAll} recompiled the pattern on
+     * every iteration.
+     */
+    private static final Pattern BLOCK_COMMENT = Pattern.compile("(?s)/\\*.*?\\*/");
+    private static final Pattern DASH_COMMENT = Pattern.compile("(?m)--[^\\n]*");
+    private static final Pattern HASH_COMMENT = Pattern.compile("(?m)#[^\\n]*");
+    private static final Pattern WHITESPACE_RUN = Pattern.compile("\\s+");
+
+    /**
      * Files that already carry positional inserts, kept as a closed list rather than a rule.
      *
      * <p>These are the genesis (V1.0.2 province data) and the legacy-restore files. Flyway applies
@@ -109,13 +120,13 @@ class MigrationColumnListContractUnitTest {
      * commented-out example never reads as a live statement.
      */
     private static String withoutComments(String sql) {
-        return sql.replaceAll("(?s)/\\*.*?\\*/", " ")
-                .replaceAll("(?m)--[^\\n]*", " ")
-                // MySQL also treats `#` as a line comment; leaving it in
-                // only ever produces a false offender, but a false
-                // offender that fails the build is still a bug report
-                // somebody has to chase
-                .replaceAll("(?m)#[^\\n]*", " ");
+        String out = BLOCK_COMMENT.matcher(sql).replaceAll(" ");
+        out = DASH_COMMENT.matcher(out).replaceAll(" ");
+        // MySQL also treats `#` as a line comment; leaving it in
+        // only ever produces a false offender, but a false
+        // offender that fails the build is still a bug report
+        // somebody has to chase
+        return HASH_COMMENT.matcher(out).replaceAll(" ");
     }
 
     @Test
@@ -130,7 +141,8 @@ class MigrationColumnListContractUnitTest {
             Matcher m = POSITIONAL_INSERT.matcher(
                     withoutComments(Files.readString(migration, StandardCharsets.UTF_8)));
             while (m.find()) {
-                offenders.add(name + ": " + m.group().replaceAll("\\s+", " "));
+                offenders.add(name + ": "
+                        + WHITESPACE_RUN.matcher(m.group()).replaceAll(" "));
             }
         }
 

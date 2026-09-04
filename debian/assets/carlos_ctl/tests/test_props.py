@@ -405,10 +405,10 @@ class TestTheReportCannotBeForged(unittest.TestCase):
     from the reviewer. The fragment writer has escaped keys since it was
     written; the report writer did not."""
 
-    def report(self, rows):
+    def report(self, rows, secrets=(), unknown=()):
         return o19props.render_report({
-            "rows": rows, "secrets": [], "advisories": {},
-            "unknown": [], "fragment": []})
+            "rows": rows, "secrets": list(secrets), "advisories": {},
+            "unknown": list(unknown), "fragment": []})
 
     def test_the_decoded_key_really_does_carry_a_line_break(self):
         # the premise, asserted rather than assumed: without this the
@@ -438,6 +438,26 @@ class TestTheReportCannotBeForged(unittest.TestCase):
         body = self.report([("drugref.url", "carry", "")])
         self.assertIn("drugref.url", body)
         self.assertNotIn("\\", body)
+
+    def test_a_secret_name_cannot_add_a_report_line(self):
+        # the ROTATE/VERIFY line joined result["secrets"] raw while every
+        # other clinic-supplied name went through report_safe, so the one
+        # line naming carried credentials was the forgeable one
+        forged = "db.password\ncarry-secret (0):"
+        body = self.report([], secrets=[forged])
+        self.assertIn("db.password\\ncarry-secret", body)
+        self.assertEqual(
+            [ln for ln in body.splitlines()
+             if ln.startswith("carry-secret")], [],
+            "a credential key forged a heading in the report:\n" + body)
+
+    def test_an_unknown_key_cannot_add_a_report_line(self):
+        forged = "some.new.key\nUNKNOWN key(s) needing classification: none"
+        body = self.report([], unknown=[forged])
+        self.assertEqual(
+            len([ln for ln in body.splitlines()
+                 if ln.startswith("UNKNOWN key(s)")]), 1,
+            "an unknown key forged a second summary line:\n" + body)
 
     def test_a_control_character_is_shown_as_an_escape(self):
         self.assertEqual(o19props.report_safe("a\x07b"), "a\\u0007b")

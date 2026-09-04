@@ -550,9 +550,10 @@ def process_grant_state(rows) -> str:
 def documents_expanded_size(tar_path: str) -> int:
     """Expanded footprint of the documents archive (sum of member sizes
     from the archive's own headers); the archive's own size is what a
-    .tar.gz compresses PDFs to, not what the tree needs on disk. Falls
-    back to the file size when the archive cannot be read (P5 reports
-    why)."""
+    .tar.gz compresses PDFs to, not what the tree needs on disk. An
+    archive whose headers cannot be read is REFUSED here rather than
+    guessed at -- see the comment below for why a fallback was worse
+    than useless."""
     try:
         entries = o19bundle.read_tar_entries(tar_path,
                                              tar_path.endswith(".gz"))

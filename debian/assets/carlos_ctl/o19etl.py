@@ -387,8 +387,11 @@ def copy_statement(table: str, entry: dict, src_schema: str,
     into the target.
 
     Only the manifest's columns are named, each through `source_expr`
-    (rename, default, id remap or charset repair) and then
-    `sanitize_expr` (the target's nullability and width). `window`
+    (rename, curated expression, id remap or charset repair) and then
+    `sanitize_expr`, which rewrites a zero date to NULL on a nullable
+    target and folds an enum value the target's set does not carry to its
+    fallback. Width is NOT rewritten here: an overlong value is counted
+    before the copy and refused, never silently truncated. `window`
     restricts it to one id range for a chunked table; `repaired` names
     the columns whose double-encoded text this run rewrites."""
     cols = entry["cols"]

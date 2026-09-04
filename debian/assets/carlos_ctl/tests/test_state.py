@@ -942,6 +942,21 @@ class TestGuardedExit(unittest.TestCase):
             o19import._guarded(TestGuardedExit._boom)
         self.assertEqual(cm.exception.code, 1)
 
+    def test_a_plain_refusal_is_a_tool_error_too(self):
+        # not every refusal is a QueryError: the capacity gate `die`s on
+        # an unreadable documents archive, and die's default status is 1
+        # -- which for THIS verb spells "go with acknowledgements"
+        real = o19import._cmd_o19_preflight
+        o19import._cmd_o19_preflight = lambda argv: o19import.die(
+            "cannot read the documents archive (x)")
+        self.addCleanup(setattr, o19import, "_cmd_o19_preflight", real)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit) as cm:
+                o19import.cmd_o19_preflight([])
+        self.assertEqual(cm.exception.code,
+                         o19import.o19_preflight.EXIT_TOOL_ERROR)
+
     def test_preflight_fails_with_the_tool_error_code(self):
         real = o19import._cmd_o19_preflight
         o19import._cmd_o19_preflight = lambda argv: TestGuardedExit._boom()
@@ -997,10 +1012,11 @@ class TestDocumentsSizing(unittest.TestCase):
         self.work = tempfile.mkdtemp(prefix="o19size-")
         self.addCleanup(shutil.rmtree, self.work)
 
-    def tar_of(self, sizes):
+    def tar_of(self, sizes, compress=False):
         import tarfile
-        path = os.path.join(self.work, "documents.tar")
-        with tarfile.open(path, "w") as tf:
+        path = os.path.join(self.work, "documents.tar"
+                            + (".gz" if compress else ""))
+        with tarfile.open(path, "w:gz" if compress else "w") as tf:
             for i, size in enumerate(sizes):
                 member = os.path.join(self.work, "m{0}".format(i))
                 with open(member, "wb") as fh:
@@ -1012,6 +1028,20 @@ class TestDocumentsSizing(unittest.TestCase):
         path = self.tar_of([4096, 8192])
         self.assertGreaterEqual(
             o19import.documents_expanded_size(path), 4096 + 8192)
+
+    def test_a_compressed_archive_is_sized_by_its_contents(self):
+        # THE case the test above cannot make: on an uncompressed tar the
+        # file is already as big as its members, so the discarded
+        # "fall back to the file size" behaviour passed it too. Members
+        # of a single repeated byte compress to almost nothing, so only
+        # a reader of the headers can answer with the expanded figure.
+        expanded = 4 * 1024 * 1024
+        path = self.tar_of([expanded, expanded], compress=True)
+        compressed = os.path.getsize(path)
+        self.assertLess(compressed, expanded // 8, "fixture did not "
+                        "compress; the test would not discriminate")
+        self.assertGreaterEqual(
+            o19import.documents_expanded_size(path), 2 * expanded)
 
     def test_an_unreadable_archive_is_refused_not_guessed(self):
         path = os.path.join(self.work, "documents.tar.gz")
