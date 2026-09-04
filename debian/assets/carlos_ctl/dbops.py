@@ -304,8 +304,10 @@ def _find_java() -> str:
     JDBC driver come out of the deployed WAR (class file version 65) and a
     default-java pointing at 17 or 25 fails in class-loading shapes rather
     than with a clean message."""
-    for d in sorted(glob.glob("/usr/lib/jvm/java-21-openjdk-*")) + \
-             ["/usr/lib/jvm/java-21-openjdk", "/usr/lib/jvm/default-java"]:
+    candidates = (sorted(glob.glob("/usr/lib/jvm/java-21-openjdk-*"))
+                  + ["/usr/lib/jvm/java-21-openjdk",
+                     "/usr/lib/jvm/default-java"])
+    for d in candidates:
         if _is_java_21(d) and os.access(os.path.join(d, "bin", "java"), os.X_OK):
             return os.path.join(d, "bin", "java")
     die("no Java 21 runtime found; install openjdk-21-jre-headless")
@@ -713,8 +715,10 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
     # Errors are collected and REPORTED, never ignored: this command's whole
     # value is that its report is exact — "destroyed" must not mean "mostly".
     rm_errors = []
+
     def _collect(_fn, path, exc):
         rm_errors.append(f"{path}: {exc[1]}")
+
     for p in (f"{STATE}/OscarDocument", f"{STATE}/heapdumps",
               "/var/log/carlos-emr/tomcat", "/var/log/carlos-emr/modsec"):
         if os.path.exists(p):
