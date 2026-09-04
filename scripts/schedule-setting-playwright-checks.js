@@ -116,6 +116,21 @@ function recordableUrl(rawUrl) {
   }
 }
 
+/**
+ * Strip query strings out of free-form diagnostic text. Console message
+ * locations, page error messages, and the Playwright stack we print on failure
+ * all quote URLs verbatim, and this application's routes carry provider numbers
+ * in the query string. The path is what identifies the failing route.
+ */
+function redactUrls(text) {
+  if (typeof text !== 'string') {
+    return text;
+  }
+  return text
+    .replace(/\bhttps?:\/\/[^\s"'<>()]+/gi, (match) => recordableUrl(match))
+    .replace(/(^|[\s"'(<=])(\/[^\s"'<>()?]*)\?[^\s"'<>()]*/g, '$1$2');
+}
+
 function appUrl(appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
@@ -162,16 +177,22 @@ function wirePage(page, label) {
   });
   page.on('console', (message) => {
     if (isSevereConsoleMessage(message)) {
-      findings.push({ label, type: `console:${message.type()}`, text: message.text(), location: message.location() });
+      const location = message.location();
+      findings.push({
+        label,
+        type: `console:${message.type()}`,
+        text: redactUrls(message.text()),
+        location: { ...location, url: recordableUrl(location.url) },
+      });
     }
   });
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: error.message });
+    findings.push({ label, type: 'pageerror', text: redactUrls(error.message) });
   });
   page.on('dialog', async (dialog) => {
     // Every dialog here is a validation alert from the wizard — that is a failure,
     // not noise: the step under test did not submit.
-    findings.push({ label, type: 'dialog', text: dialog.message() });
+    findings.push({ label, type: 'dialog', text: redactUrls(dialog.message()) });
     await dialog.accept();
   });
 }
@@ -179,7 +200,12 @@ function wirePage(page, label) {
 async function assertNoErrorPage(frame, label) {
   const bodyText = await frame.locator('body').innerText().catch(() => '');
   if (/CARLOS has encountered an unexpected error|CARLOS Error|HTTP Status 5\d\d|Exception Report/i.test(bodyText)) {
-    findings.push({ label, type: 'error-page', url: recordableUrl(frame.url()), body: bodyText.replace(/\s+/g, ' ').slice(0, 500) });
+    findings.push({
+      label,
+      type: 'error-page',
+      url: recordableUrl(frame.url()),
+      body: redactUrls(bodyText.replace(/\s+/g, ' ')).slice(0, 500),
+    });
   }
 }
 
@@ -565,6 +591,6 @@ async function checkResizeIframeCallers(page) {
   }
 })().catch((error) => {
   console.error('FAIL schedule setting Playwright check');
-  console.error(error.stack || error.message);
+  console.error(redactUrls(error.stack || error.message));
   process.exit(1);
 });

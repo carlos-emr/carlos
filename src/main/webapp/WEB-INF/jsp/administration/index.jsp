@@ -650,7 +650,18 @@
                 // Document went away or turned cross-origin mid-observation.
             }
         });
+        // Observe BOTH roots. ResizeObserver reports an element's own box, not
+        // the document's scrollHeight, so which of the two actually changes
+        // depends on the framed page's CSS. Measured in Chromium: with the
+        // default auto heights either one fires; with `html { height: 100% }`
+        // and an auto body only <body> fires; with `body { height: 100% }`
+        // neither does — such a page still has to call resizeIframe() itself.
+        // Observing both costs one extra registration and covers a case a
+        // single root misses.
         observer.observe(doc.documentElement);
+        if (doc.body) {
+            observer.observe(doc.body);
+        }
         frame.carlosContentObserver = observer;
     }
 
