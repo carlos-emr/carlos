@@ -379,10 +379,16 @@ B3_COLUMNS = {
 # the JPA @Column mappings in both trees -- the code's own statement of
 # which field is which column, which catches a rename even where the DDL
 # comparison cannot (both sides holding a column of the matching name).
-# Against oscaremr/oscar a7900d56 it reports no mismatches across the 253
-# entities the two trees share; the only difference is CARLOS quoting the
-# reserved word `value` in BillingService, which is Hibernate quoting and
-# not a rename. Re-run it when curating this file.
+# Against oscaremr/oscar a7900d56 it reports no mismatches across the 255
+# entities the two trees share (1,759 field pairs); the only difference is
+# CARLOS quoting the reserved word `value` in BillingService, which is
+# Hibernate quoting and not a rename.
+#
+# Read the tool's coverage line with the verdict, not instead of it: an
+# @Entity that maps every field implicitly declares no @Column, so it is
+# invisible to the comparison, and neither @JoinColumn nor the O19
+# .hbm.xml mappings are read. "No mismatches" is a statement about what
+# was compared. Re-run it when curating this file.
 RENAMES = {}
 
 # Ruled coincidental: (table, o19_column) -> why. Keyed by the individual

@@ -33,8 +33,18 @@ import sys
 TABLE_RE = re.compile(r'@Table\s*\(\s*name\s*=\s*"([^"]+)"')
 COLUMN_RE = re.compile(r'@Column\s*\(([^)]*)\)', re.S)
 NAME_RE = re.compile(r'name\s*=\s*"([^"]+)"')
+#: A field declaration immediately after the annotation. The access
+#: modifier is OPTIONAL: JPA is perfectly happy with a package-private
+#: field, and the composite-id classes here use them
+#: (CompositeFormBCAR2020TextId and friends declare `Integer formId;`
+#: with no modifier at all). Requiring one made those fall through to
+#: GETTER_RE, which then matched the first getter in the window -- a
+#: DIFFERENT property -- so three mappings per class collapsed into one
+#: wrong one, silently, in a tool whose whole job is to notice a name
+#: that does not match.
 FIELD_RE = re.compile(
-    r'(?:private|protected|public)\s+[\w<>,\[\]\.\s]+?\s+(\w+)\s*[;=]')
+    r'(?:(?:private|protected|public|static|final|transient|volatile)\s+)*'
+    r'(?:[A-Za-z_$][\w<>,\[\]\.]*(?:\s*<[^;=]*>)?)\s+(\w+)\s*[;=]')
 #: JPA reads annotations from FIELDS or from GETTERS, per entity, and an
 #: entity that annotates its getters has no annotated field for FIELD_RE
 #: to find. Dropping those would compare one side of a rename against
@@ -89,11 +99,23 @@ def parse_entity(path):
     return cls, (table.group(1) if table else cls), columns
 
 
+ENTITY_RE = re.compile(r'@Entity\b')
+
+
 def scan(root):
-    """{class: (table, {field: column})} for every mapped entity under
-    `root`. Keyed by CLASS because the packages differ between the two
-    trees (org.oscarehr.* vs io.github.carlos_emr.carlos.*) while the
-    class names are what survived the migration."""
+    """({class: (table, {field: column})}, {unmapped class names}) for
+    every entity under `root`.
+
+    Keyed by CLASS because the packages differ between the two trees
+    (org.oscarehr.* vs io.github.carlos_emr.carlos.*) while the class
+    names are what survived the migration.
+
+    The second element is the entities this tool CANNOT compare: an
+    entity that maps every field implicitly has no `@Column` for the
+    parser to read, so it is dropped from both sides. Returned rather
+    than discarded because a clean verdict over a silently narrowed
+    population is the failure this tool exists to prevent -- see the
+    coverage line `main` prints."""
     def unreadable(exc):
         # os.walk swallows a directory it cannot open, so a permission
         # error deep in the tree would silently shrink the audit
@@ -103,6 +125,7 @@ def scan(root):
                 getattr(exc, "filename", root), exc))
 
     out = {}
+    unmapped = set()
     for dirpath, _dirs, files in os.walk(root, onerror=unreadable):
         for name in files:
             if not name.endswith(".java"):
@@ -110,13 +133,18 @@ def scan(root):
             path = os.path.join(dirpath, name)
             try:
                 parsed = parse_entity(path)
+                if not parsed:
+                    with open(path, encoding="utf-8",
+                              errors="replace") as fh:
+                        if ENTITY_RE.search(fh.read()):
+                            unmapped.add(name[:-len(".java")])
             except OSError as exc:
                 raise SystemExit(
                     "cannot read {0}: {1} -- refusing to report a clean "
                     "audit over sources it could not open".format(path, exc))
             if parsed:
                 out.setdefault(parsed[0], parsed[1:])
-    return out
+    return out, unmapped
 
 
 def mismatches(o19, carlos):
@@ -151,8 +179,8 @@ def main(argv=None):
         return ap.error(
             "{0} has no src/main/java -- pass the root of an OSCAR 19 "
             "checkout, not a subdirectory".format(args.oscar_src))
-    o19 = scan(o19_java)
-    carlos = scan(args.carlos_src)
+    o19, o19_unmapped = scan(o19_java)
+    carlos, carlos_unmapped = scan(args.carlos_src)
     # zero entities on either side means the scan found nothing to compare,
     # which is a broken invocation rather than a clean result
     for label, found in (("O19", o19), ("CARLOS", carlos)):
@@ -163,6 +191,18 @@ def main(argv=None):
     shared = set(o19) & set(carlos)
     print("mapped entities: O19 {0}, CARLOS {1}, shared {2}".format(
         len(o19), len(carlos), len(shared)))
+    # What the verdict below does NOT cover, stated rather than implied.
+    # An @Entity that maps every field implicitly carries no @Column for
+    # the parser to read, so it is invisible to the comparison -- and a
+    # clean line over a silently narrowed population is exactly the
+    # false comfort this tool exists to remove.
+    blind = (o19_unmapped | carlos_unmapped) - shared
+    fields = sum(len(set(o19[c][1]) & set(carlos[c][1])) for c in shared)
+    print("compared {0} field pair(s) across the shared entities; NOT "
+          "compared: {1} entity/entities that declare no @Column (every "
+          "field mapped implicitly), and @JoinColumn and .hbm.xml "
+          "mappings, which this tool does not read".format(
+              fields, len(blind)))
     found = mismatches(o19, carlos)
     if not found:
         print("no name mismatches: every shared entity field maps to the "
