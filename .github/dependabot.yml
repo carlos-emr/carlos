@@ -14,6 +14,10 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # Wait a week before proposing a newly published version: a freshly cut
+    # action release can be yanked or found malicious in its first days.
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "ci(deps)"
     labels:

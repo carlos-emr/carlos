@@ -22,6 +22,16 @@
 # $MYSQL is a command prefix ("mariadb -h ... -uroot") and is word-split on purpose.
 # shellcheck disable=SC2086
 set -euo pipefail
+
+# PROV is interpolated into migration paths and database names, so refuse
+# anything but the two provinces the repository ships migrations for.
+case "${PROV:-}" in
+  on|bc) ;;
+  *)
+    echo "::error::PROV must be 'on' or 'bc' (got '${PROV:-}')" >&2
+    exit 2
+    ;;
+esac
 cd "$(dirname "$0")/../../database/mysql"
 MYSQL="mariadb -h 127.0.0.1 -uroot"
 

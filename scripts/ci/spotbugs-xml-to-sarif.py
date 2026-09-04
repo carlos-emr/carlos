@@ -9,6 +9,7 @@ metrics file records what was skipped for the job summary.
 
 Environment:
   REPORT  path to the SpotBugs XML report (required)
+Requires defusedxml (scripts/ci/requirements.txt).
 Outputs, in the current directory:
   spotbugs-security-report.sarif, spotbugs-security-metrics.env
 
@@ -17,8 +18,16 @@ This file is part of the CARLOS EMR project and is subject to the licensing
 terms outlined in the repository's LICENSE file.
 """
 import os
-import xml.etree.ElementTree as ET
 import json, sys
+
+# defusedxml rather than the stdlib parser: the report comes from SpotBugs in
+# the same job, but the converter is now a standalone script anyone can point
+# at any file, so it must not be XXE / entity-expansion capable. Installed in
+# CI from scripts/ci/requirements.txt (hash-pinned).
+try:
+    import defusedxml.ElementTree as ET
+except ImportError:
+    sys.exit("defusedxml is required: python3 -m pip install -r scripts/ci/requirements.txt")
 
 report_path = os.environ["REPORT"]
 sarif_path = "spotbugs-security-report.sarif"

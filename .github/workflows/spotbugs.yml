@@ -46,6 +46,7 @@ on:
       - '.github/spotbugs/**'
       - '.github/workflows/spotbugs.yml'
       - 'scripts/ci/spotbugs-xml-to-sarif.py'
+      - 'scripts/ci/requirements.txt'
   push:
     branches: [develop, "release/*"]
     paths:
@@ -54,6 +55,7 @@ on:
       - '.github/spotbugs/**'
       - '.github/workflows/spotbugs.yml'
       - 'scripts/ci/spotbugs-xml-to-sarif.py'
+      - 'scripts/ci/requirements.txt'
   workflow_dispatch: {}
   schedule:
     - cron: '30 5 * * 1'  # Monday 5:30 UTC (weekly full scan)
@@ -119,6 +121,14 @@ jobs:
 
           echo "report=target/spotbugs-result.xml" >> "$GITHUB_OUTPUT"
           echo "found=false" >> "$GITHUB_OUTPUT"
+
+      - name: Install the SARIF converter's Python dependency
+        if: always()
+        env:
+          # The runner's system Python is PEP 668 "externally managed"; the pin
+          # and hash in requirements.txt are the supply-chain control here.
+          PIP_BREAK_SYSTEM_PACKAGES: '1'
+        run: python3 -m pip install --quiet --disable-pip-version-check --require-hashes -r scripts/ci/requirements.txt
 
       - name: Convert SpotBugs security XML to SARIF
         if: always()

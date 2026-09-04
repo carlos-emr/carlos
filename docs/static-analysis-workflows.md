@@ -181,7 +181,8 @@ SpotBugs needs compiled `.class` files, so the workflow uses the dev container (
 4. Upload SARIF to GitHub Security tab
 
 The XML-to-SARIF conversion is a plain Python script (no third-party action dependency); run it
-locally with `REPORT=target/spotbugs-result.xml python3 scripts/ci/spotbugs-xml-to-sarif.py`.
+locally with `REPORT=target/spotbugs-result.xml python3 scripts/ci/spotbugs-xml-to-sarif.py`
+(it needs `defusedxml`: `python3 -m pip install -r scripts/ci/requirements.txt`).
 
 ---
 
