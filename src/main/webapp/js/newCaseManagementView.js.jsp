@@ -494,7 +494,7 @@
     var notesRetrieveOk = false;      // true when the last fetch returned at least one note
     var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
-    var notesLoadInProgress = false;  // guards against overlapping pagination fetches
+    var notesLoadInProgress = false;  // a fetch is in flight; holds off the scroll poll
     /*
      * Number of notes rendered by the fetch currently in flight. ChartNotesAjax.jsp sets
      * this while its response scripts run; notesLoader() resets it to -1 before every
@@ -568,17 +568,16 @@
      * On pagination loads (offset > 0), preserves the current scroll position so the user
      * can continue reading older notes without being snapped away.
      *
-     * Only one fetch runs at a time; the 1s scroll poll would otherwise stack requests
-     * while a slow batch is still in flight.
+     * Callers are never turned away: the encounter layout renders ChartNotes.jsp twice on
+     * open (the second render replaces #encMainDiv), so both initial loads must run or the
+     * surviving container is left empty. notesLoadInProgress only holds off the scroll
+     * poll, which would otherwise stack requests behind a slow batch.
      *
      * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
      * @param {number} numToReturn - Maximum number of notes to fetch in this batch
      * @param {number} demoNo - Demographic (patient) number to load notes for
      */
     function notesLoader(offset, numToReturn, demoNo) {
-        if (notesLoadInProgress) {
-            return;
-        }
         notesLoadInProgress = true;
         notesLastBatchSize = -1;
         $("notesLoading").show();
