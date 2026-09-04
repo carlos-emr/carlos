@@ -85,20 +85,33 @@ most one `*.tar`/`*.tar.gz` of documents, and at most one `*.json` of
 content digests. Anything else in the archive, a member reached through a
 path, or a name beginning with `-`, is refused. Two files of the same
 role are refused as well — the importer never guesses which of two dumps
-(or two digest documents) describes the clinic. If the digests were
-shipped separately rather than in the bundle, pass them to the importer
-with `--o19-digests PATH`. The bundle file itself must be named `.tar`, `.tar.gz`,
+(or two digest documents) describes the clinic. If the content digests
+were shipped separately rather than in the bundle, pass them to the
+importer with `--o19-digests PATH`. The bundle file itself must be named `.tar`, `.tar.gz`,
 `.tar.enc` or `.tar.gz.enc`.
 
 ```bash
 sha256sum o19-bundle.tar.gz.enc
 ```
 
-Ship the bundle to the CARLOS host; send the password **and the digest**
-through a separate channel. `openssl enc` provides confidentiality only
-(no integrity check): the digest, conveyed apart from the file, is what
-proves the bundle arrived unaltered, and the importer refuses to open a
-bundle whose digest does not match.
+Two different things are called a digest here, and only one of them
+travels out of band:
+
+* the **bundle SHA-256** — the `sha256sum` above, of the encrypted file.
+  It proves the bundle arrived unaltered, so it must reach the CARLOS
+  operator through a channel **separate** from the file itself (it is
+  passed to the importer as `--bundle-sha256`).
+* the **content digests** — `o19-digests.json`, per-table hashes of the
+  clinic's data. They prove the dump carried every value, and they ride
+  *inside* the bundle like the other inputs; sending them separately buys
+  nothing, because they share the file's own channel either way.
+
+Ship the bundle to the CARLOS host; send the password **and the bundle
+SHA-256** through a separate channel. `openssl enc` provides
+confidentiality only (no integrity check): that SHA-256, conveyed apart
+from the file, is what proves the bundle arrived unaltered, and the
+importer refuses to open a
+bundle whose SHA-256 does not match.
 
 ## 3. Import on the CARLOS host
 
@@ -122,7 +135,8 @@ Prerequisites, all of them before the command below:
    the database and the documents tree, so a restore rewinds the run's
    ledgers with the data they describe. The break-glass credential note
    is deliberately excluded.
-5. **Keep the bundle, its passfile and the digest** until `--cleanup`.
+5. **Keep the bundle, its passfile and the bundle SHA-256** until
+   `--cleanup`.
    Every `--resume` repeats the whole command with `--resume` appended,
    and re-reads the bundle.
 
@@ -168,7 +182,7 @@ report as the clinic's sign-off. There are eleven:
 | `no-pre-backup` | no pre-import snapshot, or the backup unit failed |
 | `unverified-bundle` | open a bundle whose digest was never conveyed |
 | `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
-| `content-transfer` | the restored staging schema does not match the digests the clinic took before the dump |
+| `content-transfer` | the restored staging schema does not match the content digests the clinic took before the dump |
 | `no-content-digests` | the transfer's content could not be fully verified (usually: no digest document was shipped) |
 
 The assessment can evaluate only six of them (`archived-forms`,

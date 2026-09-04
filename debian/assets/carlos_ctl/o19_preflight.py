@@ -1300,6 +1300,14 @@ DIGEST_CONVERTED_TYPES = (
     "date", "time", "datetime", "timestamp", "year",
     "inet4", "inet6", "uuid",
 )
+#: prelude every digest statement carries: a TIMESTAMP is stored as UTC
+#: and RENDERED in the session's time zone (measured on MariaDB 10.11,
+#: one instant reads 12:00:00 at +00:00 and 17:30:00 at +05:30), and the
+#: clinic's server and the CARLOS host keep different local time. Without
+#: this every table with a TIMESTAMP would disagree on a faithful
+#: transfer. DATETIME is unaffected; the setting is unconditional anyway
+#: so the two sides cannot differ about when it applies.
+DIGEST_UTC_SESSION = "SET time_zone = '+00:00'"
 #: version of the digest document this file emits
 DIGEST_FORMAT = 1
 
@@ -1350,6 +1358,7 @@ def digest_sql(schema, table, columns, types, where=None):
         ident = "`{0}`.{1}".format(schema.replace("`", "``"), ident)
     clause = " WHERE {0}".format(where) if where else ""
     return (
+        DIGEST_UTC_SESSION + ";\n"
         "SELECT COUNT(*), "
         "IFNULL(SUM(CAST(CONV(SUBSTR({h}, 1, 16), 16, 10) "
         "AS DECIMAL(30, 0))), 0), "

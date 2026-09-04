@@ -283,6 +283,10 @@ class TestTheStandaloneDigestIsTheSameDigest(unittest.TestCase):
         self.assertEqual(o19_preflight.DIGEST_SEP, o19digest.SEP)
         self.assertEqual(o19_preflight.DIGEST_NULL_MARK,
                          o19digest.NULL_MARK)
+        # the session time zone decides how a TIMESTAMP renders; one side
+        # pinning it and the other not is a guaranteed false alarm
+        self.assertEqual(o19_preflight.DIGEST_UTC_SESSION,
+                         o19digest.UTC_SESSION)
 
 
 class TestWhatTheEscapeActuallyDoes(unittest.TestCase):

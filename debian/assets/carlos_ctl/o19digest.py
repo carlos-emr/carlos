@@ -181,6 +181,7 @@ def digest_sql(schema: Optional[str], table: str, columns: Sequence[str],
         ident = "`{0}`.{1}".format(schema.replace("`", "``"), ident)
     clause = " WHERE {0}".format(where) if where else ""
     return (
+        UTC_SESSION + ";\n"
         "SELECT COUNT(*), "
         "IFNULL(SUM(CAST(CONV(SUBSTR({h}, 1, 16), 16, 10) "
         "AS DECIMAL(30, 0))), 0), "
@@ -206,6 +207,21 @@ def compare(name: str, expected: Digest, actual: Digest) -> List[str]:
                 name, expected.rows, expected.total, actual.total,
                 expected.parity, actual.parity)]
 
+
+#: Prelude every digest statement carries.
+#:
+#: A TIMESTAMP is STORED as UTC and RENDERED in the session's time zone.
+#: Measured on MariaDB 10.11: one stored instant reads
+#: '2020-06-01 12:00:00' at +00:00 and '2020-06-01 17:30:00' at +05:30.
+#: The clinic's server and the CARLOS host are different machines whose
+#: local time routinely differs, so without this every table carrying a
+#: TIMESTAMP column would disagree at P2 on a perfectly faithful
+#: transfer -- the false-alarm failure mode that gets a check switched
+#: off. DATETIME is unaffected (stored and rendered verbatim), but the
+#: setting is unconditional so the two sides can never differ about WHEN
+#: it applies. Each statement runs in its own client process, so this
+#: leaks into nothing else.
+UTC_SESSION = "SET time_zone = '+00:00'"
 
 #: Version of the digest DOCUMENT the clinic emits and the import reads.
 #: Bumped only when the shape or the hash changes; a document the import

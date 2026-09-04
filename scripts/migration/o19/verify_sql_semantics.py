@@ -393,6 +393,7 @@ DIGEST_DDL = (
     " b varchar(16),"
     " amount decimal(10,2),"      # HEX() would round this
     " when_at datetime,"
+    " stamped timestamp NULL,"    # rendered in the SESSION's time zone
     " flags bit(8),"              # CONVERT() would collapse this
     " doc blob,"
     " opt enum('x','y'))")
@@ -402,22 +403,24 @@ DIGEST_DDL = (
 #: (lossy storage) than the one intended (same text, different bytes).
 DIGEST_ROWS = [
     "(1, 'Santé', 'note über', NULL, 'x', 1.40, "
-    "'2020-01-02 03:04:05', b'11000011', 0x00FF10, 'x')",
+    "'2020-01-02 03:04:05', '2020-06-01 12:00:00', b'11000011', "
+    "0x00FF10, 'x')",
     "(2, 'Ünter', 'plain', '~', NULL, 2.50, "
-    "'2021-05-06 07:08:09', b'10101010', 0xDEADBEEF, 'y')",
+    "'2021-05-06 07:08:09', '2021-07-02 13:00:00', b'10101010', "
+    "0xDEADBEEF, 'y')",
     # the identical pair: BIT_XOR cancels them, so deleting BOTH leaves the
     # XOR lane unchanged and only the SUM lane notices
     "(3, 'Twin', 'same', 'k', 'v', 3.00, '2022-01-01 00:00:00', "
-    "b'00001111', 0x01, 'x')",
+    "'2022-03-04 05:06:07', b'00001111', 0x01, 'x')",
     "(3, 'Twin', 'same', 'k', 'v', 3.00, '2022-01-01 00:00:00', "
-    "b'00001111', 0x01, 'x')",
+    "'2022-03-04 05:06:07', b'00001111', 0x01, 'x')",
 ]
 
 DIGEST_COLUMNS = [
     ("id", "int"), ("name", "varchar"), ("note", "text"),
     ("a", "varchar"), ("b", "varchar"), ("amount", "decimal"),
-    ("when_at", "datetime"), ("flags", "bit"), ("doc", "blob"),
-    ("opt", "enum"),
+    ("when_at", "datetime"), ("stamped", "timestamp"),
+    ("flags", "bit"), ("doc", "blob"), ("opt", "enum"),
 ]
 
 #: (label, SQL applied to STAGING, why it must be caught)
@@ -450,6 +453,10 @@ DIGEST_SABOTAGE = [
     ("a blob byte flipped",
      "UPDATE t SET doc = 0x00FF11 WHERE id = 1",
      "binary data must be hexed, not converted"),
+    ("a timestamp moved by an hour",
+     "UPDATE t SET stamped = '2020-06-01 13:00:00' WHERE id = 1",
+     "a real change, as opposed to the same instant read in another time "
+     "zone, which the pinned session makes invisible below"),
     ("a literal tilde promoted to NULL",
      "UPDATE t SET a = NULL WHERE id = 2",
      "the length prefix is what stops a literal '~' from imitating the "
@@ -473,7 +480,9 @@ def _lane(hash_expr: str, db: str, lane: str) -> str:
 
 def check_content_digest(client: Client, clinic: str,
                          stage: str) -> List[str]:
-    """The digest agrees across latin1/utf8mb4, and catches seven changes.
+    """The digest agrees across latin1/utf8mb4, and catches every change
+    in `DIGEST_SABOTAGE` (a count in prose is the half that rots first, so
+    there is not one here).
 
     The first claim is the one the whole P2 chain rests on: the clinic's
     live database is latin1 and the restored staging schema is utf8mb4, so
@@ -572,6 +581,36 @@ def check_content_digest(client: Client, clinic: str,
         client.run("DROP TABLE t; " + DIGEST_DDL
                    + " DEFAULT CHARSET=utf8mb4; INSERT INTO t VALUES "
                    + ", ".join(DIGEST_ROWS) + ";", stage)
+
+    # -- the same instant, read in another time zone ---------------------
+    # A TIMESTAMP is STORED as UTC and RENDERED in the session's time
+    # zone. The clinic's server and the CARLOS host are different machines
+    # whose local time routinely differs, so a digest that did not pin the
+    # session would disagree on every table carrying a TIMESTAMP -- on a
+    # perfectly faithful transfer.
+    shifted = "SET time_zone = '+05:30';\n" + stage_sql
+    agrees = _digest_of(client, stage, shifted) == baseline
+    print("    {0:<44} {1}".format(
+        "a session in another time zone still agrees",
+        "ok" if agrees else "MISMATCH"))
+    if not agrees:
+        failures.append(
+            "the digest disagreed with itself across session time zones, "
+            "so every clinic in another zone would fail the transfer check")
+    # and the counter-proof: without the prelude, it would not
+    unpinned = stage_sql.split(";\n", 1)[1]
+    here = _digest_of(client, stage,
+                      "SET time_zone = '+00:00';\n" + unpinned)
+    there = _digest_of(client, stage,
+                       "SET time_zone = '+05:30';\n" + unpinned)
+    print("    {0:<44} {1}".format(
+        "an unpinned session would NOT agree",
+        "confirmed" if here != there else "NOT CONFIRMED"))
+    if here == there:
+        failures.append(
+            "an unpinned digest agreed across time zones too, so this "
+            "check no longer shows why the session is pinned (is there "
+            "still a TIMESTAMP column in the fixture?)")
 
     # -- why the SUM lane exists -----------------------------------------
     # Replacing one identical PAIR with a different identical pair leaves

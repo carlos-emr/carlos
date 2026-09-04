@@ -115,6 +115,25 @@ class TestValuesAreNormalisedBeforeHashing(unittest.TestCase):
     def test_an_identifier_with_a_backtick_is_quoted(self):
         self.assertIn("`we``ird`", o19digest.value_expr("we`ird", "varchar"))
 
+    def test_every_digest_pins_the_session_to_utc(self):
+        """A TIMESTAMP is stored as UTC and RENDERED in the session's time
+        zone (measured on MariaDB 10.11: one instant reads 12:00:00 at
+        +00:00 and 17:30:00 at +05:30). The clinic's server and the CARLOS
+        host keep different local time, so without this every table with a
+        TIMESTAMP would disagree on a faithful transfer."""
+        sql = o19digest.digest_sql("s", "t", ["a"], {"a": "timestamp"})
+        self.assertTrue(sql.startswith(o19digest.UTC_SESSION + ";"), sql)
+        self.assertIn("SELECT COUNT(*)", sql)
+
+    def test_the_utc_prelude_is_there_for_every_type_not_just_timestamps(
+            self):
+        # unconditional so the two sides can never differ about WHEN it
+        # applies -- one side deciding by type is how they diverge
+        for coltype in ("varchar", "int", "blob", "datetime"):
+            self.assertIn(o19digest.UTC_SESSION,
+                          o19digest.digest_sql("s", "t", ["a"],
+                                               {"a": coltype}))
+
     def test_an_opaque_non_blob_column_is_hexed_too(self):
         """Measured on MariaDB 10.11: `CONVERT(<bit> USING utf8mb4)`
         renders BOTH 0xC3 and 0xAA as `?`, and a GEOMETRY's 0xF0 0x3F as
