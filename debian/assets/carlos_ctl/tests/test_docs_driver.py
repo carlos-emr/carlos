@@ -20,6 +20,7 @@ Run (from debian/assets):
 """
 
 import os
+import re
 import shutil
 import tarfile
 import tempfile
@@ -45,7 +46,12 @@ class FakeDb(object):
         self.documents = over.pop("documents", [])
         self.hrm = over.pop("hrm", [])
         self.eforms = over.pop("eforms", [])
-        self.archive_tables = over.pop("archive_tables", [])
+        #: {table: (columns, rows)} for the archive CSV export. Empty by
+        #: default, but a test that claims to cover the export must give
+        #: it something to export -- see the note on
+        #: test_the_archive_csv_export_writes_the_rows.
+        self.archive = over.pop("archive", {})
+        self.archive_tables = list(self.archive)
         if over:
             raise TypeError("unexpected FakeDb kwargs: {0}".format(
                 sorted(over)))
@@ -68,6 +74,14 @@ class FakeDb(object):
             return self.eforms
         if "information_schema.TABLES" in sql:
             return [[t] for t in self.archive_tables]
+        if "information_schema.COLUMNS" in sql:
+            table = re.search(r"TABLE_NAME = '([^']+)'", sql).group(1)
+            return [[c] for c in self.archive.get(table, ([], []))[0]]
+        for table, (cols, rows) in self.archive.items():
+            if "`{0}`".format(table) in sql:
+                # the export selects each column with a companion IS NULL
+                # flag, so every value is followed by "0"/"1"
+                return [[x for v in row for x in (v, "0")] for row in rows]
         if "HRMDocument" in sql or "report_file" in sql:
             return self.hrm
         return []
@@ -166,11 +180,35 @@ class TestTheHappyPath(DocsDriverBase):
         self.assertIn("== P5 reconciliation ==", text)
         self.assertIn("document row(s) reconciled", text)
 
-    def test_the_archive_csv_export_runs_in_this_phase(self):
-        # the CSV rendering of o19_archive is the clinic's only readable
-        # copy of what became archive-only, and it is produced here
-        self.run_docs()
-        self.assertIn("archive CSV export:", self.report())
+    def test_the_archive_csv_export_writes_the_rows(self):
+        # The CSV rendering of o19_archive is the clinic's only readable
+        # copy of what became archive-only. Asserting on the report's
+        # "archive CSV export:" header alone proves nothing -- run_docs
+        # appends that literal even when the archive is empty, so the test
+        # passed with the export entirely broken. Give it tables and check
+        # the files.
+        db = FakeDb(documents=[["1", "a.pdf"], ["2", "b.pdf"]],
+                    archive={"Eyeform": (["id", "notes"],
+                                         [["7", "left eye"]])})
+        self.run_docs(db=db)
+        out = os.path.join(self.state_dir, "o19-archive-export",
+                           "Eyeform.csv")
+        self.assertTrue(os.path.exists(out), os.listdir(self.state_dir))
+        with open(out, encoding="utf-8") as fh:
+            body = fh.read()
+        self.assertIn("id", body)
+        self.assertIn("left eye", body)
+        self.assertIn("Eyeform.csv: 1 row(s)", self.report())
+
+    def test_the_export_files_are_not_world_readable(self):
+        # archived clinical rows: 0640 under a 0750 directory
+        db = FakeDb(documents=[["1", "a.pdf"], ["2", "b.pdf"]],
+                    archive={"Eyeform": (["id"], [["7"]])})
+        self.run_docs(db=db)
+        out = os.path.join(self.state_dir, "o19-archive-export")
+        self.assertEqual(os.stat(out).st_mode & 0o777, 0o750)
+        self.assertEqual(
+            os.stat(os.path.join(out, "Eyeform.csv")).st_mode & 0o777, 0o640)
 
 
 class TestTheSkipPath(DocsDriverBase):

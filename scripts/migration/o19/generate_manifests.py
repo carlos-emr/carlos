@@ -827,7 +827,9 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
     # and an unfilled CARLOS column that nobody has ruled on.
     not_renames = dict(getattr(ov, "NOT_RENAMES", {}))
     for (t, col), reason in sorted(not_renames.items()):
-        if not reason:
+        # `"   "` is truthy, and a ruling whose reason is whitespace is
+        # not a ruling -- it is the refusal being switched off quietly
+        if not isinstance(reason, str) or not reason.strip():
             raise SystemExit(
                 "NOT_RENAMES[{!r}, {!r}] has no reason; a ruling without "
                 "one is not a ruling".format(t, col))

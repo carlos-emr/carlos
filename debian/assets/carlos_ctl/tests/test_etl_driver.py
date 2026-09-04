@@ -454,7 +454,8 @@ class TestTheLedger(EtlDriverBase):
         path = os.path.join(self.state_dir, "admin-credentials.txt")
         self.assertTrue(os.path.exists(path))
         self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
-        self.assertIn("bgadmin", open(path, encoding="utf-8").read())
+        with open(path, encoding="utf-8") as fh:
+            self.assertIn("bgadmin", fh.read())
 
     def test_a_resume_under_a_different_admin_user_is_refused(self):
         self.run_etl()
@@ -558,9 +559,12 @@ class TestRowParityOnALowerPatchLevel(EtlDriverBase):
         _ok, bad = o19etl.row_parity(
             db.plain, SRC, DST, dst_info=dict.fromkeys(DST_COLUMNS, {}),
             archive_schema=ARCH)
-        for sql in db.reads:
-            if "HL7Map" in sql:
-                self.assertNotIn("`site`", sql, sql)
+        # asserting "no HL7Map read mentions `site`" would be vacuous:
+        # parity reports the table and `continue`s, so it emits NO SQL for
+        # it at all. Assert that directly -- it is the actual behaviour,
+        # and it fails if the guard is removed and broken SQL reappears.
+        self.assertEqual([q for q in db.reads if "HL7Map" in q], [],
+                         "parity generated SQL for a table it cannot check")
         self.assertTrue([b for b in bad if "HL7Map" in b and "site" in b],
                         "parity said nothing about the unusable key")
 

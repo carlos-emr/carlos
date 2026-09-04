@@ -448,28 +448,46 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     for stale in (snapshot, tar_path):
         if os.path.lexists(stale):
             os.unlink(stale)
-    # A FIFO or a device sizes as 0, so the capacity check below passes and
-    # `copyfileobj` then blocks forever on a reader that never comes -- the
-    # import hangs with nothing written and no error. Refuse anything that
-    # is not a regular file BEFORE the arithmetic that trusts its size.
-    # stat(), not lstat(): a symlink to a real bundle is fine, a symlink to
-    # a FIFO is not.
-    mode = os.stat(bundle).st_mode
-    if not stat.S_ISREG(mode):
-        die("{0} is not a regular file ({1}) -- a bundle must be a file on "
-            "disk, not a pipe, device or directory".format(
-                bundle, stat.filemode(mode)))
-    needed = os.path.getsize(bundle) * (2 if encrypted else 1)
-    st = os.statvfs(workdir)
-    free = st.f_bavail * st.f_frsize
-    if free < needed:
-        die("insufficient disk under {0} to open the bundle: {1} MB free, "
-            "~{2} MB needed for its private copy{3}".format(
-                workdir, free // 1048576, needed // 1048576,
-                " and decrypted form" if encrypted else ""))
+    # A FIFO or a device sizes as 0, so the capacity check below would pass
+    # and `copyfileobj` then block forever on a writer that never comes --
+    # the import hangs with nothing written and no error.
+    #
+    # The check and the copy must see the SAME inode. Checking the path and
+    # re-opening it by name later leaves a window in which the operator's
+    # path is replaced by a FIFO, and `open()` on a FIFO blocks before any
+    # check could run -- reintroducing the hang this refusal exists to
+    # prevent. So open once, fstat THAT descriptor, and copy from it.
+    #
+    # O_NONBLOCK makes the open itself safe: opening a FIFO read-only with
+    # it returns immediately instead of waiting for a writer, so a swapped
+    # path is refused rather than hung on. It is cleared afterwards,
+    # because a non-blocking read of a regular file is not what
+    # copyfileobj expects.
+    try:
+        src_fd = os.open(bundle, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as exc:
+        die("cannot open {0}: {1}".format(bundle, exc))
+    try:
+        mode = os.fstat(src_fd).st_mode
+        if not stat.S_ISREG(mode):
+            die("{0} is not a regular file ({1}) -- a bundle must be a file "
+                "on disk, not a pipe, device or directory".format(
+                    bundle, stat.filemode(mode)))
+        os.set_blocking(src_fd, True)
+        needed = os.fstat(src_fd).st_size * (2 if encrypted else 1)
+        st = os.statvfs(workdir)
+        free = st.f_bavail * st.f_frsize
+        if free < needed:
+            die("insufficient disk under {0} to open the bundle: {1} MB "
+                "free, ~{2} MB needed for its private copy{3}".format(
+                    workdir, free // 1048576, needed // 1048576,
+                    " and decrypted form" if encrypted else ""))
+    except BaseException:
+        os.close(src_fd)
+        raise
     try:
         fd = os.open(snapshot, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "wb") as out, open(bundle, "rb") as src:
+        with os.fdopen(fd, "wb") as out, os.fdopen(src_fd, "rb") as src:
             shutil.copyfileobj(src, out, 1 << 20)
         actual = sha256_file(snapshot)
         if expected_sha256 and actual != expected_sha256:
