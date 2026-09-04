@@ -150,5 +150,36 @@ class TestPreservationIsDescribedConsistently(unittest.TestCase):
         self.assertNotIn("preserved in o19_archive shadow tables", source)
 
 
+class TestNamedJavaGuardsExist(unittest.TestCase):
+
+    """The guide points a reader at the maven test that fails the build
+    on a positional INSERT in a new migration. That name is a promise
+    the reader will grep for -- and it has already been broken once, by
+    renaming the class to `...UnitTest` so Surefire would select it
+    while the guide kept the old name. Derive the truth from disk."""
+
+    #: `WordTest`-shaped identifiers in backticks: Java test classes the
+    #: prose names, as opposed to python modules or SQL identifiers
+    JAVA_TEST_RE = re.compile(r"`([A-Z][A-Za-z0-9]*Test)`")
+
+    def test_every_java_test_the_guide_names_is_on_disk(self):
+        if not GUIDE.is_file():
+            self.skipTest("guide not present in this checkout")
+        java_root = ROOT / "src" / "test" / "java"
+        if not java_root.is_dir():
+            self.skipTest("java sources not present in this checkout")
+        named = sorted(set(self.JAVA_TEST_RE.findall(
+            GUIDE.read_text(encoding="utf-8"))))
+        # a contract over an empty set proves nothing: the guide names
+        # this guard, and a rewrite that drops the reference entirely
+        # should fail here rather than pass silently
+        self.assertTrue(named, "the guide names no java test class")
+        for name in named:
+            self.assertTrue(
+                list(java_root.rglob(name + ".java")),
+                "the guide names {0}, which does not exist under "
+                "src/test/java".format(name))
+
+
 if __name__ == "__main__":
     unittest.main()

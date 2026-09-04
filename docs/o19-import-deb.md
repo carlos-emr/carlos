@@ -414,7 +414,7 @@ stating exactly:
   genesis files seed positionally are in the manifest's curated set alone
   (`security`, `property`, `secRole`, `Facility`, `ProviderPreference`,
   the `lst_*` lookups …), and a clinic's own fork can widen any copied
-  table. `MigrationColumnListContractTest` fails the build on a new
+  table. `MigrationColumnListContractUnitTest` fails the build on a new
   migration that inserts positionally; the genesis and restore files are
   grandfathered, because every deployment applies them long before an
   import can widen anything.
