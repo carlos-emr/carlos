@@ -44,6 +44,8 @@ Key testing resources:
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
+| [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
+| [Database Index Review (2026-09-04)](database-index-review-2026-09-04.md) | Index state vs. DAO query patterns; rationale for the V1.0.17/V1.0.18 index migrations |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |
 
 ## Quick Links
