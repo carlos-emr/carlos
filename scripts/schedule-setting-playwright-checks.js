@@ -112,7 +112,10 @@ function recordableUrl(rawUrl) {
     const parsed = new URL(rawUrl);
     return `${parsed.origin}${parsed.pathname}`;
   } catch (e) {
-    return rawUrl;
+    // Unparseable — a truncated or malformed URL quoted inside diagnostic text.
+    // Falling back to the raw value would hand back the very query string this
+    // function exists to drop, so cut it at the first query or fragment marker.
+    return rawUrl.replace(/[?#].*$/, '');
   }
 }
 
