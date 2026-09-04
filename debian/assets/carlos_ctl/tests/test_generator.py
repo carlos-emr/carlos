@@ -288,6 +288,40 @@ class TestRenameRefusals(unittest.TestCase):
                 ("old_t", "new_t"): ""}), tables=self.TWIN_SHAPED)
         self.assertIn("has no reason", str(caught.exception))
 
+    # -- a ruling that inverted rather than went stale ----------------
+    #
+    # ARCHIVE_PATIENT / ARCHIVE_OTHER / DROP are read ONLY in the
+    # o19_only loop. A table named there that CARLOS later gains stops
+    # being O19-only, falls through to `class = "copy"`, and "removed
+    # module, do not migrate" silently becomes "copy every clinic row
+    # into the live table" -- with no warning and a --check that still
+    # passes.
+
+    SHARED = ({"t": ["id", "code"]}, {"t": ["id", "code"]})
+
+    def test_a_drop_ruling_that_now_names_a_shared_table_refuses(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(DROP={"t"}), tables=self.SHARED)
+        self.assertIn("DROP names t", str(caught.exception))
+        self.assertIn("exists on both sides", str(caught.exception))
+
+    def test_an_archive_ruling_that_now_names_a_shared_table_refuses(self):
+        for bucket in ("ARCHIVE_PATIENT", "ARCHIVE_OTHER"):
+            with self.subTest(bucket=bucket):
+                with self.assertRaises(SystemExit) as caught:
+                    self.build(self.overlay(**{bucket: {"t"}}),
+                               tables=self.SHARED)
+                self.assertIn("{0} names t".format(bucket),
+                              str(caught.exception))
+
+    def test_an_o19_only_table_in_those_buckets_still_passes(self):
+        # the ordinary case the buckets exist for: the refusal must fire
+        # on the inversion, not on the rule working as intended
+        tables = self.build(self.overlay(DROP={"gone"}),
+                            tables=({"t": ["id"], "gone": ["id"]},
+                                    {"t": ["id"]}))
+        self.assertEqual(tables["gone"]["class"], "drop")
+
     def test_a_table_ruling_that_no_longer_applies_is_stale(self):
         # dead weight that would silently cover a FUTURE pair of the same
         # names, so it is an error rather than a warning

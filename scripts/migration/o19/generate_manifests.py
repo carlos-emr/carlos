@@ -781,6 +781,35 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
         for name in sorted(names - all_names):
             print("warning: overlay {} names unknown table {}"
                   .format(bucket, name), file=sys.stderr)
+    # ... but a name that exists on BOTH sides while sitting in a bucket
+    # that means "CARLOS does not have this table" is not a typo to
+    # warn about, it is a ruling that has silently inverted. These three
+    # buckets are read ONLY in the o19_only loop below, so the day a
+    # Flyway migration adds a CARLOS table of that name -- which is
+    # exactly what V1.0.5__restore_live_legacy_common_tables.sql does for
+    # a living -- the table stops being O19-only, falls through to the
+    # `else` that assigns class "copy", and "removed-module
+    # infrastructure, do not migrate" quietly becomes "copy every clinic
+    # row into the live CARLOS table". Nothing warned, and --check still
+    # passed on the next regeneration. Refuse instead: the maintainer
+    # decides whether the new CARLOS table wants the clinic's rows.
+    inverted = sorted(
+        (bucket, name)
+        for bucket, names in (("ARCHIVE_PATIENT", archive_patient),
+                              ("ARCHIVE_OTHER", archive_other),
+                              ("DROP", drop))
+        for name in names & set(o19.tables) & set(carlos.tables))
+    if inverted:
+        raise SystemExit(
+            "overlay bucket(s) that mean \"CARLOS has no such table\" now "
+            "name a table CARLOS DOES have. Left alone each becomes class "
+            "\"copy\" with no warning, so a removed module's rows would be "
+            "copied into the live schema. Re-rule each in "
+            "overrides_schema.py -- move it to CLASS_REFERENCE / "
+            "ARCHIVE_SHARED / CLASS_MERGE, or delete the entry to accept "
+            "the copy deliberately:\n  " + "\n  ".join(
+                "{0} names {1}, which now exists on both sides".format(
+                    bucket, name) for bucket, name in inverted))
     # column-level overlay entries that no longer describe the diff are
     # errors, not warnings: a stale B3 flag silently un-blocks a workflow
     # the clinic may still use, a stale VALUE_EXPR silently stops
