@@ -374,6 +374,15 @@ B3_COLUMNS = {
 # ruled on it here -- as a rename, or explicitly as a coincidence.
 #
 # RENAMES is target -> source, the direction `source_expr` reads.
+#
+# Empty, and audited rather than assumed. `check-entity-names.py` compares
+# the JPA @Column mappings in both trees -- the code's own statement of
+# which field is which column, which catches a rename even where the DDL
+# comparison cannot (both sides holding a column of the matching name).
+# Against oscaremr/oscar a7900d56 it reports no mismatches across the 247
+# entities the two trees share; the only difference is CARLOS quoting the
+# reserved word `value` in BillingService, which is Hibernate quoting and
+# not a rename. Re-run it when curating this file.
 RENAMES = {}
 
 # Ruled coincidental: (table, o19_column) -> why. Keyed by the individual

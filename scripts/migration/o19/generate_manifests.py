@@ -584,21 +584,13 @@ SECRET_KEY_RE = re.compile(
     r"token|pgp_key|user|username|userid)$", re.I)
 
 
-#: Credential-shaped keys the NAME pattern cannot catch. `faxIdentifier`
-#: ships a literal random-looking string as its stock value, which is a
-#: plaintext-secret finding in a Debian package whatever its origin.
-#: Listed by exact name rather than widened into SECRET_KEY_RE, because
-#: "identifier" as a pattern would sweep in a pile of harmless settings.
-SECRET_KEYS = frozenset({"faxIdentifier"})
-
-
 def is_secret_key(key: str) -> bool:
     """Credential-shaped key names (passwords, keys, tokens, and the account
     names that pair with them). Decided by NAME only — the props overlay's
     dispositions never participate, so a carry-secret prefix such as
     `email.` still lets plain settings (host, port) keep their harmless
     stock defaults in the baseline."""
-    return key in SECRET_KEYS or SECRET_KEY_RE.search(key) is not None
+    return SECRET_KEY_RE.search(key) is not None
 
 
 def split_secret_defaults(defaults: Dict[str, str]
@@ -865,6 +857,37 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
             "rename hides. Rule each in overrides_schema.py, as "
             "RENAMES[table][carlos_col] = o19_col or as a NOT_RENAMES "
             "entry with a reason:\n  " + "\n  ".join(unruled))
+
+    # The same question one level up: a table renamed between O19 and
+    # CARLOS classifies as O19-only `archive` while its CARLOS twin keeps
+    # its Flyway seed, and nothing says so. Jaccard rather than a
+    # containment ratio: `intersection / min(len)` makes any four-column
+    # audit table "match" every larger one that happens to have id/date.
+    # Ruled pairs go in NOT_RENAMES keyed by (o19_table, carlos_table).
+    o19_only_named = {t: {c.lower() for c in o19.tables[t]}
+                      for t in o19_only if len(o19.tables[t]) >= 3}
+    carlos_only = {t: {c.lower() for c in carlos.tables[t]}
+                   for t in set(carlos.tables) - set(o19.tables)
+                   if len(carlos.tables[t]) >= 3}
+    twins = []
+    for a, ca in sorted(o19_only_named.items()):
+        for b, cb in sorted(carlos_only.items()):
+            union = ca | cb
+            if not union:
+                continue
+            overlap = len(ca & cb) / float(len(union))
+            if overlap >= 0.70 and (a, b) not in not_renames:
+                twins.append(
+                    "{0} (O19-only, {1} cols) ~ {2} (CARLOS-only, {3} "
+                    "cols): {4:.0f}% of their column names agree".format(
+                        a, len(ca), b, len(cb), overlap * 100))
+    if twins:
+        raise SystemExit(
+            "possible table rename(s): an O19-only table archived while a "
+            "CARLOS table with almost the same columns keeps its seed is "
+            "how a table rename hides. Rule each in overrides_schema.py "
+            "as a NOT_RENAMES entry keyed (o19_table, carlos_table):\n  "
+            + "\n  ".join(twins))
 
     for t in o19_only:
         if t in archive_patient:
