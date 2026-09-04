@@ -538,22 +538,37 @@
             scrollShellToTop();
             return;
         }
-        growFrameTo(parseInt(newHgt, 10) + 75);
+        growFrameTo(parseInt(newHgt, 10));
         scrollShellToTop();
     }
 
-    // Grow the frame (and the aspect-ratio box it lives in) to `height` px.
-    // Only ever grows: a page shorter than the CSS box keeps the box, so this
-    // cannot collapse the frame on a page that reports a bogus height.
-    function growFrameTo(height) {
+    // Breathing room added on top of a framed document's own height, so the
+    // grown frame does not sit flush against its content and re-introduce a
+    // nested scrollbar from sub-pixel rounding.
+    var FRAME_HEIGHT_MARGIN = 75;
+
+    // Grow the frame (and the aspect-ratio box it lives in) to fit a framed
+    // document `contentHeight` px tall. Only ever grows, and only when the
+    // content genuinely does not fit.
+    //
+    // The margin is added ONLY when growth is needed, which is what keeps this
+    // from ratcheting. A document shorter than its frame reports a scrollHeight
+    // equal to the frame's own height — the viewport is its lower bound — so
+    // adding the margin first and comparing afterwards would grow the frame by
+    // FRAME_HEIGHT_MARGIN on EVERY in-frame navigation, accumulating blank
+    // space without limit across a multi-step flow. Comparing the bare content
+    // height first makes the fitting case a no-op, and one growth step is
+    // enough: the next measurement equals the new frame height and stops.
+    function growFrameTo(contentHeight) {
         var frame = document.getElementById('myFrame');
         var container = document.getElementById('dynamic-content');
-        if (!frame || !isFinite(height) || height <= 0) {
+        if (!frame || !isFinite(contentHeight) || contentHeight <= 0) {
             return;
         }
-        if (height <= frame.getBoundingClientRect().height) {
+        if (contentHeight <= frame.getBoundingClientRect().height) {
             return;
         }
+        var height = contentHeight + FRAME_HEIGHT_MARGIN;
         if (container) {
             // The .dynamic-iframe-content box is sized by `padding-top: 80%`, an
             // aspect-ratio hack with no relation to the content. Swap it for a
@@ -574,8 +589,13 @@
         }
     }
 
+    // .stop(true) first: the .xlink handler scrolls on click and this runs again
+    // when the frame finishes loading, so without it the two animations queue and
+    // the shell keeps animating after it has already arrived. Clearing the queue
+    // also means a reader who scrolls during the animation is not fought by a
+    // stale one that is still ticking.
     function scrollShellToTop() {
-        $("html, body").animate({ scrollTop: 0 }, "slow");
+        $("html, body").stop(true).animate({ scrollTop: 0 }, "slow");
     }
 
     // Called by the .xlink handler on every document the frame loads. Reads the
@@ -584,12 +604,12 @@
     // behind a nested scrollbar, then puts the shell back at the top so the
     // reader sees the new page from its beginning. A page that also calls
     // resizeIframe() itself just asks for the same thing twice, which is
-    // harmless: growFrameTo() only ever grows.
+    // harmless: growFrameTo() is a no-op once the content fits.
     function scrollFramedContentIntoView(frame) {
         try {
             var doc = frame && frame.contentDocument;
             if (doc && doc.documentElement) {
-                growFrameTo(doc.documentElement.scrollHeight + 75);
+                growFrameTo(doc.documentElement.scrollHeight);
             }
         } catch (e) {
             // A cross-origin document cannot be measured; the CSS box still applies.

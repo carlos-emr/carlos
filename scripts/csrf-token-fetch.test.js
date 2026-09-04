@@ -28,7 +28,7 @@ const TOKEN_SCRIPT = 'var masterTokenValue = "TOKEN-VALUE-1234";';
 /** Builds a fresh browser-ish context around the helper for one test. */
 function loadHelper({ fetchImpl, inputCount = 1 }) {
   const warnings = [];
-  const unloadListeners = { pagehide: [], beforeunload: [] };
+  const unloadListeners = { pagehide: [], beforeunload: [], pageshow: [] };
   const inputs = Array.from({ length: inputCount }, () => ({ value: '' }));
 
   const context = {
@@ -57,6 +57,8 @@ function loadHelper({ fetchImpl, inputCount = 1 }) {
     fetchCsrfToken: (ctxPath) => vm.runInContext('fetchCsrfToken', context)(ctxPath),
     /** Simulates the document starting to go away. */
     fireUnload: () => unloadListeners.pagehide.forEach((handler) => handler()),
+    /** Simulates the document being restored from the back/forward cache. */
+    fireRestore: () => unloadListeners.pageshow.forEach((handler) => handler()),
   };
 }
 
@@ -128,4 +130,23 @@ test('rejects without warning when the unload event arrives after the rejection'
   await drainTimers();
 
   assert.deepEqual(helper.warnings, []);
+});
+
+test('warns again on a real failure after a back/forward-cache restore', async () => {
+  // Entering the bfcache fires pagehide without destroying the document, and
+  // coming back does not re-run this script. Without the pageshow reset the
+  // flag would stay set and silence every genuine failure on the restored page.
+  const helper = loadHelper({
+    fetchImpl: async () => { throw new TypeError('Failed to fetch'); },
+  });
+
+  helper.fireUnload();
+  await assert.rejects(helper.fetchCsrfToken('/carlos'), /Failed to fetch/);
+  await drainTimers();
+  assert.deepEqual(helper.warnings, [], 'suppressed while the page is away');
+
+  helper.fireRestore();
+  await assert.rejects(helper.fetchCsrfToken('/carlos'), /Failed to fetch/);
+  await drainTimers();
+  assert.equal(helper.warnings.length, 1, 'reported again once the page is back');
 });

@@ -406,6 +406,43 @@ async function runWizard(context, page) {
   if (!/finished/i.test(finalText)) {
     findings.push({ label: 'schedule-final', type: 'unexpected-final-step', body: finalText.slice(0, 300) });
   }
+
+  await assertFrameHeightDoesNotRatchet(page, finalFrame, 'schedule-final');
+}
+
+/**
+ * Reloading the SAME framed document must not change the frame's height.
+ *
+ * A document shorter than its frame reports a scrollHeight equal to the frame's
+ * own height, so a sizing rule that adds its breathing-room margin before
+ * comparing grows the frame on every single in-frame navigation and accumulates
+ * blank space without limit across a multi-step flow. Reloading one document is
+ * the tightest probe for that: nothing about the content changed, so nothing
+ * about the frame may change either.
+ */
+async function assertFrameHeightDoesNotRatchet(page, frame, label) {
+  const before = await readShellGeometry(page);
+  for (let reload = 0; reload < 3; reload++) {
+    await Promise.all([
+      frame.waitForLoadState('load', { timeout: 30000 }).catch(() => {}),
+      frame.evaluate(() => { window.location.reload(); }).catch(() => {}),
+    ]);
+    await page.waitForTimeout(1500);
+  }
+  const after = await waitForShellScrollTop(page);
+  if (after.frameHeight !== null && before.frameHeight !== null
+      && after.frameHeight > before.frameHeight) {
+    findings.push({
+      label,
+      type: 'frame-height-ratchets',
+      detail: `frame grew from ${before.frameHeight}px to ${after.frameHeight}px over 3 reloads of the same document`,
+    });
+  }
+  visited.push({
+    label: `${label}-reload-stability`,
+    frameHeightBefore: before.frameHeight,
+    frameHeightAfter: after.frameHeight,
+  });
 }
 
 /**

@@ -28,11 +28,18 @@
  * Both pagehide and beforeunload are observed because which one runs first —
  * and whether either runs before the in-flight request is cancelled — varies
  * with how the navigation was initiated.
+ *
+ * Cleared again on pageshow. A document entering the back/forward cache fires
+ * pagehide WITHOUT being destroyed, and coming back does not re-run this
+ * script — so without the reset the flag would stay set for the rest of that
+ * document's life and silence every later genuine failure on it, including the
+ * eForm manager's retry.
  */
 var carlosCsrfPageUnloading = false;
 if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('pagehide', function () { carlosCsrfPageUnloading = true; }, true);
     window.addEventListener('beforeunload', function () { carlosCsrfPageUnloading = true; }, true);
+    window.addEventListener('pageshow', function () { carlosCsrfPageUnloading = false; }, true);
 }
 
 function fetchCsrfToken(contextPath) {
