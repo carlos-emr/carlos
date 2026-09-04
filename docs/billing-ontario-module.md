@@ -229,8 +229,13 @@ Region resolution rules (`Billing2Action.execute`):
 
 1. If `billRegion` request parameter is present and non-empty, use it.
 2. Otherwise, fall back to the `billregion` value stored in
-   `CarlosProperties` (read raw, not via `getProperty()`, which logs a WARN
-   and substitutes a default for any key it cannot find).
+   `CarlosProperties`, read raw rather than through `getProperty()`. The
+   override logs a WARN on every miss, and `billregion` is legitimately
+   absent on an install that never set it. The value it hands back on a
+   miss is the same either way — the substitution it attempts comes from
+   `PROPERTY_DEFAULTS`, which registers only `hibernate.dialect` and
+   `ColourClass`, so an unregistered key like `billregion` still resolves
+   to null. The reason to read raw is the log noise, not a wrong value.
 3. Anything not equal to `"ON"` (including null) routes to BC. Historical
    behaviour: BC was the original deployment.
 
