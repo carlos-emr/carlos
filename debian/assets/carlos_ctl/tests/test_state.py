@@ -20,6 +20,13 @@ from unittest import mock
 from carlos_ctl import (o19etl, o19import, o19map_schema,
                         o19report)
 
+# The importer writes its client defaults-file inside the run's own state
+# directory (o19import.py:1192), never in a world-writable temp dir. Tests
+# that only need the path as a *string argument* use that real location, so
+# the value under test matches the shipped one and no reader -- human or
+# static analyser -- has to wonder whether a test writes to /tmp.
+CLIENT_CNF = "/var/lib/carlos-emr/o19-import/.stage-client.cnf"
+
 
 class TestStateLedger(unittest.TestCase):
 
@@ -357,12 +364,12 @@ class TestStatementTimeoutFlag(unittest.TestCase):
     """--statement-timeout reaches the restore client, or is refused."""
     def test_restore_client_carries_the_timeout_when_set(self):
         argv = o19import.staging_client_argv(
-            ["mariadb", "--protocol=socket", "--user=root"], "/tmp/c.cnf",
+            ["mariadb", "--protocol=socket", "--user=root"], CLIENT_CNF,
             statement_timeout=30)
         init = [a for a in argv if a.startswith("--init-command=")][0]
         self.assertIn("max_statement_time=30", init)
         argv = o19import.staging_client_argv(
-            ["mariadb", "--protocol=socket", "--user=root"], "/tmp/c.cnf")
+            ["mariadb", "--protocol=socket", "--user=root"], CLIENT_CNF)
         self.assertNotIn("max_statement_time", " ".join(argv))
 
     def test_negative_or_non_numeric_seconds_are_refused_by_the_parser(
