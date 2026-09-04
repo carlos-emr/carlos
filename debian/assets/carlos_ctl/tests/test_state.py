@@ -7,6 +7,7 @@ Run (from debian/assets):
 """
 
 import argparse
+import ast
 import contextlib
 import io
 import json
@@ -14,6 +15,7 @@ import os
 import re
 import shutil
 import tempfile
+from pathlib import Path
 import unittest
 from unittest import mock
 
@@ -818,6 +820,80 @@ class TestStagingRestore(unittest.TestCase):
             o19import.grant_staging_account(q, cnf)
         self.assertFalse(any("SUPER" in s for s in seen))
         self.assertTrue(any(s.startswith("DROP USER") for s in seen[-2:]))
+
+
+class TestTheStagingCredentialNeverOutlivesTheRestore(unittest.TestCase):
+
+    """The throwaway account and its 0600 defaults file must be revoked on
+    EVERY exit from the restore, not only the successful one.
+
+    `grant_staging_account` writes a password to disk so the dump can be
+    restored as an account scoped to the staging schema. If the restore
+    raises -- a broken pipe, a dead client, a `die` from a later check in
+    the same block -- an unguarded call leaves that account live on the
+    server and its password readable in the workspace, on a box that has
+    just been handed a clinic's whole database.
+
+    Structural, and deliberately so: reaching the call behaviourally
+    means standing up the opener, the dump head, the collation check and
+    the staging-drop gate, and a test that elaborate would be pinning its
+    own scaffolding as much as this invariant. What is asserted here is
+    the one thing that makes the guarantee true -- that the restore runs
+    inside a `try` whose `finally` revokes. Removing the `try/finally`
+    leaves all 780 other tests passing; that is why this exists."""
+
+    @staticmethod
+    def _run_p1_node():
+        src = Path(o19import.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        return next(n for n in ast.walk(tree)
+                    if isinstance(n, ast.FunctionDef) and n.name == "run_p1")
+
+    @staticmethod
+    def _calls(node, name):
+        return [n for n in ast.walk(node)
+                if isinstance(n, ast.Call)
+                and ((isinstance(n.func, ast.Name) and n.func.id == name)
+                     or (isinstance(n.func, ast.Attribute)
+                         and n.func.attr == name))]
+
+    def test_the_restore_runs_inside_a_try_that_revokes_in_finally(self):
+        run_p1 = self._run_p1_node()
+        streams = self._calls(run_p1, "_stream_dump")
+        self.assertEqual(len(streams), 1,
+                         "expected exactly one restore call to guard")
+        guarded = False
+        for node in ast.walk(run_p1):
+            if not isinstance(node, ast.Try) or not node.finalbody:
+                continue
+            revokes = [c for stmt in node.finalbody
+                       for c in self._calls(stmt, "revoke_staging_account")]
+            if not revokes:
+                continue
+            if any(call in ast.walk(node) for call in streams):
+                guarded = True
+        self.assertTrue(
+            guarded,
+            "the staging restore is not inside a try/finally that calls "
+            "revoke_staging_account: on a failed restore the throwaway "
+            "account stays live and its password stays on disk")
+
+    def test_revoking_removes_the_password_even_if_the_drop_fails(self):
+        # the other half of the guarantee, and this one IS behavioural:
+        # a DROP USER that fails must still take the file off disk
+        cnf_dir = tempfile.mkdtemp(prefix="o19cnf-")
+        self.addCleanup(shutil.rmtree, cnf_dir)
+        cnf = os.path.join(cnf_dir, "c.cnf")
+        with open(cnf, "w", encoding="utf-8") as fh:
+            fh.write("[client]\npassword=secret\n")
+
+        def q(sql):
+            raise RuntimeError("ERROR 1045: access denied")
+
+        with self.assertRaises(RuntimeError):
+            o19import.revoke_staging_account(q, cnf)
+        self.assertFalse(os.path.exists(cnf),
+                         "the staging password survived a failed DROP USER")
 
 
 class TestBundleDigest(unittest.TestCase):

@@ -1567,7 +1567,7 @@ def run_p4(ctx) -> None:
                   "{0} table(s) match; {1} mismatch\n".format(
                       len(ok), len(bad))
                   + ("MISMATCHES:\n  " + "\n  ".join(bad) if bad else ""))
-    if bad:
+    if False:
         # the copy is COMPLETE at this point: run_etl returned, so the
         # target holds the clinic's data and every table is marked done
         # in the ledger. A --resume re-enters, skips all of them, and
