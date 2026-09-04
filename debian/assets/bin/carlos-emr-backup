@@ -542,10 +542,33 @@ cmd_run() {
     #   admin-credentials.txt  the break-glass password the import
     #                 creates, for the same reason as initial-admin.txt.
     #                 The `*` catches the set-aside copies too.
+    #   o19-derived-carlos.properties  the props phase writes the clinic's
+    #                 carried credentials into it in clear (Teleplan, MCEDT,
+    #                 HCV, SMTP, PGP_KEY). The postrm shreds this file
+    #                 alongside admin-credentials.txt precisely because it is
+    #                 a credential store; carrying it into a year of snapshots
+    #                 contradicts that. It is regenerable from the dump, and
+    #                 the values that matter live on in carlos.properties,
+    #                 which IS backed up.
+    #   bundle/, bundle-assess/  the extracted handoff archive: the clinic's
+    #                 ENTIRE database as plaintext SQL, their documents tar
+    #                 and their oscar.properties. It sits in the workspace
+    #                 from the moment the bundle is opened until --cleanup,
+    #                 which spans the mandatory pre-import snapshot (P3) and
+    #                 the post-import full backup the next-steps text asks
+    #                 for -- so without this exclusion every import
+    #                 guarantees a second, unmanaged copy of the whole
+    #                 pre-migration record in the repository, kept for up to
+    #                 a year by the retention policy. The operator still
+    #                 holds the bundle itself; a backup is not the place for
+    #                 an unpacked copy of an input file.
     restic backup --tag files --host "$(hostname -s)-carlos" \
         --exclude "${CONF_DIR}/tls" \
         --exclude "${CONF_DIR}/initial-admin.txt" \
         --exclude "${O19_DIR}/admin-credentials.txt*" \
+        --exclude "${O19_DIR}/o19-derived-carlos.properties*" \
+        --exclude "${O19_DIR}/bundle" \
+        --exclude "${O19_DIR}/bundle-assess" \
         --exclude "${O19_DIR}/.lock" \
         "${targets[@]}"
 
