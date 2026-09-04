@@ -280,36 +280,49 @@ async function openEchartFromAppointment(context, schedulePage, recorder, appoin
  * scrolled to the top — then waits for pagination to stop.
  */
 async function assertNotesPaginationSettles(echart) {
-  const geometry = await echart.locator('#encMainDivWrapper').first().evaluate((element) => {
+  const wrapper = echart.locator('#encMainDivWrapper').first();
+  const geometry = await wrapper.evaluate((element) => {
+    const original = { flex: element.style.flex, height: element.style.height };
     element.style.flex = 'none';
     element.style.height = '80px';
     element.scrollTop = 0;
-    return { scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
+    return { original, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
   });
   assert(geometry.scrollHeight > geometry.clientHeight,
     `notes wrapper did not overflow, so the pagination poll was never armed: ${JSON.stringify(geometry)}`);
 
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  let observed = notesRequests.length;
-  let stableSince = Date.now();
-  while (Date.now() < deadline) {
-    await echart.waitForTimeout(500);
-    if (notesRequests.length !== observed) {
-      observed = notesRequests.length;
-      stableSince = Date.now();
-    } else if (Date.now() - stableSince >= POLL_QUIET_MS) {
-      return;
+  try {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    let observed = notesRequests.length;
+    let stableSince = Date.now();
+    while (Date.now() < deadline) {
+      await echart.waitForTimeout(500);
+      if (notesRequests.length !== observed) {
+        observed = notesRequests.length;
+        stableSince = Date.now();
+      } else if (Date.now() - stableSince >= POLL_QUIET_MS) {
+        return;
+      }
     }
+    throw new Error('notes pagination never stopped on a chart with no notes; '
+      + `${notesRequests.length} viewNotesOpt requests at offsets `
+      + `${notesRequests.map((r) => r.offset).join(', ')}`);
+  } finally {
+    // Give the chart its real size back before the throbber assertions and the
+    // settled screenshot, so neither is taken against an 80px pane.
+    await wrapper.evaluate((element, original) => {
+      element.style.flex = original.flex;
+      element.style.height = original.height;
+    }, geometry.original).catch(() => {});
   }
-  throw new Error('notes pagination never stopped on a chart with no notes; '
-    + `${notesRequests.length} viewNotesOpt requests at offsets `
-    + `${notesRequests.map((r) => r.offset).join(', ')}`);
 }
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  // Before the browser starts: a filesystem failure here would otherwise leave a
+  // launched Chromium with no finally to close it.
   initMysqlDefaults();
+  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   let demographicNo = null;
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });

@@ -327,8 +327,20 @@ Notes on the contract:
   them, and opens the eChart from that appointment, which is the path the
   notes-pagination loop was reported on. It deletes the patient, the
   appointment and the note lock in its `finally`, including after a failure, so
-  repeat runs stay clean; clear strays from a killed run with
-  `SELECT demographic_no FROM demographic WHERE last_name LIKE 'PLAYWRIGHT-EC-%';`.
+  repeat runs stay clean. A run killed mid-flight (SIGINT/SIGKILL) skips that
+  `finally`; identify and remove any stray with
+
+  ```sql
+  SELECT demographic_no, last_name FROM demographic WHERE last_name LIKE 'PLAYWRIGHT-EC-%';
+  DELETE a, l, adm, arch, d
+    FROM demographic d
+    LEFT JOIN appointment a        ON a.demographic_no   = d.demographic_no
+    LEFT JOIN casemgmt_note_lock l ON l.demographic_no   = d.demographic_no
+    LEFT JOIN admission adm        ON adm.client_id      = d.demographic_no
+    LEFT JOIN demographicArchive arch ON arch.demographic_no = d.demographic_no
+   WHERE d.last_name LIKE 'PLAYWRIGHT-EC-%';
+  ```
+
   It shrinks the notes wrapper in the browser before watching the poll: the
   pagination only fires when that pane overflows and sits at the top, which a
   tall headless window never reproduces on its own.
