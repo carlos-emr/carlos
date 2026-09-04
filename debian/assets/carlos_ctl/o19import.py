@@ -1330,7 +1330,9 @@ def _row_parity(ctx):
         pruned_property_keys=o19_preflight.DROPPED_PROP_KEYS)
     kept_ok, kept_bad = o19etl.preserved_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive)
-    return ok + kept_ok, bad + kept_bad
+    col_ok, col_bad = o19etl.archived_column_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"])
+    return ok + kept_ok + col_ok, bad + kept_bad + col_bad
 
 
 def run_p4(ctx) -> None:

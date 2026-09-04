@@ -386,8 +386,16 @@ def copy_statement(table: str, entry: dict, src_schema: str,
     restricts it to one id range for a chunked table; `repaired` names
     the columns whose double-encoded text this run rewrites."""
     cols = entry["cols"]
+    archived = entry.get("archived_cols") or {}
     targets = ", ".join("`{0}`".format(c) for c in cols)
+    # an `import_archived_` column is a verbatim copy of a source column
+    # into a target column of the source's own type: nothing to sanitize,
+    # and sanitizing anyway would rewrite a zero date to NULL and make
+    # the archive differ from what the clinic had
     exprs = ", ".join(
+        source_expr(entry, c, repaired, archive_schema,
+                    dst_cols[c]["nullable"])
+        if c in archived else
         sanitize_expr(source_expr(entry, c, repaired, archive_schema,
                                   dst_cols[c]["nullable"]),
                       dst_cols[c])
@@ -439,9 +447,13 @@ def merge_statement(table: str, entry: dict, src_schema: str,
     seeds); rows are appended in source-id order so the id map can pair
     them deterministically (idmap_statements)."""
     surrogate = entry.get("surrogate_pk")
+    archived = entry.get("archived_cols") or {}
     cols = [c for c in entry["cols"] if c != surrogate]
     targets = ", ".join("`{0}`".format(c) for c in cols)
     exprs = ", ".join(
+        source_expr(entry, c, repaired, archive_schema,
+                    dst_cols[c]["nullable"])
+        if c in archived else
         sanitize_expr(source_expr(entry, c, repaired, archive_schema,
                                   dst_cols[c]["nullable"]),
                       dst_cols[c])
@@ -456,6 +468,37 @@ def merge_statement(table: str, entry: dict, src_schema: str,
         sql += " AND NOT ({0})".format(entry["merge_exclude"])
     if surrogate:
         sql += " ORDER BY s.`{0}`".format(surrogate)
+    return sql
+
+
+def archived_backfill_statement(table: str, entry: dict, src_schema: str,
+                                dst_schema: str,
+                                dst_cols: Dict[str, dict],
+                                archive_schema: Optional[str] = None
+                                ) -> Optional[str]:
+    """The UPDATE that carries a merge table's `import_archived_` values
+    onto rows the merge did NOT insert, or None when there are none.
+
+    A merge keeps CARLOS's row on a shared natural key, so a clinic row
+    with a target twin never passes through `merge_statement` -- and its
+    unmapped columns would be the one population requirement B still
+    orphaned. The join is the merge's own natural-key join, so it pairs
+    exactly the rows the anti-join rejected.
+
+    Idempotent by construction: it assigns the same source value every
+    time, and `merge_exclude` rows are left alone here as they are
+    there."""
+    archived = entry.get("archived_cols") or {}
+    if not archived:
+        return None
+    sets = ", ".join(
+        "d.`{0}` = s.`{1}`".format(target, source)
+        for target, source in sorted(archived.items()))
+    sql = ("UPDATE `{0}`.`{1}` d JOIN `{2}`.`{1}` s ON {3} SET {4}"
+           .format(dst_schema, table, src_schema,
+                   merge_join(entry, archive_schema, dst_cols), sets))
+    if entry.get("merge_exclude"):
+        sql += " WHERE NOT ({0})".format(entry["merge_exclude"])
     return sql
 
 
@@ -804,6 +847,135 @@ def unknown_columns(entry: dict, src_cols: Dict[str, dict]) -> List[str]:
              for c in entry.get("cols", [])}
     known.update(c.lower() for c in entry.get("dropped", {}))
     return sorted(c for c in src_cols if c.lower() not in known)
+
+
+def archived_column_plan(entry: dict, src_cols: Dict[str, dict]
+                         ) -> List[Tuple[str, str, str]]:
+    """(source column, `import_archived_` target, source column type) for
+    every column of one staged table that the manifest has no home for.
+
+    Two populations, and neither reached the live schema before:
+
+    * the manifest's curated `dropped` columns -- captured until now only
+      as a `__dropped` shadow, and only for rows whose value was
+      non-default, joined back by three columns chosen as a row
+      identifier with no guarantee they are a key;
+    * `unknown_columns` -- the columns a clinic's own fork added, which
+      the manifest has never seen.
+
+    A dropped column this dump does not carry is not in the plan (there
+    is nothing to preserve); `shadow_statements` reports that case.
+
+    The target keeps the SOURCE type verbatim, which is what makes the
+    copy of it lossless: no widening, no truncation, and nothing for
+    `sanitize_expr` to correct."""
+    out = []
+    for col in sorted(set(entry.get("dropped", {}))
+                      | set(unknown_columns(entry, src_cols))):
+        info = src_cols.get(col)
+        if not info:
+            continue
+        out.append((col, archived_column(col), info["column_type"]))
+    return out
+
+
+#: MySQL's identifier limit, and what the prefixes leave of it. A
+#: preserved TABLE also carries a rebuild suffix (`__old`/`__new`), so it
+#: has five fewer characters to work with than a preserved column.
+IDENTIFIER_LIMIT = 64
+MAX_PRESERVED_TABLE = (IDENTIFIER_LIMIT - len(ARCHIVED_PREFIX)
+                       - len(REBUILD_OLD))
+MAX_PRESERVED_COLUMN = IDENTIFIER_LIMIT - len(ARCHIVED_PREFIX)
+
+
+def oversized_preserved_names(src_info: Dict[str, Dict[str, dict]],
+                              preserved_tables: Sequence[str],
+                              column_plans: Dict[str, Sequence[str]]
+                              ) -> List[str]:
+    """Names whose `import_archived_` form would not fit an identifier.
+
+    The manifest's own names are far inside the limit (the longest
+    preserved table is 37 characters, the longest dropped column 25), but
+    a clinic's fork names its own tables and columns, and those arrive
+    unclassified. Failing on the ALTER halfway through the loop would
+    leave a half-preserved import; this is checked before the first
+    write, next to `unsafe_identifiers`, whose remedy it shares: rename
+    in the source and re-export.
+
+    Returns one problem string per offending name, empty when all fit."""
+    out = []
+    for table in sorted(preserved_tables):
+        if len(table) > MAX_PRESERVED_TABLE:
+            out.append(
+                "{0}: preserving it as {1}{0} would exceed MySQL's "
+                "{2}-character identifier limit (max {3} characters for a "
+                "preserved table) — rename it in the source and re-export"
+                .format(table, ARCHIVED_PREFIX, IDENTIFIER_LIMIT,
+                        MAX_PRESERVED_TABLE))
+    for table in sorted(column_plans):
+        for col in sorted(column_plans[table]):
+            if len(col) > MAX_PRESERVED_COLUMN:
+                out.append(
+                    "{0}.{1}: preserving it as {2}{1} would exceed MySQL's "
+                    "{3}-character identifier limit (max {4} characters "
+                    "for a preserved column) — rename it in the source and "
+                    "re-export".format(table, col, ARCHIVED_PREFIX,
+                                       IDENTIFIER_LIMIT,
+                                       MAX_PRESERVED_COLUMN))
+    return out
+
+
+def archived_column(col: str) -> str:
+    """The live-schema column under which a source column is preserved."""
+    return ARCHIVED_PREFIX + col
+
+
+def add_archived_column_statements(table: str, dst_schema: str,
+                                   plan: Sequence[Tuple[str, str, str]],
+                                   dst_cols: Dict[str, dict]) -> List[str]:
+    """The ALTERs that add one table's `import_archived_` columns.
+
+    Always NULLable and never defaulted: `missing_required_columns`
+    aborts the whole run on a NOT NULL target column the copy does not
+    fill, and a row the dump has no value for must read as "no value",
+    not as a fabricated one.
+
+    MySQL 8 has no `ADD COLUMN IF NOT EXISTS`, so a column already there
+    is skipped from the introspected schema -- which is also what makes a
+    resumed run a no-op rather than a duplicate-column error. The COMMENT
+    is for the operator reading `SHOW CREATE TABLE` a year from now: it
+    names the OSCAR 19 column the values came from."""
+    out = []
+    for src_col, target, coltype in plan:
+        if target in dst_cols:
+            continue
+        out.append(
+            "ALTER TABLE `{0}`.`{1}` ADD COLUMN `{2}` {3} NULL COMMENT "
+            "'OSCAR 19 {1}.{4} preserved by import-o19'".format(
+                dst_schema, table, target, coltype, src_col))
+    return out
+
+
+def with_archived_columns(entry: dict, plan: Sequence[Tuple[str, str, str]]
+                          ) -> dict:
+    """`entry` with its `import_archived_` columns folded into the copy.
+
+    The mapping mechanism is the manifest's own: `renames` is
+    target -> source, exactly the direction `source_expr` reads, so the
+    prefixed column is filled by `s.<source>` with no new machinery.
+    `archived_cols` records which targets they are, because those are the
+    ones that must be copied VERBATIM -- `sanitize_expr` would rewrite a
+    zero date to NULL, and an archived value that differs from the source
+    is not an archive."""
+    if not plan:
+        return entry
+    out = dict(entry)
+    out["cols"] = list(entry.get("cols", [])) + [t for _s, t, _c in plan]
+    renames = dict(entry.get("renames", {}))
+    renames.update({t: s for s, t, _c in plan})
+    out["renames"] = renames
+    out["archived_cols"] = {t: s for s, t, _c in plan}
+    return out
 
 
 def unknown_column_shadow_statements(table: str, entry: dict,
@@ -1538,6 +1710,19 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             stage_roles, stage_rows, o19map_schema.STOCK_ROLE_NAMES)
         problems.extend(o19roles.validate_role_templates(
             ctx["role_templates"], customs, o19map_schema.STOCK_ROLE_NAMES))
+    # every name requirement B is about to create, checked before the
+    # first write: an ALTER or CREATE that overflows MySQL's identifier
+    # limit halfway through the loop would leave a half-preserved import
+    preserved = [t for t in src_info
+                 if o19map_schema.TABLES.get(t, {}).get("class",
+                                                        "unknown")
+                 in PRESERVED_CLASSES + ("unknown",)]
+    column_plans = {
+        t: [c for c, _target, _type in archived_column_plan(
+            effective.get(t, o19map_schema.TABLES[t]), src_info[t])]
+        for t in sorted(effective)}
+    problems.extend(oversized_preserved_names(src_info, preserved,
+                                              column_plans))
     if problems:
         die("ETL pre-checks failed ({0}):\n  ".format(
             precheck_scope(state_dir)) + "\n  ".join(problems))
@@ -1726,6 +1911,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     fk_lines: List[str] = kept.setdefault("fk", [])
     drop_lines: List[str] = kept.setdefault("drop", [])
     reference_lines: List[str] = kept.setdefault("reference", [])
+    archived_col_lines: List[str] = kept.setdefault("archived_cols", [])
     shadow_notes: List[str] = kept.setdefault("shadow", [])
     absent_tables: List[str] = []
     # tables whose target rows P0 tolerated because this copy deletes them
@@ -1808,10 +1994,52 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         dcols = dst_info[table]
         repaired = repairs.get(table)
 
+        # -- requirement B, column half ------------------------------------
+        # every source column the manifest has no home for joins the live
+        # table as `import_archived_<col>`, carrying the source type and
+        # the source value. The ALTER runs HERE, inside the loop and
+        # before this table's first INSERT (chunked tables included), and
+        # `dcols` is updated in place: `copy_statement` indexes
+        # dst_cols[c] unconditionally, so a column added after the
+        # introspection at the top of run_etl would be a KeyError
+        # mid-import.
+        # the shadow captures below describe the manifest's own view of
+        # this table, so they read the entry BEFORE the archived columns
+        # are folded in -- otherwise a vendor-fork column stops being
+        # "unknown" the moment it is preserved, and the o19_archive
+        # verification copy the operator was promised disappears
+        base_entry = entry
+        col_plan = archived_column_plan(entry, src_info[table])
+        if col_plan:
+            for sql in add_archived_column_statements(
+                    table, dst, col_plan, dcols):
+                query(sql)
+            if not tstate.get("archived_cols_added"):
+                archived_col_lines.append(
+                    "{0}: {1}".format(table, ", ".join(
+                        "{0} -> {1}".format(src_col, target)
+                        for src_col, target, _t in col_plan)))
+                tstate["archived_cols_added"] = True
+                save_progress(state_dir, progress)
+            # the introspected shape must agree with what the copy is
+            # about to name, whether the ALTER ran now or on an earlier
+            # attempt of this same run
+            for src_col, target, _ctype in col_plan:
+                dcols.setdefault(target, dict(src_info[table][src_col],
+                                              nullable=True))
+            entry = with_archived_columns(entry, col_plan)
+
         if cls == "merge":
             if not tstate.get("done"):
                 query(merge_statement(table, entry, src, dst, dcols,
                                       repaired, arch))
+                # rows the merge kept CARLOS's copy of never passed
+                # through that insert; their archived columns are filled
+                # by joining on the same natural key
+                backfill = archived_backfill_statement(
+                    table, entry, src, dst, dcols, arch)
+                if backfill:
+                    query(backfill)
                 # the id map is rebuilt with every (re)merge so child
                 # tables always read a map matching the target's ids
                 for sql in idmap_statements(table, entry, src, dst, arch,
@@ -1906,8 +2134,8 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             save_progress(state_dir, progress)
 
         # shadow-capture dropped columns alongside the copy
-        if entry.get("dropped") and not tstate.get("shadow_done"):
-            for sql in shadow_statements(table, entry, src, arch,
+        if base_entry.get("dropped") and not tstate.get("shadow_done"):
+            for sql in shadow_statements(table, base_entry, src, arch,
                                          src_info[table], shadow_notes):
                 query(sql)
             tstate["shadow_done"] = True
@@ -1915,7 +2143,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         # ... and vendor-fork columns the manifest does not know at all
         if not tstate.get("unknown_shadow_done"):
             stmts = unknown_column_shadow_statements(
-                table, entry, src, arch, src_info[table])
+                table, base_entry, src, arch, src_info[table])
             for sql in stmts:
                 query(sql)
             if stmts:
@@ -1923,7 +2151,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                 report("{0}: unmapped column(s) {1} shadow-captured to "
                        "{2}.{0}__unknown_cols".format(
                            table, ", ".join(unknown_columns(
-                               entry, src_info[table])), arch))
+                               base_entry, src_info[table])), arch))
             tstate["unknown_shadow_done"] = True
             save_progress(state_dir, progress)
 
@@ -1969,6 +2197,10 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         report("reference tables where CARLOS's own data wins; the "
                "clinic's rows are preserved for comparison:\n  "
                + "\n  ".join(reference_lines))
+    if archived_col_lines:
+        report("columns CARLOS has no home for, preserved on the live "
+               "table (source type and value kept verbatim):\n  "
+               + "\n  ".join(archived_col_lines))
     if shadow_notes:
         report("dropped-column capture:\n  " + "\n  ".join(shadow_notes))
     if idmap_lines:
@@ -2150,6 +2382,51 @@ def preserved_parity(plain_query, src_schema: str, dst_schema: str,
                 table, cls, src_n, ", ".join(
                     "{0}.{1} {2}".format(schema, name, n)
                     for schema, name, n in counts)))
+    return ok, bad
+
+
+def archived_column_parity(plain_query, src_schema: str, dst_schema: str
+                           ) -> Tuple[List[str], List[str]]:
+    """(ok_lines, mismatch_lines) for the `import_archived_` COLUMNS.
+
+    A row count cannot see a column: a copy that named the prefixed
+    column but fed it the wrong expression -- or fed it nothing --
+    passes `row_parity` unchanged. So each preserved column is counted
+    where it is not NULL, on both sides, and the two must agree.
+
+    Equality, not "at least": the rows the target holds beyond the copy
+    (CARLOS seeds a merge kept, the break-glass administrator) have no
+    source column to fill from, so they are NULL and contribute to
+    neither side."""
+    ok, bad = [], []
+    src_info = introspect_columns(plain_query, src_schema)
+    dst_info = introspect_columns(plain_query, dst_schema)
+    for table in sorted(dst_info):
+        if table not in src_info:
+            continue
+        for target in sorted(dst_info[table]):
+            if not target.startswith(ARCHIVED_PREFIX):
+                continue
+            source = target[len(ARCHIVED_PREFIX):]
+            if source not in src_info[table]:
+                # the column was preserved by an earlier run against a
+                # dump that carried it; this one does not, so there is
+                # nothing to compare it against
+                continue
+            src_n = int(plain_query(
+                "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` IS NOT NULL"
+                .format(src_schema, table, source))[0][0])
+            dst_n = int(plain_query(
+                "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` IS NOT NULL"
+                .format(dst_schema, table, target))[0][0])
+            line = ("{0}.{1}: {2} value(s) preserved as {3}".format(
+                table, source, src_n, target))
+            if src_n == dst_n:
+                ok.append(line)
+            else:
+                bad.append("{0}.{1}: {2} non-null value(s) in staging, {3} "
+                           "in {4}.{5}".format(table, source, src_n, dst_n,
+                                               dst_schema, target))
     return ok, bad
 
 

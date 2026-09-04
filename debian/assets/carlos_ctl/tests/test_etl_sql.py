@@ -11,6 +11,7 @@ Run (from debian/assets):
 import ast
 import inspect
 import os
+import re
 import textwrap
 import unittest
 
@@ -676,6 +677,236 @@ class TestRowParity(unittest.TestCase):
         self.assertEqual(bad, [])
         self.assertTrue(any("+1 break-glass admin row" in line
                             for line in ok))
+
+
+class TestArchivedColumns(unittest.TestCase):
+    """The column half of requirement B, at statement level.
+
+    A source column CARLOS has no home for is added to the live table
+    under `import_archived_<col>` with the SOURCE type, and copied
+    verbatim -- no sanitizer, because an archived value that differs from
+    what the clinic had is not an archive.
+    """
+
+    ENTRY = {"class": "copy", "cols": ["id", "name"],
+             "dropped": {"legacyFlag": {"nondefault": "1"}}}
+
+    def src_cols(self, **over):
+        cols = {"id": {"column_type": "int(11)", "type": "int",
+                       "nullable": False},
+                "name": {"column_type": "varchar(60)", "type": "varchar",
+                         "nullable": True},
+                "legacyFlag": {"column_type": "tinyint(1)",
+                               "type": "tinyint", "nullable": True},
+                "vendorNote": {"column_type": "text", "type": "text",
+                               "nullable": True}}
+        cols.update(over)
+        return cols
+
+    def test_the_plan_covers_dropped_and_vendor_fork_columns(self):
+        plan = o19etl.archived_column_plan(self.ENTRY, self.src_cols())
+        self.assertEqual(
+            plan, [("legacyFlag", "import_archived_legacyFlag",
+                    "tinyint(1)"),
+                   ("vendorNote", "import_archived_vendorNote", "text")])
+
+    def test_a_dropped_column_this_dump_lacks_is_not_planned(self):
+        # nothing to preserve; shadow_statements reports the case
+        cols = self.src_cols()
+        del cols["legacyFlag"]
+        plan = o19etl.archived_column_plan(self.ENTRY, cols)
+        self.assertEqual([p[0] for p in plan], ["vendorNote"])
+
+    def test_the_alter_keeps_the_source_type_and_is_nullable(self):
+        plan = o19etl.archived_column_plan(self.ENTRY, self.src_cols())
+        stmts = o19etl.add_archived_column_statements("t", "carlos", plan,
+                                                      {})
+        self.assertEqual(len(stmts), 2)
+        self.assertIn("ADD COLUMN `import_archived_legacyFlag` tinyint(1) "
+                      "NULL COMMENT 'OSCAR 19 t.legacyFlag preserved by "
+                      "import-o19'", stmts[0])
+
+    def test_a_column_already_present_is_not_re_added(self):
+        # MySQL 8 has no ADD COLUMN IF NOT EXISTS: this skip is the whole
+        # idempotency story for a resumed run
+        plan = o19etl.archived_column_plan(self.ENTRY, self.src_cols())
+        stmts = o19etl.add_archived_column_statements(
+            "t", "carlos", plan, {"import_archived_legacyFlag": {}})
+        self.assertEqual(len(stmts), 1)
+        self.assertIn("import_archived_vendorNote", stmts[0])
+
+    def test_the_entry_maps_each_target_back_to_its_source(self):
+        plan = o19etl.archived_column_plan(self.ENTRY, self.src_cols())
+        entry = o19etl.with_archived_columns(self.ENTRY, plan)
+        self.assertEqual(entry["cols"][-2:],
+                         ["import_archived_legacyFlag",
+                          "import_archived_vendorNote"])
+        self.assertEqual(entry["renames"]["import_archived_vendorNote"],
+                         "vendorNote")
+        self.assertEqual(sorted(entry["archived_cols"]),
+                         ["import_archived_legacyFlag",
+                          "import_archived_vendorNote"])
+        # the original entry is not mutated: the shadow captures still
+        # need the manifest's own view of the table
+        self.assertNotIn("archived_cols", self.ENTRY)
+
+    def test_an_archived_date_is_copied_without_the_zero_date_rewrite(self):
+        """The sharpest case for copying verbatim: `sanitize_expr` turns
+        '0000-00-00' into NULL, which is right for a live CARLOS column
+        and wrong for an archive -- the clinic's row said zero."""
+        entry = o19etl.with_archived_columns(
+            {"class": "copy", "cols": ["id"], "dropped": {}},
+            [("startDate", "import_archived_startDate", "date")])
+        dst = {"id": {"type": "int", "column_type": "int(11)",
+                      "nullable": False, "char_len": 0,
+                      "has_default": False, "auto_increment": False},
+               "import_archived_startDate": {
+                   "type": "date", "column_type": "date", "nullable": True,
+                   "char_len": 0, "has_default": False,
+                   "auto_increment": False}}
+        sql = o19etl.copy_statement("t", entry, "stage", "carlos", dst)
+        self.assertIn("s.`startDate`", sql)
+        self.assertNotIn("NULLIF", sql)
+
+    def test_a_merge_back_fills_the_rows_it_did_not_insert(self):
+        """A merge keeps CARLOS's row on a shared key, so a clinic row
+        with a twin never passes through the insert -- its unmapped
+        columns are the one population the copy alone still orphans."""
+        entry = o19etl.with_archived_columns(
+            {"class": "merge", "cols": ["site"], "merge_keys": ["site"]},
+            [("vendorNote", "import_archived_vendorNote", "text")])
+        dst = {"site": {"type": "varchar", "column_type": "varchar(60)",
+                        "nullable": True, "char_len": 60,
+                        "has_default": False, "auto_increment": False}}
+        sql = o19etl.archived_backfill_statement("HL7Map", entry, "stage",
+                                                 "carlos", dst)
+        self.assertIn("UPDATE `carlos`.`HL7Map` d JOIN `stage`.`HL7Map` s "
+                      "ON d.`site` <=> s.`site`", sql)
+        self.assertIn("SET d.`import_archived_vendorNote` = "
+                      "s.`vendorNote`", sql)
+
+    def test_a_merge_with_no_archived_columns_has_no_back_fill(self):
+        self.assertIsNone(o19etl.archived_backfill_statement(
+            "HL7Map", {"cols": ["site"], "merge_keys": ["site"]}, "stage",
+            "carlos", {}))
+
+    def test_the_back_fill_leaves_excluded_rows_alone(self):
+        # removed-module rows the merge refuses to carry must not be
+        # updated into existence-adjacent state either
+        entry = o19etl.with_archived_columns(
+            {"class": "merge", "cols": ["site"], "merge_keys": ["site"],
+             "merge_exclude": "s.`site` = 'BORN'"},
+            [("vendorNote", "import_archived_vendorNote", "text")])
+        dst = {"site": {"type": "varchar", "column_type": "varchar(60)",
+                        "nullable": True, "char_len": 60,
+                        "has_default": False, "auto_increment": False}}
+        sql = o19etl.archived_backfill_statement("HL7Map", entry, "stage",
+                                                 "carlos", dst)
+        self.assertTrue(sql.endswith("WHERE NOT (s.`site` = 'BORN')"), sql)
+
+    def test_every_name_the_manifest_preserves_fits_mysqls_limit(self):
+        """16 characters of prefix onto the longest name the manifest
+        actually preserves, plus the rebuild suffix -- measured against
+        the real manifest rather than asserted in a comment."""
+        preserved = [t for t, e in o19map_schema.TABLES.items()
+                     if e["class"] in o19etl.PRESERVED_CLASSES]
+        longest = max(preserved, key=len)
+        name = o19etl.archived_table(longest) + o19etl.REBUILD_OLD
+        self.assertLessEqual(len(name), 64, name)
+        longest_col = max(
+            (c for e in o19map_schema.TABLES.values()
+             for c in (e.get("dropped") or {})), key=len, default="")
+        self.assertLessEqual(
+            len(o19etl.archived_column(longest_col)), 64, longest_col)
+
+    def test_a_forks_long_table_name_is_refused_before_the_first_write(self):
+        """A clinic's fork names its own tables, and those arrive
+        unclassified. Overflowing the identifier limit on the ALTER
+        halfway through the loop would leave a half-preserved import, so
+        the name is checked where `unsafe_identifiers` is -- and shares
+        its remedy."""
+        long_table = "vendor_" + "x" * 40          # 47 > 43
+        problems = o19etl.oversized_preserved_names(
+            {long_table: {}}, [long_table], {})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("exceed MySQL's 64-character identifier limit",
+                      problems[0])
+        self.assertIn("rename it in the source and re-export", problems[0])
+
+    def test_a_forks_long_column_name_is_refused(self):
+        long_col = "vendor_" + "y" * 45            # 52 > 48
+        problems = o19etl.oversized_preserved_names(
+            {"t": {}}, [], {"t": [long_col]})
+        self.assertEqual(len(problems), 1)
+        self.assertIn(long_col, problems[0])
+
+    def test_names_that_fit_raise_nothing(self):
+        # a table gets five fewer characters than a column: it also
+        # carries the rebuild suffix
+        self.assertEqual(o19etl.oversized_preserved_names(
+            {}, ["t" * o19etl.MAX_PRESERVED_TABLE],
+            {"t": ["c" * o19etl.MAX_PRESERVED_COLUMN]}), [])
+
+
+class TestArchivedColumnParity(unittest.TestCase):
+    """A row count cannot see a column: a copy that named the prefixed
+    column but fed it nothing passes `row_parity` unchanged."""
+
+    def query(self, src_cols, dst_cols, nonnull):
+        """information_schema for both schemas plus IS NOT NULL counts.
+
+        `nonnull` is {(schema, table, column): rows}."""
+        def q(sql):
+            if sql.startswith("SELECT TABLE_NAME, COLUMN_NAME"):
+                schema = re.search(r"TABLE_SCHEMA = '([^']+)'",
+                                   sql).group(1)
+                cols = {"stage": src_cols, "carlos": dst_cols}[schema]
+                return [[t, c, "varchar", "varchar(60)", "YES", 60,
+                         "\\0NONE", "", 240]
+                        for t, names in sorted(cols.items())
+                        for c in names]
+            m = re.search(r"FROM `([^`]+)`\.`([^`]+)` WHERE `([^`]+)`", sql)
+            if m:
+                return [[str(nonnull.get(m.groups(), 0))]]
+            raise AssertionError("unexpected query: " + sql)
+        return q
+
+    SRC = {"Contact": ["id", "legacyFlag"]}
+    DST = {"Contact": ["id", "import_archived_legacyFlag"]}
+
+    def test_matching_non_null_counts_pass(self):
+        ok, bad = o19etl.archived_column_parity(
+            self.query(self.SRC, self.DST,
+                       {("stage", "Contact", "legacyFlag"): 40,
+                        ("carlos", "Contact",
+                         "import_archived_legacyFlag"): 40}),
+            "stage", "carlos")
+        self.assertEqual(bad, [])
+        self.assertIn("Contact.legacyFlag: 40 value(s) preserved as "
+                      "import_archived_legacyFlag", ok)
+
+    def test_a_column_that_arrived_empty_is_a_mismatch(self):
+        ok, bad = o19etl.archived_column_parity(
+            self.query(self.SRC, self.DST,
+                       {("stage", "Contact", "legacyFlag"): 40}),
+            "stage", "carlos")
+        self.assertEqual(len(bad), 1)
+        self.assertIn("40 non-null value(s) in staging, 0 in "
+                      "carlos.import_archived_legacyFlag", bad[0])
+
+    def test_a_column_this_dump_does_not_carry_is_not_compared(self):
+        # preserved by an earlier run against a fuller dump: there is
+        # nothing on the staging side to compare it against
+        ok, bad = o19etl.archived_column_parity(
+            self.query({"Contact": ["id"]}, self.DST, {}), "stage",
+            "carlos")
+        self.assertEqual((ok, bad), ([], []))
+
+    def test_ordinary_columns_are_not_touched(self):
+        ok, bad = o19etl.archived_column_parity(
+            self.query({"Contact": ["id"]}, {"Contact": ["id"]}, {}),
+            "stage", "carlos")
+        self.assertEqual((ok, bad), ([], []))
 
 
 class TestPreservedParity(unittest.TestCase):

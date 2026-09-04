@@ -121,12 +121,25 @@ class FakeDb(object):
 
     IS_COLUMNS = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE"
     IS_TABLES = "SELECT TABLE_NAME FROM information_schema.TABLES"
+    #: the one DDL the ETL issues against the target, modelled so a
+    #: resumed run introspects the column it added on the first pass --
+    #: MySQL 8 has no ADD COLUMN IF NOT EXISTS, so that skip is the
+    #: whole idempotency story and a fake that forgot it would pass
+    ADD_COLUMN = re.compile(
+        r"^ALTER TABLE `([^`]+)`\.`([^`]+)` ADD COLUMN `([^`]+)`")
 
     def __init__(self, **over):
         self.writes = []
         self.reads = []
-        self.columns = {SRC: dict(over.pop("src_columns", SRC_COLUMNS)),
-                        DST: dict(over.pop("dst_columns", DST_COLUMNS))}
+        # the column lists are copied, not shared with the module
+        # constants: the fake applies ADD COLUMN below, and a mutation
+        # that leaked into SRC_COLUMNS/DST_COLUMNS would follow every
+        # later test in the process
+        self.columns = {
+            SRC: {t: list(c) for t, c in
+                  over.pop("src_columns", SRC_COLUMNS).items()},
+            DST: {t: list(c) for t, c in
+                  over.pop("dst_columns", DST_COLUMNS).items()}}
         #: {(schema, table): rows} for COUNT(*), everything else 0.
         #: Facility and clinic default to one row because the pre-checks
         #: refuse a dump with neither -- a synthetic dump is still a
@@ -151,6 +164,16 @@ class FakeDb(object):
             self.reads.append(sql)
             return self._scalar(sql)
         self.writes.append(sql)
+        added = self.ADD_COLUMN.match(sql)
+        if added:
+            schema, table, col = added.groups()
+            cols = self.columns.setdefault(schema, {}).setdefault(table, [])
+            if col in cols:
+                raise o19etl.QueryError(
+                    "SQL failed ({0})".format(sql),
+                    "ERROR 1060 (42S21): Duplicate column name '{0}'"
+                    .format(col))
+            cols.append(col)
         return []
 
     # -- the plain client: reads, plus the archive schema CREATE
@@ -447,6 +470,103 @@ class TestShadowCapture(EtlDriverBase):
             second, r"`o19_archive`\.`Contact__dropped`"), [])
 
 
+class TestArchivedColumns(EtlDriverBase):
+    """Requirement B, column half: every source column CARLOS has no home
+    for joins the live table as `import_archived_<col>`.
+
+    Two populations reach it -- the manifest's curated `dropped` columns
+    (`Contact.programNo`) and a vendor-fork column the manifest has never
+    seen (`Contact.vendorExtra`).
+    """
+
+    def altered(self, db):
+        return self.writes_matching(db, r"^ALTER TABLE .*ADD COLUMN")
+
+    def test_both_populations_reach_the_live_table(self):
+        db, _lines, _counts = self.run_etl()
+        added = " | ".join(self.altered(db))
+        self.assertIn("`carlos`.`Contact` ADD COLUMN "
+                      "`import_archived_programNo`", added)
+        self.assertIn("`carlos`.`Contact` ADD COLUMN "
+                      "`import_archived_vendorExtra`", added)
+
+    def test_the_column_keeps_the_source_type_and_is_nullable(self):
+        # NOT NULL would abort the run in missing_required_columns, and a
+        # widened type would stop the copy being verbatim
+        db, _lines, _counts = self.run_etl()
+        for sql in self.altered(db):
+            self.assertIn(" varchar(255) NULL COMMENT ", sql)
+            self.assertIn("preserved by import-o19", sql)
+
+    def test_the_alter_precedes_the_copy_it_feeds(self):
+        db, _lines, _counts = self.run_etl()
+        alter = max(db.writes.index(sql) for sql in self.altered(db)
+                    if "`Contact`" in sql)
+        insert = next(i for i, w in enumerate(db.writes)
+                      if w.startswith("INSERT INTO `carlos`.`Contact`"))
+        self.assertLess(alter, insert)
+
+    def test_the_copy_carries_the_source_value_verbatim(self):
+        db, _lines, _counts = self.run_etl()
+        insert = next(w for w in db.writes
+                      if w.startswith("INSERT INTO `carlos`.`Contact`"))
+        self.assertIn("`import_archived_programNo`", insert)
+        self.assertIn("`import_archived_vendorExtra`", insert)
+        self.assertIn("s.`programNo`, s.`vendorExtra`", insert)
+        # no sanitizer wrapped around them: an archived value that
+        # differs from the source is not an archive
+        self.assertNotIn("NULLIF(s.`programNo`", insert)
+        self.assertNotIn("CASE WHEN s.`programNo`", insert)
+
+    def test_a_resume_does_not_re_alter(self):
+        # MySQL 8 has no ADD COLUMN IF NOT EXISTS, so the guard is the
+        # introspected schema; the fake raises 1060 if it is missed
+        first, _lines, _counts = self.run_etl()
+        self.assertTrue(self.altered(first))
+        # the SAME fake, so the column it added is there to be
+        # introspected the second time; only the recorded statements are
+        # cleared, not the schema
+        del first.writes[:]
+        second, _lines, _counts = self.run_etl(db=first)
+        self.assertEqual(self.altered(second), [])
+
+    def test_the_report_names_every_preserved_column(self):
+        _db, lines, _counts = self.run_etl()
+        text = self.report_text(lines)
+        self.assertIn("columns CARLOS has no home for, preserved on the "
+                      "live table", text)
+        self.assertIn("Contact: programNo -> import_archived_programNo, "
+                      "vendorExtra -> import_archived_vendorExtra", text)
+
+    def test_a_merge_back_fills_the_rows_it_kept_carlos_copies_of(self):
+        # a merge keeps CARLOS's row on a shared key, so a clinic row
+        # with a twin never passes through the insert; without the
+        # back-fill its unmapped columns are the one population
+        # requirement B still orphans
+        cols = dict(SRC_COLUMNS, HL7Map=["id", "site", "vendorNote"])
+        db, _lines, _counts = self.run_etl(db=FakeDb(src_columns=cols))
+        update = self.writes_matching(
+            db, r"^UPDATE `carlos`\.`HL7Map` d JOIN")
+        self.assertEqual(len(update), 1, db.writes)
+        self.assertIn("SET d.`import_archived_vendorNote` = "
+                      "s.`vendorNote`", update[0])
+        insert = next(i for i, w in enumerate(db.writes)
+                      if w.startswith("INSERT INTO `carlos`.`HL7Map`"))
+        self.assertLess(insert, db.writes.index(update[0]))
+
+    def test_the_archive_shadows_are_still_written(self):
+        # o19_archive stays the verification copy: preserving a column on
+        # the live table must not quietly retire the shadow capture that
+        # the unknown-as-archive sign-off promises
+        db, lines, _counts = self.run_etl()
+        self.assertTrue(self.writes_matching(
+            db, r"`o19_archive`\.`Contact__dropped__new`"), db.writes)
+        self.assertTrue(self.writes_matching(
+            db, r"`o19_archive`\.`Contact__unknown_cols__new`"), db.writes)
+        self.assertIn("unmapped column(s) vendorExtra shadow-captured",
+                      self.report_text(lines))
+
+
 class TestUnknownTables(EtlDriverBase):
     """A table the manifest never classified -- a clinic's own
     customisation -- is archived whole rather than discarded."""
@@ -556,6 +676,17 @@ class TestThePreChecks(EtlDriverBase):
             [w for w in db.writes if w.startswith(("INSERT", "DELETE",
                                                    "UPDATE"))], [],
             "a pre-check refusal wrote to the database")
+
+    def test_a_fork_table_whose_preserved_name_would_not_fit_is_refused(
+            self):
+        # 47 characters plus the 16-character prefix and the rebuild
+        # suffix overflows MySQL's identifier limit; failing on the
+        # CREATE halfway through the loop would leave a half-preserved
+        # import
+        long_name = "vendor_" + "x" * 40
+        cols = dict(SRC_COLUMNS)
+        cols[long_name] = ["id"]
+        self.assert_refused_without_writing(FakeDb(src_columns=cols))
 
     def test_a_dump_without_facility_is_refused(self):
         cols = {t: c for t, c in SRC_COLUMNS.items() if t != "Facility"}
