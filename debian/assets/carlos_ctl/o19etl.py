@@ -807,6 +807,17 @@ def shadow_statements(table: str, entry: dict, src_schema: str,
     """Capture dropped-column values (+ the row's PK context) into
     o19_archive.<table>__dropped, only for rows with non-default data.
 
+    The VERIFICATION copy, no longer the only one: requirement B puts
+    every dropped column on the live table as `import_archived_<col>`,
+    with the source type and every row. This capture is kept because the
+    o19_archive schema is what the clinic's CSV export is rendered from,
+    and because its `nondefault` predicate is the record of which rows
+    the curation call was actually about.
+
+    Reads the manifest's own view of the table, never the entry the
+    archived columns were folded into -- otherwise a preserved column
+    stops being "dropped" the moment it is preserved.
+
     A dropped column this dump does not carry (lower patch level) is
     skipped WITH a note; the remaining dropped columns are still
     captured — never the whole table silently."""
@@ -982,8 +993,13 @@ def unknown_column_shadow_statements(table: str, entry: dict,
                                      src_schema: str, archive_schema: str,
                                      src_cols: Dict[str, dict]) -> List[str]:
     """Shadow-capture vendor-fork columns (o19_archive.<table>__unknown_cols)
-    for every row where any of them holds a value — the preservation the
-    `unknown-as-archive` sign-off promises."""
+    for every row where any of them holds a value — the verification copy
+    behind the `unknown-as-archive` sign-off.
+
+    The live copy is `import_archived_<col>` on the table itself, which
+    carries every row rather than only the ones with a value. Takes the
+    manifest's view of the entry, for the reason `shadow_statements`
+    gives."""
     extra = unknown_columns(entry, src_cols)
     if not extra:
         return []
@@ -2448,7 +2464,15 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
                pruned_property_keys: Optional[Sequence[str]] = None
                ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) comparing staging vs target counts for
-    every copy-class table. The tolerated deltas are the break-glass
+    every copy-class table, and merge tables in reverse.
+
+    Half the verification: the tables CARLOS has a home for. The other
+    half is `preserved_parity` (archive, removed-module, reference and
+    unclassified tables) and `archived_column_parity` (the columns), and
+    a caller that runs only this one has not checked that nothing was
+    orphaned -- see `o19import._row_parity`, which runs all three.
+
+    The tolerated deltas are the break-glass
     admin's own rows, counted exactly on the target (provider, security,
     secUserRole), and the rows the roles post-step recorded appending
     (`appended`, from its ledger) — which must equal the target rows that

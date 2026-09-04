@@ -138,9 +138,9 @@ report as the clinic's sign-off. There are nine:
 
 | class | what it acknowledges |
 |---|---|
-| `archived-forms` | patient data in removed-module tables becomes archive-only |
-| `unknown-as-archive` | tables and columns the manifest does not know are archived whole |
-| `dropped-columns` | columns CARLOS dropped held data (kept in shadow tables) |
+| `archived-forms` | patient data in removed-module tables is preserved but has no UI |
+| `unknown-as-archive` | tables and columns the manifest does not know are preserved whole, not migrated |
+| `dropped-columns` | columns CARLOS has no home for held data (preserved as `import_archived_<column>`) |
 | `charset-repair` | double-encoded text is repaired row by row during the copy |
 | `olis-gone` | OLIS was in use; CARLOS has no OLIS module |
 | `no-documents` | import without the documents tree (with `--skip-documents`) |
@@ -176,15 +176,19 @@ verdict with it.
 Clinic-defined lookup lists, waiting-list criteria and similar merge-class
 rows may receive new ids where a CARLOS seed already holds the old one;
 their dependent rows are remapped through `o19_archive.<table>__idmap`, and
-the report itemizes every table whose ids changed. Tables and columns the
-manifest does not know are never dropped: whole tables are archived under
-`o19_archive`, and unmapped columns of copied or merged tables are
-shadow-captured as `<table>__unknown_cols`. Tables the manifest classifies
-`reference` keep the CARLOS seed (their O19 rows, every column, are not
-copied), `archive` tables are archived whole, and `drop` tables are
-report-only by declaration — the ETL report names each one that holds
-rows (the preflight sweeps the archive-class and patient-data tables, not
-the drop-class ones).
+the report itemizes every table whose ids changed. Nothing is dropped, whether the
+manifest knows it or not. A table CARLOS has no home for — `archive`,
+removed-module (`drop`), or a name the manifest has never seen — is
+preserved twice: `o19_archive.<table>` and
+`<emr-schema>.import_archived_<table>`. A column CARLOS has no home for —
+curated as dropped, or added by a clinic's own fork — joins the live
+table as `import_archived_<column>` with the source type and every row,
+and is shadow-captured to `o19_archive` as well. Tables the manifest
+classifies `reference` keep the CARLOS seed in the live table; the
+clinic's rows go to `o19_archive.<table>`, where a locally curated code
+can still be found. The verification counts all of it before it passes
+(the preflight sweeps the archive-class and patient-data tables, not the
+removed-module ones).
 
 What the import does with credentials: every clinic login keeps working
 (legacy password hashes upgrade to bcrypt on first login) but **all users
@@ -344,8 +348,9 @@ gate has no override.
    fragment (renamed with one `.completed-<timestamp>` suffix, so the finished
    run can neither be resumed nor mistaken for a fresh one; only
    `admin-credentials.txt` stays under its own name); the `o19_archive` schema
-   (removed-module data + dropped-column shadows + the OSCAR 19 token
-   tables, which are never copied live) is kept for the clinic, as are the
+   (the verification copies: preserved tables under their own names, the
+   dropped- and unknown-column shadows, the id maps, and the snapshot of
+   CARLOS's own privilege seed) is kept for the clinic, as are the
    `import_archived_` tables and columns in the EMR schema, and so is
    its CSV export — but the export directory is retired with the rest of the
    run, so after `--cleanup` collect it from
