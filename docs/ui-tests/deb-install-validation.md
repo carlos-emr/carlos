@@ -94,9 +94,12 @@ critical answer: it keeps the published dev credential
 it **only** on a disposable machine that will never hold patient data — which
 this VM is.
 
-The province answer also accepts `other`, which resolves to the Ontario schema
-and `billregion=ON` — preseeding it exercises the alias without changing what
-gets installed.
+The preseed below answers the province question with `on`. To validate the
+`other` alias instead, substitute `carlos-emr/province select other` and assert
+after the install that `/etc/carlos-emr/carlos-emr.env` records
+`CARLOS_PROVINCE=other` while `/etc/carlos-emr/carlos.properties` still renders
+`billregion=ON`. `other` applies the Ontario migrations, so every other step in
+this runbook is unchanged.
 
 ```bash
 cat > /tmp/carlos-preseed.txt <<'EOF'
