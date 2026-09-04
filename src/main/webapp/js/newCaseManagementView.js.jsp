@@ -618,10 +618,10 @@
                         // ever be paged in again.
                         return;
                     }
-                    // The response scripts have already run (CarlosAjax updates the DOM
-                    // between onSuccess and onComplete), so notesLastBatchSize now holds
-                    // the count this fragment rendered. An empty batch means the chart is
-                    // fully loaded: stop the poll instead of requesting ever-higher offsets.
+                    // CarlosAjax.updater inserts the fragment and runs its scripts before
+                    // it calls onComplete, so notesLastBatchSize already holds the count
+                    // this response rendered. An empty batch means the chart is fully
+                    // loaded: stop the poll instead of requesting ever-higher offsets.
                     notesRetrieveOk = notesLastBatchSize > 0;
                     if (!notesRetrieveOk) {
                         stopNotesScrollCheck();

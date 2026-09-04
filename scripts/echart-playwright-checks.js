@@ -216,34 +216,44 @@ async function assertNotesPaginationSettles(page) {
   // (or a tall window) an unforced check would report "settled" without ever arming the
   // pagination it exists to test.
   const geometry = await wrapper.evaluate((element) => {
+    const original = { flex: element.style.flex, height: element.style.height };
     element.style.flex = 'none';
     element.style.height = '80px';
     element.scrollTop = 0;
-    return { scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
+    return { original, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
   });
   assert(geometry.scrollHeight > geometry.clientHeight,
     `notes wrapper did not overflow, so the pagination poll was never armed: ${JSON.stringify(geometry)}`);
 
-  const deadline = Date.now() + NOTES_POLL_TIMEOUT_MS;
-  let observed = notesLoadRequests.length;
-  let stableSince = Date.now();
-  while (Date.now() < deadline) {
-    await page.waitForTimeout(500);
-    if (notesLoadRequests.length !== observed) {
-      // A chart with many notes legitimately pages in several batches; restart the
-      // quiet window and keep waiting for the poll to run out of notes.
-      observed = notesLoadRequests.length;
-      stableSince = Date.now();
-    } else if (Date.now() - stableSince >= NOTES_POLL_QUIET_MS) {
-      const throbber = await elementState(page, '#notesLoading');
-      assert(!throbber.visible && throbber.display === 'none',
-        `notes loading throbber stayed visible after pagination stopped: ${JSON.stringify(throbber)}`);
-      return;
+  try {
+    const deadline = Date.now() + NOTES_POLL_TIMEOUT_MS;
+    let observed = notesLoadRequests.length;
+    let stableSince = Date.now();
+    while (Date.now() < deadline) {
+      await page.waitForTimeout(500);
+      if (notesLoadRequests.length !== observed) {
+        // A chart with many notes legitimately pages in several batches; restart the
+        // quiet window and keep waiting for the poll to run out of notes.
+        observed = notesLoadRequests.length;
+        stableSince = Date.now();
+      } else if (Date.now() - stableSince >= NOTES_POLL_QUIET_MS) {
+        const throbber = await elementState(page, '#notesLoading');
+        assert(!throbber.visible && throbber.display === 'none',
+          `notes loading throbber stayed visible after pagination stopped: ${JSON.stringify(throbber)}`);
+        return;
+      }
     }
-  }
 
-  throw new Error(`notes pagination never stopped while parked at the top of the chart; `
-    + `${notesLoadRequests.length} viewNotesOpt requests: ${JSON.stringify(notesLoadRequests)}`);
+    throw new Error(`notes pagination never stopped while parked at the top of the chart; `
+      + `${notesLoadRequests.length} viewNotesOpt requests: ${JSON.stringify(notesLoadRequests)}`);
+  } finally {
+    // Hand the chart back at its real size — the Social History steps and their
+    // screenshots come next, and an 80px notes pane is not the layout they mean to test.
+    await wrapper.evaluate((element, original) => {
+      element.style.flex = original.flex;
+      element.style.height = original.height;
+    }, geometry.original).catch(() => {});
+  }
 }
 
 async function screenshot(page, name) {
