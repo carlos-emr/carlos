@@ -279,9 +279,11 @@ Rich Text Letter. The per-run files are retired with the same
 `.completed-<timestamp>` suffix as `state.json` when the import is cleaned
 up, so a later import in the same directory starts its own: `report.txt`,
 `import-report.txt`, `import-report.json`, `etl-progress.json`,
-`preflight.txt`, `preflight.json`, `content-transfer.json` (the P2
-comparison of the clinic's content digests against the restored staging
-schema), the `*-details.txt`
+`preflight.txt`, `preflight.json`, `o19-digests.json` (the run's own
+0600 copy of the clinic's content digests — P2 measures the copy it took,
+never the operator's file, and the ledger binds its sha256 so a resume
+cannot substitute another), `content-transfer.json` (the P2 comparison of
+those digests against the restored staging schema), the `*-details.txt`
 files, `privilege-diff.txt`, `o19-archive-export/`,
 `o19-derived-carlos.properties` and its dry-run twin
 `o19-derived-carlos.properties.dry-run`. `admin-credentials.txt` is deliberately not among them; a

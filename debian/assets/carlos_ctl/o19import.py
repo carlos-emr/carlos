@@ -69,6 +69,10 @@ ACCEPT_CLASSES = (
     "content-transfer", "no-content-digests",
 )
 
+#: the run's own copy of the clinic's content digests: P2 measures the
+#: copy it took, never the operator's mutable file (see snapshot_digests)
+DIGESTS_SNAPSHOT = "o19-digests.json"
+
 DUMP_COMPLETED_MARKER = b"-- Dump completed"
 # statements a `mysqldump --databases/--all-databases` emits that would
 # redirect the restore out of the staging schema, and a MySQL-only GTID
@@ -2222,7 +2226,7 @@ RUN_FILES = ("report.txt", "import-report.txt", "import-report.json",
              "roles-details.txt", "privilege-diff.txt",
              "verify-details.txt", "documents-details.txt", "preflight.txt",
              "preflight.json", "etl-progress.json",
-             "content-transfer.json",
+             "content-transfer.json", "o19-digests.json",
              "o19-derived-carlos.properties",
              "o19-derived-carlos.properties.dry-run",
              # the CSV rendering of this run's archive schema: clinic
@@ -2486,6 +2490,9 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
             if not os.path.isfile(supplied_digests):
                 die("no such file: {0}".format(supplied_digests))
             opened["digests"] = supplied_digests
+        if opened.get("digests"):
+            opened["digests"] = snapshot_digests(opened["digests"],
+                                                 state_dir)
         return opened
     if args.bundle_pass or args.bundle_openssl_opt or args.bundle_sha256:
         die("--bundle-pass/--bundle-openssl-opt/--bundle-sha256 need "
@@ -2503,7 +2510,9 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
             die("no such file: {0}".format(p))
     return {"dump": args.dump, "documents": docs,
             "properties": args.properties,
-            "digests": supplied_digests, "bundle_sha256": None,
+            "digests": (snapshot_digests(supplied_digests, state_dir)
+                        if supplied_digests else None),
+            "bundle_sha256": None,
             "members": {}}
 
 
@@ -2542,6 +2551,48 @@ def bundle_digest_refusal(expected: Optional[str], actual: str,
             "check, so the digest the clinic sends separately from the file "
             "is what proves the bundle arrived intact. Pass the digest, or "
             "record the sign-off with --accept unverified-bundle.")
+
+
+def snapshot_digests(path: str, state_dir: str) -> str:
+    """Copy a digest document into the run directory at 0600 and return
+    the copy.
+
+    The run measures the copy it took, not the operator's file. A
+    `--o19-digests` path is read at P2, AFTER the dump has been staged,
+    so a file replaced in between would be compared against data it does
+    not describe -- and across a `--resume`, a different file would
+    silently change what the transfer was ever measured against. (A
+    bundle-carried document is already snapshotted with the bundle and
+    covered by --bundle-sha256; it is snapshotted here too so both routes
+    bind the same way and the ledger has one rule, not two.)"""
+    dest = os.path.join(state_dir, DIGESTS_SNAPSHOT)
+    os.makedirs(state_dir, mode=0o700, exist_ok=True)
+    with open(path, "rb") as src:
+        fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        # fchmod after the open: the mode above applies to a NEW file
+        # only, so a rerun over an earlier copy would keep its mode
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as out:
+            shutil.copyfileobj(src, out)
+    return dest
+
+
+def digests_change_refusal(recorded: Optional[str],
+                           actual: Optional[str]) -> Optional[str]:
+    """Why this run may not continue with the digest document it was
+    given (None when it may).
+
+    The ledger records the sha256 of the document the run measured
+    against. A `--resume` handed a DIFFERENT one would compare the
+    transfer against numbers the earlier phases never saw, and nothing
+    would say so. Pure, for the state tests."""
+    if not recorded or not actual or recorded == actual:
+        return None
+    return ("the content digests differ from the ones this run recorded "
+            "(ledger {0}..., supplied {1}...). A resumed run must measure "
+            "against the same document the earlier phases did; restore "
+            "the original file, or start a fresh run with --restage."
+            .format(recorded[:12], actual[:12]))
 
 
 def dev_mode_refusal(dev_target: bool, mariadb_arg: Optional[List[str]],
@@ -2687,6 +2738,12 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         # an assessment extracts into its own workdir: the real run's
         # members (what --resume continues from) are never replaced
         workdir_name="bundle" if real_run else "bundle-assess")
+    digests_sha = (sha256_file(inputs["digests"])
+                   if inputs.get("digests") else None)
+    refusal = digests_change_refusal(
+        state.get("inputs", {}).get("digests_sha256"), digests_sha)
+    if refusal:
+        die(refusal)
     if inputs.get("properties"):
         # needs nothing but the file, so it runs before P0 rather than at
         # P2 — a typo in the clinic's oscar.properties should not cost a
@@ -2724,6 +2781,10 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
             "dump": os.path.basename(inputs["dump"]) if inputs["dump"]
             else None,
             "bundle_sha256": inputs.get("bundle_sha256"),
+            # what P2 measured the transfer against; a resume handed a
+            # different document is refused above rather than quietly
+            # comparing against numbers the earlier phases never saw
+            "digests_sha256": digests_sha,
             "dev_target": dev_target,
         })
         recorded.setdefault("schema_map_version",

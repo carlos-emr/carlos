@@ -444,9 +444,12 @@ continues from),
 .I preflight.txt
 and
 .IR preflight.json ,
+.I o19-digests.json
+(the run's own 0600 copy of the clinic's content digests; the ledger
+binds its sha256, so a resumed run cannot substitute another) and
 .I content-transfer.json
-(the P2 comparison of the clinic's content digests against the restored
-staging schema),
+(the P2 comparison of those digests against the restored staging
+schema),
 the root\-only
 .IR verify-details.txt ,
 .I roles-details.txt

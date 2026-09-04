@@ -159,6 +159,22 @@ class Client:
                 proc.stdout.decode("utf-8", "replace"),
                 proc.stderr.decode("utf-8", "replace").strip())
 
+    def setup(self, sql: str, db: str = "mysql") -> None:
+        """Run a fixture statement and STOP if it fails.
+
+        A verifier that carries on after its scratch schema or its DDL
+        failed measures whatever state was left behind -- and reports a
+        pass or a fail that describes nothing. Exit 2 is this script's
+        "could not run", distinct from 1, "an invariant broke"."""
+        rc, _out, err = self.run(sql, db)
+        if rc != 0:
+            print("setup failed against `{0}`: {1}\n  {2}".format(
+                db, err[:300], sql[:200]), file=sys.stderr)
+            # 2, not 1: this script's 1 means "an invariant broke", which
+            # is a FINDING. A fixture that would not build is not a
+            # finding about the code -- it is this check not running.
+            raise SystemExit(2)
+
     def rows(self, sql: str, db: str) -> List[List[str]]:
         rc, out, err = self.run(sql, db)
         if rc != 0:
@@ -302,20 +318,20 @@ def same_statement_visibility(client: Client, dst: str, src: str) -> str:
     Reported rather than asserted: it is an engine property, and the point
     of running it is to record which one this server has.
     """
-    client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
-               "DROP DATABASE IF EXISTS `{1}`; CREATE DATABASE `{1}`;"
-               .format(dst, src))
-    client.run(DDL, dst)
-    client.run(DDL, src)
-    client.run("INSERT INTO {0} VALUES (1,'X','1'),(2,'X','1');".format(TABLE),
-               src)
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+                 "DROP DATABASE IF EXISTS `{1}`; CREATE DATABASE `{1}`;"
+                 .format(dst, src))
+    client.setup(DDL, dst)
+    client.setup(DDL, src)
+    client.setup(
+        "INSERT INTO {0} VALUES (1,'X','1'),(2,'X','1');".format(TABLE), src)
 
     def query(sql: str) -> List[List[str]]:
         return client.rows(sql, dst)
 
     dst_cols = o19etl.introspect_columns(query, dst)[TABLE]
-    client.run(o19etl.merge_statement(TABLE, ENTRY, src, dst, dst_cols) + ";",
-               dst)
+    client.setup(
+        o19etl.merge_statement(TABLE, ENTRY, src, dst, dst_cols) + ";", dst)
     n = int(query("SELECT COUNT(*) FROM {0}".format(TABLE))[0][0])
     return ("no  (both twins copied)" if n == 2
             else "YES (one twin was dropped)" if n == 1
@@ -337,10 +353,10 @@ def check_charset_repair(client: Client, db: str) -> List[str]:
     text in question is patient names. Rows the predicate cannot prove are
     double-encoded pass through untouched by design.
     """
-    client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
-               .format(db))
-    client.run("CREATE TABLE t (id int, v varchar(255)) "
-               "DEFAULT CHARSET=utf8mb4;", db)
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+                 .format(db))
+    client.setup("CREATE TABLE t (id int, v varchar(255)) "
+                 "DEFAULT CHARSET=utf8mb4;", db)
 
     cases = []          # (id, stored, expected_after_repair, label)
     for good in CHARSET_SAMPLES:
@@ -352,7 +368,7 @@ def check_charset_repair(client: Client, db: str) -> List[str]:
     values = ", ".join(
         "({0}, '{1}')".format(n, v.replace("\\", "\\\\").replace("'", "\\'"))
         for n, v, _w, _l in cases)
-    client.run("INSERT INTO t VALUES {0};".format(values), db)
+    client.setup("INSERT INTO t VALUES {0};".format(values), db)
 
     rows = client.rows("SELECT id, {0} FROM t s ORDER BY id"
                        .format(o19etl.repair_expr("s.`v`")), db)
@@ -367,7 +383,7 @@ def check_charset_repair(client: Client, db: str) -> List[str]:
             failures.append(
                 "{0} {1!r} became {2!r}, expected {3!r}".format(
                     label, stored, got.get(n), want))
-    client.run("DROP DATABASE IF EXISTS `{0}`;".format(db))
+    client.setup("DROP DATABASE IF EXISTS `{0}`;".format(db))
     return failures
 
 
@@ -499,10 +515,10 @@ def check_content_digest(client: Client, clinic: str,
     hashed = o19digest.row_hash_expr(cols, types)
 
     for db, charset in ((clinic, "latin1"), (stage, "utf8mb4")):
-        client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
-                   "DEFAULT CHARSET={1};".format(db, charset))
-        client.run(DIGEST_DDL + " DEFAULT CHARSET={0};".format(charset), db)
-        client.run("INSERT INTO t VALUES {0};".format(
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "DEFAULT CHARSET={1};".format(db, charset))
+        client.setup(DIGEST_DDL + " DEFAULT CHARSET={0};".format(charset), db)
+        client.setup("INSERT INTO t VALUES {0};".format(
             ", ".join(DIGEST_ROWS)), db)
 
     print("\n  content digest")
@@ -531,7 +547,7 @@ def check_content_digest(client: Client, clinic: str,
             "{1}".format(baseline, same))
 
     for label, sql, why in DIGEST_SABOTAGE:
-        client.run("{0};".format(sql), stage)
+        client.setup("{0};".format(sql), stage)
         after = _digest_of(client, stage, stage_sql)
         caught = after != baseline
         print("    {0:<44} {1}".format(
@@ -540,9 +556,9 @@ def check_content_digest(client: Client, clinic: str,
             failures.append("{0} was NOT caught ({1})".format(label, why))
         # restore, and prove the restore took: a sabotage left in place
         # would make every later line meaningless
-        client.run("DROP TABLE t; " + DIGEST_DDL
-                   + " DEFAULT CHARSET=utf8mb4; INSERT INTO t VALUES "
-                   + ", ".join(DIGEST_ROWS) + ";", stage)
+        client.setup("DROP TABLE t; " + DIGEST_DDL
+                     + " DEFAULT CHARSET=utf8mb4; INSERT INTO t VALUES "
+                     + ", ".join(DIGEST_ROWS) + ";", stage)
         if _digest_of(client, stage, stage_sql) != baseline:
             failures.append(
                 "the fixture did not restore after '{0}'; every later "
@@ -567,7 +583,7 @@ def check_content_digest(client: Client, clinic: str,
                                "HEX(`amount`)"),
              "HEX on a DECIMAL")):
         before_wrong = _digest_of(client, stage, wrong_sql)
-        client.run("{0};".format(sql), stage)
+        client.setup("{0};".format(sql), stage)
         after_wrong = _digest_of(client, stage, wrong_sql)
         blind = before_wrong == after_wrong
         print("    {0:<44} {1}".format(
@@ -578,9 +594,9 @@ def check_content_digest(client: Client, clinic: str,
                 "{0} is visible to {1}, so this check no longer shows why "
                 "the shipped rendering is the right one".format(label,
                                                                 missed))
-        client.run("DROP TABLE t; " + DIGEST_DDL
-                   + " DEFAULT CHARSET=utf8mb4; INSERT INTO t VALUES "
-                   + ", ".join(DIGEST_ROWS) + ";", stage)
+        client.setup("DROP TABLE t; " + DIGEST_DDL
+                     + " DEFAULT CHARSET=utf8mb4; INSERT INTO t VALUES "
+                     + ", ".join(DIGEST_ROWS) + ";", stage)
 
     # -- the same instant, read in another time zone ---------------------
     # A TIMESTAMP is STORED as UTC and RENDERED in the session's time
@@ -625,7 +641,7 @@ def check_content_digest(client: Client, clinic: str,
             client.rows("SELECT COUNT(*) FROM `{0}`.`t`".format(stage),
                         stage)[0][0])
         if when == "before":
-            client.run("UPDATE t SET name = 'Other' WHERE id = 3;", stage)
+            client.setup("UPDATE t SET name = 'Other' WHERE id = 3;", stage)
     (xor_b, sum_b, n_b), (xor_a, sum_a, n_a) = lanes["before"], lanes["after"]
     blind = xor_b == xor_a and n_b == n_a
     print("    {0:<44} {1}".format(
@@ -671,16 +687,16 @@ def check_end_to_end_transfer(client: Client, mysql_args: List[str],
                 "-- this run did not exercise the P2 chain"]
 
     failures: List[str] = []
-    client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
-               "DEFAULT CHARSET=latin1;".format(clinic))
-    client.run(DIGEST_DDL + " DEFAULT CHARSET=latin1;", clinic)
-    client.run("INSERT INTO t VALUES {0};".format(
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=latin1;".format(clinic))
+    client.setup(DIGEST_DDL + " DEFAULT CHARSET=latin1;", clinic)
+    client.setup("INSERT INTO t VALUES {0};".format(
         ", ".join(DIGEST_ROWS)), clinic)
     # a second table with no explicit charset: mysqldump resolves it, and
     # whether it does is the difference between the restore matching and
     # not
-    client.run("CREATE TABLE u (id int, label varchar(32));", clinic)
-    client.run("INSERT INTO u VALUES (1, 'Café'), (2, NULL);", clinic)
+    client.setup("CREATE TABLE u (id int, label varchar(32));", clinic)
+    client.setup("INSERT INTO u VALUES (1, 'Café'), (2, NULL);", clinic)
 
     def query(sql):
         return client.rows(sql, clinic)
@@ -713,8 +729,8 @@ def check_end_to_end_transfer(client: Client, mysql_args: List[str],
         corrupt. `o19import._stream_dump` streams bytes for the same
         reason; this is the check catching its own harness, not the
         importer."""
-        client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
-                   .format(stage))
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+                     .format(stage))
         proc = subprocess.run(
             [client.cmd] + client.args + ["--default-character-set=utf8mb4",
                                           stage],
@@ -762,7 +778,7 @@ def check_end_to_end_transfer(client: Client, mysql_args: List[str],
                        ("a row dropped", "DELETE FROM t WHERE id = 1"),
                        ("a column dropped", "ALTER TABLE u DROP COLUMN "
                                             "label")):
-        client.run("{0};".format(sql), stage)
+        client.setup("{0};".format(sql), stage)
         broken = compare_now()
         caught = bool(broken.failed)
         print("    {0:<44} {1}".format(

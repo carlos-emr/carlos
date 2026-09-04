@@ -421,3 +421,87 @@ class TestThePhaseCannotPassWithoutTheCheck(unittest.TestCase):
         dry = source.index('if ctx.get("dry_run")')
         self.assertIn("content_transfer_check(ctx)",
                       source[dry:source.index("mark_done(")])
+
+
+class TestTheRunMeasuresTheCopyItTook(unittest.TestCase):
+
+    """P2 reads the digest document AFTER the dump has been staged.
+
+    An operator's `--o19-digests` path is a mutable file: replaced in
+    between, it would be compared against data it does not describe, and
+    across a `--resume` a different file would silently change what the
+    transfer was ever measured against. The run snapshots it and the
+    ledger binds the snapshot's sha256."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="o19snap-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.state_dir = os.path.join(self.dir, "state")
+        os.makedirs(self.state_dir, mode=0o700)
+        self.path = os.path.join(self.dir, "digests.json")
+        with open(self.path, "w", encoding="utf-8") as fh:
+            json.dump(DOCUMENT, fh)
+
+    def args(self, **over):
+        import argparse
+        ns = argparse.Namespace(
+            bundle=None, bundle_pass=None, bundle_cipher=None,
+            bundle_openssl_opt=None, bundle_sha256=None, dump=self.path,
+            properties=self.path, documents=None, skip_documents=True,
+            accept=[], o19_digests=self.path)
+        for k, v in over.items():
+            setattr(ns, k, v)
+        return ns
+
+    def test_the_snapshot_is_written_privately(self):
+        copy = o19import.snapshot_digests(self.path, self.state_dir)
+        self.assertEqual(os.stat(copy).st_mode & 0o777, 0o600)
+        with open(copy, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh), DOCUMENT)
+
+    def test_a_rerun_over_a_loose_copy_tightens_it(self):
+        copy = os.path.join(self.state_dir, o19import.DIGESTS_SNAPSHOT)
+        with open(copy, "w", encoding="utf-8") as fh:
+            fh.write("{}")
+        os.chmod(copy, 0o644)
+        o19import.snapshot_digests(self.path, self.state_dir)
+        self.assertEqual(os.stat(copy).st_mode & 0o777, 0o600)
+
+    def test_resolve_inputs_returns_the_copy_not_the_operators_file(self):
+        inputs = o19import._resolve_inputs(self.args(), self.state_dir)
+        self.assertNotEqual(inputs["digests"], self.path)
+        self.assertEqual(os.path.dirname(inputs["digests"]),
+                         self.state_dir)
+
+    def test_replacing_the_operators_file_does_not_change_the_run(self):
+        inputs = o19import._resolve_inputs(self.args(), self.state_dir)
+        with open(self.path, "w", encoding="utf-8") as fh:
+            json.dump({"digest_format": 1, "tables": {}}, fh)
+        with open(inputs["digests"], encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh), DOCUMENT)
+
+
+class TestTheLedgerBindsTheDocument(unittest.TestCase):
+
+    """A resumed run must measure against the document the earlier phases
+    did, or the comparison means nothing."""
+
+    def refusal(self, recorded, actual):
+        return o19import.digests_change_refusal(recorded, actual)
+
+    def test_the_same_document_is_allowed(self):
+        self.assertIsNone(self.refusal("a" * 64, "a" * 64))
+
+    def test_a_first_run_with_nothing_recorded_is_allowed(self):
+        self.assertIsNone(self.refusal(None, "a" * 64))
+
+    def test_a_run_that_supplies_none_is_allowed(self):
+        # the gap is reported by the transfer check's own sign-off, not
+        # by refusing the run before anything has been assessed
+        self.assertIsNone(self.refusal("a" * 64, None))
+
+    def test_a_different_document_is_refused_and_names_both(self):
+        message = self.refusal("a" * 64, "b" * 64)
+        self.assertIn("aaaaaaaaaaaa", message)
+        self.assertIn("bbbbbbbbbbbb", message)
+        self.assertIn("--restage", message)
