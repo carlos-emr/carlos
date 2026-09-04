@@ -31,6 +31,7 @@ def fixture_result():
 
 class TestBaselineDiff(unittest.TestCase):
 
+    """Clinic values equal to the stock defaults are not clinic values."""
     def test_untouched_defaults_are_ignored(self):
         result = fixture_result()
         touched = {k for k, _, _ in result["rows"]}
@@ -47,6 +48,7 @@ class TestBaselineDiff(unittest.TestCase):
 
 class TestEveryStockKeyIsClassified(unittest.TestCase):
 
+    """No key of the stock properties file is left unclassified."""
     def test_no_stock_key_is_left_unknown(self):
         # every key the stock O19 file ships (secrets included) has a
         # curated disposition: an "unknown" would only ever mean the
@@ -68,6 +70,12 @@ class TestEveryStockKeyIsClassified(unittest.TestCase):
 
 class TestDispositions(unittest.TestCase):
 
+    """What happens to each class of property key.
+
+    Carried, translated onto the CARLOS tree, carried as a secret,
+    dropped, or refused because the deployment owns it -- and a
+    vendor-fork key is reported as unknown rather than passing
+    silently."""
     def setUp(self):
         self.result = fixture_result()
         self.fragment = dict(self.result["fragment"])
@@ -183,6 +191,10 @@ class TestFaxKeys(unittest.TestCase):
 
 class TestRendering(unittest.TestCase):
 
+    """The fragment an operator reviews, and the report beside it.
+
+    The fragment must be valid java.util.Properties text; the report
+    masks secrets."""
     def test_fragment_is_reviewable_properties_text(self):
         result = fixture_result()
         text = o19props.render_fragment(result)
@@ -219,6 +231,7 @@ class TestRendering(unittest.TestCase):
 
 class TestTranslateDocpath(unittest.TestCase):
 
+    """Mapping an OSCAR 19 document path onto the CARLOS tree."""
     def test_handles_both_o19_layout_roots(self):
         for value in (
                 "/var/lib/OscarDocument/oscar_mcmaster/billing/download/",
@@ -245,6 +258,11 @@ class TestTranslateDocpath(unittest.TestCase):
 
 class TestJavaPropertiesParser(unittest.TestCase):
 
+    """Java's own properties semantics, not Python's.
+
+    Separators, continuations, escapes and line terminators all follow
+    java.util.Properties, because CARLOS will read the same file with
+    that parser."""
     def parse(self, text):
         return dict(o19props.parse_properties_text(text))
 
@@ -305,6 +323,7 @@ class TestJavaPropertiesParser(unittest.TestCase):
 
 class TestSecretDefaultsAndDispositions(unittest.TestCase):
 
+    """Stock credentials, and the ones a clinic actually changed."""
     def test_secret_default_keys_are_not_in_the_baseline(self):
         self.assertTrue(o19map_props.SECRET_DEFAULT_KEYS)
         for key in o19map_props.SECRET_DEFAULT_KEYS:

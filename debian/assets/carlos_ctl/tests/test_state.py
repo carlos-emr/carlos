@@ -22,6 +22,10 @@ from carlos_ctl import (o19etl, o19import, o19map_schema,
 
 class TestStateLedger(unittest.TestCase):
 
+    """The run ledger: what persists, and what a corrupt one means.
+
+    An unreadable ledger is fatal rather than treated as a fresh run --
+    "fresh" would re-run phases that already wrote to the target."""
     def setUp(self):
         self.state_dir = tempfile.mkdtemp(prefix="o19state-test-")
         self.addCleanup(shutil.rmtree, self.state_dir)
@@ -211,6 +215,7 @@ class TestPristineGate(unittest.TestCase):
 
 class TestDiskHeadroom(unittest.TestCase):
 
+    """Capacity checked before anything is extracted or restored."""
     def test_tiny_requirement_passes(self):
         self.assertIsNone(o19import.check_disk_headroom(1024, 0))
 
@@ -348,6 +353,7 @@ class TestResumeContract(unittest.TestCase):
 
 class TestStatementTimeoutFlag(unittest.TestCase):
 
+    """--statement-timeout reaches the restore client, or is refused."""
     def test_restore_client_carries_the_timeout_when_set(self):
         argv = o19import.staging_client_argv(
             ["mariadb", "--protocol=socket", "--user=root"], "/tmp/c.cnf",
@@ -525,6 +531,7 @@ class TestInheritedImportRefusal(unittest.TestCase):
 
 class TestStateArchiving(unittest.TestCase):
 
+    """Retiring a finished run so it cannot be resumed or mistaken."""
     def setUp(self):
         self.state_dir = tempfile.mkdtemp(prefix="o19archivestate-")
         self.addCleanup(shutil.rmtree, self.state_dir)
@@ -841,6 +848,7 @@ class TestGuardedExit(unittest.TestCase):
 
 class TestAcceptIdDriftLock(unittest.TestCase):
 
+    """Every preflight sign-off class is a class the CLI accepts."""
     def test_every_preflight_accept_id_is_a_cli_class(self):
         # a blocker whose --accept name the CLI does not know could never
         # be acknowledged; read the ids out of the preflight source
@@ -856,6 +864,7 @@ class TestAcceptIdDriftLock(unittest.TestCase):
 
 class TestHeadCollations(unittest.TestCase):
 
+    """Collations named in the head of a dump, read before restoring."""
     def test_extracts_collations_from_dump_head(self):
         head = (b"CREATE TABLE t (a varchar(5)) "
                 b"DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;\n"

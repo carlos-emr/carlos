@@ -1326,6 +1326,9 @@ class QueryError(RuntimeError):
     id such as 1054)."""
 
     def __init__(self, message: str, stderr: str = ""):
+        """`stderr` is kept separately because the verdict on an error
+        must come from the SERVER's text: the statement in `message`
+        can carry a patient identifier."""
         RuntimeError.__init__(self, message)
         self.stderr = stderr
 

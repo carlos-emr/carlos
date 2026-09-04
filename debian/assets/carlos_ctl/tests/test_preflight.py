@@ -85,6 +85,11 @@ def base_tables(**extra):
 
 class TestVerdicts(unittest.TestCase):
 
+    """The go / go-with-acknowledgements / no-go decision.
+
+    The verdict is what a clinic signs off on, so each blocker class is
+    driven with the condition that raises it and the flag that clears
+    it -- and a typo'd flag is refused rather than recorded."""
     def test_clean_database_is_go(self):
         report = pf.run_checks(FakeDb(base_tables()),
                                properties=clean_props())
@@ -157,6 +162,8 @@ class TestVerdicts(unittest.TestCase):
         # column; the assessment must not refuse that clinic outright,
         # and must not diagnose it as a privilege problem
         class NoDisabled(FakeDb):
+            """A dump whose Facility table predates the `disabled` column."""
+
             def __call__(self, sql):
                 if "`Facility`" in sql and "disabled" in sql:
                     raise RuntimeError(
@@ -202,6 +209,9 @@ class TestVerdicts(unittest.TestCase):
 
     def test_uncountable_table_is_a_hard_no_go(self):
         class Denied(FakeDb):
+            """A server that refuses to count one table: not the same as
+            counting zero."""
+
             def __call__(self, sql):
                 if sql.startswith("SELECT COUNT(*) FROM `vendor_x`"):
                     raise RuntimeError("ERROR 1142: SELECT command denied")
@@ -309,6 +319,7 @@ class TestVerdicts(unittest.TestCase):
 
 class TestAdvisories(unittest.TestCase):
 
+    """Findings that inform rather than block."""
     def test_removed_module_properties_group_as_advisory(self):
         props = clean_props()
         props["born_sftp_host"] = "x"
@@ -502,6 +513,11 @@ class TestRoleAdvisories(unittest.TestCase):
 
 class TestTableCaseHandling(unittest.TestCase):
 
+    """Servers that fold table names, and servers that do not.
+
+    A lower-cased dump must still fold onto the manifest; two tables
+    differing only in case on a case-sensitive server are a blocker,
+    because one of them will be lost on a folding target."""
     def test_lower_cased_tables_fold_onto_the_manifest_with_columns(self):
         # lower_case_table_names=1: information_schema reports
         # `hl7textmessage`; counts AND column metadata must map onto the
@@ -538,6 +554,7 @@ class TestTableCaseHandling(unittest.TestCase):
 
 class TestImportMode(unittest.TestCase):
 
+    """What the built-in mode checks that the standalone one cannot."""
     def test_unknown_columns_block_when_schema_map_given(self):
         from carlos_ctl import o19map_schema
         cols = {"demographic": set(
@@ -560,6 +577,10 @@ class TestImportMode(unittest.TestCase):
 
 class TestReportContract(unittest.TestCase):
 
+    """The report's own shape, and what it must never echo.
+
+    A password passed on the command line is a tool error naming the
+    argument -- never its value."""
     def test_report_carries_manifest_version_and_inventory(self):
         report = pf.run_checks(FakeDb(base_tables()),
                                properties=clean_props())

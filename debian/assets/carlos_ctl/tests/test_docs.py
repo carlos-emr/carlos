@@ -38,6 +38,10 @@ def _null_or_empty(cell):
 
 class TestDetectContextDir(unittest.TestCase):
 
+    """Finding the OSCAR context directory inside the documents tar.
+
+    Two candidates or none is a refusal: the tree is merged into the
+    live document root, and merging the wrong root is not undoable."""
     def test_single_context_is_detected(self):
         names = ["oscar_mcmaster/", "oscar_mcmaster/document/",
                  "oscar_mcmaster/document/a.pdf",
@@ -210,6 +214,11 @@ class TestHrmRewrite(unittest.TestCase):
 
 class TestContainment(unittest.TestCase):
 
+    """Whether a path stays inside the tree it is supposed to.
+
+    NUL bytes, absolute names, traversal and symlinks all escape; a
+    document row that escapes blocks the phase rather than being
+    skipped."""
     def setUp(self):
         self.root = tempfile.mkdtemp(prefix="o19docs-contain-")
         self.addCleanup(shutil.rmtree, self.root)
@@ -245,6 +254,7 @@ class TestContainment(unittest.TestCase):
 
 class TestBatchUnescape(unittest.TestCase):
 
+    """Decoding MariaDB's batch-mode escaping of column values."""
     def test_round_trips_mariadb_batch_escapes(self):
         self.assertEqual(o19docs.unescape_batch_field("a\\nb\\tc\\\\d"),
                          "a\nb\tc\\d")
@@ -254,6 +264,7 @@ class TestBatchUnescape(unittest.TestCase):
 
 class TestImageRefs(unittest.TestCase):
 
+    """Pulling OSCAR image path references out of note text."""
     def test_extracts_oscar_image_path_references(self):
         html = ('<img src="${oscar_image_path}logo.png"/>'
                 "<img src='${oscar_image_path}sig.jpg'>"
@@ -263,6 +274,11 @@ class TestImageRefs(unittest.TestCase):
 
 class TestMergeMove(unittest.TestCase):
 
+    """Merging the clinic's tree into the CARLOS document root.
+
+    A collision is a refusal, not an overwrite, and the names involved
+    go to the root-only file rather than the shareable report. A resume
+    accepts files already in place only when they are identical."""
     def setUp(self):
         self.work = tempfile.mkdtemp(prefix="o19docs-test-")
         self.addCleanup(shutil.rmtree, self.work)
@@ -380,6 +396,11 @@ class TestMergeMove(unittest.TestCase):
 
 class TestReconciliationClassification(unittest.TestCase):
 
+    """Which reconciliation findings block the import and which report.
+
+    A file CARLOS cannot open, or one that is missing or empty, is
+    blocking; an orphan on disk is report-only. The counts are exact
+    even where the sample is not."""
     def setUp(self):
         self.doc_dir = tempfile.mkdtemp(prefix="o19docs-recon-")
         self.addCleanup(shutil.rmtree, self.doc_dir)
@@ -621,6 +642,7 @@ class TestEformImageRefs(unittest.TestCase):
 
 class TestArchiveCsvExport(unittest.TestCase):
 
+    """The CSV rendering of the archive schema handed to the clinic."""
     def test_exports_tables_with_decoded_values(self):
         # the client wrapper (o19import.batch_rows) decodes batch escapes
         # once; the phase must write the decoded value as-is, never decode
@@ -656,6 +678,10 @@ class TestArchiveCsvExport(unittest.TestCase):
 
 class TestArchiveCsvRowShape(unittest.TestCase):
 
+    """Row width and ordering in the CSV export.
+
+    A row of the wrong width is a refusal: a silently ragged CSV is a
+    file the clinic cannot trust and cannot check."""
     def test_a_row_of_the_wrong_width_is_refused(self):
         # padding a short row or dropping a long row's tail writes a
         # plausible but wrong archive, and for an archive-only table the
@@ -702,6 +728,10 @@ class TestArchiveCsvRowShape(unittest.TestCase):
 
 class TestArchiveCsvNulls(unittest.TestCase):
 
+    """SQL NULL vs the empty string vs the literal text "NULL".
+
+    They are three different values in a clinical record, and the export
+    has to keep them distinguishable."""
     def test_null_flag_becomes_empty_field_and_null_text_survives(self):
         out = tempfile.mkdtemp(prefix="o19docs-csvnull-")
         self.addCleanup(shutil.rmtree, out)
@@ -783,6 +813,8 @@ class TestOwnershipSymlinkGuard(unittest.TestCase):
 
     def _install(self, find_rc, find_out):
         class CP(object):
+            """Completed-subprocess stand-in (returncode, stdout)."""
+
             def __init__(self, rc, out=""):
                 self.returncode = rc
                 self.stdout = out

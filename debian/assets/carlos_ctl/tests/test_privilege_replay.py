@@ -68,6 +68,10 @@ def rename_pairs(sql):
 
 class TestPrivilegeReplay(unittest.TestCase):
 
+    """The privilege merge replayed against a real database engine.
+
+    Statement text can look right and still produce the wrong grant
+    set; this asserts the EFFECTIVE grants after the statements run."""
     def setUp(self):
         self.db = sqlite3.connect(":memory:")
         for schema in (SRC, DST, ARCH):

@@ -15,6 +15,11 @@ from carlos_ctl import o19etl, o19map_schema
 
 class TestSeedScriptOrdering(unittest.TestCase):
 
+    """Removing CARLOS's seeded clinician without locking anyone out.
+
+    The break-glass administrator is created FIRST and inherits the
+    seed's roles; the deletes then run in an order that never orphans a
+    security row."""
     def admin_stmts(self):
         return o19etl.seed_admin_statements(
             "carlos", "breakglass", "100001",
@@ -94,6 +99,7 @@ class TestSeedGroupRetry(unittest.TestCase):
 
 class TestForceReset(unittest.TestCase):
 
+    """Every imported login is forced to reset its password."""
     def test_every_imported_user_is_forced_to_reset(self):
         self.assertEqual(
             o19etl.force_reset_statement("carlos"),
@@ -102,6 +108,7 @@ class TestForceReset(unittest.TestCase):
 
 class TestRowParityExpectations(unittest.TestCase):
 
+    """The admin identity is the only tolerated row-count delta."""
     def test_parity_helper_itemizes_admin_delta(self):
         # fake query: staging has 5 providers, target has 6 (5 + admin);
         # the admin's own row is counted EXACTLY on the target
@@ -159,6 +166,7 @@ class TestRowParityExpectations(unittest.TestCase):
 
 class TestAdminUserSafety(unittest.TestCase):
 
+    """--admin-user reaches SQL, so its accepted class is narrow."""
     def test_plain_names_pass(self):
         for name in ("breakglass", "it.admin@clinic", "ops-2", "A"):
             self.assertEqual(o19etl.validate_admin_user(name), name)

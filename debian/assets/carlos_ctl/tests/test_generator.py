@@ -27,6 +27,12 @@ def load_generator():
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
 class TestGenerator(unittest.TestCase):
 
+    """Contracts of the repo-side manifest generator.
+
+    Flyway ordering, the CREATE/ALTER parsing the CARLOS side is built
+    from, the seed counters the pristine gate depends on, and the
+    secret-key filter that keeps stock credentials out of the shipped
+    manifest."""
     @classmethod
     def setUpClass(cls):
         cls.gen = load_generator()

@@ -156,6 +156,7 @@ class FakeDb(object):
 
 class RunRolesBase(unittest.TestCase):
 
+    """Shared fixture: a recording fake database and a temp workspace."""
     def setUp(self):
         self.state_dir = tempfile.mkdtemp(prefix="o19roles-test-")
         self.fixups = os.path.join(self.state_dir, "fixups")
@@ -191,6 +192,7 @@ class RunRolesBase(unittest.TestCase):
 
 class TestCleanRun(RunRolesBase):
 
+    """One complete roles run, asserted on its writes and its report."""
     def test_every_step_marks_and_the_ledger_records_twinless_counts(self):
         db = FakeDb()
         progress, saves = self.run_roles(db)
@@ -308,6 +310,10 @@ class TestCleanRun(RunRolesBase):
 
 class TestCrashAndResume(RunRolesBase):
 
+    """A crash between a write and its ledger mark.
+
+    The next run must neither skip the work nor do it twice, and a
+    refusal must fire before that step's writes rather than after."""
     def test_crash_between_write_and_mark_records_the_full_count(self):
         # the membership INSERT commits, the process dies before mark():
         # the resume finds the rows already there and must record them
@@ -339,6 +345,7 @@ class TestCrashAndResume(RunRolesBase):
 
 class TestSeedReplay(RunRolesBase):
 
+    """The seed script runs exactly once across a crash and a resume."""
     def test_seed_script_runs_once_across_a_crash_and_resume(self):
         # no canonical row -> seed + fixups; the seed INSERT commits, the
         # crash hits the modernize script; the resume finds the seeded
@@ -387,6 +394,7 @@ class TestSeedReplay(RunRolesBase):
 
 class TestAdminTemplateFloor(RunRolesBase):
 
+    """A weak resemblance to the admin role is held for a human."""
     def test_weak_admin_resemblance_is_held_for_the_operator(self):
         # a custom role whose grants overlap `admin` a little (0.5 > J >=
         # 0.3): the administrator objects are not handed out automatically
@@ -397,6 +405,8 @@ class TestAdminTemplateFloor(RunRolesBase):
                     "FROM `{0}`.secObjPrivilege".format(SRC))
 
         class Db(FakeDb):
+            """Serves this test's staged rows and seed snapshot."""
+
             def plain(self, sql, db=None):
                 if sql == rows_sql:
                     return stage
@@ -423,6 +433,11 @@ class TestAdminTemplateFloor(RunRolesBase):
 
 class TestRoleTemplateBinding(RunRolesBase):
 
+    """--role-template is decided once and then binding.
+
+    A resume that changes the mapping would graft a second stock role's
+    grants onto a custom role; a typo stays recoverable because the
+    mapping is not recorded until it validates."""
     def test_first_run_records_the_mapping_and_uses_it(self):
         db = FakeDb()
         progress, _ = self.run_roles(
@@ -513,6 +528,7 @@ class TestRoleTemplateBinding(RunRolesBase):
 
 class TestRichTextLetterOutcome(RunRolesBase):
 
+    """What the RTL step claims afterwards, and when it fails closed."""
     def test_scripts_that_leave_no_current_row_are_not_claimed(self):
         db = FakeDb(rtl_sequence=[RTL_LEGACY, RTL_LEGACY])
         progress, _ = self.run_roles(db)

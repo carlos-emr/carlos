@@ -50,6 +50,12 @@ def selected_expr(sql, target_col):
 
 class TestCopyStatement(unittest.TestCase):
 
+    """The INSERT ... SELECT one manifest table copies through.
+
+    Every clause here is a decision about the clinic's data: which
+    source column feeds which target, when a zero date becomes NULL,
+    what an out-of-set enum falls back to, and which columns the charset
+    repair wraps."""
     ENTRY = {"class": "copy", "cols": ["id", "name"], "chunk_by": "id"}
     DST = {"id": col("int"), "name": col("varchar")}
 
@@ -144,6 +150,7 @@ class TestCopyStatement(unittest.TestCase):
 
 class TestMergeStatement(unittest.TestCase):
 
+    """The anti-join that keeps CARLOS's seed row and appends the rest."""
     def test_anti_join_on_natural_key(self):
         entry = {"class": "merge", "cols": ["name", "value"],
                  "merge_keys": ["name"]}
@@ -320,6 +327,11 @@ class TestSurrogateIdRemap(unittest.TestCase):
 
 class TestResumeIdempotency(unittest.TestCase):
 
+    """What a resumed run may repeat, and what it must refuse.
+
+    The ledger is bound to the dump digest and the manifest version: a
+    ledger that names neither, or names another dump, describes writes
+    this run cannot account for."""
     def test_window_delete_clears_exactly_the_window(self):
         entry = {"class": "copy", "cols": ["id"], "chunk_by": "id"}
         self.assertEqual(
@@ -380,6 +392,7 @@ class TestResumeIdempotency(unittest.TestCase):
 
 class TestUnknownSchemaCapture(unittest.TestCase):
 
+    """Capturing the columns a clinic's own fork added."""
     ENTRY = {"class": "copy", "cols": ["id", "name"], "chunk_by": "id",
              "dropped": {"legacy": {"nondefault": "s.`legacy` <> ''"}}}
 
@@ -407,6 +420,11 @@ class TestUnknownSchemaCapture(unittest.TestCase):
 
 class TestCharsetScanFailures(unittest.TestCase):
 
+    """The charset scan's failure modes.
+
+    A scan error must propagate rather than read as "no mojibake
+    found"; an absent column is skipped with a note rather than
+    silently."""
     def test_scan_error_propagates_instead_of_passing_as_clean(self):
         def q(sql):
             raise RuntimeError("ERROR 1142 (42000): SELECT command denied")
@@ -424,6 +442,10 @@ class TestCharsetScanFailures(unittest.TestCase):
 
 class TestArchiveAndShadow(unittest.TestCase):
 
+    """Archive copies and shadow captures, and how they are rebuilt.
+
+    The rebuild is build-aside-then-swap: a preserved table is never
+    absent while it is the only copy of what CARLOS has no home for."""
     def test_archive_rebuilds_without_ever_dropping_the_live_copy(self):
         # the archive holds the clinic's ONLY copy of records CARLOS has
         # no home for, so the rebuild builds beside it and swaps: the
@@ -518,6 +540,7 @@ class TestIdentifierQuoting(unittest.TestCase):
 
 class TestChunkWindows(unittest.TestCase):
 
+    """The id windows a chunked copy walks: exact cover, no overlap."""
     def test_windows_cover_the_range_exactly_once(self):
         w = o19etl.chunk_windows(1, 120, size=50)
         self.assertEqual(w, [(0, 50), (50, 100), (100, 120)])
@@ -532,6 +555,11 @@ class TestChunkWindows(unittest.TestCase):
 
 class TestPrechecks(unittest.TestCase):
 
+    """Refusals computed before the first write.
+
+    A NOT NULL target column the copy cannot fill would abort the
+    import mid-way; the pre-check turns that into a refusal on an
+    untouched database."""
     def test_not_null_column_without_default_is_flagged(self):
         entry = {"class": "copy", "cols": ["id"]}
         dst = {"id": col("int"),
@@ -560,6 +588,7 @@ class TestPrechecks(unittest.TestCase):
 
 class TestEnumValues(unittest.TestCase):
 
+    """Parsing the member list out of an enum column type."""
     def test_parses_enum_members(self):
         self.assertEqual(o19etl.enum_values("enum('x','y')"), ["x", "y"])
         self.assertEqual(o19etl.enum_values("enum('RO','NR','TE')"),
@@ -569,6 +598,11 @@ class TestEnumValues(unittest.TestCase):
 
 class TestEffectiveEntry(unittest.TestCase):
 
+    """Reducing a manifest entry to what THIS dump actually carries.
+
+    OSCAR 19 sites run different patch levels; a column or parent table
+    the dump lacks is dropped from the entry with a note, rather than
+    producing SQL that names something that is not there."""
     ENTRY = {"class": "copy", "cols": ["id", "name", "extra"],
              "fk_remap": {"name": "Parent"}}
 
@@ -606,6 +640,7 @@ class TestEffectiveEntry(unittest.TestCase):
 
 class TestCharsetRepairPredicate(unittest.TestCase):
 
+    """The per-row double-encoding repair, and what it targets."""
     def test_repair_is_per_row_and_byte_aligned(self):
         expr = o19etl.repair_expr("s.`note`")
         self.assertTrue(expr.startswith("CASE WHEN "))
@@ -629,6 +664,10 @@ class TestCharsetRepairPredicate(unittest.TestCase):
 
 class TestAbsentObjectDetection(unittest.TestCase):
 
+    """Telling "that table does not exist" from every other server error.
+
+    Read from the server's own stderr, never from the statement text,
+    which can carry a patient identifier."""
     def test_only_the_servers_stderr_is_inspected(self):
         # the SQL in the message can carry a patient id such as 1054; the
         # verdict must come from the server's error text alone
@@ -647,6 +686,7 @@ class TestAbsentObjectDetection(unittest.TestCase):
 
 class TestRowParity(unittest.TestCase):
 
+    """Staging vs target row counts, and the deltas that are expected."""
     def test_parity_flags_a_short_copy(self):
         def q(sql):
             if "information_schema" in sql:
@@ -1071,6 +1111,7 @@ class TestPrecheckScope(unittest.TestCase):
 
 class TestCoercionPrecheckCuration(unittest.TestCase):
 
+    """Curating away a coercion refusal, and what stays checked."""
     def test_a_curated_value_expr_silences_the_refusal(self):
         # the refusal names curating one as the remedy, so it must work:
         # without the skip the operator follows the instruction and the
@@ -1101,6 +1142,11 @@ class TestCoercionPrecheckCuration(unittest.TestCase):
 
 class TestOverlengthByteCapacity(unittest.TestCase):
 
+    """Capacity measured in bytes where MySQL measures in bytes.
+
+    A same-declared TEXT column is not the same capacity once the
+    charset widens, which is exactly the latin1 -> utf8mb4 move this
+    import makes."""
     def test_a_same_declared_text_column_is_measured_in_bytes(self):
         # latin1 `text` holds 65535 CHARACTERS, utf8mb4 `text` 65535
         # BYTES: identical declarations, different capacity, and the
@@ -1147,6 +1193,7 @@ def is_rows(tables):
 
 class TestMergeReverseParity(unittest.TestCase):
 
+    """Merge tables verified in reverse: every staging row has a twin."""
     ENTRY = {"class": "merge", "cols": ["id", "code", "label"],
              "merge_keys": ["code"], "surrogate_pk": "id",
              "merge_exclude": "s.`code` = 'dead'"}
@@ -1276,6 +1323,9 @@ class TestMergeReverseParity(unittest.TestCase):
 
 class TestCoercionPrecheck(unittest.TestCase):
 
+    """Text that CARLOS stores as a number must parse as one.
+
+    Otherwise the copy stores 0 and the value is gone with no error."""
     def test_text_into_numeric_columns_must_parse(self):
         entry = {"class": "copy", "cols": ["archived", "name"]}
         dst = {"archived": col("tinyint"), "name": col()}
@@ -1458,6 +1508,8 @@ class TestAbsentTableDisposition(unittest.TestCase):
         found = []
 
         class Walk(ast.NodeVisitor):
+            """Collects every `if` in the function under inspection."""
+
             def __init__(self):
                 self.ifs = []
 

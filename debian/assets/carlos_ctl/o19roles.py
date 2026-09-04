@@ -433,11 +433,22 @@ def _fold(name: str) -> str:
 
 def role_pairs(rows: Sequence[Sequence[str]],
                role: str) -> Set[Tuple[str, str]]:
+    """{(object, privilege)} granted to one role.
+
+    The role name is folded the way the database's own pad-space
+    collation folds it, so "Nurse " and "nurse" are one role here as
+    they are there; the privilege is stripped for the same reason."""
     return {(r[1], (r[2] or "").strip()) for r in rows
             if _fold(r[0]) == _fold(role)}
 
 
 def jaccard(a: Set, b: Set) -> float:
+    """Intersection over union: how alike two grant sets are.
+
+    Union rather than the smaller side on purpose -- scoring by the
+    smaller side makes a tiny role "match" every large one it is a
+    subset of, which is how a custom role would inherit the wrong
+    template. Two empty sets resemble nothing (0.0), not everything."""
     if not a and not b:
         return 0.0
     return len(a & b) / float(len(a | b))

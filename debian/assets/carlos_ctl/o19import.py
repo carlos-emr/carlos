@@ -82,6 +82,8 @@ SPOT_CHECK_PATIENTS = 10
 # --------------------------------------------------------------------------
 
 def state_path(state_dir: str) -> str:
+    """The run ledger's path. One name, in one place: `archive_state`
+    retires it by suffix and several refusals name it."""
     return os.path.join(state_dir, "state.json")
 
 
@@ -124,15 +126,28 @@ def durable_json(path: str, payload) -> None:
 
 
 def save_state(state_dir: str, state: Dict) -> None:
+    """Persist the run ledger durably (0700 workspace, atomic write).
+
+    Durable because a power loss between a write to the database and
+    the ledger entry recording it is precisely the state a resume has
+    to reason about."""
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
     durable_json(state_path(state_dir), state)
 
 
 def phase_done(state: Dict, phase: str) -> bool:
+    """Whether `phase` COMPLETED. A phase that ran and failed is not
+    done, and an in-progress one is not either -- both must be re-run,
+    which is what makes `--resume` safe to offer."""
     return state.get("phases", {}).get(phase, {}).get("status") == "done"
 
 
 def mark_done(state_dir: str, state: Dict, phase: str, **extra) -> None:
+    """Record a phase as complete, with whatever it needs to prove it
+    later (`extra`: the dump digest, the verdict, a skip reason).
+
+    Called only on success -- see `mark_started` for the destructive
+    phases that must also record having BEGUN."""
     entry = {"status": "done",
              "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     entry.update(extra)
@@ -215,6 +230,8 @@ def report_append(state_dir: str, title: str, body: str) -> None:
 
 
 def sha256_file(path: str) -> str:
+    """Re-exported so this module's callers need not import o19bundle
+    for one function; the digest is the same one the clinic sends."""
     return o19bundle.sha256_file(path)
 
 

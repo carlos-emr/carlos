@@ -20,6 +20,11 @@ from carlos_ctl import o19bundle
 
 class TestClassifyMembers(unittest.TestCase):
 
+    """The bundle's member list, resolved to roles.
+
+    A bundle is three files with fixed roles; anything else in it is a
+    refusal rather than a guess, because guessing which of two dumps is
+    the clinic's is how the wrong database gets imported."""
     GOOD = ["o19.sql.gz", "o19-documents.tar.gz", "oscar.properties"]
 
     def test_happy_path(self):
@@ -61,6 +66,11 @@ class TestClassifyMembers(unittest.TestCase):
 
 class TestBundleKindAndArgs(unittest.TestCase):
 
+    """Which bundle forms exist, and the openssl argv each implies.
+
+    The derivation defaults are the ones a modern openssl uses; a clinic
+    on an older one passes its own, and the flags must then REPLACE the
+    defaults rather than stack with them."""
     def test_all_four_suffixes(self):
         self.assertEqual(o19bundle.bundle_kind("b.tar"), (False, False))
         self.assertEqual(o19bundle.bundle_kind("b.tar.gz"), (False, True))
@@ -107,6 +117,11 @@ class TestBundleKindAndArgs(unittest.TestCase):
 
 class TestTarListingAndMemberTypes(unittest.TestCase):
 
+    """The tar listing parser, and the member types it refuses.
+
+    Every refusal here is an extraction that never happens: a symlink, a
+    device node, an absolute or traversing name, or a member whose name
+    could be read by tar as an option."""
     LISTING = [
         "-rw-r--r-- root/root      1234 2020-03-09 00:00 o19.sql.gz",
         "-rw-r--r-- root/root        12 2020-03-09 00:00 oscar.properties",
@@ -259,6 +274,10 @@ class TestTarEntriesFromHeaders(unittest.TestCase):
 
 class TestTarHeaderChecksum(unittest.TestCase):
 
+    """The magic/checksum probe that decides a file really is a tar.
+
+    v7 tars carry no magic string, so the checksum is the only evidence;
+    accepting them matters because that is what old OSCAR hosts produce."""
     @staticmethod
     def v7_header(name=b"o19.sql", size=0):
         # a v7 (pre-POSIX) header: no ustar magic at 257, checksum only
@@ -304,6 +323,12 @@ def _have(cmd):
                      "tar/openssl unavailable")
 class TestOpenBundleEndToEnd(unittest.TestCase):
 
+    """Opening a real bundle, in every form the clinic may send.
+
+    The failure paths are the point: a wrong password, a derivation
+    mismatch, a FIFO or directory in place of the file, a digest that
+    does not match what was opened, and too little disk -- each refused
+    without leaving plaintext or a half-extracted tree behind."""
     def setUp(self):
         self.work = tempfile.mkdtemp(prefix="o19bundle-test-")
         self.addCleanup(shutil.rmtree, self.work)
@@ -433,7 +458,8 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
         self._enc(plain, enc)
         dest = tempfile.mkdtemp(dir=self.work)
 
-        class Exactly:  # free space == one plain bundle
+        class Exactly:
+            """statvfs stand-in: free space is exactly one plain bundle."""
             f_frsize = 1
             f_bavail = os.path.getsize(enc)
 

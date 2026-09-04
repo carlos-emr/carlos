@@ -52,6 +52,11 @@ def idempotent(sql):
 
 class TestStatementShapes(unittest.TestCase):
 
+    """The SQL the roles post-step issues, statement by statement.
+
+    Every write is idempotent by construction, scoped to the schema it
+    names, and ordered so a crash between any two leaves a state the
+    next run can continue from."""
     def test_snapshot_copies_every_seed_table_into_the_archive(self):
         stmts = o19roles.snapshot_statements("carlos", "o19_archive")
         self.assertEqual(len(stmts), 6 * len(o19roles.SNAPSHOT_TABLES))
@@ -225,6 +230,11 @@ class TestStatementShapes(unittest.TestCase):
 
 class TestCustomRoleBackfill(unittest.TestCase):
 
+    """Giving a clinic-custom role the grants CARLOS added since O19.
+
+    The template is the closest stock role, and "closest" has to be
+    defined precisely enough to be argued with: the objects O19 never
+    knew, scored by overlap, ties broken alphabetically."""
     SEED = [("doctor", "_rx", "x", "0"), ("doctor", "_fax", "x", "0"),
             ("doctor", "_email", "x", "0"), ("nurse", "_rx", "r", "0"),
             ("nurse", "_fax", "x", "0"), ("admin", "_admin", "x", "0"),
@@ -378,6 +388,7 @@ class TestCustomRoleBackfill(unittest.TestCase):
 
 class TestDiffPruneNormalise(unittest.TestCase):
 
+    """The review listings, the property prune and the prevention map."""
     def test_privilege_diff_compares_clinic_rows_with_the_seed_snapshot(self):
         sql = o19roles.privilege_diff_sql("o19_import", "o19_archive")
         self.assertIn("FROM `o19_import`.secObjPrivilege s JOIN "
@@ -439,6 +450,12 @@ class TestDiffPruneNormalise(unittest.TestCase):
 
 class TestRichTextLetter(unittest.TestCase):
 
+    """The Rich Text Letter form, in every state a clinic can have it.
+
+    Stock and current, stock and legacy, edited beyond reach, disabled
+    on purpose, renamed, or absent entirely -- each has a different
+    right answer, and getting it wrong either breaks letters or
+    silently re-enables a form the clinic turned off."""
     LEGACY = ("12", "Rich Text Letter", "1",
               "Rich Text Letter Generator v2.1", "0", "1", "1")
     MODERN = ("12", "Rich Text Letter", "1",
@@ -695,6 +712,7 @@ class TestVerifyRoleChecks(unittest.TestCase):
 
 class TestSeedAdminClone(unittest.TestCase):
 
+    """The break-glass administrator's roles, cloned from the seed."""
     def test_admin_roles_are_cloned_active(self):
         stmts = o19etl.seed_admin_statements(
             "carlos", "breakglass", "100001", "{bcrypt}$2b$12$x", "1234")
@@ -706,6 +724,10 @@ class TestSeedAdminClone(unittest.TestCase):
 
 class TestParityWithAppendedRows(unittest.TestCase):
 
+    """Rows the roles step synthesises are an expected parity delta.
+
+    Expected, but only the ones its own ledger recorded: anything else
+    without a staging twin is a mismatch."""
     def test_appended_row_keys_cover_only_role_step_tables(self):
         self.assertEqual(set(o19etl.APPENDED_ROW_KEYS),
                          {"secRole", "program", "program_provider",

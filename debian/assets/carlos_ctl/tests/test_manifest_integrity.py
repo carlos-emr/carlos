@@ -26,6 +26,12 @@ VALID_DISPOSITIONS = {
 
 class TestSchemaManifest(unittest.TestCase):
 
+    """The shipped schema manifest, checked as data.
+
+    Every table classified exactly once into a known class, every
+    column mapping resolvable on both sides, and every curated overlay
+    entry still describing the diff it was written for. A manifest that
+    fails here would misroute a clinic's rows with no runtime error."""
     def test_every_table_classified_once_with_valid_class(self):
         for table, entry in o19map_schema.TABLES.items():
             self.assertIn(entry["class"], VALID_CLASSES,
@@ -377,6 +383,7 @@ class TestPreflightDriftLock(unittest.TestCase):
 
 class TestPropsManifest(unittest.TestCase):
 
+    """The shipped properties manifest, checked as data."""
     def test_key_dispositions_are_valid(self):
         for key, spec in o19map_props.KEYS.items():
             self.assertIn(spec["d"], VALID_DISPOSITIONS, key)
