@@ -52,11 +52,12 @@ def require_db_root() -> None:
 def sql_escape(value: str) -> str:
     """SQL string-literal escaping for generated passwords interpolated into
     account DDL. Belt and braces: everything this tool generates is
-    alphanumeric already."""
-    # NUL is encoded too: the client refuses a raw NUL in a statement, and
-    # decoded batch values may carry one
-    return (value.replace("\\", "\\\\").replace("'", "\\'")
-            .replace("\0", "\\0"))
+    alphanumeric already.
+
+    Kept as a name here because callers and tests reach for
+    ``dbops.sql_escape``; the escape itself lives in util so the package has
+    one implementation rather than the four that had already drifted."""
+    return util.sql_escape(value)
 
 
 # --- raw client passthrough (verb: db) --------------------------------------

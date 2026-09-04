@@ -94,6 +94,47 @@ def genpw() -> str:
     return genrandom(32, string.ascii_letters + string.digits)
 
 
+# --- SQL --------------------------------------------------------------------
+# Why this tool builds SQL text at all, rather than binding parameters through
+# a driver: every database path it owns already needs the mariadb CLIENT, which
+# is a hard dependency of this package (see debian/control). Restoring a
+# clinic's mysqldump is a client job; so is running the DELIMITER-bearing fixup
+# scripts the roles step replays, and so is handing credentials over via
+# --defaults-extra-file instead of argv. Adding python3-pymysql on top would
+# not remove any of that -- it would add a second way to reach the database,
+# and a second set of connection and credential handling to get right, for
+# paths that must stay identical to what an operator can reproduce by hand from
+# the run's report. So the client stays, and interpolation is escaped here.
+#
+# ONE implementation, because four had already drifted: o19_preflight's copy
+# (which must stay separate -- that file is copied alone to a 2014-era OSCAR 19
+# server and may import nothing) had lost the NUL case. test_sql_escape_
+# contract.py now pins the two against each other.
+
+
+def sql_escape(value: str) -> str:
+    """Escape `value` for a single-quoted MySQL string literal.
+
+    Backslash, quote and NUL are the whole set that matters here, and the
+    reasons the rest do not are conditions this tool enforces rather than
+    assumes:
+
+    * ``"`` needs no escaping inside a single-quoted literal, and ANSI_QUOTES
+      -- which would change that -- is refused by the ETL pre-checks before
+      the first write (etl_precheck_problems), as is NO_BACKSLASH_ESCAPES,
+      which would break the backslash form entirely.
+    * newline, CR and Ctrl-Z are legal inside a literal; only the Windows
+      client treats Ctrl-Z specially, and this runs on Debian.
+    * NUL is escaped because the client refuses a raw NUL in a statement at
+      all, and values decoded from its batch output can carry one.
+
+    Identifiers do NOT come through here -- they are backtick-quoted by
+    o19etl.ident(), which is a different escape with a different rule.
+    """
+    return (value.replace("\\", "\\\\").replace("'", "\\'")
+            .replace("\0", "\\0"))
+
+
 # --- Java .properties files -------------------------------------------------
 # Not configparser: a properties file is not INI (no sections, different
 # escape rules), and these files carry credentials, so round-tripping must

@@ -29,7 +29,7 @@ import urllib.parse
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from . import o19bundle, o19etl
-from .util import STATE, die, log, run, warn
+from .util import STATE, die, log, run, sql_escape, warn
 
 DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
 TARGET_CTX = "carlos"
@@ -51,13 +51,8 @@ CONTEXT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.\-]*$")
 
 
 def _sql_str(value: str) -> str:
-    """SQL string-literal escaping for values interpolated into generated
-    statements (mirrors dbops.sql_escape; kept local so the pure helpers
-    stay importable without the deployment modules)."""
-    # NUL is encoded too: the client refuses a raw NUL in a statement, and
-    # decoded batch values may carry one
-    return (value.replace("\\", "\\\\").replace("'", "\\'")
-            .replace("\0", "\\0"))
+    """SQL string-literal escaping; see util.sql_escape for the reasoning."""
+    return sql_escape(value)
 
 
 def contained(root: str, relative: str) -> bool:

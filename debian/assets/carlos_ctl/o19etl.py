@@ -35,7 +35,7 @@ import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import o19map_schema
-from .util import warn
+from .util import sql_escape, warn
 
 # a copy is windowed over the id RANGE, so a sparse id space costs
 # windows rather than rows. Beyond this the range is not a table's id
@@ -211,12 +211,11 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
 
 
 def _sql_str(value: str) -> str:
-    """SQL string-literal escaping (mirrors dbops.sql_escape, kept local so
-    the pure statement builders import nothing from the deployment)."""
-    # NUL is encoded too: the client refuses a raw NUL in a statement, and
-    # decoded batch values may carry one
-    return (value.replace("\\", "\\\\").replace("'", "\\'")
-            .replace("\0", "\\0"))
+    """SQL string-literal escaping for the statement builders below.
+
+    One line, kept as a local name because seventeen call sites read better
+    with it; the escape and its reasoning live in util.sql_escape."""
+    return sql_escape(value)
 
 
 #: the identifier shape the import accepts from a clinic dump: every table

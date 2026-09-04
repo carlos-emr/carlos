@@ -1166,8 +1166,17 @@ def _unescape_batch(value):
 
 
 def _sql_literal(value):
-    """Escape a string for a single-quoted SQL literal."""
-    return value.replace("\\", "\\\\").replace("'", "\\'")
+    """Escape a string for a single-quoted SQL literal.
+
+    A deliberate copy of carlos_ctl.util.sql_escape: this file is carried
+    alone to a 2014-era OSCAR 19 server and may import nothing from the
+    package. The two are pinned against each other by
+    tests/test_sql_escape_contract.py, because this copy had already lost
+    the NUL case while the other three kept it -- reachable only from
+    manifest constants today, but the next caller to reach for it with a
+    clinic value would have got the weaker escape."""
+    return (value.replace("\\", "\\\\").replace("'", "\\'")
+            .replace("\0", "\\0"))
 
 
 def _like_prefix(value):
