@@ -20,6 +20,7 @@
 # Freshness Check Strategy:
 # 1. Calculate SHA256 hash of Dockerfile + build context for each container
 # 2. Check if the branch-scoped ghcr.io cache image exists with matching hash label
+#    (read from the registry manifest; no layers are pulled for the check)
 # 3. If hash matches: skip build (image is up-to-date)
 # 4. If hash differs or image missing: build, test, and push new image
 #
@@ -88,6 +89,7 @@ jobs:
       mariadb_hash: ${{ steps.check.outputs.mariadb_hash }}
       drugref_needs_build: ${{ steps.check.outputs.drugref_needs_build }}
       drugref_hash: ${{ steps.check.outputs.drugref_hash }}
+      cache_tag: ${{ steps.check.outputs.cache_tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -119,6 +121,12 @@ jobs:
               | cut -c1-120)
             printf '%s-latest' "$safe_ref"
           }
+
+          # Computed once per run and published as a job output: the publish jobs
+          # tag with it, so the sanitisation rule lives in exactly one place.
+          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
+          echo "cache_tag=$CACHE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Cache tag for this run: $CACHE_TAG"
 
           check_container() {
             local name=$1
@@ -155,16 +163,20 @@ jobs:
             fi
 
             # Try to get the existing image's hash label
-            IMAGE="${REGISTRY}/${IMAGE_PREFIX}/carlos-${name}:$(cache_tag "$CACHE_REF_NAME")"
+            IMAGE="${REGISTRY}/${IMAGE_PREFIX}/carlos-${name}:${CACHE_TAG}"
             echo "Checking image: $IMAGE"
 
-            # Pull image and check labels
+            # Read the label from the registry manifest + config blob without pulling
+            # any layers. The dev images are single-arch (built with buildx --load and
+            # pushed by the classic engine), so .Image.Config resolves directly. Any
+            # failure -- image missing, network error, unexpected manifest shape --
+            # leaves the hash empty, which forces a rebuild exactly as a failed
+            # `docker pull` did before.
             EXISTING_HASH=""
-            if docker pull "$IMAGE" 2>/dev/null; then
-              if ! EXISTING_HASH=$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.openosp.content-hash" }}' 2>/dev/null); then
-                echo "Warning: failed to inspect existing image labels for $IMAGE; will treat as missing hash and rebuild if needed" >&2
-                EXISTING_HASH=""
-              fi
+            if ! EXISTING_HASH=$(docker buildx imagetools inspect "$IMAGE" \
+                --format '{{ index .Image.Config.Labels "org.openosp.content-hash" }}' 2>/dev/null); then
+              echo "Warning: could not read the manifest of $IMAGE; treating the hash as missing and rebuilding if needed" >&2
+              EXISTING_HASH=""
             fi
 
             echo "Existing hash: ${EXISTING_HASH:-<none>}"
@@ -277,23 +289,11 @@ jobs:
       - name: Push tested tomcat-dev container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
-          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
+          CACHE_TAG: ${{ needs.check-containers.outputs.cache_tag }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          cache_tag() {
-            local ref_name=$1
-            local safe_ref
-
-            safe_ref=$(printf '%s' "$ref_name" \
-              | tr '[:upper:]/' '[:lower:]-' \
-              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
-              | cut -c1-120)
-            printf '%s-latest' "$safe_ref"
-          }
-
           docker load -i "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
           docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
-          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
           docker tag carlos-tomcat-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -441,23 +441,11 @@ jobs:
       - name: Push tested mariadb-dev container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
-          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
+          CACHE_TAG: ${{ needs.check-containers.outputs.cache_tag }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          cache_tag() {
-            local ref_name=$1
-            local safe_ref
-
-            safe_ref=$(printf '%s' "$ref_name" \
-              | tr '[:upper:]/' '[:lower:]-' \
-              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
-              | cut -c1-120)
-            printf '%s-latest' "$safe_ref"
-          }
-
           docker load -i "$RUNNER_TEMP/container-images/carlos-mariadb-dev.tar"
           docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
-          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
           docker tag carlos-mariadb-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -580,23 +568,11 @@ jobs:
       - name: Push tested drugref container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref-dev
-          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
+          CACHE_TAG: ${{ needs.check-containers.outputs.cache_tag }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          cache_tag() {
-            local ref_name=$1
-            local safe_ref
-
-            safe_ref=$(printf '%s' "$ref_name" \
-              | tr '[:upper:]/' '[:lower:]-' \
-              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
-              | cut -c1-120)
-            printf '%s-latest' "$safe_ref"
-          }
-
           docker load -i "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
           docker tag carlos-drugref-dev:test "$IMAGE:${{ github.sha }}"
-          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
           docker tag carlos-drugref-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
