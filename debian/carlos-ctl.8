@@ -360,8 +360,15 @@ and shadow-captured to
 (open a bundle whose digest was never conveyed),
 .B carry-credentials
 (the dump carries live OAuth consumer secrets or signing keys, copied
-verbatim; rotate or verify them before go-live). Every class is recorded in
-the report and survives \-\-resume.
+verbatim; rotate or verify them before go-live),
+.B content-transfer
+(the restored staging schema does not match the content digests the
+clinic took before the dump \(em a broken dump, transfer or restore,
+not a migration decision),
+.B no-content-digests
+(the transfer's content could not be fully verified, usually because no
+digest document was shipped; row counts still are). Every class is
+recorded in the report and survives \-\-resume.
 .RE
 .TP
 .B o19-preflight (experimental)
@@ -437,6 +444,9 @@ continues from),
 .I preflight.txt
 and
 .IR preflight.json ,
+.I content-transfer.json
+(the P2 comparison of the clinic's content digests against the restored
+staging schema),
 the root\-only
 .IR verify-details.txt ,
 .I roles-details.txt

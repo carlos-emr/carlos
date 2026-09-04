@@ -26,19 +26,31 @@ naive spelling of this check is worse than no check at all:
 * The two lanes read DIFFERENT 16-hex-digit halves of the same SHA-256,
   so they cannot fail together on a collision in one half.
 
-Charset: the clinic's OSCAR 19 stores latin1 and the staging schema is
-utf8mb4, so the same logical text has different STORED BYTES (`Santé` is
+Charset: the clinic's OSCAR 19 stores latin1 and live CARLOS is utf8mb4,
+so the same logical text has different STORED BYTES (`Santé` is
 `53 61 6E 74 E9` there and `53 61 6E 74 C3 A9` here). Every value is
-normalised to utf8mb4 before hashing, or the check would disagree on
-every accented row of every clinic. Binary columns are hexed instead:
-converting a scanned document through a character set is not a
-round trip. A type that is in neither list is refused rather than
-guessed at: CONVERT is not injective over binary values (two different
-BIT values both render as `?`) and HEX rounds a decimal to an integer,
-so the wrong choice yields a digest that agrees while the data differs.
+normalised to utf8mb4 before hashing, or the P7 comparison would
+disagree on every accented row of every clinic. At P2 the two sides
+usually agree already -- mysqldump writes each table's RESOLVED charset
+into its DDL (measured: a table created with no `DEFAULT CHARSET` in a
+latin1 database still dumps as `DEFAULT CHARSET=latin1`), so the restored
+staging tables are latin1 like the clinic's and the CONVERT is a no-op
+there. It is kept anyway: it costs nothing, and it is what keeps the
+transfer check from failing a correct restore taken under a client or
+server whose character-set defaults differ.
+
+Binary columns are hexed instead: converting a scanned document through a
+character set is not a round trip. A type in NEITHER list is refused
+rather than guessed at: CONVERT is not injective over binary values (two
+different BIT values both render as `?`) and HEX rounds a decimal to an
+integer, so the wrong choice yields a digest that agrees while the data
+differs.
 """
 
-from typing import Dict, List, NamedTuple, Optional, Sequence
+import json
+
+from typing import (Callable, Dict, List, NamedTuple, Optional,
+                    Sequence, Tuple)
 
 #: Field separator inside a row's hashed form. A unit separator cannot
 #: appear unescaped in the length-prefixed encoding, but it costs nothing
@@ -108,8 +120,8 @@ def value_expr(col: str, coltype: str) -> str:
     hash.
 
     `coltype` is the information_schema DATA_TYPE. Opaque columns are
-    hexed; the rest are converted to utf8mb4 so the clinic's latin1 and
-    the staging schema's utf8mb4 agree on the same logical text.
+    hexed; the rest are converted to utf8mb4, so a clinic's latin1 and
+    live CARLOS's utf8mb4 agree on the same logical text.
 
     A type in NEITHER list raises `ValueError`, and the caller reports
     the table as unmeasured. That is deliberate: the two renderings are
@@ -247,3 +259,157 @@ def entry_columns(entry: Dict[str, object]) -> List[List[str]]:
                 "pair".format(pair))
         out.append([str(pair[0]), str(pair[1])])
     return out
+
+
+class Comparison(NamedTuple):
+    """The outcome of comparing one side against a digest document.
+
+    Three lists, because the three outcomes call for different actions:
+    `failed` is a positive disagreement and needs a decision; `unverified`
+    is a table nobody could measure and needs an acknowledgement; only
+    `verified` is a claim.
+    """
+
+    verified: List[str]
+    failed: List[Tuple[str, str]]
+    unverified: List[Tuple[str, str]]
+
+    def summary(self) -> str:
+        return ("{0} table(s) verified, {1} disagreed, {2} could not be "
+                "compared".format(len(self.verified), len(self.failed),
+                                  len(self.unverified)))
+
+
+def load_document(path: str) -> Dict[str, object]:
+    """Read and vet a digest document.
+
+    Raises `ValueError` on anything it cannot read under the rules it
+    knows. A document of a FORMAT this build does not recognise is
+    refused rather than half-understood: the numbers would be compared
+    under different rules than they were taken under, and the result --
+    agreement or disagreement -- would mean nothing either way.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise ValueError("cannot read digest document {0}: {1}"
+                         .format(path, exc))
+    if not isinstance(doc, dict):
+        raise ValueError("{0} is not a digest document".format(path))
+    fmt = doc.get("digest_format")
+    if fmt != DIGEST_FORMAT:
+        raise ValueError(
+            "{0} carries digest format {1!r}; this build reads format {2}. "
+            "Re-run the clinic assessment with a matching o19_preflight.py"
+            .format(path, fmt, DIGEST_FORMAT))
+    if not isinstance(doc.get("tables"), dict):
+        raise ValueError("{0} carries no table digests".format(path))
+    if not isinstance(doc.get("errors", {}), dict):
+        raise ValueError("{0} carries a malformed error list".format(path))
+    return doc
+
+
+def _rendering(coltype: str) -> str:
+    """Which of the two renderings a type gets, or "" for neither.
+
+    The COMPARISON cares about the class, not the exact type: a column
+    the clinic called `varchar` and staging calls `text` still hashes
+    identically, and refusing that pair would fail a correct restore."""
+    normalised = (coltype or "").lower()
+    if normalised in HEXED_TYPES:
+        return "hex"
+    if normalised in CONVERTED_TYPES:
+        return "convert"
+    return ""
+
+
+def resolve_table(name: str, present: Dict[str, str]) -> Optional[str]:
+    """`name` as the other side spells it, or None.
+
+    An exact match always wins; case folding stands in only when there is
+    none, because a host running `lower_case_table_names=1` lower-cases
+    every restored table name and the two sides would otherwise disagree
+    on every table with a capital in it. `present` maps folded name ->
+    actual spelling."""
+    if name in present.values():
+        return name
+    return present.get(name.lower())
+
+
+def compare_document(document: Dict[str, object],
+                     other_columns: Dict[str, List[Tuple[str, str]]],
+                     run: Callable[[str], Digest],
+                     schema: Optional[str] = None,
+                     where: Optional[str] = None) -> Comparison:
+    """Compare every table in `document` against the schema `run` reads.
+
+    `other_columns` is that schema's `{table: [(column, DATA_TYPE)]}`;
+    `run` takes the digest SQL and returns the `Digest` (it raises on a
+    query failure, which is recorded as unverified, never as agreement).
+
+    Shape disagreements -- a table the restore did not create, a column it
+    dropped, a column whose type changed rendering class -- are `failed`,
+    not `unverified`: each of them IS a difference between the two sides,
+    and reporting one as merely unmeasurable would understate it.
+    """
+    verified: List[str] = []
+    failed: List[Tuple[str, str]] = []
+    unverified: List[Tuple[str, str]] = []
+    tables = document.get("tables") or {}
+    present = dict((t.lower(), t) for t in other_columns)
+
+    for name in sorted(tables):
+        entry = tables[name]
+        try:
+            expected = entry_digest(entry)
+            columns = entry_columns(entry)
+        except (ValueError, TypeError, AttributeError) as exc:
+            unverified.append((name, str(exc)))
+            continue
+        other = resolve_table(name, present)
+        if other is None:
+            failed.append((name, "the clinic digested this table; the "
+                                 "other side has no such table"))
+            continue
+        their = dict((c.lower(), t) for c, t in other_columns[other])
+        shape = []
+        for col, coltype in columns:
+            if col.lower() not in their:
+                shape.append("column `{0}` is missing".format(col))
+            elif _rendering(their[col.lower()]) != _rendering(coltype):
+                shape.append(
+                    "column `{0}` is {1} here and {2} at the clinic, which "
+                    "hash differently".format(col, their[col.lower()],
+                                              coltype))
+        if shape:
+            failed.append((name, "; ".join(shape)))
+            continue
+        types = dict((c, t) for c, t in columns)
+        try:
+            sql = digest_sql(schema, other, [c for c, _t in columns],
+                             types, where)
+            actual = run(sql)
+        except Exception as exc:                      # noqa: BLE001
+            # a table nobody could measure is not a table that agreed
+            unverified.append((name, str(exc).strip().splitlines()[-1]
+                               if str(exc).strip() else "digest failed"))
+            continue
+        problems = compare(name, expected, actual)
+        if problems:
+            failed.append((name, problems[0]))
+        else:
+            verified.append(name)
+
+    for name, reason in sorted((document.get("errors") or {}).items()):
+        unverified.append(
+            (name, "the clinic could not measure it: {0}".format(reason)))
+
+    measured = set(tables) | set(document.get("errors") or {})
+    folded = set(n.lower() for n in measured)
+    for other in sorted(other_columns):
+        if other not in measured and other.lower() not in folded:
+            unverified.append(
+                (other, "present here but absent from the clinic's digest "
+                        "document"))
+    return Comparison(verified, failed, unverified)

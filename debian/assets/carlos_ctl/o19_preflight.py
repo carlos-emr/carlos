@@ -1308,7 +1308,7 @@ def digest_value_expr(col, coltype):
     """The normalised, unambiguous contribution of one column.
 
     `coltype` is the information_schema DATA_TYPE. The clinic stores
-    latin1 and the staging schema is utf8mb4, so text is converted before
+    latin1 and live CARLOS is utf8mb4, so text is converted before
     hashing or the two sides would disagree on every accented row.
 
     An unrecognised type raises ValueError and the table is reported as

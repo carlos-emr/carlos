@@ -4,9 +4,14 @@
 """verify_sql_semantics.py — settle the ETL SQL behaviours that only a real
 engine can answer.
 
-Two of them, both in the P4 copy path, both previously reasoned about rather
-than run: the merge anti-join's visibility of its own inserts, and the
-per-row charset repair.
+Three of them: the merge anti-join's visibility of its own inserts and the
+per-row charset repair, both in the P4 copy path; and the M22 content
+digest, whose whole point is that a check nobody has broken on purpose is
+not a check. The last section runs the P2 chain end to end with the real
+tools -- a latin1 clinic schema measured by `o19_preflight.py`, dumped by
+mysqldump exactly as the operator guide says to, restored, and compared by
+`o19digest` -- because the unit tests drive each half against canned
+answers and cannot catch a disagreement about what the two halves MEAN.
 
 `o19etl.merge_statement` is an anti-join that reads the table it inserts
 into::
@@ -63,6 +68,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -112,7 +118,8 @@ def reject_password_args(args):
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
 
-from carlos_ctl import o19digest, o19etl                         # noqa: E402
+from carlos_ctl import (o19_preflight, o19digest,               # noqa: E402
+                        o19etl)
 
 # One merge table, shaped as the manifest describes it: a surrogate integer
 # PK, one natural key, one payload column. consultationServices is the
@@ -603,6 +610,140 @@ def check_content_digest(client: Client, clinic: str,
     return failures
 
 
+def check_end_to_end_transfer(client: Client, mysql_args: List[str],
+                              clinic: str, stage: str) -> List[str]:
+    """The whole P2 chain, with the real tools rather than fakes.
+
+    The clinic measures its own database with `o19_preflight.py`; the
+    database is dumped, restored into a staging schema, and compared
+    against those numbers by `o19digest.compare_document`. The unit
+    tests drive both halves against canned answers, which cannot catch a
+    disagreement about what the two halves MEAN -- a column order taken
+    one way here and another there, a type the clinic renders one way and
+    the import the other, a dump that carries a charset neither expected.
+
+    mysqldump is invoked exactly as docs/o19-import-deb.md tells the
+    clinic to invoke it.
+    """
+    dump_cmd = shutil.which("mysqldump") or shutil.which("mariadb-dump")
+    if not dump_cmd:
+        print("\n  end-to-end transfer: SKIPPED (no mysqldump on PATH)")
+        return ["end-to-end transfer check skipped: no mysqldump on PATH "
+                "-- this run did not exercise the P2 chain"]
+
+    failures: List[str] = []
+    client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+               "DEFAULT CHARSET=latin1;".format(clinic))
+    client.run(DIGEST_DDL + " DEFAULT CHARSET=latin1;", clinic)
+    client.run("INSERT INTO t VALUES {0};".format(
+        ", ".join(DIGEST_ROWS)), clinic)
+    # a second table with no explicit charset: mysqldump resolves it, and
+    # whether it does is the difference between the restore matching and
+    # not
+    client.run("CREATE TABLE u (id int, label varchar(32));", clinic)
+    client.run("INSERT INTO u VALUES (1, 'Café'), (2, NULL);", clinic)
+
+    def query(sql):
+        return client.rows(sql, clinic)
+
+    document = o19_preflight.collect_digests(
+        query, "'{0}'".format(clinic),
+        o19_preflight.base_table_names(query, "'{0}'".format(clinic)),
+        db_name=clinic)
+
+    print("\n  end-to-end transfer (clinic -> dump -> restore -> compare)")
+    if document["errors"]:
+        failures.append("the clinic could not measure {0}"
+                        .format(sorted(document["errors"])))
+    dumped = subprocess.run(
+        [dump_cmd] + mysql_args + ["--single-transaction", "--quick",
+                                   "--skip-triggers", clinic],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if dumped.returncode != 0:
+        print("    mysqldump failed: {0}".format(
+            dumped.stderr.decode("utf-8", "replace")[:200]))
+        return failures + ["mysqldump failed, so the chain was not run"]
+
+    def restore():
+        """Feed the dump to the client as BYTES.
+
+        Not as text: mysqldump writes binary literals raw, so 0xFF inside
+        a BLOB or a BIT is not valid UTF-8, and decoding the dump on the
+        way through replaces it with U+FFFD. The first draft of this
+        check did exactly that and reported a faithful restore as
+        corrupt. `o19import._stream_dump` streams bytes for the same
+        reason; this is the check catching its own harness, not the
+        importer."""
+        client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+                   .format(stage))
+        proc = subprocess.run(
+            [client.cmd] + client.args + ["--default-character-set=utf8mb4",
+                                          stage],
+            input=dumped.stdout, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+        return proc.returncode, proc.stderr.decode("utf-8", "replace")
+
+    rc, err = restore()
+    if rc != 0:
+        return failures + ["restore failed: {0}".format(err[:200])]
+
+    def staging_columns():
+        out: Dict[str, List[Tuple[str, str]]] = {}
+        for row in client.rows(
+                "SELECT c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE "
+                "FROM information_schema.COLUMNS c JOIN "
+                "information_schema.TABLES tt ON tt.TABLE_SCHEMA = "
+                "c.TABLE_SCHEMA AND tt.TABLE_NAME = c.TABLE_NAME "
+                "WHERE c.TABLE_SCHEMA = '{0}' AND tt.TABLE_TYPE = "
+                "'BASE TABLE' ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION"
+                .format(stage), stage):
+            out.setdefault(row[0], []).append((row[1], row[2]))
+        return out
+
+    def run_digest(sql):
+        return o19digest.Digest.from_row(client.rows(sql, stage)[0])
+
+    def compare_now():
+        return o19digest.compare_document(document, staging_columns(),
+                                          run_digest, schema=stage)
+
+    result = compare_now()
+    ok = (sorted(result.verified) == ["t", "u"] and not result.failed
+          and not result.unverified)
+    print("    {0:<44} {1}".format("a faithful restore verifies",
+                                   "ok" if ok else "MISMATCH"))
+    if not ok:
+        failures.append(
+            "a faithful restore did not verify: {0}; failed={1}; "
+            "unverified={2}".format(result.summary(), result.failed,
+                                    result.unverified))
+
+    for label, sql in (("one accented character changed",
+                        "UPDATE u SET label = 'Cafe' WHERE id = 1"),
+                       ("a row dropped", "DELETE FROM t WHERE id = 1"),
+                       ("a column dropped", "ALTER TABLE u DROP COLUMN "
+                                            "label")):
+        client.run("{0};".format(sql), stage)
+        broken = compare_now()
+        caught = bool(broken.failed)
+        print("    {0:<44} {1}".format(
+            label, "caught" if caught else "MISSED"))
+        if not caught:
+            failures.append(
+                "{0} was not caught by the end-to-end comparison".format(
+                    label))
+        restore()
+        if compare_now().failed:
+            failures.append(
+                "the restore did not come back after '{0}'; every later "
+                "line is meaningless".format(label))
+            break
+
+    client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+               "`{1}`;".format(clinic, stage))
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -658,16 +799,27 @@ def main(argv: Optional[List[str]] = None) -> int:
                                   args.prefix + "_dgs")
     if digest:
         failures["content digest"] = digest
+    chain = check_end_to_end_transfer(client, args.mysql_args,
+                                      args.prefix + "_e2c",
+                                      args.prefix + "_e2s")
+    if chain:
+        failures["end-to-end transfer"] = chain
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
+        for name, found in sorted(failures.items()):
+            for line in found:
+                print("  {0}: {1}".format(name, line))
         return 1
     print("\nOK - the seed wins, the clinic's twins are preserved, every "
           "source id is mapped, the charset repair fixes mojibake without "
-          "touching correct text, and the content digest agrees across "
-          "latin1/utf8mb4 while catching every change put to it")
+          "touching correct text, the content digest agrees across "
+          "latin1/utf8mb4 while catching every change put to it, and the "
+          "whole P2 chain (clinic digest -> mysqldump -> restore -> "
+          "compare) verifies a faithful transfer and refuses a damaged "
+          "one")
     return 0
 
 

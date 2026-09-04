@@ -44,9 +44,9 @@ import subprocess
 import sys
 import time
 from typing import (Callable, Dict, Iterator, List, Optional,
-                    Sequence)
+                    Sequence, Tuple)
 
-from . import (dbops, o19_preflight, o19bundle, o19docs,
+from . import (dbops, o19_preflight, o19bundle, o19digest, o19docs,
                o19etl, o19map_props, o19map_schema,
                o19report)
 from .util import (BACKUP_ENV, ENV_FILE, STATE, die, genpw, genrandom, log,
@@ -62,6 +62,11 @@ ACCEPT_CLASSES = (
     "archived-forms", "unknown-as-archive", "dropped-columns",
     "charset-repair", "olis-gone", "no-documents", "no-pre-backup",
     "unverified-bundle", "carry-credentials",
+    # M22 content integrity: a DISAGREEMENT and a GAP are separate
+    # sign-offs. The first says the bytes differ from what the clinic
+    # measured; the second says nobody measured. Accepting one must
+    # never quietly accept the other.
+    "content-transfer", "no-content-digests",
 )
 
 DUMP_COMPLETED_MARKER = b"-- Dump completed"
@@ -1401,7 +1406,13 @@ def run_p2(ctx) -> Dict:
                       ", ".join(report["acknowledged"]) or "none"))
     if ctx.get("dry_run"):
         # a dry run IS the assessment: report the verdict, never error out,
-        # and do not mark the phase done — a real run re-checks.
+        # and do not mark the phase done — a real run re-checks. The
+        # content check runs here too, and reports rather than refuses:
+        # telling an operator their transfer is intact BEFORE the cutover
+        # window is most of what a dry run is for.
+        content = content_transfer_check(ctx)
+        report_content_transfer(ctx, content)
+        log("dry run: content transfer — " + content["summary"])
         log("dry run: preflight verdict is '{0}'".format(report["verdict"]))
         return report
     if report["verdict"] == "no-go":
@@ -1413,10 +1424,144 @@ def run_p2(ctx) -> Dict:
                 " ".join("--accept " + a
                          for a in report["required_accepts"]),
                 resume_hint(ctx["state"])))
+    # after the verdict, so a no-go is not made to wait for a full scan of
+    # the staged schema, and before mark_done, so a run that cannot show
+    # the transfer was faithful does not record the phase as passed
+    content = content_transfer_check(ctx)
+    report_content_transfer(ctx, content)
+    log("content transfer: " + content["summary"])
+    refusal = content_transfer_refusal(content, ctx["accepted"])
+    if refusal:
+        die(refusal + resume_hint(ctx["state"]))
     mark_done(ctx["state_dir"], ctx["state"], "preflight",
               verdict=report["verdict"],
               acknowledged=report["acknowledged"])
     return report
+
+
+# --------------------------------------------------------------------------
+# P2 — content transfer check (M22)
+# --------------------------------------------------------------------------
+#
+# The row-parity checks at P4 and P7 all COUNT. They prove no row was
+# orphaned, which is a different claim from "every row arrived intact". This
+# is the first of the two content comparisons: the clinic measured its live
+# database before the dump was taken, and this asks whether the dump, the
+# transfer and the restore carried the same VALUES into staging.
+#
+# Both sides are deliberately UNREPAIRED here. P2 runs before the ETL, so a
+# genuinely double-encoded clinic hashes as double-encoded on both sides and
+# still matches -- the charset repair is a declared transform of the COPY,
+# and belongs to the P7 comparison. Repairing here would fail the transfer
+# check for a fault that is not a transfer fault.
+
+def staging_column_types(ctx) -> Dict[str, List[Tuple[str, str]]]:
+    """`{table: [(column, DATA_TYPE)]}` for the staging schema, in
+    ORDINAL_POSITION order, base tables only."""
+    out: Dict[str, List[Tuple[str, str]]] = {}
+    rows = ctx["query"](
+        "SELECT c.TABLE_NAME, c.COLUMN_NAME, c.DATA_TYPE "
+        "FROM information_schema.COLUMNS c "
+        "JOIN information_schema.TABLES t "
+        "  ON t.TABLE_SCHEMA = c.TABLE_SCHEMA "
+        " AND t.TABLE_NAME = c.TABLE_NAME "
+        "WHERE c.TABLE_SCHEMA = '{0}' AND t.TABLE_TYPE = 'BASE TABLE' "
+        "ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION".format(STAGING_SCHEMA),
+        db=STAGING_SCHEMA)
+    for row in rows:
+        if len(row) >= 3 and row[0]:
+            out.setdefault(row[0], []).append((row[1], row[2]))
+    return out
+
+
+def content_transfer_check(ctx) -> Dict:
+    """Compare the clinic's digests against the restored staging schema.
+
+    Returns `{"status": ..., "summary": str, ...}` where status is one of
+    `absent` (no digest document was supplied), `unreadable` (one was, and
+    could not be used) or `compared`. Never raises: an operator who cannot
+    run the check must be told exactly that, not handed a traceback in the
+    middle of a phase that has staged a clinic's whole database.
+    """
+    path = ctx.get("o19_digests")
+    if not path:
+        return {"status": "absent", "summary":
+                "no clinic content digests were supplied, so the transfer "
+                "could be checked by row count only"}
+    try:
+        document = o19digest.load_document(path)
+    except ValueError as exc:
+        return {"status": "unreadable", "summary": str(exc)}
+
+    def run(sql: str) -> o19digest.Digest:
+        return o19digest.Digest.from_row(
+            ctx["query"](sql, db=STAGING_SCHEMA)[0])
+
+    result = o19digest.compare_document(
+        document, staging_column_types(ctx), run, schema=STAGING_SCHEMA)
+    return {
+        "status": "compared",
+        "summary": result.summary(),
+        "verified": result.verified,
+        "failed": [[t, why] for t, why in result.failed],
+        "unverified": [[t, why] for t, why in result.unverified],
+        "clinic_generated_at": document.get("generated_at"),
+    }
+
+
+def content_transfer_refusal(result: Dict, accepted) -> Optional[str]:
+    """Why the run must stop after the transfer check, or None.
+
+    A DISAGREEMENT and a GAP are separate sign-offs on purpose: the first
+    says the bytes that arrived differ from the bytes that were measured
+    (a broken dump, a truncated transfer, a restore that silently
+    substituted), and the second says nobody measured. An operator who
+    accepts one has not accepted the other. Pure, so both are testable
+    without a database."""
+    accepted = set(accepted or ())
+    if result.get("status") == "compared" and result.get("failed"):
+        if "content-transfer" not in accepted:
+            worst = result["failed"][:5]
+            return ("the restored staging schema does not match what the "
+                    "clinic measured before the dump: {0}.\n  {1}\n"
+                    "This is a broken dump, transfer or restore, not a "
+                    "migration decision — take the dump again before "
+                    "signing this off with --accept content-transfer."
+                    .format(result["summary"],
+                            "\n  ".join("{0}: {1}".format(t, why)
+                                        for t, why in worst)))
+    if result.get("status") != "compared" or result.get("unverified"):
+        if "no-content-digests" not in accepted:
+            if result.get("status") != "compared":
+                detail = result.get("summary", "")
+            else:
+                detail = "{0}; first: {1}".format(
+                    result["summary"],
+                    "; ".join("{0} ({1})".format(t, why)
+                              for t, why in result["unverified"][:3]))
+            return ("the content of the transfer could not be fully "
+                    "verified: {0}.\nRe-run the clinic assessment with "
+                    "--digests and ship the file, or proceed with "
+                    "--accept no-content-digests.".format(detail))
+    return None
+
+
+def report_content_transfer(ctx, result: Dict) -> None:
+    """Record the check in the run report and its own JSON artifact."""
+    lines = [result.get("summary", "")]
+    for label, key in (("disagreed", "failed"),
+                       ("not compared", "unverified")):
+        for table, why in (result.get(key) or [])[:20]:
+            lines.append("  {0}: {1} — {2}".format(label, table, why))
+        if len(result.get(key) or []) > 20:
+            lines.append("  ... and {0} more {1}".format(
+                len(result[key]) - 20, label))
+    report_append(ctx["state_dir"], "P2 content transfer",
+                  "\n".join(lines))
+    with open(os.path.join(ctx["state_dir"], "content-transfer.json"),
+              "w", encoding="utf-8") as fh:
+        json.dump(result, fh, indent=1, sort_keys=True)
+    os.chmod(os.path.join(ctx["state_dir"], "content-transfer.json"), 0o600)
 
 
 # --------------------------------------------------------------------------
@@ -2077,6 +2222,7 @@ RUN_FILES = ("report.txt", "import-report.txt", "import-report.json",
              "roles-details.txt", "privilege-diff.txt",
              "verify-details.txt", "documents-details.txt", "preflight.txt",
              "preflight.json", "etl-progress.json",
+             "content-transfer.json",
              "o19-derived-carlos.properties",
              "o19-derived-carlos.properties.dry-run",
              # the CSV rendering of this run's archive schema: clinic

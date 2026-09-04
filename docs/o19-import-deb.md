@@ -155,7 +155,7 @@ the server must have no replicas attached: the import's binlog-off bulk copy
 is not replica-safe, and a server with replicas is refused.
 
 Every blocker is cleared by one explicit `--accept` class, recorded in the
-report as the clinic's sign-off. There are nine:
+report as the clinic's sign-off. There are eleven:
 
 | class | what it acknowledges |
 |---|---|
@@ -168,6 +168,8 @@ report as the clinic's sign-off. There are nine:
 | `no-pre-backup` | no pre-import snapshot, or the backup unit failed |
 | `unverified-bundle` | open a bundle whose digest was never conveyed |
 | `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
+| `content-transfer` | the restored staging schema does not match the digests the clinic took before the dump |
+| `no-content-digests` | the transfer's content could not be fully verified (usually: no digest document was shipped) |
 
 The assessment can evaluate only six of them (`archived-forms`,
 `unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`,
@@ -263,7 +265,9 @@ Rich Text Letter. The per-run files are retired with the same
 `.completed-<timestamp>` suffix as `state.json` when the import is cleaned
 up, so a later import in the same directory starts its own: `report.txt`,
 `import-report.txt`, `import-report.json`, `etl-progress.json`,
-`preflight.txt`, `preflight.json`, the `*-details.txt`
+`preflight.txt`, `preflight.json`, `content-transfer.json` (the P2
+comparison of the clinic's content digests against the restored staging
+schema), the `*-details.txt`
 files, `privilege-diff.txt`, `o19-archive-export/`,
 `o19-derived-carlos.properties` and its dry-run twin
 `o19-derived-carlos.properties.dry-run`. `admin-credentials.txt` is deliberately not among them; a
