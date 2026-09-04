@@ -62,12 +62,21 @@ before pressing each "Next" — the defect is invisible from a shell that was al
 the top. It writes schedule rows, so run it against a disposable local/dev database.
 
 Point `BASE_URL` at a packaged install to run it through the real front door, which is
-what an operator actually uses:
+what an operator actually uses. The check logs in with real credentials, so it only
+skips TLS verification for a loopback target — reach a packaged install by forwarding a
+local port to its 443 rather than by naming the container or host directly:
 
 ```
-BASE_URL=https://<host>/carlos TEST_PASSWORD=<password> \
+socat TCP-LISTEN:9443,bind=127.0.0.1,fork,reuseaddr TCP:<container-ip>:443 &
+
+BASE_URL=https://127.0.0.1:9443/carlos TEST_PASSWORD=<password> \
   node scripts/schedule-setting-playwright-checks.js
 ```
+
+Naming a non-loopback host instead fails with `net::ERR_CERT_AUTHORITY_INVALID`
+against the self-signed certificate a fresh install generates. That is deliberate:
+`ALLOW_NON_LOCAL_BASE_URL` widens which hosts the check will talk to, never whether it
+verifies their certificate.
 
 The wizard's `avail_hour` parameter carries markup-shaped values
 (`<MON>Standard</MON>…`). That reads like an XSS payload, but it does not score against
