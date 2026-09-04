@@ -90,7 +90,11 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
         # up the import
         text = BACKUP.read_text(encoding="utf-8")
         self.assertIn('targets+=("${O19_DIR}")', text)
-        self.assertNotIn('--exclude "${O19_DIR}"\n', text)
+        # against the PARSED list, not the file text: every --exclude
+        # line ends in a ` \` continuation, so a literal match on
+        # `--exclude "${O19_DIR}"` followed by a newline could never fire
+        # and the guard passed no matter what was excluded
+        self.assertNotIn("${O19_DIR}", backup_excludes())
 
 
 if __name__ == "__main__":

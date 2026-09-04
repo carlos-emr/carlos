@@ -157,13 +157,27 @@ class FakeDb(object):
         self.scalars = dict(DEFAULT_SCALARS)
         self.scalars.update(over.pop("scalars", {}))
         self.fail_on = over.pop("fail_on", None)
+        #: rows the merge's anti-join will reject, answered ONLY until
+        #: the merge insert has run. Afterwards every staging row has a
+        #: target twin -- its own included -- so the same query answers
+        #: "all of them", which is exactly the difference a resume must
+        #: not lose. A fake that answered the same number either way
+        #: could not see the bug this models.
+        self.overridden_before_merge = over.pop("overridden", None)
+        self.merged = set()
         if over:
             raise TypeError("unexpected FakeDb kwargs: {0}".format(
                 sorted(over)))
 
     # -- the ETL executor: writes, and the counts run under its prelude
+    MERGE_INSERT = re.compile(r"^INSERT INTO `[^`]+`\.`([^`]+)` .*"
+                              r"WHERE NOT EXISTS")
+
     def query(self, sql, db=None):
         self.log.append(sql)
+        merge = self.MERGE_INSERT.match(sql)
+        if merge:
+            self.merged.add(merge.group(1))
         if self.fail_on and self.fail_on in sql:
             self.fail_on = None
             raise o19etl.QueryError("planted failure", "boom")
@@ -230,6 +244,10 @@ class FakeDb(object):
         if "IFNULL(MAX(" in sql:
             return [["0"]]
         if sql.startswith("SELECT COUNT(*)"):
+            m = re.search(r"FROM `[^`]+`\.`([^`]+)` s WHERE EXISTS", sql)
+            if m and self.overridden_before_merge is not None:
+                return [[str(self._rows(sql) if m.group(1) in self.merged
+                             else self.overridden_before_merge)]]
             return [[str(self._rows(sql))]]
         if sql.startswith("SELECT role_name") or \
                 sql.startswith("SELECT roleUserGroup"):
@@ -424,6 +442,30 @@ class TestTheCopyPath(EtlDriverBase):
         self.assertEqual(
             self.writes_matching(
                 db, r"`carlos`\.`import_archived_HL7Map"), [], db.writes)
+
+    def test_a_crash_after_the_merge_keeps_the_overridden_count(self):
+        # The crash window this ledger write exists for: the merge
+        # succeeded, the checkpoint did not. The resumed run re-enters
+        # the branch, and by then every staging row HAS a target twin --
+        # so a recount would report the whole table as seed-overridden
+        # and the operator's report would say the clinic lost everything
+        # on that table. Persisting the count before the insert is what
+        # makes the retry consistent.
+        db = FakeDb(counts={(SRC, "HL7Map"): 9}, overridden=2,
+                    fail_on="`o19_archive`.`HL7Map__idmap__new`")
+        with self.assertRaises(o19etl.QueryError):
+            self.run_etl(db=db)
+        ledger = o19etl.load_progress(self.state_dir)
+        self.assertEqual(ledger["tables"]["HL7Map"]["overridden"], 2)
+        self.assertNotIn("done", ledger["tables"]["HL7Map"])
+
+        resumed = FakeDb(counts={(SRC, "HL7Map"): 9}, overridden=2)
+        resumed.merged.add("HL7Map")       # the first run's insert landed
+        _db, lines, _counts = self.run_etl(db=resumed)
+        after = o19etl.load_progress(self.state_dir)
+        self.assertEqual(after["tables"]["HL7Map"]["overridden"], 2)
+        self.assertIn("HL7Map: 2 of 9 clinic row(s) kept CARLOS's row",
+                      self.report_text(lines))
 
     def test_the_overridden_count_is_taken_before_the_merge(self):
         # afterwards every staging row has a target twin -- the ones the

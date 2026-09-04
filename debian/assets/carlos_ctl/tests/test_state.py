@@ -973,10 +973,6 @@ class TestHeadCollations(unittest.TestCase):
             ["latin1_swedish_ci", "utf8mb4_uca1400_ai_ci"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestDocumentsSizing(unittest.TestCase):
 
     """`documents_expanded_size` sizes the disk check from the archive's
@@ -1706,3 +1702,7 @@ class TestProcessGrantState(unittest.TestCase):
                      [], None):
             self.assertEqual(o19import.process_grant_state(rows),
                              "unknown", repr(rows))
+
+
+if __name__ == "__main__":
+    unittest.main()

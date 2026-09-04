@@ -2215,9 +2215,20 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                 # the merge every staging row has a target twin (its own
                 # included), so nothing can tell afterwards which rows
                 # the CARLOS seed rejected
-                tstate["overridden"] = int(query(
-                    merge_overridden_count_sql(
-                        table, entry, src, dst, dcols, arch))[0][0])
+                # Recorded ONCE, and persisted before the insert. A
+                # crash after the merge but before the checkpoint
+                # re-enters this branch, and by then every staging row
+                # has a target twin -- its own included -- so a recount
+                # would report the whole table as seed-overridden and
+                # the operator's report would say the clinic lost
+                # everything on it. Saving without the guard is not
+                # enough: the resumed run would overwrite the saved
+                # figure with that recount before ever reading it.
+                if "overridden" not in tstate:
+                    tstate["overridden"] = int(query(
+                        merge_overridden_count_sql(
+                            table, entry, src, dst, dcols, arch))[0][0])
+                    save_progress(state_dir, progress)
                 query(merge_statement(table, entry, src, dst, dcols,
                                       repaired, arch))
                 # rows the merge kept CARLOS's copy of never passed
