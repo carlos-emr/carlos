@@ -588,9 +588,21 @@ def split_secret_defaults(defaults: Dict[str, str]
 # --------------------------------------------------------------------------
 
 def load_module(path: Path):
+    """Import an overlay module from an explicit path.
+
+    Both Optionals are checked rather than silenced: importlib returns
+    spec=None for a path it has no loader for, and spec.loader=None for a
+    namespace package. The `# type: ignore` that used to sit here turned
+    "you pointed --oscar-src at the wrong thing" into an AttributeError
+    on None, several frames from the cause.
+    """
     spec = importlib.util.spec_from_file_location(path.stem, path)
+    if spec is None or spec.loader is None:
+        raise SystemExit(
+            "generator: cannot import {0} as a Python module — expected a "
+            "curated overlay (.py) file".format(path))
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    spec.loader.exec_module(mod)
     return mod
 
 
@@ -930,7 +942,32 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
     return "\n".join(out).rstrip("\n") + "\n"
 
 
+def undisposed_property_keys(o19_defaults, ov):
+    """Stock O19 property keys the overlay classifies neither by an exact
+    KEYS entry nor by a PREFIX_RULES prefix.
+
+    Curation is what decides whether a clinic's setting is carried,
+    renamed, dropped or surfaced for review. A key nobody has ruled on
+    is not "left alone" — it silently falls off the migration, and the
+    operator never sees it in the props report either. The count is 0
+    today; this exists so it stays that way, because the gap is
+    invisible from the generated manifest itself.
+    """
+    prefixes = [prefix for prefix, _spec in ov.PREFIX_RULES]
+    return sorted(key for key in o19_defaults
+                  if key not in ov.KEYS
+                  and not any(key.startswith(p) for p in prefixes))
+
+
 def emit_props_module(o19_defaults, ov) -> str:
+    undisposed = undisposed_property_keys(o19_defaults, ov)
+    if undisposed:
+        raise SystemExit(
+            "generator: {0} stock OSCAR 19 property key(s) have no "
+            "disposition in overrides_props.py — every key needs an exact "
+            "KEYS entry or a matching PREFIX_RULES prefix, or it drops out "
+            "of the migration without anyone deciding that:\n  ".format(
+                len(undisposed)) + "\n  ".join(undisposed))
     defaults, secret_keys = split_secret_defaults(o19_defaults)
     out = [GENERATED_HEADER]
     out.append('"""OSCAR 19 -> CARLOS properties manifest."""\n')
