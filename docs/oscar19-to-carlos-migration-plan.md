@@ -111,7 +111,7 @@ Principles:
 | `reference` | Shared table, CARLOS-seeded reference data → keep CARLOS rows, ignore dump (e.g. `icd9`, `icd10`, `secPrivilege`; the full list is `CLASS_REFERENCE` in `overrides_schema.py`) |
 | `merge` | Shared table containing both seed and clinic rows → anti-join on a natural key: CARLOS seed rows win, clinic rows append (e.g. `property`, `encounterForm`, private billing codes in `billingservice`, the role matrix `secObjPrivilege`/`secObjectName`, `lst_gender`) |
 | `archive` | O19-only table with patient/clinic data → copy into `o19_archive` + CSV export (see §5) |
-| `drop` | O19-only table from removed infrastructure with no clinical value → recorded in report only (Integrator, sharing/XDS, `cr_*` cookie-revolver, report-runner templates, temp tables) |
+| `drop` | O19-only table from removed infrastructure with no clinical value → **preserved, not discarded**: copied to `o19_archive.<table>` and to `<target>.import_archived_<table>`, and named in the report (Integrator, sharing/XDS, `cr_*` cookie-revolver, report-runner templates, temp tables) |
 
 ### 4.2 Clinic-authored data that must copy even in "reference-looking" tables
 
@@ -329,9 +329,9 @@ objects with no seeded grant.
 | Generic intake (`intake*`, `formIntakeHx`), OCAN (`Ocan*`), eyeform (`eyeform*`, `Eyeform*`, `specshis`, `procedurebook`…) | **archive** if row counts > 0 |
 | HSFO study (`hsfo_*`, `form_hsfo_visit`), CAISI beds/rooms (`bed*`, `room_*`, `vacancy`, `complaint`, `incident`) | **archive** if used (CHC-style sites), else drop |
 | OLIS (`OLIS*`) | **archive** query prefs/log; OLIS module does not exist in CARLOS — flag to clinic |
-| Integrator/sharing/PHR/Indivo/BORN (`Integrator*`, `sharing_*`, `phr_*`, `indivoDocs`, `BORN*`), cookie-revolver `cr_*`, report-runner `report_*`, MDS raw (`mdsZCL`, `mdsZCT`), `RedirectLink*`, temp/backup tables | **drop** (report only) |
+| Integrator/sharing/PHR/Indivo/BORN (`Integrator*`, `sharing_*`, `phr_*`, `indivoDocs`, `BORN*`), cookie-revolver `cr_*`, report-runner `report_*`, MDS raw (`mdsZCL`, `mdsZCT`), `RedirectLink*`, temp/backup tables | **drop** — no live CARLOS table, but the rows are preserved in `o19_archive` and as an `import_archived_` twin, and named in the report |
 
-Everything classified `archive` also produces a per-table CSV under
+Every table in `o19_archive` produces a per-table CSV under
 `…/o19-import/o19-archive-export/` in the root-only state directory (never
 inside the documents tree, which the service account owns) so the clinic holds a readable
 copy independent of MariaDB. `--cleanup` retires that directory with the rest
@@ -450,9 +450,11 @@ with the same severity.
 - Clinic-data conditions the import will change or cannot render: legacy
   prevention type codes, a legacy Rich Text Letter eForm, `property` rows of
   removed modules that will be pruned, dashboard indicator templates querying
-  tables CARLOS removed, double-encoded text the ETL will repair, and — when
-  no properties file is supplied — the property-based checks that were
-  skipped.
+  tables CARLOS removed, and — when no properties file is supplied — the
+  property-based checks that were skipped. (Double-encoded text is **not**
+  in this list: the preflight emits it as a blocker, cleared with
+  `--accept charset-repair`, because the ETL refuses without the flag at
+  P4 — after the snapshot and the staging restore.)
 - Documents are not assessed by the preflight (no tar is read); full
   reconciliation runs as a hard gate in the `documents` phase (§5).
 
@@ -656,10 +658,10 @@ checks, UI smoke — before clinical use.
   `overrides_props.py`), and emits the shipped manifests
   `debian/assets/carlos_ctl/o19map_schema.py` / `o19map_props.py`
   (`SCHEMA_MAP_VERSION` is a plain `o19map-N` token, deliberately not
-  CalVer-shaped). `test_manifest_integrity.py` (22 checks, stdlib unittest)
+  CalVer-shaped). `test_manifest_integrity.py` (stdlib unittest)
   refuses any unclassified table.
-- Current classification (580 O19 tables at commit `a7900d5`): 336 copy /
-  35 merge / 25 reference / 156 archive (patient-data subset flagged for the
+- Current classification (580 O19 tables at commit `a7900d5`): 337 copy /
+  34 merge / 25 reference / 156 archive (patient-data subset flagged for the
   B1 blocker; includes the three shared OAuth/session token tables, which
   are archived rather than restored live) / 28 drop / 0 unknown. Three
   copy-class credential tables (`ServiceClient`, `oscarKeys`, `publicKeys`)

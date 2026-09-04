@@ -126,8 +126,11 @@ run to at most 30 characters of letters, digits, `_`, `.`, `@` or `-`; it may no
 may not collide with a login the dump already carries.
 
 The host needs, before the run: roughly 2.5 times the **uncompressed** dump
-free on `/var/lib/mysql` (staging restore, the copy into the target and the
-archive schema), and twice the bundle plus twice the expanded documents tar
+free on the server's data directory (staging restore, the copy into the
+target and the archive schema) — the import asks the server for
+`@@datadir` rather than assuming, because MariaDB on Ubuntu 26.04, the
+platform this package ships against, uses `/var/lib/mariadb` and not the
+older `/var/lib/mysql`, and twice the bundle plus twice the expanded documents tar
 free on `/var/lib/carlos-emr`. MariaDB must be 10.5 or newer, because the
 restore runs under a schema-scoped account that needs `BINLOG ADMIN`, and
 the server must have no replicas attached: the import's binlog-off bulk copy
@@ -148,9 +151,10 @@ report as the clinic's sign-off. There are nine:
 | `unverified-bundle` | open a bundle whose digest was never conveyed |
 | `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
 
-The assessment can evaluate only five of them (`archived-forms`,
-`unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`)
-plus `unverified-bundle`; the rest belong to phases it never runs.
+The assessment can evaluate only six of them (`archived-forms`,
+`unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`,
+`charset-repair`) plus `unverified-bundle`; the rest belong to phases it
+never runs.
 
 Phases (state under `/var/lib/carlos-emr/o19-import/`): stock-deploy gate
 → pre-import backup → staged restore → preflight → data copy with
@@ -303,9 +307,15 @@ sudo carlos-ctl o19-preflight \
 
 (or `--dump` plus `--properties` instead of a bundle). It accepts only the
 blocker classes it can evaluate — `archived-forms`, `unknown-as-archive`,
-`olis-gone`, `dropped-columns`, `carry-credentials` — plus
+`olis-gone`, `dropped-columns`, `carry-credentials`, `charset-repair` —
+plus
 `unverified-bundle` for its own bundle intake; the phase sign-offs belong to
 phases it never runs, and nothing it is passed is recorded.
+
+`--fixups-dir` overrides where the packaged Rich Text Letter fixup
+scripts are read from; it exists so the checked-out tree can be exercised
+without installing the package, and a packaged host has no reason to pass
+it.
 
 `--dev-target` and `--mariadb-arg` exist for development databases only
 (the devcontainer, where the database is a separate container reached over
@@ -530,8 +540,11 @@ clinic's sign-off.
   column so the manifest can carry it.
 - *double-encoded text detected in: …* — the clinic's OSCAR 19 stored latin1
   bytes as UTF-8 (classic mojibake). Re-run with `--accept charset-repair`
-  to apply the per-row latin1 to utf8mb4 repair during the copy; the
-  preflight reports it as an advisory first.
+  to apply the per-row latin1 to utf8mb4 repair during the copy. The
+  preflight reports it as a BLOCKER, not an advisory: the ETL refuses
+  without the flag, and it refuses at P4 — after the pre-import snapshot
+  and the whole staging restore — so an assessment that called this
+  advisory would cost the clinic a cutover window.
 - *B8: text that looks double-encoded but does not round-trip …* — thrice
   encoded or otherwise unrepairable text. No flag overrides this; the rows
   need manual investigation on the OSCAR 19 side.
@@ -569,6 +582,21 @@ clinic's sign-off.
   to grant the administrator objects, or grant them by hand. Once the
   backfill has decided, a `--resume` that passes a *different* mapping is
   refused; pass the same mapping or none.
+- *the staging schema o19_import already holds rows, and this workspace
+  has no record of staging the dump offered now* — P1 will not drop a
+  populated staging schema it cannot attribute: those rows may be the
+  only copy of a dump whose file the operator has since deleted. Export
+  or drop `o19_import` yourself if they are finished with, or pass
+  `--restage` to say so. (`--restage` is also refused once the ETL has
+  copied — at that point re-restoring staging would contradict the
+  target.)
+- *the target schema … already holds N table(s) preserved by a previous
+  import* — the second arm of the inherited-import refusal. The first
+  arm catches an `o19_archive` schema left by an earlier run; this one
+  catches the `import_archived_` tables that survive `--cleanup` by
+  design and live in the EMR schema. Both mean a previous clinic's data
+  is still here: finish with it (`carlos-ctl destroy-data`, or drop the
+  named objects) before importing a second clinic.
 - *roles: Rich Text Letter fixup script(s) missing* — the package is
   incomplete (they ship under `/usr/share/carlos-emr/schema/o19-fixups/`);
   reinstall `carlos-emr` and `--resume`. *scripts ran but no row carries

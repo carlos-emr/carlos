@@ -80,6 +80,31 @@ class TestAcceptClassesAreDocumented(unittest.TestCase):
         missing = [i for i in o19import.ACCEPT_CLASSES if i not in text]
         self.assertEqual(missing, [])
 
+    def test_every_preflight_class_is_in_the_guide(self):
+        # the contract read the man page only, so the guide drifted
+        # unnoticed: it named five classes to the man page's six, and an
+        # operator reading the guide could not learn how to clear the
+        # charset-mojibake blocker
+        if not GUIDE.is_file():
+            self.skipTest("guide not present in this checkout")
+        text = GUIDE.read_text(encoding="utf-8")
+        for name in o19_preflight.ACCEPT_IDS:
+            self.assertIn("`{0}`".format(name), text)
+
+    def test_the_guide_counts_the_assessment_classes_it_lists(self):
+        # a bare count in prose is the half that rots first
+        if not GUIDE.is_file():
+            self.skipTest("guide not present in this checkout")
+        text = GUIDE.read_text(encoding="utf-8")
+        words = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+                 7: "seven", 8: "eight", 9: "nine"}
+        n = len(o19_preflight.ACCEPT_IDS)
+        self.assertIn("only {0} of them".format(words[n]), text,
+                      "the guide does not say the assessment evaluates "
+                      "{0} classes".format(words[n]))
+        for wrong in (w for k, w in words.items() if k != n):
+            self.assertNotIn("only {0} of them".format(wrong), text)
+
     def test_the_man_page_counts_the_classes_it_lists(self):
         # "the six classes an assessment can acknowledge" -- a number
         # spelled in prose goes stale the moment a class is added

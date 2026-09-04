@@ -11,8 +11,10 @@ reconciliation of docs plan §5: every `document.docfilename` and every
 eForm `${oscar_image_path}` asset must resolve to a real file; orphan
 files are report-only; derived cache directories (`document_cache`, …)
 are skipped with a report line and never migrated. Finally the
-`o19_archive` schema is exported as CSV inside the documents tree so the
-clinic holds a readable copy that rides the normal backup.
+`o19_archive` schema is exported as CSV into the root-only import state
+directory (`.../o19-import/o19-archive-export/`), NOT into the documents
+tree -- that tree is owned by the service account, and this export is the
+clinic's readable copy of records that became archive-only.
 """
 
 import csv
