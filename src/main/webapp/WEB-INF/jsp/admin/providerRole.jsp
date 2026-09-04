@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.admin.support.AssignableRoles" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -129,20 +130,24 @@
 
 // get role from database
     Vector vecRoleName = new Vector();
-    String sql;
-    String adminRoleName = "";
 
-    String omit = "";
-    if (isSiteAccessPrivacy) {
-        omit = CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "");
+    List<String> allRoleNames = new ArrayList<String>();
+    for (SecRole secRole : secRoleDao.findAllOrderByRole()) {
+        allRoleNames.add(secRole.getName());
     }
 
-    List<SecRole> secRoles = secRoleDao.findAllOrderByRole();
-    for (SecRole secRole : secRoles) {
-        if (!secRole.getName().equals(omit)) {
-            vecRoleName.add(secRole.getName());
-        }
-    }
+    // Withholding the multisite super-root role is a multisite concern only. The seeded
+    // `admin` role itself holds `_site_access_privacy`, so without the multisites gate a
+    // standalone install drops `admin` from this dropdown and the last administrator can
+    // never hand the role over before being deactivated. See AssignableRoles for the
+    // second guard (a role you already hold is never withheld from you).
+    vecRoleName.addAll(AssignableRoles.filter(
+            allRoleNames,
+            isSiteAccessPrivacy,
+            IsPropertiesOn.isMultisitesEnable(),
+            CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", ""),
+            AssignableRoles.parseRoleNames((String) session.getAttribute("userrole"))));
+
     java.util.ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources", request.getLocale());
 //set the primary role
     if (request.getParameter("buttonSetPrimaryRole") != null && request.getParameter("buttonSetPrimaryRole").length() > 0) {
