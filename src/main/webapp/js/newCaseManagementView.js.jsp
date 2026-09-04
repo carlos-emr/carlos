@@ -576,8 +576,10 @@
      * Fetches a batch of clinical notes via AJAX and inserts them at the top of #encMainDiv.
      *
      * On initial load (offset === 0), scrolls to the bottom to show the most recent notes.
-     * On pagination loads (offset > 0), preserves the current scroll position so the user
-     * can continue reading older notes without being snapped away.
+     * Pagination loads (offset > 0) do not scroll at all — scrollTop is left untouched
+     * while the older batch is inserted above, so a reader parked at the top of the pane
+     * ends up looking at the notes that just arrived. (notesCurrentTop records the previous
+     * top note for a scroll restore that was never written; nothing reads it today.)
      *
      * Callers are never turned away: the encounter layout renders ChartNotes.jsp twice on
      * open (the second render replaces #encMainDiv), so both initial loads must run or the
@@ -626,8 +628,8 @@
                     if (!notesRetrieveOk) {
                         stopNotesScrollCheck();
                     }
-                    // Only scroll to bottom on initial load (most recent notes);
-                    // pagination loads (offset > 0) preserve scroll position
+                    // Only the initial load scrolls, to the newest notes at the bottom.
+                    // Pagination loads leave scrollTop alone (see the note above).
                     if (offset === 0) {
                         var wrapper = $("encMainDivWrapper");
                         if (wrapper) {
