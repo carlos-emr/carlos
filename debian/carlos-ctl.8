@@ -373,7 +373,10 @@ digest document was shipped; row counts still are),
 .B content-migration
 (a preserved copy, or a copied row's twin in the live schema, holds the
 right NUMBER of rows but not the same values \(em about what the ETL
-did, where content-transfer is about the dump and the restore). Every class is recorded in the report and
+did, where content-transfer is about the dump and the restore; the few
+copy-class tables a later step deliberately rewrites are reported
+.B NOT CHECKED
+with the reason instead of compared). Every class is recorded in the report and
 survives \-\-resume.
 .RE
 .TP

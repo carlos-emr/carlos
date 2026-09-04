@@ -20,9 +20,11 @@ Run (from debian/assets):
     python3 -m unittest carlos_ctl.tests.test_copy_content_parity -v
 """
 
+import io
+import re
 import unittest
 
-from carlos_ctl import o19etl, o19map_schema
+from carlos_ctl import o19docs, o19etl, o19map_schema, o19roles
 
 
 def dst_cols(**over):
@@ -222,19 +224,29 @@ class TestTheDriver(unittest.TestCase):
         self.assertIn("3 copied row(s)", bad[0])
 
     def test_a_table_with_no_primary_key_is_reported_unchecked(self):
-        """Not silently passed: "we could not look" and "we looked and it
-        was fine" are different answers."""
+        """Named, not silently passed — "we could not look" and "we
+        looked and it was fine" are different answers. But not FAILED
+        either: a table with no primary key is a structural fact the
+        operator cannot change, and refusing it would block every import
+        rather than the unsound ones."""
         _db, (ok, bad) = self.drive(keys={})
-        self.assertEqual(ok, [])
-        self.assertIn("no primary key", bad[0])
-        self.assertIn("not checked", bad[0])
+        self.assertEqual(bad, [])
+        self.assertIn("NOT CHECKED", ok[0])
+        self.assertIn("no primary key", ok[0])
 
     def test_a_key_that_is_not_copied_is_reported_unchecked(self):
         entry = o19map_schema.TABLES[self.TABLE]
         cols = entry["cols"][:2]
         _db, (ok, bad) = self.drive(
             keys={self.TABLE: ["not_copied"]}, cols=cols + ["not_copied"])
-        self.assertIn("not copied", bad[0])
+        self.assertEqual(bad, [])
+        self.assertIn("not copied", ok[0])
+
+    def test_an_unchecked_line_never_reads_as_a_verification(self):
+        """It lands in the PASSING list, so its wording is the only thing
+        stopping an operator reading it as "checked, and fine"."""
+        _db, (ok, _bad) = self.drive(keys={})
+        self.assertTrue(ok[0].startswith("NOT CHECKED"), ok[0])
 
     def test_a_failed_check_is_a_mismatch_not_a_pass(self):
         _db, (ok, bad) = self.drive(
@@ -245,6 +257,35 @@ class TestTheDriver(unittest.TestCase):
         self.assertIn("ERROR 1142", bad[0])
         self.assertNotIn("banner", bad[0])
 
+    def test_a_post_step_rewrite_is_named_rather_than_reported_wrong(self):
+        """Four copy-class tables are deliberately rewritten AFTER the
+        copy — the forced password reset, the role-name and activeyn
+        rewrites, the disabled eForms, the folded prevention types. Their
+        rows no longer hold what the copy wrote BY DESIGN, so comparing
+        them would report a mismatch on every clinic."""
+        entry = o19map_schema.TABLES["security"]
+        cols = [c for c in entry["cols"][:2]]
+        db = Db(["security"], {"security": [cols[0]]},
+                mismatches={"security": 99})
+        info = {"security": dst_cols(**dict((c, {}) for c in cols))}
+        ok, bad = o19etl.copy_content_parity(
+            db, "o19_import", "carlos", info, info)
+        self.assertEqual(bad, [])
+        self.assertTrue(any("NOT CHECKED" in line and "security" in line
+                            for line in ok), ok)
+        # and it never ASKED: no comparison statement was issued for it
+        self.assertEqual(
+            [q for q in db.sql if "`o19_import`.`security`" in q], [])
+
+    def test_every_post_step_rewrite_names_its_reason(self):
+        for table, why in o19etl.POST_COPY_REWRITTEN.items():
+            self.assertTrue(why and len(why) > 20,
+                            "{0} has no usable reason".format(table))
+            self.assertEqual(
+                o19map_schema.TABLES[table]["class"], "copy",
+                "{0} is not a copy table; this list is only about the "
+                "copy class".format(table))
+
     def test_a_table_absent_from_the_dump_is_left_to_row_parity(self):
         entry = o19map_schema.TABLES[self.TABLE]
         cols = entry["cols"][:2]
@@ -252,6 +293,80 @@ class TestTheDriver(unittest.TestCase):
         ok, bad = o19etl.copy_content_parity(
             db, "o19_import", "carlos", self.info(cols), self.info(cols))
         self.assertEqual((ok, bad), ([], []))
+
+
+class TestTheRewriteListIsComplete(unittest.TestCase):
+    """`POST_COPY_REWRITTEN` was written by reading the import once.
+    This reads it again on every run.
+
+    A post-step added later that rewrites a copy-class table would
+    otherwise turn P7 red on every clinic -- and the operator's only way
+    out would be `--accept content-migration`, which is the acknowledge
+    switch, not a fix. Finding it here, in the suite, is cheap; finding
+    it on a clinic's server at 2am is not.
+    """
+
+    #: The modules an import runs that write to the TARGET schema.
+    #: `dbops.py` is deliberately absent: its one UPDATE is the
+    #: carlos-emr package's own break-glass credential reset, which no
+    #: import phase calls.
+    MODULES = (o19etl, o19roles, o19docs)
+
+    #: Tables whose UPDATE runs BEFORE the copy fills them, so the copy's
+    #: values are still what the target holds when P7 looks. File a table
+    #: here rather than in POST_COPY_REWRITTEN -- an entry there stops
+    #: the check running at all.
+    PRE_COPY_UPDATED = {}
+
+    #: `UPDATE `{0}`.tbl` / `UPDATE `{0}`.`tbl``. A statement whose table
+    #: is itself a placeholder (the merge backfill's `UPDATE `{0}`.`{1}``)
+    #: does not match, and does not need to: it is not the copy class.
+    PATTERN = re.compile(r"UPDATE\s+`\{\d\}`\.`?(\w+)`?")
+
+    def rewritten_copy_tables(self):
+        found = {}
+        for mod in self.MODULES:
+            with io.open(mod.__file__, encoding="utf-8") as fh:
+                src = fh.read()
+            for name in self.PATTERN.findall(src):
+                entry = o19map_schema.TABLES.get(name)
+                if entry and entry["class"] == "copy":
+                    found.setdefault(name, set()).add(
+                        mod.__name__.rsplit(".", 1)[-1])
+        return found
+
+    def test_the_scan_finds_the_rewrites_it_is_meant_to_find(self):
+        """A regex that matched nothing would make every assertion below
+        pass vacuously."""
+        found = self.rewritten_copy_tables()
+        self.assertIn("security", found)
+        self.assertIn("o19etl", found["security"])
+
+    def test_every_rewritten_copy_table_is_named_or_ruled_pre_copy(self):
+        unnamed = sorted(
+            "{0} (rewritten in {1})".format(t, ", ".join(sorted(mods)))
+            for t, mods in self.rewritten_copy_tables().items()
+            if t not in o19etl.POST_COPY_REWRITTEN
+            and t not in self.PRE_COPY_UPDATED)
+        self.assertEqual(
+            unnamed, [],
+            "copy-class table(s) an import rewrites but "
+            "POST_COPY_REWRITTEN does not name. P7 would report a "
+            "mismatch on every clinic. Add each with its reason, or -- "
+            "if the UPDATE runs BEFORE the copy -- to this test's "
+            "PRE_COPY_UPDATED with why:\n  " + "\n  ".join(unnamed))
+
+    def test_no_named_table_has_stopped_being_rewritten(self):
+        """A stale entry is not harmless: it keeps a table the import no
+        longer rewrites permanently unchecked."""
+        found = self.rewritten_copy_tables()
+        stale = sorted(t for t in o19etl.POST_COPY_REWRITTEN
+                       if t not in found)
+        self.assertEqual(
+            stale, [],
+            "POST_COPY_REWRITTEN names table(s) no import module "
+            "rewrites any more; each is now excluded from P7's value "
+            "check for no reason: " + ", ".join(stale))
 
 
 if __name__ == "__main__":

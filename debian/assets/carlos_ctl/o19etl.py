@@ -2916,6 +2916,33 @@ def copy_value_mismatch_sql(table: str, entry: dict, src_schema: str,
                 join, same))
 
 
+#: Copy-class tables whose COPIED ROWS a declared post-step rewrites
+#: after the copy, with the reason. Their target rows deliberately no
+#: longer hold what the copy wrote, so `copy_content_parity` cannot make
+#: its claim about them -- and would report a mismatch on every clinic if
+#: it tried. They are named, not skipped: "we did not check this, and
+#: here is why" is a report; silence is not.
+#:
+#: Tables a post-step only INSERTS into or DELETES from are absent on
+#: purpose. The check pairs a STAGING row with its target twin, so a row
+#: the post-step added has no staging row to disagree with, and one it
+#: removed simply does not join -- `row_parity` owns those row-set
+#: claims. Only a REWRITE of a copied row defeats the value comparison.
+POST_COPY_REWRITTEN = {
+    "security": "the ETL sets forcePasswordReset on every carried login "
+                "(force_reset_statement)",
+    "secUserRole": "the roles step activates dormant assignments and "
+                   "rewrites role_name to the target's spelling",
+    "eform": "the roles step disables eForms of removed modules "
+             "(status = 0)",
+    "preventions": "the roles step folds legacy prevention_type values "
+                   "onto their canonical spelling",
+    "HRMDocument": "the documents step repoints reportFile at the report's "
+                   "basename inside the CARLOS DOCUMENT_DIR "
+                   "(o19docs.hrm_rewrite_sql)",
+}
+
+
 def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
                         src_info: Dict[str, Dict[str, dict]],
                         dst_info: Dict[str, Dict[str, dict]],
@@ -2934,6 +2961,15 @@ def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
     repairs = repairs or {}
     src_tables = schema_tables(plain_query, src_schema)
     dst_keys = primary_key_columns(plain_query, dst_schema)
+
+    def unchecked(table: str, why: str) -> None:
+        # loud, and in the PASSING list: a table whose values cannot be
+        # compared is not a failed import, and refusing one for a
+        # structural reason the operator cannot change would block every
+        # import rather than the unsound ones. It must never read as a
+        # verification, hence the prefix.
+        ok.append("NOT CHECKED — {0}: {1}".format(table, why))
+
     for table, entry in sorted(o19map_schema.TABLES.items()):
         if entry["class"] != "copy" or table not in src_tables:
             continue
@@ -2951,10 +2987,13 @@ def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
         if not cols:
             continue
         entry = dict(entry, cols=cols)
+        if table in POST_COPY_REWRITTEN:
+            unchecked(table, POST_COPY_REWRITTEN[table])
+            continue
         reason = _unpairable_reason(table, entry, dst_keys.get(table) or [],
                                     dst_info[table])
         if reason:
-            bad.append("{0}: values not checked — {1}".format(table, reason))
+            unchecked(table, reason)
             continue
         sql = copy_value_mismatch_sql(
             table, entry, src_schema, dst_schema, dst_info[table],

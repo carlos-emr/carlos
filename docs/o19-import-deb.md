@@ -232,7 +232,14 @@ live schema must hold the value the copy actually wrote — rebuilt from
 the copy's own expressions, so renames, curated expressions, the charset
 repair, zero dates and enum fallbacks are expected exactly as the copy
 applied them. Either mismatch is a blocker cleared only by
-`--accept content-migration`. The preflight sweeps the
+`--accept content-migration`. A handful of copy-class tables are the
+exception: a later step deliberately rewrites the rows the copy wrote
+(`security` gets the forced password reset, `secUserRole` its activated
+assignments and canonical role names, `eform` its disabled forms,
+`preventions` its folded types, `HRMDocument` its repointed report
+paths), so their twins no longer hold the copied value by design. The
+report names each as `NOT CHECKED — <table>: <why>` rather than
+comparing it; their row sets are still counted. The preflight sweeps the
 archive-class, patient-data and removed-module tables, the last as an
 advisory naming each one that holds rows.
 
