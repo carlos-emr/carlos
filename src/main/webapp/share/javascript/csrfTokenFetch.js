@@ -9,11 +9,32 @@
  * either await resolution or handle rejection so they do not submit
  * with an empty token.
  *
+ * A navigation that starts while the fetch is still in flight cancels it, and
+ * the resulting rejection is reported as a plain "TypeError: Failed to fetch"
+ * — indistinguishable from a real network failure. That case is not worth
+ * warning about: the document that would have used the token is already being
+ * destroyed. The promise still rejects (callers depend on that), but the
+ * console stays quiet, so a genuine warning means a genuine failure.
+ *
  * @param {string} contextPath - the application context path (e.g. "/carlos")
  * @returns {Promise<void>} resolves after tokens have been populated;
  *                          rejects if the token cannot be fetched or parsed
  * @since 2026-04-07
  */
+
+/**
+ * Set once this document starts going away, so the rejection handler below can
+ * tell "the page was torn down mid-request" from "the request really failed".
+ * Both pagehide and beforeunload are observed because which one runs first —
+ * and whether either runs before the in-flight request is cancelled — varies
+ * with how the navigation was initiated.
+ */
+var carlosCsrfPageUnloading = false;
+if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('pagehide', function () { carlosCsrfPageUnloading = true; }, true);
+    window.addEventListener('beforeunload', function () { carlosCsrfPageUnloading = true; }, true);
+}
+
 function fetchCsrfToken(contextPath) {
     return fetch(contextPath + '/csrfguard', { credentials: 'same-origin' })
         .then(function(r) {
@@ -36,7 +57,20 @@ function fetchCsrfToken(contextPath) {
             }
         })
         .catch(function(err) {
-            console.warn('CSRF token fetch failed:', err);
+            if (!carlosCsrfPageUnloading) {
+                // Deferred by one task on purpose. A navigation cancels this
+                // request and destroys the document a moment later, and the
+                // rejection can be delivered before either unload event runs —
+                // so the flag above is not on its own enough. A task queued on
+                // a document that is being destroyed is discarded with it, so
+                // the warning survives only if the page is still alive to act
+                // on it. The rejection itself is not deferred.
+                setTimeout(function () {
+                    if (!carlosCsrfPageUnloading) {
+                        console.warn('CSRF token fetch failed:', err);
+                    }
+                }, 0);
+            }
             throw err;
         });
 }
