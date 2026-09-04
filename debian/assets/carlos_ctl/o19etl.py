@@ -451,7 +451,23 @@ def merge_statement(table: str, entry: dict, src_schema: str,
     rows append. A surrogate integer PK is left out of the insert so
     AUTO_INCREMENT assigns fresh ids (clinic ids could collide with
     seeds); rows are appended in source-id order so the id map can pair
-    them deterministically (idmap_statements)."""
+    them deterministically (idmap_statements).
+
+    The NOT EXISTS reads the table this statement inserts into, which
+    raises a fair question: does it see rows the same statement just
+    added? On MariaDB 10.11 it does NOT -- verified by running it, not by
+    reading the manual, in
+    scripts/migration/o19/verify_merge_semantics.py. So a clinic table
+    holding twins on the natural key copies BOTH of them, which is the
+    behaviour this wants: the seed is what the clinic's row loses to, and
+    the clinic's own duplicates are the clinic's data. Deduplicating them
+    here would be silent loss.
+
+    That does leave two live rows sharing a key, and children are remapped
+    through the id map -- so idmap_statements pairs twin n with target
+    twin n rather than collapsing both onto the first. The same script
+    checks that every source id ends up mapped, across four seed/staging
+    shapes; removing the surplus-twin fallback breaks three of them."""
     surrogate = entry.get("surrogate_pk")
     archived = entry.get("archived_cols") or {}
     cols = [c for c in entry["cols"] if c != surrogate]

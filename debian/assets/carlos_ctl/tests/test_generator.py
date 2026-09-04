@@ -284,6 +284,41 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
         self.assertEqual(self.mod.scaffold("p1", []), "")
 
 
+class TestTheMergeOracleStaysUsable(unittest.TestCase):
+
+    """verify_merge_semantics.py is a maintainer tool with no CI job, so
+    the cheapest guard against rot is that it still imports and still
+    describes the table it drives.
+
+    The scenarios themselves need a MariaDB; see
+    scripts/migration/o19/README.md."""
+
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location(
+            "verify_merge_semantics",
+            GEN.parent / "verify_merge_semantics.py")
+        cls.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.mod)
+
+    def test_it_drives_a_table_the_manifest_still_calls_merge(self):
+        # if consultationServices ever stops being merge-class, or loses
+        # its surrogate key, the script would be checking nothing
+        entry = o19map_schema.TABLES[self.mod.TABLE]
+        self.assertEqual(entry["class"], "merge")
+        self.assertEqual(entry["merge_keys"], self.mod.ENTRY["merge_keys"])
+        self.assertEqual(entry["surrogate_pk"],
+                         self.mod.ENTRY["surrogate_pk"])
+        self.assertEqual(entry["cols"], self.mod.ENTRY["cols"])
+
+    def test_every_scenario_states_why_it_exists(self):
+        # a scenario with no stated reason is a scenario nobody can judge
+        self.assertGreaterEqual(len(self.mod.SCENARIOS), 4)
+        for sc in self.mod.SCENARIOS:
+            self.assertTrue(sc.why.strip(), sc.name)
+            self.assertTrue(sc.stage.strip(), sc.name)
+
+
 class TestPreservedColumnsFitTheRow(unittest.TestCase):
     """Every CARLOS table the manifest widens must have room for the
     columns it will gain, measured against the REAL migration schema.
