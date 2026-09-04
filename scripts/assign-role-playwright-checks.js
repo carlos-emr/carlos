@@ -235,8 +235,15 @@ async function login(page) {
 }
 
 async function roleOptions(page, keyword) {
-  const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
-  await page.goto(`./admin/ProviderRole${query}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // Literal path, then filter through the page's own search form rather than
+  // composing a query string into goto(): it keeps an interpolated value out of
+  // the navigation entirely, and it exercises the filter a user actually uses.
+  await page.goto('./admin/ProviderRole', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  if (keyword) {
+    await page.locator('input[name="keyword"]').first().fill(keyword);
+    await page.locator('input[name="search"]').first().click();
+    await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
+  }
   const select = page.locator('select[name="roleNew"]').first();
   await select.waitFor({ state: 'attached', timeout: 60000 });
   return select.locator('option').evaluateAll((options) => options.map((option) => option.value));
