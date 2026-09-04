@@ -1018,56 +1018,49 @@ class TestAbsentTableDisposition(unittest.TestCase):
         self.assertTrue(clear)
         self.assertIn("the target's own rows were cleared", note)
 
-    def test_the_report_line_is_not_nested_under_the_delete_guard(self):
-        # The regression this guards is a CALL-SITE one and cannot be
-        # expressed against the helper: absent_table_disposition is pure,
-        # so `f(x) == f(x)` holds for any implementation, broken ones
-        # included. What went wrong was that the note was only produced
-        # when THIS run did the delete, so --resume dropped it from the
-        # shareable report — taking with it the one fact P0's tolerance
-        # rests on. `absent_tables` is rebuilt from scratch every run, so
-        # the line has to be appended outside the idempotency guard.
-        src = textwrap.dedent(inspect.getsource(o19etl.run_etl))
-        start = src.index("clear, note = absent_table_disposition")
-        guard = src.index('if clear and not progress["tables"]', start)
-        append = src.index("absent_tables.append(", start)
-        self.assertLess(guard, append, "the append moved above the guard")
-
-        lines = src.split("\n")
-
-        def line_no(offset):
-            return src.count("\n", 0, offset)
-
-        def indent(i):
-            return len(lines[i]) - len(lines[i].lstrip())
-
-        # Pinning one textual shape was not enough: re-gating the report
-        # line on the ledger under a DIFFERENT name reproduced the exact
-        # regression and still passed. The invariant is broader — the
-        # report line must not be conditioned on ledger state at all,
-        # because `absent_tables` is rebuilt from scratch every run while
-        # the ledger remembers, so any such condition drops the line on
-        # --resume. So walk every block enclosing the append and assert
-        # none of them reads `progress`.
-        a = line_no(append)
-        enclosing = []
-        depth = indent(a)
-        for i in range(a - 1, line_no(start) - 1, -1):
-            if not lines[i].strip():
-                continue
-            if indent(i) < depth:
-                enclosing.append(lines[i])
-                depth = indent(i)
-        ledger_gated = [ln.strip() for ln in enclosing if "progress" in ln]
+    def test_the_absent_table_line_survives_a_resumed_run(self):
+        # THE regression: the note was produced only when this run did
+        # the delete, so --resume dropped it from the shareable report.
+        # Three source-text guards failed to pin this -- each was
+        # defeated by a differently-shaped ledger gate that reproduced
+        # the bug exactly -- because the decision lived at the call site,
+        # where `f(x) == f(x)` says nothing. absent_table_plan now owns
+        # both halves, so the invariant is finally a value: the ledger
+        # changes the DELETE and leaves the line alone.
+        args = ("log", "copy", ["log"], True)
+        fresh = o19etl.absent_table_plan(*(args + (False,)))
+        resumed = o19etl.absent_table_plan(*(args + (True,)))
+        self.assertTrue(fresh[0], "a first run must clear the target rows")
+        self.assertFalse(resumed[0], "a resumed run must not clear again")
+        self.assertIsNotNone(fresh[1])
         self.assertEqual(
-            ledger_gated, [],
-            "absent_tables.append is inside a block that reads the "
-            "ledger: a resumed run would not report the clear. "
-            "Offending condition(s): {0}".format(ledger_gated))
-        # and the note itself must come from the helper, not be recomputed
-        # in the branch where it could be made conditional again
-        branch = src[start:src.index("continue", append)]
-        self.assertNotIn("note =", branch.replace("clear, note =", ""))
+            resumed[1], fresh[1],
+            "the report line changed on --resume: P0 tolerated this "
+            "table's pre-existing rows only because the copy clears "
+            "them, and that fact has just fallen out of the report")
+
+    def test_the_absent_table_line_is_appended_from_the_plan(self):
+        # The remaining call-site risk is small and shaped: re-reading
+        # the ledger around the append. One read is the argument; a
+        # second would be a gate.
+        src = textwrap.dedent(inspect.getsource(o19etl.run_etl))
+        start = src.index("do_clear, line = absent_table_plan(")
+        block = src[start:src.index("continue", start)]
+        # one READ (the argument, ending `")`) and one WRITE (ending
+        # `"]`); a second read would be a gate
+        self.assertEqual(
+            block.count('"absent_cleared")'), 1,
+            "the ledger key is read more than once around the absent-"
+            "table block; the second read is a gate that would drop the "
+            "report line on --resume")
+        self.assertEqual(block.count('"absent_cleared"] = True'), 1)
+        self.assertIn("if line is not None:", block)
+
+    def test_a_non_copy_absent_table_has_no_report_line(self):
+        clear, line = o19etl.absent_table_plan(
+            "some_archive_only", "archive", [], True, False)
+        self.assertFalse(clear)
+        self.assertIsNone(line)
 
     def test_a_tolerated_table_missing_from_the_target_is_left_alone(self):
         clear, note = o19etl.absent_table_disposition(

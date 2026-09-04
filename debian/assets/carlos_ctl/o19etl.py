@@ -105,6 +105,26 @@ def absent_table_disposition(table: str, cls: str,
     return False, ""
 
 
+def absent_table_plan(table: str, cls: str, tolerated: Sequence[str],
+                      in_target: bool,
+                      already_cleared: bool) -> Tuple[bool, Optional[str]]:
+    """(run the DELETE now?, the report line or None) for a manifest table
+    this dump does not carry.
+
+    The ledger gates the DELETE and NOTHING else. `absent_tables` is
+    rebuilt from scratch on every run while the ledger remembers across
+    them, so conditioning the report line on it drops the line from every
+    --resume -- and with it the one fact P0's tolerance rests on. That
+    regression shipped once and three source-text guards failed to pin
+    it, because it lived at the call site rather than in a function.
+    Deciding both here is what makes it testable: the line comes back
+    whether or not this run is the one that clears.
+    """
+    clear, note = absent_table_disposition(table, cls, tolerated, in_target)
+    line = "{0}{1}".format(table, note) if cls in ("copy", "merge") else None
+    return (clear and not already_cleared), line
+
+
 REPAIR_TEMPLATE = ("CONVERT(BINARY CONVERT({0} USING latin1) USING utf8mb4)")
 
 
@@ -1600,16 +1620,17 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             # not in this dump (patch-level variance): said so, because a
             # seeded table then keeps CARLOS's seed rows in the clinic's
             # place
-            clear, note = absent_table_disposition(
-                table, cls, tolerated_tables, table in dst_info)
-            if clear and not progress["tables"].get(table, {}).get(
-                    "absent_cleared"):
+            do_clear, line = absent_table_plan(
+                table, cls, tolerated_tables, table in dst_info,
+                bool(progress["tables"].get(table, {}).get(
+                    "absent_cleared")))
+            if do_clear:
                 query("DELETE FROM `{0}`.`{1}`".format(dst, table))
                 progress["tables"].setdefault(
                     table, {})["absent_cleared"] = True
                 save_progress(state_dir, progress)
-            if cls in ("copy", "merge"):
-                absent_tables.append("{0}{1}".format(table, note))
+            if line is not None:
+                absent_tables.append(line)
             continue
         entry = effective.get(table, entry)
         tstate = progress["tables"].setdefault(table, {})

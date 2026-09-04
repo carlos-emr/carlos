@@ -176,7 +176,7 @@ CLINICAL RECORD.
 NOTICE
         case "$O19_DB" in
           present) echo "
-  kept: the \`oscar\` and \`drugref2\` databases and their accounts" >&2 ;;
+  kept: the \`${O19_DBNAME}\` and \`drugref2\` databases and their accounts" >&2 ;;
           absent)  echo "
   gone: no \`${O19_DBNAME}\` schema is visible on this host. This purge did not
         remove it -- it was already absent, whether destroyed earlier
@@ -184,9 +184,9 @@ NOTICE
         check cannot see. Confirm before treating the clinical record as
         lost." >&2 ;;
           *)       echo "
-  kept: the \`oscar\` and \`drugref2\` databases and their accounts, if they
-        were still present -- this purge did not touch them (the database
-        could not be reached to confirm)" >&2 ;;
+  kept: the \`${O19_DBNAME}\` and \`drugref2\` databases and their accounts, if
+        they were still present -- this purge did not touch them (the
+        database could not be reached to confirm)" >&2 ;;
         esac
         # `carlos-ctl destroy-data` empties OscarDocument, heapdumps and the
         # tomcat/modsec log trees and recreates the bare skeleton, so after
@@ -225,18 +225,18 @@ NOTICE
         # only meaningful where an import actually ran, and only a live
         # account where the database survived it
         if [ -d "${STATE}/o19-import" ] && [ "$O19_DB" = present ]; then
-            cat >&2 <<'NOTICE'
+            cat >&2 <<NOTICE
   NOTE: the import's break-glass administrator account still EXISTS in the
-        retained `oscar` database, and the note holding its password is now
-        gone. The clinic's own provider logins came across with the import
-        and are unaffected -- sign in with one of those. `carlos-ctl
-        bootstrap-admin` will NOT help here: it only resets the seeded
-        `carlosdoc` credential, and the import deletes that account. With no
+        retained \`${O19_DBNAME}\` database, and the note holding its password
+        is now gone. The clinic's own provider logins came across with the
+        import and are unaffected -- sign in with one of those. \`carlos-ctl
+        bootstrap-admin\` will NOT help here: it only resets the seeded
+        \`carlosdoc\` credential, and the import deletes that account. With no
         usable login left at all, the account has to be repaired by hand in
-        the retained `security` table: CARLOS authenticates on BOTH a
-        `password` (a `{bcrypt}`-prefixed hash) and a numeric `pin`, so
+        the retained \`security\` table: CARLOS authenticates on BOTH a
+        \`password\` (a \`{bcrypt}\`-prefixed hash) and a numeric \`pin\`, so
         setting one without the other still leaves no way in. Clear
-        `forcePasswordReset` at the same time, or set a password the
+        \`forcePasswordReset\` at the same time, or set a password the
         operator is willing to be prompted to change on first login.
 NOTICE
         elif [ -d "${STATE}/o19-import" ] && [ "$O19_DB" = absent ]; then
@@ -250,12 +250,14 @@ NOTICE
 NOTICE
         fi
 
-        cat >&2 <<'NOTICE'
+        # unquoted: the schema name below is the configured one, not a
+        # literal `oscar`. Nothing else in this block expands.
+        cat >&2 <<NOTICE
 
 To destroy the data deliberately, reinstall the package and run
   carlos-ctl destroy-data --confirm <server-name>
 or do it by hand:
-  sudo mariadb -e "DROP DATABASE oscar; DROP DATABASE drugref2;"
+  sudo mariadb -e "DROP DATABASE ${O19_DBNAME}; DROP DATABASE drugref2;"
   sudo shred -u /etc/carlos-emr/carlos.properties /etc/carlos-emr/backup.env
   sudo rm -rf /var/lib/carlos-emr /var/backups/carlos-emr /var/log/carlos-emr
     (/var/lib/carlos-emr includes the o19-import workspace and its CSV export
