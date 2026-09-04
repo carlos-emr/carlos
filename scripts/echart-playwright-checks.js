@@ -42,6 +42,13 @@ if (!/^\d+$/.test(demographicNo)) {
 const captures = [];
 const badResponses = [];
 const consoleIssues = [];
+const notesLoadRequests = [];
+
+// The notes list pages in older notes from a 1s poll, so "settled" means no new fetch
+// for several poll ticks. The overall cap keeps a legitimately long chart from hanging
+// the check while still failing the runaway-pagination regression.
+const NOTES_POLL_QUIET_MS = 4000;
+const NOTES_POLL_TIMEOUT_MS = 30000;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -92,6 +99,13 @@ function wirePage(page, label) {
   page.on('dialog', async (dialog) => {
     consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
     await dialog.accept();
+  });
+  page.on('request', (request) => {
+    const postData = request.postData() || '';
+    if (/(?:^|&)method=viewNotesOpt(?:&|$)/.test(postData)) {
+      const offsetMatch = /(?:^|&)offset=(\d+)/.exec(postData);
+      notesLoadRequests.push({ label, offset: offsetMatch ? Number(offsetMatch[1]) : null });
+    }
   });
   page.on('response', async (response) => {
     const responseUrl = response.url();
@@ -186,6 +200,41 @@ async function assertVisible(page, selector, label) {
   return state;
 }
 
+/**
+ * Parks the notes list at the top of the chart and waits for note pagination to stop.
+ *
+ * Scrolling to the top arms the 1s poll that loads older notes. Once the server has no
+ * more notes to give, the poll must stop and the throbber must clear. The regression this
+ * guards let the poll run forever — offset 20, 40, 60, ... on an endless loop, with the
+ * loading throbber up for the life of the chart — because an exhausted batch still comes
+ * back as a non-empty response body.
+ */
+async function assertNotesPaginationSettles(page) {
+  const wrapper = page.locator('#encMainDivWrapper').first();
+  await wrapper.evaluate((element) => { element.scrollTop = 0; });
+
+  const deadline = Date.now() + NOTES_POLL_TIMEOUT_MS;
+  let observed = notesLoadRequests.length;
+  let stableSince = Date.now();
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(500);
+    if (notesLoadRequests.length !== observed) {
+      // A chart with many notes legitimately pages in several batches; restart the
+      // quiet window and keep waiting for the poll to run out of notes.
+      observed = notesLoadRequests.length;
+      stableSince = Date.now();
+    } else if (Date.now() - stableSince >= NOTES_POLL_QUIET_MS) {
+      const throbber = await elementState(page, '#notesLoading');
+      assert(!throbber.visible && throbber.display === 'none',
+        `notes loading throbber stayed visible after pagination stopped: ${JSON.stringify(throbber)}`);
+      return;
+    }
+  }
+
+  throw new Error(`notes pagination never stopped while parked at the top of the chart; `
+    + `${notesLoadRequests.length} viewNotesOpt requests: ${JSON.stringify(notesLoadRequests)}`);
+}
+
 async function screenshot(page, name) {
   await page.screenshot({ path: buildArtifactPath(screenshotDir, name), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 }
@@ -235,6 +284,8 @@ function isExpectedNoteLockDialog(issue) {
     await assertVisible(echart, '#newNoteImg', 'new-note icon');
     await assertVisible(echart, "#divR1I1 a[title='Add Item']", 'Social History plus icon');
     await screenshot(echart, 'echart-initial');
+
+    await assertNotesPaginationSettles(echart);
 
     await echart.locator("#divR1I1 a[title='Add Item']").first().click();
     const editor = await assertVisible(echart, '#showEditNote', 'Social History editor');
@@ -288,7 +339,9 @@ function isExpectedNoteLockDialog(issue) {
     assert(fatalConsoleIssues.length === 0,
       `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
 
-    console.log('PASS eChart clinical notes rendered, Social History saved and archived, and Unresolved Issues refreshed');
+    console.log('PASS eChart clinical notes rendered, note pagination stopped at end of chart, '
+      + 'Social History saved and archived, and Unresolved Issues refreshed');
+    console.log(`Observed ${notesLoadRequests.length} note pagination requests`);
     console.log(`Observed ${captures.length} eChart-related responses`);
     if (consoleIssues.length) {
       console.log(`Non-blocking browser diagnostics: ${JSON.stringify(consoleIssues, null, 2)}`);
