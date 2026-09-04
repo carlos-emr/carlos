@@ -69,13 +69,33 @@ public class ServiceCodeLoader {
         return ret;
     }
 
+    /**
+     * Maps each requested service code to its description.
+     *
+     * <p>{@code billingservice.description} is nullable and the shipped Ontario
+     * reference data contains rows with no description (A505C, K041A, R381C and
+     * others). {@link Properties} is a {@code Hashtable}, so passing either a
+     * null key or a null value to {@code setProperty} throws — which on the bill
+     * review screen means an unhandled NPE and a "CARLOS Error: 500" for any
+     * claim that happens to include one of those codes. Coalesce both sides to
+     * empty instead; a missing description is a blank cell, not a failed review.
+     *
+     * @param serviceCodeNames service codes to look up
+     * @return code-to-description map; codes with no stored description map to
+     *         the empty string, and codes not on file are simply absent
+     */
     public Properties getCodeDescByNames(List serviceCodeNames) {
         Properties ret = new Properties();
         List<String> serviceCodeList = new ArrayList<String>();
         serviceCodeList.addAll(serviceCodeNames);
         List<BillingService> bs = dao.findByServiceCodes(serviceCodeList);
         for (BillingService b : bs) {
-            ret.setProperty(b.getServiceCode(), b.getDescription());
+            String code = b.getServiceCode();
+            if (code == null) {
+                continue;
+            }
+            String description = b.getDescription();
+            ret.setProperty(code, description == null ? "" : description);
         }
         return ret;
     }

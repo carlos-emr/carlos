@@ -468,7 +468,15 @@
             <c:set var="__statusUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
             <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
             <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/></c:set>
-            <c:set var="__commonQs">&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
+            <%-- billRegion MUST stay on every self-navigation out of this page.
+                 Billing2Action routes on it and only falls back to the
+                 deployment-wide `billregion` property when it is absent; an
+                 install that never set that property (or a future regression in
+                 the fall-back) sends the request to billingBC.jsp, which queries
+                 BC-only tables the Ontario schema does not have and answers
+                 "CARLOS Error: 500". This page is the Ontario bill-entry form,
+                 so the region is unconditionally ON. --%>
+            <c:set var="__commonQs">&billRegion=ON&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
             <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&providerview=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
                 self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";

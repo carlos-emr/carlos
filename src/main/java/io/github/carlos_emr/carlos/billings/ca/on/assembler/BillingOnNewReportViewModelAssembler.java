@@ -239,7 +239,10 @@ public class BillingOnNewReportViewModelAssembler {
         String name = row.name();
         return BillingOnNewReportViewModel.ReportCell.popup(
                 "Bill",
-                "/billing?billForm="
+                // billRegion pins the cross-province router (Billing2Action) to
+                // the Ontario branch; see BillingReportFragmentViewModelAssembler
+                // for why omitting it surfaces as "CARLOS Error: 500".
+                "/billing?billRegion=ON&billForm="
                 + URLEncoder.encode(defaultBillForm, StandardCharsets.UTF_8)
                 + "&hotclick=&appointment_no=" + urlParam(row.appointmentNo())
                 + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)

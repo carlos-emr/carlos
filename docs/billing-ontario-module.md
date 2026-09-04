@@ -232,8 +232,20 @@ Region resolution rules (`Billing2Action.execute`):
 3. Anything not equal to `"ON"` (including null) routes to BC. Historical
    behaviour: BC was the original deployment.
 
-The router gracefully handles `CarlosProperties.getProperties()` returning
+The router gracefully handles `CarlosProperties.getInstance()` returning
 null (which can happen pre-config), defaulting to BC.
+
+**Every Ontario link into `/billing` must carry `billRegion=ON`.** Rule 3 above
+means an omitted region routes to BC, and on an Ontario install `billingBC.jsp`
+queries BC-only tables (`billingvisit`, …) that the Ontario schema does not
+have — the operator sees "CARLOS Error: 500" with a `Table … doesn't exist`
+trace. The fall-back to the `billregion` property is the safety net, not the
+contract: it was dead for one release because the action read a same-named
+properties holder in `carlos.util.plugin` whose static field nothing ever
+populated, and the only surfaces that broke were the ones that had also dropped
+the parameter — the bill-type dropdown on `billingON.jsp` (3rd Party / Bonus
+Codes re-open the form through the router) and the "Bill" links on the unbilled
+reports. Keep the parameter on both sides.
 
 Privilege check: `_billing r`. Province-specific gates also enforce
 `_billing r` or `_billing w` as appropriate; the router doesn't grant; it
