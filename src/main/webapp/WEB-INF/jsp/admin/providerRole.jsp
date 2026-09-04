@@ -139,14 +139,12 @@
     // Withholding the multisite super-root role is a multisite concern only. The seeded
     // `admin` role itself holds `_site_access_privacy`, so without the multisites gate a
     // standalone install drops `admin` from this dropdown and the last administrator can
-    // never hand the role over before being deactivated. See AssignableRoles for the
-    // second guard (a role you already hold is never withheld from you).
+    // never hand the role over before being deactivated.
     vecRoleName.addAll(AssignableRoles.filter(
             allRoleNames,
             isSiteAccessPrivacy,
             IsPropertiesOn.isMultisitesEnable(),
-            CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", ""),
-            AssignableRoles.parseRoleNames((String) session.getAttribute("userrole"))));
+            CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "")));
 
     java.util.ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources", request.getLocale());
 //set the primary role

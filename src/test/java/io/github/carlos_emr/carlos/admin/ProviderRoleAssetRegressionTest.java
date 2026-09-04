@@ -55,8 +55,10 @@ class ProviderRoleAssetRegressionTest {
         assertThat(jsp)
                 .contains("<%@ page import=\"io.github.carlos_emr.carlos.admin.support.AssignableRoles\" %>")
                 .contains("AssignableRoles.filter(")
+                // The multisites gate is the whole fix: without it the seeded `admin`
+                // role, which holds `_site_access_privacy`, hides itself from the only
+                // account able to grant it.
                 .contains("IsPropertiesOn.isMultisitesEnable()")
-                .contains("AssignableRoles.parseRoleNames((String) session.getAttribute(\"userrole\"))")
                 // The unguarded narrowing hid the seeded `admin` role from the only
                 // account able to grant it on a standalone install (2026.08 alpha).
                 .doesNotContainPattern("if \\(isSiteAccessPrivacy\\) \\{\\s+"

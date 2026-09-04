@@ -22,9 +22,7 @@
 package io.github.carlos_emr.carlos.admin.support;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -59,25 +57,16 @@ class AssignableRolesUnitTest {
             // The reported alpha bug: the seeded `admin` role holds
             // `_site_access_privacy`, so a standalone install hid `admin` from itself.
             List<String> assignable = AssignableRoles.filter(
-                    ALL_ROLES, true, false, ADMIN, Collections.<String>emptySet());
+                    ALL_ROLES, true, false, ADMIN);
 
             assertThat(assignable).containsExactly(ADMIN, "doctor", "nurse", "receptionist");
-        }
-
-        @Test
-        @DisplayName("should keep the administrator role when the caller already holds it")
-        void shouldKeepAdministratorRole_whenCallerAlreadyHoldsIt() {
-            List<String> assignable = AssignableRoles.filter(
-                    ALL_ROLES, true, true, ADMIN, AssignableRoles.parseRoleNames("admin,doctor"));
-
-            assertThat(assignable).contains(ADMIN);
         }
 
         @Test
         @DisplayName("should withhold the administrator role from a site-restricted caller in a multisite install")
         void shouldWithholdAdministratorRole_fromSiteRestrictedMultisiteCaller() {
             List<String> assignable = AssignableRoles.filter(
-                    ALL_ROLES, true, true, ADMIN, AssignableRoles.parseRoleNames("receptionist"));
+                    ALL_ROLES, true, true, ADMIN);
 
             assertThat(assignable)
                     .doesNotContain(ADMIN)
@@ -88,7 +77,7 @@ class AssignableRolesUnitTest {
         @DisplayName("should keep every role when the caller has no site access privacy")
         void shouldKeepEveryRole_whenCallerHasNoSiteAccessPrivacy() {
             List<String> assignable = AssignableRoles.filter(
-                    ALL_ROLES, false, true, ADMIN, AssignableRoles.parseRoleNames("receptionist"));
+                    ALL_ROLES, false, true, ADMIN);
 
             assertThat(assignable).containsExactlyElementsOf(ALL_ROLES);
         }
@@ -97,7 +86,7 @@ class AssignableRolesUnitTest {
         @DisplayName("should keep every role when no super root role name is configured")
         void shouldKeepEveryRole_whenNoSuperRootRoleConfigured() {
             List<String> assignable = AssignableRoles.filter(
-                    ALL_ROLES, true, true, "  ", AssignableRoles.parseRoleNames("receptionist"));
+                    ALL_ROLES, true, true, "  ");
 
             assertThat(assignable).containsExactlyElementsOf(ALL_ROLES);
         }
@@ -105,34 +94,17 @@ class AssignableRolesUnitTest {
         @Test
         @DisplayName("should return an empty list for null role names")
         void shouldReturnEmptyList_forNullRoleNames() {
-            assertThat(AssignableRoles.filter(null, true, true, ADMIN, null)).isEmpty();
+            assertThat(AssignableRoles.filter(null, true, true, ADMIN)).isEmpty();
         }
 
         @Test
-        @DisplayName("should tolerate a null caller role collection")
-        void shouldTolerateNullCallerRoles_withMultisiteNarrowing() {
-            List<String> assignable = AssignableRoles.filter(ALL_ROLES, true, true, ADMIN, null);
+        @DisplayName("should skip null entries in the role list")
+        void shouldSkipNullEntries_inTheRoleList() {
+            List<String> withNull = Arrays.asList(ADMIN, null, "doctor");
 
-            assertThat(assignable).doesNotContain(ADMIN);
-        }
-    }
+            List<String> assignable = AssignableRoles.filter(withNull, false, false, ADMIN);
 
-    @Nested
-    @DisplayName("parseRoleNames")
-    class ParseRoleNames {
-
-        @Test
-        @DisplayName("should split and trim the comma separated session value")
-        void shouldSplitAndTrimValue_fromSessionAttribute() {
-            Set<String> roleNames = AssignableRoles.parseRoleNames(" admin , doctor ,,doctor ");
-
-            assertThat(roleNames).containsExactly(ADMIN, "doctor");
-        }
-
-        @Test
-        @DisplayName("should return an empty set for a null session value")
-        void shouldReturnEmptySet_forNullSessionValue() {
-            assertThat(AssignableRoles.parseRoleNames(null)).isEmpty();
+            assertThat(assignable).containsExactly(ADMIN, "doctor");
         }
     }
 }

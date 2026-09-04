@@ -23,9 +23,7 @@ package io.github.carlos_emr.carlos.admin.support;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,19 +34,20 @@ import org.apache.commons.lang3.StringUtils;
  * {@code multioffice.admin.role.name} property from site-restricted
  * administrators, so that an administrator scoped to one office cannot hand
  * out installation-wide authority. That narrowing is presentation only — the
- * Assign Role POST handler does not re-check it — and it is meaningless
- * outside a multisite install, where every administrator is already
- * installation-wide.</p>
+ * Assign Role POST handler does not re-check it.</p>
  *
- * <p>Two guards keep the narrowing from locking an installation out of its own
- * administrator role (the seeded {@code admin} role itself holds
- * {@code _site_access_privacy}, so it would otherwise hide itself from the only
- * account able to grant it):</p>
- * <ul>
- *   <li>it applies only when multisites is enabled, and</li>
- *   <li>it never hides a role the acting administrator already holds — offering
- *       a role you already have is not a privilege escalation.</li>
- * </ul>
+ * <p>The narrowing applies <em>only</em> when multisites is enabled. Upstream
+ * introduced it with the multi-office feature (2010) and granted
+ * {@code _site_access_privacy} to no role at all, so on a single-office install
+ * it never fired. CARLOS later seeded that object to the {@code admin} role,
+ * which made the unguarded narrowing hide the administrator role from the only
+ * account able to grant it — a lockout, since the installer tells operators to
+ * deactivate the seeded account once real ones exist.</p>
+ *
+ * <p>The multisites gate restores the upstream behaviour without inventing new
+ * policy: inside a genuine multisite install a site-scoped administrator still
+ * does not see the super-root role. Removing the stray seed grant is the
+ * complete fix and would make this gate redundant; it is tracked separately.</p>
  *
  * @since 2026-09-04
  */
@@ -58,51 +57,23 @@ public final class AssignableRoles {
     }
 
     /**
-     * Splits the comma-separated role list carried in the {@code userrole}
-     * session attribute into individual role names.
-     *
-     * @param commaSeparatedRoleNames raw session value; may be {@code null}
-     * @return the distinct, trimmed role names in their original order; never
-     *         {@code null}
-     */
-    public static Set<String> parseRoleNames(String commaSeparatedRoleNames) {
-        Set<String> roleNames = new LinkedHashSet<String>();
-
-        if (commaSeparatedRoleNames == null) {
-            return roleNames;
-        }
-
-        for (String candidate : commaSeparatedRoleNames.split(",")) {
-            String roleName = StringUtils.trimToNull(candidate);
-            if (roleName != null) {
-                roleNames.add(roleName);
-            }
-        }
-
-        return roleNames;
-    }
-
-    /**
      * Filters the installation's role names down to the ones the acting
      * administrator may assign.
      *
-     * @param allRoleNames        every configured role name, in display order;
-     *                            may be {@code null}
-     * @param siteAccessPrivacy   whether the acting administrator holds
-     *                            {@code _site_access_privacy}
-     * @param multisitesEnabled   whether the {@code multisites} property is on
-     * @param protectedRoleName   the super-root role name from
-     *                            {@code multioffice.admin.role.name}; blank
-     *                            disables the narrowing
-     * @param callerRoleNames     roles the acting administrator already holds;
-     *                            may be {@code null}
+     * @param allRoleNames       every configured role name, in display order;
+     *                           may be {@code null}
+     * @param siteAccessPrivacy  whether the acting administrator holds
+     *                           {@code _site_access_privacy}
+     * @param multisitesEnabled  whether the {@code multisites} property is on
+     * @param protectedRoleName  the super-root role name from
+     *                           {@code multioffice.admin.role.name}; blank
+     *                           disables the narrowing
      * @return the assignable role names; never {@code null}
      */
     public static List<String> filter(Collection<String> allRoleNames,
                                       boolean siteAccessPrivacy,
                                       boolean multisitesEnabled,
-                                      String protectedRoleName,
-                                      Collection<String> callerRoleNames) {
+                                      String protectedRoleName) {
         List<String> assignable = new ArrayList<String>();
 
         if (allRoleNames == null) {
@@ -110,7 +81,7 @@ public final class AssignableRoles {
         }
 
         String hiddenRoleName = resolveHiddenRoleName(
-                siteAccessPrivacy, multisitesEnabled, protectedRoleName, callerRoleNames);
+                siteAccessPrivacy, multisitesEnabled, protectedRoleName);
 
         for (String roleName : allRoleNames) {
             if (roleName == null || roleName.equals(hiddenRoleName)) {
@@ -128,23 +99,10 @@ public final class AssignableRoles {
      */
     private static String resolveHiddenRoleName(boolean siteAccessPrivacy,
                                                 boolean multisitesEnabled,
-                                                String protectedRoleName,
-                                                Collection<String> callerRoleNames) {
+                                                String protectedRoleName) {
         if (!siteAccessPrivacy || !multisitesEnabled) {
             return null;
         }
-
-        String hiddenRoleName = StringUtils.trimToNull(protectedRoleName);
-        if (hiddenRoleName == null) {
-            return null;
-        }
-
-        // Never hide a role the acting administrator already holds, otherwise the
-        // last holder of the super-root role can never pass it on.
-        if (callerRoleNames != null && callerRoleNames.contains(hiddenRoleName)) {
-            return null;
-        }
-
-        return hiddenRoleName;
+        return StringUtils.trimToNull(protectedRoleName);
     }
 }
