@@ -8,6 +8,7 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import ast
 import inspect
 import os
 import textwrap
@@ -1039,22 +1040,69 @@ class TestAbsentTableDisposition(unittest.TestCase):
             "table's pre-existing rows only because the copy clears "
             "them, and that fact has just fallen out of the report")
 
-    def test_the_absent_table_line_is_appended_from_the_plan(self):
-        # The remaining call-site risk is small and shaped: re-reading
-        # the ledger around the append. One read is the argument; a
-        # second would be a gate.
+    def test_the_absent_table_line_does_not_depend_on_the_clear(self):
+        # FOURTH attempt at this guard, and the first three were all
+        # defeated by the same bug in a new costume. Counting textual
+        # ledger reads was the third: re-gating the append as
+        # `if do_clear: if line is not None: ...` reads the ledger no
+        # more often, keeps the `if line is not None:` line, and still
+        # drops the report line on every --resume, because a resumed run
+        # is exactly the one where do_clear is False.
+        #
+        # The invariant is about NESTING, so assert it on the tree rather
+        # than on the text: whatever the guard is called and however it
+        # is formatted, appending the report line must not sit inside a
+        # branch that tests whether this run cleared, or that reads the
+        # ledger.
+        tree = ast.parse(textwrap.dedent(inspect.getsource(o19etl.run_etl)))
+        found = []
+
+        class Walk(ast.NodeVisitor):
+            def __init__(self):
+                self.ifs = []
+
+            def visit_If(self, node):
+                self.ifs.append(node)
+                self.generic_visit(node)
+                self.ifs.pop()
+
+            def visit_Call(self, node):
+                fn = node.func
+                if (isinstance(fn, ast.Attribute) and fn.attr == "append"
+                        and isinstance(fn.value, ast.Name)
+                        and fn.value.id == "absent_tables"):
+                    found.append(list(self.ifs))
+                self.generic_visit(node)
+
+        Walk().visit(tree)
+        self.assertEqual(
+            len(found), 1,
+            "expected exactly one absent_tables.append in run_etl")
+        for branch in found[0]:
+            names = {n.id for n in ast.walk(branch.test)
+                     if isinstance(n, ast.Name)}
+            self.assertNotIn(
+                "do_clear", names,
+                "the report line is nested under the clear guard: a "
+                "resumed run does not clear, so the line would vanish "
+                "from the report -- the regression this branch has "
+                "shipped once and nearly shipped three times since")
+            self.assertNotIn(
+                "progress", names,
+                "the report line is nested under a branch reading the "
+                "ETL ledger; absent_tables is rebuilt every run while "
+                "the ledger remembers, so the line would drop on "
+                "--resume")
+
+    def test_the_absent_table_delete_still_consults_the_ledger(self):
+        # the other half: the DELETE must stay idempotent. Without this,
+        # the test above is satisfied by dropping the ledger check
+        # altogether and re-deleting the target's rows on every resume.
         src = textwrap.dedent(inspect.getsource(o19etl.run_etl))
         start = src.index("do_clear, line = absent_table_plan(")
         block = src[start:src.index("continue", start)]
-        # one READ (the argument, ending `")`) and one WRITE (ending
-        # `"]`); a second read would be a gate
-        self.assertEqual(
-            block.count('"absent_cleared")'), 1,
-            "the ledger key is read more than once around the absent-"
-            "table block; the second read is a gate that would drop the "
-            "report line on --resume")
+        self.assertEqual(block.count('"absent_cleared")'), 1)
         self.assertEqual(block.count('"absent_cleared"] = True'), 1)
-        self.assertIn("if line is not None:", block)
 
     def test_a_non_copy_absent_table_has_no_report_line(self):
         clear, line = o19etl.absent_table_plan(
