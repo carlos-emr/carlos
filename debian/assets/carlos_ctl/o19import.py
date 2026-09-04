@@ -43,7 +43,8 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import (Callable, Dict, Iterator, List, Optional,
+                    Sequence)
 
 from . import (dbops, o19_preflight, o19bundle, o19docs,
                o19etl, o19map_props, o19map_schema,
@@ -304,6 +305,88 @@ def redact_statement(sql: str, width: int = 80) -> str:
     masked = CREDENTIAL_SQL_RE.sub(lambda m: m.group(1) + "'<redacted>'",
                                    sql)
     return masked[:width]
+
+
+def decode_batch_stream(chunks) -> Iterator[List[str]]:
+    """Rows from a stream of byte chunks of the batch client's stdout.
+
+    Split out of `make_row_stream` because this is the part that can be
+    silently wrong: a chunk boundary falls wherever the pipe says, so a
+    row -- or a multi-byte character, or a backslash escape -- can be cut
+    in half between reads. Rows are assembled from BYTES and decoded only
+    once complete.
+
+    A trailing empty line is dropped, so an empty result set yields
+    nothing rather than one empty row -- matching `batch_rows`."""
+    pending = b""
+    for chunk in chunks:
+        pending += chunk
+        parts = pending.split(b"\n")
+        pending = parts.pop()
+        for line in parts:
+            yield [unescape_batch(v) for v in
+                   line.decode("utf-8", "replace").split("\t")]
+    if pending:
+        yield [unescape_batch(v) for v in
+               pending.decode("utf-8", "replace").split("\t")]
+
+
+def make_row_stream(mariadb_args: Optional[List[str]],
+                    statement_timeout: int = 0) -> Callable:
+    """stream(sql, db=None) -> iterator of decoded rows, one at a time.
+
+    The buffered `query` reads a whole result set into memory and the
+    caller then materialises a second copy. The archive export is the one
+    place a CLINIC's own data decides the size -- a fork's table, or a
+    merge table's full staging copy -- so it read in LIMIT/OFFSET windows
+    instead. That is quadratic: the ORDER BY carries no index, so every
+    window re-sorts the whole table and skips its way to the offset.
+    Measured on 500k rows, ten windows: 14.6s against 3.5s for the same
+    rows in one statement, and the ratio grows with the table (roughly
+    n/2w), so a 20M-row archive costs about 200 scans instead of one.
+
+    `--quick` makes the client hand rows over unbuffered, so one
+    statement streams in constant memory and the windows are not needed
+    at all.
+
+    Rows are split on b"\n" over BYTES, never by text-mode line
+    iteration: batch mode escapes \0 \t \n \\ inside values, so a bare
+    "\r" (a CRLF eForm) is DATA, and universal-newline translation would
+    split a row in half."""
+    base = ["mariadb", "--protocol=socket", "--user=root"]
+    if mariadb_args:
+        base = ["mariadb"] + list(mariadb_args)
+
+    def stream(sql, db=None):
+        argv = list(base) + list(CLIENT_COMMON_ARGS) + ["--quick"]
+        if statement_timeout:
+            argv.append("--init-command="
+                        + statement_timeout_prelude(statement_timeout))
+        if db:
+            argv.append(db)
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        try:
+            proc.stdin.write(sql.encode("utf-8"))
+            proc.stdin.close()
+            for row in decode_batch_stream(
+                    iter(lambda: proc.stdout.read(65536), b"")):
+                yield row
+        finally:
+            proc.stdout.close()
+            err = proc.stderr.read().decode("utf-8", "replace")
+            proc.stderr.close()
+            rc = proc.wait()
+        if rc != 0:
+            # raised AFTER the generator has drained: a partial export is
+            # worse than none, and the caller must not keep the rows it
+            # already wrote as if the table had ended there
+            raise o19etl.QueryError("SQL failed ({0}): {1}".format(
+                redact_statement(sql), err.strip()), err)
+
+    stream.base_argv = base  # type: ignore[attr-defined]
+    return stream
 
 
 def batch_rows(stdout: str) -> List[List[str]]:
@@ -2479,6 +2562,10 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         "state": state,
         "query": make_query(args.mariadb_arg,
                             getattr(args, "statement_timeout", 0)),
+        # the unbuffered reader, for the one read whose size a CLINIC's
+        # data decides: the archive CSV export (o19docs)
+        "row_stream": make_row_stream(
+            args.mariadb_arg, getattr(args, "statement_timeout", 0)),
         "statement_timeout": getattr(args, "statement_timeout", 0),
         "province": _province(args),
         "accepted": accepted,

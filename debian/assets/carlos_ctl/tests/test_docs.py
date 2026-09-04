@@ -15,7 +15,6 @@ import os
 import shutil
 import tempfile
 import unittest
-from unittest import mock
 
 from carlos_ctl import o19docs
 
@@ -806,49 +805,90 @@ class TestArchiveCsvWindowing(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.work)
         self.seen = []
 
-    def query_for(self, total, window):
+    def query_for(self, total):
+        """A fake client: information_schema lookups, then ONE statement
+        returning every row."""
         def q(sql):
             self.seen.append(sql)
             if sql.startswith("SELECT TABLE_NAME"):
                 return [["t"]]
             if sql.startswith("SELECT COLUMN_NAME"):
                 return [["a"]]
-            off = int(sql.rsplit("OFFSET ", 1)[1])
-            take = max(0, min(window, total - off))
-            return [[str(off + i), "0"] for i in range(take)]
+            return [[str(i), "0"] for i in range(total)]
         return q
 
     def rows_written(self):
         with open(os.path.join(self.work, "t.csv")) as fh:
             return [ln for ln in fh.read().splitlines() if ln][1:]
 
-    def test_a_table_larger_than_one_window_is_read_in_windows(self):
-        with mock.patch.object(o19docs, "CSV_EXPORT_WINDOW", 10):
-            lines = o19docs.export_archive_csv(
-                self.query_for(25, 10), "arch", self.work)
-        selects = [s for s in self.seen if " OFFSET " in s]
-        self.assertEqual([int(s.rsplit("OFFSET ", 1)[1]) for s in selects],
-                         [0, 10, 20])
-        self.assertEqual(len(self.rows_written()), 25)
-        self.assertIn("t.csv: 25 row(s)", lines)
+    def test_the_table_is_read_in_one_statement(self):
+        # it used to page with LIMIT/OFFSET, which re-sorts the whole
+        # table per window because the ORDER BY carries no index
+        o19docs.export_archive_csv(self.query_for(25), "arch", self.work)
+        selects = [s for s in self.seen if s.startswith("SELECT a,")
+                   or " FROM `arch`" in s]
+        self.assertEqual(len(selects), 1, selects)
+        self.assertNotIn("OFFSET", " ".join(selects))
+        self.assertNotIn("LIMIT", " ".join(selects))
 
     def test_every_row_arrives_exactly_once_and_in_order(self):
-        # a windowed read that repeats or drops a slice would still
-        # produce a plausible CSV, and for an archive-only table this
-        # file is the only copy the clinic keeps
-        with mock.patch.object(o19docs, "CSV_EXPORT_WINDOW", 4):
-            o19docs.export_archive_csv(
-                self.query_for(11, 4), "arch", self.work)
+        # for an archive-only table this file is the only copy the clinic
+        # keeps, so a repeated or dropped row is unrecoverable
+        o19docs.export_archive_csv(self.query_for(11), "arch", self.work)
         self.assertEqual([r.strip('"') for r in self.rows_written()],
                          [str(i) for i in range(11)])
 
-    def test_an_exact_multiple_costs_one_empty_window(self):
-        with mock.patch.object(o19docs, "CSV_EXPORT_WINDOW", 5):
-            o19docs.export_archive_csv(
-                self.query_for(10, 5), "arch", self.work)
-        selects = [s for s in self.seen if " OFFSET " in s]
-        self.assertEqual(len(selects), 3)
-        self.assertEqual(len(self.rows_written()), 10)
+    def test_an_empty_table_writes_only_its_header(self):
+        lines = o19docs.export_archive_csv(self.query_for(0), "arch",
+                                           self.work)
+        self.assertEqual(self.rows_written(), [])
+        self.assertIn("t.csv: 0 row(s)", lines)
+
+
+class TestBatchStreamDecoding(unittest.TestCase):
+
+    """`decode_batch_stream` assembles rows from pipe chunks.
+
+    The chunk boundary falls wherever the pipe says, so every case here
+    is a row cut somewhere awkward. A decoder that split by text-mode
+    lines, or decoded before a row was complete, would corrupt clinical
+    data in the one file the clinic keeps of an archive-only table."""
+
+    def rows(self, *chunks):
+        from carlos_ctl import o19import
+        return list(o19import.decode_batch_stream(iter(chunks)))
+
+    def test_rows_split_across_chunks_are_rejoined(self):
+        self.assertEqual(self.rows(b"a\tb\nc\t", b"d\n"),
+                         [["a", "b"], ["c", "d"]])
+
+    def test_a_boundary_inside_a_multibyte_character_survives(self):
+        # 'é' is two bytes in UTF-8; splitting between them and decoding
+        # each half separately would produce two replacement characters
+        payload = "Santé\tx\n".encode("utf-8")
+        # 5, not 6: b"Sant\xc3" leaves the accent's SECOND byte in the
+        # next chunk. Splitting at 6 keeps 'é' whole and tests nothing --
+        # the mutation harness caught that, so the boundary is asserted
+        # here rather than trusted
+        self.assertEqual(payload[:5], b"Sant\xc3")
+        self.assertEqual(self.rows(payload[:5], payload[5:]),
+                         [["Santé", "x"]])
+
+    def test_a_boundary_inside_an_escape_survives(self):
+        self.assertEqual(self.rows(b"a\\", b"nb\tx\n"),
+                         [["a\nb", "x"]])
+
+    def test_a_bare_carriage_return_is_data_not_a_row_separator(self):
+        # a CRLF eForm carries "\r" as a stored value; text-mode line
+        # iteration would split the row in half there
+        self.assertEqual(self.rows(b"a\rb\tx\n"), [["a\rb", "x"]])
+
+    def test_an_empty_result_yields_no_rows(self):
+        self.assertEqual(self.rows(b""), [])
+        self.assertEqual(self.rows(), [])
+
+    def test_a_final_row_without_a_trailing_newline_is_kept(self):
+        self.assertEqual(self.rows(b"a\tb"), [["a", "b"]])
 
 
 class TestArchiveCsvRowShape(unittest.TestCase):
@@ -901,7 +941,11 @@ class TestArchiveCsvRowShape(unittest.TestCase):
         # the ORDER BY is what makes the LIMIT/OFFSET windowing a
         # partition of the result rather than an arbitrary re-slice, so
         # it must sit immediately before the window clause
-        self.assertIn("ORDER BY 1, 3 LIMIT ", seen[0])
+        # the order is what makes a re-run of P5 rewrite the SAME
+        # file rather than the same rows shuffled; the clinic
+        # diffs these between passes
+        self.assertIn("ORDER BY 1, 3", seen[0])
+        self.assertNotIn("LIMIT", seen[0])
 
 
 class TestArchiveCsvNulls(unittest.TestCase):
