@@ -1077,7 +1077,17 @@ class TestAbsentTableDisposition(unittest.TestCase):
         Walk().visit(tree)
         self.assertEqual(
             len(found), 1,
-            "expected exactly one absent_tables.append in run_etl")
+            "this test walks run_etl for the single absent_tables.append, "
+            "and found {0}. If you deliberately moved or split that "
+            "append -- extracting it into a helper is a legitimate "
+            "refactor -- this failure is the premise going stale, not "
+            "the bug returning: re-point the walk at wherever the append "
+            "now lives and keep the invariant it checks, which is that "
+            "appending the report line must not be enclosed by any "
+            "branch testing whether this run cleared or reading the ETL "
+            "ledger. Do not delete the test to make it pass; the "
+            "regression it guards has shipped once and slipped past "
+            "three replacements.".format(len(found)))
         for branch in found[0]:
             names = {n.id for n in ast.walk(branch.test)
                      if isinstance(n, ast.Name)}
