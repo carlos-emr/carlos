@@ -1054,6 +1054,15 @@ class TestAbsentTableDisposition(unittest.TestCase):
         # is formatted, appending the report line must not sit inside a
         # branch that tests whether this run cleared, or that reads the
         # ledger.
+        #
+        # This is no longer the only protection, and should not be read as
+        # such. test_etl_driver.TestAbsentTables drives the real run_etl
+        # and covers the same ground behaviourally -- including the
+        # `line is not None` guard at the call site, which this walk does
+        # NOT check (its argument is `line` either way). Both mutations
+        # were verified red before this note was written. Keep this test
+        # for the nesting shape; keep the driver for what the operator
+        # actually gets.
         tree = ast.parse(textwrap.dedent(inspect.getsource(o19etl.run_etl)))
         found = []
 
