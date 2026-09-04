@@ -73,7 +73,14 @@ class MigrationColumnListContractUnitTest {
      * by position and both fail the same way when the table widens.
      */
     private static final Pattern POSITIONAL_INSERT = Pattern.compile(
-            "\\b(?:INSERT(?:\\s+IGNORE)?|REPLACE)\\s+INTO\\s+`?\\w+`?\\s+VALUES\\b",
+            "\\b(?:INSERT(?:\\s+IGNORE)?|REPLACE)\\s+INTO\\s+"
+                    // the target may be schema-qualified, with or without
+                    // backticks on either part: `carlos`.`property`,
+                    // carlos.property, `property`, property. import-o19
+                    // itself writes schema-qualified SQL, so that is the
+                    // style a migration author is most likely to copy, and
+                    // an unqualified-only pattern would not see it.
+                    + "(?:`?\\w+`?\\s*\\.\\s*)?`?\\w+`?\\s+VALUES\\b",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -103,7 +110,12 @@ class MigrationColumnListContractUnitTest {
      */
     private static String withoutComments(String sql) {
         return sql.replaceAll("(?s)/\\*.*?\\*/", " ")
-                .replaceAll("(?m)--[^\\n]*", " ");
+                .replaceAll("(?m)--[^\\n]*", " ")
+                // MySQL also treats `#` as a line comment; leaving it in
+                // only ever produces a false offender, but a false
+                // offender that fails the build is still a bug report
+                // somebody has to chase
+                .replaceAll("(?m)#[^\\n]*", " ");
     }
 
     @Test
@@ -157,7 +169,12 @@ class MigrationColumnListContractUnitTest {
                 "insert into `security` values (1)",
                 "INSERT IGNORE INTO secRole VALUES (1, 'x')",
                 "REPLACE INTO lst_gender VALUES ('M')",
-                "INSERT INTO property\n  VALUES ('a')")) {
+                "INSERT INTO property\n  VALUES ('a')",
+                // schema-qualified, the style import-o19 itself writes:
+                // an unqualified-only pattern read straight past these
+                "INSERT INTO `carlos`.`property` VALUES ('a')",
+                "INSERT INTO carlos.property VALUES ('a')",
+                "REPLACE INTO `carlos`.security VALUES (1)")) {
             assertThat(POSITIONAL_INSERT.matcher(positional).find())
                     .describedAs(positional).isTrue();
         }
@@ -165,7 +182,8 @@ class MigrationColumnListContractUnitTest {
                 "INSERT INTO property (name, value) VALUES ('a', 'b')",
                 "INSERT IGNORE INTO secRole (role_name) VALUES ('x')",
                 "INSERT INTO property SET name = 'a'",
-                "INSERT INTO property (name) SELECT name FROM other")) {
+                "INSERT INTO property (name) SELECT name FROM other",
+                "INSERT INTO `carlos`.`property` (name) VALUES ('a')")) {
             assertThat(POSITIONAL_INSERT.matcher(named).find())
                     .describedAs(named).isFalse();
         }

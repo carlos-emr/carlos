@@ -18,6 +18,9 @@ import tempfile
 import unittest
 
 from carlos_ctl import o19_preflight, o19etl, o19map_schema, o19roles
+# the classifier lives with the statement-shape tests; the sweep
+# belongs here, where a real run can supply the statements
+from carlos_ctl.tests.test_roles import idempotent
 
 SRC, DST, ARCH = "o19_import", "carlos", "o19_archive"
 SNAP = "`{0}`.`carlos_seed_secObjPrivilege`".format(ARCH)
@@ -188,6 +191,46 @@ class RunRolesBase(unittest.TestCase):
         path = os.path.join(self.state_dir, name)
         with open(path, encoding="utf-8") as fh:
             return fh.read()
+
+
+class TestEveryWriteIsIdempotent(RunRolesBase):
+
+    """The idempotency sweep, over the writes the step ACTUALLY issues.
+
+    `test_roles.test_every_write_is_idempotent` builds its list by hand,
+    and a hand-list cannot see a write nobody added to it: five of the
+    sixteen a real run issues were missing, two of which the classifier
+    would have rejected. Driving the step means a newly added write is
+    swept whether or not anyone remembers to list it.
+
+    This matters for the crash window, not the resume: a step that
+    crashes after an unguarded write but before its ledger mark repeats
+    that write on the next run.
+    """
+
+    #: the packaged Rich Text Letter fixups are FILE CONTENTS, not
+    #: statements this module builds, so the classifier has nothing to
+    #: judge; their re-run safety is the packaged scripts' own contract
+    #: and `run_roles` re-reads them from disk by name
+    def _is_fixup(self, sql):
+        return sql.lstrip().startswith("--")
+
+    def test_every_write_a_real_run_issues_is_idempotent(self):
+        db = FakeDb()
+        self.run_roles(db)
+        writes = [w for w in db.writes if not self._is_fixup(w)]
+        # the sweep is worthless over an empty list
+        self.assertGreater(len(writes), 10, db.writes)
+        for sql in writes:
+            self.assertTrue(idempotent(sql), sql)
+
+    def test_the_classifier_still_rejects_what_it_should(self):
+        # the negative control travels with the sweep: a classifier that
+        # says yes to everything would make the sweep above vacuous
+        self.assertFalse(idempotent("UPDATE t SET n = n + 1"))
+        self.assertFalse(idempotent("UPDATE t SET n = 1 WHERE x = 2"))
+        self.assertFalse(idempotent("DELETE FROM t"))
+        self.assertFalse(idempotent("INSERT INTO t VALUES (1)"))
 
 
 class TestCleanRun(RunRolesBase):

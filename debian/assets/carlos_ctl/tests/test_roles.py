@@ -46,6 +46,11 @@ def idempotent(sql):
             "IS NULL",          # activeyn: NULL -> 1, the NULL is gone
             "BINARY PREVENTION_TYPE = ",  # legacy code -> canonical code
             "FID = ",           # status := 0 for one row (0 -> 0 repeats)
+            # role-spelling canonicalisation: the predicate selects on
+            # the OLD value ("these two differ under BINARY"), which the
+            # write itself makes false, so a re-run matches nothing
+            "BINARY P.ROLEUSERGROUP <> BINARY R.ROLE_NAME",
+            "BINARY UR.ROLE_NAME <> BINARY R.ROLE_NAME",
         ))
     return False
 
@@ -651,6 +656,42 @@ class TestVerifyRoleChecks(unittest.TestCase):
         self.assertEqual(adv, [])
         self.assertEqual(private, [])
         self.assertTrue(any("holds _admin" in line for line in ok))
+
+    #: (knob, failing value, a phrase from the problem it must report).
+    #: `test_clean_target_passes_every_hard_check` asserts only that
+    #: `bad` is empty, so deleting a check shortens `ok` and is
+    #: invisible there -- these four had no other test and each was
+    #: deletable with a green suite.
+    HARD_CHECKS = (
+        ("spelling_drift", "3", "different spelling"),
+        ("facility", "0", "no enabled Facility"),
+        ("clinic", "0", "clinic table is empty"),
+        ("unlinked", "4", "without a facility link"),
+    )
+
+    def test_each_hard_check_reports_its_own_failure(self):
+        for knob, value, phrase in self.HARD_CHECKS:
+            with self.subTest(check=knob):
+                ok, bad, adv, private = o19roles.verify_role_checks(
+                    self.make_query(**{knob: value}),
+                    "carlos", "100001", 513)
+                # exactly one, so a check that fires for another reason
+                # cannot stand in for the one under test
+                self.assertEqual(len(bad), 1, bad)
+                self.assertIn(phrase, bad[0])
+
+    def test_a_passing_hard_check_says_so(self):
+        # the other half: the ok line is what an operator reads as
+        # "this was checked", so a check that silently stops running
+        # should not keep claiming it did
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(), "carlos", "100001", 513)
+        for phrase in ("role-name spellings agree",
+                       "an enabled Facility exists",
+                       "clinic row present",
+                       "every active provider is linked to a facility"):
+            self.assertTrue(any(phrase in line for line in ok),
+                            "{0!r} not in ok: {1}".format(phrase, ok))
 
     def test_inert_admin_missing_program_and_low_floor_fail(self):
         ok, bad, adv, private = o19roles.verify_role_checks(
