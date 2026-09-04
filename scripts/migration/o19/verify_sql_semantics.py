@@ -1040,13 +1040,29 @@ def _copy_values_body(client: Client, src: str, dst: str) -> List[str]:
             "row(s)) -- it would fail every clinic".format(n))
         return failures
 
+    # the private details file names rows by running the SAME statement
+    # with the key columns in place of COUNT(*). That it selects the same
+    # rows is an engine claim, not a reading claim: a projection that
+    # quietly widened or narrowed the result would point the operator at
+    # the wrong rows, which is worse than pointing at none.
+    named = o19etl.copy_value_mismatch_sql(
+        "c", COPY_ENTRY, src, dst, dst_cols, ("id",),
+        select=o19etl.key_projection(("id",), "d"))
+
     for label, sql, why in COPY_SABOTAGE:
         client.setup("SET SESSION sql_mode='';{0};".format(sql), dst)
-        caught = mismatches() > 0
+        found = mismatches()
+        caught = found > 0
         print("    {0:<44} {1}".format(
             label, "caught" if caught else "MISSED"))
         if not caught:
             failures.append("{0} was NOT caught ({1})".format(label, why))
+        elif len(client.rows(named, dst)) != found:
+            failures.append(
+                "'{0}': the check counted {1} row(s) but the key "
+                "projection named {2} -- the details file would point at "
+                "the wrong rows".format(
+                    label, found, len(client.rows(named, dst))))
         client.setup("SET SESSION sql_mode='';TRUNCATE TABLE c;", dst)
         client.setup("SET SESSION sql_mode='';"
                      + o19etl.copy_statement("c", COPY_ENTRY, src, dst,

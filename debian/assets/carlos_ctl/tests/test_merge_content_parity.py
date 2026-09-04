@@ -237,7 +237,7 @@ class TestTheDriver(unittest.TestCase):
     TABLE = SURROGATE
 
     def drive(self, counts=None, errors=None, keys=None, arch=None,
-              cols=None):
+              cols=None, details=None):
         entry = entry_for(self.TABLE)
         cols = cols or entry["cols"]
         arch = arch if arch is not None else {
@@ -250,7 +250,8 @@ class TestTheDriver(unittest.TestCase):
                 counts, errors)
         info = {self.TABLE: dst_cols(cols)}
         return db, o19etl.merge_content_parity(
-            db, "o19_import", "carlos", "o19_archive", info, info)
+            db, "o19_import", "carlos", "o19_archive", info, info,
+            details=details)
 
     def test_a_faithful_merge_passes_all_three_claims(self):
         _db, (ok, bad) = self.drive()
@@ -341,6 +342,43 @@ class TestTheDriver(unittest.TestCase):
         finally:
             o19map_schema.TABLES[table] = saved
         self.assertTrue(any("3 seed row(s)" in x for x in bad), bad)
+
+    def test_each_failing_claim_contributes_its_own_keys(self):
+        """Three claims, three different rows to name — and the seed
+        claim reads them from the SNAPSHOT, because a seed row the
+        import deleted has no live side left to name it by."""
+        table, cols = self.TABLE, ["id", "status", "import_archived_x"]
+        entry = dict(entry_for(table), cols=cols,
+                     archived_cols={"import_archived_x": "x"},
+                     renames={"import_archived_x": "x"})
+        db = Db([table],
+                {o19etl.preseed_table(table): cols,
+                 o19etl.idmap_table(table): ["old_id", "new_id"]},
+                {table: ["id"]},
+                {"seed": 1, "appended": 2, "backfill": 3})
+        info = {table: dst_cols(cols)}
+        saved = o19map_schema.TABLES[table]
+        o19map_schema.TABLES[table] = entry
+        details = []
+        try:
+            _ok, bad = o19etl.merge_content_parity(
+                db, "o19_import", "carlos", "o19_archive", info, info,
+                details=details)
+        finally:
+            o19map_schema.TABLES[table] = saved
+        self.assertEqual(len(bad), 3, bad)
+        for label in ("merge/seed", "merge/appended", "merge/backfill"):
+            self.assertTrue(any(label in line for line in details),
+                            (label, details))
+        seed = [q for q in db.sql
+                if "__preseed` p LEFT JOIN" in q and "LIMIT" in q][0]
+        self.assertTrue(seed.startswith("SELECT p.`id` FROM"), seed)
+
+    def test_a_faithful_merge_contributes_no_keys(self):
+        details = []
+        _db, (_ok, bad) = self.drive(details=details)
+        self.assertEqual(bad, [])
+        self.assertEqual(details, [])
 
     def test_the_snapshots_own_columns_bound_the_seed_comparison(self):
         """A snapshot taken by an older carlos-ctl may lack a column the

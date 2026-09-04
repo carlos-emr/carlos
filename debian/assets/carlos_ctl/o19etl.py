@@ -2860,6 +2860,52 @@ def primary_key_columns(plain_query, schema: str) -> Dict[str, List[str]]:
 #: DECIMAL(10,2) source renders '1.40'.
 COLLATED_TYPES = STRING_TYPES + ("set",)
 
+#: Marks a report line that is NOT a verification: a table a value check
+#: could not compare, with the reason. It sits in the PASSING list (a
+#: table nobody could check is not a failed import), so the wording is
+#: the only thing between an operator and reading it as "checked, and
+#: fine" -- and `import_report` splits the sections on it. Changing it
+#: silently re-files every such line under WHAT ARRIVED.
+UNCHECKED_PREFIX = "NOT CHECKED — "
+
+#: Most differing rows named per table in the private details file. It
+#: exists so an operator can recognise a pattern, not so it can hold a
+#: second copy of the clinic's database.
+DETAIL_ROWS = 50
+
+
+def key_projection(key: Sequence[str], alias: str) -> str:
+    """The `select` a value check takes to name rows instead of counting
+    them: the target's primary key, from the alias that HAS the row."""
+    return ", ".join("{0}.{1}".format(alias, ident(k)) for k in key)
+
+
+def detail_lines(plain_query, table: str, label: str, sql: str,
+                 key: Sequence[str]) -> List[str]:
+    """The keys of the rows one value check disagreed about, for the
+    run's PRIVATE details file. `sql` is the same check built with
+    `select=key_projection(...)`, so the rows named are exactly the rows
+    counted.
+
+    Never the report: a primary key joins straight back to a patient, an
+    appointment or a bill, so these lines are PHI-correlating and belong
+    in a 0600 file the operator opens deliberately. The report says how
+    many, and points at the file.
+
+    A failure here is not a phase failure -- the COUNT already made the
+    finding and this only says WHICH rows -- so the reason is recorded
+    in place of the keys."""
+    try:
+        rows = plain_query("{0} LIMIT {1}".format(sql, DETAIL_ROWS))
+    except Exception as exc:                          # noqa: BLE001
+        return ["{0} ({1}): keys unavailable ({2})".format(
+            table, label, _query_reason(exc))]
+    named = ["(" + ", ".join(
+        "{0}={1}".format(k, v) for k, v in zip(key, row)) + ")"
+        for row in rows]
+    return ["{0} ({1}): {2}".format(
+        table, label, ", ".join(named) or "no keys returned")]
+
 
 def value_comparison(col: str, expr: str, dst_info: dict) -> str:
     """`d.<col>` against the expression the copy wrote, compared the way
@@ -2992,10 +3038,13 @@ def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
                         src_info: Dict[str, Dict[str, dict]],
                         dst_info: Dict[str, Dict[str, dict]],
                         repairs: Optional[Dict[str, Sequence[str]]] = None,
-                        archive_schema: Optional[str] = None
+                        archive_schema: Optional[str] = None,
+                        details: Optional[List[str]] = None
                         ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) proving every copied row's target twin
-    holds the values the copy wrote.
+    holds the values the copy wrote. `details`, when given, collects the
+    KEYS of the differing rows for the run's private details file -- they
+    are PHI-correlating and never reach the report.
 
     `row_parity` counts copy-class tables; this reads them. A table it
     cannot pair row-for-row is reported UNCHECKED rather than passed:
@@ -3013,7 +3062,7 @@ def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
         # structural reason the operator cannot change would block every
         # import rather than the unsound ones. It must never read as a
         # verification, hence the prefix.
-        ok.append("NOT CHECKED — {0}: {1}".format(table, why))
+        ok.append(UNCHECKED_PREFIX + "{0}: {1}".format(table, why))
 
     for table, entry in sorted(o19map_schema.TABLES.items()):
         if entry["class"] != "copy" or table not in src_tables:
@@ -3053,6 +3102,15 @@ def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
             bad.append(
                 "{0}: {1} copied row(s) whose target twin does not hold "
                 "the value the copy wrote".format(table, n))
+            if details is not None:
+                details.extend(detail_lines(
+                    plain_query, table, "copy",
+                    copy_value_mismatch_sql(
+                        table, entry, src_schema, dst_schema,
+                        dst_info[table], dst_keys[table],
+                        set(repairs.get(table) or ()), archive_schema,
+                        select=key_projection(dst_keys[table], "d")),
+                    dst_keys[table]))
         else:
             ok.append("{0} (copy): every twin holds the copied value"
                       .format(table))
@@ -3227,7 +3285,8 @@ def merge_content_parity(plain_query, src_schema: str, dst_schema: str,
                          archive_schema: str,
                          src_info: Dict[str, Dict[str, dict]],
                          dst_info: Dict[str, Dict[str, dict]],
-                         repairs: Optional[Dict[str, Sequence[str]]] = None
+                         repairs: Optional[Dict[str, Sequence[str]]] = None,
+                         details: Optional[List[str]] = None
                          ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) for the merge class, which `row_parity`
     can only count.
@@ -3255,7 +3314,7 @@ def merge_content_parity(plain_query, src_schema: str, dst_schema: str,
     dst_keys = primary_key_columns(plain_query, dst_schema)
 
     def unchecked(table: str, why: str) -> None:
-        ok.append("NOT CHECKED — {0}: {1}".format(table, why))
+        ok.append(UNCHECKED_PREFIX + "{0}: {1}".format(table, why))
 
     def count(table: str, sql: str) -> Optional[int]:
         try:
@@ -3301,7 +3360,8 @@ def merge_content_parity(plain_query, src_schema: str, dst_schema: str,
                             dst_schema, archive_schema, dst_info[table],
                             key, [c for c, _t in preseed],
                             set(repairs.get(table) or ()),
-                            arch_columns, ok, bad, unchecked, count)
+                            arch_columns, ok, bad, unchecked, count,
+                            details)
     return ok, bad
 
 
@@ -3312,7 +3372,8 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
                         repaired: set,
                         arch_columns: Dict[str, List[Tuple[str, str]]],
                         ok: List[str], bad: List[str],
-                        unchecked, count) -> None:
+                        unchecked, count,
+                        details: Optional[List[str]] = None) -> None:
     """The three merge claims for one table. Separate from the loop so
     each claim reads as one paragraph rather than one more nesting
     level."""
@@ -3333,6 +3394,13 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
             bad.append("{0}: {1} pre-merge CARLOS row(s) were removed or "
                        "changed by the import; the merge must leave the "
                        "seed alone".format(table, n))
+            if details is not None:
+                # from `p`: a seed row the import DELETED has no `d` side
+                details.extend(detail_lines(
+                    plain_query, table, "merge/seed",
+                    merge_seed_change_sql(
+                        table, dst_schema, archive_schema, dst_cols, key,
+                        seed_cols, select=key_projection(key, "p")), key))
         elif n == 0:
             ok.append("{0} (merge): the CARLOS seed rows are unchanged"
                       .format(table))
@@ -3349,6 +3417,13 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
         if n:
             bad.append("{0}: {1} appended row(s) do not hold the value "
                        "the merge wrote".format(table, n))
+            if details is not None:
+                details.extend(detail_lines(
+                    plain_query, table, "merge/appended",
+                    merge_appended_mismatch_sql(
+                        table, entry, src_schema, dst_schema,
+                        archive_schema, dst_cols, key, repaired,
+                        select=key_projection(key, "d")), key))
         elif n == 0:
             ok.append("{0} (merge): every appended row holds the value "
                       "the merge wrote".format(table))
@@ -3361,6 +3436,12 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
         bad.append("{0}: {1} seed row(s) beat a clinic row whose values "
                    "their import_archived_ columns do not carry"
                    .format(table, n))
+        if details is not None:
+            details.extend(detail_lines(
+                plain_query, table, "merge/backfill",
+                merge_backfill_mismatch_sql(
+                    table, entry, src_schema, dst_schema, archive_schema,
+                    key, select=key_projection(key, "d")), key))
     elif n == 0:
         ok.append("{0} (merge): every seed row that beat a clinic row "
                   "carries its archived values".format(table))

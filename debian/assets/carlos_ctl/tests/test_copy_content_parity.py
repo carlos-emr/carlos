@@ -284,5 +284,84 @@ class TestTheDriver(unittest.TestCase):
         self.assertEqual((ok, bad), ([], []))
 
 
+class TestTheKeysOfTheDifferingRows(unittest.TestCase):
+    """`key_projection` / `detail_lines` — the private half of the
+    answer. The report says HOW MANY rows disagree; an operator fixing
+    the import needs to know WHICH, and a primary key joins straight
+    back to a patient, an appointment or a bill."""
+
+    def test_the_projection_names_the_key_from_the_alias_that_has_it(self):
+        self.assertEqual(o19etl.key_projection(["a", "b"], "d"),
+                         "d.`a`, d.`b`")
+
+    def test_the_named_rows_are_the_rows_that_were_counted(self):
+        """Same statement, different SELECT: anything else would name a
+        different set of rows from the one the finding counted."""
+        seen = []
+
+        def query(sql, db=None):
+            seen.append(sql)
+            return [["7", "x"], ["9", "y"]]
+        line, = o19etl.detail_lines(query, "t", "copy", "SELECT s FROM u",
+                                    ["id", "kind"])
+        self.assertEqual(seen[0], "SELECT s FROM u LIMIT {0}".format(
+            o19etl.DETAIL_ROWS))
+        self.assertEqual(line, "t (copy): (id=7, kind=x), (id=9, kind=y)")
+
+    def test_the_file_is_bounded_rather_than_a_second_copy_of_the_data(
+            self):
+        """The file exists so an operator can recognise a pattern. An
+        unbounded one would write the clinic's rows, keyed, to disk in
+        the name of describing them."""
+        asked = []
+        o19etl.detail_lines(lambda sql, db=None: asked.append(sql) or [],
+                            "t", "copy", "SELECT 1", ["id"])
+        self.assertTrue(asked[0].endswith(
+            " LIMIT {0}".format(o19etl.DETAIL_ROWS)), asked)
+        self.assertLessEqual(o19etl.DETAIL_ROWS, 200)
+
+    def test_no_rows_reads_as_none_rather_than_an_empty_line(self):
+        line, = o19etl.detail_lines(lambda sql, db=None: [], "t", "copy",
+                                    "SELECT 1", ["id"])
+        self.assertIn("no keys returned", line)
+
+    def test_a_failed_lookup_records_why_instead_of_pretending(self):
+        """The COUNT already made the finding; failing to NAME the rows
+        must not turn into a silent empty list that reads as "none"."""
+        def query(sql, db=None):
+            raise RuntimeError("banner\nERROR 1142: SELECT denied")
+        line, = o19etl.detail_lines(query, "t", "copy", "SELECT 1", ["id"])
+        self.assertIn("keys unavailable", line)
+        self.assertIn("ERROR 1142", line)
+        self.assertNotIn("banner", line)
+
+
+class TestTheDriverCollectsKeys(unittest.TestCase):
+
+    def test_a_mismatch_contributes_its_keys(self):
+        table = TestTheDriver.TABLE
+        entry = o19map_schema.TABLES[table]
+        cols = entry["cols"][:2]
+        db = Db([table], {table: [cols[0]]}, mismatches={table: 2})
+        info = {table: dst_cols(**dict((c, {}) for c in cols))}
+        details = []
+        _ok, bad = o19etl.copy_content_parity(
+            db, "o19_import", "carlos", info, info, details=details)
+        self.assertTrue(bad)
+        self.assertTrue(any(line.startswith("{0} (copy)".format(table))
+                            for line in details), details)
+        self.assertTrue(any("LIMIT" in q for q in db.sql), db.sql)
+
+    def test_a_faithful_copy_contributes_nothing(self):
+        table = TestTheDriver.TABLE
+        cols = o19map_schema.TABLES[table]["cols"][:2]
+        db = Db([table], {table: [cols[0]]})
+        info = {table: dst_cols(**dict((c, {}) for c in cols))}
+        details = []
+        o19etl.copy_content_parity(db, "o19_import", "carlos", info, info,
+                                   details=details)
+        self.assertEqual(details, [])
+
+
 if __name__ == "__main__":
     unittest.main()

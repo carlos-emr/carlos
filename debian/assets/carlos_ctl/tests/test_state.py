@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 from pathlib import Path
 import unittest
@@ -1355,6 +1356,46 @@ class TestRowParityComposition(unittest.TestCase):
             any(table in line and "pre-merge CARLOS row(s)" in line
                 for line in bad), bad)
 
+    COPY_TABLE = next(t for t, e in sorted(o19map_schema.TABLES.items())
+                      if e["class"] == "copy"
+                      and t not in o19etl.POST_ETL_REWRITTEN
+                      and not e.get("value_exprs")
+                      and not e.get("fk_remap"))
+
+    def test_the_differing_keys_go_to_a_private_file_not_the_report(self):
+        """A primary key joins straight back to a patient, an
+        appointment or a bill. The verdict an operator shares carries
+        the COUNT; the keys live in a 0600 file they open deliberately.
+        """
+        table = self.COPY_TABLE
+        cols = list(o19map_schema.TABLES[table]["cols"])[:2]
+        query = self.db(
+            staging={table: 3}, archive={}, live={table: 3},
+            columns={"o19_import": {table: cols},
+                     "carlos": {table: cols}})
+        ctx = self.ctx(query)
+        ok, bad = o19import._row_parity(ctx)
+        self.assertTrue(any("does not hold the value the copy wrote" in ln
+                            for ln in bad), bad)
+        path = os.path.join(ctx["state_dir"], o19import.CONTENT_DETAILS)
+        self.assertEqual(ctx.get("content_details"), path)
+        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+        body = open(path, encoding="utf-8").read()
+        self.assertIn("{0} (copy)".format(table), body)
+        # ... and no key reaches any line the report will publish
+        self.assertFalse(any(cols[0] + "=" in ln for ln in ok + bad),
+                         ok + bad)
+
+    def test_a_clean_import_leaves_no_details_file_behind(self):
+        """An empty "here are the rows that disagreed" file is a
+        question an operator should never have to ask."""
+        query = self.sound()
+        ctx = self.ctx(query)
+        o19import._row_parity(ctx)
+        self.assertNotIn("content_details", ctx)
+        self.assertFalse(os.path.exists(os.path.join(
+            ctx["state_dir"], o19import.CONTENT_DETAILS)))
+
     def test_the_transfer_sign_off_does_not_clear_a_migration_mismatch(
             self):
         # content-transfer is about the dump and the restore; this one is
@@ -1538,12 +1579,14 @@ class TestTheImportReport(unittest.TestCase):
         self.state_dir = tempfile.mkdtemp(prefix="o19report-")
         self.addCleanup(shutil.rmtree, self.state_dir)
 
-    def ctx(self):
-        return {"state_dir": self.state_dir, "target_db": "carlos",
+    def ctx(self, **over):
+        base = {"state_dir": self.state_dir, "target_db": "carlos",
                 "province": "on",
                 "state": {"phases": {"stage": {
                     "status": "done", "at": "2026-09-04T09:00:00",
                     "dump_sha256": "abc123"}}}}
+        base.update(over)
+        return base
 
     LEDGER = {"report_lines": {
         "absent": ["log (absent: the target's own rows were cleared)"],
@@ -1559,11 +1602,55 @@ class TestTheImportReport(unittest.TestCase):
         "shadow": ["Contact.gone: dropped column absent from this dump"]}}
 
     def build(self, problems=(), ok=("demographic: staging 10 -> target "
-                                     "10",)):
+                                     "10",), **ctx_over):
         return o19import.import_report(
-            self.ctx(), self.LEDGER, list(ok), list(problems),
+            self.ctx(**ctx_over), self.LEDGER, list(ok), list(problems),
             ["row parity: 1 table(s) match"], ["1 login(s) import expired"],
             "2026-09-04T10:00:00")
+
+    def test_an_unchecked_table_is_not_filed_under_what_arrived(self):
+        """"We could not look" is a different answer from "we looked and
+        it was fine", and a reviewer who reads one as the other has been
+        misled by the report rather than informed by it."""
+        line = (o19etl.UNCHECKED_PREFIX
+                + "security: the ETL sets forcePasswordReset")
+        text = o19report.render_text(self.build(ok=[
+            "demographic: staging 10 -> target 10", line]))
+        self.assertIn("WHAT WAS NOT CHECKED, AND WHY", text)
+        head, tail = text.split("WHAT WAS NOT CHECKED, AND WHY", 1)
+        self.assertIn("security: the ETL sets forcePasswordReset", tail)
+        self.assertNotIn("security:", head)
+
+    def test_a_clean_import_says_so_rather_than_omitting_the_section(self):
+        text = o19report.render_text(self.build())
+        self.assertIn("every table in scope was checked", text)
+
+    def test_an_accepted_mismatch_is_a_finding_not_a_pass(self):
+        """`--accept content-migration` is a human decision to proceed
+        with a known difference. A reviewer must see it before go-live,
+        so it cannot sit among the lines that say things went well."""
+        line = (o19import.ACKNOWLEDGED_PREFIX
+                + "drugs: 4 copied row(s) whose target twin differs")
+        text = o19report.render_text(self.build(ok=[
+            "demographic: staging 10 -> target 10", line]))
+        self.assertIn("accepted with --accept content-migration", text)
+        head = text.split("FINDINGS", 1)[0]
+        self.assertNotIn("drugs:", head)
+
+    def test_a_failure_points_at_the_private_keys_without_naming_them(
+            self):
+        """The counts are shareable; the primary keys behind them join
+        back to patients, so the report says where they are instead."""
+        text = o19report.render_text(self.build(
+            problems=["drugs: 4 copied row(s) whose target twin differs"],
+            content_details="/var/lib/x/content-details.txt"))
+        self.assertIn("/var/lib/x/content-details.txt", text)
+        self.assertIn("PHI-correlating", text)
+
+    def test_no_pointer_is_offered_when_no_keys_were_written(self):
+        text = o19report.render_text(self.build(
+            problems=["roles: something else went wrong"]))
+        self.assertNotIn("content-details.txt", text)
 
     def test_the_header_names_the_dump_and_the_manifest(self):
         text = o19report.render_text(self.build())

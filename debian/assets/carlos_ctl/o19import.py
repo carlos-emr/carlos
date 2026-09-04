@@ -79,6 +79,17 @@ ACCEPT_CLASSES = (
 #: copy it took, never the operator's mutable file (see snapshot_digests)
 DIGESTS_SNAPSHOT = "o19-digests.json"
 
+#: P7 names the rows its value checks disagreed about here, at
+#: 0600, because a primary key joins straight back to a patient,
+#: an appointment or a bill. The report carries the counts and a
+#: pointer; the keys themselves never leave this file.
+CONTENT_DETAILS = "content-details.txt"
+
+#: Marks a content mismatch the operator signed off on. Its own
+#: section in the report, because a reviewer must see what was
+#: waved through before go-live -- not a line among the passes.
+ACKNOWLEDGED_PREFIX = "ACKNOWLEDGED (--accept content-migration): "
+
 DUMP_COMPLETED_MARKER = b"-- Dump completed"
 # statements a `mysqldump --databases/--all-databases` emits that would
 # redirect the restore out of the staging schema, and a MySQL-only GTID
@@ -1695,19 +1706,34 @@ def _row_parity(ctx):
     # model the copy differently from the copy
     src_info = o19etl.introspect_columns(ctx["query"], STAGING_SCHEMA)
     dst_info = o19etl.introspect_columns(ctx["query"], ctx["target_db"])
+    # the KEYS of every differing row, for the private details file. A
+    # primary key joins straight back to a patient, an appointment or a
+    # bill, so the report gets the count and this file gets the keys.
+    details: List[str] = []
     copy_ok, copy_bad = o19etl.copy_content_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"],
         src_info, dst_info,
-        repairs=progress.get("repairs"), archive_schema=archive)
+        repairs=progress.get("repairs"), archive_schema=archive,
+        details=details)
     # and the merge class, whose live rows come from two places: the
     # pre-merge snapshot is what lets the check say which is which, so
     # "the seed won" and "the clinic's row arrived" become separate
     # answers instead of one row count
     merge_ok, merge_bad = o19etl.merge_content_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive,
-        src_info, dst_info, repairs=progress.get("repairs"))
+        src_info, dst_info, repairs=progress.get("repairs"),
+        details=details)
     content_ok = content_ok + copy_ok + merge_ok
     content_bad = content_bad + copy_bad + merge_bad
+    if details:
+        path = os.path.join(ctx["state_dir"], CONTENT_DETAILS)
+        write_private(path, "rows whose values disagree, by primary key "
+                            "(at most {0} per check)\n".format(
+                                o19etl.DETAIL_ROWS)
+                      + "\n".join(details) + "\n")
+        # read back by `import_report`, which must stay derivable from
+        # its arguments rather than from the filesystem
+        ctx["content_details"] = path
     if content_bad and "content-migration" in (ctx.get("accepted") or ()):
         # a recorded sign-off: the operator was shown the mismatches and
         # accepted them, so they stay in the report as findings but no
@@ -1716,7 +1742,7 @@ def _row_parity(ctx):
              "acknowledged (--accept content-migration)"
              .format(len(content_bad)))
         content_ok = content_ok + [
-            "ACKNOWLEDGED (--accept content-migration): " + line
+            ACKNOWLEDGED_PREFIX + line
             for line in content_bad]
         content_bad = []
     col_ok, col_bad = o19etl.archived_column_parity(
@@ -1860,7 +1886,17 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
         "started": phases.get("stage", {}).get("at"),
         "finished": finished,
     }
-    arrived = list(parity_ok)
+    # `parity_ok` is one list of three different answers, and a reviewer
+    # who reads them as one has been misled: a table nobody could check
+    # and a mismatch somebody signed off on are not "what arrived".
+    arrived, unchecked, acknowledged = [], [], []
+    for line in parity_ok:
+        if line.startswith(o19etl.UNCHECKED_PREFIX):
+            unchecked.append(line[len(o19etl.UNCHECKED_PREFIX):])
+        elif line.startswith(ACKNOWLEDGED_PREFIX):
+            acknowledged.append(line[len(ACKNOWLEDGED_PREFIX):])
+        else:
+            arrived.append(line)
     elsewhere = (_ledger_lines(progress, "absent")
                  + _ledger_lines(progress, "reference")
                  + _ledger_lines(progress, "drop")
@@ -1868,9 +1904,22 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
                  + _ledger_lines(progress, "archived_cols"))
     findings = []
     if problems:
+        body = list(problems)[:40]
+        if ctx.get("content_details"):
+            body.append("the rows behind the value mismatches are named "
+                        "by primary key in {0} (0600) — they are "
+                        "PHI-correlating and are not repeated here"
+                        .format(ctx["content_details"]))
         findings.append(o19report.finding(
             "failure", "{0} verification problem(s)".format(len(problems)),
-            list(problems)[:40]))
+            body))
+    if acknowledged:
+        # the operator was shown these and chose to proceed; a reviewer
+        # has to see them before go-live, so they are a finding rather
+        # than a line among the passes
+        findings.append(o19report.finding(
+            "advisory", "content mismatch(es) accepted with --accept "
+                        "content-migration", acknowledged))
     for title, key in (("surrogate ids reassigned on merge", "idmap"),
                        ("dangling foreign keys in the source", "fk"),
                        ("dropped-column capture notes", "shadow")):
@@ -1892,7 +1941,10 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
             empty="nothing was compared — this is not a verified import"),
          o19report.section(
              "WHAT DID NOT ARRIVE, AND WHERE IT WENT INSTEAD", elsewhere,
-             empty="every staging table had a home in CARLOS")],
+             empty="every staging table had a home in CARLOS"),
+         o19report.section(
+             "WHAT WAS NOT CHECKED, AND WHY", unchecked,
+             empty="every table in scope was checked")],
         findings,
         NEXT_STEPS)
 
@@ -2266,7 +2318,8 @@ NEXT_STEPS = (
 #: deliberately not among them: the operator is told where it is)
 RUN_FILES = ("report.txt", "import-report.txt", "import-report.json",
              "roles-details.txt", "privilege-diff.txt",
-             "verify-details.txt", "documents-details.txt", "preflight.txt",
+             "verify-details.txt", "documents-details.txt",
+             CONTENT_DETAILS, "preflight.txt",
              "preflight.json", "etl-progress.json",
              "content-transfer.json", "o19-digests.json",
              "o19-derived-carlos.properties",

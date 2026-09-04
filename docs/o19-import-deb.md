@@ -419,7 +419,10 @@ gate has no override.
    charts. The report is written to be shareable; the
    per-patient lines of the spot check (which name patient identifiers) go
    to `verify-details.txt` next to it, root-only, as do `privilege-diff.txt`
-   and `roles-details.txt`. Confirm each clinic-custom role's privileges in
+   and `roles-details.txt`. When a value check finds rows that disagree, the
+   report gives the count and `content-details.txt` (root-only) gives their
+   primary keys — a key joins straight back to a patient, an appointment or
+   a bill, so it stays out of the shareable document. Confirm each clinic-custom role's privileges in
    Administration > Security (the report names the template role used),
    and deal with expired or role-less accounts before go-live.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the
