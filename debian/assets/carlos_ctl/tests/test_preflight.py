@@ -592,6 +592,34 @@ class TestReportContract(unittest.TestCase):
         inv = [x for x in report["findings"] if x["id"] == "inventory"][0]
         self.assertEqual(inv["data"]["demographic"], 40)
         self.assertEqual(inv["data"]["_database_mb"], 123)
+        self.assertNotIn("_database_mb_unavailable", inv["data"])
+
+    def test_an_unavailable_size_is_recorded_rather_than_swallowed(self):
+        # A locked-down account refused information_schema, and a schema
+        # whose tables hold no data pages answers NULL. Neither may abort
+        # the assessment, and neither may vanish from the inventory: an
+        # absent line reads as "no size", which is a different claim.
+        class Refused(FakeDb):
+            def __call__(self, sql):
+                if "SUM(DATA_LENGTH" in sql:
+                    raise RuntimeError("SELECT command denied to user")
+                return FakeDb.__call__(self, sql)
+
+        class Null(FakeDb):
+            def __call__(self, sql):
+                if "SUM(DATA_LENGTH" in sql:
+                    return [["NULL"]]
+                return FakeDb.__call__(self, sql)
+
+        for db, needle in ((Refused(base_tables()), "denied"),
+                           (Null(base_tables()), "NULL")):
+            report = pf.run_checks(db, properties=clean_props())
+            inv = [x for x in report["findings"]
+                   if x["id"] == "inventory"][0]
+            self.assertNotIn("_database_mb", inv["data"])
+            self.assertIn(needle, inv["data"]["_database_mb_unavailable"])
+            # the rest of the inventory still lands
+            self.assertEqual(inv["data"]["demographic"], 40)
 
     def test_text_rendering_names_accept_flags_and_review_note(self):
         db = FakeDb(base_tables(formONAR=12))

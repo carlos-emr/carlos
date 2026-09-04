@@ -1241,55 +1241,47 @@ def _count(query, table, where=None):
         return ("error", text.splitlines()[-1] if text else "")
 
 
-def run_checks(query, properties=None, province="on", accepted=(),
-               schema_map=None, db_name=None):
-    """Run every preflight check; return the report dict.
+class PreflightState(object):
+    """Everything the check groups below share.
 
-    query        callable(sql) -> list of rows (lists of strings)
-    properties   parsed clinic properties dict, or None if not provided
-    accepted     iterable of --accept class names already granted
-    schema_map   the o19map_schema module (import mode only) — enables
-                 column-level unknown detection
-    db_name      schema to introspect via information_schema (defaults to
-                 DATABASE() of the connection)
+    ``count`` and ``count_live`` are CLOSURES that fail CLOSED: a failed
+    count is recorded in ``query_errors`` (a hard no-go) or, when it names
+    an object this patch level does not carry, in ``absent_objects`` (an
+    INFO line), and returns 0 only so the table is not double-reported.
+    They must be the SAME two closures for every group -- rebuilding them
+    per group would split those two dicts and quietly change the verdict.
+
+    ``tables`` maps the manifest spelling of a table to its live spelling
+    and ``live_to_manifest`` is its inverse; both matter on a server
+    running lower_case_table_names=1.
     """
-    accepted = set(accepted)
-    findings = []
-    query_errors = {}
-    # tables/columns this patch level does not carry: reported, never a
-    # blocker (see _absent_object)
-    absent_objects = {}
 
-    def count(table, where=None):
-        """_count that FAILS CLOSED: an error is recorded (and becomes a
-        no-go blocker below) and counts as 0 only for the purpose of not
-        double-reporting the table.
+    def __init__(self, query, count, count_live, findings, accepted,
+                 query_errors, absent_objects, schema_expr, tables,
+                 live_names, live_to_manifest, known_live_lower):
+        self.query = query
+        self.count = count
+        self.count_live = count_live
+        self.findings = findings
+        self.accepted = accepted
+        self.query_errors = query_errors
+        self.absent_objects = absent_objects
+        self.schema_expr = schema_expr
+        self.tables = tables
+        self.live_names = live_names
+        self.live_to_manifest = live_to_manifest
+        self.known_live_lower = known_live_lower
 
-        An error naming an absent table or column is the exception. The
-        importer anticipates patch-level variance — o19etl has a branch
-        for a Facility table with no `disabled` column, for instance —
-        so routing it into the query-errors blocker produces an
-        unacceptable `no-go` for a clinic the import supports, with a
-        diagnosis (privileges, corruption) that is simply wrong."""
-        n = _count(query, table, where)
-        if isinstance(n, tuple):
-            label = table if where is None else "{0} [{1}]".format(
-                table, where[:60])
-            if _absent_object(n[1]):
-                absent_objects[label] = n[1]
-            else:
-                query_errors[label] = n[1]
-            return 0
-        return n
 
-    # --- province gate ----------------------------------------------------
-    if province != "on":
-        findings.append(finding(
-            "province", BLOCKER,
-            "province '{0}' is not supported yet".format(province),
-            "Only the Ontario manifest is curated; the BC pass is tracked in "
-            "the migration plan. No --accept flag exists for this."))
+def live_table_inventory(query, findings, db_name):
+    """Introspect the live schema; return what every later check reads.
 
+    Returns ``(schema_expr, tables, live_names, live_to_manifest,
+    known_live_lower)``. An exact-spelling match against the manifest
+    always wins; case folding only stands in where no exact match exists,
+    so a case-sensitive server holding a vendor twin reports a blocker
+    rather than silently mistaking one table for the other.
+    """
     # --- live table inventory --------------------------------------------
     if db_name:
         schema_expr = "'{0}'".format(db_name)
@@ -1336,10 +1328,18 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "cannot tell apart; rename or drop the vendor twin before "
             "shipping the dump. No --accept flag exists for this.",
             data=case_collisions))
+    return (schema_expr, tables, live_names, live_to_manifest,
+            known_live_lower)
 
-    def count_live(manifest_name, where=None):
-        return count(tables[manifest_name], where)
 
+def check_carried_credentials(c):
+    """B9: credentials the copy carries verbatim into CARLOS.
+
+    Tokens issued by the OSCAR 19 install keep working after cutover, so
+    carrying them is a sign-off, not a default."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     # --- B9: live credentials the copy carries verbatim ------------------
     carried = {}
     for t in CREDENTIAL_TABLES:
@@ -1357,6 +1357,18 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "--accept carry-credentials and rotate/verify them before "
             "go-live.", accept="carry-credentials", data=carried))
 
+
+def check_locked_notes(c):
+    """B4: password-protected (encrypted) casemgmt notes.
+
+    Returns the row count, which check_properties needs: the stock O19
+    default casemgmt.note.password.enabled=true says nothing on its
+    own, so the property is only worth reporting when NO note is
+    actually locked.
+    """
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     # --- B4: password-protected (encrypted) casemgmt notes ---------------
     # judged on the data: a note with a password is stored encrypted and
     # the key handling is outside the standard import path
@@ -1371,7 +1383,14 @@ def run_checks(query, properties=None, province="on", accepted=(),
             .format(locked_notes),
             "Key handling for encrypted notes is outside the standard "
             "import path. No --accept flag exists for this."))
+    return locked_notes
 
+
+def check_unknown_tables(c):
+    """B2: tables the manifest has never heard of, and their row counts."""
+    count = c.count
+    findings = c.findings
+    tables = c.tables
     # --- B2: tables the manifest does not know ---------------------------
     unknown = sorted(t for t in tables if t not in KNOWN_TABLES)
     unknown_with_rows = {}
@@ -1390,6 +1409,12 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "accept archive-by-default.",
             accept="unknown-as-archive", data=unknown_with_rows))
 
+
+def check_patient_data_in_absent_tables(c):
+    """B1: patient data in tables CARLOS does not have."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     # --- B1: patient data in tables CARLOS does not have ------------------
     patient_rows = {}
     for t in PATIENT_DATA_TABLES:
@@ -1408,6 +1433,16 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "CARLOS. The clinic must sign this off.",
             accept="archived-forms", data=patient_rows))
 
+
+def check_preserved_class_rows(c):
+    """Row counts for the archive-, drop- and OLIS-class tables.
+
+    Advisory rather than blocking: none of these rows is lost -- they are
+    preserved in o19_archive and as import_archived_ twins -- but the
+    operator should know what will not be live afterwards."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     # --- archive-class config/log tables with rows (advisory) -------------
     archive_rows = {}
     olis_rows = {}
@@ -1460,6 +1495,12 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "stops working at cutover. Tell the clinic before migrating.",
             accept="olis-gone", data=olis_rows))
 
+
+def check_dropped_column_data(c):
+    """B3: data sitting in columns CARLOS removed."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     # --- B3: data in columns CARLOS dropped -------------------------------
     b3_hits = {}
     for t, cols in B3_FLAGGED_COLUMNS.items():
@@ -1481,6 +1522,16 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "data -- review it with the clinic before migrating.",
             accept="dropped-columns", data=b3_hits))
 
+
+def check_required_tables(c):
+    """Tables the import cannot run without.
+
+    CARLOS's privilege check is exact-match, deny-by-default and counts
+    only secUserRole rows with activeyn = 1; the importer reconciles the
+    role matrix, so the findings from here on tell the clinic what the
+    import will do rather than block it."""
+    findings = c.findings
+    known_live_lower = c.known_live_lower
     # --- roles, privileges and CARLOS-required data (M8) -----------------
     # two blockers the importer refuses on as well, then advisories
     # CARLOS's privilege check is exact-match, deny-by-default and counts
@@ -1501,6 +1552,15 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "No --accept flag exists for this.",
             data=dict((t, "absent") for t in missing_required)))
 
+
+def check_identifier_class(c):
+    """Table names outside the identifier class the ETL accepts.
+
+    The import refuses [^A-Za-z0-9_$] before its first write and no flag
+    clears it, so counting such a table as merely "unknown, acknowledge
+    it" would send the operator to a refusal the sign-off cannot reach."""
+    findings = c.findings
+    live_names = c.live_names
     # --- identifier class -------------------------------------------------
     # the ETL refuses any table or column name outside [A-Za-z0-9_$]
     # before its first write, and no flag clears it; an assessment that
@@ -1516,6 +1576,18 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "source and re-export. No --accept flag exists for this.",
             data=dict((n, "outside [A-Za-z0-9_$]") for n in odd_names)))
 
+
+def check_facility_and_clinic(c):
+    """The two rows CARLOS cannot log anyone in without.
+
+    A missing table counts as zero rows -- the importer refuses both. A
+    count that FAILED is not zero rows: the query-errors blocker already
+    covers that, so the row-count blocker is not raised on top of it."""
+    query = c.query
+    findings = c.findings
+    tables = c.tables
+    query_errors = c.query_errors
+    absent_objects = c.absent_objects
     # a missing table counts as zero rows: the importer refuses both. A
     # count that FAILED is not zero rows — the query-errors blocker
     # already covers it, so the row-count blocker is not raised on top
@@ -1551,6 +1623,15 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "Letterheads, requisitions and consultations dereference the "
             "clinic row; the import refuses the dump before writing. No "
             "--accept flag exists for this."))
+
+
+def check_roles_and_assignments(c):
+    """Clinic-custom roles, and the assignments that will not grant."""
+    query = c.query
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
+    query_errors = c.query_errors
     if "secRole" in tables:
         custom = []
         # compared like the column's collation and like the importer
@@ -1618,6 +1699,13 @@ def run_checks(query, properties=None, province="on", accepted=(),
                     "They can log in but reach nothing until a role is "
                     "assigned in Administration (a NULL admin assignment "
                     "is deliberately not activated by the import)."))
+
+
+def check_expired_logins(c):
+    """Accounts whose password expiry has already passed."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     if "security" in tables:
         n = count_live("security", "b_ExpireSet = 1 AND (date_ExpireDate IS "
                                    "NULL OR date_ExpireDate < NOW())")
@@ -1630,6 +1718,13 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "refuse the login; the import leaves the rows as they are "
                 "and lists them - extend or clear the expiry before "
                 "go-live."))
+
+
+def check_prevention_types(c):
+    """Prevention type codes CARLOS cannot render."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     if "preventions" in tables and LEGACY_PREVENTION_TYPES:
         legacy = ", ".join("'{0}'".format(_sql_literal(t))
                            for t in LEGACY_PREVENTION_TYPES)
@@ -1644,6 +1739,13 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "...); the import normalises the codes it knows (exact, "
                 "case-sensitive match) and reports every other code it "
                 "cannot render, which stays as it is for review."))
+
+
+def check_rich_text_letter(c):
+    """The Rich Text Letter eform, which the roles step modernises."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     if "eform" in tables:
         n = count_live(
             "eform",
@@ -1661,6 +1763,13 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "RTL-titled copies, seeds a new ENABLED form when no stock "
                 "row exists, and reports a row whose subject was edited "
                 "for hand review."))
+
+
+def check_removed_module_properties(c):
+    """Property keys belonging to modules CARLOS removed."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     if "property" in tables:
         removed = {}
         for prefix in DROPPED_PROP_PREFIXES:
@@ -1691,6 +1800,14 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "Keys of modules CARLOS removed (Integrator, MyOSCAR, OLIS, "
                 "...) in the property table; the import prunes them.",
                 data=removed))
+
+
+def check_indicator_templates(c):
+    """Dashboard indicators whose drill-down SQL names a dropped table."""
+    query = c.query
+    findings = c.findings
+    tables = c.tables
+    query_errors = c.query_errors
     if "indicatorTemplate" in tables:
         dropped_tables = sorted(t for t, c in KNOWN_TABLES.items()
                                 if c in ("archive", "drop"))
@@ -1717,6 +1834,10 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "will fail at run time; retire or rewrite them.",
                 data=hits))
 
+
+def check_properties(c, properties, locked_notes):
+    """The checks driven by the clinic's oscar.properties."""
+    findings = c.findings
     # --- properties-driven checks ----------------------------------------
     if properties is not None:
         # B5: LDAP authentication
@@ -1773,6 +1894,12 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "acknowledge. Rerun with --properties. No --accept flag "
             "exists for this."))
 
+
+def check_text_encoding(c):
+    """Sample the text columns for mojibake (double-encoded UTF-8)."""
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
     # --- charset / mojibake sampling --------------------------------------
     mojibake = {}
     for t, cols in CHARSET_SCAN.items():
@@ -1796,6 +1923,16 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "blocks there outright (B8).", accept="charset-repair",
             data=mojibake))
 
+
+def check_unknown_columns(c, schema_map):
+    """Columns the manifest has no home for (import mode only).
+
+    Needs the schema manifest, so the standalone assessment says so
+    rather than reporting a clean column inventory it never took."""
+    query = c.query
+    findings = c.findings
+    live_to_manifest = c.live_to_manifest
+    schema_expr = c.schema_expr
     # --- column-level unknowns (import mode only) -------------------------
     if schema_map is not None:
         col_map = {}
@@ -1839,23 +1976,51 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "properties and text encoding; full column inventory happens "
             "when carlos-ctl stages the dump."))
 
+
+def record_inventory(c):
+    """Row counts for the sanity-anchor tables, plus database size."""
+    query = c.query
+    count_live = c.count_live
+    findings = c.findings
+    tables = c.tables
+    schema_expr = c.schema_expr
     # --- inventory (sanity anchors) ---------------------------------------
     inv = {}
     for t in INVENTORY_TABLES:
         if t in tables:
             inv[t] = count_live(t)
+    # The size figure is an operator convenience, not an input to any
+    # verdict, so it must never abort the assessment: a locked-down account
+    # can be refused information_schema (RuntimeError from the client), and a
+    # schema whose tables hold no data pages answers NULL, which the batch
+    # reader hands back as text (ValueError). Record WHY it is missing rather
+    # than swallowing the error -- an inventory that silently omits the line
+    # reads as "this database has no size", and the operator has no way to
+    # tell a refused query from a genuinely empty one. The client's stderr
+    # carries no credentials by construction (see make_cli_query).
     try:
         size_rows = query(
             "SELECT ROUND(SUM(DATA_LENGTH + INDEX_LENGTH)/1048576) FROM "
             "information_schema.TABLES WHERE TABLE_SCHEMA = {0}"
             .format(schema_expr))
         inv["_database_mb"] = int(float(size_rows[0][0]))
-    except Exception:
-        pass
+    except (RuntimeError, IndexError, ValueError, TypeError) as exc:
+        inv["_database_mb_unavailable"] = str(exc)
     inv["_tables"] = len(tables)
     findings.append(finding("inventory", INFO, "database inventory",
                             data=inv))
 
+
+def report_query_diagnostics(c):
+    """Patch-level variance (INFO) and failed checks (BLOCKER).
+
+    A check that could not RUN is never treated as "zero rows": an
+    unreadable table is a hard no-go with no --accept flag, while a
+    table or column this patch level simply does not carry is reported
+    and nothing more."""
+    findings = c.findings
+    query_errors = c.query_errors
+    absent_objects = c.absent_objects
     # --- patch-level variance: reported, never a verdict -----------------
     if absent_objects:
         findings.append(finding(
@@ -1875,7 +2040,15 @@ def run_checks(query, properties=None, province="on", accepted=(),
             "table is never treated as empty: fix the access and rerun. "
             "No --accept flag exists for this.", data=query_errors))
 
-    # --- verdict ----------------------------------------------------------
+
+def preflight_verdict(findings, accepted):
+    """Reduce the findings to a verdict.
+
+    Returns ``(verdict, exit_code, acknowledged, outstanding)``. A blocker
+    with no --accept flag can never be signed off; one whose flag the
+    operator passed is acknowledged; one whose flag they did not pass is
+    what stands between them and a `go`.
+    """
     outstanding = []
     acknowledged = []
     hard = []
@@ -1890,11 +2063,93 @@ def run_checks(query, properties=None, province="on", accepted=(),
         else:
             hard.append(f)
     if hard:
-        verdict, exit_code = "no-go", 2
-    elif outstanding:
-        verdict, exit_code = "go-with-acknowledgements", 1
-    else:
-        verdict, exit_code = "go", 0
+        return "no-go", 2, acknowledged, outstanding
+    if outstanding:
+        return "go-with-acknowledgements", 1, acknowledged, outstanding
+    return "go", 0, acknowledged, outstanding
+
+
+def run_checks(query, properties=None, province="on", accepted=(),
+               schema_map=None, db_name=None):
+    """Run every preflight check; return the report dict.
+
+    query        callable(sql) -> list of rows (lists of strings)
+    properties   parsed clinic properties dict, or None if not provided
+    accepted     iterable of --accept class names already granted
+    schema_map   the o19map_schema module (import mode only) — enables
+                 column-level unknown detection
+    db_name      schema to introspect via information_schema (defaults to
+                 DATABASE() of the connection)
+    """
+    accepted = set(accepted)
+    findings = []
+    query_errors = {}
+    # tables/columns this patch level does not carry: reported, never a
+    # blocker (see _absent_object)
+    absent_objects = {}
+
+    def count(table, where=None):
+        """_count that FAILS CLOSED: an error is recorded (and becomes a
+        no-go blocker below) and counts as 0 only for the purpose of not
+        double-reporting the table.
+
+        An error naming an absent table or column is the exception. The
+        importer anticipates patch-level variance — o19etl has a branch
+        for a Facility table with no `disabled` column, for instance —
+        so routing it into the query-errors blocker produces an
+        unacceptable `no-go` for a clinic the import supports, with a
+        diagnosis (privileges, corruption) that is simply wrong."""
+        n = _count(query, table, where)
+        if isinstance(n, tuple):
+            label = table if where is None else "{0} [{1}]".format(
+                table, where[:60])
+            if _absent_object(n[1]):
+                absent_objects[label] = n[1]
+            else:
+                query_errors[label] = n[1]
+            return 0
+        return n
+
+    # --- province gate ----------------------------------------------------
+    if province != "on":
+        findings.append(finding(
+            "province", BLOCKER,
+            "province '{0}' is not supported yet".format(province),
+            "Only the Ontario manifest is curated; the BC pass is tracked in "
+            "the migration plan. No --accept flag exists for this."))
+
+    (schema_expr, tables, live_names, live_to_manifest,
+     known_live_lower) = live_table_inventory(query, findings, db_name)
+
+    def count_live(manifest_name, where=None):
+        return count(tables[manifest_name], where)
+
+    c = PreflightState(query, count, count_live, findings, accepted,
+                       query_errors, absent_objects, schema_expr, tables,
+                       live_names, live_to_manifest, known_live_lower)
+    check_carried_credentials(c)
+    locked_notes = check_locked_notes(c)
+    check_unknown_tables(c)
+    check_patient_data_in_absent_tables(c)
+    check_preserved_class_rows(c)
+    check_dropped_column_data(c)
+    check_required_tables(c)
+    check_identifier_class(c)
+    check_facility_and_clinic(c)
+    check_roles_and_assignments(c)
+    check_expired_logins(c)
+    check_prevention_types(c)
+    check_rich_text_letter(c)
+    check_removed_module_properties(c)
+    check_indicator_templates(c)
+    check_properties(c, properties, locked_notes)
+    check_text_encoding(c)
+    check_unknown_columns(c, schema_map)
+    record_inventory(c)
+    report_query_diagnostics(c)
+
+    verdict, exit_code, acknowledged, outstanding = preflight_verdict(
+        findings, accepted)
 
     return {
         "verdict": verdict,
