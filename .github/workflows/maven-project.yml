@@ -2,8 +2,10 @@
 #
 # Description:
 # This workflow automates the build and testing for the CARLOS EMR Maven project.
-# It uses a parallelized approach: build first, then run tests and JSP compilation
-# in parallel.
+# The build, tests and JSP-compilation jobs run as independent parallel jobs:
+# each compiles from a clean tree inside the dev container, so none of them
+# needs the others' output. The build job is the fail-fast signal and the only
+# job that saves the shared Maven dependency cache.
 #
 # Container Images:
 # Every Maven job starts the dev container through the local composite action
@@ -25,12 +27,12 @@
 #   - Runs `make install` to verify the project builds successfully
 #   - The only job that SAVES the Maven dependency cache (the others restore)
 #
-# - tests (parallel):
+# - tests (parallel, does not wait for build):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
 #   - Runs tests (JUnit 5) using H2 in-memory database
 #   - Does NOT require the database container
 #
-# - jspc (parallel):
+# - jspc (parallel, does not wait for build):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
 #   - Compiles all JSPs via the jspc Maven profile
 #   - Catches JSP syntax errors and EL/tag errors that do not surface at runtime
@@ -120,7 +122,9 @@ jobs:
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
 
   tests:
-    needs: build
+    # No dependency on the build job: make install --run-tests compiles from
+    # scratch itself, and the Maven cache it restores has a prefix fallback, so
+    # waiting for build only added its ~4.5 min to the critical path.
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -181,7 +185,7 @@ jobs:
       - name: Run Struts DTD validation
         run: bash scripts/lint/check-struts-dtd.sh
   jspc:
-    needs: build
+    # No dependency on the build job, for the same reason as the tests job.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
