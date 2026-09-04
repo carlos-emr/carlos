@@ -237,8 +237,9 @@ Rich Text Letter. The per-run files are retired with the same
 up, so a later import in the same directory starts its own: `report.txt`,
 `import-report.txt`, `import-report.json`, `etl-progress.json`,
 `preflight.txt`, `preflight.json`, the `*-details.txt`
-files, `privilege-diff.txt`, `o19-archive-export/` and
-`o19-derived-carlos.properties` (with its `.dry-run` twin). `admin-credentials.txt` is deliberately not among them; a
+files, `privilege-diff.txt`, `o19-archive-export/`,
+`o19-derived-carlos.properties` and its dry-run twin
+`o19-derived-carlos.properties.dry-run`. `admin-credentials.txt` is deliberately not among them; a
 previous run's copy is set aside as `admin-credentials.txt.previous-<stamp>`
 rather than overwritten.
 

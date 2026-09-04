@@ -327,9 +327,15 @@ Sign-off classes for
 .B archived-forms
 (patient data in removed modules becomes archive-only),
 .B unknown-as-archive
-(tables the manifest does not know are archived whole),
+(tables the manifest does not know are preserved whole, in
+.I o19_archive
+and as
+.BR import_archived_ <table>),
 .B dropped-columns
-(columns CARLOS dropped are shadow-captured),
+(columns CARLOS has no home for are preserved on the live table as
+.BR import_archived_ <column>,
+and shadow-captured to
+.IR o19_archive ),
 .B charset-repair
 (double-encoded text is repaired per row),
 .B olis-gone
