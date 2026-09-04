@@ -299,7 +299,14 @@ def source_expr(table_entry: dict, target_col: str,
     if target_col in ve:
         return ve[target_col]
     src = table_entry.get("renames", {}).get(target_col, target_col)
-    expr = "s.`{0}`".format(src)
+    # `ident`, not a bare backtick slot. Requirement B routes DUMP-SUPPLIED
+    # column names through `renames` (with_archived_columns), so this is
+    # one of the places a clinic's own fork can put a name into SQL. The
+    # pre-check at run_etl refuses anything outside [A-Za-z0-9_$] before
+    # the first write, and that gate still stands -- but this module's own
+    # rule is that every name reaching SQL from the staged dump is
+    # doubled here, and a second line of defence costs nothing.
+    expr = "s.{0}".format(ident(src))
     if repaired and target_col in repaired:
         expr = repair_expr(expr)
     parent = table_entry.get("fk_remap", {}).get(target_col)

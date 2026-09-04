@@ -393,5 +393,55 @@ class TestFragmentFile(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
 
 
+class TestTheReportCannotBeForged(unittest.TestCase):
+
+    """A clinic property key is attacker-influenced text that lands in
+    the operator's validation report.
+
+    `java.util.Properties` lets a key carry an escaped line break, and
+    `parse_properties_text` decodes it -- so a crafted oscar.properties
+    could write its own lines into `report.txt`, up to a plausible
+    `carry-secret (0):` heading that hides a real carried credential
+    from the reviewer. The fragment writer has escaped keys since it was
+    written; the report writer did not."""
+
+    def report(self, rows):
+        return o19props.render_report({
+            "rows": rows, "secrets": [], "advisories": {},
+            "unknown": [], "fragment": []})
+
+    def test_the_decoded_key_really_does_carry_a_line_break(self):
+        # the premise, asserted rather than assumed: without this the
+        # test below could pass because the parser rejected the key
+        # an unescaped space ends the key, so the injected heading is
+        # spelled without one -- the point stands either way: the key
+        # the parser hands back contains a real line break
+        parsed = o19props.parse_properties_text(
+            "real.key\\ncarry-secret\\: = v\n")
+        self.assertEqual(parsed[0][0], "real.key\ncarry-secret:")
+
+    def test_a_key_carrying_a_line_break_cannot_add_a_report_line(self):
+        forged = "real.key\ncarry-secret:"
+        body = self.report([(forged, "dropped-flag", "")])
+        self.assertIn("real.key\\ncarry-secret:", body)
+        self.assertEqual(
+            [ln for ln in body.splitlines()
+             if ln.startswith("carry-secret")], [],
+            "a clinic key forged a heading in the report:\n" + body)
+
+    def test_a_note_is_escaped_too(self):
+        body = self.report([("k", "dropped-flag", "a\nb")])
+        self.assertNotIn("\nb]", body)
+        self.assertIn("a\\nb", body)
+
+    def test_an_ordinary_key_is_rendered_unchanged(self):
+        body = self.report([("drugref.url", "carry", "")])
+        self.assertIn("drugref.url", body)
+        self.assertNotIn("\\", body)
+
+    def test_a_control_character_is_shown_as_an_escape(self):
+        self.assertEqual(o19props.report_safe("a\x07b"), "a\\u0007b")
+
+
 if __name__ == "__main__":
     unittest.main()

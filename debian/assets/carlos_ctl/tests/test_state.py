@@ -977,6 +977,49 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestDocumentsSizing(unittest.TestCase):
+
+    """`documents_expanded_size` sizes the disk check from the archive's
+    own headers.
+
+    It used to fall back to the file's COMPRESSED size when the archive
+    could not be read, which budgets a fraction of what a tree of PDFs
+    needs -- and bought nothing, because P5 reads the same headers
+    through the same function and dies on the same archive. Warning at
+    P0 and refusing at P5 spends the pre-import snapshot and the whole
+    staging restore before saying no."""
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp(prefix="o19size-")
+        self.addCleanup(shutil.rmtree, self.work)
+
+    def tar_of(self, sizes):
+        import tarfile
+        path = os.path.join(self.work, "documents.tar")
+        with tarfile.open(path, "w") as tf:
+            for i, size in enumerate(sizes):
+                member = os.path.join(self.work, "m{0}".format(i))
+                with open(member, "wb") as fh:
+                    fh.write(b"x" * size)
+                tf.add(member, arcname="documents/m{0}".format(i))
+        return path
+
+    def test_the_expanded_size_comes_from_the_headers(self):
+        path = self.tar_of([4096, 8192])
+        self.assertGreaterEqual(
+            o19import.documents_expanded_size(path), 4096 + 8192)
+
+    def test_an_unreadable_archive_is_refused_not_guessed(self):
+        path = os.path.join(self.work, "documents.tar.gz")
+        with open(path, "wb") as fh:
+            fh.write(b"not a gzip stream at all")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import.documents_expanded_size(path)
+        self.assertIn("cannot read the documents archive", err.getvalue())
+
+
 class TestRowParityComposition(unittest.TestCase):
 
     """`_row_parity` is the only place the three parities are composed,

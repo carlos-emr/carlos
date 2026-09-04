@@ -51,6 +51,7 @@ from __future__ import print_function
 import argparse
 import datetime
 import json
+import os
 import re
 import subprocess
 import sys
@@ -1966,6 +1967,25 @@ def render_text(report):
     return "\n".join(lines) + "\n"
 
 
+def write_private_json(path: str, report: dict) -> None:
+    """The machine report at 0600.
+
+    This is the one tool in the set that runs on the SOURCE OSCAR 19
+    server, as an ordinary user on a host the clinic still works on, so
+    "root-only anyway" is not the excuse it is inside the import's own
+    0700 workspace. The report's `data` carries the clinic's table
+    names, role names, dashboard indicator names and property keys; a
+    plain `open()` would leave it 0644 under the usual umask.
+
+    `fchmod` after the open, not the `os.open` mode: that mode applies
+    to a NEW file only, so re-running the assessment over an existing
+    report would keep whatever mode it already had."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=1, sort_keys=True)
+
+
 def main(argv=None):
     """Standalone entrypoint, run on the CLINIC's OSCAR 19 server before
     any bundle is built.
@@ -2058,8 +2078,7 @@ def main(argv=None):
                             province=args.province, accepted=args.accept)
         # the machine report first: a rendering problem must never cost it
         if args.json:
-            with open(args.json, "w") as fh:
-                json.dump(report, fh, indent=1, sort_keys=True)
+            write_private_json(args.json, report)
         text = render_text(report)
         # bytes, not str: a 2014-era Python under LANG=C would refuse any
         # non-ASCII character in a role or table name on the way out

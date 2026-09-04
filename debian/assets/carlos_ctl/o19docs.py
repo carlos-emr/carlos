@@ -16,11 +16,13 @@ clinic holds a readable copy that rides the normal backup.
 """
 
 import csv
+import errno
 import hashlib
 import html as html_module
 import os
 import re
 import shutil
+import tempfile
 import urllib.parse
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
@@ -318,6 +320,43 @@ def _same_file(src: str, dst: str) -> bool:
             and _sha256(src) == _sha256(dst))
 
 
+def _move_into_place(src: str, dst: str) -> None:
+    """Move `src` to `dst` without ever following a symlink at `dst`.
+
+    `shutil.move` calls `os.path.isdir(dst)` internally, and that
+    FOLLOWS a symlink: a directory symlink planted at `dst` between the
+    caller's `lexists` check and the move sends a root-owned subtree of
+    patient documents wherever it points. The destination tree is
+    writable by the service account, so the planter does not need root.
+
+    `os.rename` follows nothing -- it replaces a symlink rather than
+    walking through it, and refuses outright (ENOTDIR) when the source
+    is a directory and the destination is not one. The cross-device
+    fallback stages through a `mkstemp`/`mkdtemp` name in the
+    DESTINATION's own directory, which cannot be pre-planted because the
+    kernel picks it, and lands it with the same `os.rename`."""
+    try:
+        os.rename(src, dst)
+        return
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+    parent = os.path.dirname(dst) or "."
+    if os.path.isdir(src) and not os.path.islink(src):
+        staging = tempfile.mkdtemp(prefix=".o19-incoming-", dir=parent)
+        # copytree wants to create the destination itself
+        os.rmdir(staging)
+        shutil.copytree(src, staging, symlinks=True)
+        os.rename(staging, dst)
+        shutil.rmtree(src)
+    else:
+        fd, staging = tempfile.mkstemp(prefix=".o19-incoming-", dir=parent)
+        os.close(fd)
+        shutil.copy2(src, staging)
+        os.rename(staging, dst)
+        os.unlink(src)
+
+
 def _merge_entry(src: str, dst: str, resume: bool = False) -> int:
     """Move src into dst's place, merging directory into directory.
     Returns the number of leaf entries moved. Any file-level collision is
@@ -332,7 +371,7 @@ def _merge_entry(src: str, dst: str, resume: bool = False) -> int:
         # a whole subtree moves in one call: report what it actually
         # carried, not "1 entry" for a directory of thousands
         leaves = _count_leaves(src)
-        shutil.move(src, dst)
+        _move_into_place(src, dst)
         return leaves
     if os.path.isdir(src) and os.path.isdir(dst):
         moved = 0

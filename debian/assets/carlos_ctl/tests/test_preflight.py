@@ -12,6 +12,10 @@ Run (from debian/assets):
 
 import contextlib
 import io
+import json
+import os
+import shutil
+import tempfile
 import unittest
 
 from carlos_ctl import o19_preflight as pf
@@ -695,6 +699,41 @@ class TestReportContract(unittest.TestCase):
         self.assertNotEqual(pf.SCHEMA_MAP_VERSION, "unpopulated")
         self.assertTrue(pf.PATIENT_DATA_TABLES)
         self.assertTrue(pf.KNOWN_TABLES)
+
+
+class TestTheMachineReportIsPrivate(unittest.TestCase):
+
+    """`--json` is the one artifact this tool writes, and this tool is
+    the one in the set that runs on the SOURCE OSCAR 19 server, as an
+    ordinary user on a host the clinic still works on. "Root-only
+    anyway" is the import workspace's excuse, not this one's: the
+    report's `data` carries the clinic's table names, role names,
+    dashboard indicator names and property keys."""
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp(prefix="o19json-")
+        self.addCleanup(shutil.rmtree, self.work)
+
+    def test_the_json_report_is_written_0600(self):
+        path = os.path.join(self.work, "preflight.json")
+        pf.write_private_json(path, {"findings": []})
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
+    def test_rewriting_an_existing_report_tightens_its_mode(self):
+        # the mode passed to os.open applies to a NEW file only, so a
+        # re-run over a world-readable report left it that way
+        path = os.path.join(self.work, "preflight.json")
+        with open(path, "w") as fh:
+            fh.write("{}")
+        os.chmod(path, 0o644)
+        pf.write_private_json(path, {"findings": []})
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
+    def test_the_content_is_the_report(self):
+        path = os.path.join(self.work, "preflight.json")
+        pf.write_private_json(path, {"verdict": "GO", "n": 1})
+        with open(path) as fh:
+            self.assertEqual(json.load(fh), {"verdict": "GO", "n": 1})
 
 
 if __name__ == "__main__":

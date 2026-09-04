@@ -272,6 +272,65 @@ class TestImageRefs(unittest.TestCase):
         self.assertEqual(o19docs.image_refs(html), ["logo.png", "sig.jpg"])
 
 
+class TestMoveIntoPlace(unittest.TestCase):
+
+    """`_move_into_place` on its own, because the merge cannot reach the
+    case that matters.
+
+    `merge_move`'s pre-scan refuses a symlink that is ALREADY at the
+    destination, so a functional test of the merge passes whether or not
+    the move itself is safe -- the first version of this test did
+    exactly that, and survived reverting the fix. The hazard is a
+    symlink planted in the window between `_merge_entry`'s `lexists`
+    check and the move, which only a direct call can stage.
+    """
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp(prefix="o19move-")
+        self.addCleanup(shutil.rmtree, self.work)
+        self.src = os.path.join(self.work, "src")
+        self.elsewhere = os.path.join(self.work, "attacker")
+        os.makedirs(self.elsewhere)
+
+    def test_a_directory_is_not_moved_through_a_planted_symlink(self):
+        os.makedirs(self.src)
+        with open(os.path.join(self.src, "a.pdf"), "w") as fh:
+            fh.write("phi")
+        dst = os.path.join(self.work, "dst")
+        os.symlink(self.elsewhere, dst)     # the planted symlink
+        with self.assertRaises(OSError):
+            o19docs._move_into_place(self.src, dst)
+        self.assertEqual(
+            os.listdir(self.elsewhere), [],
+            "a patient document subtree was written through a symlink")
+
+    def test_a_file_replaces_the_symlink_rather_than_writing_through_it(
+            self):
+        with open(self.src, "w") as fh:
+            fh.write("phi")
+        target = os.path.join(self.elsewhere, "victim")
+        with open(target, "w") as fh:
+            fh.write("original")
+        dst = os.path.join(self.work, "dst")
+        os.symlink(target, dst)
+        o19docs._move_into_place(self.src, dst)
+        self.assertFalse(os.path.islink(dst))
+        with open(target) as fh:
+            self.assertEqual(fh.read(), "original",
+                             "the move wrote through the symlink")
+        with open(dst) as fh:
+            self.assertEqual(fh.read(), "phi")
+
+    def test_an_ordinary_directory_move_still_works(self):
+        os.makedirs(self.src)
+        with open(os.path.join(self.src, "a.pdf"), "w") as fh:
+            fh.write("phi")
+        dst = os.path.join(self.work, "dst")
+        o19docs._move_into_place(self.src, dst)
+        self.assertTrue(os.path.isfile(os.path.join(dst, "a.pdf")))
+        self.assertFalse(os.path.exists(self.src))
+
+
 class TestMergeMove(unittest.TestCase):
 
     """Merging the clinic's tree into the CARLOS document root.
@@ -299,6 +358,14 @@ class TestMergeMove(unittest.TestCase):
 
     def test_empty_skeleton_dirs_are_replaced(self):
         os.makedirs(os.path.join(self.dst, "document"))
+        o19docs.merge_move(self.src, self.dst)
+        self.assertTrue(os.path.isfile(
+            os.path.join(self.dst, "document", "a.pdf")))
+
+    def test_a_plain_move_still_lands(self):
+        # the symlink-safe move must not turn the ordinary case into a
+        # refusal; `_move_into_place` is what carries this
+        os.makedirs(self.dst)
         o19docs.merge_move(self.src, self.dst)
         self.assertTrue(os.path.isfile(
             os.path.join(self.dst, "document", "a.pdf")))

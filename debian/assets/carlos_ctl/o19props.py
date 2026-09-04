@@ -208,6 +208,27 @@ def escape_property_key(key: str) -> str:
     return out
 
 
+def report_safe(text: str) -> str:
+    """A clinic-supplied key or note rendered so it cannot forge lines.
+
+    `render_report` writes key NAMES into `report.txt` and, through it,
+    into the operator's validation report. A java.util.Properties key
+    may carry an escaped line break, and `parse_properties_text` decodes
+    it -- so a crafted oscar.properties could write its own lines into
+    the report, up to and including a plausible `carry-secret (0):`
+    heading that hides a real carried credential from the reviewer. The
+    report is the artifact a human uses to decide the migration is
+    sound; forging it is not cosmetic.
+
+    Control characters become their Java escapes, the way the fragment
+    already renders them, so the reader still sees what the key was."""
+    out = (text.replace("\\", "\\\\").replace("\n", "\\n")
+           .replace("\r", "\\r").replace("\t", "\\t")
+           .replace("\f", "\\f"))
+    return "".join(c if c.isprintable() or c == " "
+                   else "\\u{0:04x}".format(ord(c)) for c in out)
+
+
 def load_clinic_properties(path: str) -> List[Tuple[str, str]]:
     """Ordered active key=value pairs of a deployed oscar.properties
     (see parse_properties_text for the java.util.Properties semantics)."""
@@ -381,7 +402,9 @@ def render_report(result: dict) -> str:
         if key in secret_set:
             display = note  # note carries no value; values masked below
         by_d.setdefault(d, []).append(
-            "{0}{1}".format(key, ("  [" + display + "]") if display else ""))
+            "{0}{1}".format(report_safe(key),
+                            ("  [" + report_safe(display) + "]")
+                            if display else ""))
     for d in ("carry", "carry-secret", "translate", "deploy-owned",
               "dropped-flag", "refused-invalid", "needs-review", "unknown"):
         if d not in by_d:

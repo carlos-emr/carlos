@@ -557,9 +557,19 @@ def documents_expanded_size(tar_path: str) -> int:
         entries = o19bundle.read_tar_entries(tar_path,
                                              tar_path.endswith(".gz"))
     except o19bundle.ARCHIVE_ERRORS as exc:
-        warn("cannot read the documents archive ({0}); using its file size "
-             "for the disk check".format(str(exc)[:200]))
-        return os.path.getsize(tar_path)
+        # Refuse here rather than guess. Falling back to the COMPRESSED
+        # size budgets a fraction of what a tree of PDFs needs, and the
+        # guess buys nothing anyway: P5 reads the same headers through
+        # the same function and dies outright on the same archive
+        # (o19docs.run_docs, "cannot read documents tar"). Warning now
+        # and refusing later spends the pre-import snapshot and the whole
+        # staging restore before saying no -- the same reason the
+        # charset-mojibake finding is a blocker and not an advisory.
+        die("cannot read the documents archive ({0}). The documents "
+            "phase reads the same headers and refuses the same file, so "
+            "this import cannot finish: re-export the documents tar "
+            "(GNU tar, no sparse members) and try again."
+            .format(str(exc)[:200]))
     return max(o19bundle.entries_size(entries), os.path.getsize(tar_path))
 
 
