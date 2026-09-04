@@ -827,6 +827,94 @@ def _end_to_end_body(client: Client, mysql_args: List[str], clinic: str,
     return failures
 
 
+def check_preserved_copy(client: Client, src: str, arch: str) -> List[str]:
+    """The premise `preserved_content_parity` rests on, run rather than
+    assumed.
+
+    That check compares a staging table against its preserved copies by
+    DIGEST and treats any difference in column list, order or type as a
+    finding. That is only reasonable if `o19etl.archive_statements` --
+    `CREATE TABLE ... LIKE` plus `INSERT ... SELECT *` -- really does
+    produce an identical shape holding identical values, for the awkward
+    columns too: a latin1 text column copied into a schema whose default
+    charset is utf8mb4, a BLOB, a BIT, a zero date. If it did not, the
+    check would false-alarm on every clinic, which is worse than not
+    having it.
+    """
+    try:
+        return _preserved_copy_body(client, src, arch)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(src, arch))
+
+
+def _preserved_copy_body(client: Client, src: str, arch: str) -> List[str]:
+    """The checks themselves; the caller owns the teardown."""
+    failures: List[str] = []
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=latin1;".format(src))
+    # the archive schema is created without a charset, so it takes the
+    # SERVER's default (utf8mb4 here) -- which is the case that would
+    # break a shape or value comparison if CREATE TABLE ... LIKE did not
+    # carry the source table's own charset across
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+                 .format(arch))
+    client.setup(DIGEST_DDL + " DEFAULT CHARSET=latin1;", src)
+    client.setup("INSERT INTO t VALUES {0};".format(
+        ", ".join(DIGEST_ROWS)), src)
+
+    print("\n  preserved copy (archive_statements)")
+    for stmt in o19etl.archive_statements("t", src, arch):
+        client.setup(stmt + ";", arch)
+
+    cols = [c for c, _t in DIGEST_COLUMNS]
+    types = dict(DIGEST_COLUMNS)
+    before = _digest_of(client, src,
+                        o19digest.digest_sql(src, "t", cols, types))
+    after = _digest_of(client, arch,
+                       o19digest.digest_sql(arch, "t", cols, types))
+    ok = before == after
+    print("    {0:<44} {1}".format(
+        "the archive copy is value-for-value equal",
+        "ok" if ok else "MISMATCH"))
+    if not ok:
+        failures.append(
+            "archive_statements produced a copy that does not digest "
+            "equal to its source ({0} vs {1}) -- preserved_content_"
+            "parity would false-alarm on every clinic".format(before,
+                                                              after))
+
+    shape = _column_shape(client, src, "t"), _column_shape(client, arch, "t")
+    same_shape = shape[0] == shape[1]
+    print("    {0:<44} {1}".format(
+        "and identical in column list, order and type",
+        "ok" if same_shape else "MISMATCH"))
+    if not same_shape:
+        failures.append(
+            "CREATE TABLE ... LIKE did not reproduce the source shape: "
+            "{0} vs {1}".format(shape[0], shape[1]))
+
+    client.setup("UPDATE t SET name = 'Sante' WHERE id = 1;", arch)
+    caught = _digest_of(client, arch,
+                        o19digest.digest_sql(arch, "t", cols, types)) != before
+    print("    {0:<44} {1}".format(
+        "a corrupted archive copy is caught",
+        "caught" if caught else "MISSED"))
+    if not caught:
+        failures.append("a changed value in the archive copy was not "
+                        "caught by the digest")
+    return failures
+
+
+def _column_shape(client: Client, db: str, table: str) -> List[List[str]]:
+    """(column, DATA_TYPE, COLUMN_TYPE, charset) in ordinal order."""
+    return client.rows(
+        "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, "
+        "IFNULL(CHARACTER_SET_NAME, '-') FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = '{0}' AND TABLE_NAME = '{1}' "
+        "ORDER BY ORDINAL_POSITION".format(db, table), db)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -887,6 +975,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                                       args.prefix + "_e2s")
     if chain:
         failures["end-to-end transfer"] = chain
+    preserved = check_preserved_copy(client, args.prefix + "_pvs",
+                                     args.prefix + "_pva")
+    if preserved:
+        failures["preserved copy"] = preserved
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
@@ -902,7 +994,8 @@ def main(argv: Optional[List[str]] = None) -> int:
           "latin1/utf8mb4 while catching every change put to it, and the "
           "whole P2 chain (clinic digest -> mysqldump -> restore -> "
           "compare) verifies a faithful transfer and refuses a damaged "
-          "one")
+          "one, and the preserved copies really are value-for-value "
+          "equal to their source")
     return 0
 
 

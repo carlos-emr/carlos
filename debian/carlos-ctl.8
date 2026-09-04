@@ -369,8 +369,12 @@ clinic took before the dump \(em a broken dump, transfer or restore,
 not a migration decision),
 .B no-content-digests
 (the transfer's content could not be fully verified, usually because no
-digest document was shipped; row counts still are). Every class is
-recorded in the report and survives \-\-resume.
+digest document was shipped; row counts still are),
+.B content-migration
+(a preserved copy holds the right NUMBER of rows but not the same
+values \(em about what the ETL did, where content-transfer is about the
+dump and the restore). Every class is recorded in the report and
+survives \-\-resume.
 .RE
 .TP
 .B o19-preflight (experimental)

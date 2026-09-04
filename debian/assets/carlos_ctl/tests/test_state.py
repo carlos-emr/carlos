@@ -1145,15 +1145,45 @@ class TestRowParityComposition(unittest.TestCase):
     ARCHIVE_TABLE = next(t for t, e in o19map_schema.TABLES.items()
                          if e["class"] == "archive")
 
-    def db(self, staging, archive, live, columns, nonnull=None):
-        """A fake answering the three shapes the parities ask for:
-        information_schema columns, information_schema table names, and
-        COUNT(*) (with or without an IS NOT NULL predicate)."""
+    def db(self, staging, archive, live, columns, nonnull=None,
+           content=None, digest_errors=None):
+        """A fake answering the four shapes the parities ask for:
+        information_schema columns (ordered and unordered),
+        information_schema table names, COUNT(*) (with or without an
+        IS NOT NULL predicate), and the content digest.
+
+        A digest answers `(rows, marker, marker)` where the marker is
+        the table's `content` key, defaulting to its row count: two sides
+        holding the same number of rows therefore digest EQUAL unless a
+        test says they differ, which is what a faithful copy looks
+        like."""
         nonnull = nonnull or {}
+        content = content or {}
+        digest_errors = set(digest_errors or ())
         rows = {"o19_import": staging, "o19_archive": archive,
                 "carlos": live}
 
         def query(sql, db=None):
+            if "SHA2(" in sql:
+                m = re.search(r"FROM `([^`]+)`\.`([^`]+)`", sql)
+                schema, table = m.group(1), m.group(2)
+                if (schema, table) in digest_errors:
+                    raise RuntimeError(
+                        "banner\nERROR 1142: SELECT command denied")
+                n = rows.get(schema, {}).get(table, 0)
+                mark = content.get((schema, table), n)
+                return [[str(n), str(mark), str(mark)]]
+            # `ordered_columns` and `introspect_columns` BOTH start
+            # "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE"; only the
+            # former asks for an order, and answering the latter with a
+            # three-column row silently empties every column-level check
+            if "ORDER BY TABLE_NAME, ORDINAL_POSITION" in sql:
+                schema = re.search(r"TABLE_SCHEMA = '([^']+)'",
+                                   sql).group(1)
+                return [[t, c, "varchar"]
+                        for t, cols in sorted(
+                            columns.get(schema, {}).items())
+                        for c in cols]
             if sql.startswith("SELECT TABLE_NAME, COLUMN_NAME"):
                 schema = re.search(r"TABLE_SCHEMA = '([^']+)'",
                                    sql).group(1)
@@ -1204,8 +1234,12 @@ class TestRowParityComposition(unittest.TestCase):
             staging={"clinic_fork": 5}, archive={"clinic_fork": 5},
             live={"import_archived_clinic_fork": 5},
             columns={"o19_import": {"clinic_fork": ["id", "note"]},
+                     # the preserved copies are faithful; the finding is
+                     # about the COLUMN on the live table
+                     "o19_archive": {"clinic_fork": ["id", "note"]},
                      "carlos": {"clinic_fork": [
-                         "id", "import_archived_note"]}},
+                         "id", "import_archived_note"],
+                         "import_archived_clinic_fork": ["id", "note"]}},
             nonnull={("o19_import", "clinic_fork", "note"): 5})
         ok, bad = o19import._row_parity(self.ctx(query))
         self.assertTrue(
@@ -1220,10 +1254,89 @@ class TestRowParityComposition(unittest.TestCase):
             archive={self.ARCHIVE_TABLE: 12},
             live={o19etl.archived_table(self.ARCHIVE_TABLE): 12},
             columns={"o19_import": {self.ARCHIVE_TABLE: ["id"]},
-                     "carlos": {}})
+                     "o19_archive": {self.ARCHIVE_TABLE: ["id"]},
+                     "carlos": {o19etl.archived_table(
+                         self.ARCHIVE_TABLE): ["id"]}})
         ok, bad = o19import._row_parity(self.ctx(query))
         self.assertEqual(bad, [])
         self.assertTrue(ok)
+
+    def sound(self, **over):
+        """The sound-import fixture, with one thing changed."""
+        kw = dict(
+            staging={self.ARCHIVE_TABLE: 12},
+            archive={self.ARCHIVE_TABLE: 12},
+            live={o19etl.archived_table(self.ARCHIVE_TABLE): 12},
+            columns={"o19_import": {self.ARCHIVE_TABLE: ["id"]},
+                     "o19_archive": {self.ARCHIVE_TABLE: ["id"]},
+                     "carlos": {o19etl.archived_table(
+                         self.ARCHIVE_TABLE): ["id"]}})
+        kw.update(over)
+        return self.db(**kw)
+
+    def test_a_preserved_copy_with_the_right_count_but_wrong_values(self):
+        """What the three COUNT-based parities cannot see. Every row is
+        there and every count agrees; only the values differ."""
+        query = self.sound(content={("o19_archive", self.ARCHIVE_TABLE): 99})
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(any("CONTENT differs" in line for line in bad), bad)
+
+    def test_the_live_archived_twin_is_checked_too(self):
+        twin = o19etl.archived_table(self.ARCHIVE_TABLE)
+        query = self.sound(content={("carlos", twin): 99})
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(any("CONTENT differs" in line for line in bad), bad)
+
+    def test_a_copy_built_with_different_columns_is_reported(self):
+        # CREATE TABLE ... LIKE makes these identical by construction, so
+        # a difference means the copy was not built the way the ETL
+        # builds it -- a finding, not a reason to compare anyway
+        query = self.sound(columns={
+            "o19_import": {self.ARCHIVE_TABLE: ["id", "note"]},
+            "o19_archive": {self.ARCHIVE_TABLE: ["id"]},
+            "carlos": {o19etl.archived_table(
+                self.ARCHIVE_TABLE): ["id", "note"]}})
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(any("column(s) where staging has" in line
+                            for line in bad), bad)
+
+    def test_a_home_that_cannot_be_digested_is_a_mismatch(self):
+        """Fail closed: a preserved copy nobody could measure is not a
+        preserved copy that agreed."""
+        twin = o19etl.archived_table(self.ARCHIVE_TABLE)
+        query = self.sound(digest_errors=[("carlos", twin)])
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(any("could not be digested" in line
+                            for line in bad), bad)
+        # and only the last line of the client's error, not its banner
+        self.assertTrue(any("ERROR 1142" in line and "banner" not in line
+                            for line in bad), bad)
+
+    def test_staging_that_cannot_be_digested_is_a_mismatch(self):
+        query = self.sound(
+            digest_errors=[("o19_import", self.ARCHIVE_TABLE)])
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(any("staging could not be digested" in line
+                            for line in bad), bad)
+
+    def test_the_content_mismatch_is_cleared_by_its_own_sign_off(self):
+        query = self.sound(content={("o19_archive", self.ARCHIVE_TABLE): 99})
+        ctx = self.ctx(query)
+        ctx["accepted"] = ["content-migration"]
+        with contextlib.redirect_stderr(io.StringIO()):
+            ok, bad = o19import._row_parity(ctx)
+        self.assertEqual(bad, [])
+        self.assertTrue(any("ACKNOWLEDGED" in line for line in ok), ok)
+
+    def test_the_transfer_sign_off_does_not_clear_a_migration_mismatch(
+            self):
+        # content-transfer is about the dump and the restore; this one is
+        # about what the ETL did afterwards
+        query = self.sound(content={("o19_archive", self.ARCHIVE_TABLE): 99})
+        ctx = self.ctx(query)
+        ctx["accepted"] = ["content-transfer"]
+        ok, bad = o19import._row_parity(ctx)
+        self.assertTrue(bad)
 
 
 class TestVerifyPhaseFiles(unittest.TestCase):

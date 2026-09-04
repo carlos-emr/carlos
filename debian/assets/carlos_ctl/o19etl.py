@@ -34,7 +34,7 @@ import re
 import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from . import o19map_schema
+from . import o19digest, o19map_schema
 from .util import sql_escape, warn
 
 # a copy is windowed over the id RANGE, so a sparse id space costs
@@ -2806,6 +2806,133 @@ PRESERVED_CLASSES = ("archive", "drop", "reference")
 #: its other columns would otherwise exist nowhere once staging is
 #: dropped.
 ARCHIVE_ONLY_CLASSES = ("reference", "merge")
+
+
+def ordered_columns(plain_query, schema: str
+                    ) -> Dict[str, List[Tuple[str, str]]]:
+    """`{table: [(column, DATA_TYPE)]}` in ORDINAL_POSITION order.
+
+    Separate from `introspect_columns`, which builds a dict per table and
+    so cannot promise an order. Column ORDER is part of a content digest:
+    two sides hashing the same columns in different sequences are not
+    comparing the same thing, and would disagree on a faithful copy."""
+    out: Dict[str, List[Tuple[str, str]]] = {}
+    for row in plain_query(
+            "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM "
+            "information_schema.COLUMNS WHERE TABLE_SCHEMA = '{0}' "
+            "ORDER BY TABLE_NAME, ORDINAL_POSITION".format(schema)):
+        if len(row) >= 3 and row[0]:
+            out.setdefault(row[0], []).append((row[1], row[2]))
+    return out
+
+
+def preserved_content_parity(plain_query, src_schema: str, dst_schema: str,
+                             archive_schema: str
+                             ) -> Tuple[List[str], List[str]]:
+    """(ok_lines, mismatch_lines) proving each preserved table arrived
+    with the same VALUES, not merely the same number of rows.
+
+    `preserved_parity` counts. A copy that moved the right NUMBER of rows
+    with the wrong values passes it, and until this existed nothing in
+    the import could tell the two apart. The preserved copies are the
+    easiest place to say so exactly: `archive_statements` builds each one
+    with `CREATE TABLE ... LIKE` and `INSERT ... SELECT *`, so both sides
+    carry identical columns in identical order with identical types, and
+    the claim is plain equality -- no transform, no tolerance, nothing to
+    model.
+
+    An EMPTY staging table is digested too, which `preserved_parity`
+    skips: a preserved copy holding rows the clinic never had is as much
+    a fault as one missing them, and the count-only check cannot see it
+    because it stops at "nothing to lose".
+    """
+    ok, bad = [], []
+    src_tables = schema_tables(plain_query, src_schema)
+    arch_tables = schema_tables(plain_query, archive_schema)
+    dst_tables = schema_tables(plain_query, dst_schema)
+    columns = {
+        src_schema: ordered_columns(plain_query, src_schema),
+        archive_schema: ordered_columns(plain_query, archive_schema),
+        dst_schema: ordered_columns(plain_query, dst_schema),
+    }
+
+    def digest(schema: str, table: str, spec: Sequence[Tuple[str, str]]
+               ) -> o19digest.Digest:
+        return o19digest.Digest.from_row(plain_query(o19digest.digest_sql(
+            schema, table, [c for c, _t in spec], dict(spec)))[0])
+
+    for table in sorted(src_tables):
+        entry = o19map_schema.TABLES.get(table)
+        cls = entry["class"] if entry else "unknown"
+        if entry and cls not in PRESERVED_CLASSES + ("merge",):
+            continue        # copy: row_parity's business
+        spec = columns[src_schema].get(table)
+        if not spec:
+            continue        # a table with no columns cannot be hashed
+        homes = [(archive_schema, table, arch_tables)]
+        if cls not in ARCHIVE_ONLY_CLASSES:
+            homes.append((dst_schema, archived_table(table), dst_tables))
+        homes = [(schema, name, present) for schema, name, present in homes
+                 if name in present]
+        if not homes:
+            continue        # preserved_parity owns "there is no copy"
+        try:
+            expected = digest(src_schema, table, spec)
+        except Exception as exc:                      # noqa: BLE001
+            bad.append("{0}: staging could not be digested ({1})".format(
+                table, _query_reason(exc)))
+            continue
+        for schema, name, _present in homes:
+            shape = _shape_difference(spec, columns[schema].get(name) or [])
+            if shape:
+                bad.append("{0}: {1}.{2} {3}".format(table, schema, name,
+                                                     shape))
+                continue
+            try:
+                actual = digest(schema, name, spec)
+            except Exception as exc:                  # noqa: BLE001
+                bad.append("{0}: {1}.{2} could not be digested ({3})"
+                           .format(table, schema, name,
+                                   _query_reason(exc)))
+                continue
+            problems = o19digest.compare(
+                "{0}.{1}".format(schema, name), expected, actual)
+            if problems:
+                bad.append("{0}: {1}".format(table, problems[0]))
+            else:
+                ok.append("{0} ({1}): {2}.{3} holds the same {4} row(s), "
+                          "value for value".format(table, cls, schema,
+                                                   name, expected.rows))
+    return ok, bad
+
+
+def _query_reason(exc: Exception) -> str:
+    """The last line of a failed query's error, and nothing else: the
+    statement itself may name a clinic's table and is already in the
+    caller's message."""
+    text = str(exc).strip()
+    return text.splitlines()[-1] if text else "no reason given"
+
+
+def _shape_difference(expected: Sequence[Tuple[str, str]],
+                      actual: Sequence[Tuple[str, str]]) -> Optional[str]:
+    """Why two column lists cannot be digested against each other, or
+    None.
+
+    `CREATE TABLE ... LIKE` makes these identical by construction, so any
+    difference here means the copy was not built the way the ETL builds
+    it -- which is a finding, not a reason to compare anyway."""
+    if len(expected) != len(actual):
+        return ("has {0} column(s) where staging has {1}"
+                .format(len(actual), len(expected)))
+    for (want_c, want_t), (got_c, got_t) in zip(expected, actual):
+        if want_c != got_c:
+            return ("has `{0}` where staging has `{1}` (column order "
+                    "differs)".format(got_c, want_c))
+        if (want_t or "").lower() != (got_t or "").lower():
+            return ("column `{0}` is {1} where staging has {2}"
+                    .format(got_c, got_t, want_t))
+    return None
 
 
 def preserved_parity(plain_query, src_schema: str, dst_schema: str,

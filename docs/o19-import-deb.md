@@ -169,7 +169,7 @@ the server must have no replicas attached: the import's binlog-off bulk copy
 is not replica-safe, and a server with replicas is refused.
 
 Every blocker is cleared by one explicit `--accept` class, recorded in the
-report as the clinic's sign-off. There are eleven:
+report as the clinic's sign-off. There are twelve:
 
 | class | what it acknowledges |
 |---|---|
@@ -184,6 +184,7 @@ report as the clinic's sign-off. There are eleven:
 | `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
 | `content-transfer` | the restored staging schema does not match the content digests the clinic took before the dump |
 | `no-content-digests` | the transfer's content could not be fully verified (usually: no content digests were shipped) |
+| `content-migration` | a preserved copy holds the right number of rows but not the same values |
 
 The assessment can evaluate only six of them (`archived-forms`,
 `unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`,
@@ -224,10 +225,12 @@ table as `import_archived_<column>` with the source type and every row,
 and is shadow-captured to `o19_archive` as well. Tables the manifest
 classifies `reference` keep the CARLOS seed in the live table; the
 clinic's rows go to `o19_archive.<table>`, where a locally curated code
-can still be found. The verification counts all of it before it passes
-(the preflight sweeps the archive-class, patient-data and
-removed-module tables, the last as an advisory naming each one that holds
-rows).
+can still be found. The verification counts all of it before it passes,
+and then digests it: every preserved copy must hold the same **values**
+as staging, not merely the same number of rows (a mismatch is a blocker
+cleared only by `--accept content-migration`). The preflight sweeps the
+archive-class, patient-data and removed-module tables, the last as an
+advisory naming each one that holds rows.
 
 What the import does with credentials: every clinic login keeps working
 (legacy password hashes upgrade to bcrypt on first login) but **all users
@@ -426,7 +429,9 @@ gate has no override.
 CARLOS has no home for some of what an OSCAR 19 database holds: modules it
 removed, tables a clinic's own fork added, columns that no longer exist.
 None of it is discarded. Every such table and column is preserved in two
-places, and the verification counts both before it passes:
+places, and the verification counts both before it passes — then compares
+each copy against staging by content digest, so a copy with the right
+number of rows but the wrong values fails too:
 
 | what | where it lands |
 |---|---|

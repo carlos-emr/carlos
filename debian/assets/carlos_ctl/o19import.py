@@ -67,6 +67,12 @@ ACCEPT_CLASSES = (
     # measured; the second says nobody measured. Accepting one must
     # never quietly accept the other.
     "content-transfer", "no-content-digests",
+    # P7's counterpart: the preserved copies hold the right NUMBER of
+    # rows but not the same values. Distinct from `content-transfer`,
+    # which is about the dump and the restore -- this one is about what
+    # the ETL did afterwards, and an operator who accepted one has not
+    # seen the other.
+    "content-migration",
 )
 
 #: the run's own copy of the clinic's content digests: P2 measures the
@@ -1679,11 +1685,28 @@ def _row_parity(ctx):
         pruned_property_keys=o19_preflight.DROPPED_PROP_KEYS)
     kept_ok, kept_bad = o19etl.preserved_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive)
+    # the same tables again, by VALUE this time: the three parity checks
+    # above all COUNT, and a copy that moved the right number of rows
+    # with the wrong values passes every one of them
+    content_ok, content_bad = o19etl.preserved_content_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive)
+    if content_bad and "content-migration" in (ctx.get("accepted") or ()):
+        # a recorded sign-off: the operator was shown the mismatches and
+        # accepted them, so they stay in the report as findings but no
+        # longer fail the phase
+        warn("{0} preserved table(s) differ in CONTENT from staging — "
+             "acknowledged (--accept content-migration)"
+             .format(len(content_bad)))
+        content_ok = content_ok + [
+            "ACKNOWLEDGED (--accept content-migration): " + line
+            for line in content_bad]
+        content_bad = []
     col_ok, col_bad = o19etl.archived_column_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"],
         pruned_property_prefixes=o19_preflight.DROPPED_PROP_PREFIXES,
         pruned_property_keys=o19_preflight.DROPPED_PROP_KEYS)
-    return ok + kept_ok + col_ok, bad + kept_bad + col_bad
+    return (ok + kept_ok + col_ok + content_ok,
+            bad + kept_bad + col_bad + content_bad)
 
 
 def run_p4(ctx) -> None:
@@ -1890,7 +1913,8 @@ def run_p7(ctx) -> None:
     lines: List[str] = []
 
     ok, bad = _row_parity(ctx)
-    lines.append("row parity: {0} table(s) match".format(len(ok)))
+    lines.append("row parity and preserved content: {0} check(s) pass"
+                 .format(len(ok)))
     problems.extend(bad)
 
     # referential spot checks: random patients joined across the chart.
