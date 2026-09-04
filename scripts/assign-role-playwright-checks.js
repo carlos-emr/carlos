@@ -46,6 +46,7 @@
  *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ASSIGN_ROLE_SCREENSHOT_DIR=/tmp/carlos-assign-role-playwright
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  */
 const assert = require('assert');
 const { chromium } = require('playwright');
@@ -54,13 +55,88 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { buildArtifactPath } = require('./eform-local-playwright-utils');
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'db', 'carlos']);
+
+/*
+ * Hosts that are unambiguously this machine or its private compose network.
+ * Deliberately narrower than isLocalHost: the database target keys off this,
+ * because this check WRITES a provider row and an `admin` role grant.
+ */
+const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
+
+function normalizeHost(rawHost) {
+  return rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+}
+
+/*
+ * Match four numeric octets, not a `10.`-style prefix: a bare prefix test also
+ * accepts DNS names such as `10.attacker.example`, which would slip past the
+ * non-local opt-in and receive a real login.
+ */
+function isPrivateIpv4(host) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) {
+    return false;
+  }
+  const octets = match.slice(1).map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return false;
+  }
+  const [a, b] = octets;
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+function isLocalHost(rawHost) {
+  const host = normalizeHost(rawHost);
+  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+}
+
+function isExactLocalHost(rawHost) {
+  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
+}
+
+function validateBaseUrl(rawBaseUrl) {
+  const parsed = new URL(rawBaseUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
+  // Credentials in the URL would travel into Playwright navigations and can
+  // surface in request or failure logging, so reject them outright.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
+  if (!isLocalHost(parsed.hostname) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  // This script logs in with real credentials, so anything that is not plainly
+  // loopback has to prove its certificate.
+  if (!isExactLocalHost(parsed.hostname) && parsed.protocol !== 'https:') {
+    throw new Error(`Non-loopback BASE_URL host ${parsed.hostname} must use https`);
+  }
+  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  return parsed;
+}
+
+/*
+ * The database target is gated harder than the browsing target: this check
+ * seeds a provider and grants it the installation-wide administrator role, so
+ * an exported MYSQL_HOST must never reach a shared or production schema.
+ */
+function validateMysqlHost(rawHost) {
+  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing to seed a provider and an admin role grant into non-local MYSQL_HOST ${rawHost}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database`);
+  }
+  return rawHost;
+}
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -74,23 +150,14 @@ const SUPER_ROOT_ROLE = process.env.ASSIGN_ROLE_SUPER_ROOT || 'admin';
 let mysqlDefaults = null;
 const results = [];
 
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
-function appUrl(suffix) {
-  return `${baseUrl.origin}${baseUrl.pathname}${suffix}`;
+/*
+ * Playwright resolves these against the context baseURL set in run(). Passing
+ * the composed absolute URL into goto() instead would route an environment
+ * value straight into the navigation sink.
+ */
+function playwrightBaseUrl() {
+  return `${baseUrl.origin}${baseUrl.pathname.replace(/\/$/, '')}/`;
 }
 
 function createMysqlDefaultsFile() {
@@ -115,15 +182,45 @@ function cleanupMysqlDefaultsFile() {
   }
 }
 
+/*
+ * execFileSync's own message embeds the whole command line and the failing
+ * statement, so never surface it raw. Take only the ERROR line, drop the
+ * fragment mysql quotes back in "near '...'", mask digit runs (fixture provider
+ * numbers), and cap the length.
+ */
+function describeMysqlFailure(error) {
+  const errorLine = String(error.stderr || '')
+    .split('\n')
+    .find((line) => line.startsWith('ERROR '));
+  if (!errorLine) {
+    return `mysql exited with status ${error.status}`;
+  }
+  return errorLine
+    .replace(/ near '.*$/, ' near <redacted>')
+    .replace(/\d{3,}/g, '###')
+    .slice(0, 200);
+}
+
 function sql(query) {
   assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
-  return execFileSync('mysql', [
-    `--defaults-extra-file=${mysqlDefaults.file}`,
-    '-h', mysqlHost,
-    '-u', mysqlUser,
-    mysqlDatabase,
-    '-N', '-B', '-e', query,
-  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: mysqlTimeoutMs }).trim();
+  try {
+    return execFileSync('mysql', [
+      `--defaults-extra-file=${mysqlDefaults.file}`,
+      '-h', mysqlHost,
+      '-u', mysqlUser,
+      mysqlDatabase,
+      '-N', '-B', '-e', query,
+      // Without a timeout an unreachable host blocks forever, and the signal
+      // handler calls straight back into here — an interrupted run would hang
+      // while trying to remove its own seeded rows.
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: mysqlTimeoutMs }).trim();
+  } catch (error) {
+    throw new Error(`mysql command failed: ${describeMysqlFailure(error)}`);
+  }
+}
+
+function escapeSql(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
 }
 
 function check(name, ok, detail) {
@@ -132,12 +229,11 @@ function check(name, ok, detail) {
 }
 
 function shot(name) {
-  assert(/^[0-9a-z-]+$/.test(name), `Invalid screenshot name: ${name}`);
-  return path.join(screenshotDir, `${name}.png`);
+  return buildArtifactPath(screenshotDir, name);
 }
 
 async function login(page) {
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto('./', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   await page.locator('#pin').fill(testPin);
@@ -147,7 +243,7 @@ async function login(page) {
 
 async function roleOptions(page, keyword) {
   const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
-  await page.goto(appUrl(`/admin/ProviderRole${query}`), { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(`./admin/ProviderRole${query}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const select = page.locator('select[name="roleNew"]').first();
   await select.waitFor({ state: 'attached', timeout: 60000 });
   return select.locator('option').evaluateAll((options) => options.map((option) => option.value));
@@ -158,7 +254,7 @@ function seedProvider(providerNo, lastName) {
   // columns every CARLOS table carries), so a bare column list fails on insert.
   sql(`INSERT INTO provider (provider_no, last_name, first_name, provider_type, status,
                              lastUpdateUser, lastUpdateDate)
-       VALUES ('${providerNo}', '${lastName}', 'RoleCheck', 'doctor', '1', '-1', NOW())`);
+       VALUES ('${escapeSql(providerNo)}', '${escapeSql(lastName)}', 'RoleCheck', 'doctor', '1', '-1', NOW())`);
 }
 
 function removeProvider(providerNo) {
@@ -167,15 +263,48 @@ function removeProvider(providerNo) {
   // `admin` grant behind in the target database, which must never be reported
   // as a clean run.
   for (const table of ['secUserRole', 'program_provider', 'provider_facility', 'security']) {
-    sql(`DELETE FROM ${table} WHERE provider_no='${providerNo}'`);
+    sql(`DELETE FROM ${table} WHERE provider_no='${escapeSql(providerNo)}'`);
   }
-  sql(`DELETE FROM provider WHERE provider_no='${providerNo}'`);
+  sql(`DELETE FROM provider WHERE provider_no='${escapeSql(providerNo)}'`);
+}
+
+/*
+ * Cleanup has to be reachable from both run()'s finally and the signal
+ * handlers, so the fixture identity lives at module scope: Node does not unwind
+ * a finally block on SIGINT, and an interrupted run would otherwise strand a
+ * seeded provider holding a live `admin` grant plus the cleartext password file.
+ */
+let seededProviderNo = null;
+
+function runCleanupOnce() {
+  const failures = [];
+  if (seededProviderNo !== null) {
+    const providerNo = seededProviderNo;
+    // Cleared first: a second entry (finally after a signal) must not re-run
+    // the deletes or double-report them.
+    seededProviderNo = null;
+    try {
+      removeProvider(providerNo);
+    } catch (error) {
+      failures.push(`removing fixture provider failed: ${error.message}`);
+    }
+    // Verify, rather than trust, that nothing was left behind.
+    try {
+      const leftover = sql(`SELECT COUNT(*) FROM provider WHERE provider_no='${escapeSql(providerNo)}'`);
+      if (leftover !== '0') {
+        failures.push(`fixture provider rows still present: ${leftover}`);
+      }
+    } catch (error) {
+      failures.push(`could not confirm fixture removal: ${error.message}`);
+    }
+  }
+  cleanupMysqlDefaultsFile();
+  return failures;
 }
 
 async function run() {
   const providerNo = String(900000 + randomInt(1000, 9999));
   const lastName = `Rolecheck${providerNo}`;
-  let seeded = false;
   let browser = null;
 
   try {
@@ -187,7 +316,7 @@ async function run() {
     const privilege = sql(
       `SELECT privilege FROM secObjPrivilege WHERE objectName='_site_access_privacy'
        AND roleUserGroup IN (SELECT role_name FROM secUserRole WHERE provider_no=
-         (SELECT provider_no FROM security WHERE user_name='${testUser}' LIMIT 1))`);
+         (SELECT provider_no FROM security WHERE user_name='${escapeSql(testUser)}' LIMIT 1))`);
     check(`${testUser} holds _site_access_privacy (the condition that triggered the bug)`,
       privilege.length > 0, privilege || '(none)');
 
@@ -195,7 +324,10 @@ async function run() {
       ...(chromePath ? { executablePath: chromePath } : {}),
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
     });
-    const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+    const page = await browser.newPage({
+      baseURL: playwrightBaseUrl(),
+      viewport: { width: 1400, height: 1000 },
+    });
 
     await login(page);
     check('logged in', /providercontrol/i.test(page.url()), page.url());
@@ -206,7 +338,7 @@ async function run() {
       options.includes(SUPER_ROOT_ROLE), `${options.length} options`);
 
     seedProvider(providerNo, lastName);
-    seeded = true;
+    seededProviderNo = providerNo;
 
     await roleOptions(page, lastName);
     // The JSP wraps each <tr> in a <form> INSIDE the <table>; HTML parsing
@@ -236,39 +368,47 @@ async function run() {
     await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
     await page.screenshot({ path: shot('assign-role-assigned'), fullPage: true });
 
-    const assigned = sql(`SELECT role_name FROM secUserRole WHERE provider_no='${providerNo}'`);
+    const assigned = sql(`SELECT role_name FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
     check(`"${SUPER_ROOT_ROLE}" role assigned through the browser and persisted`,
       assigned === SUPER_ROOT_ROLE, assigned || '(none)');
   } finally {
     if (browser) await browser.close();
-    if (seeded) {
-      let cleanupError = '';
-      try {
-        removeProvider(providerNo);
-      } catch (error) {
-        cleanupError = error.message;
-      }
-      // Verify, rather than trust, that nothing was left behind — then fail the
-      // run if it was, so a stale fixture can never hide behind a green result.
-      let leftover = 'unknown';
-      try {
-        leftover = sql(`SELECT COUNT(*) FROM provider WHERE provider_no='${providerNo}'`);
-      } catch (error) {
-        leftover = `unreadable (${error.message})`;
-      }
+    const wasSeeded = seededProviderNo !== null;
+    const failures = runCleanupOnce();
+    // A dirty run must never exit green: leaving a provider that holds the
+    // installation-wide administrator role behind is exactly what this check
+    // must not do quietly.
+    if (wasSeeded) {
       check(`fixture provider ${providerNo} removed`,
-        leftover === '0' && cleanupError === '',
-        cleanupError ? `${cleanupError} (provider rows: ${leftover})` : `provider rows: ${leftover}`);
+        failures.length === 0, failures.join('; '));
     }
-    cleanupMysqlDefaultsFile();
   }
+}
+
+/*
+ * Node does not run finally blocks on SIGINT/SIGTERM, so remove the seeded rows
+ * and the cleartext password file here too. The browser is left to the OS; only
+ * the database rows and that file matter.
+ */
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    console.error(`\n${signal} received; removing seeded rows before exiting.`);
+    let failures = [];
+    try {
+      failures = runCleanupOnce();
+    } catch (error) {
+      console.error(`WARN cleanup after ${signal} failed: ${error.message}`);
+    }
+    failures.forEach((failure) => console.error(`WARN ${failure}`));
+    process.exit(130);
+  });
 }
 
 run()
   .catch((error) => check('script completed without error', false, error.message))
   .finally(() => {
     fs.mkdirSync(screenshotDir, { recursive: true });
-    fs.writeFileSync(path.join(screenshotDir, 'results.json'), JSON.stringify(results, null, 2));
+    fs.writeFileSync(buildArtifactPath(screenshotDir, 'results', '.json'), JSON.stringify(results, null, 2));
     const failed = results.filter((result) => !result.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
     process.exit(failed.length ? 1 : 0);
