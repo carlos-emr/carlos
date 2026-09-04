@@ -1101,12 +1101,18 @@ def run_p1(ctx) -> None:
 def run_p2(ctx) -> Dict:
     """P2 preflight -- assess the staged dump and record the verdict.
 
-    Returns the report dict (`verdict`, `exit_code`, `findings`); the
-    `o19-preflight` verb turns that exit code into its own. On a resume
-    whose copy has already started the recorded verdict stands and the
-    checks are NOT re-run: staging has been normalised since, so
-    re-assessing could only refuse a target that is mid-import by
-    design."""
+    Returns a dict carrying `verdict`, `exit_code`, `acknowledged` and
+    `required_accepts`; the `o19-preflight` verb turns that exit code
+    into its own. A full assessment also carries `findings`, but the
+    resume path below does NOT: that path re-runs no checks, so it has
+    nothing to report, and returning an empty `findings` would assert
+    "nothing found" where the truth is "not assessed". Read it only from
+    a return you know came from a full run.
+
+    On a resume whose copy has already started the recorded verdict
+    stands and the checks are NOT re-run: staging has been normalised
+    since, so re-assessing could only refuse a target that is mid-import
+    by design."""
     query = ctx["query"]
     prior = ctx["state"].get("phases", {}).get("preflight", {})
     if ctx.get("resume") and prior.get("status") == "done" \
