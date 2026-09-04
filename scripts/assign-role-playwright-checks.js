@@ -45,7 +45,8 @@
  *   TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
  *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ASSIGN_ROLE_SCREENSHOT_DIR=/tmp/carlos-assign-role-playwright
- *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   ALLOW_NON_LOCAL_BASE_URL=true for any target that is not loopback or the
+ *     compose network — private IPv4 addresses included
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  */
 const assert = require('assert');
@@ -57,12 +58,23 @@ const os = require('os');
 const path = require('path');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
+/*
+ * Hosts this script will browse without an explicit opt-in.
+ *
+ * NOTE this is deliberately stricter than the sibling harnesses, which also
+ * accept the private IPv4 ranges as "local". Those ranges reach the developer's
+ * host or a shared network, and this check logs in as an administrator and then
+ * grants the installation-wide administrator role, so a private-network address
+ * has to be opted into via ALLOW_NON_LOCAL_BASE_URL like any other non-local
+ * target. Nothing is lost: the opt-in is one environment variable.
+ */
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'db', 'carlos']);
 
 /*
- * Hosts that are unambiguously this machine or its private compose network.
- * Deliberately narrower than isLocalHost: the database target keys off this,
- * because this check WRITES a provider row and an `admin` role grant.
+ * Hosts that are unambiguously this machine or its compose network. Narrower
+ * still than LOCAL_HOSTS, and two things key off it: the database target,
+ * because this check WRITES a provider row and an `admin` role grant, and
+ * whether http is acceptable, because anything else must prove a certificate.
  */
 const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
 
@@ -70,27 +82,8 @@ function normalizeHost(rawHost) {
   return rawHost.toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-/*
- * Match four numeric octets, not a `10.`-style prefix: a bare prefix test also
- * accepts DNS names such as `10.attacker.example`, which would slip past the
- * non-local opt-in and receive a real login.
- */
-function isPrivateIpv4(host) {
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!match) {
-    return false;
-  }
-  const octets = match.slice(1).map(Number);
-  if (octets.some((octet) => octet > 255)) {
-    return false;
-  }
-  const [a, b] = octets;
-  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
-}
-
 function isLocalHost(rawHost) {
-  const host = normalizeHost(rawHost);
-  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+  return LOCAL_HOSTS.has(normalizeHost(rawHost));
 }
 
 function isExactLocalHost(rawHost) {
