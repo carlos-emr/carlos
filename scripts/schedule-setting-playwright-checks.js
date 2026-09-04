@@ -39,6 +39,15 @@
 
 const { chromium } = require('playwright');
 
+/*
+ * Hosts that are unambiguously this machine. TLS verification may only be
+ * skipped for these: the check logs in with real credentials, so any other
+ * target has to prove its certificate. A packaged install is reached the same
+ * way the other packaged-install checks reach one — forward a loopback port to
+ * the container's 443 and point BASE_URL at the forward.
+ */
+const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
+
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
@@ -61,15 +70,6 @@ function normalizeHost(rawHost) {
   return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
 }
 
-/*
- * Hosts that are unambiguously this machine. TLS verification may only be
- * skipped for these: the check logs in with real credentials, so any other
- * target has to prove its certificate. A packaged install is reached the same
- * way the other packaged-install checks reach one — forward a loopback port to
- * the container's 443 and point BASE_URL at the forward.
- */
-const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
-
 function isExactLocalHost(rawHost) {
   return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
 }
@@ -90,6 +90,13 @@ function validateBaseUrl(rawBaseUrl) {
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  // This check logs in with real credentials, so anything that is not plainly
+  // loopback must at least carry them over TLS — and, per the context below,
+  // prove its certificate while doing it. Same rule as
+  // scripts/flu-billing-report-playwright-checks.js.
+  if (!isExactLocalHost(host) && parsed.protocol !== 'https:') {
+    throw new Error(`Non-loopback BASE_URL host ${host} must use https`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
@@ -349,7 +356,12 @@ async function pickProvider(frame) {
   if (requestedProvider) {
     const match = selectable.find((option) => option.value === requestedProvider);
     if (!match) {
-      findings.push({ label: 'schedule-setting', type: 'requested-provider-missing', provider: requestedProvider });
+      findings.push({
+        label: 'schedule-setting',
+        type: 'requested-provider-missing',
+        detail: 'TEST_SCHEDULE_PROVIDER names a provider the Schedule Setting dropdown does not offer',
+        selectableProviders: selectable.length,
+      });
       return null;
     }
     return match;
@@ -390,7 +402,14 @@ async function runWizard(context, page) {
   if (!weekFrame) {
     return;
   }
-  visited.push({ label: 'schedule-week-setting', url: recordableUrl(weekFrame.url()), provider: provider.value });
+  // Deliberately no provider number: it is an identifier that joins back to
+  // records, and what a failed run actually needs to know is HOW the provider was
+  // chosen — a caller reproducing the run sets TEST_SCHEDULE_PROVIDER themselves.
+  visited.push({
+    label: 'schedule-week-setting',
+    url: recordableUrl(weekFrame.url()),
+    providerSource: requestedProvider ? 'TEST_SCHEDULE_PROVIDER' : 'auto-selected',
+  });
   await assertNoErrorPage(weekFrame, 'schedule-week-setting');
   assertFramedStepIsVisible(await waitForShellScrollTop(page), 'schedule-week-setting');
 
