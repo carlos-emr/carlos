@@ -16,6 +16,8 @@ ship — the manifest generator, its curation overlays, and rehearsal fixtures.
 ```
 generate_manifests.py    regenerates the shipped manifest modules from an
                          OSCAR 19 checkout + the CARLOS Flyway set (read-only)
+verify_ddl_parse.py      checks that generator's DDL reader against a real
+                         MariaDB (see "Verifying the DDL parse")
 overrides_schema.py      hand-curated table/column classifications (durable)
 overrides_props.py       hand-curated oscar.properties dispositions (durable)
 build-o19-fixture.sh     builds the rehearsal database + turnkey inputs
@@ -63,6 +65,48 @@ it covers both manifest modules and the generated block in
 source commit, so an unchanged input regenerates byte-identical output.
 Credential-bearing stock defaults are never emitted (`SECRET_DEFAULT_KEYS`
 lists the keys instead; the props phase always surfaces them for review).
+
+## Verifying the DDL parse
+
+`generate_manifests.py` reads the SQL with a hand-written DDL reader
+(`walk_ddl` + `Schema`). That reader decides which columns exist, so it
+decides what `carlos-ctl import-o19` copies, archives or leaves behind: a
+column it silently misses is a column the import silently drops. Rather than
+trust it, ask MariaDB.
+
+```bash
+python3 scripts/migration/o19/verify_ddl_parse.py --oscar-src /tmp/oscar19 \
+    --mysql-arg=--socket=/run/mysqld/mysqld.sock --mysql-arg=-uroot
+```
+
+Every CREATE TABLE is replayed into a scratch schema under a probe name and
+every ALTER TABLE against a probe built from the model's state at that point;
+the resulting columns and primary key, read back from `information_schema`,
+are compared with what the generator concluded from the same statement. Exit
+0 means they agree everywhere they could be compared. The scratch schema
+(`--db`, default `carlos_ddl_verify`) is **dropped and recreated on every
+run** — point it at a throwaway server, never at a clinic's.
+
+Statements a modern server refuses outright (a 2006 definition such as
+`AUTO_INCREMENT` with no key, or an ALTER whose anchor column the model does
+not carry) are reported as "not comparable" rather than as disagreements.
+
+Run it after any change to the reader. It found three defects on its first
+pass — a primary key recorded in the clause's spelling rather than the
+column's, `ADD COLUMN ... AFTER x` appending instead of positioning, and
+`CHANGE` matching a column name case-sensitively — each now also pinned by a
+database-free unit test in `test_generator.py::TestTheDdlParser`.
+
+**Why not an off-the-shelf SQL parser?** Measured on this corpus, not
+assumed. sqlglot 30.18.0 (MySQL dialect) silently degrades 7 CREATE TABLE and
+7 ALTER TABLE statements to opaque nodes carrying no column list — among them
+`facility`, `custom_filter*`, `tickler_*` and `bed_check_time` — which would
+drop those tables from the manifest with no error. simple-ddl-parser reads
+those but returns a grouped result rather than an ordered statement stream,
+and document order is load-bearing here (a file that DROPs then CREATEs the
+same table must not be applied phase-ordered). sqlparse builds no DDL model
+at all. The reader stays; this script is what makes it checkable, and is also
+how you would prove a future library good enough to replace it.
 
 ## Building the rehearsal fixture
 

@@ -184,6 +184,105 @@ class TestTheDdlParser(unittest.TestCase):
                        "PRIMARY KEY (`code`(20)));")
         self.assertEqual(s.pks["t"], ["code"])
 
+    # --- the three defects the MariaDB oracle found -------------------
+    # scripts/migration/o19/verify_ddl_parse.py replays this corpus
+    # through a real server and compares; each case below is one
+    # disagreement it reported, kept here so the suite catches a
+    # regression without needing a database.
+
+    def test_a_primary_key_names_the_column_whatever_its_case(self):
+        # update-hsfo.sql declares `ID` and writes `PRIMARY KEY (id)`.
+        # MySQL resolves the reference case-insensitively, so the key is
+        # `ID`; recording `id` left pks[t][0] naming no column at all,
+        # and the surrogate-key check looks that name up in tables[t].
+        s = self.parse("CREATE TABLE t (ID int(10) NOT NULL "
+                       "auto_increment, x varchar(10), PRIMARY KEY (id));")
+        self.assertEqual(s.pks["t"], ["ID"])
+        self.assertIn(s.pks["t"][0], s.tables["t"])
+
+    def test_a_primary_key_naming_no_column_is_dropped(self):
+        # MySQL refuses such a CREATE outright, so carrying the name
+        # forward could only mislead a later lookup
+        s = self.parse("CREATE TABLE t (a int, PRIMARY KEY (nosuch));")
+        self.assertNotIn("t", s.pks)
+
+    def test_add_column_after_lands_where_mysql_puts_it(self):
+        # 27 ALTERs in the O19 corpus position a column this way;
+        # appending instead describes a table the clinic does not have
+        s = self.parse(
+            "CREATE TABLE vacancy (id int, templateId int, status int);"
+            "ALTER TABLE vacancy ADD vacancyName VARCHAR(255) NOT NULL "
+            "AFTER id;")
+        self.assertEqual(list(s.tables["vacancy"]),
+                         ["id", "vacancyName", "templateId", "status"])
+        # ...and the position clause is not left inside the type text,
+        # which default_nondefault_expr() and the surrogate-key check read
+        self.assertNotIn("AFTER", s.tables["vacancy"]["vacancyName"])
+
+    def test_add_column_first_lands_at_the_front(self):
+        s = self.parse("CREATE TABLE t (a int, b int);"
+                       "ALTER TABLE t ADD COLUMN z int FIRST;")
+        self.assertEqual(list(s.tables["t"]), ["z", "a", "b"])
+
+    def test_add_column_after_an_unknown_column_still_keeps_it(self):
+        # a real server would refuse the statement, so there is no right
+        # position to choose -- but losing the column would be worse
+        s = self.parse("CREATE TABLE t (a int);"
+                       "ALTER TABLE t ADD COLUMN z int AFTER nosuch;")
+        self.assertEqual(list(s.tables["t"]), ["a", "z"])
+
+    def test_change_column_matches_the_name_case_insensitively(self):
+        # update-2012-11-11.sql: `change name name varchar(100)` against a
+        # column declared NAME renames it to lowercase. Matching
+        # case-sensitively left the old spelling standing.
+        s = self.parse("CREATE TABLE t (TEMPLATE_ID int, NAME varchar(50));"
+                       "ALTER TABLE t CHANGE name name varchar(100) NOT "
+                       "NULL;")
+        self.assertEqual(list(s.tables["t"]), ["TEMPLATE_ID", "name"])
+
+    def test_drop_column_matches_the_name_case_insensitively(self):
+        s = self.parse("CREATE TABLE t (a int, NAME varchar(50));"
+                       "ALTER TABLE t DROP COLUMN name;")
+        self.assertEqual(list(s.tables["t"]), ["a"])
+
+
+class TestTheDdlOracleStaysUsable(unittest.TestCase):
+
+    """verify_ddl_parse.py is a maintainer tool with no CI job, so the
+    cheapest thing that keeps it from rotting is checking that it still
+    imports and that its pure helpers still do what the oracle needs.
+
+    The comparison itself needs a MariaDB and is not run here; see
+    scripts/migration/o19/README.md."""
+
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location(
+            "verify_ddl_parse", GEN.parent / "verify_ddl_parse.py")
+        cls.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.mod)
+
+    def test_a_create_is_retargeted_at_the_probe_table(self):
+        # the probe name is what lets one statement be replayed without
+        # colliding with the real table or an earlier revision of itself
+        for sql in ("CREATE TABLE `t` (a int)",
+                    "create table if not exists t (a int)",
+                    "CREATE TABLE IF NOT EXISTS `t` (a int)"):
+            got = self.mod.probe_create(sql, "p7")
+            self.assertTrue(got.startswith("CREATE TABLE `p7` ("), got)
+            self.assertNotIn("`t`", got)
+
+    def test_an_alter_is_retargeted_at_the_probe_table(self):
+        got = self.mod.probe_alter("ALTER TABLE t ADD c int", "p7")
+        self.assertEqual(got, "ALTER TABLE `p7` ADD c int")
+
+    def test_the_scaffold_preserves_column_order_and_quotes_names(self):
+        got = self.mod.scaffold("p1", ["id", "we`ird"])
+        self.assertEqual(
+            got,
+            "CREATE TABLE `p1` (`id` varchar(191), `we``ird` varchar(191));")
+        self.assertEqual(self.mod.scaffold("p1", []), "")
+
 
 class TestPreservedColumnsFitTheRow(unittest.TestCase):
     """Every CARLOS table the manifest widens must have room for the

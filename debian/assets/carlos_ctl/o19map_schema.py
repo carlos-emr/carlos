@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-2+d0b73f74'
+SCHEMA_MAP_VERSION = 'o19map-2+541b9f40'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -10855,6 +10855,9 @@ TABLES = {
     'vacancy_template': {
         'class': 'copy',
         'cols': ['TEMPLATE_ID', 'NAME', 'ACTIVE', 'WL_PROGRAM_ID'],
+        'renames': {
+            'NAME': 'name',
+        },
     },
     'validations': {
         'class': 'merge',

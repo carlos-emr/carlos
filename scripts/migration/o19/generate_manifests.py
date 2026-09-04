@@ -221,6 +221,159 @@ _INSERT_RE = re.compile(
     r"insert\s+(ignore\s+)?into\s+`?(\w+)`?[^;]*?values\s*", re.I)
 
 
+class Statement:
+    """One DDL statement located by walk_ddl().
+
+    `body` is the CREATE's parenthesised column list or the ALTER's clause
+    text; `sql` is the statement's source text, which the MariaDB oracle in
+    verify_ddl_parse.py replays verbatim.
+    """
+
+    __slots__ = ("kind", "table", "body", "sql", "if_not_exists", "new_name")
+
+    def __init__(self, kind: str, table: str, body: str = "", sql: str = "",
+                 if_not_exists: bool = False, new_name: str = "") -> None:
+        self.kind = kind
+        self.table = table
+        self.body = body
+        self.sql = sql
+        self.if_not_exists = if_not_exists
+        self.new_name = new_name
+
+
+def walk_ddl(text: str):
+    """Yield the CREATE/DROP/RENAME/ALTER statements of `text`, in order.
+
+    Document order is not a nicety: dump-style sources (the CARLOS V1
+    baseline included) pair `DROP TABLE IF EXISTS x` with the `CREATE TABLE
+    x` that follows it, so phase-ordered application -- all CREATEs, then
+    all DROPs -- would delete every table a file both drops and creates.
+
+    CREATE bodies are extracted by paren-walking so nothing inside a string
+    literal is misread, and the cursor skips past each body so statement
+    text inside an INSERTed string is never re-matched.
+
+    Kept separate from Schema so the parse has two consumers: the model
+    below, and verify_ddl_parse.py, which replays the same statements
+    through a real MariaDB and compares. One walk, so the oracle cannot
+    drift from the thing it verifies.
+    """
+    patterns = (("create", _CREATE_RE), ("drop", _DROP_RE),
+                ("rename", _RENAME_RE), ("alter", _ALTER_RE))
+    i = 0
+    n = len(text)
+    while i < n:
+        # the earliest match across all four patterns, keyed on the offset
+        # alone so nothing else in the tuple is ever compared
+        found = [(m.start(), kind, m)
+                 for kind, rx in patterns
+                 for m in (rx.search(text, i),) if m]
+        if not found:
+            return
+        _, kind, m = min(found, key=lambda hit: hit[0])
+        if kind == "create":
+            open_idx = m.end() - 1
+            try:
+                close = _walk_parens(text, open_idx)
+            except ValueError:
+                i = m.end()
+                continue
+            yield Statement("create", m.group(2),
+                            body=text[open_idx + 1:close - 1],
+                            sql=text[m.start():close],
+                            if_not_exists=bool(m.group(1)))
+            i = close
+        elif kind == "drop":
+            yield Statement("drop", m.group(1), sql=text[m.start():m.end()])
+            i = m.end()
+        elif kind == "rename":
+            yield Statement("rename", m.group(1),
+                            sql=text[m.start():m.end()], new_name=m.group(2))
+            i = m.end()
+        else:  # alter
+            stmt_end = text.find(";", m.end())
+            if stmt_end == -1:
+                stmt_end = n
+            yield Statement("alter", m.group(1),
+                            body=text[m.end():stmt_end],
+                            sql=text[m.start():stmt_end])
+            i = stmt_end + 1
+
+
+_POSITION_RE = re.compile(r"\s+(?:(first)|after\s+`?(\w+)`?)\s*$", re.I)
+
+
+def split_column_position(ctype: str) -> Tuple[str, Optional[str]]:
+    """Split a trailing ``FIRST`` / ``AFTER <col>`` off a column definition.
+
+    Returns ``(type_text, position)`` where position is None, "FIRST", or the
+    column to sit after. Leaving the clause inside the type text was wrong
+    twice over: the column landed at the end of the table rather than where
+    MySQL puts it, and "AFTER id" travelled on as part of the declared type,
+    which default_nondefault_expr() and the surrogate-key check then read.
+    """
+    m = _POSITION_RE.search(ctype)
+    if not m:
+        return ctype, None
+    return ctype[:m.start()].rstrip(), ("FIRST" if m.group(1) else m.group(2))
+
+
+def place_column(cols: Dict[str, str], name: str, ctype: str,
+                 position: Optional[str]) -> Dict[str, str]:
+    """Insert or move `name` per MySQL's FIRST / AFTER positioning.
+
+    Column ORDER is not cosmetic here: it is what the manifest emits as each
+    table's `cols` list, so a generator that always appends describes a table
+    the clinic does not have. 27 ALTERs in the OSCAR 19 corpus position a
+    column this way -- `vacancy.vacancyName AFTER id`,
+    `demographic.preferred_lang AFTER chart_no`, `formConsult.t_name2 AFTER
+    t_name` among them.
+
+    An AFTER naming a column the model does not carry falls back to
+    appending; a real server would refuse the statement outright, so there is
+    no correct position to choose and appending at least keeps the column.
+    """
+    if position is None and name in cols:
+        cols[name] = ctype                     # plain redefinition, in place
+        return cols
+    rest = [(k, v) for k, v in cols.items() if k != name]
+    if position == "FIRST":
+        return dict([(name, ctype)] + rest)
+    anchor = None
+    if position is not None:
+        lower = position.lower()
+        anchor = next((k for k, _v in rest if k.lower() == lower), None)
+    if anchor is None:
+        return dict(rest + [(name, ctype)])
+    out: Dict[str, str] = {}
+    for k, v in rest:
+        out[k] = v
+        if k == anchor:
+            out[name] = ctype
+    return out
+
+
+def resolve_pk_case(pk: List[str], cols: Dict[str, str]) -> List[str]:
+    """Bind each PRIMARY KEY name to the column it actually names.
+
+    MySQL resolves a column reference case-insensitively, so
+    ``ID int(10) ... PRIMARY KEY (id)`` -- which OSCAR's update-hsfo.sql
+    writes for three tables -- has `ID` as its primary key, not `id`.
+    Recording the clause's spelling verbatim left `pks[t][0]` naming a
+    column absent from `tables[t]`, and the surrogate-PK detection in
+    build_tables() looks the name up in that dict: the miss reads as "no
+    integer surrogate key", so no id map is built and no child foreign
+    key is remapped through one. Harmless for the three tables that hit
+    it today (all archive-class, which carry neither), and silent if one
+    ever became copy- or merge-class.
+
+    A name matching no column is dropped: MySQL would refuse the CREATE
+    outright, so carrying it forward could only mislead.
+    """
+    by_lower = {c.lower(): c for c in cols}
+    return [by_lower[c.lower()] for c in pk if c.lower() in by_lower]
+
+
 class Schema:
     """Table -> ordered {column: type}, plus primary keys.
 
@@ -299,6 +452,7 @@ class Schema:
             return
         # a later unguarded CREATE (updates re-creating) replaces it
         self.tables[name] = cols
+        pk = resolve_pk_case(pk, cols)
         if pk:
             self.pks[name] = pk
         elif name in self.pks:
@@ -325,17 +479,30 @@ class Schema:
             m = re.match(r"add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?"
                          r"`?(\w+)`?\s+(.+)", clause, re.I | re.S)
             if m and m.group(1).lower() not in COLUMN_KEYWORDS:
-                cols[m.group(1)] = re.sub(r"\s+", " ", m.group(2)).strip()
+                ctype, position = split_column_position(
+                    re.sub(r"\s+", " ", m.group(2)).strip())
+                cols = place_column(cols, m.group(1), ctype, position)
+                self.tables[name] = cols
                 continue
             m = re.match(r"drop\s+(?:column\s+)?`?(\w+)`?\s*$", clause, re.I)
             if m and m.group(1).lower() not in (
                     "primary", "index", "key", "foreign"):
-                cols.pop(m.group(1), None)
+                # a column reference is case-insensitive in MySQL, so
+                # `DROP COLUMN name` drops a column declared `NAME`
+                victim = next((c for c in cols
+                               if c.lower() == m.group(1).lower()), None)
+                if victim is not None:
+                    del cols[victim]
                 continue
             m = re.match(r"change\s+(?:column\s+)?`?(\w+)`?\s+`?(\w+)`?\s+(.+)",
                          clause, re.I | re.S)
             if m:
                 old, new, ctype = m.group(1), m.group(2), m.group(3)
+                # `change name NAME ...` renames the column declared `name`:
+                # the reference is case-insensitive even though the result
+                # is not. Matching case-sensitively left the old spelling
+                # standing (update-2012-11-11.sql on vacancy_template).
+                old = next((c for c in cols if c.lower() == old.lower()), old)
                 if old in cols:
                     # preserve position: rebuild dict with rename in place
                     rebuilt: Dict[str, str] = {}
@@ -351,54 +518,26 @@ class Schema:
             # clauses (indexes, engine, charset) don't affect the column map.
 
     def feed(self, text: str) -> None:
-        # Statements MUST be applied in document order: dump-style sources
-        # (the CARLOS V1 baseline included) pair `DROP TABLE IF EXISTS x`
-        # with the `CREATE TABLE x` that follows it — phase-ordered
-        # application (all CREATEs, then all DROPs) would delete every table
-        # a file both drops and creates. CREATE bodies are extracted by
-        # paren-walking so nothing inside string literals is misread, and
-        # the cursor skips past each body so statement text inside INSERTed
-        # strings is never re-matched.
-        patterns = (("create", _CREATE_RE), ("drop", _DROP_RE),
-                    ("rename", _RENAME_RE), ("alter", _ALTER_RE))
-        i = 0
-        n = len(text)
-        while i < n:
-            # the earliest match across all four patterns, keyed on the
-            # offset alone so nothing else in the tuple is ever compared
-            found = [(m.start(), kind, m)
-                     for kind, rx in patterns
-                     for m in (rx.search(text, i),) if m]
-            if not found:
-                break
-            _, kind, m = min(found, key=lambda hit: hit[0])
-            if kind == "create":
-                open_idx = m.end() - 1
-                try:
-                    close = _walk_parens(text, open_idx)
-                except ValueError:
-                    i = m.end()
-                    continue
-                self.apply_create(m.group(2), text[open_idx + 1:close - 1],
-                                  if_not_exists=bool(m.group(1)))
-                i = close
-            elif kind == "drop":
-                self.tables.pop(m.group(1), None)
-                self.pks.pop(m.group(1), None)
-                i = m.end()
-            elif kind == "rename":
-                old, new = m.group(1), m.group(2)
-                if old in self.tables:
-                    self.tables[new] = self.tables.pop(old)
-                    if old in self.pks:
-                        self.pks[new] = self.pks.pop(old)
-                i = m.end()
-            else:  # alter
-                stmt_end = text.find(";", m.end())
-                if stmt_end == -1:
-                    stmt_end = n
-                self.apply_alter(m.group(1), text[m.end():stmt_end])
-                i = stmt_end + 1
+        """Apply every DDL statement in `text`, in document order."""
+        for stmt in walk_ddl(text):
+            self.apply(stmt)
+
+    def apply(self, stmt: "Statement") -> None:
+        """Apply one walked statement to the model."""
+        if stmt.kind == "create":
+            self.apply_create(stmt.table, stmt.body,
+                              if_not_exists=stmt.if_not_exists)
+        elif stmt.kind == "drop":
+            self.tables.pop(stmt.table, None)
+            self.pks.pop(stmt.table, None)
+        elif stmt.kind == "rename":
+            old, new = stmt.table, stmt.new_name
+            if old in self.tables:
+                self.tables[new] = self.tables.pop(old)
+                if old in self.pks:
+                    self.pks[new] = self.pks.pop(old)
+        else:  # alter
+            self.apply_alter(stmt.table, stmt.body)
 
 
 def count_insert_rows(text: str) -> Dict[str, int]:

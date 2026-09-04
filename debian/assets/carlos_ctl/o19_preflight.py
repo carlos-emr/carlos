@@ -59,7 +59,7 @@ import subprocess
 import sys
 
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
-SCHEMA_MAP_VERSION = 'o19map-2+d0b73f74'
+SCHEMA_MAP_VERSION = 'o19map-2+541b9f40'
 REQUIRED_TABLES = [
     'Facility',
     'clinic',
