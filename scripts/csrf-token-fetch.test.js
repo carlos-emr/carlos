@@ -59,6 +59,12 @@ function loadHelper({ fetchImpl, inputCount = 1 }) {
     fireUnload: () => unloadListeners.pagehide.forEach((handler) => handler()),
     /** Simulates the document being restored from the back/forward cache. */
     fireRestore: () => unloadListeners.pageshow.forEach((handler) => handler()),
+    /** How many listeners the helper registered for each lifecycle event. */
+    listenerCounts: () => ({
+      pagehide: unloadListeners.pagehide.length,
+      beforeunload: unloadListeners.beforeunload.length,
+      pageshow: unloadListeners.pageshow.length,
+    }),
   };
 }
 
@@ -149,4 +155,15 @@ test('warns again on a real failure after a back/forward-cache restore', async (
   await assert.rejects(helper.fetchCsrfToken('/carlos'), /Failed to fetch/);
   await drainTimers();
   assert.equal(helper.warnings.length, 1, 'reported again once the page is back');
+});
+
+test('does not register a beforeunload listener', () => {
+  // beforeunload makes a page ineligible for the back/forward cache in some
+  // browsers, and this script loads on every JSP that bootstraps a token.
+  // pagehide covers every teardown case the flag is for.
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: true, text: async () => TOKEN_SCRIPT }) });
+
+  assert.equal(helper.listenerCounts().beforeunload, 0);
+  assert.ok(helper.listenerCounts().pagehide > 0, 'pagehide is still observed');
+  assert.ok(helper.listenerCounts().pageshow > 0, 'pageshow is still observed');
 });

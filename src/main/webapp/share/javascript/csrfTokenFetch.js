@@ -25,9 +25,14 @@
 /**
  * Set once this document starts going away, so the rejection handler below can
  * tell "the page was torn down mid-request" from "the request really failed".
- * Both pagehide and beforeunload are observed because which one runs first —
- * and whether either runs before the in-flight request is cancelled — varies
- * with how the navigation was initiated.
+ *
+ * pagehide only, deliberately NOT beforeunload. A beforeunload listener makes
+ * the page ineligible for the back/forward cache in some browsers, and this
+ * script is included on every JSP that bootstraps a token — a real cost paid on
+ * every page for no benefit here, since pagehide fires in every teardown case
+ * this cares about. Ordering is not what the flag is for anyway: the rejection
+ * is frequently delivered before ANY unload event runs, which is why the
+ * warning below is also deferred a task.
  *
  * Cleared again on pageshow. A document entering the back/forward cache fires
  * pagehide WITHOUT being destroyed, and coming back does not re-run this
@@ -38,7 +43,6 @@
 var carlosCsrfPageUnloading = false;
 if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('pagehide', function () { carlosCsrfPageUnloading = true; }, true);
-    window.addEventListener('beforeunload', function () { carlosCsrfPageUnloading = true; }, true);
     window.addEventListener('pageshow', function () { carlosCsrfPageUnloading = false; }, true);
 }
 

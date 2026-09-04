@@ -55,20 +55,58 @@ const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
 const findings = [];
 const visited = [];
 
+/** URL.hostname keeps the brackets on an IPv6 literal; the allowlists below do not. */
+function normalizeHost(rawHost) {
+  const host = (rawHost || '').toLowerCase();
+  return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+}
+
+/*
+ * Hosts that are unambiguously this machine. TLS verification may only be
+ * skipped for these: the check logs in with real credentials, so any other
+ * target has to prove its certificate. A packaged install is reached the same
+ * way the other packaged-install checks reach one — forward a loopback port to
+ * the container's 443 and point BASE_URL at the forward.
+ */
+const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
+
+function isExactLocalHost(rawHost) {
+  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
+}
+
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would ride every navigation and surface in the
+  // diagnostics this check prints; it logs in through the form instead.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
 
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const host = normalizeHost(parsed.hostname);
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'db', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+/**
+ * Query strings on this application's routes carry provider numbers and other
+ * identifiers that join back to records; the path and status are what diagnose a
+ * failure. Record the path only.
+ */
+function recordableUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch (e) {
+    return rawUrl;
+  }
 }
 
 function appUrl(appPath) {
@@ -112,7 +150,7 @@ function wirePage(page, label) {
   page.on('response', (response) => {
     const status = response.status();
     if (status >= 400 && !isExpectedMissingAsset(status, response.url())) {
-      findings.push({ label, type: 'http', status, url: response.url() });
+      findings.push({ label, type: 'http', status, url: recordableUrl(response.url()) });
     }
   });
   page.on('console', (message) => {
@@ -134,7 +172,7 @@ function wirePage(page, label) {
 async function assertNoErrorPage(frame, label) {
   const bodyText = await frame.locator('body').innerText().catch(() => '');
   if (/CARLOS has encountered an unexpected error|CARLOS Error|HTTP Status 5\d\d|Exception Report/i.test(bodyText)) {
-    findings.push({ label, type: 'error-page', url: frame.url(), body: bodyText.replace(/\s+/g, ' ').slice(0, 500) });
+    findings.push({ label, type: 'error-page', url: recordableUrl(frame.url()), body: bodyText.replace(/\s+/g, ' ').slice(0, 500) });
   }
 }
 
@@ -149,7 +187,7 @@ async function login(context) {
     page.waitForURL(/providercontrol/, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
-  visited.push({ label: 'login', url: page.url() });
+  visited.push({ label: 'login', url: recordableUrl(page.url()) });
   return page;
 }
 
@@ -161,7 +199,7 @@ async function openAdminSection(page, relSuffix, urlPattern, label) {
   await link.click({ timeout: 20000 });
   const frame = await waitForFrame(page, urlPattern, label);
   if (frame) {
-    visited.push({ label, url: frame.url() });
+    visited.push({ label, url: recordableUrl(frame.url()) });
     await assertNoErrorPage(frame, label);
   }
   return frame;
@@ -352,7 +390,7 @@ async function runWizard(context, page) {
   if (!weekFrame) {
     return;
   }
-  visited.push({ label: 'schedule-week-setting', url: weekFrame.url(), provider: provider.value });
+  visited.push({ label: 'schedule-week-setting', url: recordableUrl(weekFrame.url()), provider: provider.value });
   await assertNoErrorPage(weekFrame, 'schedule-week-setting');
   assertFramedStepIsVisible(await waitForShellScrollTop(page), 'schedule-week-setting');
 
@@ -374,7 +412,7 @@ async function runWizard(context, page) {
     return;
   }
   await calendarFrame.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'schedule-calendar', url: calendarFrame.url() });
+  visited.push({ label: 'schedule-calendar', url: recordableUrl(calendarFrame.url()) });
   await assertNoErrorPage(calendarFrame, 'schedule-calendar');
   assertFramedStepIsVisible(await waitForShellScrollTop(page), 'schedule-calendar');
 
@@ -398,7 +436,7 @@ async function runWizard(context, page) {
     return;
   }
   await finalFrame.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'schedule-final', url: finalFrame.url() });
+  visited.push({ label: 'schedule-final', url: recordableUrl(finalFrame.url()) });
   await assertNoErrorPage(finalFrame, 'schedule-final');
   assertFramedStepIsVisible(await waitForShellScrollTop(page), 'schedule-final');
 
@@ -423,8 +461,16 @@ async function runWizard(context, page) {
 async function assertFrameHeightDoesNotRatchet(page, frame, label) {
   const before = await readShellGeometry(page);
   for (let reload = 0; reload < 3; reload++) {
+    // Wait for THIS frame's navigation before its load state: the frame is
+    // already loaded when the wait is registered, so waitForLoadState('load')
+    // on its own resolves immediately against the pre-reload document and the
+    // probe would measure before anything happened.
+    const reloaded = page.waitForEvent('framenavigated', {
+      predicate: (navigated) => navigated === frame,
+      timeout: 30000,
+    }).then(() => frame.waitForLoadState('load', { timeout: 30000 })).catch(() => {});
     await Promise.all([
-      frame.waitForLoadState('load', { timeout: 30000 }).catch(() => {}),
+      reloaded,
       frame.evaluate(() => { window.location.reload(); }).catch(() => {}),
     ]);
     await page.waitForTimeout(1500);
@@ -479,7 +525,10 @@ async function checkResizeIframeCallers(page) {
 
   const browser = await chromium.launch(launchOptions);
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 900 } });
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: isExactLocalHost(baseUrl.hostname),
+      viewport: { width: 1440, height: 900 },
+    });
     const page = await login(context);
     context.on('page', (popup) => wirePage(popup, 'popup'));
 

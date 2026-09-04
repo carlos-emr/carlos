@@ -610,11 +610,48 @@
             var doc = frame && frame.contentDocument;
             if (doc && doc.documentElement) {
                 growFrameTo(doc.documentElement.scrollHeight);
+                observeFramedContentHeight(frame, doc);
             }
         } catch (e) {
             // A cross-origin document cannot be measured; the CSS box still applies.
         }
         scrollShellToTop();
+    }
+
+    // Keep following the framed document's height after load.
+    //
+    // Measuring once at load is not enough for the pages this shell-side path
+    // exists to cover: a section that renders a table from its own AJAX call,
+    // expands an accordion, or loads images without declared dimensions is
+    // taller a moment later, and would sit clipped behind the aspect box with a
+    // nested scrollbar — the defect this is meant to remove. The legacy pages
+    // escape that by calling resizeIframe() again themselves; a page that never
+    // calls in has no second chance without this.
+    //
+    // It only grows the frame — it deliberately does NOT scroll. A reader who
+    // opens a collapsed panel half way down a section has not asked to be sent
+    // back to the top.
+    function observeFramedContentHeight(frame, doc) {
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        // One observer per frame: each load replaces the document, and a stale
+        // observer would keep measuring the previous one.
+        if (frame.carlosContentObserver) {
+            frame.carlosContentObserver.disconnect();
+        }
+        var observer = new ResizeObserver(function () {
+            try {
+                var current = frame.contentDocument;
+                if (current && current.documentElement) {
+                    growFrameTo(current.documentElement.scrollHeight);
+                }
+            } catch (e) {
+                // Document went away or turned cross-origin mid-observation.
+            }
+        });
+        observer.observe(doc.documentElement);
+        frame.carlosContentObserver = observer;
     }
 
     $(document).ready(function () {
