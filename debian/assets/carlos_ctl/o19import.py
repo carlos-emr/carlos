@@ -2697,14 +2697,20 @@ def _cmd_import_o19(argv) -> int:
 
 
 def _make_ctx_for_cleanup(args) -> Dict:
-    """The minimal context `run_cleanup` needs: no bundle is opened and no
-    inputs are resolved, because cleanup acts on the workspace alone."""
+    """The context `run_cleanup` needs: no bundle is opened and no inputs
+    are resolved, because cleanup acts on the workspace alone -- but the
+    target and archive schemas ARE needed, because the drop is gated on a
+    parity that counts staging rows against the homes they were preserved
+    into."""
     state_dir = STATE_DIR
+    dev_target = _dev_mode(args)
     take_workspace_lock(state_dir)
     return {
         "state_dir": state_dir,
         "state": load_state(state_dir),
         "query": make_query(args.mariadb_arg),
-        "dev_target": _dev_mode(args),
+        "dev_target": dev_target,
+        "target_db": _target_db(dev_target),
+        "archive_schema": ARCHIVE_SCHEMA,
         "dry_run": getattr(args, "dry_run", False),
     }

@@ -83,8 +83,11 @@ class TestAcceptClassesAreDocumented(unittest.TestCase):
     def test_the_man_page_counts_the_classes_it_lists(self):
         # "the six classes an assessment can acknowledge" -- a number
         # spelled in prose goes stale the moment a class is added
-        words = {5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine"}
+        words = ("zero", "one", "two", "three", "four", "five", "six",
+                 "seven", "eight", "nine", "ten", "eleven", "twelve")
         n = len(o19_preflight.ACCEPT_IDS)
+        self.assertLess(n, len(words),
+                        "spell {0} here before adding the class".format(n))
         self.assertIn("knows only the {0} classes".format(words[n]),
                       man_text())
 

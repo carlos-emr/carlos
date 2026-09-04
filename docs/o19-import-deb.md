@@ -187,8 +187,9 @@ and is shadow-captured to `o19_archive` as well. Tables the manifest
 classifies `reference` keep the CARLOS seed in the live table; the
 clinic's rows go to `o19_archive.<table>`, where a locally curated code
 can still be found. The verification counts all of it before it passes
-(the preflight sweeps the archive-class and patient-data tables, not the
-removed-module ones).
+(the preflight sweeps the archive-class, patient-data and
+removed-module tables, the last as an advisory naming each one that holds
+rows).
 
 What the import does with credentials: every clinic login keeps working
 (legacy password hashes upgrade to bcrypt on first login) but **all users

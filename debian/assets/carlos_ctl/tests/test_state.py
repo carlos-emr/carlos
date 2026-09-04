@@ -488,7 +488,10 @@ class TestMarkStarted(unittest.TestCase):
         self.assertEqual(phase["status"], "in-progress")
         self.assertEqual(phase["dump_sha256"], "aaa")
 
-    def test_a_completed_phase_is_not_reopened_by_its_own_fields(self):
+    def test_a_completed_phase_is_reopened_with_the_new_subject(self):
+        """A retry after a completed stage records the dump it is
+        working on NOW: the gate reads that field to tell its own
+        leftovers from another clinic's."""
         state = {}
         o19import.mark_done(self.state_dir, state, "stage",
                             dump_sha256="aaa")
@@ -497,6 +500,94 @@ class TestMarkStarted(unittest.TestCase):
         phase = o19import.load_state(self.state_dir)["phases"]["stage"]
         self.assertEqual(phase["status"], "in-progress")
         self.assertEqual(phase["dump_sha256"], "bbb")
+
+
+class TestCleanupEndToEnd(unittest.TestCase):
+    """`--cleanup` driven through the context it is really given.
+
+    The gap this closes: run_cleanup had no driver, so when the data gate
+    was added to it -- reading ctx["target_db"] through _row_parity --
+    nothing noticed that _make_ctx_for_cleanup does not build the same
+    context the phases do. Every completed import's cleanup would have
+    died with a KeyError, after taking the workspace lock and before
+    dropping anything.
+    """
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19cleanupe2e-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+        self.queries = []
+
+    def query(self, sql, db=None):
+        self.queries.append(sql)
+        if "information_schema.SCHEMATA" in sql:
+            return [[o19import.STAGING_SCHEMA]]
+        if "information_schema.TABLES" in sql:
+            return []
+        return [["0"]]
+
+    def ctx(self, **over):
+        """The context the CLI really builds, not one a test invented."""
+        args = argparse.Namespace(mariadb_arg=["--x"], dev_target=True,
+                                  dry_run=False, fixups_dir=None)
+        with mock.patch.object(o19import, "STATE_DIR", self.state_dir), \
+                mock.patch.object(o19import, "take_workspace_lock",
+                                  lambda d: None), \
+                mock.patch.object(o19import, "make_query",
+                                  lambda a: self.query), \
+                mock.patch.object(o19import, "_target_db",
+                                  lambda dev: "carlos"):
+            ctx = o19import._make_ctx_for_cleanup(args)
+        ctx.update(over)
+        return ctx
+
+    def test_the_cleanup_context_carries_what_the_data_gate_reads(self):
+        ctx = self.ctx()
+        for key in ("state_dir", "state", "query", "dev_target",
+                    "target_db", "archive_schema"):
+            self.assertIn(key, ctx)
+
+    def test_a_verified_run_cleans_up_without_raising(self):
+        o19import.save_state(self.state_dir,
+                             {"phases": {"verify": {"status": "done"}}})
+        ctx = self.ctx()
+        o19import.run_cleanup(ctx)
+        self.assertTrue(any("DROP DATABASE" in q for q in self.queries),
+                        self.queries)
+
+    def test_the_staging_schema_is_measured_before_it_is_dropped(self):
+        # the whole point of the gate: the parity runs first, or the
+        # rows it protects are already gone
+        o19import.save_state(self.state_dir,
+                             {"phases": {"verify": {"status": "done"}}})
+        from carlos_ctl import o19etl
+        o19etl.save_progress(self.state_dir,
+                             {"tables": {"demographic": {"done": True}}})
+        ctx = self.ctx()
+        with mock.patch.object(o19import, "_row_parity",
+                               lambda c: (["ok"], [])) as _:
+            o19import.run_cleanup(ctx)
+        drop = next(i for i, q in enumerate(self.queries)
+                    if "DROP DATABASE" in q)
+        probe = next(i for i, q in enumerate(self.queries)
+                     if "information_schema.SCHEMATA" in q)
+        self.assertLess(probe, drop)
+
+    def test_a_homeless_table_stops_the_drop(self):
+        o19import.save_state(self.state_dir,
+                             {"phases": {"verify": {"status": "done"}}})
+        from carlos_ctl import o19etl
+        o19etl.save_progress(self.state_dir,
+                             {"tables": {"demographic": {"done": True}}})
+        ctx = self.ctx()
+        err = io.StringIO()
+        with mock.patch.object(o19import, "_row_parity",
+                               lambda c: ([], ["cr_user: homeless"])), \
+                contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import.run_cleanup(ctx)
+        self.assertIn("no verified home", err.getvalue())
+        self.assertFalse(any("DROP DATABASE" in q for q in self.queries))
 
 
 class TestInheritedImportRefusal(unittest.TestCase):

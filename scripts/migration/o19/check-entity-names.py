@@ -35,6 +35,14 @@ COLUMN_RE = re.compile(r'@Column\s*\(([^)]*)\)', re.S)
 NAME_RE = re.compile(r'name\s*=\s*"([^"]+)"')
 FIELD_RE = re.compile(
     r'(?:private|protected|public)\s+[\w<>,\[\]\.\s]+?\s+(\w+)\s*[;=]')
+#: JPA reads annotations from FIELDS or from GETTERS, per entity, and an
+#: entity that annotates its getters has no annotated field for FIELD_RE
+#: to find. Dropping those would compare one side of a rename against
+#: nothing and call it clean, which is the failure this tool exists to
+#: prevent.
+GETTER_RE = re.compile(
+    r'(?:public|protected)\s+[\w<>,\[\]\.\s]+?\s+'
+    r'(?:get|is)([A-Z]\w*)\s*\(\s*\)')
 
 #: Hibernate quotes reserved words in @Column(name = "`value`"); the DDL
 #: column is unquoted, and the manifest is built from the DDL.
@@ -53,16 +61,22 @@ def parse_entity(path):
     for match in COLUMN_RE.finditer(src):
         # the field declaration follows the annotation; 400 chars is well
         # past any javadoc or further annotations between them
-        field = FIELD_RE.search(src[match.end():match.end() + 400])
-        if not field:
-            continue
+        window = src[match.end():match.end() + 400]
+        field = FIELD_RE.search(window)
+        if field:
+            prop = field.group(1)
+        else:
+            getter = GETTER_RE.search(window)
+            if not getter:
+                continue
+            # getFoo() -> foo, the property name JPA derives
+            prop = getter.group(1)[0].lower() + getter.group(1)[1:]
         name = NAME_RE.search(match.group(1))
-        # `@Column` with no name= maps to the FIELD name under JPA's
-        # default strategy. Skipping those would compare one side of a
-        # rename against nothing and report it clean, so resolve the
-        # implicit name rather than dropping the field.
-        columns[field.group(1)] = (name.group(1).strip(QUOTES) if name
-                                   else field.group(1))
+        # `@Column` with no name= maps to the field or property name
+        # under JPA's default strategy. Skipping those would compare one
+        # side of a rename against nothing and report it clean, so
+        # resolve the implicit name rather than dropping the member.
+        columns[prop] = (name.group(1).strip(QUOTES) if name else prop)
     if not columns:
         return None
     table = TABLE_RE.search(src)
@@ -75,8 +89,16 @@ def scan(root):
     `root`. Keyed by CLASS because the packages differ between the two
     trees (org.oscarehr.* vs io.github.carlos_emr.carlos.*) while the
     class names are what survived the migration."""
+    def unreadable(exc):
+        # os.walk swallows a directory it cannot open, so a permission
+        # error deep in the tree would silently shrink the audit
+        raise SystemExit(
+            "cannot walk {0}: {1} -- refusing to report a clean audit "
+            "over a tree it could not read".format(
+                getattr(exc, "filename", root), exc))
+
     out = {}
-    for dirpath, _dirs, files in os.walk(root):
+    for dirpath, _dirs, files in os.walk(root, onerror=unreadable):
         for name in files:
             if not name.endswith(".java"):
                 continue

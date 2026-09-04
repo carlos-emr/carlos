@@ -445,6 +445,10 @@ NOT_RENAMES = {
 # while its CARLOS twin keeps its Flyway seed, and nothing says so; the
 # generator flags any O19-only/CARLOS-only pair whose case-folded column
 # names agree by Jaccard >= 0.70 and refuses to emit until it is ruled.
+# Both sides must carry at least 3 columns to be considered at all: a
+# one- or two-column audit table is Jaccard-similar to half the schema by
+# accident, so flagging those would produce noise a curator learns to
+# wave through -- which is worse than not flagging them.
 #
 # Deliberately a SEPARATE namespace from NOT_RENAMES: the column validator
 # reads element 2 of every NOT_RENAMES key as a dropped column name, so a

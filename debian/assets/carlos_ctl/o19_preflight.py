@@ -1412,10 +1412,13 @@ def run_checks(query, properties=None, province="on", accepted=(),
     for t, cls in KNOWN_TABLES.items():
         if t in PATIENT_DATA_TABLES or t not in tables:
             continue
-        # drop-class tables are deleted with NO archive and no CSV, so a
-        # non-empty one is the only silent loss in the design — and the
-        # OLIS nomenclature tables are drop-class, so an OLIS clinic that
-        # never wrote a preference row would otherwise raise no blocker
+        # drop-class tables are preserved rather than migrated (the
+        # import copies each to o19_archive and to an import_archived_
+        # twin, and verifies both by count), so a non-empty one is an
+        # advisory rather than a loss — but it still has to be COUNTED
+        # here: the OLIS nomenclature tables are drop-class, and an OLIS
+        # clinic that never wrote a preference row would otherwise raise
+        # no blocker at all
         if cls not in ("archive", "drop"):
             continue
         n = count_live(t)

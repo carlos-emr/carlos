@@ -750,6 +750,32 @@ class TestArchivedColumns(unittest.TestCase):
                     "tinyint(1)"),
                    ("vendorNote", "import_archived_vendorNote", "text")])
 
+    def test_a_dump_that_spells_the_column_differently_still_preserves_it(
+            self):
+        """The dump's casing is the clinic's, not the manifest's.
+
+        `effective_entry` and `unknown_columns` both fold case, so a
+        column spelled `legacyflag` is neither planned by an exact lookup
+        NOR counted as a vendor-fork column -- it would be preserved
+        nowhere at all. The target name keeps the manifest's spelling so
+        it is stable across dumps."""
+        cols = self.src_cols()
+        cols["legacyflag"] = cols.pop("legacyFlag")
+        plan = o19etl.archived_column_plan(self.ENTRY, cols)
+        self.assertIn(("legacyFlag", "import_archived_legacyFlag",
+                       "tinyint(1)"), plan)
+
+    def test_the_shadow_capture_agrees_about_which_columns_are_absent(
+            self):
+        # the same fold: reporting a present column absent drops it from
+        # the o19_archive capture as well
+        cols = self.src_cols()
+        cols["legacyflag"] = cols.pop("legacyFlag")
+        notes = []
+        o19etl.shadow_statements("t", self.ENTRY, "stage", "arch", cols,
+                                 notes)
+        self.assertEqual(notes, [])
+
     def test_a_dropped_column_this_dump_lacks_is_not_planned(self):
         # nothing to preserve; shadow_statements reports the case
         cols = self.src_cols()
@@ -858,6 +884,21 @@ class TestArchivedColumns(unittest.TestCase):
              for c in (e.get("dropped") or {})), key=len, default="")
         self.assertLessEqual(
             len(o19etl.archived_column(longest_col)), 64, longest_col)
+
+    def test_every_manifest_table_leaves_room_for_its_scratch_names(self):
+        """`rebuild_statements` appends `__new`/`__old` to a name that
+        may already carry a shadow suffix.
+
+        A dump's own table names are bounded by the pre-check below; the
+        MANIFEST's are not, and `<table>__unknown_cols__new` is the
+        longest identifier this tool constructs. The margin is one
+        character today, which is exactly why it is measured rather than
+        assumed."""
+        longest = max(o19etl.SHADOW_SUFFIXES, key=len)
+        over = sorted(t for t in o19map_schema.TABLES
+                      if len(t) + len(longest) + len(o19etl.REBUILD_OLD)
+                      > o19etl.IDENTIFIER_LIMIT)
+        self.assertEqual(over, [])
 
     def test_a_forks_long_table_name_is_refused_before_the_first_write(self):
         """A clinic's fork names its own tables, and those arrive

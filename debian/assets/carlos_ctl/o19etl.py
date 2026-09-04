@@ -707,6 +707,13 @@ def archived_table(table: str) -> str:
 REBUILD_NEW = "__new"
 REBUILD_OLD = "__old"
 
+#: Every suffix this tool appends to a table name before the rebuild
+#: suffixes go on. `<table>__unknown_cols__new` is the longest identifier
+#: it constructs; a manifest test measures the margin against the real
+#: table names, and `oversized_preserved_names` bounds the ones a dump
+#: brings.
+SHADOW_SUFFIXES = ("", "__dropped", "__unknown_cols", "__idmap")
+
 
 def rebuild_statements(archive_schema: str, final: str,
                        build: Callable[[str], List[str]]) -> List[str]:
@@ -824,7 +831,11 @@ def shadow_statements(table: str, entry: dict, src_schema: str,
     dropped = dict(entry.get("dropped", {}))
     if not dropped:
         return []
-    absent = sorted(c for c in dropped if c not in src_cols)
+    # case-folded for the same reason archived_column_plan folds: a dump
+    # that spells the column differently HAS it, and reporting it absent
+    # would drop it from the capture
+    have = {c.lower() for c in src_cols}
+    absent = sorted(c for c in dropped if c.lower() not in have)
     for c in absent:
         dropped.pop(c)
         if notes is not None:
@@ -880,10 +891,18 @@ def archived_column_plan(entry: dict, src_cols: Dict[str, dict]
     The target keeps the SOURCE type verbatim, which is what makes the
     copy of it lossless: no widening, no truncation, and nothing for
     `sanitize_expr` to correct."""
+    # case-insensitively, like `effective_entry` and `unknown_columns`:
+    # a dump spelling a dropped column `programno` would otherwise fall
+    # out of the plan AND out of unknown_columns (which folds case and so
+    # counts it as known), and be preserved nowhere at all. The TARGET
+    # name keeps the manifest's spelling so it is stable across dumps;
+    # MySQL resolves the source column name case-insensitively either
+    # way, so the emitted SQL is unaffected.
+    lower = {c.lower(): info for c, info in src_cols.items()}
     out = []
     for col in sorted(set(entry.get("dropped", {}))
                       | set(unknown_columns(entry, src_cols))):
-        info = src_cols.get(col)
+        info = lower.get(col.lower())
         if not info:
             continue
         out.append((col, archived_column(col), info["column_type"]))
@@ -2522,7 +2541,8 @@ def archived_column_parity(plain_query, src_schema: str, dst_schema: str
             if not target.startswith(ARCHIVED_PREFIX):
                 continue
             source = target[len(ARCHIVED_PREFIX):]
-            if source not in src_info[table]:
+            staged = {c.lower() for c in src_info[table]}
+            if source.lower() not in staged:
                 # the column was preserved by an earlier run against a
                 # dump that carried it; this one does not, so there is
                 # nothing to compare it against

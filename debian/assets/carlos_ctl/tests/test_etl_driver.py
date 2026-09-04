@@ -326,6 +326,17 @@ class TestTheCopyPath(EtlDriverBase):
                       "LIKE `o19_import`.`Eyeform`", db.writes)
         self.assertIn("INSERT INTO `carlos`.`import_archived_Eyeform__new` "
                       "SELECT * FROM `o19_import`.`Eyeform`", db.writes)
+        # and the swap that makes the LIVE name hold them: without this
+        # a regression that filled the scratch and never renamed would
+        # leave the clinic's only copy in a `__new` table and still pass
+        self.assertIn("RENAME TABLE `o19_archive`.`Eyeform` TO "
+                      "`o19_archive`.`Eyeform__old`, "
+                      "`o19_archive`.`Eyeform__new` TO "
+                      "`o19_archive`.`Eyeform`", db.writes)
+        self.assertIn("RENAME TABLE `carlos`.`import_archived_Eyeform` TO "
+                      "`carlos`.`import_archived_Eyeform__old`, "
+                      "`carlos`.`import_archived_Eyeform__new` TO "
+                      "`carlos`.`import_archived_Eyeform`", db.writes)
         self.assertEqual(counts["archive"], 1)
 
     def test_the_archive_copy_is_written_before_the_live_twin(self):

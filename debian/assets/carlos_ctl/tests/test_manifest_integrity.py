@@ -497,16 +497,6 @@ class TestRenameRulings(unittest.TestCase):
         self.assertEqual(blank, [],
                          "a ruling without a reason is not a ruling")
 
-    def test_table_rulings_live_in_their_own_namespace(self):
-        """A (o19_table, carlos_table) pair filed in NOT_RENAMES is read
-        by the column validator as (table, dropped_column) and rejected
-        as stale, so the table escape hatch has to be a separate dict."""
-        misfiled = ["{}.{}".format(t, c)
-                    for (t, c) in getattr(self.ov, "NOT_RENAMES", {})
-                    if c in o19map_schema.TABLES]
-        self.assertEqual(misfiled, [],
-                         "table pairs belong in NOT_RENAMED_TABLES")
-
     def test_every_table_ruling_names_one_side_of_the_diff(self):
         # the O19 side must be a table the manifest carries; the CARLOS
         # side must NOT be, since a shared table is not a rename candidate

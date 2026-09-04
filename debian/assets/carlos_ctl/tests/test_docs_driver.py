@@ -19,6 +19,8 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import csv
+import io
 import os
 import re
 import shutil
@@ -80,8 +82,13 @@ class FakeDb(object):
         for table, (cols, rows) in self.archive.items():
             if "`{0}`".format(table) in sql:
                 # the export selects each column with a companion IS NULL
-                # flag, so every value is followed by "0"/"1"
-                return [[x for v in row for x in (v, "0")] for row in rows]
+                # flag, so every value is followed by "0"/"1". A cell
+                # given as None IS SQL NULL here: the client renders it
+                # as the empty string and the flag is what tells NULL
+                # from an empty value.
+                return [[x for v in row
+                         for x in (("", "1") if v is None else (v, "0"))]
+                        for row in rows]
         if "HRMDocument" in sql or "report_file" in sql:
             return self.hrm
         return []
@@ -96,7 +103,6 @@ def make_tar(path, files, ctx="oscar"):
             data = body.encode("utf-8")
             info = tarfile.TarInfo(member)
             info.size = len(data)
-            import io
             tf.addfile(info, io.BytesIO(data))
     return path
 
@@ -172,6 +178,36 @@ class TestTheHappyPath(DocsDriverBase):
         db, _ctx = self.run_docs()
         self.assertTrue([w for w in db.writes if w.startswith("UPDATE")],
                         db.writes)
+
+    def test_a_null_cell_survives_the_whole_export_path(self):
+        """SQL NULL, the empty string and the text "NULL" are three
+        different values in a clinical record.
+
+        `test_docs.TestArchiveCsvNulls` pins the row formatter; this pins
+        that the NULL FLAG survives run_docs end to end, which is what
+        `export_archive_csv` needs to tell them apart. On an interpreter
+        with `csv.QUOTE_NOTNULL` (3.12+) a SQL NULL and a stored '' are
+        distinguishable in the file; below that they both render empty,
+        the documented degradation."""
+        db = FakeDb(archive={"Eyeform": (["id", "notes"],
+                                         [["7", None], ["8", ""],
+                                          ["9", "NULL"]])})
+        self.run_docs(db=db)
+        path = os.path.join(self.state_dir, "o19-archive-export",
+                            "Eyeform.csv")
+        with open(path, newline="") as fh:
+            raw = fh.read()
+        # the four-character string 'NULL' is data and stays bare; it is
+        # never confused with the SQL NULL two rows above it
+        self.assertIn("9,NULL", raw)
+        rows = list(csv.reader(io.StringIO(raw)))
+        self.assertEqual(rows[0], ["id", "notes"])
+        self.assertEqual(rows[3], ["9", "NULL"])
+        if hasattr(csv, "QUOTE_NOTNULL"):
+            self.assertIn('8,""', raw)     # stored '' , quoted
+            self.assertIn("7,\r\n", raw)   # SQL NULL, bare
+        else:
+            self.assertIn("7,", raw)
 
     def test_the_report_records_the_restore_and_the_reconciliation(self):
         self.run_docs()
