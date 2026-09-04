@@ -11,6 +11,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import tempfile
 import unittest
@@ -976,6 +977,102 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestRowParityComposition(unittest.TestCase):
+
+    """`_row_parity` is the only place the three parities are composed,
+    and the composition is the whole of "nothing was orphaned".
+
+    Every other test of the cleanup gate patches this function out, so
+    replacing its body with `return ok, bad` -- dropping the archived
+    tables and the preserved columns from the verdict -- used to leave
+    the suite green while reopening exactly the hole `cleanup_data_
+    refusal`'s docstring says is closed. These drive the real thing.
+    """
+
+    ARCHIVE_TABLE = next(t for t, e in o19map_schema.TABLES.items()
+                         if e["class"] == "archive")
+
+    def db(self, staging, archive, live, columns, nonnull=None):
+        """A fake answering the three shapes the parities ask for:
+        information_schema columns, information_schema table names, and
+        COUNT(*) (with or without an IS NOT NULL predicate)."""
+        nonnull = nonnull or {}
+        rows = {"o19_import": staging, "o19_archive": archive,
+                "carlos": live}
+
+        def query(sql, db=None):
+            if sql.startswith("SELECT TABLE_NAME, COLUMN_NAME"):
+                schema = re.search(r"TABLE_SCHEMA = '([^']+)'",
+                                   sql).group(1)
+                return [[t, c, "varchar", "varchar(255)", "YES", 255,
+                         "\\0NONE", "", 1020]
+                        for t, cols in sorted(
+                            columns.get(schema, {}).items())
+                        for c in cols]
+            if sql.startswith("SELECT TABLE_NAME FROM "
+                              "information_schema.TABLES"):
+                schema = re.search(r"TABLE_SCHEMA = '([^']+)'",
+                                   sql).group(1)
+                return [[t] for t in sorted(rows.get(schema, {}))]
+            m = re.search(r"FROM `([^`]+)`\.`?([A-Za-z0-9_$]+)`?", sql)
+            if m and "IS NOT NULL" in sql:
+                col = re.search(r"`([^`]+)` IS NOT NULL", sql).group(1)
+                return [[str(nonnull.get(
+                    (m.group(1), m.group(2), col), 0))]]
+            if m:
+                return [[str(rows.get(m.group(1), {}).get(m.group(2), 0))]]
+            return [["0"]]
+        return query
+
+    def ctx(self, query):
+        state_dir = tempfile.mkdtemp(prefix="o19parity-")
+        self.addCleanup(shutil.rmtree, state_dir)
+        return {"state_dir": state_dir, "query": query,
+                "target_db": "carlos", "archive_schema": "o19_archive"}
+
+    def test_a_populated_archive_table_with_no_copy_is_reported(self):
+        # preserved_parity's business: row_parity does not look at
+        # archive-class tables at all, so if the composition drops it
+        # this table is homeless and nothing says so
+        query = self.db(
+            staging={self.ARCHIVE_TABLE: 12}, archive={}, live={},
+            columns={"o19_import": {self.ARCHIVE_TABLE: ["id"]},
+                     "carlos": {}})
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(
+            any(self.ARCHIVE_TABLE in line and "no copy at" in line
+                for line in bad), bad)
+
+    def test_an_empty_preserved_column_is_reported(self):
+        # archived_column_parity's business: a row count cannot see a
+        # column, so a preserved column that arrived empty is invisible
+        # to both of the other two
+        query = self.db(
+            staging={"clinic_fork": 5}, archive={"clinic_fork": 5},
+            live={"import_archived_clinic_fork": 5},
+            columns={"o19_import": {"clinic_fork": ["id", "note"]},
+                     "carlos": {"clinic_fork": [
+                         "id", "import_archived_note"]}},
+            nonnull={("o19_import", "clinic_fork", "note"): 5})
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(
+            any("clinic_fork.note" in line for line in bad), bad)
+
+    def test_a_sound_import_produces_no_mismatch(self):
+        # the refusal must not be permanent: a run where every preserved
+        # table and column IS accounted for has to pass, or the gate
+        # blocks every --cleanup rather than the unsafe ones
+        query = self.db(
+            staging={self.ARCHIVE_TABLE: 12},
+            archive={self.ARCHIVE_TABLE: 12},
+            live={o19etl.archived_table(self.ARCHIVE_TABLE): 12},
+            columns={"o19_import": {self.ARCHIVE_TABLE: ["id"]},
+                     "carlos": {}})
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertEqual(bad, [])
+        self.assertTrue(ok)
+
+
 class TestVerifyPhaseFiles(unittest.TestCase):
     """run_p7 writes its per-patient lines and the roles findings to the
     root-only files and replaces the P7 block on every rerun."""
@@ -990,6 +1087,9 @@ class TestVerifyPhaseFiles(unittest.TestCase):
         self._checks = o19roles.verify_role_checks
         o19import._row_parity = lambda ctx: (["t: 1 -> 1"], [])
         self.private = ["expired logins: fixture.expired"]
+        #: staging-side row count for patient 7; equal to the target's 1
+        #: for a clean run, raised by a test that wants a real mismatch
+        self.staging_rows_for_7 = 1
         o19roles.verify_role_checks = lambda *a, **k: (
             ["role 'doctor' present"], [], ["1 login(s) import expired"],
             list(self.private))
@@ -1013,7 +1113,12 @@ class TestVerifyPhaseFiles(unittest.TestCase):
                 return []
             if "WHERE `demographic_no` = 7" in sql \
                     or "WHERE `demographicNo` = 7" in sql:
-                return [["1"]]
+                # the two SIDES must be distinguishable, or `s != d` is
+                # never true, the mismatch branch is unreachable and
+                # every assertion about where a patient identifier may
+                # appear passes over a run that produced none
+                return [[str(self.staging_rows_for_7)]] \
+                    if "`o19_import`" in sql else [["1"]]
             return [["0"]] if "COUNT(*)" in sql else []
         return {"state_dir": self.state_dir, "state": {"phases": {}},
                 "query": query, "target_db": "carlos"}
@@ -1037,6 +1142,40 @@ class TestVerifyPhaseFiles(unittest.TestCase):
             self.assertIn("P7 verify:\nexpired logins: fixture.expired",
                           fh.read())
         self.assertTrue(o19import.phase_done(ctx["state"], "verify"))
+
+    def test_a_spot_check_mismatch_names_the_patient_privately_only(self):
+        # The PHI rule this phase exists to keep: a demographic_no is an
+        # identifier that joins straight back to a patient, so it belongs
+        # in the root-only details file and never in the shareable
+        # report. Asserting its ABSENCE over a run that produced no
+        # mismatch at all proves nothing, so produce one.
+        self.staging_rows_for_7 = 4
+        ctx = self._ctx()
+        with self.assertRaises(SystemExit):
+            o19import.run_p7(ctx)
+        with open(os.path.join(self.state_dir, "verify-details.txt")) as fh:
+            details = fh.read()
+        self.assertIn("patient 7", details)
+        with open(os.path.join(self.state_dir, "report.txt")) as fh:
+            report = fh.read()
+        self.assertNotIn("patient 7", report)
+        self.assertIn("spot-check mismatch", report)
+
+    def test_the_operator_validation_report_is_written(self):
+        # import_report/write_import_report are unit-tested directly, so
+        # nothing else notices the call site in run_p7 disappearing --
+        # and then a completed import produces no import-report.txt at
+        # all, which is the artifact the man page promises and the whole
+        # point of the phase
+        ctx = self._ctx()
+        o19import.run_p7(ctx)
+        for name in ("import-report.txt", "import-report.json"):
+            path = os.path.join(self.state_dir, name)
+            self.assertTrue(os.path.isfile(path), name + " was not written")
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+        with open(os.path.join(self.state_dir, "import-report.txt")) as fh:
+            text = fh.read()
+        self.assertIn("VERDICT", text)
 
     def test_a_one_sided_billing_table_is_not_reported_as_a_match(self):
         # billing_on_cheader1 present in the target but absent from

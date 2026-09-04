@@ -275,12 +275,20 @@ class EtlDriverBase(unittest.TestCase):
             mock.patch.object(o19etl, "ROLES_STEP_TABLES",
                               ("Facility", "clinic", "provider")),
             # the roles post-step has its own driver (test_roles_driver);
-            # here it would only add a few hundred statements of noise
+            # here it would only add a few hundred statements of noise.
+            # The SEAM is still asserted -- see
+            # test_the_roles_post_step_is_actually_invoked -- because a
+            # driver for each half proves nothing about the call between
+            # them, and without it deleting the call site is a silent
+            # green: no privilege diff, no guaranteed roles, no property
+            # prune, no RTL fixups.
             mock.patch("carlos_ctl.o19roles.run_roles", return_value=None),
         ]
+        started = []
         for p in patches:
-            p.start()
+            started.append(p.start())
             self.addCleanup(p.stop)
+        self.roles = started[-1]  # the mock the ETL must call
 
     def run_etl(self, db=None, ctx_over=None, **db_kwargs):
         db = db or FakeDb(**db_kwargs)
@@ -376,6 +384,25 @@ class TestTheCopyPath(EtlDriverBase):
         self.assertTrue(self.writes_matching(
             db, r"`o19_archive`\.`HL7Map__idmap`"), db.writes)
         self.assertEqual(counts["merge"], 1)
+
+    def test_the_roles_post_step_is_actually_invoked(self):
+        # o19roles.run_roles is patched out for noise, so nothing else in
+        # this file would notice its call site being deleted
+        db, _lines, _counts = self.run_etl()
+        self.assertEqual(self.roles.call_count, 1, "run_etl did not call "
+                         "o19roles.run_roles")
+        ctx, progress, save = self.roles.call_args[0]
+        # the ORCHESTRATOR's client, not the ETL executor's: the roles
+        # step runs under the shorter statement timeout, and handing it
+        # the long-running ETL client would silently widen that budget
+        self.assertEqual(ctx["query"], db.plain)
+        # the save callback must persist the SAME ledger the ETL is
+        # holding, or the roles step's marks are written into a copy and
+        # a resumed run repeats work it already did
+        progress["roles_seam_probe"] = True
+        save()
+        self.assertTrue(o19etl.load_progress(self.state_dir)
+                        .get("roles_seam_probe"))
 
     def test_a_merge_tables_clinic_rows_are_archived(self):
         # A merge keeps CARLOS's row on a shared natural key, so the
