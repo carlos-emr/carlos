@@ -146,7 +146,7 @@ a second invocation is refused and names the pid of the one holding it.
 ```bash
 sudo carlos-ctl import-o19 \
     --bundle /srv/migration/o19-bundle.tar.gz.enc \
-    --bundle-sha256 <digest the clinic conveyed separately> \
+    --bundle-sha256 <the SHA-256 the clinic conveyed separately> \
     --bundle-pass file:/srv/migration/passfile \
     --admin-user <break-glass-admin-name> \
     [--accept CLASS ...]        # the sign-offs preflight listed
@@ -180,10 +180,10 @@ report as the clinic's sign-off. There are eleven:
 | `olis-gone` | OLIS was in use; CARLOS has no OLIS module |
 | `no-documents` | import without the documents tree (with `--skip-documents`) |
 | `no-pre-backup` | no pre-import snapshot, or the backup unit failed |
-| `unverified-bundle` | open a bundle whose digest was never conveyed |
+| `unverified-bundle` | open a bundle whose SHA-256 was never conveyed |
 | `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
 | `content-transfer` | the restored staging schema does not match the content digests the clinic took before the dump |
-| `no-content-digests` | the transfer's content could not be fully verified (usually: no digest document was shipped) |
+| `no-content-digests` | the transfer's content could not be fully verified (usually: no content digests were shipped) |
 
 The assessment can evaluate only six of them (`archived-forms`,
 `unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`,
@@ -307,7 +307,7 @@ are not recorded — sign-offs persist only from a real run),
 (`-md md5`, no `-pbkdf2`) — note that any `--bundle-openssl-opt` **replaces**
 the default `-pbkdf2 -iter 200000` rather than adding to it, so pass the
 creator's complete derivation options — `--skip-documents` with `--accept no-documents`,
-`--accept unverified-bundle` to open a bundle whose digest was never
+`--accept unverified-bundle` to open a bundle whose SHA-256 was never
 conveyed (a recorded sign-off, never a default), `--accept
 carry-credentials` when the dump holds live OAuth consumer secrets or
 signing keys (`ServiceClient`, `oscarKeys`, `publicKeys` rows are copied
@@ -340,7 +340,7 @@ Invoke it the same way as the import, minus the writing flags:
 ```bash
 sudo carlos-ctl o19-preflight \
     --bundle /srv/migration/o19-bundle.tar.gz.enc \
-    --bundle-sha256 <digest> --bundle-pass file:/srv/migration/passfile
+    --bundle-sha256 <SHA-256> --bundle-pass file:/srv/migration/passfile
 ```
 
 (or `--dump` plus `--properties` instead of a bundle). It accepts only the

@@ -2490,9 +2490,9 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
             if not os.path.isfile(supplied_digests):
                 die("no such file: {0}".format(supplied_digests))
             opened["digests"] = supplied_digests
-        if opened.get("digests"):
-            opened["digests"] = snapshot_digests(opened["digests"],
-                                                 state_dir)
+        # the run's own copy is taken by _make_ctx, AFTER the ledger
+        # binding has vetted it: a candidate that is about to be refused
+        # must not first overwrite what the run measured
         return opened
     if args.bundle_pass or args.bundle_openssl_opt or args.bundle_sha256:
         die("--bundle-pass/--bundle-openssl-opt/--bundle-sha256 need "
@@ -2510,8 +2510,7 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
             die("no such file: {0}".format(p))
     return {"dump": args.dump, "documents": docs,
             "properties": args.properties,
-            "digests": (snapshot_digests(supplied_digests, state_dir)
-                        if supplied_digests else None),
+            "digests": supplied_digests,
             "bundle_sha256": None,
             "members": {}}
 
@@ -2553,19 +2552,21 @@ def bundle_digest_refusal(expected: Optional[str], actual: str,
             "record the sign-off with --accept unverified-bundle.")
 
 
-def snapshot_digests(path: str, state_dir: str) -> str:
-    """Copy a digest document into the run directory at 0600 and return
-    the copy.
+def stage_digests(path: str, state_dir: str) -> str:
+    """Copy a candidate digest document into the run directory at 0600,
+    beside the run's own copy rather than over it; return the candidate.
 
-    The run measures the copy it took, not the operator's file. A
+    The run measures the copy it took, not the operator's file: a
     `--o19-digests` path is read at P2, AFTER the dump has been staged,
     so a file replaced in between would be compared against data it does
-    not describe -- and across a `--resume`, a different file would
-    silently change what the transfer was ever measured against. (A
-    bundle-carried document is already snapshotted with the bundle and
-    covered by --bundle-sha256; it is snapshotted here too so both routes
-    bind the same way and the ledger has one rule, not two.)"""
-    dest = os.path.join(state_dir, DIGESTS_SNAPSHOT)
+    not describe, and across a `--resume` a different file would silently
+    change what the transfer was ever measured against.
+
+    Two steps rather than one because the candidate has to be HASHED
+    before it may replace anything -- writing straight over the run's
+    snapshot would destroy the only copy of what P2 measured in order to
+    then refuse the file that destroyed it."""
+    dest = os.path.join(state_dir, DIGESTS_SNAPSHOT + ".incoming")
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
     with open(path, "rb") as src:
         fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -2577,16 +2578,54 @@ def snapshot_digests(path: str, state_dir: str) -> str:
     return dest
 
 
-def digests_change_refusal(recorded: Optional[str],
-                           actual: Optional[str]) -> Optional[str]:
+def commit_digests(incoming: str, state_dir: str) -> str:
+    """Install a vetted candidate as the run's digest document."""
+    dest = os.path.join(state_dir, DIGESTS_SNAPSHOT)
+    os.replace(incoming, dest)
+    return dest
+
+
+def resolve_digests(inputs: Dict, state_dir: str, restage: bool) -> Dict:
+    """Settle which digest document THIS run measures against.
+
+    Returns `{"path": ..., "sha256": ..., "incoming": ...}`; `incoming`
+    is a staged candidate the caller must commit or discard once the
+    ledger binding has been checked.
+
+    A resumed invocation that names no document keeps the copy the run
+    already took -- the transfer check must go on measuring the same
+    bytes the earlier phases did, exactly as the run keeps its dump.
+    `--restage` is the deliberate exception: a new dump makes the old
+    clinic's numbers meaningless, so the stale copy is retired with it.
+    """
+    kept = os.path.join(state_dir, DIGESTS_SNAPSHOT)
+    supplied = inputs.get("digests")
+    if restage and not supplied:
+        if os.path.isfile(kept):
+            os.unlink(kept)
+        return {"path": None, "sha256": None, "incoming": None}
+    if not supplied:
+        if not os.path.isfile(kept):
+            return {"path": None, "sha256": None, "incoming": None}
+        return {"path": kept, "sha256": sha256_file(kept), "incoming": None}
+    incoming = stage_digests(supplied, state_dir)
+    return {"path": None, "sha256": sha256_file(incoming),
+            "incoming": incoming}
+
+
+def digests_change_refusal(recorded: Optional[str], actual: Optional[str],
+                           restage: bool = False) -> Optional[str]:
     """Why this run may not continue with the digest document it was
     given (None when it may).
 
     The ledger records the sha256 of the document the run measured
     against. A `--resume` handed a DIFFERENT one would compare the
     transfer against numbers the earlier phases never saw, and nothing
-    would say so. Pure, for the state tests."""
-    if not recorded or not actual or recorded == actual:
+    would say so. `--restage` is the way out and must therefore not be
+    refused by this: it drops the staged dump for another, which is
+    exactly when a different set of clinic numbers is the RIGHT one.
+    Pure, for the state tests."""
+    if restage or not recorded or not actual or recorded == actual:
         return None
     return ("the content digests differ from the ones this run recorded "
             "(ledger {0}..., supplied {1}...). A resumed run must measure "
@@ -2738,12 +2777,28 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         # an assessment extracts into its own workdir: the real run's
         # members (what --resume continues from) are never replaced
         workdir_name="bundle" if real_run else "bundle-assess")
-    digests_sha = (sha256_file(inputs["digests"])
-                   if inputs.get("digests") else None)
-    refusal = digests_change_refusal(
-        state.get("inputs", {}).get("digests_sha256"), digests_sha)
-    if refusal:
-        die(refusal)
+    # An assessment records nothing and persists no sign-off, so it also
+    # takes no copy and binds nothing: it reads the operator's file as
+    # given, and cannot overwrite a real run's snapshot.
+    digests_sha = None
+    if real_run:
+        settled = resolve_digests(inputs, state_dir,
+                                  bool(getattr(args, "restage", False)))
+        digests_sha = settled["sha256"]
+        refusal = digests_change_refusal(
+            state.get("inputs", {}).get("digests_sha256"), digests_sha,
+            bool(getattr(args, "restage", False)))
+        if refusal:
+            # the run's own copy stays where it is: the candidate that
+            # was refused must not be what destroyed the evidence
+            if settled["incoming"]:
+                os.unlink(settled["incoming"])
+            die(refusal)
+        if settled["incoming"]:
+            inputs["digests"] = commit_digests(settled["incoming"],
+                                               state_dir)
+        else:
+            inputs["digests"] = settled["path"]
     if inputs.get("properties"):
         # needs nothing but the file, so it runs before P0 rather than at
         # P2 — a typo in the clinic's oscar.properties should not cost a

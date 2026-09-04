@@ -410,10 +410,6 @@ class TestPropsManifest(unittest.TestCase):
         self.assertIn("billregion", o19map_props.O19_DEFAULTS)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 OVERRIDES = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \
     "o19" / "overrides_schema.py"
 
@@ -528,3 +524,7 @@ class TestRenameRulings(unittest.TestCase):
                     bad.append("{0}.{1} is not an O19 column".format(
                         table, source))
         self.assertEqual(bad, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

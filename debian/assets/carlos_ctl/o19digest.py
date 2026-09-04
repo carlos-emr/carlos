@@ -162,7 +162,14 @@ def row_hash_expr(columns: Sequence[str], types: Dict[str, str]) -> str:
 
 def digest_sql(schema: Optional[str], table: str, columns: Sequence[str],
                types: Dict[str, str], where: Optional[str] = None) -> str:
-    """`SELECT rows, total, parity` for one table.
+    """Two statements: `UTC_SESSION`, then `SELECT rows, total, parity`
+    for one table.
+
+    The prelude is part of the result, not decoration, and callers must
+    neither strip nor reorder it: every query here runs in its own client
+    process, so the session time zone has to be pinned in the same batch
+    or a TIMESTAMP renders in whatever local time the host keeps. The
+    batch returns one row -- `SET` produces no result set.
 
     `schema` may be None, which leaves the table unqualified for a
     connection that already has the right database selected. The clinic
@@ -319,10 +326,22 @@ def load_document(path: str) -> Dict[str, object]:
             "{0} carries digest format {1!r}; this build reads format {2}. "
             "Re-run the clinic assessment with a matching o19_preflight.py"
             .format(path, fmt, DIGEST_FORMAT))
-    if not isinstance(doc.get("tables"), dict):
+    tables = doc.get("tables")
+    errors = doc.get("errors", {})
+    if not isinstance(tables, dict):
         raise ValueError("{0} carries no table digests".format(path))
-    if not isinstance(doc.get("errors", {}), dict):
+    if not isinstance(errors, dict):
         raise ValueError("{0} carries a malformed error list".format(path))
+    if not tables and not errors:
+        # A clinic that measured NOTHING recorded neither a digest nor a
+        # reason it could not take one, so the document says nothing at
+        # all. Against a staging schema that is also empty -- which is
+        # what a truncated restore looks like -- the comparison would
+        # then find nothing to disagree about and read as verified.
+        raise ValueError(
+            "{0} carries neither a table digest nor a reason one could "
+            "not be taken, so it says nothing about the clinic's data; "
+            "re-run the assessment with --digests".format(path))
     return doc
 
 

@@ -353,6 +353,14 @@ def check_charset_repair(client: Client, db: str) -> List[str]:
     text in question is patient names. Rows the predicate cannot prove are
     double-encoded pass through untouched by design.
     """
+    try:
+        return _charset_repair_body(client, db)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`;".format(db))
+
+
+def _charset_repair_body(client: Client, db: str) -> List[str]:
+    """The repair checks themselves; the caller owns the teardown."""
     client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
                  .format(db))
     client.setup("CREATE TABLE t (id int, v varchar(255)) "
@@ -383,7 +391,6 @@ def check_charset_repair(client: Client, db: str) -> List[str]:
             failures.append(
                 "{0} {1!r} became {2!r}, expected {3!r}".format(
                     label, stored, got.get(n), want))
-    client.setup("DROP DATABASE IF EXISTS `{0}`;".format(db))
     return failures
 
 
@@ -510,6 +517,16 @@ def check_content_digest(client: Client, clinic: str,
     to be MISSED by the rendering the digest deliberately does not use.
     """
     failures: List[str] = []
+    try:
+        return _content_digest_body(client, clinic, stage, failures)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(clinic, stage))
+
+
+def _content_digest_body(client: Client, clinic: str, stage: str,
+                         failures: List[str]) -> List[str]:
+    """The digest checks themselves; the caller owns the teardown."""
     cols = [c for c, _t in DIGEST_COLUMNS]
     types = dict(DIGEST_COLUMNS)
     hashed = o19digest.row_hash_expr(cols, types)
@@ -660,8 +677,6 @@ def check_content_digest(client: Client, clinic: str,
             "the SUM lane did not see the swapped identical pair -- the "
             "one thing it is there for")
 
-    client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
-               "`{1}`;".format(clinic, stage))
     return failures
 
 
@@ -687,6 +702,21 @@ def check_end_to_end_transfer(client: Client, mysql_args: List[str],
                 "-- this run did not exercise the P2 chain"]
 
     failures: List[str] = []
+    try:
+        return _end_to_end_body(client, mysql_args, clinic, stage,
+                                dump_cmd, failures)
+    finally:
+        # every exit path, including the early returns for a failed dump
+        # or restore: a verifier that leaks scratch schemas makes the
+        # next run measure whatever the last one left behind
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(clinic, stage))
+
+
+def _end_to_end_body(client: Client, mysql_args: List[str], clinic: str,
+                     stage: str, dump_cmd: str,
+                     failures: List[str]) -> List[str]:
+    """The chain itself; `check_end_to_end_transfer` owns the teardown."""
     client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
                  "DEFAULT CHARSET=latin1;".format(clinic))
     client.setup(DIGEST_DDL + " DEFAULT CHARSET=latin1;", clinic)
@@ -794,8 +824,6 @@ def check_end_to_end_transfer(client: Client, mysql_args: List[str],
                 "line is meaningless".format(label))
             break
 
-    client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
-               "`{1}`;".format(clinic, stage))
     return failures
 
 

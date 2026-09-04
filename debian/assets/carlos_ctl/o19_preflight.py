@@ -1348,7 +1348,14 @@ def digest_row_hash_expr(columns, types):
 
 
 def digest_sql(schema, table, columns, types, where=None):
-    """`SELECT rows, total, parity` for one table.
+    """Two statements: the UTC prelude, then `SELECT rows, total,
+    parity` for one table.
+
+    The prelude is part of the result, not decoration: every query runs
+    in its own client process, so the session time zone has to be pinned
+    in the same batch or a TIMESTAMP renders in whatever local time the
+    clinic's host keeps. Callers must not strip or reorder it; the batch
+    returns one row, since `SET` produces no result set.
 
     `schema` may be None, which leaves the table unqualified: the clinic
     runs one `mysql <db>` per query and has no second schema in reach."""

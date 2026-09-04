@@ -17,6 +17,7 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import ast
 import re
 import unittest
 from pathlib import Path
@@ -127,6 +128,35 @@ class TestAcceptClassesAreDocumented(unittest.TestCase):
     def test_the_assessment_sign_off_list_is_exactly_the_code_s(self):
         listed = man_assessment_classes()
         self.assertEqual(sorted(listed), sorted(o19_preflight.ACCEPT_IDS))
+
+
+class TestEveryTestFileRunsAllOfItself(unittest.TestCase):
+
+    """`unittest.main()` sees only the TestCase subclasses defined by the
+    time it runs.
+
+    An entry point left in the MIDDLE of a file -- which is where it
+    lands when classes are appended to an existing file -- silently skips
+    every class below it on a direct `python3 tests/test_x.py`. Two files
+    had that shape; the discovery runs used in CI hid it, so nothing
+    said so."""
+
+    def test_the_entry_point_is_the_last_thing_in_the_file(self):
+        offenders = []
+        for path in sorted(Path(__file__).parent.glob("test_*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            main_at = last_class = None
+            for node in tree.body:
+                if isinstance(node, ast.If) and "__main__" in ast.dump(
+                        node.test):
+                    main_at = node.lineno
+                elif isinstance(node, ast.ClassDef):
+                    last_class = node.lineno
+            if main_at and last_class and main_at < last_class:
+                offenders.append("{0}: entry point at line {1}, a test "
+                                 "class at {2}".format(path.name, main_at,
+                                                       last_class))
+        self.assertEqual(offenders, [])
 
 
 @unittest.skipUnless(MAN_PAGE.is_file(), "man page not in this checkout")

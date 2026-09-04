@@ -77,6 +77,13 @@ class TestAgreement(unittest.TestCase):
         self.assertLess(sql.index("`id`"), sql.index("`last_name`"))
         self.assertLess(sql.index("`last_name`"), sql.index("`scan`"))
 
+    def test_the_statement_pins_the_session_before_it_measures(self):
+        # every query runs in its own client process; the prelude is part
+        # of the batch, not decoration
+        runner = Runner()
+        compare(runner=runner)
+        self.assertTrue(runner.sql[0].startswith(o19digest.UTC_SESSION))
+
     def test_the_sql_names_the_schema_being_compared(self):
         runner = Runner()
         compare(runner=runner)
@@ -202,6 +209,26 @@ class TestReadingTheDocument(unittest.TestCase):
                 self.write(dict(DOCUMENT, digest_format=99)))
         self.assertIn("99", str(cm.exception))
 
+    def test_a_document_that_measured_nothing_is_refused(self):
+        """Neither a digest nor a reason one could not be taken: the
+        document says nothing about the clinic's data. Against a staging
+        schema that is also empty -- what a truncated restore looks like
+        -- the comparison would find nothing to disagree about and read
+        as verified."""
+        with self.assertRaises(ValueError) as cm:
+            o19digest.load_document(self.write(
+                {"digest_format": o19digest.DIGEST_FORMAT,
+                 "tables": {}, "errors": {}}))
+        self.assertIn("says nothing", str(cm.exception))
+
+    def test_a_document_of_errors_alone_is_readable(self):
+        # a clinic that could measure nothing but SAID so is a report,
+        # not a blank: the import turns it into unverified tables
+        doc = o19digest.load_document(self.write(
+            {"digest_format": o19digest.DIGEST_FORMAT, "tables": {},
+             "errors": {"demographic": "SELECT denied"}}))
+        self.assertEqual(doc["errors"], {"demographic": "SELECT denied"})
+
     def test_a_document_with_no_tables_is_refused(self):
         with self.assertRaises(ValueError):
             o19digest.load_document(self.write({"digest_format":
@@ -284,10 +311,6 @@ class TestTheRefusal(unittest.TestCase):
         many = dict(self.CLEAN, verified=[], failed=[
             ["t{0}".format(n), "differs"] for n in range(20)])
         self.assertEqual(self.refusal(many).count("differs"), 5)
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class FakeCtx(dict):
@@ -430,8 +453,14 @@ class TestTheRunMeasuresTheCopyItTook(unittest.TestCase):
     An operator's `--o19-digests` path is a mutable file: replaced in
     between, it would be compared against data it does not describe, and
     across a `--resume` a different file would silently change what the
-    transfer was ever measured against. The run snapshots it and the
-    ledger binds the snapshot's sha256."""
+    transfer was ever measured against. The run takes its own copy and
+    the ledger binds that copy's sha256.
+
+    The copy is taken in two steps -- staged beside the run's own, then
+    committed once the ledger binding has vetted it -- because writing
+    straight over the snapshot would destroy the only record of what P2
+    measured in order to then refuse the file that destroyed it.
+    """
 
     def setUp(self):
         self.dir = tempfile.mkdtemp(prefix="o19snap-")
@@ -439,46 +468,91 @@ class TestTheRunMeasuresTheCopyItTook(unittest.TestCase):
         self.state_dir = os.path.join(self.dir, "state")
         os.makedirs(self.state_dir, mode=0o700)
         self.path = os.path.join(self.dir, "digests.json")
-        with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump(DOCUMENT, fh)
+        self.write(self.path, DOCUMENT)
+        self.kept = os.path.join(self.state_dir,
+                                 o19import.DIGESTS_SNAPSHOT)
 
-    def args(self, **over):
-        import argparse
-        ns = argparse.Namespace(
-            bundle=None, bundle_pass=None, bundle_cipher=None,
-            bundle_openssl_opt=None, bundle_sha256=None, dump=self.path,
-            properties=self.path, documents=None, skip_documents=True,
-            accept=[], o19_digests=self.path)
-        for k, v in over.items():
-            setattr(ns, k, v)
-        return ns
+    def write(self, path, obj):
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(obj, fh)
 
-    def test_the_snapshot_is_written_privately(self):
-        copy = o19import.snapshot_digests(self.path, self.state_dir)
-        self.assertEqual(os.stat(copy).st_mode & 0o777, 0o600)
-        with open(copy, encoding="utf-8") as fh:
-            self.assertEqual(json.load(fh), DOCUMENT)
+    def read(self, path):
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def settle(self, digests=None, restage=False):
+        return o19import.resolve_digests({"digests": digests},
+                                         self.state_dir, restage)
+
+    def test_a_candidate_is_staged_privately_beside_the_kept_copy(self):
+        settled = self.settle(self.path)
+        self.assertEqual(os.stat(settled["incoming"]).st_mode & 0o777,
+                         0o600)
+        self.assertNotEqual(settled["incoming"], self.kept)
+        self.assertFalse(os.path.exists(self.kept))
+
+    def test_a_refused_candidate_does_not_destroy_the_kept_copy(self):
+        """The failure this two-step shape exists to prevent: a resume
+        given the wrong document must not overwrite the right one before
+        being told so."""
+        o19import.commit_digests(self.settle(self.path)["incoming"],
+                                 self.state_dir)
+        other = os.path.join(self.dir, "other.json")
+        self.write(other, dict(DOCUMENT, generated_at="later"))
+        settled = self.settle(other)
+        self.assertEqual(self.read(self.kept), DOCUMENT)
+        os.unlink(settled["incoming"])
+        self.assertEqual(self.read(self.kept), DOCUMENT)
+
+    def test_committing_installs_the_candidate(self):
+        settled = self.settle(self.path)
+        self.assertEqual(o19import.commit_digests(settled["incoming"],
+                                                  self.state_dir),
+                         self.kept)
+        self.assertEqual(self.read(self.kept), DOCUMENT)
+        self.assertEqual(os.stat(self.kept).st_mode & 0o777, 0o600)
 
     def test_a_rerun_over_a_loose_copy_tightens_it(self):
-        copy = os.path.join(self.state_dir, o19import.DIGESTS_SNAPSHOT)
-        with open(copy, "w", encoding="utf-8") as fh:
-            fh.write("{}")
-        os.chmod(copy, 0o644)
-        o19import.snapshot_digests(self.path, self.state_dir)
-        self.assertEqual(os.stat(copy).st_mode & 0o777, 0o600)
-
-    def test_resolve_inputs_returns_the_copy_not_the_operators_file(self):
-        inputs = o19import._resolve_inputs(self.args(), self.state_dir)
-        self.assertNotEqual(inputs["digests"], self.path)
-        self.assertEqual(os.path.dirname(inputs["digests"]),
-                         self.state_dir)
+        # os.open's mode applies to a NEW file only, so a candidate left
+        # 0644 by an earlier version would keep that mode
+        stale = os.path.join(self.state_dir,
+                             o19import.DIGESTS_SNAPSHOT + ".incoming")
+        self.write(stale, {})
+        os.chmod(stale, 0o644)
+        self.assertEqual(
+            os.stat(self.settle(self.path)["incoming"]).st_mode & 0o777,
+            0o600)
 
     def test_replacing_the_operators_file_does_not_change_the_run(self):
-        inputs = o19import._resolve_inputs(self.args(), self.state_dir)
-        with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump({"digest_format": 1, "tables": {}}, fh)
-        with open(inputs["digests"], encoding="utf-8") as fh:
-            self.assertEqual(json.load(fh), DOCUMENT)
+        o19import.commit_digests(self.settle(self.path)["incoming"],
+                                 self.state_dir)
+        self.write(self.path, {"digest_format": 1, "tables": {}})
+        self.assertEqual(self.read(self.kept), DOCUMENT)
+
+    def test_a_resume_with_no_document_keeps_the_copy_it_took(self):
+        """The transfer check must go on measuring the same bytes the
+        earlier phases did, exactly as the run keeps its dump."""
+        o19import.commit_digests(self.settle(self.path)["incoming"],
+                                 self.state_dir)
+        settled = self.settle(None)
+        self.assertEqual(settled["path"], self.kept)
+        self.assertIsNone(settled["incoming"])
+        self.assertTrue(settled["sha256"])
+
+    def test_a_resume_with_nothing_kept_settles_on_nothing(self):
+        settled = self.settle(None)
+        self.assertIsNone(settled["path"])
+        self.assertIsNone(settled["sha256"])
+
+    def test_restage_retires_the_kept_copy(self):
+        """A new dump makes the old clinic's numbers meaningless; leaving
+        the file behind would let the next resume measure this dump
+        against the previous clinic's."""
+        o19import.commit_digests(self.settle(self.path)["incoming"],
+                                 self.state_dir)
+        settled = self.settle(None, restage=True)
+        self.assertFalse(os.path.exists(self.kept))
+        self.assertIsNone(settled["sha256"])
 
 
 class TestTheLedgerBindsTheDocument(unittest.TestCase):
@@ -505,3 +579,15 @@ class TestTheLedgerBindsTheDocument(unittest.TestCase):
         self.assertIn("aaaaaaaaaaaa", message)
         self.assertIn("bbbbbbbbbbbb", message)
         self.assertIn("--restage", message)
+
+    def test_restage_is_the_way_out_the_refusal_advertises(self):
+        """The message names --restage; if the check refused it too, the
+        way out it points at would not exist. --restage drops the staged
+        dump for another, which is exactly when a different set of clinic
+        numbers is the RIGHT one."""
+        self.assertIsNone(
+            o19import.digests_change_refusal("a" * 64, "b" * 64, True))
+
+
+if __name__ == "__main__":
+    unittest.main()

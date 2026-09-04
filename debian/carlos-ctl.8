@@ -357,7 +357,9 @@ and shadow-captured to
 .B no-pre-backup
 (no pre-import restic snapshot; required when backups are not configured),
 .B unverified-bundle
-(open a bundle whose digest was never conveyed),
+(open a bundle whose SHA-256 was never conveyed \(em the CLINIC's
+out-of-band value for the bundle FILE, not the content digests inside
+it),
 .B carry-credentials
 (the dump carries live OAuth consumer secrets or signing keys, copied
 verbatim; rotate or verify them before go-live),
