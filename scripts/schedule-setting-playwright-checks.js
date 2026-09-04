@@ -101,7 +101,10 @@ function validateBaseUrl(rawBaseUrl) {
   }
 
   const host = normalizeHost(parsed.hostname);
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'db', 'carlos']);
+  // Reachability is the loosest tier: everything the two sets above allow, plus
+  // the bind-any address and the Docker host alias. Derived from LOCAL_HTTP_HOSTS
+  // rather than restated, so a host added there cannot end up refused here.
+  const localHosts = new Set([...LOCAL_HTTP_HOSTS, '0.0.0.0', 'host.docker.internal']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
