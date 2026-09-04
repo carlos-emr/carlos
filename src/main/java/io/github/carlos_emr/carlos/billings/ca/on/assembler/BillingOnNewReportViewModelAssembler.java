@@ -174,7 +174,7 @@ public class BillingOnNewReportViewModelAssembler {
             switch (action) {
                 case "unbilled":
                     runUnbilled(providerView, xmlVdate, xmlAppointmentDate, multisites,
-                            selectedSite, defaultBillForm, out);
+                            selectedSite, defaultBillForm, contextPath, out);
                     break;
                 case "billed":
                     runBilled(providerView, xmlVdate, xmlAppointmentDate, multisites,
@@ -216,7 +216,7 @@ public class BillingOnNewReportViewModelAssembler {
     private void runUnbilled(String providerView, String xmlVdate,
                              String xmlAppointmentDate, boolean multisites,
                              String selectedSite, String defaultBillForm,
-                             ReportRows out) {
+                             String contextPath, ReportRows out) {
         out.headers = Arrays.asList("SERVICE DATE", "TIME", "PATIENT", "DESCRIPTION", "COMMENTS");
         for (BillingOnNewReportUnbilledRow row :
                 appointmentDao.findBillingOnNewReportUnbilledRows(providerView, xmlVdate, xmlAppointmentDate)) {
@@ -229,20 +229,26 @@ public class BillingOnNewReportViewModelAssembler {
             cells.put("TIME", textCell(firstFive(row.startTime())));
             cells.put("PATIENT", textCell(row.name()));
             cells.put("DESCRIPTION", textCell(row.reason()));
-            cells.put("COMMENTS", buildBillLink(defaultBillForm, providerView, row));
+            cells.put("COMMENTS", buildBillLink(defaultBillForm, providerView, contextPath, row));
             out.values.add(BillingOnNewReportViewModel.rowOf(cells));
         }
     }
 
     private static BillingOnNewReportViewModel.ReportCell buildBillLink(
-            String defaultBillForm, String providerView, BillingOnNewReportUnbilledRow row) {
+            String defaultBillForm, String providerView, String contextPath,
+            BillingOnNewReportUnbilledRow row) {
         String name = row.name();
         return BillingOnNewReportViewModel.ReportCell.popup(
                 "Bill",
+                // The JSP hands popupUrl straight to popupPage() without adding
+                // the context path, so it has to be baked in here the way the
+                // sibling builders below do it — CARLOS deploys under /carlos,
+                // and a root-relative URL 404s there.
                 // billRegion pins the cross-province router (Billing2Action) to
                 // the Ontario branch; see BillingReportFragmentViewModelAssembler
                 // for why omitting it surfaces as "CARLOS Error: 500".
-                "/billing?billRegion=ON&billForm="
+                contextPath
+                + "/billing?billRegion=ON&billForm="
                 + URLEncoder.encode(defaultBillForm, StandardCharsets.UTF_8)
                 + "&hotclick=&appointment_no=" + urlParam(row.appointmentNo())
                 + "&demographic_name=" + URLEncoder.encode(name, StandardCharsets.UTF_8)
