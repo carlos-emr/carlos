@@ -147,13 +147,28 @@ case "$1" in
         # Probing a hardcoded `oscar` on a clinic that set its own name
         # would report the clinical database missing when it is right
         # there — and then say it had been destroyed.
+        # carlos-ctl's env_get is the canonical reader and this must not
+        # disagree with it, or the notice reports on a schema the tool
+        # never created. Its rule is `^KEY=` -- no leading whitespace, no
+        # space around `=` -- LAST assignment wins, surrounding double
+        # quotes stripped. Two earlier divergences each inverted the
+        # notice: allowing leading whitespace made this read a name
+        # carlos-ctl ignored, and requiring a NON-empty value made a
+        # later `CARLOS_DB_NAME=` (which resets the name to the default)
+        # fall through to a stale earlier assignment. So match the empty
+        # value too and let it reach `tail -1`.
         O19_DBNAME=""
         if [ -r /etc/carlos-emr/carlos-emr.env ]; then
-            O19_DBNAME=$(sed -n \
-                's/^[[:space:]]*CARLOS_DB_NAME[[:space:]]*=[[:space:]]*["'"'"']\{0,1\}\([A-Za-z0-9_]\{1,\}\).*/\1/p' \
-                /etc/carlos-emr/carlos-emr.env | tail -1)
+            O19_DBNAME=$(sed -n 's/^CARLOS_DB_NAME=\(.*\)$/\1/p' \
+                /etc/carlos-emr/carlos-emr.env | tail -1 \
+                | sed -e 's/^"//' -e 's/"$//')
         fi
-        [ -n "${O19_DBNAME}" ] || O19_DBNAME=oscar
+        # config.py restricts the name to this class. Anything else is not
+        # something this probe can interpolate into SQL, so fall back
+        # rather than guess -- as does an empty or absent assignment.
+        case "${O19_DBNAME}" in
+            "" | *[!A-Za-z0-9_]* ) O19_DBNAME=oscar ;;
+        esac
         O19_DB=unknown
         if command -v mariadb >/dev/null 2>&1; then
             O19_SCHEMA=""
@@ -193,8 +208,16 @@ NOTICE
         # that path these paths still EXIST while holding nothing. Reporting
         # them as "kept: patient documents" would be the same false comfort
         # the database line used to give. Say what is actually there.
+        # -type f, not "any entry": `carlos-ctl destroy-data` rmtrees these
+        # paths and then RECREATES the empty directory skeleton, because
+        # the still-installed services need it (with modsec/ gone every
+        # later `nginx -t`, and so every reload and cert operation,
+        # fails). Counting those recreated empty subdirectories as
+        # content made the notice say "kept: access and WAF audit logs"
+        # about logs that had just been destroyed -- the same false
+        # comfort this helper was written to remove.
         has_content() {
-            [ -d "$1" ] && [ -n "$(find "$1" -mindepth 1 -print -quit 2>/dev/null)" ]
+            [ -d "$1" ] && [ -n "$(find "$1" -mindepth 1 -type f -print -quit 2>/dev/null)" ]
         }
         kept_or_empty() { # path, description
             if has_content "$1"; then

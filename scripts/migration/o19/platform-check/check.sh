@@ -127,9 +127,20 @@ verdict "$(grep -q '^    if \[ "${MIGRATION_OK:-1}" = 0 \]' \
              debian/carlos-emr.postinst; echo $?)" \
   "the service start is guarded by MIGRATION_OK" \
   "the service start no longer consults MIGRATION_OK"
-# substitute the scratch path in, so the REAL condition runs unmodified
-# except for where it looks
-COND_T=$(printf '%s\n' "$COND" | sed "s|$LEDGER|$T/state.json|g")
+# Substitute a VARIABLE REFERENCE, not the path itself. `eval` reparses
+# whatever it is handed, so a scratch directory holding a space (a
+# perfectly valid TMPDIR) turned the lifted `[ -s /tmp/has space/... ]`
+# into "binary operator expected" and the harness reported a verdict the
+# postinst would never produce. Expanding ${LEDGER_T} inside the eval
+# keeps the path a single word whatever it contains.
+# shellcheck disable=SC2034  # read by the eval below, which shellcheck
+# cannot follow
+LEDGER_T="$T/state.json"
+# shellcheck disable=SC2016  # the replacement is the LITERAL text
+# `"${LEDGER_T}"`; expanding it here would put the path back into the
+# eval'd string and reintroduce the reparsing this avoids
+COND_T=$(printf '%s\n' "$COND" \
+         | sed 's|/var/lib/carlos-emr/o19-import/state.json|"${LEDGER_T}"|g')
 gate() { # file-content, expected "GATE"/"nogate"
   printf '%s' "$1" > "$T/state.json"
   # the lifted condition is `[ -s L ] && ! python3 ...`, so it succeeds
@@ -170,9 +181,15 @@ else
   # both flag paths still reported PASS while the plaintext break-glass
   # password and the clinic's carried fax/OAuth/mail secrets stayed on
   # the disk -- under a postrm notice saying they had been removed.
-  run_shred() { # stub-dir-on-PATH, expected flags, "gone"/"kept"
+  # $4 "none" seeds NO credential file. `find -exec shred -u {} +` exits
+  # 0 when nothing matches, which is the one piece of real subtlety in
+  # the block and was asserted only in a comment: a purge on a host that
+  # never ran an import must report a clean shred, not a fallback and
+  # not a failure.
+  run_shred() { # stub-dir-on-PATH, expected flags, "gone"/"kept", [none]
     d=$(mktemp -d); mkdir -p "$d/state/o19-import"
-    printf 'secret\n' > "$d/state/o19-import/admin-credentials.txt"
+    [ "${4:-}" = none ] \
+      || printf 'secret\n' > "$d/state/o19-import/admin-credentials.txt"
     got=$(PATH="$1:$PATH" STATE="$d/state" sh -c "
       set -e
       $SHRED_BLOCK
@@ -193,6 +210,7 @@ else
   }
   stubdir=$(mktemp -d)
   run_shred /nonexistent-stub-dir SHREDDED gone
+  run_shred /nonexistent-stub-dir SHREDDED gone none
   printf '#!/bin/sh\nexit 1\n' > "$stubdir/shred"; chmod +x "$stubdir/shred"
   run_shred "$stubdir" FELLBACK gone
   # The third limb: an undeletable file (immutable attribute, read-only
