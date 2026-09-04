@@ -211,7 +211,18 @@ async function assertVisible(page, selector, label) {
  */
 async function assertNotesPaginationSettles(page) {
   const wrapper = page.locator('#encMainDivWrapper').first();
-  await wrapper.evaluate((element) => { element.scrollTop = 0; });
+  // Constrain the pane rather than trusting the chart to overflow on its own: the poll
+  // only fires when the notes wrapper overflows AND sits at the top, so on a short chart
+  // (or a tall window) an unforced check would report "settled" without ever arming the
+  // pagination it exists to test.
+  const geometry = await wrapper.evaluate((element) => {
+    element.style.flex = 'none';
+    element.style.height = '80px';
+    element.scrollTop = 0;
+    return { scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
+  });
+  assert(geometry.scrollHeight > geometry.clientHeight,
+    `notes wrapper did not overflow, so the pagination poll was never armed: ${JSON.stringify(geometry)}`);
 
   const deadline = Date.now() + NOTES_POLL_TIMEOUT_MS;
   let observed = notesLoadRequests.length;

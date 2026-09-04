@@ -102,7 +102,13 @@ let mysqlDefaults = null;
 function initMysqlDefaults() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'echart-new-patient-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  try {
+    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  } catch (error) {
+    // Never leave a half-written file holding the database password behind.
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
   mysqlDefaults = { dir, file };
 }
 function cleanupMysqlDefaults() {
@@ -274,11 +280,14 @@ async function openEchartFromAppointment(context, schedulePage, recorder, appoin
  * scrolled to the top — then waits for pagination to stop.
  */
 async function assertNotesPaginationSettles(echart) {
-  await echart.locator('#encMainDivWrapper').first().evaluate((element) => {
+  const geometry = await echart.locator('#encMainDivWrapper').first().evaluate((element) => {
     element.style.flex = 'none';
     element.style.height = '80px';
     element.scrollTop = 0;
+    return { scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
   });
+  assert(geometry.scrollHeight > geometry.clientHeight,
+    `notes wrapper did not overflow, so the pagination poll was never armed: ${JSON.stringify(geometry)}`);
 
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let observed = notesRequests.length;
@@ -366,7 +375,10 @@ async function assertNotesPaginationSettles(echart) {
         sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
       }
     } catch (cleanupError) {
-      console.error(`WARN cleanup failed: ${cleanupError.message}`);
+      // A synthetic patient left in a clinical database is a failed run, not a warning:
+      // the next operator has no way to tell it apart from a real record at a glance.
+      console.error(`FAIL cleanup failed, fixture ${fixtureLastName} may remain: ${cleanupError.message}`);
+      process.exitCode = 1;
     }
     cleanupMysqlDefaults();
     await browser.close();

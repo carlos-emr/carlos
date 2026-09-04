@@ -494,7 +494,17 @@
     var notesRetrieveOk = false;      // true when the last fetch returned at least one note
     var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
-    var notesLoadInProgress = false;  // a fetch is in flight; holds off the scroll poll
+    /*
+     * Fetches still in flight, and the id of the most recent one. Both are needed because
+     * the encounter layout renders ChartNotes.jsp twice, so two offset-0 loads overlap on
+     * every chart open. The count holds off the scroll poll until BOTH have landed — a
+     * pagination fetch racing a pending initial load inserts its notes out of order. The
+     * id makes the older, superseded load a no-op at completion, so a first request that
+     * fails or gets redirected cannot stop the poll the second render just armed.
+     */
+    var notesLoadsInFlight = 0;
+    var notesLoadSequence = 0;
+    var notesActiveLoadId = 0;
     /*
      * Number of notes rendered by the fetch currently in flight. ChartNotesAjax.jsp sets
      * this while its response scripts run; notesLoader() resets it to -1 before every
@@ -523,7 +533,8 @@
      * (a brand-new chart renders only the new-note editor).
      */
     function notesTopElementId() {
-        var firstChild = $("encMainDiv").children[0];
+        var notesContainer = $("encMainDiv");
+        var firstChild = notesContainer && notesContainer.children[0];
         return firstChild ? firstChild.id : null;
     }
 
@@ -532,7 +543,7 @@
      * Loads the next batch of older notes (inserted at top of the list).
      */
     function notesIncrementAndLoadMore() {
-        if (notesLoadInProgress || !notesRetrieveOk) {
+        if (notesLoadsInFlight > 0 || !notesRetrieveOk) {
             return;
         }
         var wrapper = $("encMainDivWrapper");
@@ -570,15 +581,17 @@
      *
      * Callers are never turned away: the encounter layout renders ChartNotes.jsp twice on
      * open (the second render replaces #encMainDiv), so both initial loads must run or the
-     * surviving container is left empty. notesLoadInProgress only holds off the scroll
-     * poll, which would otherwise stack requests behind a slow batch.
+     * surviving container is left empty. The in-flight count only holds off the scroll
+     * poll, which would otherwise stack requests behind a pending batch.
      *
      * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
      * @param {number} numToReturn - Maximum number of notes to fetch in this batch
      * @param {number} demoNo - Demographic (patient) number to load notes for
      */
     function notesLoader(offset, numToReturn, demoNo) {
-        notesLoadInProgress = true;
+        var loadId = ++notesLoadSequence;
+        notesActiveLoadId = loadId;
+        notesLoadsInFlight++;
         notesLastBatchSize = -1;
         $("notesLoading").show();
         var params = "method=viewNotesOpt&offset=" + offset + "&numToReturn=" + numToReturn + "&demographicNo=" + demoNo;
@@ -594,8 +607,17 @@
                 evalScripts: true,
                 insertion: 'top',
                 onComplete: function () {
-                    notesLoadInProgress = false;
-                    $("notesLoading").hide();
+                    notesLoadsInFlight--;
+                    if (notesLoadsInFlight === 0) {
+                        $("notesLoading").hide();
+                    }
+                    if (loadId !== notesActiveLoadId) {
+                        // Superseded by a later load — its response owns the shared state
+                        // below. Without this an initial load that failed would stop the
+                        // poll the second chart render just armed, and no older note could
+                        // ever be paged in again.
+                        return;
+                    }
                     // The response scripts have already run (CarlosAjax updates the DOM
                     // between onSuccess and onComplete), so notesLastBatchSize now holds
                     // the count this fragment rendered. An empty batch means the chart is
