@@ -69,8 +69,13 @@ def parse_entity(path):
             getter = GETTER_RE.search(window)
             if not getter:
                 continue
-            # getFoo() -> foo, the property name JPA derives
-            prop = getter.group(1)[0].lower() + getter.group(1)[1:]
+            # getFoo() -> foo, the property name JPA derives through
+            # java.beans.Introspector.decapitalize -- which leaves a name
+            # whose first TWO characters are upper case alone, so
+            # getURL() is the property `URL`, not `uRL`
+            prop = getter.group(1)
+            if not (len(prop) > 1 and prop[1].isupper()):
+                prop = prop[0].lower() + prop[1:]
         name = NAME_RE.search(match.group(1))
         # `@Column` with no name= maps to the field or property name
         # under JPA's default strategy. Skipping those would compare one

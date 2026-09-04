@@ -556,22 +556,29 @@ class TestCleanupEndToEnd(unittest.TestCase):
                         self.queries)
 
     def test_the_staging_schema_is_measured_before_it_is_dropped(self):
-        # the whole point of the gate: the parity runs first, or the
-        # rows it protects are already gone
+        """The whole point of the gate: the parity runs first, or the
+        rows it protects are already gone.
+
+        The parity is stubbed, so it has to leave a mark of its own --
+        asserting on the SCHEMATA probe instead would pass even if the
+        parity moved AFTER the drop, since that probe runs either way."""
         o19import.save_state(self.state_dir,
                              {"phases": {"verify": {"status": "done"}}})
         from carlos_ctl import o19etl
         o19etl.save_progress(self.state_dir,
                              {"tables": {"demographic": {"done": True}}})
         ctx = self.ctx()
-        with mock.patch.object(o19import, "_row_parity",
-                               lambda c: (["ok"], [])) as _:
+
+        def parity(c):
+            self.queries.append("-- PARITY RAN")
+            return ["ok"], []
+
+        with mock.patch.object(o19import, "_row_parity", parity):
             o19import.run_cleanup(ctx)
         drop = next(i for i, q in enumerate(self.queries)
                     if "DROP DATABASE" in q)
-        probe = next(i for i, q in enumerate(self.queries)
-                     if "information_schema.SCHEMATA" in q)
-        self.assertLess(probe, drop)
+        ran = self.queries.index("-- PARITY RAN")
+        self.assertLess(ran, drop)
 
     def test_a_homeless_table_stops_the_drop(self):
         o19import.save_state(self.state_dir,

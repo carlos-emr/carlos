@@ -422,7 +422,8 @@ stating exactly:
   `ALTER TABLE … ADD COLUMN` that would push a row past 65,535 declared
   bytes, and it refuses it mid-import. The manifest's curated columns
   leave every CARLOS table under half that ceiling (the widest,
-  `formLabReq07`, reaches about 27 KB), but a fork's columns are
+  `formLabReq07`, reaches about 17 KB of the 64 KB), but a fork's
+  columns are
   unbounded, so the ETL measures and refuses up front rather than failing
   part-way.
 - **A migration that drops and recreates a table** would take its

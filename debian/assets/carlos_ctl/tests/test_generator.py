@@ -151,10 +151,15 @@ class TestPreservedColumnsFitTheRow(unittest.TestCase):
 
     The import adds `import_archived_<col>` to live tables, and MySQL
     refuses an ALTER that would push a row past 65,535 declared bytes --
-    in the middle of the table loop, with the import part-written. The
-    ETL refuses that case up front; this asserts the shipped manifest is
-    never the case, so a future curation that drops a fat column from a
-    wide table fails the build rather than an operator's import.
+    in the middle of the table loop, with the import part-written.
+
+    A BOUND, not the exact sum: the added column keeps its O19 source
+    type, which this checkout cannot see, so each is measured at 1 KB
+    (a varchar(255) in utf8mb4 -- the widest ordinary shape an O19 text
+    column takes). A curation that dropped something wider still trips
+    `oversized_rows` at run time, which is the real safety net; what
+    this pins is that the manifest today is nowhere near the ceiling, so
+    the runtime refusal stays the rare case it is meant to be.
     """
 
     #: what one added column is measured at: a varchar(255) in utf8mb4,

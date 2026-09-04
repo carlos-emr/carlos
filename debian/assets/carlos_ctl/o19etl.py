@@ -847,8 +847,14 @@ def shadow_statements(table: str, entry: dict, src_schema: str,
     # such as `isactive` -> `isActive` must be read as the dump spells it
     # or it silently drops out of the capture
     renames = entry.get("renames", {})
-    context = [renames.get(c, c) for c in _context_cols(entry)
-               if renames.get(c, c) in src_cols]
+    # resolved through the dump's own spelling, like the captured columns
+    # above and like unknown_column_shadow_statements: a context column
+    # the dump cases differently is still THERE, and dropping it would
+    # leave the captured values with nothing to join back to
+    lower = {c.lower(): c for c in src_cols}
+    context = [lower[renames.get(c, c).lower()]
+               for c in _context_cols(entry)
+               if renames.get(c, c).lower() in lower]
     select_cols = list(dict.fromkeys(context + sorted(dropped)))
     predicate = " OR ".join(
         "({0})".format(d["nondefault"]) for d in dropped.values())
@@ -1003,7 +1009,19 @@ def column_bytes(column_type: str) -> int:
             return size
     if t.startswith("enum") or t.startswith("set"):
         return 2
-    return 8            # unknown: a middling fixed width
+    # BINARY/VARBINARY declare a byte length like their character
+    # cousins, and a fork's VARBINARY(60000) is precisely the column that
+    # would slip past this gate if it fell through to the fixed default
+    m = re.match(r"(var)?binary\s*\(\s*(\d+)", t)
+    if m:
+        return int(m.group(2)) + (2 if m.group(1) else 0)
+    # a type this does not know, but which declares a length, is measured
+    # by that length rather than guessed at: over-measuring only makes
+    # the refusal more cautious, under-measuring lets the ALTER through
+    m = re.search(r"\(\s*(\d+)", t)
+    if m:
+        return int(m.group(1))
+    return 8            # unknown and unsized: a middling fixed width
 
 
 def oversized_rows(table: str, dst_cols: Dict[str, dict],
@@ -1020,13 +1038,18 @@ def oversized_rows(table: str, dst_cols: Dict[str, dict],
     quarter of the ceiling (the widest, formLabReq07, reaches 17 KB of
     65 KB), but the columns a fork added are unbounded and arrive
     unclassified."""
-    if not plan:
+    # only the columns still to be ADDED: on a resume the target already
+    # carries some of them, and counting those twice (once in dst_cols,
+    # once in the plan) would refuse a table that in fact has room
+    pending = [(s, t, c) for s, t, c in plan if t not in dst_cols]
+    if not pending:
         return None
     current = sum(column_bytes(c.get("column_type"))
                   for c in dst_cols.values())
-    added = sum(column_bytes(ctype) for _src, _target, ctype in plan)
+    added = sum(column_bytes(ctype) for _src, _target, ctype in pending)
     if current + added <= MAX_ROW_BYTES:
         return None
+    plan = pending
     return ("{0}: preserving {1} column(s) on it would take the row from "
             "roughly {2} to {3} bytes of declared width, past MySQL's "
             "{4}-byte row limit ({5}). Their values are still captured to "

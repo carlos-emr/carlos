@@ -64,7 +64,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Flyway migration column-list contract")
 @Tag("unit")
 @Tag("regression")
-class MigrationColumnListContractTest {
+class MigrationColumnListContractUnitTest {
 
     private static final Path MIGRATION_ROOT = Path.of("database", "mysql", "migration");
 

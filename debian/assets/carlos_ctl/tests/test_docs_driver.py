@@ -197,17 +197,23 @@ class TestTheHappyPath(DocsDriverBase):
                             "Eyeform.csv")
         with open(path, newline="") as fh:
             raw = fh.read()
-        # the four-character string 'NULL' is data and stays bare; it is
-        # never confused with the SQL NULL two rows above it
-        self.assertIn("9,NULL", raw)
+        # the four-character string 'NULL' is DATA and must never be
+        # confused with the SQL NULL two rows above it -- but how it is
+        # written depends on the quoting mode, so the parsed row is the
+        # assertion that holds on both
         rows = list(csv.reader(io.StringIO(raw)))
         self.assertEqual(rows[0], ["id", "notes"])
         self.assertEqual(rows[3], ["9", "NULL"])
         if hasattr(csv, "QUOTE_NOTNULL"):
-            self.assertIn('8,""', raw)     # stored '' , quoted
-            self.assertIn("7,\r\n", raw)   # SQL NULL, bare
+            # 3.12+: every non-None value is quoted, so a bare NULL in
+            # the file is unambiguously SQL NULL
+            self.assertIn('"9","NULL"', raw)
+            self.assertIn('"8",""', raw)    # the stored empty string
+            self.assertIn('"7",\r\n', raw)  # SQL NULL, written bare
         else:
-            self.assertIn("7,", raw)
+            # the documented degradation: NULL and '' both render empty
+            self.assertIn("9,NULL", raw)
+            self.assertIn("7,\r\n", raw)
 
     def test_the_report_records_the_restore_and_the_reconciliation(self):
         self.run_docs()

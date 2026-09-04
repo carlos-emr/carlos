@@ -776,6 +776,18 @@ class TestArchivedColumns(unittest.TestCase):
                                  notes)
         self.assertEqual(notes, [])
 
+    def test_the_shadow_keeps_a_context_column_the_dump_recased(self):
+        """The captured values need a row to join back to. A context
+        column the dump spells differently is still THERE, so it must
+        reach the SELECT under the dump's spelling."""
+        entry = {"class": "copy", "cols": ["id", "name"],
+                 "dropped": {"legacyFlag": {"nondefault": "1"}}}
+        cols = self.src_cols()
+        cols["ID"] = cols.pop("id")
+        sql = o19etl.shadow_statements("t", entry, "stage", "arch", cols)
+        create = next(x for x in sql if x.startswith("CREATE TABLE"))
+        self.assertIn("s.`ID`", create)
+
     def test_a_dropped_column_this_dump_lacks_is_not_planned(self):
         # nothing to preserve; shadow_statements reports the case
         cols = self.src_cols()
@@ -962,10 +974,40 @@ class TestRowSizeCeiling(unittest.TestCase):
     def test_a_table_with_no_plan_is_never_refused(self):
         self.assertIsNone(o19etl.oversized_rows("t", self.dst(60), []))
 
+    def test_a_resume_does_not_count_its_own_columns_twice(self):
+        """On a resume the target already carries some of the preserved
+        columns. Counting them once in dst_cols and again in the plan
+        would refuse a table that has room -- and refuse it before the
+        resume logic that would have skipped the ALTER."""
+        plan = self.plan(5)
+        already = {t: {"column_type": "varchar(255)"}
+                   for _s, t, _c in plan}
+        dst = dict(self.dst(58), **already)   # 58 + the 5 already added
+        self.assertIsNone(o19etl.oversized_rows("t", dst, plan))
+
+    def test_a_binary_column_is_measured_by_its_declared_length(self):
+        # a fork's VARBINARY(60000) is exactly the column that would slip
+        # past a gate that treated every unrecognised type as 8 bytes
+        self.assertEqual(o19etl.column_bytes("varbinary(60000)"), 60002)
+        self.assertEqual(o19etl.column_bytes("binary(16)"), 16)
+        # 10 varchar(255) (10,220 bytes) plus 60,002 clears the ceiling;
+        # measured as the old 8-byte fallback it would have passed
+        msg = o19etl.oversized_rows(
+            "t", self.dst(10), [("b", "import_archived_b",
+                                 "varbinary(60000)")])
+        self.assertIsNotNone(msg)
+        self.assertIn("past MySQL's 65535-byte row limit", msg)
+
+    def test_an_unknown_but_sized_type_is_measured_not_guessed(self):
+        # over-measuring only makes the refusal more cautious;
+        # under-measuring lets the ALTER through
+        self.assertEqual(o19etl.column_bytes("somefuturetype(900)"), 900)
+        self.assertEqual(o19etl.column_bytes("weird"), 8)
+
     def test_text_columns_count_as_their_pointer_not_their_capacity(self):
         # a LONGTEXT declares 4 GB and contributes 12 bytes; measuring it
         # as its capacity would refuse every table that has one
-        self.assertLessEqual(o19etl.column_bytes("longtext"), 12)
+        self.assertEqual(o19etl.column_bytes("longtext"), 12)
         self.assertIsNone(o19etl.oversized_rows(
             "t", self.dst(10), self.plan(200, "longtext")))
 
