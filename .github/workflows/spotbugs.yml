@@ -123,7 +123,11 @@ jobs:
           echo "found=false" >> "$GITHUB_OUTPUT"
 
       - name: Install the SARIF converter's Python dependency
-        if: always()
+        # Skipped when there is no report to convert: the convert step exits
+        # before importing anything in that case, so the PyPI fetch would be
+        # wasted. always() stays because a failed SpotBugs step can still leave
+        # a partial report that the convert step goes on to parse.
+        if: always() && steps.resolve_spotbugs_report.outputs.found == 'true'
         env:
           # The runner's system Python is PEP 668 "externally managed"; the pin
           # and hash in requirements.txt are the supply-chain control here.
