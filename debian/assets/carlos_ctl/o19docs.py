@@ -464,6 +464,8 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
 
 
 def _sha256(path: str) -> str:
+    """The file's SHA-256, read in 1 MiB chunks (document trees hold files
+    too large to slurp)."""
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
@@ -570,6 +572,13 @@ def relocate_hrm_reports(ctx_root: str,
 
 
 def apply_ownership(root: str, dev_target: bool) -> None:
+    """Hand the restored document tree to the service account.
+
+    Refuses outright if the tree holds a symbolic link: neither the tar
+    nor the merge path ever creates one, so a link here is foreign, and
+    a root-run recursive chown that followed it would hand the
+    unprivileged account ownership of whatever it points at. Skipped on
+    a dev target or when not running as root."""
     if dev_target or os.geteuid() != 0:
         warn("skipping chown of {0} (dev target)".format(root))
         return

@@ -337,6 +337,13 @@ def pass_spec_fd(pass_spec: str) -> Optional[int]:
 
 
 def validate_bundle_args(bundle: str, pass_spec: Optional[str]) -> None:
+    """Raise `ValueError` when `--bundle-pass` and the bundle's suffix
+    disagree.
+
+    Both directions are refused: a `.enc` bundle needs a password, and a
+    password given for a plain bundle is an ambiguity (the wrong file,
+    or a bundle that was meant to be encrypted and is not) rather than
+    something to ignore."""
     encrypted, _ = bundle_kind(bundle)
     if encrypted and not pass_spec:
         raise ValueError(
@@ -370,6 +377,8 @@ def check_magic(path: str, gzipped: bool) -> None:
 
 
 def sha256_file(path: str) -> str:
+    """The file's SHA-256, read in 1 MiB chunks so a multi-gigabyte bundle
+    is never held in memory."""
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
@@ -383,6 +392,12 @@ def sha256_file(path: str) -> str:
 
 def _decrypt_to(bundle: str, dest_tar: str, cipher: str,
                 openssl_opts: List[str], pass_spec: str) -> None:
+    """Decrypt `bundle` to `dest_tar` with openssl.
+
+    `-pass fd:N` needs that descriptor inherited past the default
+    `close_fds`, and `-pass stdin` needs stdin left alone (the bundle
+    goes in through `-in`); both are handled here, and openssl itself
+    validates an unusable spec."""
     argv = openssl_decrypt_argv(cipher, openssl_opts, pass_spec, bundle)
     # `-pass fd:N` needs that descriptor inherited (close_fds is the
     # default); `-pass stdin` needs stdin left alone (the bundle goes via
@@ -464,6 +479,11 @@ def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
                  gzipped: bool, pass_spec: Optional[str], cipher: str,
                  openssl_opts: Optional[List[str]], actual: str
                  ) -> Dict[str, object]:
+    """Decrypt if needed, verify the archive magic, and extract.
+
+    The magic check is what turns a wrong password into a clear error:
+    without a `-pbkdf2` header openssl cannot always tell, and the
+    plaintext is garbage rather than a failure."""
     if encrypted:
         log("decrypting bundle ...")
         _decrypt_to(bundle, tar_path, cipher, openssl_opts or [], pass_spec)

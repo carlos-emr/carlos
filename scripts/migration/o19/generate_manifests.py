@@ -499,11 +499,19 @@ def parse_prevention_items(text: str) -> List[str]:
 
 
 def read_sql(path: Path) -> str:
+    """Read one SQL source. Undecodable bytes are replaced rather than
+    fatal: the O19 tree carries latin1-era files, and a stray byte in a
+    comment must not stop the whole generation."""
     return path.read_text(encoding="utf-8", errors="replace")
 
 
 def load_schema(files: List[Path],
                 if_not_exists_mode: str = "skip") -> Schema:
+    """Parse a list of SQL files into one `Schema`, applying CREATEs and
+    ALTERs in the order given.
+
+    Order matters: the O19 `updates/*.sql` patches redefine tables the
+    base init created, so the caller passes the base files first."""
     schema = Schema(if_not_exists_mode)
     for f in files:
         schema.feed(strip_line_comments(read_sql(f)))
@@ -529,6 +537,12 @@ def carlos_migration_files(dirs: List[Path]) -> List[Path]:
 
 
 def expand_sources(base: Path, patterns: List[str]) -> List[Path]:
+    """Resolve the configured source patterns against `base`, globs sorted
+    for determinism.
+
+    A missing NON-glob file warns rather than dying: the source list
+    spans several OSCAR 19 patch levels and not every checkout carries
+    every file."""
     out: List[Path] = []
     for pat in patterns:
         if "*" in pat:
@@ -607,6 +621,12 @@ def load_module(path: Path):
 
 
 def default_nondefault_expr(coltype: str, col: str) -> str:
+    """The predicate that decides whether a dropped column actually holds
+    anything -- numeric columns compared against 0, everything else
+    against the empty string, both guarded on NULL.
+
+    This is what lets the preflight say "dropped, and empty in your
+    data" rather than warning about every dropped column."""
     t = coltype.lower()
     if re.match(r"(tiny|small|medium|big)?int|decimal|double|float|numeric", t):
         return "s.`{0}` IS NOT NULL AND s.`{0}` <> 0".format(col)
@@ -614,6 +634,12 @@ def default_nondefault_expr(coltype: str, col: str) -> str:
 
 
 def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
+    """Classify every table into the manifest: `copy`, `merge`, `archive`,
+    `reference` or `seed`, with its column mapping, chunk key, dropped
+    columns and renames.
+
+    Shared tables are classified by the overlays; tables only OSCAR 19
+    has become archive. The overlays decide policy, this decides shape."""
     tables: Dict[str, dict] = {}
     shared = sorted(set(o19.tables) & set(carlos.tables))
     o19_only = sorted(set(o19.tables) - set(carlos.tables))
@@ -868,11 +894,20 @@ def content_version(base: str, content) -> str:
 
 
 def schema_map_version(tables, ov) -> str:
+    """The manifest's version string: the curated `SCHEMA_MAP_VERSION`
+    plus a digest of the generated tables, so any drift in the output
+    changes the version the ledger binds a run to."""
     return content_version(ov.SCHEMA_MAP_VERSION, sorted(tables.items()))
 
 
 def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                        o19_commit: str, extras: Optional[Dict] = None) -> str:
+    """Render `o19map_schema.py` in full.
+
+    Output is deterministic -- sorted throughout and carrying the O19
+    source commit rather than a wall-clock stamp -- so an unchanged
+    input regenerates byte-identical output and `--check` means
+    something."""
     extras = extras or {}
     copy_tables = sorted(t for t, e in tables.items()
                          if e["class"] in ("copy", "merge"))
@@ -960,6 +995,13 @@ def undisposed_property_keys(o19_defaults, ov):
 
 
 def emit_props_module(o19_defaults, ov) -> str:
+    """Render `o19map_props.py`.
+
+    Refuses outright if any stock OSCAR 19 property key has no
+    disposition: an undisposed key drops out of the migration with
+    nobody having decided that, so it is a generation failure rather
+    than a warning. Credential-bearing stock defaults are never
+    emitted."""
     undisposed = undisposed_property_keys(o19_defaults, ov)
     if undisposed:
         raise SystemExit(
@@ -992,6 +1034,12 @@ def emit_props_module(o19_defaults, ov) -> str:
 
 def emit_preflight_data(tables, ov, props_ov,
                         extras: Optional[Dict] = None) -> str:
+    """Render the generated block of `o19_preflight.py` (table classes,
+    patient tables, dropped columns and their emptiness predicates).
+
+    The preflight ships as one standalone file for the clinic's server,
+    so its manifest data is inlined between markers rather than
+    imported."""
     extras = extras or {}
     known = {t: e["class"] for t, e in sorted(tables.items())}
     patient = sorted(t for t, e in tables.items() if e.get("patient_data"))
@@ -1038,6 +1086,9 @@ def emit_preflight_data(tables, ov, props_ov,
 
 
 def rewrite_markers(path: Path, block: str) -> bool:
+    """Replace the text between the generated-data markers in `path`.
+    Returns whether the file changed. Missing or malformed markers are
+    fatal -- writing the block somewhere else would corrupt the file."""
     text = path.read_text(encoding="utf-8")
     b = text.find(MARKER_BEGIN)
     e = text.find(MARKER_END)
@@ -1054,6 +1105,12 @@ def rewrite_markers(path: Path, block: str) -> bool:
 # --------------------------------------------------------------------------
 
 def main() -> int:
+    """Generate (or, with `--check`, verify) the manifest modules from an
+    OSCAR 19 checkout plus the curated overlays.
+
+    `--check` regenerates in memory and exits non-zero on drift, which
+    is what pins a hand-edited manifest. Returns the process exit
+    code."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--oscar-src", required=True,
                     help="path to an oscaremr/oscar (OSCAR 19) checkout")

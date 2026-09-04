@@ -113,6 +113,7 @@ LEDGER_KEY = "roles"
 
 
 def snapshot_table(table: str) -> str:
+    """Archive-schema name for the pre-import snapshot of a role table."""
     return "carlos_seed_" + table
 
 
@@ -149,11 +150,17 @@ def startup_row_delete_statements(dst_schema: str) -> List[str]:
 
 
 def startup_row_count_sql(table: str, where: str, schema: str) -> str:
+    """Counts the rows the webapp's own startup listener writes into
+    `table` -- the ones P0 tolerates on a stock deploy and the copy
+    removes before the clinic's rows land."""
     return "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE {2}".format(
         schema, table, startup_row_predicate(where, schema))
 
 
 def guaranteed_role_statements(dst_schema: str) -> List[str]:
+    """Insert-if-absent for the roles CARLOS requires regardless of what
+    the clinic had. Written as `WHERE NOT EXISTS` so a resume replays
+    them without duplicating a role."""
     return ["INSERT INTO `{0}`.secRole (role_name, description) "
             "SELECT '{1}', '{2}' FROM DUAL WHERE NOT EXISTS "
             "(SELECT 1 FROM `{0}`.secRole WHERE role_name = '{1}')"
@@ -173,11 +180,16 @@ def carlos_role_append_statement(dst_schema: str,
 
 
 def enabled_facility_count_sql(dst_schema: str) -> str:
+    """Counts enabled facilities. Zero of them is a refusal: CARLOS scopes
+    a provider's whole session by facility, so an import that left none
+    enabled gives every carried login an empty EMR."""
     return ("SELECT COUNT(*) FROM `{0}`.Facility WHERE disabled = 0"
             .format(dst_schema))
 
 
 def clinic_count_sql(dst_schema: str) -> str:
+    """Counts `clinic` rows -- the companion presence check to the facility
+    one."""
     return "SELECT COUNT(*) FROM `{0}`.clinic".format(dst_schema)
 
 
@@ -265,6 +277,11 @@ def fallback_membership_candidates_sql(dst_schema: str) -> str:
 
 
 def providers_without_membership_sql(dst_schema: str) -> str:
+    """Counts active providers with no `program_provider` membership.
+
+    Such a provider can sign in and reach nothing, so the step
+    synthesises memberships and this is the residual it reports. The
+    system pseudo-provider is excluded: it is not an account."""
     return ("SELECT COUNT(*) FROM `{0}`.provider pr WHERE pr.status = '1' "
             "AND pr.provider_no <> '{1}' AND NOT EXISTS (SELECT 1 FROM "
             "`{0}`.program_provider pp WHERE pp.provider_no = "
@@ -311,6 +328,13 @@ def activeyn_admin_left_sql(dst_schema: str) -> str:
 
 
 def activeyn_update_statement(dst_schema: str) -> str:
+    """Activates the legacy NULL `activeyn` assignments of live accounts.
+
+    OSCAR 19 left the column NULL where CARLOS reads NULL as inactive,
+    so untouched rows would silently grant nothing. `admin` is
+    deliberately excluded -- a dormant admin assignment stays dormant
+    and is reported for an explicit decision rather than activated by a
+    migration."""
     return ("UPDATE `{0}`.secUserRole ur SET ur.activeyn = 1 WHERE "
             "ur.activeyn IS NULL AND {1} AND LOWER(ur.role_name) <> '{2}'"
             .format(dst_schema, _live_account_predicate(dst_schema),
@@ -546,6 +570,9 @@ def privilege_diff_sql(src_schema: str, archive_schema: str) -> str:
 
 
 def excluded_grants_count_sql(src_schema: str) -> Optional[str]:
+    """Counts the clinic grants the privilege merge deliberately leaves
+    behind (the manifest's `merge_exclude`), or None when the manifest
+    excludes nothing."""
     exclude = o19map_schema.TABLES.get("secObjPrivilege", {}).get(
         "merge_exclude")
     if not exclude:
@@ -654,6 +681,13 @@ def prevention_type_statements(dst_schema: str,
 
 def unknown_prevention_types_sql(dst_schema: str,
                                  known: Sequence[str]) -> str:
+    """Prevention types in the target that CARLOS has no configuration
+    for, with their row counts.
+
+    Compared under BINARY, like the rewrite itself: a code differing
+    from a known one only by case does not render either, so it belongs
+    on this list. NULL is reported under its own label rather than
+    dropped by the comparison."""
     known_list = ", ".join("'{0}'".format(_sql_str(k)) for k in known)
     # BINARY like the rewrite: a code differing from a known one only by
     # case is not rendered either, so it must be listed for review
@@ -686,6 +720,9 @@ def rtl_rows_sql(dst_schema: str) -> str:
 
 
 def rtl_disable_statement(dst_schema: str, fid: str) -> str:
+    """Disables one eForm by fid. `fid` is coerced through `int`, so no
+    caller can steer this statement with a value read from the
+    database."""
     return ("UPDATE `{0}`.eform SET status = 0 WHERE fid = {1}".format(
         dst_schema, int(fid)))
 
@@ -1518,5 +1555,7 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
 
 
 def _fmt_templates(mapping: Dict[str, str]) -> str:
+    """The role-template bindings as `class=template` pairs for the report,
+    or the word `none`."""
     return (", ".join("{0}={1}".format(c, t) for c, t in sorted(
         mapping.items())) or "none")

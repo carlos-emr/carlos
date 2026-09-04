@@ -244,6 +244,9 @@ def validate_admin_user(name: Optional[str]) -> str:
 
 
 def enum_values(column_type: str) -> List[str]:
+    """The literals of an `enum(...)` column type, with their SQL escapes
+    left as written. Empty for any other type, so callers can ask
+    unconditionally."""
     m = re.match(r"enum\((.*)\)$", column_type, re.I | re.S)
     if not m:
         return []
@@ -255,6 +258,8 @@ def enum_values(column_type: str) -> List[str]:
 # --------------------------------------------------------------------------
 
 def idmap_table(parent: str) -> str:
+    """Name of the archive-schema table holding `parent`'s old-id -> new-id
+    map, written when a surrogate key had to be renumbered."""
     return "{0}__idmap".format(parent)
 
 
@@ -352,6 +357,14 @@ def copy_statement(table: str, entry: dict, src_schema: str,
                    repaired: Optional[set] = None,
                    window: Optional[Tuple[int, int]] = None,
                    archive_schema: Optional[str] = None) -> str:
+    """The `INSERT ... SELECT` that copies one manifest table from staging
+    into the target.
+
+    Only the manifest's columns are named, each through `source_expr`
+    (rename, default, id remap or charset repair) and then
+    `sanitize_expr` (the target's nullability and width). `window`
+    restricts it to one id range for a chunked table; `repaired` names
+    the columns whose double-encoded text this run rewrites."""
     cols = entry["cols"]
     targets = ", ".join("`{0}`".format(c) for c in cols)
     exprs = ", ".join(
@@ -562,6 +575,8 @@ def fk_unmapped_count_sql(table: str, entry: dict, src_schema: str,
 
 
 def idmap_changed_count_sql(table: str, archive_schema: str) -> str:
+    """Counts the rows a table's id map actually renumbered -- the figure
+    the report gives for "ids that had to move"."""
     return ("SELECT COUNT(*) FROM `{0}`.`{1}` WHERE old_id <> new_id"
             .format(archive_schema, idmap_table(table)))
 
@@ -604,6 +619,13 @@ def archive_statements(table: str, src_schema: str,
                        archive_schema: str) -> List[str]:
     # unknown (unclassified) tables reach here under the dump's own
     # names: quoted, never trusted
+    """DROP/CREATE/INSERT that copy one staging table verbatim into the
+    archive schema.
+
+    Used for the tables CARLOS has no home for (removed modules, dropped
+    columns, the OSCAR 19 token tables) and for unclassified tables the
+    dump carries under names this tool never chose -- hence `ident`,
+    which doubles an embedded backtick rather than trusting the name."""
     t = ident(table)
     return [
         "DROP TABLE IF EXISTS `{0}`.{1}".format(archive_schema, t),
@@ -778,11 +800,17 @@ def seed_admin_cleanup_statements(dst_schema: str, admin_user: str,
 
 
 def seed_delete_statements(dst_schema: str) -> List[str]:
+    """The deletes that remove the deploy's own seeded clinician
+    (`carlosdoc`) and everything hanging off it, so the clinic's own
+    provider rows land id-intact."""
     return ["DELETE FROM `{0}`.`{1}` WHERE {2}".format(dst_schema, t, where)
             for t, where in o19map_schema.CARLOSDOC_SEED_DELETES]
 
 
 def seed_group_tables() -> List[str]:
+    """The tables `seed_delete_statements` touches, deduplicated and
+    sorted. The copy loop consults this to use the admin-preserving
+    retry delete instead of the generic one."""
     return sorted({t for t, _ in o19map_schema.CARLOSDOC_SEED_DELETES})
 
 
@@ -804,6 +832,9 @@ def seed_group_retry_delete(table: str, dst_schema: str, admin_user: str,
 
 
 def force_reset_statement(dst_schema: str) -> str:
+    """Sets `forcePasswordReset` on every carried login: OSCAR 19 password
+    hashes come across, so each provider is made to choose a new one at
+    first sign-in under CARLOS."""
     return ("UPDATE `{0}`.security SET forcePasswordReset = 1"
             .format(dst_schema))
 
@@ -918,6 +949,7 @@ def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
 # --------------------------------------------------------------------------
 
 def progress_path(state_dir: str) -> str:
+    """Path of the ETL checkpoint ledger inside a run's workspace."""
     return os.path.join(state_dir, "etl-progress.json")
 
 
@@ -979,6 +1011,12 @@ def save_progress(state_dir: str, progress: Dict) -> None:
     # 0600 like the private text files (the roles ledger plans carry
     # provider numbers), and fsynced: a rename that lands before the data
     # would leave a ledger of zeroes describing writes that did happen
+    """Persist the ETL ledger at 0600, durably.
+
+    0600 because the roles plans it carries name provider numbers, and
+    fsynced through `durable_json` because a rename landing before the
+    data would leave a ledger of zeroes describing writes that did
+    happen -- which a resume would then redo."""
     from . import o19import
     o19import.durable_json(progress_path(state_dir), progress)
 
@@ -1813,6 +1851,12 @@ APPENDED_ROW_MAX = {"program": 1, "eform": 1}
 
 def admin_row_count_sql(table: str, dst_schema: str, admin_user: str,
                         admin_provider_no: str) -> Optional[str]:
+    """Counts the break-glass administrator's own rows in `table`, or None
+    when that table has no such row.
+
+    P7 parity subtracts these: the admin is created by this import and
+    has no staging twin, so its rows are an expected delta rather than a
+    mismatch."""
     predicate = ADMIN_ROW_PREDICATES.get(table)
     if not predicate:
         return None
@@ -1843,6 +1887,12 @@ ROLES_STEP_TABLES = tuple(o19map_schema.REQUIRED_TABLES)
 
 def appended_row_count_sql(table: str, src_schema: str,
                            dst_schema: str) -> Optional[str]:
+    """Counts target rows in `table` with no staging twin on the keys the
+    roles post-step legitimately appends by, or None for a table it does
+    not append to.
+
+    Parity tolerates this delta, but only up to what the roles ledger
+    recorded -- an unbounded tolerance would absorb a duplicate."""
     keys = APPENDED_ROW_KEYS.get(table)
     if not keys:
         return None

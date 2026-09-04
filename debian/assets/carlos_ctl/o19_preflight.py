@@ -926,6 +926,9 @@ MOJIBAKE_HEX = "C383"
 
 
 def finding(fid, severity, title, detail="", accept=None, data=None):
+    """One report entry. `accept` names the `--accept` class that clears a
+    blocker (omitted when nothing can); `data` carries the structured
+    detail the JSON report keeps and the text rendering summarises."""
     f = {"id": fid, "severity": severity, "title": title, "detail": detail}
     if accept:
         f["accept"] = accept
@@ -938,6 +941,11 @@ _UNESCAPE = {"n": "\n", "t": "\t", "r": "\r", "f": "\f"}
 
 
 def _unescape_property(text):
+    r"""Undo `java.util.Properties` value escapes (`\n`, `\t`, `\r`,
+    `\f`, `\uXXXX`, and `\x` -> `x` for anything else).
+
+    A malformed `\u` escape is a file `java.util.Properties` rejects
+    outright, so it is not silently passed through."""
     out = []
     i = 0
     n = len(text)
@@ -1885,6 +1893,8 @@ def run_checks(query, properties=None, province="on", accepted=(),
 
 
 def render_text(report):
+    """The human-readable report: blockers first, then advisories, then
+    info. The JSON report is the machine-readable twin."""
     lines = []
     lines.append("OSCAR 19 -> CARLOS migration preflight (experimental)  "
                  "[manifest {0}]".format(report["schema_map_version"]))
@@ -1942,6 +1952,12 @@ def render_text(report):
 
 
 def main(argv=None):
+    """Standalone entrypoint, run on the CLINIC's OSCAR 19 server before
+    any bundle is built.
+
+    Kept Python 3.4-compatible and dependency-free so it runs unchanged
+    on an Ubuntu 14.04 host. Returns the verdict as the exit code: 0 go,
+    1 go with acknowledgements, 2 no-go, 3 tool error."""
     ap = argparse.ArgumentParser(
         description="OSCAR 19 -> CARLOS migration feasibility check "
                     "(assessment mode; experimental)")

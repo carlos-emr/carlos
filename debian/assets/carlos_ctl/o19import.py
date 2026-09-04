@@ -221,6 +221,9 @@ def redact_statement(sql: str, width: int = 80) -> str:
 
 
 def batch_rows(stdout: str) -> List[List[str]]:
+    """Rows from the batch client's tab-separated stdout, with its backslash
+    escapes undone. A trailing empty line is dropped, so a result set of
+    no rows is an empty list rather than one empty row."""
     lines = stdout.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
@@ -303,6 +306,12 @@ def tolerate_startup_rows(counts: Dict[str, int],
 
 
 def gather_copy_counts(query, db: str) -> Dict[str, int]:
+    """Live row counts for every manifest `copy`/`merge` table PRESENT in
+    `db`.
+
+    Tables absent from the schema are omitted rather than counted as 0:
+    the P0 pristine gate and the P7 parity check both distinguish "this
+    patch level has no such table" from "the table is there and empty"."""
     tables = {row[0] for row in query(
         "SELECT TABLE_NAME FROM information_schema.TABLES "
         "WHERE TABLE_SCHEMA = '{0}'".format(db))}
@@ -593,6 +602,13 @@ def run_p0_capacity(ctx) -> None:
 
 
 def run_p0(ctx) -> None:
+    """P0 -- refuse anything but a stock, province-matched, pristine target.
+
+    Runs the shared capacity half, then the checks that only a real
+    import may make: Flyway `validate` against the deployed WAR, no
+    inherited `o19_archive`, and live row counts within the manifest's
+    seed floors. Dies on the first refusal; a `--dev-target` run skips
+    the checks that assume a packaged host."""
     query = ctx["query"]
     dev = ctx["dev_target"]
     if ctx.get("province") != "on":
@@ -710,6 +726,11 @@ def run_p0(ctx) -> None:
 # --------------------------------------------------------------------------
 
 def head_collations(head: bytes) -> List[str]:
+    """The distinct collation names named in the first 64 KiB of a dump.
+
+    Only the head is scanned: this feeds an advisory about the dump's
+    declared collations, and a clinic's dump is too large to read whole
+    for it."""
     return sorted(set(
         m.decode("ascii", "replace")
         for m in re.findall(rb"COLLATE[= ]([A-Za-z0-9_]+)", head[:65536])))
@@ -821,6 +842,15 @@ def staging_account_statements(password: str) -> List[str]:
 
 
 def grant_staging_account(query, client_cnf: str) -> None:
+    """Create the throwaway staging account and write its client defaults
+    file at 0600.
+
+    The restore runs as this account, not as root: it is scoped to the
+    staging schema plus `BINLOG ADMIN` (MariaDB 10.5+), so the clinic's
+    dump cannot reach the live schema. There is deliberately no SUPER
+    fallback -- an older server is refused instead. Any failure revokes
+    whatever was created before dying, so a half-created account never
+    outlives this call."""
     password = genpw()
     try:
         for sql in staging_account_statements(password):
@@ -852,6 +882,11 @@ def grant_staging_account(query, client_cnf: str) -> None:
 
 
 def revoke_staging_account(query, client_cnf: str) -> None:
+    """Drop the staging account on every host row and remove its defaults
+    file.
+
+    The unlink is in a `finally`: a `DROP USER` that fails must still
+    take the password off disk."""
     try:
         for host in STAGING_ACCOUNT_HOSTS:
             query("DROP USER IF EXISTS '{0}'@'{1}'".format(
@@ -946,6 +981,12 @@ def _stream_dump(opener: List[str], restore_argv: List[str]):
 
 
 def run_p1(ctx) -> None:
+    """P1 stage -- restore the clinic's dump into the staging schema.
+
+    Idempotent on the dump's sha256: a phase already recorded `done` for
+    the same digest returns without touching the database, so a resume
+    never replays a multi-hour restore. A DIFFERENT digest is refused
+    unless `--restage` was passed."""
     query = ctx["query"]
     dump = ctx["dump"]
     dump_sha = sha256_file(dump)
@@ -1058,6 +1099,14 @@ def run_p1(ctx) -> None:
 # --------------------------------------------------------------------------
 
 def run_p2(ctx) -> Dict:
+    """P2 preflight -- assess the staged dump and record the verdict.
+
+    Returns the report dict (`verdict`, `exit_code`, `findings`); the
+    `o19-preflight` verb turns that exit code into its own. On a resume
+    whose copy has already started the recorded verdict stands and the
+    checks are NOT re-run: staging has been normalised since, so
+    re-assessing could only refuse a target that is mid-import by
+    design."""
     query = ctx["query"]
     prior = ctx["state"].get("phases", {}).get("preflight", {})
     if ctx.get("resume") and prior.get("status") == "done" \
@@ -1131,6 +1180,12 @@ def run_p2(ctx) -> Dict:
 # --------------------------------------------------------------------------
 
 def run_p3(ctx) -> None:
+    """P3 backup -- take the pre-import snapshot the rollback depends on.
+
+    The only phase whose failure the operator may sign off: with no
+    backup configured, `--accept no-pre-backup` (or `--dev-target`)
+    records the phase as skipped and says so in the report. Everything
+    after this point assumes a restorable snapshot exists."""
     if phase_done(ctx["state"], "backup"):
         log("backup: pre-import snapshot already taken — skipping")
         return
@@ -1225,6 +1280,11 @@ def _row_parity(ctx):
 
 
 def run_p4(ctx) -> None:
+    """P4 etl -- copy, merge and archive the clinic's rows.
+
+    Builds the ETL's own query callable (a longer statement timeout than
+    the orchestrator's) and hands off to `o19etl.run_etl`, which keeps
+    its own per-table ledger and is resumable window by window."""
     if phase_done(ctx["state"], "etl"):
         log("etl: already complete — skipping")
         return
@@ -1272,6 +1332,8 @@ def run_p4(ctx) -> None:
 # --------------------------------------------------------------------------
 
 def run_p5(ctx) -> None:
+    """P5 documents -- restore the document tree and reconcile it against
+    the rows that name its files (see `o19docs.run_docs`)."""
     if phase_done(ctx["state"], "documents"):
         log("documents: already restored and reconciled — skipping")
         return
@@ -1284,6 +1346,8 @@ def run_p5(ctx) -> None:
 # --------------------------------------------------------------------------
 
 def run_p6(ctx) -> None:
+    """P6 props -- derive the CARLOS properties fragment from the clinic's
+    `oscar.properties` (see `o19props.run_props`)."""
     if phase_done(ctx["state"], "props"):
         log("props: fragment already produced — skipping")
         return
@@ -1292,6 +1356,12 @@ def run_p6(ctx) -> None:
 
 
 def write_private(path: str, text: str) -> None:
+    """Write `text` to `path` at 0600, creating or truncating.
+
+    `fchmod` after the open because the `os.open` mode applies to a NEW
+    file only: re-running a phase must not leave an existing details
+    file at whatever mode it already had. These files carry the names
+    the PHI-free `report.txt` deliberately omits."""
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.fchmod(fd, 0o600)  # the mode argument applies to a NEW file only
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -1307,6 +1377,14 @@ def append_private(path: str, text: str) -> None:
 
 
 def run_p7(ctx) -> None:
+    """P7 verify -- compare the target against staging and pass or fail the
+    import.
+
+    Row parity per manifest table, referential spot checks across a
+    patient's chart, billing totals and the roles/privilege gates.
+    Records the phase only when every check passes: a failed or
+    interrupted verification leaves a `verify` phase that is NOT `done`,
+    which is what the packaging's upgrade gate reads."""
     if phase_done(ctx["state"], "verify"):
         log("verify: already passed — skipping")
         return
@@ -1514,6 +1592,15 @@ def cleanup_refusal(state: Dict, state_dir: str,
 
 
 def run_cleanup(ctx) -> None:
+    """Retire a finished run: drop the staging schema and its throwaway
+    account, remove the extracted bundle, and suffix this run's ledgers,
+    reports and private files with `.completed-<timestamp>`.
+
+    The `o19_archive` schema and its CSV export are KEPT for the clinic.
+    Refused on a mid-import workspace, whose only resume ledger this
+    would destroy. Marked `cleanup: in-progress` before the first
+    destructive step, so an interrupted cleanup reads as "run --cleanup
+    again" rather than as a resumable import."""
     state = ctx["state"]
     refusal = cleanup_refusal(state, ctx["state_dir"], ctx["dev_target"])
     if refusal:
@@ -1587,6 +1674,11 @@ RUN_FILES = ("report.txt", "roles-details.txt", "privilege-diff.txt",
 # --------------------------------------------------------------------------
 
 def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
+    """The argument parser for either verb.
+
+    `import_mode` selects the flags that only a real import has (the
+    break-glass admin, `--resume`, `--cleanup`, the acknowledgement
+    classes); the assessment shares the input and bundle options."""
     ap = argparse.ArgumentParser(
         prog=prog,
         description=(
@@ -1840,6 +1932,8 @@ def dev_mode_refusal(dev_target: bool, mariadb_arg: Optional[List[str]],
 
 
 def _dev_mode(args) -> bool:
+    """Whether this invocation targets a development database, dying on the
+    combinations that are not allowed on a packaged host."""
     refusal = dev_mode_refusal(bool(args.dev_target), args.mariadb_arg,
                                os.path.exists(ENV_FILE))
     if refusal:
@@ -1928,6 +2022,12 @@ def take_workspace_lock(state_dir: str) -> None:
 
 
 def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
+    """Build the phase context and take the workspace lock.
+
+    `import_mode` false (and a dry run) means an ASSESSMENT: it refuses a
+    workspace whose import has begun, extracts to `bundle-assess/`, and
+    does not rewrite the ledger's recorded inputs -- an assessment must
+    never disturb a run in progress."""
     dev_target = _dev_mode(args)
     take_workspace_lock(state_dir)
     state = load_state(state_dir)
@@ -2145,6 +2245,12 @@ def cmd_o19_preflight(argv) -> int:
     # a refusal of any kind (unreachable server, bad flags, missing file,
     # disk, replicas, a refused dump) must not read as a verdict, so
     # every early exit becomes the tool-error code — except --help
+    """`carlos-ctl o19-preflight` entrypoint.
+
+    Exit 0/1/2 are this verb's VERDICT (go, go with acknowledgements,
+    no-go), so any other failure -- bad flags, an unreachable server, a
+    refused dump -- is remapped to the tool-error code rather than being
+    read as a migration verdict."""
     try:
         return _guarded(lambda: _cmd_o19_preflight(argv),
                         o19_preflight.EXIT_TOOL_ERROR)
@@ -2155,10 +2261,13 @@ def cmd_o19_preflight(argv) -> int:
 
 
 def cmd_import_o19(argv) -> int:
+    """`carlos-ctl import-o19` entrypoint: run the phases, or `--cleanup`."""
     return _guarded(lambda: _cmd_import_o19(argv))
 
 
 def _cmd_o19_preflight(argv) -> int:
+    """The assessment body: capacity gates, stage, report. Records no
+    verdict and persists no sign-off; the return value IS the verdict."""
     args = _parser("carlos-ctl o19-preflight", import_mode=False).parse_args(
         list(argv))
     if os.geteuid() != 0 and not args.mariadb_arg:
@@ -2177,6 +2286,8 @@ def _cmd_o19_preflight(argv) -> int:
 
 
 def _cmd_import_o19(argv) -> int:
+    """The import body: argument gates, then P0..P7 in order (or
+    `--cleanup`)."""
     args = _parser("carlos-ctl import-o19", import_mode=True).parse_args(
         list(argv))
     if os.geteuid() != 0 and not args.mariadb_arg:
@@ -2248,6 +2359,8 @@ def _cmd_import_o19(argv) -> int:
 
 
 def _make_ctx_for_cleanup(args) -> Dict:
+    """The minimal context `run_cleanup` needs: no bundle is opened and no
+    inputs are resolved, because cleanup acts on the workspace alone."""
     state_dir = STATE_DIR
     take_workspace_lock(state_dir)
     return {

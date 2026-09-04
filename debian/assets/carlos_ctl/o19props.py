@@ -217,6 +217,9 @@ def load_clinic_properties(path: str) -> List[Tuple[str, str]]:
 
 
 def disposition(key: str) -> dict:
+    """What the manifest says to do with one property key: its exact entry
+    if there is one, else the first matching prefix rule, else
+    `unknown` (surfaced for review, never carried silently)."""
     spec = o19map_props.KEYS.get(key)
     if spec is not None:
         return spec
@@ -348,6 +351,9 @@ def translate_all(clinic: List[Tuple[str, str]],
 
 
 def render_fragment(result: dict) -> str:
+    """The `o19-derived-carlos.properties` text: the keys this import would
+    carry, as comments-plus-values for an operator to review and append
+    by hand. Never applied automatically."""
     lines = [
         "# Derived from the clinic's oscar.properties by carlos-ctl "
         "import-o19 (experimental).",
@@ -365,6 +371,8 @@ def render_fragment(result: dict) -> str:
 
 
 def render_report(result: dict) -> str:
+    """The properties section of `report.txt`, grouped by disposition.
+    Key NAMES only -- a carried secret's value never reaches this file."""
     lines = []
     secret_set = set(result["secrets"])
     by_d: Dict[str, List[str]] = {}
@@ -416,6 +424,12 @@ def write_fragment(path: str, text: str) -> None:
 
 
 def run_props(ctx) -> None:
+    """P6 -- parse the clinic's `oscar.properties`, classify every key
+    against the props manifest, and write the derived fragment and the
+    report section.
+
+    Produces a fragment for review; it changes no deployed
+    configuration. A dry run renders to the `.dry-run` twin instead."""
     from . import o19import
     from .util import die
     state_dir = ctx["state_dir"]
