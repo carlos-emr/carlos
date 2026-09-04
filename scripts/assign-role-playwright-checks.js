@@ -153,6 +153,17 @@ function playwrightBaseUrl() {
   return `${baseUrl.origin}${baseUrl.pathname.replace(/\/$/, '')}/`;
 }
 
+// my.cnf option-file values are not raw text: '\' starts an escape sequence
+// ('\s' is a space, '\t' a tab) and an unquoted '#' starts a comment that
+// truncates the rest of the line, so a password written verbatim is silently
+// corrupted and the run dies on "Access denied". Double-quoting neutralizes
+// '#' and surrounding whitespace; '\' and '"' still need escaping inside the
+// quotes. Same helper as login-playwright-checks.js, where the failure was
+// first hit against a dev password containing a backslash.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
@@ -160,7 +171,11 @@ function createMysqlDefaultsFile() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-assign-role-mysql-'));
   const file = path.join(dir, 'client.cnf');
   try {
-    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+    fs.writeFileSync(
+      file,
+      `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+      { mode: 0o600 }
+    );
     return { dir, file };
   } catch (error) {
     fs.rmSync(dir, { recursive: true, force: true });
