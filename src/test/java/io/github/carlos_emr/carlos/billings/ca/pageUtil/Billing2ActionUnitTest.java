@@ -111,9 +111,11 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
         // tests seed and clear that same storage and exercise the real lookup
         // rather than a mock that cannot go stale against it.
         realProperties = CarlosProperties.getInstance();
-        // Hashtable.get, not getProperty: the override logs a WARN and returns
-        // a PROPERTY_DEFAULTS substitute for a missing key, which would corrupt
-        // the value being saved for restoration.
+        // Hashtable.get, not getProperty: the override logs a WARN for every
+        // missing key, and substitutes a default only for keys registered in
+        // PROPERTY_DEFAULTS. billregion has none, so getProperty() would return
+        // the same null here — the reason to read raw is the WARN noise, and to
+        // match how the production code reads this key.
         originalBillRegion = realProperties.get(BILLREGION);
 
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
