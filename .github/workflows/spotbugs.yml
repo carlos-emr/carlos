@@ -45,6 +45,7 @@ on:
       - 'pom.xml'
       - '.github/spotbugs/**'
       - '.github/workflows/spotbugs.yml'
+      - '.github/actions/dev-container/**'
       - 'scripts/ci/spotbugs-xml-to-sarif.py'
       - 'scripts/ci/requirements.txt'
   push:
@@ -54,6 +55,7 @@ on:
       - 'pom.xml'
       - '.github/spotbugs/**'
       - '.github/workflows/spotbugs.yml'
+      - '.github/actions/dev-container/**'
       - 'scripts/ci/spotbugs-xml-to-sarif.py'
       - 'scripts/ci/requirements.txt'
   workflow_dispatch: {}

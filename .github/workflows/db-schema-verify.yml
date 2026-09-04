@@ -26,10 +26,11 @@ on:
       - '.claude/**'
 
 # Read-only job: it checks out the repo and talks to a local docker container.
-# Superseded pushes to the same PR cancel the in-progress run; every other
-# event (push to a protected branch, schedule, dispatch) gets a unique group
-# via run_id and is never queued behind or cancelled by another run. The final
-# head of a PR always gets its own complete run, so no check outcome changes.
+# Superseded pushes to the same PR cancel the in-progress run. This workflow
+# only runs on pull_request today; the run_id fallback keeps any trigger added
+# later (push, schedule, dispatch) in its own group, never queued behind or
+# cancelled by another run. The final head of a PR always gets its own
+# complete run, so no check outcome changes.
 concurrency:
   group: db-schema-verify-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
