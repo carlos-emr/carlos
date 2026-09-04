@@ -17,8 +17,18 @@ Copy ONE file to the OSCAR 19 server and run it against the live database:
 scp /usr/lib/carlos-emr/carlos_ctl/o19_preflight.py o19-server:
 ssh o19-server python3 o19_preflight.py --db oscar \
     --mysql-cmd mysql --mysql-arg=-uroot --mysql-password-file /root/.o19pw \
-    --properties /path/to/oscar.properties --json preflight.json
+    --properties /path/to/oscar.properties --json preflight.json \
+    --digests o19-digests.json
 ```
+
+`--digests` takes a content digest of every table — a SHA-256 per row,
+aggregated two independent ways — and writes it (0600) alongside the
+report. Ship that file in the bundle: it is what lets the CARLOS host
+prove the dump, the transfer and the restore carried every **value**,
+not merely the right number of rows. It costs one full scan of the
+database (measured at roughly 200k rows/s, so about two minutes for a
+20M-row clinic) and can be run outside the cutover window, as long as it
+runs against the same data the dump is taken from.
 
 Client options that start with `-` need the `--mysql-arg=VALUE` form. The
 password goes through `--mysql-password-file` (handed to the client as
@@ -55,21 +65,29 @@ tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz <context-dir>
 # context-dir is the directory holding document/, eform/images/, ... —
 # often oscar, oscar_mcmaster, or the database name
 cp /path/to/oscar.properties .
+# and the content digests from step 1, if they were not taken then:
+python3 o19_preflight.py --db oscar --mysql-cmd mysql --mysql-arg=-uroot \
+    --mysql-password-file /root/.o19pw --digests o19-digests.json
 ```
 
 Bundle them (recommended single-file handoff, encrypted):
 
 ```bash
 tar -czf - o19.sql.gz o19-documents.tar.gz oscar.properties \
+      o19-digests.json \
   | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
       -pass file:PASSFILE -out o19-bundle.tar.gz.enc
 ```
 
-The three members sit at the archive root as plain files, with no
-directory prefix: exactly one `*.sql` or `*.sql.gz`, exactly one
-`*.properties`, and at most one `*.tar`/`*.tar.gz` of documents. Anything
-else in the archive, a member reached through a path, or a name beginning
-with `-`, is refused. The bundle file itself must be named `.tar`, `.tar.gz`,
+The members sit at the archive root as plain files, with no directory
+prefix: exactly one `*.sql` or `*.sql.gz`, exactly one `*.properties`, at
+most one `*.tar`/`*.tar.gz` of documents, and at most one `*.json` of
+content digests. Anything else in the archive, a member reached through a
+path, or a name beginning with `-`, is refused. Two files of the same
+role are refused as well — the importer never guesses which of two dumps
+(or two digest documents) describes the clinic. If the digests were
+shipped separately rather than in the bundle, pass them to the importer
+with `--o19-digests PATH`. The bundle file itself must be named `.tar`, `.tar.gz`,
 `.tar.enc` or `.tar.gz.enc`.
 
 ```bash

@@ -2134,6 +2134,12 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                     help="mysqldump of the O19 database (.sql or .sql.gz)")
     ap.add_argument("--properties", metavar="FILE",
                     help="the clinic's deployed oscar.properties")
+    ap.add_argument("--o19-digests", metavar="FILE",
+                    help="the clinic-side content digests (o19_preflight "
+                         "--digests). Normally travels inside --bundle; "
+                         "pass it here when it was shipped separately. "
+                         "Without it P2 can compare row COUNTS only, "
+                         "never the values themselves")
     ap.add_argument("--province", choices=["on", "bc"],
                     help="restate the host's configured province; a value "
                          "that differs from it is refused (default: the "
@@ -2323,6 +2329,17 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
         if getattr(args, "skip_documents", False) and opened["documents"]:
             die("--skip-documents contradicts a bundle that CONTAINS a "
                 "documents member — drop one of the two")
+        supplied_digests = getattr(args, "o19_digests", None)
+        if supplied_digests:
+            # never guess which of two digest documents describes this
+            # dump: one of them would silently become the thing P2
+            # measures the clinic against
+            if opened.get("digests"):
+                die("--o19-digests contradicts a bundle that CONTAINS a "
+                    "content-digest member — drop one of the two")
+            if not os.path.isfile(supplied_digests):
+                die("no such file: {0}".format(supplied_digests))
+            opened["digests"] = supplied_digests
         return opened
     if args.bundle_pass or args.bundle_openssl_opt or args.bundle_sha256:
         die("--bundle-pass/--bundle-openssl-opt/--bundle-sha256 need "
@@ -2334,11 +2351,13 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
     if not docs and not getattr(args, "skip_documents", True):
         die("--documents missing (or pass --skip-documents with "
             "--accept no-documents)")
-    for p in (args.dump, args.properties, docs):
+    supplied_digests = getattr(args, "o19_digests", None)
+    for p in (args.dump, args.properties, docs, supplied_digests):
         if p and not os.path.isfile(p):
             die("no such file: {0}".format(p))
     return {"dump": args.dump, "documents": docs,
-            "properties": args.properties, "bundle_sha256": None,
+            "properties": args.properties,
+            "digests": supplied_digests, "bundle_sha256": None,
             "members": {}}
 
 
@@ -2581,6 +2600,7 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         "dump": inputs["dump"],
         "documents": inputs["documents"],
         "properties": inputs["properties"],
+        "o19_digests": inputs.get("digests"),
         "dump_size": os.path.getsize(inputs["dump"]) if inputs["dump"] else 0,
         "documents_size": (os.path.getsize(inputs["documents"])
                            if inputs.get("documents") else 0),

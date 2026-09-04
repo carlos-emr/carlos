@@ -211,10 +211,15 @@ the digest the clinic conveyed separately is checked with
 .B \-\-bundle-sha256
 before the bundle is opened, because openssl enc has no integrity check of
 its own)
-holding the dump, the OscarDocument tar and oscar.properties at its root
-\(em or the three
+holding the dump, the OscarDocument tar, oscar.properties and
+optionally the clinic's content digests (*.json) at its root
+\(em or the
 .BR \-\-dump / \-\-documents / \-\-properties
 flags.
+.B \-\-o19-digests
+.I FILE
+supplies those digests when they were shipped outside the bundle; without
+them the import can compare row COUNTS only, never the values themselves.
 .B \-\-admin-user
 names the break-glass administrator created before the seeded clinician is
 removed; it is required for a real import and refused only by
@@ -308,7 +313,8 @@ Options:
 (repeatable passthrough for legacy bundles, e.g. \-md then md5);
 .BR \-\-dump " FILE,"
 .BR \-\-documents " FILE,"
-.BR \-\-properties " FILE;"
+.BR \-\-properties " FILE,"
+.BR \-\-o19-digests " FILE;"
 .B \-\-skip-documents
 (needs
 .BR "\-\-accept no-documents" );
@@ -372,6 +378,7 @@ workspace whose import is in progress is refused untouched. Options:
 .BR \-\-bundle-openssl-opt ,
 .BR \-\-dump ,
 .BR \-\-properties ,
+.BR \-\-o19-digests ,
 .BR \-\-province ,
 .BR \-\-accept ,
 .BR \-\-restage ,
@@ -385,12 +392,17 @@ to the OSCAR 19 server and run it there standalone. The standalone form
 takes its own flags \(em
 .BR \-\-db ", " \-\-mysql-cmd ", " \-\-mysql-arg ", "
 .BR \-\-mysql-password-file ", " \-\-properties ", " \-\-province ", "
-.BR \-\-accept " and " \-\-json
+.BR \-\-accept ", " \-\-json " and " \-\-digests
 \(em not this verb's, and its
 .B \-\-accept
 knows only the six classes an assessment can acknowledge: archived\-forms,
 unknown\-as\-archive, olis\-gone, dropped\-columns, carry\-credentials
 and charset\-repair.
+.B \-\-digests
+.I PATH
+writes a content digest of every table (0600) for the clinic to ship in
+the bundle; it costs one full scan of the database and is what lets the
+CARLOS host prove the transfer carried every value.
 .SH FILES
 .TP
 .I /etc/carlos-emr/carlos-emr.env

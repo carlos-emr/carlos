@@ -10,7 +10,7 @@ import ast
 import unittest
 from pathlib import Path
 
-from carlos_ctl import (dbops, o19docs, o19etl, o19_preflight,
+from carlos_ctl import (dbops, o19digest, o19docs, o19etl, o19_preflight,
                         o19props, util)
 
 # Values chosen so that any escape that drops one of the three cases -- or
@@ -169,6 +169,120 @@ class TestEveryStandaloneCopyIsPinned(unittest.TestCase):
                 o19_preflight.double_encoded_predicate(col),
                 o19etl.double_encoded_predicate("`{0}`".format(col)),
                 col)
+
+
+class TestTheStandaloneDigestIsTheSameDigest(unittest.TestCase):
+
+    """The content digest exists twice, and MUST hash identically.
+
+    The clinic's live database is the only place the pre-dump content can
+    be measured, and `o19_preflight.py` is the only tool that runs there
+    -- so the digest SQL is duplicated into it, exactly as the escape and
+    the property parser are. Drift here does not fail loudly: it makes
+    the P2 transfer check disagree on a CORRECT migration, which is the
+    failure mode that gets a check switched off. So compare the SQL TEXT,
+    character for character, not merely the shape."""
+
+    #: column names and information_schema DATA_TYPEs chosen so that any
+    #: divergence in quoting, in the binary/text split, in the NULL
+    #: marker or in the length prefix shows up in at least one case
+    COLUMNS = [
+        ("demographic_no", "int"),
+        ("last_name", "varchar"),
+        ("note", "text"),
+        ("we`ird", "varchar"),
+        ("contents", "blob"),
+        ("thumb", "mediumblob"),
+        ("raw", "varbinary"),
+        ("fixed", "binary"),
+        ("BLOB_UPPER", "BLOB"),          # the type match folds case
+        ("flags", "bit"),                # CONVERT is not injective here
+        ("shape", "geometry"),
+        ("money", "decimal"),            # HEX would round it
+        ("when", "datetime"),
+        ("kind", "enum"),
+    ]
+
+    #: types neither side has a safe rendering for; both must refuse
+    UNKNOWN = ["", None, "widget", "inet7", "BLOBB"]
+
+    def test_one_column_renders_identically(self):
+        for col, coltype in self.COLUMNS:
+            self.assertEqual(
+                o19_preflight.digest_value_expr(col, coltype),
+                o19digest.value_expr(col, coltype),
+                "{0} ({1})".format(col, coltype))
+
+    def test_a_whole_row_hashes_identically(self):
+        names = [c for c, _t in self.COLUMNS]
+        types = dict((c, t) for c, t in self.COLUMNS)
+        self.assertEqual(
+            o19_preflight.digest_row_hash_expr(names, types),
+            o19digest.row_hash_expr(names, types))
+
+    def test_both_refuse_the_same_unknown_types(self):
+        """A type in neither list is refused, not guessed at: CONVERT is
+        not injective over binary values and HEX rounds a decimal, so the
+        wrong guess yields a digest that AGREES while the data differs.
+        The two sides must refuse the SAME set, or a clinic measures a
+        table the import cannot, or the reverse."""
+        for coltype in self.UNKNOWN:
+            with self.assertRaises(ValueError):
+                o19_preflight.digest_value_expr("v", coltype)
+            with self.assertRaises(ValueError):
+                o19digest.value_expr("v", coltype)
+
+    def test_the_two_type_lists_are_the_same_two_lists(self):
+        self.assertEqual(tuple(o19_preflight.DIGEST_HEXED_TYPES),
+                         tuple(o19digest.HEXED_TYPES))
+        self.assertEqual(tuple(o19_preflight.DIGEST_CONVERTED_TYPES),
+                         tuple(o19digest.CONVERTED_TYPES))
+
+    def test_no_type_is_in_both_lists(self):
+        # a type in both would render one way here and the other way
+        # there the day either tuple is reordered
+        self.assertEqual(
+            set(o19digest.HEXED_TYPES) & set(o19digest.CONVERTED_TYPES),
+            set())
+
+    def test_both_refuse_a_row_with_no_columns(self):
+        # a table with no columns cannot exist, but a column list lost on
+        # the way in would otherwise hash the empty string for every row
+        with self.assertRaises(ValueError):
+            o19_preflight.digest_row_hash_expr([], {})
+        with self.assertRaises(ValueError):
+            o19digest.row_hash_expr([], {})
+
+    def test_the_table_query_is_identical_qualified_and_not(self):
+        names = [c for c, _t in self.COLUMNS]
+        types = dict((c, t) for c, t in self.COLUMNS)
+        for schema in (None, "o19_import", "we`ird"):
+            for where in (None, "demographic_no > 0"):
+                self.assertEqual(
+                    o19_preflight.digest_sql(schema, "demo`table", names,
+                                             types, where),
+                    o19digest.digest_sql(schema, "demo`table", names,
+                                         types, where),
+                    "{0!r} / {1!r}".format(schema, where))
+
+    def test_the_document_entry_is_the_same_shape(self):
+        cols = [("a", "int"), ("b", "varchar")]
+        big = 2 ** 70 + 3           # past what a JSON reader keeps exact
+        self.assertEqual(
+            o19_preflight.digest_entry(cols, 7, big, 11),
+            o19digest.digest_entry(cols, o19digest.Digest(7, big, 11)))
+
+    def test_the_document_version_agrees(self):
+        # a clinic emitting one version and an import reading another
+        # would compare under the wrong rules; both sides refuse instead,
+        # which only works if the constant is one number in two files
+        self.assertEqual(o19_preflight.DIGEST_FORMAT,
+                         o19digest.DIGEST_FORMAT)
+
+    def test_the_constants_themselves_agree(self):
+        self.assertEqual(o19_preflight.DIGEST_SEP, o19digest.SEP)
+        self.assertEqual(o19_preflight.DIGEST_NULL_MARK,
+                         o19digest.NULL_MARK)
 
 
 class TestWhatTheEscapeActuallyDoes(unittest.TestCase):

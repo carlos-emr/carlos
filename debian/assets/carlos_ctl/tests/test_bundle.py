@@ -22,20 +22,37 @@ class TestClassifyMembers(unittest.TestCase):
 
     """The bundle's member list, resolved to roles.
 
-    A bundle is three files with fixed roles; anything else in it is a
-    refusal rather than a guess, because guessing which of two dumps is
-    the clinic's is how the wrong database gets imported."""
+    A bundle is a fixed set of roles; anything else in it is a refusal
+    rather than a guess, because guessing which of two dumps is the
+    clinic's is how the wrong database gets imported."""
     GOOD = ["o19.sql.gz", "o19-documents.tar.gz", "oscar.properties"]
 
     def test_happy_path(self):
         m = o19bundle.classify_members(self.GOOD)
         self.assertEqual(m, {"dump": "o19.sql.gz",
                              "documents": "o19-documents.tar.gz",
-                             "properties": "oscar.properties"})
+                             "properties": "oscar.properties",
+                             "digests": None})
 
     def test_documents_member_is_optional(self):
         m = o19bundle.classify_members(["o19.sql", "oscar.properties"])
         self.assertIsNone(m["documents"])
+
+    def test_the_content_digests_travel_as_a_json_member(self):
+        m = o19bundle.classify_members(
+            self.GOOD + ["o19-digests.json"])
+        self.assertEqual(m["digests"], "o19-digests.json")
+
+    def test_the_digests_member_is_optional(self):
+        # a clinic may have run an older assessment, or declined the
+        # extra full scan; the import reports the gap, it does not refuse
+        self.assertIsNone(o19bundle.classify_members(self.GOOD)["digests"])
+
+    def test_two_digest_files_are_ambiguous(self):
+        with self.assertRaises(ValueError) as cm:
+            o19bundle.classify_members(
+                self.GOOD + ["a.json", "b.json"])
+        self.assertIn("at most one", str(cm.exception))
 
     def test_two_dumps_are_ambiguous(self):
         with self.assertRaises(ValueError) as cm:

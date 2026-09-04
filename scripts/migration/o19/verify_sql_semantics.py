@@ -112,7 +112,7 @@ def reject_password_args(args):
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
 
-from carlos_ctl import o19etl                                    # noqa: E402
+from carlos_ctl import o19digest, o19etl                         # noqa: E402
 
 # One merge table, shaped as the manifest describes it: a surrogate integer
 # PK, one natural key, one payload column. consultationServices is the
@@ -364,6 +364,245 @@ def check_charset_repair(client: Client, db: str) -> List[str]:
     return failures
 
 
+# --------------------------------------------------------------------------
+# The content digest (M22)
+# --------------------------------------------------------------------------
+#
+# The P2 transfer check compares a digest taken on the CLINIC's live latin1
+# database against one taken on the restored utf8mb4 staging schema. Every
+# claim it rests on is an engine question, so every one of them is run here
+# rather than argued about.
+
+#: One table carrying every rendering class the digest has to handle, plus
+#: the two shapes that defeat a naive digest: NULLs that can shift between
+#: columns, and rows that are exact duplicates of each other. Deliberately
+#: WITHOUT a primary key, so the duplicate pair below is possible at all.
+DIGEST_DDL = (
+    "CREATE TABLE t ("
+    " id int,"
+    " name varchar(64),"          # text: differs in stored bytes per side
+    " note text,"
+    " a varchar(16),"             # the NULL-shift pair
+    " b varchar(16),"
+    " amount decimal(10,2),"      # HEX() would round this
+    " when_at datetime,"
+    " flags bit(8),"              # CONVERT() would collapse this
+    " doc blob,"
+    " opt enum('x','y'))")
+
+#: `Santé` and `Ünter` are latin1-representable on purpose: the clinic
+#: column IS latin1, so a character outside it would be a different test
+#: (lossy storage) than the one intended (same text, different bytes).
+DIGEST_ROWS = [
+    "(1, 'Santé', 'note über', NULL, 'x', 1.40, "
+    "'2020-01-02 03:04:05', b'11000011', 0x00FF10, 'x')",
+    "(2, 'Ünter', 'plain', '~', NULL, 2.50, "
+    "'2021-05-06 07:08:09', b'10101010', 0xDEADBEEF, 'y')",
+    # the identical pair: BIT_XOR cancels them, so deleting BOTH leaves the
+    # XOR lane unchanged and only the SUM lane notices
+    "(3, 'Twin', 'same', 'k', 'v', 3.00, '2022-01-01 00:00:00', "
+    "b'00001111', 0x01, 'x')",
+    "(3, 'Twin', 'same', 'k', 'v', 3.00, '2022-01-01 00:00:00', "
+    "b'00001111', 0x01, 'x')",
+]
+
+DIGEST_COLUMNS = [
+    ("id", "int"), ("name", "varchar"), ("note", "text"),
+    ("a", "varchar"), ("b", "varchar"), ("amount", "decimal"),
+    ("when_at", "datetime"), ("flags", "bit"), ("doc", "blob"),
+    ("opt", "enum"),
+]
+
+#: (label, SQL applied to STAGING, why it must be caught)
+DIGEST_SABOTAGE = [
+    ("one character of a name changed",
+     "UPDATE t SET name = 'Sante' WHERE id = 1",
+     "the whole point: the row count is unchanged"),
+    # spelled out rather than as `SET a = b, b = a`: MySQL assigns
+    # left to right, so the swap form would set BOTH columns to 'x' and
+    # the check would pass on a digest with no NULL marker at all
+    ("a NULL moved to the next column",
+     "UPDATE t SET a = 'x', b = NULL WHERE id = 1",
+     "CONCAT_WS SKIPS NULLs, so without a NULL marker this hashes the "
+     "same"),
+    ("the identical pair deleted",
+     "DELETE FROM t WHERE id = 3",
+     "BIT_XOR cancels twins, so the XOR lane alone cannot see this"),
+    ("the identical pair replaced by a different identical pair",
+     "UPDATE t SET name = 'Other' WHERE id = 3",
+     "the row COUNT is unchanged and the XOR lane cancels both pairs: "
+     "this is the case only the SUM lane can see"),
+    ("a BIT value changed",
+     "UPDATE t SET flags = b'10101010' WHERE id = 1",
+     "CONVERT renders both 0xC3 and 0xAA as '?', so a converted digest "
+     "is blind to it"),
+    ("a decimal changed by 0.10",
+     "UPDATE t SET amount = 1.50 WHERE id = 1",
+     "HEX() rounds a numeric to a longlong, so a hexed digest is blind "
+     "to it"),
+    ("a blob byte flipped",
+     "UPDATE t SET doc = 0x00FF11 WHERE id = 1",
+     "binary data must be hexed, not converted"),
+    ("a literal tilde promoted to NULL",
+     "UPDATE t SET a = NULL WHERE id = 2",
+     "the length prefix is what stops a literal '~' from imitating the "
+     "NULL marker"),
+]
+
+
+def _digest_of(client: Client, db: str, sql: str) -> Tuple[str, ...]:
+    return tuple(client.rows(sql, db)[0])
+
+
+def _lane(hash_expr: str, db: str, lane: str) -> str:
+    """One lane of the digest on its own, to show what it cannot see."""
+    if lane == "xor":
+        agg = "IFNULL(BIT_XOR(CONV(SUBSTR({0}, 17, 16), 16, 10)), 0)"
+    else:
+        agg = ("IFNULL(SUM(CAST(CONV(SUBSTR({0}, 1, 16), 16, 10) "
+               "AS DECIMAL(30, 0))), 0)")
+    return "SELECT {0} FROM `{1}`.`t`".format(agg.format(hash_expr), db)
+
+
+def check_content_digest(client: Client, clinic: str,
+                         stage: str) -> List[str]:
+    """The digest agrees across latin1/utf8mb4, and catches seven changes.
+
+    The first claim is the one the whole P2 chain rests on: the clinic's
+    live database is latin1 and the restored staging schema is utf8mb4, so
+    the SAME logical text has different STORED BYTES. A digest over the
+    bytes would disagree on every accented row of every clinic -- which is
+    the failure mode that gets a check switched off.
+
+    The rest are the traps, each shown to be caught, and two of them shown
+    to be MISSED by the rendering the digest deliberately does not use.
+    """
+    failures: List[str] = []
+    cols = [c for c, _t in DIGEST_COLUMNS]
+    types = dict(DIGEST_COLUMNS)
+    hashed = o19digest.row_hash_expr(cols, types)
+
+    for db, charset in ((clinic, "latin1"), (stage, "utf8mb4")):
+        client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                   "DEFAULT CHARSET={1};".format(db, charset))
+        client.run(DIGEST_DDL + " DEFAULT CHARSET={0};".format(charset), db)
+        client.run("INSERT INTO t VALUES {0};".format(
+            ", ".join(DIGEST_ROWS)), db)
+
+    print("\n  content digest")
+    stored = client.rows(
+        "SELECT HEX(name) FROM t WHERE id = 1", clinic)[0][0]
+    stored_stage = client.rows(
+        "SELECT HEX(name) FROM t WHERE id = 1", stage)[0][0]
+    if stored == stored_stage:
+        failures.append(
+            "the two sides store the SAME bytes for 'Santé' ({0}), so "
+            "this check cannot prove the charset normalisation does "
+            "anything -- the fixture is wrong, not the code".format(stored))
+    print("    {0:<44} clinic {1} / staging {2}".format(
+        "'Sante' stored as", stored, stored_stage))
+
+    clinic_sql = o19digest.digest_sql(clinic, "t", cols, types)
+    stage_sql = o19digest.digest_sql(stage, "t", cols, types)
+    baseline = _digest_of(client, clinic, clinic_sql)
+    same = _digest_of(client, stage, stage_sql)
+    ok = baseline == same
+    print("    {0:<44} {1}".format(
+        "latin1 and utf8mb4 agree", "ok" if ok else "MISMATCH"))
+    if not ok:
+        failures.append(
+            "the same data digests differently across charsets: {0} vs "
+            "{1}".format(baseline, same))
+
+    for label, sql, why in DIGEST_SABOTAGE:
+        client.run("{0};".format(sql), stage)
+        after = _digest_of(client, stage, stage_sql)
+        caught = after != baseline
+        print("    {0:<44} {1}".format(
+            label, "caught" if caught else "MISSED"))
+        if not caught:
+            failures.append("{0} was NOT caught ({1})".format(label, why))
+        # restore, and prove the restore took: a sabotage left in place
+        # would make every later line meaningless
+        client.run("DROP TABLE t; " + DIGEST_DDL
+                   + " DEFAULT CHARSET=utf8mb4; INSERT INTO t VALUES "
+                   + ", ".join(DIGEST_ROWS) + ";", stage)
+        if _digest_of(client, stage, stage_sql) != baseline:
+            failures.append(
+                "the fixture did not restore after '{0}'; every later "
+                "line of this check is meaningless".format(label))
+            break
+
+    # -- the two renderings the digest deliberately does NOT use ---------
+    # Each is shown to MISS a change the shipped digest catches. Without
+    # this, "the digest caught it" would not distinguish the rendering
+    # that earns its place from one that happened to work.
+    for label, sql, wrong_sql, missed in (
+            ("a BIT change", "UPDATE t SET flags = b'10101010' WHERE id = 1",
+             stage_sql.replace("HEX(`flags`)",
+                               "CONVERT(`flags` USING utf8mb4)"),
+             "CONVERT on a BIT"),
+            # 1.40 and 1.20 both round to the longlong 1, which is what
+            # HEX() would hash; 1.50 would round to 2 and so would NOT
+            # demonstrate the trap
+            ("a 0.20 decimal change", "UPDATE t SET amount = 1.20 "
+             "WHERE id = 1",
+             stage_sql.replace("CONVERT(`amount` USING utf8mb4)",
+                               "HEX(`amount`)"),
+             "HEX on a DECIMAL")):
+        before_wrong = _digest_of(client, stage, wrong_sql)
+        client.run("{0};".format(sql), stage)
+        after_wrong = _digest_of(client, stage, wrong_sql)
+        blind = before_wrong == after_wrong
+        print("    {0:<44} {1}".format(
+            "{0} is invisible to {1}".format(label, missed),
+            "confirmed" if blind else "NOT CONFIRMED"))
+        if not blind:
+            failures.append(
+                "{0} is visible to {1}, so this check no longer shows why "
+                "the shipped rendering is the right one".format(label,
+                                                                missed))
+        client.run("DROP TABLE t; " + DIGEST_DDL
+                   + " DEFAULT CHARSET=utf8mb4; INSERT INTO t VALUES "
+                   + ", ".join(DIGEST_ROWS) + ";", stage)
+
+    # -- why the SUM lane exists -----------------------------------------
+    # Replacing one identical PAIR with a different identical pair leaves
+    # the row count alone AND cancels out of BIT_XOR (h^h = 0 either way).
+    # Only the SUM lane moves. A deletion would not show this: the count
+    # would catch that on its own.
+    lanes = {}
+    for when in ("before", "after"):
+        lanes[when] = (
+            client.rows(_lane(hashed, stage, "xor"), stage)[0][0],
+            client.rows(_lane(hashed, stage, "sum"), stage)[0][0],
+            client.rows("SELECT COUNT(*) FROM `{0}`.`t`".format(stage),
+                        stage)[0][0])
+        if when == "before":
+            client.run("UPDATE t SET name = 'Other' WHERE id = 3;", stage)
+    (xor_b, sum_b, n_b), (xor_a, sum_a, n_a) = lanes["before"], lanes["after"]
+    blind = xor_b == xor_a and n_b == n_a
+    print("    {0:<44} {1}".format(
+        "count and XOR both miss a swapped twin pair",
+        "confirmed" if blind else "NOT CONFIRMED"))
+    if xor_b != xor_a:
+        failures.append(
+            "the XOR lane DID see the swapped identical pair, so this "
+            "check no longer shows why the SUM lane exists")
+    if n_b != n_a:
+        failures.append(
+            "the row count changed, so this is not the count-blind case "
+            "the SUM lane is there for")
+    if sum_b == sum_a:
+        failures.append(
+            "the SUM lane did not see the swapped identical pair -- the "
+            "one thing it is there for")
+
+    client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+               "`{1}`;".format(clinic, stage))
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -415,6 +654,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     charset = check_charset_repair(client, args.prefix + "_cs")
     if charset:
         failures["charset repair"] = charset
+    digest = check_content_digest(client, args.prefix + "_dgc",
+                                  args.prefix + "_dgs")
+    if digest:
+        failures["content digest"] = digest
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
@@ -422,8 +665,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
         return 1
     print("\nOK - the seed wins, the clinic's twins are preserved, every "
-          "source id is mapped, and the charset repair fixes mojibake "
-          "without touching correct text")
+          "source id is mapped, the charset repair fixes mojibake without "
+          "touching correct text, and the content digest agrees across "
+          "latin1/utf8mb4 while catching every change put to it")
     return 0
 
 

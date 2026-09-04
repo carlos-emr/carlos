@@ -2,9 +2,12 @@
 # Copyright (C) 2026 CARLOS Contributors
 """--bundle handling for the OSCAR 19 importer (experimental).
 
-A bundle is ONE archive holding the three migration inputs at its ROOT,
-paths trimmed: the database dump (*.sql / *.sql.gz), optionally the
-OscarDocument tar (*.tar / *.tar.gz), and the clinic's *.properties file.
+A bundle is ONE archive holding the migration inputs at its ROOT, paths
+trimmed: the database dump (*.sql / *.sql.gz), optionally the
+OscarDocument tar (*.tar / *.tar.gz), the clinic's *.properties file and,
+optionally, the clinic-side content digests (*.json, written by
+`o19_preflight.py --digests`) that P2 compares the restored staging
+schema against.
 Accepted bundle names: *.tar, *.tar.gz, *.tar.enc, *.tar.gz.enc — .enc means
 openssl password-based symmetric encryption (canonical creation command in
 docs/o19-import-deb.md; default derivation -pbkdf2 -iter 200000).
@@ -96,17 +99,25 @@ def _strip_dot_slash(name: str) -> str:
 
 
 def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
-    """Map tar member names to the three inputs; hard error on anything odd.
+    """Map tar member names to their roles; hard error on anything odd.
 
-    Returns {"dump": name, "documents": name-or-None, "properties": name}
-    with the names EXACTLY as the archive stores them (a `./` prefix
-    included), because those are what tar must be given to extract them;
-    the file each one lands at is the name with that prefix removed.
+    Returns {"dump": name, "documents": name-or-None, "properties": name,
+    "digests": name-or-None} with the names EXACTLY as the archive stores
+    them (a `./` prefix included), because those are what tar must be
+    given to extract them; the file each one lands at is the name with
+    that prefix removed.
+
+    `digests` is optional because a clinic may have run an older
+    assessment, or declined the extra full scan. Its ABSENCE is reported
+    by the import (the P2 content check cannot run without it) rather
+    than refused here -- but a bundle carrying two of them is ambiguous,
+    and ambiguity is a hard error like every other member role.
     """
     problems: List[str] = []
     dumps: List[str] = []
     docs: List[str] = []
     props: List[str] = []
+    digests: List[str] = []
     unknown: List[str] = []
     for raw in names:
         if raw.endswith("/") or not raw:
@@ -142,6 +153,8 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
             docs.append(raw)
         elif name.endswith(".properties"):
             props.append(raw)
+        elif name.endswith(".json"):
+            digests.append(raw)
         else:
             unknown.append(raw)
     if len(dumps) != 1:
@@ -153,14 +166,18 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
     if len(props) != 1:
         problems.append("expected exactly one *.properties file, found "
                         "{0}: {1}".format(len(props), props or "none"))
+    if len(digests) > 1:
+        problems.append("expected at most one content-digest *.json, "
+                        "found {0}: {1}".format(len(digests), digests))
     if unknown:
         problems.append("unrecognized member(s): {0} — a bundle carries "
-                        "only the dump, the documents tar and the "
-                        "properties file".format(unknown))
+                        "only the dump, the documents tar, the properties "
+                        "file and the content digests".format(unknown))
     if problems:
         raise ValueError("bundle rejected:\n  " + "\n  ".join(problems))
     return {"dump": dumps[0], "documents": docs[0] if docs else None,
-            "properties": props[0]}
+            "properties": props[0],
+            "digests": digests[0] if digests else None}
 
 
 #: what reading a clinic archive raises that does NOT descend from
@@ -423,8 +440,9 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
 
     Members land directly in workdir (0700, created if needed). Returns
     {"dump": path, "documents": path-or-None, "properties": path,
-     "bundle_sha256": hex, "members": {name: sha256}} — a heterogeneous
-    dict (str / None / nested dict), hence the `object` value type.
+     "digests": path-or-None, "bundle_sha256": hex,
+     "members": {name: sha256}} — a heterogeneous dict (str / None /
+     nested dict), hence the `object` value type.
     """
     validate_bundle_args(bundle, pass_spec)
     encrypted, gzipped = bundle_kind(bundle)
@@ -569,7 +587,7 @@ def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
         "bundle_sha256": actual,
         "members": {},
     }
-    for role in ("dump", "documents", "properties"):
+    for role in ("dump", "documents", "properties", "digests"):
         name = members[role]
         if name is None:
             result[role] = None

@@ -115,6 +115,55 @@ class TestValuesAreNormalisedBeforeHashing(unittest.TestCase):
     def test_an_identifier_with_a_backtick_is_quoted(self):
         self.assertIn("`we``ird`", o19digest.value_expr("we`ird", "varchar"))
 
+    def test_an_opaque_non_blob_column_is_hexed_too(self):
+        """Measured on MariaDB 10.11: `CONVERT(<bit> USING utf8mb4)`
+        renders BOTH 0xC3 and 0xAA as `?`, and a GEOMETRY's 0xF0 0x3F as
+        0x3F 0x3F. A digest over the converted form is blind to a change
+        between two such values -- the exact failure this module exists
+        to catch."""
+        for t in ("bit", "geometry", "point", "polygon"):
+            expr = o19digest.value_expr("v", t)
+            self.assertIn("HEX(`v`)", expr)
+            self.assertNotIn("USING utf8mb4", expr)
+
+    def test_a_number_is_converted_and_never_hexed(self):
+        """Measured: HEX() treats a numeric argument as a longlong, so
+        HEX(1.4) is '1' and HEX(1.5) is '2' -- two different amounts of
+        money with one digest."""
+        for t in ("decimal", "double", "int", "bigint", "float"):
+            expr = o19digest.value_expr("amount", t)
+            self.assertIn("CONVERT(`amount` USING utf8mb4)", expr)
+            self.assertNotIn("HEX(", expr)
+
+    def test_a_date_is_converted(self):
+        # no character set to normalise, but one unambiguous rendering
+        for t in ("date", "datetime", "timestamp", "time", "year"):
+            self.assertIn("CONVERT(`d` USING utf8mb4)",
+                          o19digest.value_expr("d", t))
+
+    def test_an_unknown_type_is_refused_not_guessed(self):
+        """Neither rendering is safe for the other's types, so a guess
+        would produce a digest that AGREES while the data differs. The
+        caller reports the table as unmeasured instead."""
+        for t in ("widget", "", None, "inet7"):
+            with self.assertRaises(ValueError):
+                o19digest.value_expr("v", t)
+
+    def test_the_refusal_names_the_column_and_the_type(self):
+        # the operator has to find the column in a 580-table schema
+        with self.assertRaises(ValueError) as cm:
+            o19digest.value_expr("odd_col", "widget")
+        self.assertIn("odd_col", str(cm.exception))
+        self.assertIn("widget", str(cm.exception))
+
+    def test_the_type_match_folds_case(self):
+        # information_schema reports lower case, but a manifest or a
+        # hand-written call may not
+        self.assertEqual(o19digest.value_expr("v", "BLOB"),
+                         o19digest.value_expr("v", "blob"))
+        self.assertEqual(o19digest.value_expr("v", "VarChar"),
+                         o19digest.value_expr("v", "varchar"))
+
 
 class TestTheComparisonSaysWhatWentWrong(unittest.TestCase):
 

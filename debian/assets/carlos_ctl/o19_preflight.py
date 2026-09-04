@@ -17,6 +17,11 @@ in two modes with identical checks:
           --mysql-arg=-uroot --mysql-password-file /root/.o19pw \\
           --properties /path/to/oscar.properties --province on
 
+  Add `--digests o19-digests.json` and ship that file in the bundle: it
+  carries a content digest of every table, which is what lets the CARLOS
+  host prove the dump, the transfer and the restore carried every VALUE
+  rather than merely the right number of rows. It costs one full scan.
+
   (--mysql-arg values start with '-', so the =form is required; the
   password travels via MYSQL_PWD from --mysql-password-file, never argv —
   a bare interactive -p would prompt once per query and is refused.
@@ -1250,6 +1255,192 @@ def _count(query, table, where=None):
         return ("error", text.splitlines()[-1] if text else "")
 
 
+# --- content digests (a deliberate copy of carlos_ctl.o19digest) ---------
+#
+# The clinic's live database is the ONLY place the pre-dump content can be
+# measured, and this file is the only tool that runs there. It may import
+# nothing from the package (see the module docstring), so the digest SQL
+# exists twice; the two are pinned against each other by
+# tests/test_sql_escape_contract.py, the same way `_sql_literal` and the
+# property parser are.
+#
+# What the numbers are for: `carlos-ctl import-o19` compares them against
+# the restored staging schema at P2, which is the only check that can say
+# the dump, the transfer and the restore carried every VALUE rather than
+# merely the right NUMBER of rows.
+#
+# Every part of the encoding is load-bearing; the reasoning (CONCAT_WS
+# skipping NULLs, a forgeable marker, BIT_XOR blind to a deleted identical
+# pair, SUM going inexact past 2^53) is written out once, in o19digest.py.
+
+#: field separator inside a row's hashed form
+DIGEST_SEP = "0x1f"
+#: what a NULL contributes; it cannot collide with a value, which always
+#: starts with a digit (the length prefix)
+DIGEST_NULL_MARK = "'~'"
+#: column types whose bytes are not text and must be HEXed. CONVERT is
+#: not injective over them: measured on MariaDB 10.11, two different BIT
+#: values (0xC3, 0xAA) both render as `?`, so a change between them would
+#: be invisible to the digest
+DIGEST_HEXED_TYPES = (
+    "blob", "tinyblob", "mediumblob", "longblob",
+    "binary", "varbinary", "bit",
+    "geometry", "point", "linestring", "polygon",
+    "multipoint", "multilinestring", "multipolygon",
+    "geometrycollection",
+)
+#: types with ONE unambiguous string rendering, which CONVERT produces.
+#: Numbers must not be HEXed instead: HEX() treats a numeric argument as
+#: a longlong, so HEX(1.4) is '1' and HEX(1.5) is '2'
+DIGEST_CONVERTED_TYPES = (
+    "char", "varchar", "tinytext", "text", "mediumtext", "longtext",
+    "enum", "set", "json",
+    "tinyint", "smallint", "mediumint", "int", "integer", "bigint",
+    "decimal", "numeric", "float", "double", "real",
+    "date", "time", "datetime", "timestamp", "year",
+    "inet4", "inet6", "uuid",
+)
+#: version of the digest document this file emits
+DIGEST_FORMAT = 1
+
+
+def digest_value_expr(col, coltype):
+    """The normalised, unambiguous contribution of one column.
+
+    `coltype` is the information_schema DATA_TYPE. The clinic stores
+    latin1 and the staging schema is utf8mb4, so text is converted before
+    hashing or the two sides would disagree on every accented row.
+
+    An unrecognised type raises ValueError and the table is reported as
+    unmeasured, rather than guessed at: neither rendering is safe for the
+    other's types, and the wrong one gives a digest that AGREES while the
+    data differs."""
+    quoted = "`{0}`".format(col.replace("`", "``"))
+    normalised = (coltype or "").lower()
+    if normalised in DIGEST_HEXED_TYPES:
+        rendered = "HEX({0})".format(quoted)
+    elif normalised in DIGEST_CONVERTED_TYPES:
+        rendered = "CONVERT({0} USING utf8mb4)".format(quoted)
+    else:
+        raise ValueError(
+            "column `{0}` has type {1!r}, which the digest has no "
+            "rendering for; neither HEX nor CONVERT is safe for an "
+            "unknown type".format(col, coltype))
+    return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', {0}), {1})"
+            .format(rendered, DIGEST_NULL_MARK))
+
+
+def digest_row_hash_expr(columns, types):
+    """SHA-256 of one row over `columns`, in the order given."""
+    if not columns:
+        raise ValueError("a row hash needs at least one column")
+    parts = ", ".join(digest_value_expr(c, types.get(c, ""))
+                      for c in columns)
+    return "SHA2(CONCAT_WS({0}, {1}), 256)".format(DIGEST_SEP, parts)
+
+
+def digest_sql(schema, table, columns, types, where=None):
+    """`SELECT rows, total, parity` for one table.
+
+    `schema` may be None, which leaves the table unqualified: the clinic
+    runs one `mysql <db>` per query and has no second schema in reach."""
+    h = digest_row_hash_expr(columns, types)
+    ident = "`{0}`".format(table.replace("`", "``"))
+    if schema is not None:
+        ident = "`{0}`.{1}".format(schema.replace("`", "``"), ident)
+    clause = " WHERE {0}".format(where) if where else ""
+    return (
+        "SELECT COUNT(*), "
+        "IFNULL(SUM(CAST(CONV(SUBSTR({h}, 1, 16), 16, 10) "
+        "AS DECIMAL(30, 0))), 0), "
+        "IFNULL(BIT_XOR(CONV(SUBSTR({h}, 17, 16), 16, 10)), 0) "
+        "FROM {t}{w}".format(h=h, t=ident, w=clause))
+
+
+def digest_entry(columns, rows, total, parity):
+    """One table's entry in the digest document.
+
+    The column list travels WITH the numbers because the other side must
+    hash the same columns in the same order, and must be able to say so
+    when it cannot. `total` and `parity` are strings: the SUM lane is a
+    DECIMAL(30, 0) and outruns a 64-bit integer, which several JSON
+    readers round without saying so."""
+    return {"columns": [[c, t] for c, t in columns],
+            "rows": int(rows),
+            "total": str(total),
+            "parity": str(parity)}
+
+
+def column_types(query, schema_expr):
+    """`{table: [(column, DATA_TYPE), ...]}` in ORDINAL_POSITION order.
+
+    One query for the whole schema rather than one per table: a clinic
+    carries ~580 of them and each query here is a fresh client process."""
+    out = {}
+    for row in query(
+            "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE "
+            "FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = {0} "
+            "ORDER BY TABLE_NAME, ORDINAL_POSITION".format(schema_expr)):
+        if len(row) >= 3 and row[0]:
+            out.setdefault(row[0], []).append((row[1], row[2]))
+    return out
+
+
+def collect_digests(query, schema_expr, table_names, province="on",
+                    db_name=None):
+    """Digest every named table; return the document the bundle carries.
+
+    A table that cannot be read is recorded in `errors` and left OUT of
+    `tables`. That is the fail-closed half: the import treats a table it
+    has no clinic digest for as UNVERIFIED and says so, rather than
+    quietly reporting a clean transfer for the one table nobody could
+    measure."""
+    types_by_table = column_types(query, schema_expr)
+    tables = {}
+    errors = {}
+    for name in sorted(table_names):
+        spec = types_by_table.get(name)
+        if not spec:
+            # a table information_schema does not describe cannot be
+            # hashed; it is almost always a permission boundary
+            errors[name] = "information_schema reports no columns"
+            continue
+        cols = [c for c, _t in spec]
+        try:
+            # ValueError here is the type refusal, raised while BUILDING
+            # the statement: a column whose type has no safe rendering
+            # makes the whole table unmeasurable, never partly measured
+            rows = query(digest_sql(None, name, cols, dict(spec)))
+        except Exception as exc:                      # noqa: BLE001
+            text = str(exc).strip()
+            errors[name] = text.splitlines()[-1] if text else "query failed"
+            continue
+        if not rows or len(rows[0]) < 3:
+            errors[name] = "digest query returned no row"
+            continue
+        try:
+            entry = digest_entry(spec, int(rows[0][0] or 0),
+                                 int(rows[0][1] or 0), int(rows[0][2] or 0))
+        except (TypeError, ValueError) as exc:
+            # a server that answers a digest with something other than
+            # three integers has not been measured; recording the table
+            # as digested with zeros would read as "empty and verified"
+            errors[name] = "digest query returned {0!r} ({1})".format(
+                rows[0][:3], exc)
+            continue
+        tables[name] = entry
+    return {
+        "digest_format": DIGEST_FORMAT,
+        "schema_map_version": SCHEMA_MAP_VERSION,
+        "generated_at": datetime.datetime.now().isoformat(),
+        "province": province,
+        "database": db_name or "",
+        "tables": tables,
+        "errors": errors,
+    }
+
+
 class PreflightState(object):
     """Everything the check groups below share.
 
@@ -1282,6 +1473,21 @@ class PreflightState(object):
         self.known_live_lower = known_live_lower
 
 
+def base_table_names(query, schema_expr):
+    """Every BASE TABLE in the schema, as the server spells them.
+
+    Views are excluded deliberately: they carry no rows of their own, so
+    counting or digesting one would double-report the table underneath."""
+    names = []
+    for row in query(
+            "SELECT TABLE_NAME FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = {0} AND TABLE_TYPE = 'BASE TABLE'"
+            .format(schema_expr)):
+        if row and row[0]:
+            names.append(row[0])
+    return names
+
+
 def live_table_inventory(query, findings, db_name):
     """Introspect the live schema; return what every later check reads.
 
@@ -1301,13 +1507,7 @@ def live_table_inventory(query, findings, db_name):
     # lower case), so every lookup against the manifest folds case and
     # `tables` maps the manifest spelling to the live spelling
     known_lower = dict((t.lower(), t) for t in KNOWN_TABLES)
-    live_names = []
-    for row in query(
-            "SELECT TABLE_NAME FROM information_schema.TABLES "
-            "WHERE TABLE_SCHEMA = {0} AND TABLE_TYPE = 'BASE TABLE'"
-            .format(schema_expr)):
-        if row and row[0]:
-            live_names.append(row[0])
+    live_names = base_table_names(query, schema_expr)
     # an exact-spelling match always wins; case folding only stands in
     # when no exact match exists (lower_case_table_names=1 servers). On a
     # case-sensitive server a vendor table that differs from a manifest
@@ -2214,8 +2414,12 @@ def render_text(report):
                  "refuses a dump that sets GTID_PURGED)")
     lines.append("  tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz "
                  "<context-dir>")
+    lines.append("  # run this check again with --digests "
+                 "o19-digests.json if you have not; the")
+    lines.append("  # CARLOS host uses it to prove the transfer carried "
+                 "every value")
     lines.append("  tar -czf - o19.sql.gz o19-documents.tar.gz "
-                 "oscar.properties \\")
+                 "oscar.properties o19-digests.json \\")
     lines.append("    | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt "
                  "-pass file:PASSFILE \\")
     lines.append("    -out o19-bundle.tar.gz.enc")
@@ -2234,14 +2438,16 @@ def render_text(report):
 
 
 def write_private_json(path, report):
-    """The machine report at 0600.
+    """A machine-readable document at 0600 (the report, or the digests).
 
     This is the one tool in the set that runs on the SOURCE OSCAR 19
     server, as an ordinary user on a host the clinic still works on, so
     "root-only anyway" is not the excuse it is inside the import's own
     0700 workspace. The report's `data` carries the clinic's table
-    names, role names, dashboard indicator names and property keys; a
-    plain `open()` would leave it 0644 under the usual umask.
+    names, role names, dashboard indicator names and property keys, and
+    the digest document carries every table and column name in the
+    schema; a plain `open()` would leave either one 0644 under the usual
+    umask.
 
     `fchmod` after the open, not the `os.open` mode: that mode applies
     to a NEW file only, so re-running the assessment over an existing
@@ -2284,6 +2490,13 @@ def main(argv=None):
                     + ", ".join(ACCEPT_IDS))
     ap.add_argument("--json", metavar="PATH",
                     help="also write the machine-readable report here")
+    ap.add_argument("--digests", metavar="PATH",
+                    help="also write per-table content digests here, and "
+                         "ship the file in the bundle: it is what lets "
+                         "the CARLOS host prove the dump and restore "
+                         "carried every VALUE, not merely the right "
+                         "number of rows. Costs one full scan of the "
+                         "database (~200k rows/s)")
     try:
         args = ap.parse_args(argv)
     except SystemExit as exc:
@@ -2345,6 +2558,16 @@ def main(argv=None):
         # the machine report first: a rendering problem must never cost it
         if args.json:
             write_private_json(args.json, report)
+        if args.digests:
+            # the one step here that scans every row; say so before it
+            # starts, on stderr, so the report on stdout stays the
+            # machine-readable-adjacent thing it is
+            print("taking content digests (one full scan of '{0}')..."
+                  .format(args.db), file=sys.stderr)
+            schema_expr = "'{0}'".format(args.db)
+            write_private_json(args.digests, collect_digests(
+                query, schema_expr, base_table_names(query, schema_expr),
+                province=args.province, db_name=args.db))
         text = render_text(report)
         # bytes, not str: a 2014-era Python under LANG=C would refuse any
         # non-ASCII character in a role or table name on the way out
@@ -2357,6 +2580,8 @@ def main(argv=None):
             sys.stdout.write(text)
         if args.json:
             print("json report written to " + args.json)
+        if args.digests:
+            print("content digests written to " + args.digests)
     except Exception as exc:
         print("ERROR: preflight could not complete: {0}".format(exc),
               file=sys.stderr)
