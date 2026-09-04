@@ -293,6 +293,14 @@ class TestMoveIntoPlace(unittest.TestCase):
         self.elsewhere = os.path.join(self.work, "attacker")
         os.makedirs(self.elsewhere)
 
+    def work_fd(self):
+        """An open descriptor for the destination's parent, the way the
+        merge holds one while it descends."""
+        fd = os.open(self.work, os.O_RDONLY | os.O_DIRECTORY
+                     | os.O_NOFOLLOW)
+        self.addCleanup(os.close, fd)
+        return fd
+
     def test_a_directory_is_not_moved_through_a_planted_symlink(self):
         os.makedirs(self.src)
         with open(os.path.join(self.src, "a.pdf"), "w") as fh:
@@ -300,7 +308,7 @@ class TestMoveIntoPlace(unittest.TestCase):
         dst = os.path.join(self.work, "dst")
         os.symlink(self.elsewhere, dst)     # the planted symlink
         with self.assertRaises(OSError):
-            o19docs._move_into_place(self.src, dst)
+            o19docs._move_into_place(self.src, self.work_fd(), "dst")
         self.assertEqual(
             os.listdir(self.elsewhere), [],
             "a patient document subtree was written through a symlink")
@@ -314,7 +322,7 @@ class TestMoveIntoPlace(unittest.TestCase):
             fh.write("original")
         dst = os.path.join(self.work, "dst")
         os.symlink(target, dst)
-        o19docs._move_into_place(self.src, dst)
+        o19docs._move_into_place(self.src, self.work_fd(), "dst")
         self.assertFalse(os.path.islink(dst))
         with open(target) as fh:
             self.assertEqual(fh.read(), "original",
@@ -327,9 +335,47 @@ class TestMoveIntoPlace(unittest.TestCase):
         with open(os.path.join(self.src, "a.pdf"), "w") as fh:
             fh.write("phi")
         dst = os.path.join(self.work, "dst")
-        o19docs._move_into_place(self.src, dst)
+        o19docs._move_into_place(self.src, self.work_fd(), "dst")
         self.assertTrue(os.path.isfile(os.path.join(dst, "a.pdf")))
         self.assertFalse(os.path.exists(self.src))
+
+    def test_a_swapped_ancestor_cannot_divert_the_move(self):
+        """The window a per-level `lstat` cannot close.
+
+        The parent directory passes every check, and is THEN moved aside
+        and replaced by a symlink -- so the check was true when it ran and
+        false when the move happened. A path-based rename resolves the
+        ancestor at move time and lands the document outside the tree
+        (measured before this fix: it did). Holding the descriptor names
+        the inode, so the swap has nothing to redirect."""
+        parent = os.path.join(self.work, "eform")
+        os.makedirs(parent)
+        os.makedirs(self.src)
+        with open(os.path.join(self.src, "a.pdf"), "w") as fh:
+            fh.write("phi")
+        # what the merge does: check the level, then open and hold it
+        self.assertTrue(os.path.isdir(parent)
+                        and not os.path.islink(parent))
+        parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY
+                            | os.O_NOFOLLOW)
+        self.addCleanup(os.close, parent_fd)
+        # the attacker wins the window: move the real directory aside and
+        # leave a symlink in its place
+        os.rename(parent, os.path.join(self.work, "eform.real"))
+        os.symlink(self.elsewhere, parent)
+        # driven through _merge_entry, not _move_into_place, because the
+        # DISPLAY PATH is what the old code renamed to -- a test that
+        # calls the mover directly cannot tell the two apart, since
+        # /proc/self/fd follows the real inode to its new name and so
+        # lands correctly even without the fix
+        o19docs._merge_entry(self.src, os.path.join(parent, "a"),
+                             False, parent_fd)
+        self.assertEqual(
+            os.listdir(self.elsewhere), [],
+            "a patient document was moved through a swapped ancestor")
+        self.assertIn("a", os.listdir(parent_fd),
+                      "the move did not land in the directory the "
+                      "descriptor names")
 
 
 class TestMergeMove(unittest.TestCase):

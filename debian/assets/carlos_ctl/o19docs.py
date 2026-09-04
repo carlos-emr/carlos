@@ -24,6 +24,7 @@ import html as html_module
 import os
 import re
 import shutil
+import stat
 import tempfile
 import urllib.parse
 from typing import Callable, Dict, List, Optional, Set, Tuple
@@ -308,76 +309,154 @@ def find_orphans(doc_dir: str, known: set,
 # filesystem operations
 # --------------------------------------------------------------------------
 
-def _same_file(src: str, dst: str) -> bool:
+def _same_file(src: str, dst_fd: int, name: str) -> bool:
     """A plain file already at its destination with identical content —
-    what an interrupted merge leaves behind."""
-    return (os.path.isfile(src) and os.path.isfile(dst)
-            and not os.path.islink(src) and not os.path.islink(dst)
-            and os.path.getsize(src) == os.path.getsize(dst)
-            and _sha256(src) == _sha256(dst))
+    what an interrupted merge leaves behind.
+
+    The destination is opened THROUGH `dst_fd` with `O_NOFOLLOW`, never by
+    path: this decides whether a file is left in place, and reading a
+    different file than the one the merge would keep is how a race turns
+    "identical, skip it" into a lie."""
+    if not os.path.isfile(src) or os.path.islink(src):
+        return False
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dst_fd)
+    except OSError:
+        # ELOOP (a symlink), ENOENT, or a directory: not an identical file
+        return False
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return False
+        if os.path.getsize(src) != os.fstat(fd).st_size:
+            return False
+        digest = hashlib.sha256()
+        with os.fdopen(os.dup(fd), "rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                digest.update(chunk)
+    finally:
+        os.close(fd)
+    return _sha256(src) == digest.hexdigest()
 
 
-def _move_into_place(src: str, dst: str) -> None:
-    """Move `src` to `dst` without ever following a symlink at `dst`.
+def _fd_dir(dst_fd: int) -> str:
+    """A path naming the OPEN directory `dst_fd` refers to.
+
+    `/proc/self/fd/N` resolves to the inode the descriptor holds, not to
+    the name it was reached by, so it stays correct even if every
+    component of the original path is swapped afterwards. It is the only
+    way to hand an open directory to `tempfile`/`shutil`, which take
+    paths and have no `dir_fd`.
+
+    Refused outright rather than silently degraded to a path when /proc
+    is not mounted: falling back would reintroduce exactly the race this
+    exists to close, on the one deployment odd enough to warrant it."""
+    path = "/proc/self/fd/{0}".format(dst_fd)
+    if not os.path.isdir(path):
+        die("cannot resolve an open directory through /proc "
+            "({0}); the documents merge needs /proc mounted to move "
+            "files without following a symlink".format(path))
+    return path
+
+
+def _move_into_place(src: str, dst_fd: int, name: str) -> None:
+    """Move `src` to `name` inside the directory `dst_fd` names.
 
     `shutil.move` calls `os.path.isdir(dst)` internally, and that
-    FOLLOWS a symlink: a directory symlink planted at `dst` between the
-    caller's `lexists` check and the move sends a root-owned subtree of
+    FOLLOWS a symlink: a directory symlink planted at the destination
+    between the caller's check and the move sends a root-owned subtree of
     patient documents wherever it points. The destination tree is
     writable by the service account, so the planter does not need root.
 
-    `os.rename` follows nothing -- it replaces a symlink rather than
-    walking through it, and refuses outright (ENOTDIR) when the source
-    is a directory and the destination is not one. The cross-device
-    fallback stages through a `mkstemp`/`mkdtemp` name in the
-    DESTINATION's own directory, which cannot be pre-planted because the
-    kernel picks it, and lands it with the same `os.rename`."""
+    `os.rename` follows nothing AT THE FINAL COMPONENT -- it replaces a
+    symlink rather than walking through it, and refuses outright
+    (ENOTDIR) when the source is a directory and the destination is not
+    one. But it does resolve every ANCESTOR, so a path-based rename is
+    still divertible by swapping a parent directory that was checked a
+    moment earlier (demonstrated: a document lands outside the tree).
+    Hence the descriptor: a caller that opened each level with
+    `O_NOFOLLOW` holds the inode, and renaming relative to it cannot be
+    redirected by any later swap of the names above it.
+
+    The cross-device fallback stages through a `mkstemp`/`mkdtemp` name
+    inside that same open directory, which cannot be pre-planted because
+    the kernel picks it, and lands it with the same descriptor-relative
+    rename."""
     try:
-        os.rename(src, dst)
+        os.rename(src, name, dst_dir_fd=dst_fd)
         return
     except OSError as exc:
         if exc.errno != errno.EXDEV:
             raise
-    parent = os.path.dirname(dst) or "."
+    parent = _fd_dir(dst_fd)
     if os.path.isdir(src) and not os.path.islink(src):
         staging = tempfile.mkdtemp(prefix=".o19-incoming-", dir=parent)
         # copytree wants to create the destination itself
         os.rmdir(staging)
         shutil.copytree(src, staging, symlinks=True)
-        os.rename(staging, dst)
+        os.rename(os.path.basename(staging), name,
+                  src_dir_fd=dst_fd, dst_dir_fd=dst_fd)
         shutil.rmtree(src)
     else:
         fd, staging = tempfile.mkstemp(prefix=".o19-incoming-", dir=parent)
         os.close(fd)
         shutil.copy2(src, staging)
-        os.rename(staging, dst)
+        os.rename(os.path.basename(staging), name,
+                  src_dir_fd=dst_fd, dst_dir_fd=dst_fd)
         os.unlink(src)
 
 
-def _merge_entry(src: str, dst: str, resume: bool = False) -> int:
+def _merge_entry(src: str, dst: str, resume: bool = False,
+                 dst_fd: Optional[int] = None) -> int:
     """Move src into dst's place, merging directory into directory.
     Returns the number of leaf entries moved. Any file-level collision is
     fatal: the target must be a stock deploy (whose skeleton holds
     directories only, nested — eform/images, incomingdocs/1/Fax, ...).
     On a resume of an interrupted merge an identical file already in
-    place is dropped from the source instead."""
-    if os.path.islink(src) or os.path.islink(dst):
-        die("refusing to merge through a symlink ('{0}')".format(
-            dst if os.path.islink(dst) else src))
-    if not os.path.lexists(dst):
+    place is dropped from the source instead.
+
+    `dst_fd` is an open descriptor for the directory CONTAINING `dst`,
+    and every destination operation goes through it. `dst` itself is
+    carried only to name the path in a refusal.
+
+    Descending by descriptor is what makes the walk race-free. Checking
+    each level with `lstat` and then acting by path leaves a window: the
+    directory that passed the check a moment ago can be moved aside and a
+    symlink put in its place, and the rename of a DESCENDANT then
+    resolves through it -- the parent's own check never sees it, because
+    the swap happens after. A descriptor names the inode, so once each
+    level is opened `O_NOFOLLOW` no later rename of the names above it
+    can redirect the move."""
+    name = os.path.basename(dst)
+    if os.path.islink(src):
+        die("refusing to merge through a symlink ('{0}')".format(src))
+    try:
+        st = os.lstat(name, dir_fd=dst_fd)
+    except FileNotFoundError:
+        st = None
+    if st is not None and stat.S_ISLNK(st.st_mode):
+        die("refusing to merge through a symlink ('{0}')".format(dst))
+    if st is None:
         # a whole subtree moves in one call: report what it actually
         # carried, not "1 entry" for a directory of thousands
         leaves = _count_leaves(src)
-        _move_into_place(src, dst)
+        _move_into_place(src, dst_fd, name)
         return leaves
-    if os.path.isdir(src) and os.path.isdir(dst):
-        moved = 0
-        for child in sorted(os.listdir(src)):
-            moved += _merge_entry(os.path.join(src, child),
-                                  os.path.join(dst, child), resume)
+    if os.path.isdir(src) and stat.S_ISDIR(st.st_mode):
+        # O_NOFOLLOW on the open, not a check before it: between an
+        # `lstat` and a later `open` by name the entry can change
+        child_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY
+                           | os.O_NOFOLLOW, dir_fd=dst_fd)
+        try:
+            moved = 0
+            for child in sorted(os.listdir(src)):
+                moved += _merge_entry(os.path.join(src, child),
+                                      os.path.join(dst, child), resume,
+                                      child_fd)
+        finally:
+            os.close(child_fd)
         os.rmdir(src)
         return moved
-    if resume and _same_file(src, dst):
+    if resume and _same_file(src, dst_fd, name):
         os.unlink(src)
         return 0
     die("refusing to overwrite '{0}' in the documents tree — the target "
@@ -398,24 +477,42 @@ def _count_leaves(path: str) -> int:
     return total
 
 
-def _collisions(src: str, dst: str, resume: bool = False) -> List[str]:
+def _collisions(src: str, dst: str, resume: bool = False,
+                dst_fd: Optional[int] = None) -> List[str]:
     """Every path under src that cannot be merged into dst: a symlink on
     either side, or a file that already exists at the same path (on a
     resume, one with different content). Computed BEFORE anything moves
-    so a refusal leaves the target untouched."""
+    so a refusal leaves the target untouched.
+
+    Walks by descriptor for the same reason the move does, and `merge_
+    move` hands it the SAME descriptor it will then move through: a scan
+    that resolved the destination by path could reach a different
+    directory than the move does, and its verdict -- "nothing here
+    collides" -- would then be about a tree nobody writes to."""
     problems: List[str] = []
-    if os.path.islink(src) or os.path.islink(dst):
-        problems.append("symlink at '{0}'".format(
-            dst if os.path.islink(dst) else src))
+    name = os.path.basename(dst)
+    if os.path.islink(src):
+        problems.append("symlink at '{0}'".format(src))
         return problems
-    if not os.path.lexists(dst):
+    try:
+        st = os.lstat(name, dir_fd=dst_fd)
+    except FileNotFoundError:
         return problems
-    if os.path.isdir(src) and os.path.isdir(dst):
-        for child in sorted(os.listdir(src)):
-            problems.extend(_collisions(os.path.join(src, child),
-                                        os.path.join(dst, child), resume))
+    if stat.S_ISLNK(st.st_mode):
+        problems.append("symlink at '{0}'".format(dst))
         return problems
-    if resume and _same_file(src, dst):
+    if os.path.isdir(src) and stat.S_ISDIR(st.st_mode):
+        child_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY
+                           | os.O_NOFOLLOW, dir_fd=dst_fd)
+        try:
+            for child in sorted(os.listdir(src)):
+                problems.extend(_collisions(
+                    os.path.join(src, child), os.path.join(dst, child),
+                    resume, child_fd))
+        finally:
+            os.close(child_fd)
+        return problems
+    if resume and _same_file(src, dst_fd, name):
         return problems
     problems.append("'{0}' already exists".format(dst))
     return problems
@@ -446,12 +543,33 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
     Returns report lines."""
     lines = []
     os.makedirs(target_dir, exist_ok=True)
+    # opened ONCE and used for the scan AND every move below. Resolving
+    # target_dir a second time would reopen the window a swapped
+    # ancestor exploits, and would let the scan and the move disagree
+    # about which directory they are talking about.
+    root_fd = os.open(target_dir, os.O_RDONLY | os.O_DIRECTORY
+                      | os.O_NOFOLLOW)
+    try:
+        return _merge_through(src_ctx_dir, target_dir, root_fd, resume,
+                              private, mark_started, lines)
+    finally:
+        os.close(root_fd)
+
+
+def _merge_through(src_ctx_dir: str, target_dir: str, root_fd: int,
+                   resume: bool,
+                   private: Optional[Callable[[List[str]], None]],
+                   mark_started: Optional[Callable[[], None]],
+                   lines: List[str]) -> List[str]:
+    """`merge_move`'s body, with the destination descriptor already open
+    so it is closed on every path out, refusals included."""
     children = [c for c in sorted(os.listdir(src_ctx_dir))
                 if c not in CACHE_DIR_NAMES]
     problems: List[str] = []
     for child in children:
         problems.extend(_collisions(os.path.join(src_ctx_dir, child),
-                                    os.path.join(target_dir, child), resume))
+                                    os.path.join(target_dir, child), resume,
+                                    root_fd))
     if problems:
         if private:
             private(["documents tree paths the merge refused:"] + problems)
@@ -470,6 +588,24 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
     if mark_started:
         mark_started()
     loose: List[str] = []
+    lines.extend(_merge_children(src_ctx_dir, target_dir, root_fd,
+                                 resume, loose))
+    if loose:
+        if private:
+            private(["loose files moved from the context directory root:"]
+                    + loose)
+        lines.append("moved {0} loose file(s) from the context directory "
+                     "root (named in documents-details.txt)".format(
+                         len(loose)))
+    return lines
+
+
+def _merge_children(src_ctx_dir: str, target_dir: str, root_fd: int,
+                    resume: bool, loose: List[str]) -> List[str]:
+    """One report line per child of the context root, moving each through
+    `root_fd`. Split out so `merge_move` can close that descriptor on
+    every path out, including a refusal."""
+    lines: List[str] = []
     for child in sorted(os.listdir(src_ctx_dir)):
         src = os.path.join(src_ctx_dir, child)
         dst = os.path.join(target_dir, child)
@@ -477,9 +613,13 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
             lines.append("skipped derived cache directory '{0}' (the "
                          "application regenerates it)".format(child))
             continue
-        existed = os.path.lexists(dst)
+        try:
+            os.lstat(child, dir_fd=root_fd)
+            existed = True
+        except FileNotFoundError:
+            existed = False
         is_dir = os.path.isdir(src)
-        moved = _merge_entry(src, dst, resume)
+        moved = _merge_entry(src, dst, resume, root_fd)
         if is_dir:
             lines.append("{0} {1}/ ({2} entr{3})".format(
                 "merged into existing" if existed else "moved",
@@ -489,13 +629,6 @@ def merge_move(src_ctx_dir: str, target_dir: str, resume: bool = False,
             # document's name carries a patient's: the report gets a
             # count, the name goes to the root-only details file
             loose.append(child)
-    if loose:
-        if private:
-            private(["loose files moved from the context directory root:"]
-                    + loose)
-        lines.append("moved {0} loose file(s) from the context directory "
-                     "root (named in documents-details.txt)".format(
-                         len(loose)))
     return lines
 
 
