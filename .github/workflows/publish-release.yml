@@ -233,7 +233,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          docker build --pull -t carlos-release-build-env .devcontainer/development
+          # release/build-env/Dockerfile: the digest-pinned JDK 21 base the dev
+          # container uses, plus Maven and git from its Ubuntu archive, and
+          # nothing else. Building the full development container here cost
+          # ~5 min per release for tooling the WAR build never touches.
+          docker build --pull -t carlos-release-build-env release/build-env
 
       - name: Build the WAR and CycloneDX SBOM from a clean checkout
         run: |
