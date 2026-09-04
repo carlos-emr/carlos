@@ -120,6 +120,7 @@ class FakeDb(object):
     """
 
     IS_COLUMNS = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE"
+    IS_TABLES = "SELECT TABLE_NAME FROM information_schema.TABLES"
 
     def __init__(self, **over):
         self.writes = []
@@ -156,6 +157,12 @@ class FakeDb(object):
     def plain(self, sql, db=None):
         if sql.startswith(self.IS_COLUMNS):
             return self._information_schema(sql)
+        if sql.startswith(self.IS_TABLES):
+            # row_parity asks which tables the dump has; without this the
+            # loop matches nothing and every parity assertion passes
+            # vacuously
+            schema = re.search(r"TABLE_SCHEMA = '([^']+)'", sql).group(1)
+            return [[t] for t in sorted(self.columns.get(schema, {}))]
         if sql == "SELECT @@SESSION.sql_mode":
             return [["STRICT_TRANS_TABLES"]]
         if sql.lstrip().upper().startswith("SELECT"):
@@ -518,6 +525,59 @@ class TestThePreChecks(EtlDriverBase):
         dst = {t: [c for c in cols if c != "name"]
                for t, cols in DST_COLUMNS.items()}
         self.assert_refused_without_writing(FakeDb(dst_columns=dst))
+
+
+class TestRowParityOnALowerPatchLevel(EtlDriverBase):
+    """Parity must compare the shape the copy actually wrote.
+
+    The copy reduces every entry through `effective_entry` to the columns
+    the dump carries. Parity used to iterate the raw manifest, so on a
+    dump missing a merge key `merge_missing_count_sql` emitted
+    `s.<column>` for a column that does not exist -- and it failed AFTER
+    the copy had completed and been declared unoverridable, which is the
+    worst moment to find out.
+    """
+
+    def parity(self, src_columns):
+        db = FakeDb(src_columns=src_columns)
+        o19etl.row_parity(db.plain, SRC, DST,
+                          dst_info=dict.fromkeys(DST_COLUMNS, {}),
+                          archive_schema=ARCH)
+        return db.reads
+
+    def test_parity_never_names_a_column_the_dump_does_not_carry(self):
+        # HL7Map merges on `site`; a lower patch level without it must not
+        # produce SQL referencing it
+        reduced = dict(SRC_COLUMNS, HL7Map=["id"])
+        db = FakeDb(src_columns=reduced)
+        _ok, bad = o19etl.row_parity(
+            db.plain, SRC, DST, dst_info=dict.fromkeys(DST_COLUMNS, {}),
+            archive_schema=ARCH)
+        for sql in db.reads:
+            if "HL7Map" in sql:
+                self.assertNotIn("`site`", sql, sql)
+        self.assertTrue([b for b in bad if "HL7Map" in b and "site" in b],
+                        "parity said nothing about the unusable key")
+
+    def test_the_etl_refuses_a_dump_missing_a_merge_key(self):
+        # the real remedy: refuse before the copy rather than fail parity
+        # after it, when the target already holds the clinic's data and
+        # no flag overrides parity
+        db = FakeDb(src_columns=dict(SRC_COLUMNS, HL7Map=["id"]))
+        ctx, _lines = make_ctx(self.state_dir, db)
+        with self.assertRaises(SystemExit):
+            o19etl.run_etl(ctx, fake_password)
+        self.assertEqual(
+            [w for w in db.writes
+             if w.startswith(("INSERT", "DELETE", "UPDATE"))], [],
+            "the refusal came after a write")
+
+    def test_parity_still_checks_the_columns_the_dump_does_carry(self):
+        # the reduction must not become "skip the table": a full dump
+        # still gets its merge-twin check
+        reads = self.parity(dict(SRC_COLUMNS))
+        self.assertTrue([q for q in reads if "HL7Map" in q],
+                        "the merge table was not checked at all")
 
 
 if __name__ == "__main__":

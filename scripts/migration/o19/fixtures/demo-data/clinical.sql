@@ -27,8 +27,6 @@
 
 SET @clin1 = (SELECT demographic_no FROM demographic
               WHERE last_name = 'PATIENT' LIMIT 1);
-SET @clin2 = (SELECT demographic_no FROM demographic
-              WHERE last_name = 'MACDONALD' LIMIT 1);
 
 -- ---------------------------------------------------------------------
 -- a demographic whose name is correctly encoded, and one whose name is

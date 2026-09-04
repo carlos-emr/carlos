@@ -151,7 +151,11 @@ case "$1" in
         # disagree with it, or the notice reports on a schema the tool
         # never created. Its rule is `^KEY=` -- no leading whitespace, no
         # space around `=` -- LAST assignment wins, surrounding double
-        # quotes stripped. Two earlier divergences each inverted the
+        # quotes stripped -- ALL of them, because Python's str.strip('"') is
+        # repeated, so `CARLOS_DB_NAME=""foo""` is `foo` to carlos-ctl and
+        # a single-pass strip here would leave `"foo"`, fail the character
+        # class below and probe `oscar` instead. Two earlier divergences
+        # each inverted the
         # notice: allowing leading whitespace made this read a name
         # carlos-ctl ignored, and requiring a NON-empty value made a
         # later `CARLOS_DB_NAME=` (which resets the name to the default)
@@ -161,7 +165,7 @@ case "$1" in
         if [ -r /etc/carlos-emr/carlos-emr.env ]; then
             O19_DBNAME=$(sed -n 's/^CARLOS_DB_NAME=\(.*\)$/\1/p' \
                 /etc/carlos-emr/carlos-emr.env | tail -1 \
-                | sed -e 's/^"//' -e 's/"$//')
+                | sed -e :s -e 's/^"//' -e 's/"$//' -e ts)
         fi
         # config.py restricts the name to this class. Anything else is not
         # something this probe can interpolate into SQL, so fall back
@@ -239,12 +243,20 @@ NOTICE
   kept: the `carlos` and `carlos-backup` system accounts, because files on this
         host are still owned by them and a reused uid would silently inherit
         patient documents
+NOTICE
+        # Only where an import actually left a workspace. This line used to
+        # sit in the unconditional heredoc above, so a host that never ran
+        # import-o19 was told a directory it does not have was "kept" --
+        # the same false comfort kept_or_empty exists to remove.
+        if has_content "${STATE}/o19-import"; then
+            cat >&2 <<'NOTICE'
   kept: /var/lib/carlos-emr/o19-import       (an OSCAR 19 import's ledgers,
         reports and the CSV export of its archive-only clinical records — the
         break-glass credential note and the derived properties fragment were
         removed (shredded unless a warning above says otherwise), the rest is
         the record of what the migration did)
 NOTICE
+        fi
         # only meaningful where an import actually ran, and only a live
         # account where the database survived it
         if [ -d "${STATE}/o19-import" ] && [ "$O19_DB" = present ]; then

@@ -391,6 +391,30 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
                                   pass_spec="file:" + self.passfile)
         self.assertEqual(os.listdir(dest), [])
 
+    def test_a_fifo_is_refused_before_anything_reads_it(self):
+        # a FIFO sizes as 0, so the capacity check passes and the copy
+        # then blocks forever on a writer that never comes: the import
+        # hangs with nothing written and no error to explain it. The
+        # refusal has to precede the read, so this test would time out
+        # rather than fail if the guard were removed -- which is why it
+        # is asserted as a refusal, not as an absence of output.
+        # must end in .tar: the name check runs first, so a FIFO
+        # called anything else never reaches this guard
+        fifo = os.path.join(self.work, "bundle.tar")
+        os.mkfifo(fifo)
+        dest = tempfile.mkdtemp(dir=self.work)
+        with self.assertRaises(SystemExit):
+            o19bundle.open_bundle(fifo, dest)
+
+    def test_a_directory_is_refused_as_a_bundle(self):
+        # same guard, the case an operator actually hits: pointing
+        # --bundle at the directory the bundle lives in
+        d = os.path.join(self.work, "adir.tar")
+        os.mkdir(d)
+        dest = tempfile.mkdtemp(dir=self.work)
+        with self.assertRaises(SystemExit):
+            o19bundle.open_bundle(d, dest)
+
     def test_digest_verified_by_the_caller_must_match_the_file_opened(
             self):
         plain = os.path.join(self.work, "b.tar")

@@ -269,7 +269,11 @@ class Schema:
             if first.lower() in COLUMN_KEYWORDS:
                 pm = re.match(r"primary\s+key\s*\((.*)\)", part, re.I | re.S)
                 if pm:
-                    pk = [c.strip().strip("`").split("(")[0]
+                    # `col`(20) -- MySQL allows an index prefix in a
+                    # PRIMARY KEY. Split the prefix off FIRST: stripping
+                    # backticks first leaves the closing one attached to
+                    # the name (`col` -> col`(20) -> col`).
+                    pk = [c.strip().split("(")[0].strip().strip("`")
                           for c in pm.group(1).split(",")]
                 continue
             ctype = re.sub(r"\s+", " ", m.group(2)).strip().rstrip(",")
@@ -580,13 +584,21 @@ SECRET_KEY_RE = re.compile(
     r"token|pgp_key|user|username|userid)$", re.I)
 
 
+#: Credential-shaped keys the NAME pattern cannot catch. `faxIdentifier`
+#: ships a literal random-looking string as its stock value, which is a
+#: plaintext-secret finding in a Debian package whatever its origin.
+#: Listed by exact name rather than widened into SECRET_KEY_RE, because
+#: "identifier" as a pattern would sweep in a pile of harmless settings.
+SECRET_KEYS = frozenset({"faxIdentifier"})
+
+
 def is_secret_key(key: str) -> bool:
     """Credential-shaped key names (passwords, keys, tokens, and the account
     names that pair with them). Decided by NAME only — the props overlay's
     dispositions never participate, so a carry-secret prefix such as
     `email.` still lets plain settings (host, port) keep their harmless
     stock defaults in the baseline."""
-    return SECRET_KEY_RE.search(key) is not None
+    return key in SECRET_KEYS or SECRET_KEY_RE.search(key) is not None
 
 
 def split_secret_defaults(defaults: Dict[str, str]

@@ -29,15 +29,20 @@ echo "  dpkg:    $(dpkg --version | head -1)"
 echo "  mariadb: $(mariadb --version 2>/dev/null || echo '(not installed)')"
 
 hdr "maintainer scripts parse under the shells dpkg uses"
+# A predictable /tmp path written by a script that runs as root is a
+# symlink-truncate of whatever an unprivileged user points it at; mktemp
+# gives an unpredictable name in a directory we then own.
+ERRTMP=$(mktemp) || { echo "cannot create a temp file" >&2; exit 1; }
+trap 'rm -f "$ERRTMP"' EXIT INT TERM
 for f in debian/carlos-emr.postinst debian/carlos-emr.postrm; do
   [ -f "$f" ] || { bad "$f missing"; continue; }
   if head -1 "$f" | grep -q 'bin/sh'; then SH=dash; else SH=bash; fi
   # dpkg runs #!/bin/sh scripts under dash; check the declared shell, and
   # dash as well when they differ (running dash twice just inflated the
   # count by two)
-  if $SH -n "$f" 2>/tmp/e; then ok "$SH -n $f"; else bad "$SH -n $f: $(cat /tmp/e)"; fi
+  if $SH -n "$f" 2>"$ERRTMP"; then ok "$SH -n $f"; else bad "$SH -n $f: $(cat "$ERRTMP")"; fi
   if [ "$SH" != dash ]; then
-    if dash -n "$f" 2>/tmp/e; then ok "dash -n $f"; else bad "dash -n $f: $(cat /tmp/e)"; fi
+    if dash -n "$f" 2>"$ERRTMP"; then ok "dash -n $f"; else bad "dash -n $f: $(cat "$ERRTMP")"; fi
   fi
 done
 

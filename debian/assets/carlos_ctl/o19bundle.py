@@ -25,6 +25,7 @@ tested); the thin execution helpers at the bottom go through util.run.
 import hashlib
 import os
 import shutil
+import stat
 import subprocess
 import tarfile
 import zlib
@@ -447,6 +448,17 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
     for stale in (snapshot, tar_path):
         if os.path.lexists(stale):
             os.unlink(stale)
+    # A FIFO or a device sizes as 0, so the capacity check below passes and
+    # `copyfileobj` then blocks forever on a reader that never comes -- the
+    # import hangs with nothing written and no error. Refuse anything that
+    # is not a regular file BEFORE the arithmetic that trusts its size.
+    # stat(), not lstat(): a symlink to a real bundle is fine, a symlink to
+    # a FIFO is not.
+    mode = os.stat(bundle).st_mode
+    if not stat.S_ISREG(mode):
+        die("{0} is not a regular file ({1}) -- a bundle must be a file on "
+            "disk, not a pipe, device or directory".format(
+                bundle, stat.filemode(mode)))
     needed = os.path.getsize(bundle) * (2 if encrypted else 1)
     st = os.statvfs(workdir)
     free = st.f_bavail * st.f_frsize

@@ -32,9 +32,10 @@ one names the --accept flag that clears it); 2 = no-go (a blocker needs
 remediation, not a flag); 3 = the check itself could not run (bad
 arguments, unreadable file, database error) — never confused with a
 verdict. Blocker classes this mode can acknowledge (--accept, repeatable):
-archived-forms, unknown-as-archive, olis-gone, dropped-columns and
+archived-forms, unknown-as-archive, olis-gone, dropped-columns,
 carry-credentials (B9 — live OAuth consumer secrets or signing keys the
-copy would carry verbatim; rotate or verify them before go-live). The
+copy would carry verbatim; rotate or verify them before go-live) and
+charset-repair (B8 — double-encoded text repaired per row on the copy). The
 remaining import-side sign-offs belong to phases this mode never runs.
 The JSON report (--json) is the machine contract.
 

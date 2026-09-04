@@ -767,6 +767,24 @@ class TestOverlengthByteCapacity(unittest.TestCase):
             {"city": col("varchar", char_len=30)}), [])
 
 
+def is_rows(tables):
+    """information_schema rows for a fake: the TABLES list, and a COLUMNS
+    row per manifest column.
+
+    row_parity introspects the staged columns so it can compare the shape
+    the copy actually wrote (effective_entry), so a fake that answers every
+    information_schema query with a table list leaves it believing the dump
+    has no columns at all.
+    """
+    def answer(sql, tables=tables):
+        if sql.startswith("SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE"):
+            return [[t, c, "varchar", "varchar(255)", "YES", 255,
+                     "\\0NONE", "", 1020]
+                    for t, cols in tables.items() for c in cols]
+        return [[t] for t in tables]
+    return answer
+
+
 class TestMergeReverseParity(unittest.TestCase):
 
     ENTRY = {"class": "merge", "cols": ["id", "code", "label"],
@@ -805,9 +823,11 @@ class TestMergeReverseParity(unittest.TestCase):
         dst_info = {"property": {c: col() for c in entry["cols"]}}
         seen = []
 
+        info = is_rows({"property": entry["cols"]})
+
         def q(sql):
             if "information_schema" in sql:
-                return [["property"]]
+                return info(sql)
             seen.append(sql)
             return [["0"]]
 
@@ -826,9 +846,13 @@ class TestMergeReverseParity(unittest.TestCase):
         dst_info = {table: {c: col() for c in entry["cols"]}}
         seen = []
 
+        # the parent is NOT in the dump; the child's own columns are, or
+        # parity refuses it for a missing merge key before reaching the join
+        info = is_rows({table: entry["cols"]})
+
         def q(sql):
             if "information_schema" in sql:
-                return [[table]]      # the parent is NOT in the dump
+                return info(sql)
             seen.append(sql)
             return [["0"]]
 
@@ -847,9 +871,14 @@ class TestMergeReverseParity(unittest.TestCase):
         parents = sorted(set(entry["fk_remap"].values()))
         seen2 = []
 
+        cols2 = {table: entry["cols"]}
+        for parent in parents:
+            cols2[parent] = o19map_schema.TABLES[parent]["cols"]
+        info2 = is_rows(cols2)
+
         def q2(sql):
             if "information_schema" in sql:
-                return [[table]] + [[p] for p in parents]
+                return info2(sql)
             seen2.append(sql)
             return [["0"]]
 
@@ -869,9 +898,11 @@ class TestMergeReverseParity(unittest.TestCase):
         entry = o19map_schema.TABLES[table]
         dst_info = {table: {c: col() for c in entry["cols"]}}
 
+        info = is_rows({table: entry["cols"]})
+
         def q(sql):
             if "information_schema" in sql:
-                return [[table]]
+                return info(sql)
             if "NOT EXISTS" in sql:
                 return [["3"]]
             return [["0"]]

@@ -1201,6 +1201,22 @@ def effective_entry(table: str, entry: dict,
     return adjusted, notes
 
 
+def missing_merge_keys(entry: dict, src_cols: Dict[str, dict]) -> List[str]:
+    """Merge keys the staged dump does not carry, case-insensitively.
+
+    `effective_entry` reduces `cols` and `fk_remap` to what the dump has,
+    but it deliberately does NOT reduce `merge_keys`: a merge is an
+    anti-join on the natural key, and a partial key is not a smaller
+    correct key -- it silently folds distinct clinic rows onto one target
+    row, or appends duplicates. So a dump missing a merge key is refused
+    up front rather than merged on what is left.
+    """
+    have = {c.lower() for c in src_cols}
+    renames = entry.get("renames", {})
+    return [k for k in entry.get("merge_keys", ())
+            if renames.get(k, k).lower() not in have]
+
+
 def normalize_table_case(plain, src_schema: str,
                          src_tables: List[str]) -> List[str]:
     """Rename staged tables whose name differs from the manifest only by
@@ -1341,6 +1357,14 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             problems.append("{0}: manifest column(s) not in the target "
                             "schema: {1}".format(table, ", ".join(absent)))
             continue
+        gone = missing_merge_keys(entry, src_info[table])
+        if gone:
+            problems.append(
+                "{0}: merge key column(s) absent from this dump: {1}. A "
+                "merge is an anti-join on the natural key; merging on a "
+                "partial key would fold distinct rows together or append "
+                "duplicates. Re-export from a patch level that has them."
+                .format(table, ", ".join(gone)))
         required = missing_required_columns(entry, dst_info[table])
         if required:
             problems.append(
@@ -1944,9 +1968,19 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
     src_tables = {r[0] for r in plain_query(
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
         "TABLE_SCHEMA = '{0}'".format(src_schema))}
+    # The copy reduced every entry to the columns this dump actually
+    # carries (effective_entry); parity has to compare the same shape or
+    # merge_missing_count_sql emits `s.<column>` for a column a lower
+    # patch level does not have. That fails AFTER the copy has completed
+    # and been declared unoverridable, which is the worst possible moment
+    # to discover a manifest/dump mismatch.
+    src_info = introspect_columns(plain_query, src_schema)
     for table, entry in sorted(o19map_schema.TABLES.items()):
         if table not in src_tables:
             continue
+        if entry["class"] in ("copy", "merge") and table in src_info:
+            entry, _notes = effective_entry(table, entry, src_info[table],
+                                            src_tables)
         if entry.get("fk_remap"):
             # the copy dropped remaps whose parent is absent from this
             # dump, so no id map exists for them: the parity join must
@@ -1954,6 +1988,16 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
             entry = dict(entry, fk_remap={
                 c: parent for c, parent in entry["fk_remap"].items()
                 if parent in src_tables})
+        if entry["class"] == "merge" and missing_merge_keys(
+                entry, src_info.get(table, {})):
+            # the ETL pre-check refuses this dump outright; parity is also
+            # callable on its own, and broken SQL is a worse answer than a
+            # named mismatch
+            bad.append("{0}: merge key(s) {1} absent from this dump — "
+                       "parity cannot check it".format(
+                           table, ", ".join(missing_merge_keys(
+                               entry, src_info.get(table, {})))))
+            continue
         if entry["class"] == "merge" and dst_info is not None \
                 and table in dst_info:
             # the reverse of the merge's anti-join: every staging row (the

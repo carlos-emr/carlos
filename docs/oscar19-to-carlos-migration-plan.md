@@ -759,7 +759,9 @@ unmatched rows counted, then the BLOCKING reconciliation: every
 `document.docfilename` must exist non-empty, every eForm
 `${oscar_image_path}` asset must resolve (mariadb batch-mode escaping
 unescaped correctly), orphans report-only. The `o19_archive` schema is
-exported as per-table CSV inside the documents tree. Idempotent by tar
+exported as per-table CSV into the import workspace
+(`/var/lib/carlos-emr/o19-import/o19-archive-export/`), not into the
+documents tree. Idempotent by tar
 sha256 — a rerun re-runs reconciliation only. `--accept no-documents`
 records the documents-less sign-off. `test_docs.py` brings the suite to
 118 passing tests.

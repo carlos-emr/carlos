@@ -10,7 +10,7 @@ migration rehearsals (no Bitbucket checkout needed to run the fixture flow):
 | File here | Upstream path | License |
 |---|---|---|
 | `demo-data/demo.sql` | `release/demo.sql` | GPL v2 (header preserved: "Copyright Peter Hutten-Czapski 2012 released under the GPL v2"). Upstream's synthetic demonstration dataset: invented patients, providers and encounters for training installs — no real person or clinic. |
-| `properties/oscar_mcmaster.properties` | `src/main/resources/oscar_mcmaster.properties` | GPL (upstream project license; file header preserved). Byte-identical except that every secret value (passwords, API keys, conformance keys) reads `<redacted-in-fixture>`; upstream's placeholder account names (`db_username=root`, `OMD_HRM_USER=mcmu`, …) are stock defaults, not credentials, and are kept as shipped. |
+| `properties/oscar_mcmaster.properties` | `src/main/resources/oscar_mcmaster.properties` | GPL (upstream project license; file header preserved). Byte-identical except that every secret value (passwords, API keys, conformance keys, and `faxIdentifier` — a fax-transport shared secret whose stock value is a random literal) reads `<redacted-in-fixture>`; upstream's placeholder account names (`db_username=root`, `OMD_HRM_USER=mcmu`, …) are stock defaults, not credentials, and are kept as shipped. |
 
 Everything else under `fixtures/` is synthetic CARLOS-authored fixture
 content (clearly-fake values only — no real clinic or patient data):
