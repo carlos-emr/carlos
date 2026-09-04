@@ -491,36 +491,73 @@
     // --- Notes pagination state ---
     var notesOffset = 0;              // current offset into the full notes list
     var notesIncrement = 20;          // batch size for each pagination fetch
-    var notesRetrieveOk = false;      // true when the last fetch returned non-empty results
+    var notesRetrieveOk = false;      // true when the last fetch returned at least one note
     var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
+    var notesLoadInProgress = false;  // guards against overlapping pagination fetches
+    /*
+     * Number of notes rendered by the fetch currently in flight. ChartNotesAjax.jsp sets
+     * this while its response scripts run; notesLoader() resets it to -1 before every
+     * request. Never test the raw response body for emptiness instead: that fragment always
+     * emits bootstrap scripts (maxNcId, fullView listeners), so a batch with zero notes
+     * still comes back non-empty and the "no more notes" stop condition never fires.
+     * A response that leaves this at -1 (error page, redirect, aborted request) is treated
+     * as end-of-list so the poll stops rather than walking the offset forward forever.
+     */
+    var notesLastBatchSize = -1;
     const MAXNOTES = 1000000;         // upper bound to stop pagination
+
+    /**
+     * Stops the 1s poll that loads older notes when the user is at the top of the chart.
+     * Called once the server reports the chart is fully loaded; idempotent.
+     */
+    function stopNotesScrollCheck() {
+        if (notesScrollCheckInterval !== null) {
+            clearInterval(notesScrollCheckInterval);
+            notesScrollCheckInterval = null;
+        }
+    }
+
+    /**
+     * ID of the topmost note element, or null when the notes list is empty
+     * (a brand-new chart renders only the new-note editor).
+     */
+    function notesTopElementId() {
+        var firstChild = $("encMainDiv").children[0];
+        return firstChild ? firstChild.id : null;
+    }
 
     /**
      * Triggered when the user scrolls to the top of the notes wrapper.
      * Loads the next batch of older notes (inserted at top of the list).
      */
     function notesIncrementAndLoadMore() {
-        if (notesRetrieveOk && $("encMainDivWrapper").scrollTop === 0) {
-            if ($("encMainDivWrapper").scrollHeight > $("encMainDivWrapper").getHeight()) {
-                notesOffset += notesIncrement;
-                notesRetrieveOk = false;
-                notesCurrentTop = $("encMainDiv").children[0].id;
-                if (notesOffset < MAXNOTES) {
-                    notesLoader(notesOffset, notesIncrement, demographicNo);
-                }
-            }
+        if (notesLoadInProgress || !notesRetrieveOk) {
+            return;
+        }
+        var wrapper = $("encMainDivWrapper");
+        if (!wrapper || wrapper.scrollTop !== 0 || wrapper.scrollHeight <= wrapper.getHeight()) {
+            return;
+        }
+        notesOffset += notesIncrement;
+        notesRetrieveOk = false;
+        notesCurrentTop = notesTopElementId();
+        if (notesOffset < MAXNOTES) {
+            notesLoader(notesOffset, notesIncrement, demographicNo);
+        } else {
+            stopNotesScrollCheck();
         }
     }
 
     function notesLoadAll() {
         notesOffset += notesIncrement;
         notesRetrieveOk = false;
-        notesCurrentTop = $("encMainDiv").children[0].id;
-        console.log("loading all: " + " offset: " + notesOffset + " max notes: " + MAXNOTES);
+        notesCurrentTop = notesTopElementId();
         if (notesOffset < MAXNOTES) {
             notesLoader(notesOffset, MAXNOTES, demographicNo);
         }
+        // Park the offset past MAXNOTES so the scroll poll cannot re-request notes
+        // that this single full fetch already inserted.
         notesOffset += MAXNOTES;
     }
 
@@ -531,13 +568,20 @@
      * On pagination loads (offset > 0), preserves the current scroll position so the user
      * can continue reading older notes without being snapped away.
      *
+     * Only one fetch runs at a time; the 1s scroll poll would otherwise stack requests
+     * while a slow batch is still in flight.
+     *
      * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
      * @param {number} numToReturn - Maximum number of notes to fetch in this batch
      * @param {number} demoNo - Demographic (patient) number to load notes for
      */
     function notesLoader(offset, numToReturn, demoNo) {
+        if (notesLoadInProgress) {
+            return;
+        }
+        notesLoadInProgress = true;
+        notesLastBatchSize = -1;
         $("notesLoading").show();
-        console.log("loading: " + " offset: " + offset + " max notes: " + numToReturn + " demo: " + demoNo);
         var params = "method=viewNotesOpt&offset=" + offset + "&numToReturn=" + numToReturn + "&demographicNo=" + demoNo;
         var params2 = jQuery("input[name='filter_providers'],input[name='filter_roles'],input[name='issues'],input[name='note_sort']").serialize();
         if (params2.length > 0) {
@@ -550,14 +594,17 @@
                 postBody: params,
                 evalScripts: true,
                 insertion: 'top',
-                onSuccess: function (data) {
-                    notesRetrieveOk = (data.responseText.replace(/\s+/g, '').length > 0);
-                    if (!notesRetrieveOk) {
-                        clearInterval(scrollCheckInterval);
-                    }
-                },
                 onComplete: function () {
+                    notesLoadInProgress = false;
                     $("notesLoading").hide();
+                    // The response scripts have already run (CarlosAjax updates the DOM
+                    // between onSuccess and onComplete), so notesLastBatchSize now holds
+                    // the count this fragment rendered. An empty batch means the chart is
+                    // fully loaded: stop the poll instead of requesting ever-higher offsets.
+                    notesRetrieveOk = notesLastBatchSize > 0;
+                    if (!notesRetrieveOk) {
+                        stopNotesScrollCheck();
+                    }
                     // Only scroll to bottom on initial load (most recent notes);
                     // pagination loads (offset > 0) preserve scroll position
                     if (offset === 0) {
