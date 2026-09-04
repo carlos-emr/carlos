@@ -180,6 +180,11 @@ For a retry, dispatch the release workflow with the existing tag. Do not create
 a replacement tag, move the original tag, or tag a newer branch head with the
 same version. The workflow accepts an ancestor only when a prior unsuccessful
 tag-push run provides evidence that this is a retry of the immutable tag.
+Dispatch it on the tag's own ref, for example
+`gh workflow run publish-release.yml --ref refs/tags/2026.08.0-alpha3 -f tag=2026.08.0-alpha3`:
+the verification jobs load the local `.github/actions/dev-container` action from
+the checked-out tree, so the workflow definition and the tagged source must come
+from the same ref.
 
 ## Pull-request and CI coverage
 
