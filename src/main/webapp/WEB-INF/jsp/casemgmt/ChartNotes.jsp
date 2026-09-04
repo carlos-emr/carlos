@@ -210,6 +210,10 @@
 
     jQuery(document).ready(function () {
         notesLoader(0, notesIncrement, demographicNo);
+        // The encounter layout renders this page twice on open, and both copies run this
+        // handler in the same window. Without the stop, the first interval handle is
+        // overwritten here and its timer polls on, unstoppable, for the life of the chart.
+        stopNotesScrollCheck();
         notesScrollCheckInterval = setInterval('notesIncrementAndLoadMore()', 1000);
     });
 
