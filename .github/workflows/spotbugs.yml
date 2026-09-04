@@ -140,7 +140,9 @@ jobs:
           REPORT: ${{ steps.resolve_spotbugs_report.outputs.report }}
           SPOTBUGS_OUTCOME: ${{ steps.run_spotbugs.outcome }}
         run: |
-          if [ ! -f "$REPORT" ]; then
+          # -s, matching the resolve step: an empty file is "no report" there
+          # too, so the install step above and this step always agree.
+          if [ ! -s "$REPORT" ]; then
             echo "::error::No SpotBugs report found at $REPORT"
             if [ "$SPOTBUGS_OUTCOME" = "success" ]; then
               exit 1
