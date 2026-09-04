@@ -28,6 +28,7 @@ jobs:
   validate:
     name: Validate release tag
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       # Required to inspect prior workflow runs and validation-job results for dispatch retries.
       actions: read
@@ -201,6 +202,7 @@ jobs:
     needs: [validate, full-check]
     if: always() && needs.validate.outputs.skip != 'true' && needs.full-check.result == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
       attestations: write

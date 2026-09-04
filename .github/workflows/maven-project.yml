@@ -71,6 +71,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: read
@@ -191,6 +192,7 @@ jobs:
   tests:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       contents: read
       packages: read
@@ -322,6 +324,7 @@ jobs:
     #      the null-safe CARLOS wrappers are available.
     # Does not need the docker image or Maven cache — runs in ~10 seconds.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -348,6 +351,7 @@ jobs:
   jspc:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: read

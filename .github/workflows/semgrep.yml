@@ -39,6 +39,7 @@ jobs:
   semgrep:
     name: Semgrep SAST Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 90 }}
     container:
       image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
     env:
@@ -47,6 +48,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Run Semgrep CI
         id: run_semgrep

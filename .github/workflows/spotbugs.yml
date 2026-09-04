@@ -69,10 +69,13 @@ jobs:
   spotbugs:
     name: SpotBugs + Find Security Bugs
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f

@@ -48,9 +48,12 @@ jobs:
   bdd-test-naming:
     name: BDD Test Naming
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Validate billing test method names
         run: scripts/lint/check-bdd-test-naming.sh

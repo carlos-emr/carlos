@@ -36,13 +36,17 @@ jobs:
   conventional-commits:
     name: Commit Message Format
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
+          persist-credentials: false
           fetch-depth: 0
+          # Commit metadata only: the check reads subjects, never trees or blobs.
+          filter: tree:0
 
       - name: Check commit message format
         env:

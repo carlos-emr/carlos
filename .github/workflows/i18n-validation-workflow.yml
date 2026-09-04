@@ -29,10 +29,13 @@ jobs:
   i18n-key-parity:
     name: Properties Key Parity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Make scripts executable
         run: chmod +x scripts/check-i18n-properties.sh scripts/audit-i18n-coverage.sh
@@ -58,12 +61,17 @@ jobs:
   i18n-new-key-parity:
     name: New Key Parity (PR diff only)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          persist-credentials: false
           fetch-depth: 0
+          # Full history for the three-dot diff against the base branch, but lazy blobs:
+          # only the files the diff touches are fetched on demand.
+          filter: blob:none
 
       - name: Extract keys added to English in this PR
         id: new_keys
@@ -118,10 +126,13 @@ jobs:
   i18n-encoding:
     name: UTF-8 Encoding Compliance
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Check properties files are valid UTF-8
         run: |
@@ -143,12 +154,17 @@ jobs:
   i18n-jsp-bundle:
     name: JSP fmt:setBundle Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          persist-credentials: false
           fetch-depth: 0
+          # Full history for the three-dot diff against the base branch, but lazy blobs:
+          # only the files the diff touches are fetched on demand.
+          filter: blob:none
 
       - name: Check new/modified JSPs for missing fmt:setBundle
         env:
