@@ -1690,6 +1690,15 @@ def _row_parity(ctx):
     # with the wrong values passes every one of them
     content_ok, content_bad = o19etl.preserved_content_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive)
+    # and the copy class, where a declared transform sits between the two
+    # sides: rebuilt from the copy's OWN expressions, so the check cannot
+    # model the copy differently from the copy
+    copy_ok, copy_bad = o19etl.copy_content_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"],
+        o19etl.introspect_columns(ctx["query"], STAGING_SCHEMA),
+        o19etl.introspect_columns(ctx["query"], ctx["target_db"]),
+        repairs=progress.get("repairs"), archive_schema=archive)
+    content_ok, content_bad = content_ok + copy_ok, content_bad + copy_bad
     if content_bad and "content-migration" in (ctx.get("accepted") or ()):
         # a recorded sign-off: the operator was shown the mismatches and
         # accepted them, so they stay in the report as findings but no

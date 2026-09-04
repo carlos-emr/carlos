@@ -4,13 +4,17 @@
 """verify_sql_semantics.py — settle the ETL SQL behaviours that only a real
 engine can answer.
 
-Three of them: the merge anti-join's visibility of its own inserts and the
-per-row charset repair, both in the P4 copy path; and the M22 content
-digest, whose whole point is that a check nobody has broken on purpose is
-not a check. The last section runs the P2 chain end to end with the real
-tools -- a latin1 clinic schema measured by `o19_preflight.py`, dumped by
-mysqldump exactly as the operator guide says to, restored, and compared by
-`o19digest` -- because the unit tests drive each half against canned
+Four of them: the merge anti-join's visibility of its own inserts and the
+per-row charset repair, both in the P4 copy path; the M22 content digest,
+whose whole point is that a check nobody has broken on purpose is not a
+check; and P7's value-level comparison of the copy class, where the
+question is not only "does it catch a change" but "does it agree with
+the copy on a FAITHFUL run" -- a check that false-alarms on every
+clinic is worse than no check. One section runs the P2 chain end to end
+with the real tools -- a latin1 clinic schema measured by `o19_preflight.py`,
+dumped by mysqldump exactly as the operator guide says to, restored, and
+compared by `o19digest` -- because the unit tests drive each half against
+canned
 answers and cannot catch a disagreement about what the two halves MEAN.
 
 `o19etl.merge_statement` is an anti-join that reads the table it inserts
@@ -915,6 +919,146 @@ def _column_shape(client: Client, db: str, table: str) -> List[List[str]]:
         "ORDER BY ORDINAL_POSITION".format(db, table), db)
 
 
+#: One copy table shaped like the manifest's: an id-intact primary key, a
+#: renamed column, a zero-dateable date, an enum whose set narrowed, and a
+#: latin1 text column the repair may touch.
+COPY_DDL = (
+    "CREATE TABLE c ("
+    " id int NOT NULL,"
+    " isActive varchar(8),"       # renamed to `isactive` on the target
+    " d date,"                    # '0000-00-00' -> NULL on a nullable target
+    " e varchar(8),"              # source is wider than the target's enum
+    " amount decimal(10,2),"      # the target holds DECIMAL(10,4)
+    " note varchar(64),"
+    " PRIMARY KEY (id))")
+
+TARGET_DDL = (
+    "CREATE TABLE c ("
+    " id int NOT NULL,"
+    " isactive varchar(8),"
+    " d date,"
+    " e enum('a','b'),"
+    " amount decimal(10,4),"
+    " note varchar(64),"
+    " PRIMARY KEY (id))")
+
+COPY_ROWS = [
+    "(1, 'Y', '2020-01-02', 'a', 1.40, 'Santé')",
+    "(2, 'N', '0000-00-00', 'z', 2.50, 'plain')",   # zero date + out-of-set
+    "(3, NULL, NULL, NULL, NULL, NULL)",            # every column NULL
+]
+
+COPY_ENTRY = {
+    "class": "copy",
+    "cols": ["id", "isactive", "d", "e", "amount", "note"],
+    "renames": {"isactive": "isActive"},
+}
+
+#: (label, SQL applied to the TARGET, why it must be caught)
+COPY_SABOTAGE = [
+    # accents lost, which is what a latin1 -> utf8mb4 migration produces
+    # when it goes wrong -- and what MariaDB's DEFAULT utf8mb4_general_ci
+    # collation calls equal ('Santé' = 'Sante' is 1 under it, as is
+    # 'SMITH' = 'smith'). A plain `<=>` here reported a faithful copy.
+    ("a copied value lost its accent",
+     "UPDATE c SET note = 'Sante' WHERE id = 1",
+     "the row count is unchanged, every parity check still passes, and a "
+     "case/accent-insensitive comparison calls the two equal"),
+    ("a copied value changed case",
+     "UPDATE c SET isactive = 'y' WHERE id = 1",
+     "the same collation blindness, in the other direction"),
+    ("a NULL where a value was copied",
+     "UPDATE c SET isactive = NULL WHERE id = 1",
+     "`=` would miss this on the NULL rows; `<=>` does not"),
+    ("a value where a NULL was copied",
+     "UPDATE c SET note = 'x' WHERE id = 3",
+     "the all-NULL row is the one a careless comparison skips"),
+    ("the sanitized zero date un-sanitized",
+     "UPDATE c SET d = '2001-01-01' WHERE id = 2",
+     "the copy wrote NULL there; anything else is not what it wrote"),
+    ("the enum fallback overridden",
+     "UPDATE c SET e = 'b' WHERE id = 2",
+     "the copy folded an out-of-set value to the column's fallback"),
+]
+
+
+def check_copy_values(client: Client, src: str, dst: str) -> List[str]:
+    """`copy_content_parity`'s claim, against the engine.
+
+    The unit tests assert on generated SQL. They cannot answer the
+    question this check exists for -- does the comparison agree with the
+    copy on a FAITHFUL run? -- because that depends on how the server
+    stores and compares what the copy wrote. The two most likely ways to
+    get a false alarm are both present in the fixture: a DECIMAL whose
+    scale WIDENS on the target (1.40 stored as 1.4000), and rows that are
+    entirely NULL.
+    """
+    try:
+        return _copy_values_body(client, src, dst)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(src, dst))
+
+
+def _copy_values_body(client: Client, src: str, dst: str) -> List[str]:
+    """The checks themselves; the caller owns the teardown."""
+    failures: List[str] = []
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=latin1;".format(src))
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=utf8mb4;".format(dst))
+    # sql_mode='' is what the ETL's executor runs under: a zero date and
+    # an out-of-set enum have to be STORABLE in staging for the copy to
+    # have anything to sanitize
+    client.setup("SET SESSION sql_mode='';" + COPY_DDL + ";", src)
+    client.setup("SET SESSION sql_mode='';INSERT INTO c VALUES {0};"
+                 .format(", ".join(COPY_ROWS)), src)
+    client.setup(TARGET_DDL + ";", dst)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    dst_cols = o19etl.introspect_columns(query, dst)["c"]
+    client.setup("SET SESSION sql_mode='';"
+                 + o19etl.copy_statement("c", COPY_ENTRY, src, dst,
+                                         dst_cols) + ";", dst)
+
+    check = o19etl.copy_value_mismatch_sql("c", COPY_ENTRY, src, dst,
+                                           dst_cols, ("id",))
+
+    def mismatches() -> int:
+        return int(client.rows(check, dst)[0][0])
+
+    print("\n  copy values (copy_value_mismatch_sql)")
+    n = mismatches()
+    print("    {0:<44} {1}".format(
+        "a faithful copy shows no mismatch",
+        "ok" if n == 0 else "{0} FALSE ALARM(S)".format(n)))
+    if n:
+        failures.append(
+            "the check disagreed with the copy on a faithful run ({0} "
+            "row(s)) -- it would fail every clinic".format(n))
+        return failures
+
+    for label, sql, why in COPY_SABOTAGE:
+        client.setup("SET SESSION sql_mode='';{0};".format(sql), dst)
+        caught = mismatches() > 0
+        print("    {0:<44} {1}".format(
+            label, "caught" if caught else "MISSED"))
+        if not caught:
+            failures.append("{0} was NOT caught ({1})".format(label, why))
+        client.setup("SET SESSION sql_mode='';TRUNCATE TABLE c;", dst)
+        client.setup("SET SESSION sql_mode='';"
+                     + o19etl.copy_statement("c", COPY_ENTRY, src, dst,
+                                             dst_cols) + ";", dst)
+        if mismatches():
+            failures.append(
+                "the copy did not come back after '{0}'; every later line "
+                "is meaningless".format(label))
+            break
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -979,6 +1123,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                                      args.prefix + "_pva")
     if preserved:
         failures["preserved copy"] = preserved
+    copied = check_copy_values(client, args.prefix + "_cvs",
+                               args.prefix + "_cvd")
+    if copied:
+        failures["copy values"] = copied
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
@@ -994,8 +1142,9 @@ def main(argv: Optional[List[str]] = None) -> int:
           "latin1/utf8mb4 while catching every change put to it, and the "
           "whole P2 chain (clinic digest -> mysqldump -> restore -> "
           "compare) verifies a faithful transfer and refuses a damaged "
-          "one, and the preserved copies really are value-for-value "
-          "equal to their source")
+          "one, the preserved copies really are value-for-value equal to "
+          "their source, and the copy class's value check agrees with the "
+          "copy on a faithful run while catching every change put to it")
     return 0
 
 

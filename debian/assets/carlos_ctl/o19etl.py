@@ -2589,6 +2589,14 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     plain("CREATE DATABASE IF NOT EXISTS `{0}`".format(arch))
     progress = load_progress(state_dir, ctx.get("dump_sha256"),
                              o19map_schema.SCHEMA_MAP_VERSION)
+    # The repair set goes in the ledger because P7's value-level check
+    # rebuilds the copy's own expressions and must use the set THAT RAN.
+    # Re-deriving it there would be a second scan that could disagree,
+    # and a verification modelling the copy differently from the copy
+    # proves nothing. Recorded on every pass, so a resume that finds new
+    # mojibake (a restage) does not verify against the old set.
+    progress["repairs"] = dict((t, sorted(cs)) for t, cs in repairs.items())
+    save_progress(state_dir, progress)
 
     # Has the target been rewound under this ledger? The pre-import
     # restic snapshot covers the CARLOS schema and the documents tree,
@@ -2806,6 +2814,186 @@ PRESERVED_CLASSES = ("archive", "drop", "reference")
 #: its other columns would otherwise exist nowhere once staging is
 #: dropped.
 ARCHIVE_ONLY_CLASSES = ("reference", "merge")
+
+
+def primary_key_columns(plain_query, schema: str) -> Dict[str, List[str]]:
+    """`{table: [PRIMARY KEY column, ...]}` in key order."""
+    out: Dict[str, List[str]] = {}
+    for row in plain_query(
+            "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema."
+            "STATISTICS WHERE TABLE_SCHEMA = '{0}' AND INDEX_NAME = "
+            "'PRIMARY' ORDER BY TABLE_NAME, SEQ_IN_INDEX".format(schema)):
+        if len(row) >= 2 and row[0]:
+            out.setdefault(row[0], []).append(row[1])
+    return out
+
+
+#: Character types, whose comparison a collation decides. Everything
+#: else (numbers, dates, blobs, bits) compares exactly under the server's
+#: own rules, and must NOT be rendered as text -- a stored DECIMAL(10,4)
+#: renders '1.4000' where the same value as an expression over a
+#: DECIMAL(10,2) source renders '1.40'.
+COLLATED_TYPES = STRING_TYPES + ("set",)
+
+
+def value_comparison(col: str, expr: str, dst_info: dict) -> str:
+    """`d.<col>` against the expression the copy wrote, compared the way
+    a VERIFICATION has to compare.
+
+    For a character column that means converting both sides to utf8mb4
+    and forcing `utf8mb4_bin`. MariaDB's default collation is
+    `utf8mb4_general_ci`, and measured on 10.11 it folds BOTH accents and
+    case: `'Santé' = 'Sante'` and `'SMITH' = 'smith'` are each 1 under
+    it. A plain `<=>` would therefore report a faithful copy for a
+    clinic whose patient names had lost their accents -- precisely the
+    corruption this check exists to find, and the one a latin1 ->
+    utf8mb4 migration is most likely to produce. The CONVERT is what
+    makes the two sides comparable at all (staging is latin1, the target
+    utf8mb4); the COLLATE is what makes the comparison mean equality.
+
+    Everything else keeps the plain `<=>`: it is NULL-safe, exact, and
+    type-aware, and rendering a number or a date as text to compare it
+    would reintroduce the scale mismatch this join exists to avoid.
+    """
+    target = "d.{0}".format(ident(col))
+    if (dst_info.get("type") or "").lower() not in COLLATED_TYPES:
+        return "{0} <=> {1}".format(target, expr)
+    return ("CONVERT({0} USING utf8mb4) COLLATE utf8mb4_bin <=> "
+            "CONVERT({1} USING utf8mb4) COLLATE utf8mb4_bin"
+            .format(target, expr))
+
+
+def copy_value_mismatch_sql(table: str, entry: dict, src_schema: str,
+                            dst_schema: str, dst_cols: Dict[str, dict],
+                            key: Sequence[str],
+                            repaired: Optional[set] = None,
+                            archive_schema: Optional[str] = None,
+                            select: Optional[str] = None) -> str:
+    """Staging rows whose target twin does NOT hold the value the copy's
+    own expression produced.
+
+    Built from `source_expr` + `sanitize_expr` -- the very expressions
+    `copy_statement` selects -- so the check cannot drift from the copy
+    it verifies. What it proves is narrow and exact: the ETL applied the
+    declared transforms and NOTHING ELSE. Whether each declared transform
+    is itself right is a separate claim, proven by value-level tests over
+    hand-written cases (the charset repair has its own, in
+    verify_sql_semantics.py).
+
+    `<=>` rather than a digest, and this is the reason the copy class
+    cannot use one: the expected side is an EXPRESSION and the actual
+    side a STORED column, and a stored DECIMAL(10,4) renders '1.4000'
+    where the same value as an expression over a DECIMAL(10,2) source
+    renders '1.40'. Hashing those disagrees on a faithful copy. `<=>`
+    compares VALUES with the server's own type rules and is NULL-safe,
+    so it says what the operator actually wants to know.
+
+    `select` replaces the COUNT with a projection (the key columns, for
+    the private details file); rows are paired on `key`, which is the
+    target's primary key -- an id-intact copy, so the twin of a staging
+    row is the target row with the same key.
+    """
+    def expr(col: str) -> str:
+        e = source_expr(entry, col, repaired, archive_schema,
+                        dst_cols[col]["nullable"])
+        # an `import_archived_` column is a verbatim copy into a column of
+        # the source's own type: copy_statement does not sanitize it, so
+        # neither may this
+        if col in (entry.get("archived_cols") or {}):
+            return e
+        return sanitize_expr(e, dst_cols[col])
+
+    # the JOIN uses the server's own equality, because that is what
+    # decided which target row IS this staging row's twin; the value
+    # comparison is stricter (see value_comparison)
+    join = " AND ".join("d.{0} <=> {1}".format(ident(k), expr(k))
+                        for k in key)
+    same = " AND ".join(value_comparison(c, expr(c), dst_cols[c])
+                        for c in entry["cols"])
+    return ("SELECT {0} FROM `{1}`.`{2}` s JOIN `{3}`.`{2}` d ON {4} "
+            "WHERE NOT ({5})".format(
+                select or "COUNT(*)", src_schema, table, dst_schema,
+                join, same))
+
+
+def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
+                        src_info: Dict[str, Dict[str, dict]],
+                        dst_info: Dict[str, Dict[str, dict]],
+                        repairs: Optional[Dict[str, Sequence[str]]] = None,
+                        archive_schema: Optional[str] = None
+                        ) -> Tuple[List[str], List[str]]:
+    """(ok_lines, mismatch_lines) proving every copied row's target twin
+    holds the values the copy wrote.
+
+    `row_parity` counts copy-class tables; this reads them. A table it
+    cannot pair row-for-row is reported UNCHECKED rather than passed:
+    "we could not look" and "we looked and it was fine" are different
+    answers, and only one of them is a verification.
+    """
+    ok, bad = [], []
+    repairs = repairs or {}
+    src_tables = schema_tables(plain_query, src_schema)
+    dst_keys = primary_key_columns(plain_query, dst_schema)
+    for table, entry in sorted(o19map_schema.TABLES.items()):
+        if entry["class"] != "copy" or table not in src_tables:
+            continue
+        if table not in dst_info or table not in src_info:
+            continue        # absent at this patch level: row_parity's
+        entry, _notes = effective_entry(table, entry, src_info[table],
+                                        src_tables)
+        if entry.get("fk_remap"):
+            # the copy dropped remaps whose parent this dump lacks, so no
+            # id map exists for them; the check has to drop them too
+            entry = dict(entry, fk_remap={
+                c: parent for c, parent in entry["fk_remap"].items()
+                if parent in src_tables})
+        cols = [c for c in entry.get("cols") or () if c in dst_info[table]]
+        if not cols:
+            continue
+        entry = dict(entry, cols=cols)
+        reason = _unpairable_reason(table, entry, dst_keys.get(table) or [],
+                                    dst_info[table])
+        if reason:
+            bad.append("{0}: values not checked — {1}".format(table, reason))
+            continue
+        sql = copy_value_mismatch_sql(
+            table, entry, src_schema, dst_schema, dst_info[table],
+            dst_keys[table], set(repairs.get(table) or ()), archive_schema)
+        try:
+            n = int(plain_query(sql)[0][0])
+        except Exception as exc:                      # noqa: BLE001
+            bad.append("{0}: values could not be checked ({1})".format(
+                table, _query_reason(exc)))
+            continue
+        if n:
+            bad.append(
+                "{0}: {1} copied row(s) whose target twin does not hold "
+                "the value the copy wrote".format(table, n))
+        else:
+            ok.append("{0} (copy): every twin holds the copied value"
+                      .format(table))
+    return ok, bad
+
+
+def _unpairable_reason(table: str, entry: dict, key: Sequence[str],
+                       dst_cols: Dict[str, dict]) -> Optional[str]:
+    """Why a copy table's rows cannot be paired with their twins, or
+    None.
+
+    Reported, never skipped silently: a table nobody could check is not
+    a table that passed."""
+    if not key:
+        return "the target table has no primary key to pair rows on"
+    missing = [k for k in key if k not in dst_cols]
+    if missing:
+        return ("the target's primary key names {0}, which "
+                "information_schema does not describe".format(
+                    ", ".join(missing)))
+    uncopied = [k for k in key if k not in (entry.get("cols") or ())]
+    if uncopied:
+        return ("primary key column(s) {0} are not copied, so a staging "
+                "row has no addressable twin".format(", ".join(uncopied)))
+    return None
 
 
 def ordered_columns(plain_query, schema: str

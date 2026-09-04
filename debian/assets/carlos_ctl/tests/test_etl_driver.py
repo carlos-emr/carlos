@@ -422,6 +422,14 @@ class TestTheCopyPath(EtlDriverBase):
         self.assertTrue(o19etl.load_progress(self.state_dir)
                         .get("roles_seam_probe"))
 
+    def test_the_charset_repair_set_is_recorded_in_the_ledger(self):
+        """P7's value-level check rebuilds the copy's own expressions and
+        has to use the set THAT RAN. Re-deriving it there would be a
+        second scan that could disagree, and a verification modelling the
+        copy differently from the copy proves nothing."""
+        self.run_etl()
+        self.assertIn("repairs", o19etl.load_progress(self.state_dir))
+
     def test_a_merge_tables_clinic_rows_are_archived(self):
         # A merge keeps CARLOS's row on a shared natural key, so the
         # clinic's other columns on that key never become live. That is

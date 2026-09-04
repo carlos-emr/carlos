@@ -184,7 +184,7 @@ report as the clinic's sign-off. There are twelve:
 | `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
 | `content-transfer` | the restored staging schema does not match the content digests the clinic took before the dump |
 | `no-content-digests` | the transfer's content could not be fully verified (usually: no content digests were shipped) |
-| `content-migration` | a preserved copy holds the right number of rows but not the same values |
+| `content-migration` | a preserved copy, or a copied row's twin, holds the right number of rows but not the same values |
 
 The assessment can evaluate only six of them (`archived-forms`,
 `unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`,
@@ -226,9 +226,13 @@ and is shadow-captured to `o19_archive` as well. Tables the manifest
 classifies `reference` keep the CARLOS seed in the live table; the
 clinic's rows go to `o19_archive.<table>`, where a locally curated code
 can still be found. The verification counts all of it before it passes,
-and then digests it: every preserved copy must hold the same **values**
-as staging, not merely the same number of rows (a mismatch is a blocker
-cleared only by `--accept content-migration`). The preflight sweeps the
+and then reads it: every preserved copy must hold the same **values** as
+staging (compared by content digest), and every copied row's twin in the
+live schema must hold the value the copy actually wrote — rebuilt from
+the copy's own expressions, so renames, curated expressions, the charset
+repair, zero dates and enum fallbacks are expected exactly as the copy
+applied them. Either mismatch is a blocker cleared only by
+`--accept content-migration`. The preflight sweeps the
 archive-class, patient-data and removed-module tables, the last as an
 advisory naming each one that holds rows.
 
