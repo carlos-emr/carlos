@@ -2155,6 +2155,11 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             tstate["unknown_shadow_done"] = True
             save_progress(state_dir, progress)
 
+    # persisted for the validation report, which is written by a later
+    # phase and cannot re-derive them: the ledger's marks make the second
+    # pass skip the work that produced them
+    kept["absent"] = list(absent_tables)
+    save_progress(state_dir, progress)
     if absent_tables:
         report("manifest tables absent from this dump ({0}; patch-level "
                "variance — nothing copied for them):\n  ".format(

@@ -45,7 +45,9 @@ import sys
 import time
 from typing import Callable, Dict, List, Optional, Sequence
 
-from . import dbops, o19_preflight, o19bundle, o19docs, o19etl, o19map_schema
+from . import (dbops, o19_preflight, o19bundle, o19docs,
+               o19etl, o19map_props, o19map_schema,
+               o19report)
 from .util import (BACKUP_ENV, ENV_FILE, STATE, die, genpw, genrandom, log,
                    run, warn)
 
@@ -138,11 +140,78 @@ def mark_done(state_dir: str, state: Dict, phase: str, **extra) -> None:
     save_state(state_dir, state)
 
 
+def staging_holds_rows(query) -> bool:
+    """Whether the staging schema currently holds any row.
+
+    `information_schema.TABLES.TABLE_ROWS` is an ESTIMATE for InnoDB and
+    can read 0 for a populated table, so it is not usable for a gate that
+    decides whether data is about to be destroyed. This counts, stopping
+    at the first table that has anything."""
+    tables = [r[0] for r in query(
+        "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
+        "TABLE_SCHEMA = '{0}'".format(STAGING_SCHEMA))]
+    for table in tables:
+        if int(query("SELECT COUNT(*) FROM `{0}`.{1}".format(
+                STAGING_SCHEMA, o19etl.ident(table)))[0][0]):
+            return True
+    return False
+
+
+def mark_started(state_dir: str, state: Dict, phase: str, **extra) -> None:
+    """Record that a phase has BEGUN, with what it is working on.
+
+    `mark_done` records only success, which is right for a resume ("skip
+    what finished") and wrong for a destructive step: P1 drops the
+    staging schema before it restores into it, and a restore that dies
+    half-way leaves rows behind with nothing in the ledger saying which
+    dump they came from. The next attempt then cannot tell its own
+    wreckage from another clinic's data. Recording the attempt first is
+    what lets it tell the difference."""
+    entry = dict(state.setdefault("phases", {}).get(phase) or {})
+    entry.update({"status": "in-progress",
+                  "at": time.strftime("%Y-%m-%dT%H:%M:%S")})
+    entry.update(extra)
+    state["phases"][phase] = entry
+    save_state(state_dir, state)
+
+
+def staging_drop_refusal(rows_present: bool, recorded_sha: Optional[str],
+                         dump_sha: str, restage: bool) -> Optional[str]:
+    """Why P1 may not drop the staging schema now, or None.
+
+    P1's first act is `DROP DATABASE o19_import`, and staging is where a
+    dump lives between the restore and the copy. Dropping it is safe
+    while the dump file that made it is still there to restore again --
+    which is the ordinary case, since P1 is about to restore exactly
+    that file. It is NOT safe when the schema holds some OTHER dump's
+    rows and this workspace has no record of staging it: a clinic whose
+    bundle has since been deleted would lose the only copy, silently,
+    to a command that reads as "start my import".
+
+    Allowed when the schema is empty (nothing to lose), when the ledger
+    records this same dump (the rows are this dump's own, from an
+    interrupted restore), or when `--restage` says so explicitly."""
+    if not rows_present or restage or recorded_sha == dump_sha:
+        return None
+    return ("the staging schema {0} already holds rows, and this "
+            "workspace has no record of staging the dump offered now{1}. "
+            "Dropping it would destroy the only copy of whatever is "
+            "there. Export or drop {0} yourself if those rows are "
+            "finished with, or pass --restage to say so."
+            .format(STAGING_SCHEMA,
+                    " (it staged {0}...)".format(recorded_sha[:12])
+                    if recorded_sha else ""))
+
+
 def report_append(state_dir: str, title: str, body: str) -> None:
+    """Append one phase block to the running log.
+
+    0600 like every other run artifact: report.txt was the only one left
+    at the umask's 0644, and it carries table names, row counts and the
+    roles findings."""
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
-    with open(os.path.join(state_dir, "report.txt"), "a",
-              encoding="utf-8") as fh:
-        fh.write("== {0} ==\n{1}\n\n".format(title, body.rstrip()))
+    append_private(os.path.join(state_dir, "report.txt"),
+                   "== {0} ==\n{1}\n\n".format(title, body.rstrip()))
 
 
 def sha256_file(path: str) -> str:
@@ -1077,8 +1146,20 @@ def run_p1(ctx) -> None:
     if redirect:
         die(redirect)
 
+    # the drop below is the one place this phase can destroy data that
+    # exists nowhere else: rows of a dump this workspace never staged
+    refusal = staging_drop_refusal(
+        staging_holds_rows(query), prev.get("dump_sha256"), dump_sha,
+        ctx["restage"])
+    if refusal:
+        die(refusal)
     log("staging dump into {0} (binlog off, throwaway schema, restricted "
         "account) ...".format(STAGING_SCHEMA))
+    # recorded BEFORE the drop, so a restore that dies half-way leaves a
+    # ledger saying which dump the leftover rows came from and the retry
+    # is not refused by the gate above
+    mark_started(ctx["state_dir"], ctx["state"], "stage",
+                 dump_sha256=dump_sha)
     query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
     query("CREATE DATABASE `{0}`".format(STAGING_SCHEMA))
     client_cnf = os.path.join(ctx["state_dir"], ".stage-client.cnf")
@@ -1432,6 +1513,95 @@ def append_private(path: str, text: str) -> None:
         fh.write(text)
 
 
+def _ledger_lines(progress: Dict, key: str) -> List[str]:
+    """One bucket of the ETL ledger's persisted report lines.
+
+    The ETL records its per-table findings as it makes them, so a resumed
+    run reports what the crashed one already did. P7 reads them back
+    rather than re-deriving anything."""
+    kept = progress.get("report_lines") or {}
+    value = kept.get(key) or []
+    return [ln for ln in value if isinstance(ln, str)]
+
+
+def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
+                  problems: Sequence[str], verify_lines: Sequence[str],
+                  advisories: Sequence[str], finished: str) -> Dict:
+    """Assemble the operator's validation report.
+
+    Pure: every fact comes from the caller, the run state or the ETL
+    ledger, so the whole document can be built and asserted in a test.
+
+    The three questions it answers, in this order, are the ones a
+    reviewer actually has: what arrived, what did not arrive and where it
+    went instead, and what needs a human before go-live."""
+    state = ctx.get("state") or {}
+    phases = state.get("phases", {})
+    header = {
+        "target_db": ctx.get("target_db"),
+        "province": ctx.get("province"),
+        "manifest": o19map_schema.SCHEMA_MAP_VERSION,
+        "o19_source_commit": getattr(o19map_schema, "O19_SOURCE_COMMIT",
+                                     None),
+        "dump_sha256": phases.get("stage", {}).get("dump_sha256"),
+        "manifest_props": getattr(o19map_props, "PROPS_MAP_VERSION",
+                                  None),
+        "started": phases.get("stage", {}).get("at"),
+        "finished": finished,
+    }
+    arrived = list(parity_ok)
+    elsewhere = (_ledger_lines(progress, "absent")
+                 + _ledger_lines(progress, "reference")
+                 + _ledger_lines(progress, "drop")
+                 + _ledger_lines(progress, "unknown")
+                 + _ledger_lines(progress, "archived_cols"))
+    findings = []
+    if problems:
+        findings.append(o19report.finding(
+            "failure", "{0} verification problem(s)".format(len(problems)),
+            list(problems)[:40]))
+    for title, key in (("surrogate ids reassigned on merge", "idmap"),
+                       ("dangling foreign keys in the source", "fk"),
+                       ("dropped-column capture notes", "shadow")):
+        found = _ledger_lines(progress, key)
+        if found:
+            findings.append(o19report.finding("advisory", title, found))
+    if advisories:
+        findings.append(o19report.finding(
+            "advisory", "roles and privileges", list(advisories)))
+    if verify_lines:
+        findings.append(o19report.finding(
+            "info", "verification checks run", list(verify_lines)))
+    return o19report.build(
+        header,
+        "FAILED ({0} problem(s))".format(len(problems)) if problems
+        else "PASSED",
+        [o19report.section(
+            "WHAT ARRIVED", arrived,
+            empty="nothing was compared — this is not a verified import"),
+         o19report.section(
+             "WHAT DID NOT ARRIVE, AND WHERE IT WENT INSTEAD", elsewhere,
+             empty="every staging table had a home in CARLOS")],
+        findings,
+        NEXT_STEPS)
+
+
+def write_import_report(ctx, parity_ok: Sequence[str],
+                        problems: Sequence[str],
+                        verify_lines: Sequence[str],
+                        advisories: Sequence[str]) -> Dict:
+    """Render the validation report to `import-report.txt` and its JSON
+    twin, both 0600 like every other run artifact."""
+    report = import_report(
+        ctx, o19etl.load_progress(ctx["state_dir"]), parity_ok, problems,
+        verify_lines, advisories, time.strftime("%Y-%m-%dT%H:%M:%S"))
+    write_private(os.path.join(ctx["state_dir"], "import-report.txt"),
+                  o19report.render_text(report))
+    write_private(os.path.join(ctx["state_dir"], "import-report.json"),
+                  o19report.render_json(report))
+    return report
+
+
 def run_p7(ctx) -> None:
     """P7 verify -- compare the target against staging and pass or fail the
     import.
@@ -1615,6 +1785,10 @@ def run_p7(ctx) -> None:
                   "\n".join(lines)
                   + ("\nFAILURES:\n  " + "\n  ".join(problems[:40])
                      if problems else "\nall checks passed"))
+    # the operator's validation report: one document, built from
+    # structured data, carrying the per-table counts the running log
+    # throws away on a clean import
+    write_import_report(ctx, ok, problems, lines, r_adv)
     if problems:
         die("verification FAILED ({0} problem(s)) — see {1}/report.txt. "
             "State is left in place for diagnosis; to roll back, {2}."
@@ -1753,9 +1927,33 @@ def archive_state(state_dir: str) -> Optional[str]:
     return os.path.basename(target)
 
 
+#: What the operator still has to do, in order. Shared between the
+#: console summary and the validation report on purpose: they lived only
+#: on the console before, so the file the operator keeps did not carry
+#: them.
+NEXT_STEPS = (
+    "review and apply the properties fragment "
+    "(o19-derived-carlos.properties), then `carlos-ctl restart` — it "
+    "carries imported credentials to rotate or verify first",
+    "run `carlos-ctl backup full` (the post-import snapshot)",
+    "TECHNICAL REVIEW before clinical use: import-report.txt, "
+    "report.txt, manual spot checks and a UI smoke of the migrated "
+    "charts",
+    "roles: confirm each clinic-custom role's privileges in "
+    "Administration > Security (the report names the template used), and "
+    "deal with expired or role-less accounts — see privilege-diff.txt "
+    "and roles-details.txt",
+    "review the preserved tables and columns the report names under "
+    "\"what did not arrive\": they hold what CARLOS has no home for, and "
+    "nothing in the application reads them",
+    "then `carlos-ctl import-o19 --cleanup`",
+)
+
+
 #: per-run outputs retired alongside state.json (admin-credentials.txt is
 #: deliberately not among them: the operator is told where it is)
-RUN_FILES = ("report.txt", "roles-details.txt", "privilege-diff.txt",
+RUN_FILES = ("report.txt", "import-report.txt", "import-report.json",
+             "roles-details.txt", "privilege-diff.txt",
              "verify-details.txt", "documents-details.txt", "preflight.txt",
              "preflight.json", "etl-progress.json",
              "o19-derived-carlos.properties",
@@ -2442,17 +2640,10 @@ def _cmd_import_o19(argv) -> int:
     run_p5(ctx)
     run_p6(ctx)
     run_p7(ctx)
-    log("import complete (experimental). Remaining operator steps:\n"
-        "  1. review + apply the properties fragment (see report), then "
-        "`carlos-ctl restart`\n"
-        "  2. run `carlos-ctl backup full` (post-import snapshot)\n"
-        "  3. TECHNICAL REVIEW before clinical use: {0}/report.txt, spot "
-        "checks, UI smoke\n"
-        "     roles: the 'roles:' report lines, privilege-diff.txt and "
-        "roles-details.txt — confirm each custom role's privileges in "
-        "Administration > Security, and expired or role-less accounts\n"
-        "  4. then `carlos-ctl import-o19 --cleanup`".format(
-            ctx["state_dir"]))
+    log("import complete (experimental). Remaining operator steps:\n  "
+        + "\n  ".join("{0}. {1}".format(i, step)
+                      for i, step in enumerate(NEXT_STEPS, 1))
+        + "\n  (the reports are in {0})".format(ctx["state_dir"]))
     return 0
 
 

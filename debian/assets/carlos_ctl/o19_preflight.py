@@ -1429,18 +1429,23 @@ def run_checks(query, properties=None, province="on", accepted=(),
     if drop_rows:
         findings.append(finding(
             "drop-tables-with-rows", ADVISORY,
-            "{0} table(s) of removed modules hold rows that are NOT "
-            "archived".format(len(drop_rows)),
+            "{0} table(s) of removed modules hold rows CARLOS has no home "
+            "for".format(len(drop_rows)),
             "These are infrastructure of modules CARLOS removed "
             "(Integrator caches, sharing policy, ministry reference "
-            "reloads). Their rows are dropped with no archive and no CSV "
-            "export. Review the list before migrating.", data=drop_rows))
+            "reloads). Nothing in CARLOS reads them, so they are not "
+            "migrated -- but they are not deleted either: the import "
+            "preserves each one at o19_archive.<table> and at "
+            "<target>.import_archived_<table>, and verifies both by row "
+            "count. Review the list before migrating.", data=drop_rows))
     if archive_rows:
         findings.append(finding(
             "archive-config", ADVISORY,
-            "{0} removed-module config/log table(s) become archive-only"
-            .format(len(archive_rows)),
-            data=archive_rows))
+            "{0} removed-module config/log table(s) are preserved rather "
+            "than migrated".format(len(archive_rows)),
+            "CARLOS has no table to copy these into. The import keeps "
+            "each at o19_archive.<table> and at "
+            "<target>.import_archived_<table>.", data=archive_rows))
     if olis_rows:
         findings.append(finding(
             "olis-in-use", BLOCKER,
@@ -1462,8 +1467,12 @@ def run_checks(query, properties=None, province="on", accepted=(),
         findings.append(finding(
             "B3-dropped-columns", BLOCKER,
             "data in {0} column(s) CARLOS removed".format(len(b3_hits)),
-            "The clinic actively used a workflow whose column was dropped "
-            "(values are preserved in o19_archive shadow tables).",
+            "The clinic actively used a workflow whose column CARLOS "
+            "does not have. No value is lost: each one is preserved on "
+            "the live table as import_archived_<column>, with the source "
+            "type and every row's value, and captured to an o19_archive "
+            "shadow table as well. What stops is the workflow, not the "
+            "data -- review it with the clinic before migrating.",
             accept="dropped-columns", data=b3_hits))
 
     # --- roles, privileges and CARLOS-required data (M8) -----------------
@@ -1811,8 +1820,10 @@ def run_checks(query, properties=None, province="on", accepted=(),
                 "B2-unknown-columns", BLOCKER,
                 "{0} table(s) carry columns the manifest does not know"
                 .format(len(unknown_cols)),
-                "Vendor-fork columns: their data is captured to o19_archive "
-                "shadow tables if accepted, never silently dropped.",
+                "Vendor-fork columns. If accepted, each is preserved on "
+                "the live table as import_archived_<column> (source type, "
+                "every row) and captured to an o19_archive shadow table "
+                "as well -- never silently dropped.",
                 accept="unknown-as-archive", data=unknown_cols))
     else:
         findings.append(finding(

@@ -7,12 +7,14 @@ Run (from debian/assets):
 """
 
 import argparse
+import json
 import os
 import shutil
 import tempfile
 import unittest
 
-from carlos_ctl import o19import, o19map_schema
+from carlos_ctl import (o19etl, o19import, o19map_schema,
+                        o19report)
 
 
 class TestStateLedger(unittest.TestCase):
@@ -427,6 +429,65 @@ class TestCleanupGate(unittest.TestCase):
         self.assertIn("14 table(s)", msg)
         self.assertIn("t9: homeless", msg)
         self.assertNotIn("t10: homeless", msg)
+
+
+class TestStagingDropRefusal(unittest.TestCase):
+    """P1's first act is DROP DATABASE o19_import. That is safe while the
+    dump that made it can be restored again -- and not safe when the rows
+    belong to a dump this workspace never staged."""
+
+    def test_an_empty_staging_schema_may_be_dropped(self):
+        self.assertIsNone(o19import.staging_drop_refusal(
+            False, None, "aaa", False))
+
+    def test_rows_from_an_unknown_dump_are_refused(self):
+        msg = o19import.staging_drop_refusal(True, None, "aaa", False)
+        self.assertIsNotNone(msg)
+        self.assertIn("only copy", msg)
+        self.assertIn("--restage", msg)
+
+    def test_the_refusal_names_the_dump_the_workspace_staged(self):
+        msg = o19import.staging_drop_refusal(
+            True, "bbbbbbbbbbbbbbbb", "aaa", False)
+        self.assertIn("bbbbbbbbbbbb...", msg)
+
+    def test_an_interrupted_restore_of_the_same_dump_may_retry(self):
+        # the rows are this dump's own: mark_started recorded the digest
+        # before the drop precisely so the retry is not refused
+        self.assertIsNone(o19import.staging_drop_refusal(
+            True, "aaa", "aaa", False))
+
+    def test_restage_says_so_explicitly(self):
+        self.assertIsNone(o19import.staging_drop_refusal(
+            True, "bbb", "aaa", True))
+
+
+class TestMarkStarted(unittest.TestCase):
+    """A destructive phase records what it is about to work on BEFORE it
+    starts, so its own wreckage is distinguishable from someone else's
+    data."""
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19started-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+
+    def test_the_phase_records_its_subject_before_it_succeeds(self):
+        state = {}
+        o19import.mark_started(self.state_dir, state, "stage",
+                               dump_sha256="aaa")
+        phase = o19import.load_state(self.state_dir)["phases"]["stage"]
+        self.assertEqual(phase["status"], "in-progress")
+        self.assertEqual(phase["dump_sha256"], "aaa")
+
+    def test_a_completed_phase_is_not_reopened_by_its_own_fields(self):
+        state = {}
+        o19import.mark_done(self.state_dir, state, "stage",
+                            dump_sha256="aaa")
+        o19import.mark_started(self.state_dir, state, "stage",
+                               dump_sha256="bbb")
+        phase = o19import.load_state(self.state_dir)["phases"]["stage"]
+        self.assertEqual(phase["status"], "in-progress")
+        self.assertEqual(phase["dump_sha256"], "bbb")
 
 
 class TestInheritedImportRefusal(unittest.TestCase):
@@ -909,6 +970,147 @@ class TestVerifyPhaseFiles(unittest.TestCase):
             text = fh.read()
         self.assertNotIn("fixture.expired", text)
         self.assertEqual(text.count("P7 verify:"), 1)
+
+
+class TestTheImportReport(unittest.TestCase):
+    """The operator's validation report: the document a human uses to
+    decide whether the migration is sound.
+
+    `report.txt` is a phase log -- chronological, headerless, and (on a
+    clean import) missing the per-table counts entirely, because those
+    were written only when they were wrong.
+    """
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19report-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+
+    def ctx(self):
+        return {"state_dir": self.state_dir, "target_db": "carlos",
+                "province": "on",
+                "state": {"phases": {"stage": {
+                    "status": "done", "at": "2026-09-04T09:00:00",
+                    "dump_sha256": "abc123"}}}}
+
+    LEDGER = {"report_lines": {
+        "absent": ["log (absent: the target's own rows were cleared)"],
+        "drop": ["cr_user: 12 row(s) not migrated (removed module "
+                 "infrastructure); preserved at o19_archive.cr_user and "
+                 "carlos.import_archived_cr_user"],
+        "reference": ["icd9: 9 row(s) kept at o19_archive.icd9"],
+        "unknown": ["clinic_notes: 4 row(s) preserved"],
+        "archived_cols": ["Contact: programNo -> "
+                          "import_archived_programNo"],
+        "idmap": ["HL7Map: 3 row(s) received a new id"],
+        "fk": ["appointment.provider_no: 2 row(s) dangling"],
+        "shadow": ["Contact.gone: dropped column absent from this dump"]}}
+
+    def build(self, problems=(), ok=("demographic: staging 10 -> target "
+                                     "10",)):
+        return o19import.import_report(
+            self.ctx(), self.LEDGER, list(ok), list(problems),
+            ["row parity: 1 table(s) match"], ["1 login(s) import expired"],
+            "2026-09-04T10:00:00")
+
+    def test_the_header_names_the_dump_and_the_manifest(self):
+        text = o19report.render_text(self.build())
+        self.assertIn("target schema:        carlos", text)
+        self.assertIn("dump sha256:          abc123", text)
+        self.assertIn(o19map_schema.SCHEMA_MAP_VERSION, text)
+        self.assertIn("import started:       2026-09-04T09:00:00", text)
+
+    def test_a_clean_import_still_itemises_what_arrived(self):
+        # the gap this closes: on a clean import report.txt recorded
+        # "N table(s) match; 0 mismatch" and threw the per-table lines
+        # away, though the guide promises them
+        text = o19report.render_text(self.build())
+        self.assertIn("VERDICT: PASSED", text)
+        self.assertIn("WHAT ARRIVED", text)
+        self.assertIn("demographic: staging 10 -> target 10", text)
+
+    def test_what_did_not_arrive_says_where_it_went_instead(self):
+        text = o19report.render_text(self.build())
+        self.assertIn("WHAT DID NOT ARRIVE, AND WHERE IT WENT INSTEAD",
+                      text)
+        for line in ("preserved at o19_archive.cr_user",
+                     "icd9: 9 row(s) kept at o19_archive.icd9",
+                     "clinic_notes: 4 row(s) preserved",
+                     "import_archived_programNo",
+                     "log (absent:"):
+            self.assertIn(line, text)
+
+    def test_findings_are_ordered_by_severity_not_by_arrival(self):
+        # given in the wrong order on purpose: a report whose order is
+        # only ever right because the caller happened to append in that
+        # order is not ordered at all
+        report = o19report.build(
+            {}, "PASSED", [],
+            [o19report.finding("info", "third"),
+             o19report.finding("failure", "first"),
+             o19report.finding("advisory", "second")])
+        self.assertEqual([f["title"] for f in report["findings"]],
+                         ["first", "second", "third"])
+
+    def test_a_problem_makes_the_verdict_a_failure(self):
+        report = self.build(problems=["demographic: staging 10 -> 9"])
+        self.assertEqual(report["findings"][0]["severity"], "failure")
+        self.assertIn("FAILED (1 problem(s))", report["verdict"])
+        self.assertIn("demographic: staging 10 -> 9",
+                      o19report.render_text(report))
+
+    def test_the_next_steps_are_in_the_artifact_not_only_on_the_console(
+            self):
+        text = o19report.render_text(self.build())
+        self.assertIn("NEXT STEPS", text)
+        self.assertIn("carlos-ctl backup full", text)
+        self.assertIn("--cleanup", text)
+
+    def test_the_json_twin_carries_the_same_facts(self):
+        report = self.build()
+        twin = json.loads(o19report.render_json(report))
+        self.assertEqual(twin["verdict"], "PASSED")
+        self.assertEqual(twin["header"]["dump_sha256"], "abc123")
+        self.assertTrue(any("cr_user" in ln for s in twin["sections"]
+                            for ln in s["lines"]))
+
+    def test_an_empty_section_says_so_rather_than_vanishing(self):
+        # a heading over nothing reads as an omission; a missing section
+        # reads as "not checked"
+        report = o19import.import_report(
+            self.ctx(), {}, [], [], [], [], "2026-09-04T10:00:00")
+        text = o19report.render_text(report)
+        self.assertIn("nothing was compared", text)
+        self.assertIn("every staging table had a home in CARLOS", text)
+
+    def test_an_unknown_severity_is_refused(self):
+        with self.assertRaises(ValueError):
+            o19report.finding("catastrophe", "x")
+
+    def test_both_artifacts_are_written_root_only(self):
+        ctx = self.ctx()
+        o19etl.save_progress(self.state_dir, dict(self.LEDGER))
+        o19import.write_import_report(ctx, ["t: staging 1 -> target 1"],
+                                      [], ["row parity: 1 match"], [])
+        for name in ("import-report.txt", "import-report.json"):
+            path = os.path.join(self.state_dir, name)
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600, name)
+            self.assertIn(name, o19import.RUN_FILES)
+        with open(os.path.join(self.state_dir,
+                               "import-report.json")) as fh:
+            self.assertEqual(json.load(fh)["kind"],
+                             "carlos-o19-import-report")
+
+    def test_the_running_log_is_root_only_too(self):
+        # report.txt was the only run artifact left at the umask's 0644,
+        # and it carries table names, row counts and roles findings
+        o19import.report_append(self.state_dir, "P4 etl", "body")
+        path = os.path.join(self.state_dir, "report.txt")
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+        o19import.report_append(self.state_dir, "P7 verify", "more")
+        with open(path) as fh:
+            text = fh.read()
+        self.assertIn("== P4 etl ==", text)
+        self.assertIn("== P7 verify ==", text)
 
 
 class TestProcessGrantState(unittest.TestCase):

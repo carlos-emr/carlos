@@ -259,10 +259,22 @@ extracted bundle trees
 retires the run's ledgers, report, private files and the derived properties
 fragment with a
 .I .completed-<timestamp>
-suffix and keeps the o19_archive schema and
+suffix and keeps the o19_archive schema, the
+.B import_archived_
+tables in the EMR schema and
 .I admin-credentials.txt
 \(em allowed after verification or while nothing has been written to the
-EMR schema, never on a mid-import workspace. The pre-import backup is taken
+EMR schema, never on a mid-import workspace, and never at all while any
+staging table holds rows with no verified copy outside it (the refusal
+names the tables). The
+.B import_archived_
+tables hold the OSCAR 19 tables and columns CARLOS has no home for; being
+in the EMR schema they are covered by the nightly
+.B carlos-emr-backup
+dump, which does not cover
+.BR o19_archive .
+.B destroy-data
+drops the EMR schema and takes them with it. The pre-import backup is taken
 before the staged restore, which runs as a throwaway account limited to the
 staging schema; a dump carrying USE or CREATE DATABASE statements is
 refused.
@@ -408,11 +420,21 @@ and
 .IR privilege-diff.txt ,
 the derived
 .I o19-derived-carlos.properties
-fragment, and
+fragment, the root\-only
+.I documents-details.txt
+and
+.I o19-archive-export/
+(the CSV export of the archived tables), and
 .I admin-credentials.txt
 (the break\-glass administrator's password, kept by
 .B \-\-cleanup
 when everything else is retired).
+.I report.txt
+is the running phase log;
+.I import-report.txt
+and
+.I import-report.json
+are the operator's validation report, written at the end of verification.
 .SH EXIT STATUS
 .B check
 exits non\-zero when any check fails.

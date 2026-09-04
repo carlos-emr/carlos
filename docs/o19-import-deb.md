@@ -235,9 +235,10 @@ was disabled stays disabled; a clinic with no stock row gets a new, enabled
 Rich Text Letter. The per-run files are retired with the same
 `.completed-<timestamp>` suffix as `state.json` when the import is cleaned
 up, so a later import in the same directory starts its own: `report.txt`,
-`etl-progress.json`, `preflight.txt`, `preflight.json`, the `*-details.txt`
-files, `privilege-diff.txt` and `o19-derived-carlos.properties` (with its
-`.dry-run` twin). `admin-credentials.txt` is deliberately not among them; a
+`import-report.txt`, `import-report.json`, `etl-progress.json`,
+`preflight.txt`, `preflight.json`, the `*-details.txt`
+files, `privilege-diff.txt`, `o19-archive-export/` and
+`o19-derived-carlos.properties` (with its `.dry-run` twin). `admin-credentials.txt` is deliberately not among them; a
 previous run's copy is set aside as `admin-credentials.txt.previous-<stamp>`
 rather than overwritten.
 
@@ -314,15 +315,23 @@ gate has no override.
    lines to `/etc/carlos-emr/carlos.properties`, then `carlos-ctl restart`.
    This step is deliberately never automatic.
 2. `carlos-ctl backup full` — the post-import snapshot.
-3. **Technical review before clinical use**:
-   `/var/lib/carlos-emr/o19-import/report.txt` (row parity with the
-   break-glass delta itemized — copy tables to the row, merge tables in
-   reverse: every staging row has a target twin — referential spot checks,
-   billing totals per
-   fiscal year, documents reconciliation, archive/dropped inventory, the
-   credential tables copied verbatim to rotate/verify, the `roles:` lines
-   and the verify advisories), plus manual spot checks and a UI smoke of
-   the migrated charts. The report is written to be shareable; the
+3. **Technical review before clinical use**: start at
+   `/var/lib/carlos-emr/o19-import/import-report.txt` — the validation
+   report, written at the end of verification and built for exactly this
+   review. It carries a header (manifest, dump digest, target schema,
+   timestamps), a verdict line, **what arrived** (per-table row counts for
+   every class: copy tables to the row with the break-glass delta itemized,
+   merge tables in reverse — every staging row has a target twin —,
+   preserved tables counted three ways, preserved columns counted by
+   non-null value), **what did not arrive and where it went instead**
+   (absent tables, reference tables CARLOS's own data won, removed-module
+   and unclassified tables, preserved columns), then findings ordered by
+   severity and the remaining operator steps.
+   `import-report.json` is the same content machine-readable, for diffing
+   two imports or feeding a checklist. `report.txt` next to it is the
+   running phase log — chronological, and the place to look for what a
+   given phase did. Add manual spot checks and a UI smoke of the migrated
+   charts. The report is written to be shareable; the
    per-patient lines of the spot check (which name patient identifiers) go
    to `verify-details.txt` next to it, root-only, as do `privilege-diff.txt`
    and `roles-details.txt`. Confirm each clinic-custom role's privileges in
@@ -335,7 +344,8 @@ gate has no override.
    run can neither be resumed nor mistaken for a fresh one; only
    `admin-credentials.txt` stays under its own name); the `o19_archive` schema
    (removed-module data + dropped-column shadows + the OSCAR 19 token
-   tables, which are never copied live) is kept for the clinic, and so is
+   tables, which are never copied live) is kept for the clinic, as are the
+   `import_archived_` tables and columns in the EMR schema, and so is
    its CSV export — but the export directory is retired with the rest of the
    run, so after `--cleanup` collect it from
    `/var/lib/carlos-emr/o19-import/o19-archive-export.completed-<timestamp>/`
@@ -346,16 +356,40 @@ gate has no override.
    Cleanup is allowed after a passed verification, or while nothing has
    been written to the target (after a dry run or an aborted assessment) —
    never on a mid-import workspace, whose only resume ledger it would
-   destroy.
+   destroy, and never while any staging table still holds rows with no
+   verified copy outside it (the refusal names the tables). That second
+   check is asked of the *data* rather than of the run, so `--dev-target`
+   does not waive it.
 
-## What is archive-only after migration
+## What is preserved rather than migrated
 
-Data from modules CARLOS removed is preserved in the `o19_archive` schema
-and as CSV, but has no UI: deprecated antenatal forms (ONAR/AR), generic
-intake, OCAN, eyeform, drug dispensing records, CAISI beds/rooms, PHR
-copies, Integrator consents, report-runner templates, OLIS preferences.
-The preflight report enumerates exactly which of these hold rows for a
-given clinic — that list is the clinic's sign-off.
+CARLOS has no home for some of what an OSCAR 19 database holds: modules it
+removed, tables a clinic's own fork added, columns that no longer exist.
+None of it is discarded. Every such table and column is preserved in two
+places, and the verification counts both before it passes:
+
+| what | where it lands |
+|---|---|
+| a table CARLOS does not have (removed module, clinic fork) | `o19_archive.<table>` **and** `<emr-schema>.import_archived_<table>` |
+| a reference table CARLOS seeds itself | `o19_archive.<table>` — CARLOS's own rows win in the live table |
+| a column CARLOS does not have (dropped or clinic fork) | `<emr-schema>.<table>.import_archived_<column>`, source type and every row, plus an `o19_archive` shadow capture |
+
+The two homes answer different needs. `o19_archive` is the verification
+copy and the source of the CSV export the clinic is handed; it is dropped
+by hand once they hold that export, and the nightly `carlos-emr-backup`
+does not dump it. The `import_archived_` objects live in the EMR schema,
+so they *are* in that backup, they survive `--cleanup`, and they are
+reachable with an ordinary SQL query a year later. Nothing in the
+application reads either: no UI, no report, no API. `carlos-ctl
+destroy-data` drops the EMR schema and takes the `import_archived_`
+objects with it.
+
+Archive-only data has no UI even where its table looks familiar:
+deprecated antenatal forms (ONAR/AR), generic intake, OCAN, eyeform, drug
+dispensing records, CAISI beds/rooms, PHR copies, Integrator consents,
+report-runner templates, OLIS preferences. The preflight report enumerates
+exactly which of these hold rows for a given clinic — that list is the
+clinic's sign-off.
 
 ## Troubleshooting
 
