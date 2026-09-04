@@ -284,9 +284,9 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
         self.assertEqual(self.mod.scaffold("p1", []), "")
 
 
-class TestTheMergeOracleStaysUsable(unittest.TestCase):
+class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
 
-    """verify_merge_semantics.py is a maintainer tool with no CI job, so
+    """verify_sql_semantics.py is a maintainer tool with no CI job, so
     the cheapest guard against rot is that it still imports and still
     describes the table it drives.
 
@@ -296,8 +296,8 @@ class TestTheMergeOracleStaysUsable(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         spec = importlib.util.spec_from_file_location(
-            "verify_merge_semantics",
-            GEN.parent / "verify_merge_semantics.py")
+            "verify_sql_semantics",
+            GEN.parent / "verify_sql_semantics.py")
         cls.mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.mod)
 
@@ -310,6 +310,13 @@ class TestTheMergeOracleStaysUsable(unittest.TestCase):
         self.assertEqual(entry["surrogate_pk"],
                          self.mod.ENTRY["surrogate_pk"])
         self.assertEqual(entry["cols"], self.mod.ENTRY["cols"])
+
+    def test_the_charset_samples_all_survive_a_cp1252_round_trip(self):
+        # MySQL's latin1 is CP1252: a sample whose UTF-8 bytes are not
+        # decodable as CP1252 could not be stored by a real O19 either, so
+        # it would be checking a case that cannot happen
+        for good in self.mod.CHARSET_SAMPLES:
+            good.encode("utf-8").decode("cp1252")
 
     def test_every_scenario_states_why_it_exists(self):
         # a scenario with no stated reason is a scenario nobody can judge

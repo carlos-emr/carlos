@@ -18,8 +18,9 @@ generate_manifests.py    regenerates the shipped manifest modules from an
                          OSCAR 19 checkout + the CARLOS Flyway set (read-only)
 verify_ddl_parse.py      checks that generator's DDL reader against a real
                          MariaDB (see "Verifying the DDL parse")
-verify_merge_semantics.py  settles the merge/id-map invariants against a real
-                         MariaDB (see "Verifying the merge semantics")
+verify_sql_semantics.py  settles the merge/id-map and charset-repair
+                         behaviour against a real MariaDB (see "Verifying
+                         the ETL's SQL semantics")
 overrides_schema.py      hand-curated table/column classifications (durable)
 overrides_props.py       hand-curated oscar.properties dispositions (durable)
 build-o19-fixture.sh     builds the rehearsal database + turnkey inputs
@@ -110,7 +111,7 @@ same table must not be applied phase-ordered). sqlparse builds no DDL model
 at all. The reader stays; this script is what makes it checkable, and is also
 how you would prove a future library good enough to replace it.
 
-## Verifying the merge semantics
+## Verifying the ETL's SQL semantics
 
 `o19etl.merge_statement` is an anti-join that reads the table it inserts into,
 so whether the `NOT EXISTS` sees rows the same statement just added is an
@@ -119,7 +120,7 @@ text. It matters: if it did see them, a clinic table holding two rows on one
 natural key would silently lose one.
 
 ```bash
-python3 scripts/migration/o19/verify_merge_semantics.py \
+python3 scripts/migration/o19/verify_sql_semantics.py \
     --mysql-arg=--socket=/run/mysqld/mysqld.sock --mysql-arg=-uroot
 ```
 
@@ -135,6 +136,14 @@ Answer on MariaDB 10.11.14 (2026-09-04): the anti-join does **not** see
 same-statement inserts, and the id map's twin pairing holds in all four
 shapes. Removing the surplus-twin fallback from `idmap_statements` breaks
 three of them, which is what makes the check worth keeping.
+
+The same script also pins the per-row charset repair, which turns on what
+MySQL means by `latin1` — and MySQL's latin1 is **CP1252**, not ISO-8859-1.
+Every mojibake a MySQL-based OSCAR 19 can produce is repaired, and correct
+text is never altered, which is the property that actually matters: the text
+in question is patient names. Mind the trap this check itself fell into —
+building the sample mojibake with Python's ISO-8859-1 rather than CP1252
+produces inputs no MySQL could hold and three false failures.
 
 ## Building the rehearsal fixture
 

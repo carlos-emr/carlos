@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 CARLOS Contributors
-"""verify_merge_semantics.py — settle the merge/id-map invariants against a
-real MariaDB.
+"""verify_sql_semantics.py — settle the ETL SQL behaviours that only a real
+engine can answer.
+
+Two of them, both in the P4 copy path, both previously reasoned about rather
+than run: the merge anti-join's visibility of its own inserts, and the
+per-row charset repair.
 
 `o19etl.merge_statement` is an anti-join that reads the table it inserts
 into::
@@ -37,8 +41,19 @@ Usage (needs a MariaDB/MySQL the invoking user can create schemas on; the
 scratch schemas are dropped and recreated on every run -- throwaway server
 only, never a clinic's):
 
-    python3 scripts/migration/o19/verify_merge_semantics.py \\
+    python3 scripts/migration/o19/verify_sql_semantics.py \\
         --mysql-arg=--socket=/run/mysqld/mysqld.sock --mysql-arg=-uroot
+
+## The charset repair
+
+`repair_expr` rewrites a value that is provably double-encoded and leaves
+everything else alone. Which values are "provably double-encoded" depends on
+what MySQL means by `latin1`, and MySQL's latin1 is **CP1252**, not
+ISO-8859-1: bytes 0x80-0x9F are printable symbols there, not C1 controls.
+That distinction decides whether a clinic's accented names survive, so it is
+checked against the server rather than argued about. (It also makes synthetic
+test data easy to get wrong -- the first draft of this check built its
+mojibake with Python's ISO-8859-1 and reported three false failures.)
 
 Exit codes: 0 = every invariant held; 1 = at least one failed (printed);
 2 = usage or connection error.
@@ -246,9 +261,59 @@ def same_statement_visibility(client: Client, dst: str, src: str) -> str:
             else "unexpected: {0} rows".format(n))
 
 
+# Values whose UTF-8 bytes, misread as latin1, produce the mojibake a real
+# OSCAR 19 accumulates. "plain ascii" is the control: nothing to repair, and
+# nothing may change.
+CHARSET_SAMPLES = ["Santé", "naïve Ünder", "€100", "Français œuvre",
+                   "plain ascii"]
+
+
+def check_charset_repair(client: Client, db: str) -> List[str]:
+    """Repair the mojibake a MySQL-based O19 can produce; touch nothing else.
+
+    The second property is the one that matters most: a repair that mangled
+    correct text would be far worse than one that misses a case, because the
+    text in question is patient names. Rows the predicate cannot prove are
+    double-encoded pass through untouched by design.
+    """
+    client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+               .format(db))
+    client.run("CREATE TABLE t (id int, v varchar(255)) "
+               "DEFAULT CHARSET=utf8mb4;", db)
+
+    cases = []          # (id, stored, expected_after_repair, label)
+    for good in CHARSET_SAMPLES:
+        # what the old system stored when it read UTF-8 bytes as latin1,
+        # latin1 being CP1252 -- which is what MySQL's latin1 is
+        cases.append((len(cases) + 1, good.encode("utf-8").decode("cp1252"),
+                      good, "mojibake"))
+        cases.append((len(cases) + 1, good, good, "already correct"))
+    values = ", ".join(
+        "({0}, '{1}')".format(n, v.replace("\\", "\\\\").replace("'", "\\'"))
+        for n, v, _w, _l in cases)
+    client.run("INSERT INTO t VALUES {0};".format(values), db)
+
+    rows = client.rows("SELECT id, {0} FROM t s ORDER BY id"
+                       .format(o19etl.repair_expr("s.`v`")), db)
+    got = dict((int(r[0]), r[1]) for r in rows)
+    failures = []
+    print("\n  charset repair")
+    for n, stored, want, label in cases:
+        ok = got.get(n) == want
+        print("    {0:<16} {1!r:<26} -> {2!r:<18} {3}".format(
+            label, stored, got.get(n), "ok" if ok else "MISMATCH"))
+        if not ok:
+            failures.append(
+                "{0} {1!r} became {2!r}, expected {3!r}".format(
+                    label, stored, got.get(n), want))
+    client.run("DROP DATABASE IF EXISTS `{0}`;".format(db))
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
-        description="verify the merge and id-map invariants against MariaDB")
+        description="verify the ETL's merge, id-map and charset-repair "
+                    "behaviour against MariaDB")
     ap.add_argument("--mysql-cmd", default="mariadb",
                     help="client binary (default: mariadb)")
     ap.add_argument("--mysql-arg", action="append", default=[],
@@ -281,14 +346,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         found = check(client, sc, dst, src, arch)
         if found:
             failures[sc.name] = found
+    charset = check_charset_repair(client, args.prefix + "_cs")
+    if charset:
+        failures["charset repair"] = charset
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
         return 1
-    print("\nOK - every scenario held: the seed wins, the clinic's twins are "
-          "preserved, and every source id is mapped")
+    print("\nOK - the seed wins, the clinic's twins are preserved, every "
+          "source id is mapped, and the charset repair fixes mojibake "
+          "without touching correct text")
     return 0
 
 
