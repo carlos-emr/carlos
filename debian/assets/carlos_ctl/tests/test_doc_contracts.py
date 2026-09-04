@@ -150,6 +150,40 @@ class TestPreservationIsDescribedConsistently(unittest.TestCase):
         self.assertNotIn("preserved in o19_archive shadow tables", source)
 
 
+class TestFixtureProvenanceMatchesTheManifest(unittest.TestCase):
+
+    """PROVENANCE.md is the instruction a future re-vendorer follows. It
+    names the placeholder account names the fixture keeps byte-identical
+    and asserts the toolchain still treats those keys as credential-
+    shaped. A review round found those two statements contradicting each
+    other; this keeps them from drifting apart again."""
+
+    #: the placeholder account names the provenance record calls out, as
+    #: `key=value` inside the parenthetical
+    PLACEHOLDER_RE = re.compile(r"`([A-Za-z_][\w.]*)=[^`]*`")
+
+    def test_placeholder_account_keys_are_credential_shaped(self):
+        prov = (ROOT / "scripts" / "migration" / "o19" / "fixtures"
+                / "PROVENANCE.md")
+        if not prov.is_file():
+            self.skipTest("fixture provenance not in this checkout")
+        from carlos_ctl import o19map_props
+        text = prov.read_text(encoding="utf-8")
+        clause = text.split("placeholder account names", 1)
+        self.assertEqual(len(clause), 2,
+                         "PROVENANCE.md no longer names placeholder "
+                         "account names -- the contract has lost its "
+                         "subject and would pass vacuously")
+        names = self.PLACEHOLDER_RE.findall(clause[1].split(".", 1)[0])
+        self.assertTrue(names, "no `key=value` placeholders parsed")
+        for key in names:
+            self.assertIn(
+                key, o19map_props.SECRET_DEFAULT_KEYS,
+                "PROVENANCE.md calls {0} a placeholder account name, but "
+                "the manifest does not classify it credential-shaped, so "
+                "its stock value would ship in O19_DEFAULTS".format(key))
+
+
 class TestNamedJavaGuardsExist(unittest.TestCase):
 
     """The guide points a reader at the maven test that fails the build
