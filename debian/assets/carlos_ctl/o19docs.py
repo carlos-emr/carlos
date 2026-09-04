@@ -772,6 +772,40 @@ def reconcile(query, dst_schema: str, ctx_root: str
     return problems, lines, private
 
 
+#: rows held in memory at once while exporting one archive table. The
+#: query client buffers the whole result set of a statement and
+#: `batch_rows` then materialises a second copy of it, so a single
+#: `SELECT * FROM <archive table>` put the entire table in memory twice,
+#: as root, on a host that is also running MariaDB. The archive schema
+#: is the one place a clinic's own data decides the size -- a fork's
+#: table, or a merge table's full staging copy -- so the read has to be
+#: bounded by the tool rather than by the dump.
+CSV_EXPORT_WINDOW = 50000
+
+
+def _windowed(query, base_sql: str, window: Optional[int] = None):
+    """Yield rows of `base_sql` a window at a time.
+
+    `base_sql` must already carry a total ORDER BY, which is what makes
+    LIMIT/OFFSET a partition of the result rather than an arbitrary
+    re-slice of it. A short window is the last one, so a table whose
+    size is an exact multiple costs one extra empty query and nothing
+    else."""
+    # read at call time, not bound as a default: a default is fixed when
+    # the function is defined, so the constant could not be overridden --
+    # by a test, or by a future flag
+    window = CSV_EXPORT_WINDOW if window is None else window
+    offset = 0
+    while True:
+        rows = query("{0} LIMIT {1} OFFSET {2}".format(
+            base_sql, int(window), int(offset)))
+        for row in rows:
+            yield row
+        if len(rows) < window:
+            return
+        offset += window
+
+
 def export_archive_csv(query, archive_schema: str, out_dir: str
                        ) -> List[str]:
     """Write every o19_archive table as CSV so the clinic holds a readable
@@ -803,10 +837,13 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
         select = ", ".join("{0}, ({0} IS NULL)".format(o19etl.ident(c))
                            for c in cols)
         # ordered so a re-run of P5 rewrites the same file, not the same
-        # rows in a different order (the clinic diffs these between passes)
-        rows = query("SELECT {0} FROM {1}.{2} ORDER BY {3}".format(
+        # rows in a different order (the clinic diffs these between
+        # passes) -- and the same ORDER BY is what makes the windowing
+        # below safe, since a stable total order gives every window a
+        # well-defined LIMIT/OFFSET slice
+        base = "SELECT {0} FROM {1}.{2} ORDER BY {3}".format(
             select, o19etl.ident(archive_schema), o19etl.ident(table),
-            ", ".join(str(i) for i in range(1, len(cols) * 2 + 1, 2))))
+            ", ".join(str(i) for i in range(1, len(cols) * 2 + 1, 2)))
         path = os.path.join(out_dir, table + ".csv")
         # created with the final mode: the rows are archived clinical data
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
@@ -822,7 +859,8 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
                       else csv.writer(fh))
             writer.writerow(cols)
             width = len(cols) * 2
-            for r in rows:
+            written = 0
+            for r in _windowed(query, base):
                 if len(r) != width:
                     # a padded or truncated row would write a plausible
                     # but wrong archive of clinical data with no signal:
@@ -836,7 +874,8 @@ def export_archive_csv(query, archive_schema: str, out_dir: str
                 out = [None if r[i + 1] == "1" else r[i]
                        for i in range(0, width, 2)]
                 writer.writerow(out)
-        lines.append("{0}.csv: {1} row(s)".format(table, len(rows)))
+                written += 1
+        lines.append("{0}.csv: {1} row(s)".format(table, written))
     return lines
 
 

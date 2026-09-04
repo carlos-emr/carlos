@@ -15,6 +15,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 from carlos_ctl import o19docs
 
@@ -743,6 +744,67 @@ class TestArchiveCsvExport(unittest.TestCase):
                           ["2", "back\\nslash"]])   # decoded exactly once
 
 
+class TestArchiveCsvWindowing(unittest.TestCase):
+
+    """The export reads one window at a time.
+
+    A `SELECT *` over an archive table put the whole table in memory
+    twice -- the client buffers the result set and `batch_rows`
+    materialises a second copy -- as root, on a host that is also
+    running MariaDB. The archive schema is the one place a clinic's own
+    data decides the size, so the read has to be bounded by the tool.
+    """
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp(prefix="o19csvwin-")
+        self.addCleanup(shutil.rmtree, self.work)
+        self.seen = []
+
+    def query_for(self, total, window):
+        def q(sql):
+            self.seen.append(sql)
+            if sql.startswith("SELECT TABLE_NAME"):
+                return [["t"]]
+            if sql.startswith("SELECT COLUMN_NAME"):
+                return [["a"]]
+            off = int(sql.rsplit("OFFSET ", 1)[1])
+            take = max(0, min(window, total - off))
+            return [[str(off + i), "0"] for i in range(take)]
+        return q
+
+    def rows_written(self):
+        with open(os.path.join(self.work, "t.csv")) as fh:
+            return [ln for ln in fh.read().splitlines() if ln][1:]
+
+    def test_a_table_larger_than_one_window_is_read_in_windows(self):
+        with mock.patch.object(o19docs, "CSV_EXPORT_WINDOW", 10):
+            lines = o19docs.export_archive_csv(
+                self.query_for(25, 10), "arch", self.work)
+        selects = [s for s in self.seen if " OFFSET " in s]
+        self.assertEqual([int(s.rsplit("OFFSET ", 1)[1]) for s in selects],
+                         [0, 10, 20])
+        self.assertEqual(len(self.rows_written()), 25)
+        self.assertIn("t.csv: 25 row(s)", lines)
+
+    def test_every_row_arrives_exactly_once_and_in_order(self):
+        # a windowed read that repeats or drops a slice would still
+        # produce a plausible CSV, and for an archive-only table this
+        # file is the only copy the clinic keeps
+        with mock.patch.object(o19docs, "CSV_EXPORT_WINDOW", 4):
+            o19docs.export_archive_csv(
+                self.query_for(11, 4), "arch", self.work)
+        self.assertEqual([r.strip('"') for r in self.rows_written()],
+                         [str(i) for i in range(11)])
+
+    def test_an_exact_multiple_costs_one_empty_window(self):
+        with mock.patch.object(o19docs, "CSV_EXPORT_WINDOW", 5):
+            o19docs.export_archive_csv(
+                self.query_for(10, 5), "arch", self.work)
+        selects = [s for s in self.seen if " OFFSET " in s]
+        self.assertEqual(len(selects), 3)
+        self.assertEqual(len(self.rows_written()), 10)
+
+
 class TestArchiveCsvRowShape(unittest.TestCase):
 
     """Row width and ordering in the CSV export.
@@ -790,7 +852,10 @@ class TestArchiveCsvRowShape(unittest.TestCase):
             return [["1", "0", "x", "0"]]
 
         o19docs.export_archive_csv(q, "arch", out)
-        self.assertTrue(seen[0].endswith("ORDER BY 1, 3"), seen[0])
+        # the ORDER BY is what makes the LIMIT/OFFSET windowing a
+        # partition of the result rather than an arbitrary re-slice, so
+        # it must sit immediately before the window clause
+        self.assertIn("ORDER BY 1, 3 LIMIT ", seen[0])
 
 
 class TestArchiveCsvNulls(unittest.TestCase):
