@@ -257,15 +257,27 @@ function seedProvider(providerNo, lastName) {
        VALUES ('${escapeSql(providerNo)}', '${escapeSql(lastName)}', 'RoleCheck', 'doctor', '1', '-1', NOW())`);
 }
 
+/*
+ * Ordered by the foreign keys that reference provider.provider_no.
+ *
+ * Every delete is attempted even after one fails, and every failure is
+ * reported: letting the first error propagate would skip the remaining tables
+ * AND the provider row itself, which is the same stranded fixture that
+ * swallowing the errors produced — just arrived at from the other direction.
+ *
+ * @return the failures encountered, empty when the fixture is fully removed
+ */
 function removeProvider(providerNo) {
-  // Ordered by the foreign keys that reference provider.provider_no. Errors are
-  // NOT swallowed: a cleanup that half-fails leaves a seeded provider and an
-  // `admin` grant behind in the target database, which must never be reported
-  // as a clean run.
-  for (const table of ['secUserRole', 'program_provider', 'provider_facility', 'security']) {
-    sql(`DELETE FROM ${table} WHERE provider_no='${escapeSql(providerNo)}'`);
+  const failures = [];
+  const tables = ['secUserRole', 'program_provider', 'provider_facility', 'security', 'provider'];
+  for (const table of tables) {
+    try {
+      sql(`DELETE FROM ${table} WHERE provider_no='${escapeSql(providerNo)}'`);
+    } catch (error) {
+      failures.push(`${table}: ${error.message}`);
+    }
   }
-  sql(`DELETE FROM provider WHERE provider_no='${escapeSql(providerNo)}'`);
+  return failures;
 }
 
 /*
@@ -283,11 +295,7 @@ function runCleanupOnce() {
     // Cleared first: a second entry (finally after a signal) must not re-run
     // the deletes or double-report them.
     seededProviderNo = null;
-    try {
-      removeProvider(providerNo);
-    } catch (error) {
-      failures.push(`removing fixture provider failed: ${error.message}`);
-    }
+    failures.push(...removeProvider(providerNo));
     // Verify, rather than trust, that nothing was left behind.
     try {
       const leftover = sql(`SELECT COUNT(*) FROM provider WHERE provider_no='${escapeSql(providerNo)}'`);
@@ -361,7 +369,13 @@ async function run() {
       await addButton.click({ timeout: 30000 });
     } catch (error) {
       addButtonEnabled = false;
-      addButtonDetail = `Add stayed disabled after selecting "${SUPER_ROOT_ROLE}"`;
+      // click() also fails when the element is detached, hidden or obstructed,
+      // so read the real state before blaming the change handler — otherwise a
+      // failing check points at the wrong thing.
+      const stillDisabled = await addButton.isDisabled().catch(() => null);
+      addButtonDetail = stillDisabled === true
+        ? `Add stayed disabled after selecting "${SUPER_ROOT_ROLE}"`
+        : `Add could not be clicked (disabled=${stillDisabled}): ${String(error.message).split('\n')[0].slice(0, 200)}`;
     }
     check('the role change handler enables Add, and the click submits',
       addButtonEnabled, addButtonDetail);
