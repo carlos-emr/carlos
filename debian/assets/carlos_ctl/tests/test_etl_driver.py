@@ -284,14 +284,19 @@ class TestTheCopyPath(EtlDriverBase):
 
     def test_an_archive_table_is_copied_whole_to_the_archive_schema(self):
         db, _lines, counts = self.run_etl()
-        self.assertEqual(
-            self.writes_matching(db, r"`o19_archive`\.`Eyeform`"),
-            ["DROP TABLE IF EXISTS `o19_archive`.`Eyeform`",
-             "CREATE TABLE `o19_archive`.`Eyeform` LIKE "
-             "`o19_import`.`Eyeform`",
-             "INSERT INTO `o19_archive`.`Eyeform` SELECT * FROM "
-             "`o19_import`.`Eyeform`"])
+        self.assertIn("CREATE TABLE `o19_archive`.`Eyeform__new` LIKE "
+                      "`o19_import`.`Eyeform`", db.writes)
+        self.assertIn("INSERT INTO `o19_archive`.`Eyeform__new` SELECT * "
+                      "FROM `o19_import`.`Eyeform`", db.writes)
         self.assertEqual(counts["archive"], 1)
+
+    def test_no_archive_rebuild_ever_drops_the_live_copy(self):
+        # the archive is the clinic's only copy of what CARLOS has no
+        # home for; every DROP the rebuild issues must name a scratch
+        db, _lines, _counts = self.run_etl()
+        for sql in self.writes_matching(db, r"^DROP TABLE .*`o19_archive`"):
+            self.assertRegex(sql, r"__(new|old)`$",
+                             "a DROP named a live archive table: " + sql)
 
     def test_a_merge_table_is_merged_and_gets_an_id_map(self):
         db, _lines, counts = self.run_etl()
@@ -381,9 +386,9 @@ class TestShadowCapture(EtlDriverBase):
     def test_a_dropped_column_is_shadow_captured(self):
         db, _lines, _counts = self.run_etl()
         shadow = self.writes_matching(
-            db, r"`o19_archive`\.`Contact__dropped`")
+            db, r"`o19_archive`\.`Contact__dropped__new`")
         self.assertTrue(shadow, db.writes)
-        self.assertIn("s.`programNo`", shadow[-1])
+        self.assertTrue(any("s.`programNo`" in x for x in shadow), shadow)
 
     def test_a_vendor_fork_column_is_shadow_captured_and_reported(self):
         db, lines, counts = self.run_etl()

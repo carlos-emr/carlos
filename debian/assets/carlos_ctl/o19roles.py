@@ -45,6 +45,7 @@ import re
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from . import o19map_schema
+from . import o19etl
 from .o19etl import _sql_str, appended_row_count_sql
 
 # --- constants --------------------------------------------------------------
@@ -120,15 +121,23 @@ def snapshot_table(table: str) -> str:
 # --- pure statement builders ------------------------------------------------
 
 def snapshot_statements(dst_schema: str, archive_schema: str) -> List[str]:
-    """Copy the CARLOS seed of the role tables into o19_archive (DROP +
-    CREATE ... AS SELECT, the archive idiom) before any clinic row lands."""
+    """Copy the CARLOS seed of the role tables into o19_archive before any
+    clinic row lands.
+
+    Built beside the previous snapshot and swapped in, never dropped
+    first: this is taken BEFORE the merges, so once they have run the
+    target no longer holds only the seed and the snapshot cannot be
+    recreated. A DROP whose CREATE then failed would take the privilege
+    baseline the roles step diffs against with it.
+    """
     out = []
     for table in SNAPSHOT_TABLES:
-        snap = snapshot_table(table)
-        out.append("DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema,
-                                                             snap))
-        out.append("CREATE TABLE `{0}`.`{1}` AS SELECT * FROM `{2}`.`{3}`"
-                   .format(archive_schema, snap, dst_schema, table))
+        out.extend(o19etl.rebuild_statements(
+            archive_schema, snapshot_table(table),
+            lambda scratch, t=table: [
+                "CREATE TABLE `{0}`.{1} AS SELECT * FROM `{2}`.`{3}`"
+                .format(archive_schema, o19etl.ident(scratch),
+                        dst_schema, t)]))
     return out
 
 

@@ -205,24 +205,30 @@ class TestSurrogateIdRemap(unittest.TestCase):
         # target rows (MIN() would fold both onto one id and lose a row)
         stmts = o19etl.idmap_statements("LookupList", self.PARENT, "src",
                                         "dst", "arch", self.PARENT_DST)
-        self.assertEqual(len(stmts), 3)
-        self.assertIn("`arch`.`LookupList__idmap`", stmts[1])
-        self.assertIn("old_id BIGINT NOT NULL PRIMARY KEY", stmts[1])
+        create = next(x for x in stmts
+                      if x.startswith('CREATE TABLE `arch`'))
+        insert = next(x for x in stmts
+                      if x.startswith('INSERT INTO'))
+        # DROP __new, DROP __old, CREATE __new, INSERT,
+        # CREATE IF NOT EXISTS live, RENAME swap, DROP __old
+        self.assertEqual(len(stmts), 7)
+        self.assertIn("`arch`.`LookupList__idmap__new`", create)
+        self.assertIn("old_id BIGINT NOT NULL PRIMARY KEY", create)
         # the SOURCE partitions on the expression the insert stores, so
         # a key the manifest rewrites cannot split one target row's twins
         # across two partitions (both would then map to the same new id)
         self.assertIn("ROW_NUMBER() OVER (PARTITION BY s.`name` ORDER BY "
-                      "s.`id`) AS rn FROM `src`.`LookupList` s", stmts[2])
+                      "s.`id`) AS rn FROM `src`.`LookupList` s", insert)
         self.assertIn("ROW_NUMBER() OVER (PARTITION BY `name` ORDER BY "
-                      "`id`) AS rn FROM `dst`.`LookupList`", stmts[2])
-        self.assertIn("ON d.`name` <=> s.`name` AND s.rn = d.rn", stmts[2])
-        self.assertNotIn("MIN(", stmts[2])
+                      "`id`) AS rn FROM `dst`.`LookupList`", insert)
+        self.assertIn("ON d.`name` <=> s.`name` AND s.rn = d.rn", insert)
+        self.assertNotIn("MIN(", insert)
         # a surplus twin (its key already satisfied by a seed row, so the
         # anti-join appended nothing) falls back to the target's first row
-        self.assertIn("LEFT JOIN", stmts[2])
-        self.assertIn("d1 ON d1.`name` <=> s.`name` AND d1.rn = 1", stmts[2])
-        self.assertIn("COALESCE(d.`id`, d1.`id`)", stmts[2])
-        self.assertTrue(stmts[2].endswith("IS NOT NULL"))
+        self.assertIn("LEFT JOIN", insert)
+        self.assertIn("d1 ON d1.`name` <=> s.`name` AND d1.rn = 1", insert)
+        self.assertIn("COALESCE(d.`id`, d1.`id`)", insert)
+        self.assertTrue(insert.endswith("IS NOT NULL"))
 
     def test_the_source_partition_uses_the_rewritten_key(self):
         # value_exprs maps '' to NULL: two source rows with '' and NULL
@@ -231,9 +237,11 @@ class TestSurrogateIdRemap(unittest.TestCase):
         entry["value_exprs"] = {"name": "NULLIF(s.`name`, '')"}
         stmts = o19etl.idmap_statements("LookupList", entry, "src", "dst",
                                         "arch", self.PARENT_DST)
-        self.assertIn("PARTITION BY NULLIF(s.`name`, '')", stmts[2])
-        self.assertIn("d.`name` <=> NULLIF(s.`name`, '')", stmts[2])
-        self.assertIn("d1.`name` <=> NULLIF(s.`name`, '')", stmts[2])
+        insert = next(x for x in stmts
+                      if x.startswith('INSERT INTO'))
+        self.assertIn("PARTITION BY NULLIF(s.`name`, '')", insert)
+        self.assertIn("d.`name` <=> NULLIF(s.`name`, '')", insert)
+        self.assertIn("d1.`name` <=> NULLIF(s.`name`, '')", insert)
 
     def test_no_idmap_without_surrogate(self):
         self.assertEqual(o19etl.idmap_statements(
@@ -385,10 +393,10 @@ class TestUnknownSchemaCapture(unittest.TestCase):
                "vendor_flag": col()}
         stmts = o19etl.unknown_column_shadow_statements(
             "t", self.ENTRY, "src", "arch", src)
-        self.assertEqual(len(stmts), 2)
-        self.assertIn("`arch`.`t__unknown_cols`", stmts[1])
+        ctas = next(x for x in stmts if x.startswith("CREATE TABLE `arch`"))
+        self.assertIn("`arch`.`t__unknown_cols__new`", ctas)
         self.assertIn("SELECT s.`id`, s.`vendor_flag` FROM `src`.`t` s "
-                      "WHERE s.`vendor_flag` IS NOT NULL", stmts[1])
+                      "WHERE s.`vendor_flag` IS NOT NULL", ctas)
 
     def test_nothing_unknown_yields_no_statements(self):
         src = {"id": col("int"), "name": col(), "legacy": col()}
@@ -415,14 +423,28 @@ class TestCharsetScanFailures(unittest.TestCase):
 
 class TestArchiveAndShadow(unittest.TestCase):
 
-    def test_archive_rebuilds_deterministically(self):
+    def test_archive_rebuilds_without_ever_dropping_the_live_copy(self):
+        # the archive holds the clinic's ONLY copy of records CARLOS has
+        # no home for, so the rebuild builds beside it and swaps: the
+        # only DROPs name our own scratch tables, never the live one
         stmts = o19etl.archive_statements("formONAR", "src", "arch")
-        self.assertEqual(stmts[0],
-                         "DROP TABLE IF EXISTS `arch`.`formONAR`")
-        self.assertIn("CREATE TABLE `arch`.`formONAR` LIKE "
-                      "`src`.`formONAR`", stmts[1])
-        self.assertIn("INSERT INTO `arch`.`formONAR` SELECT * FROM "
-                      "`src`.`formONAR`", stmts[2])
+        drops = [x for x in stmts if x.startswith("DROP TABLE")]
+        self.assertTrue(drops)
+        for d in drops:
+            self.assertRegex(d, r"`formONAR__(new|old)`$",
+                             "a DROP named the live archive table: " + d)
+        self.assertIn("CREATE TABLE `arch`.`formONAR__new` LIKE "
+                      "`src`.`formONAR`", stmts)
+        self.assertIn("INSERT INTO `arch`.`formONAR__new` SELECT * FROM "
+                      "`src`.`formONAR`", stmts)
+        # and the swap is one atomic RENAME, so there is no moment at
+        # which neither copy exists
+        rename = [x for x in stmts if x.startswith("RENAME TABLE")]
+        self.assertEqual(len(rename), 1, stmts)
+        self.assertEqual(
+            rename[0],
+            "RENAME TABLE `arch`.`formONAR` TO `arch`.`formONAR__old`, "
+            "`arch`.`formONAR__new` TO `arch`.`formONAR`")
 
     def test_shadow_captures_dropped_columns_with_predicate(self):
         entry = {"class": "copy", "cols": ["id", "name"], "chunk_by": "id",
@@ -430,10 +452,12 @@ class TestArchiveAndShadow(unittest.TestCase):
                      "nondefault": "s.`legacy` IS NOT NULL"}}}
         src = {"id": col("int"), "name": col(), "legacy": col()}
         stmts = o19etl.shadow_statements("t", entry, "src", "arch", src)
-        self.assertEqual(len(stmts), 2)
-        self.assertIn("`arch`.`t__dropped`", stmts[1])
-        self.assertIn("WHERE (s.`legacy` IS NOT NULL)", stmts[1])
-        self.assertIn("s.`id`", stmts[1])
+        ctas = next(x for x in stmts if x.startswith("CREATE TABLE `arch`"))
+        self.assertIn("`arch`.`t__dropped__new`", ctas)
+        self.assertIn("WHERE (s.`legacy` IS NOT NULL)", ctas)
+        self.assertIn("s.`id`", ctas)
+        for d in [x for x in stmts if x.startswith("DROP TABLE")]:
+            self.assertRegex(d, r"`t__dropped__(new|old)`$", d)
 
     def test_shadow_context_columns_use_their_source_spelling(self):
         # the manifest names the CARLOS column (isActive); the dump spells
@@ -444,8 +468,9 @@ class TestArchiveAndShadow(unittest.TestCase):
                      "nondefault": "s.`legacy` IS NOT NULL"}}}
         src = {"id": col("int"), "isactive": col(), "legacy": col()}
         stmts = o19etl.shadow_statements("t", entry, "src", "arch", src)
-        self.assertIn("s.`isactive`", stmts[1])
-        self.assertNotIn("s.`isActive`", stmts[1])
+        ctas = next(x for x in stmts if x.startswith("CREATE TABLE `arch`"))
+        self.assertIn("s.`isactive`", ctas)
+        self.assertNotIn("s.`isActive`", ctas)
 
 
 class TestIdentifierQuoting(unittest.TestCase):
@@ -462,10 +487,12 @@ class TestIdentifierQuoting(unittest.TestCase):
         self.assertEqual(o19etl.ident("plain"), "`plain`")
 
     def test_archive_statements_keep_a_crafted_name_one_identifier(self):
+        # the rebuild swap appends __new/__old INSIDE the quoting, so the
+        # crafted name still cannot close its identifier anywhere
         for sql in o19etl.archive_statements(self.EVIL, "src", "arch"):
-            self.assertIn("`t1``;DROP DATABASE victim;--`", sql)
-            # the crafted name never closes the identifier: the only
-            # backtick before ;DROP is the doubled (escaped) one
+            self.assertRegex(
+                sql, r"`t1``;DROP DATABASE victim;--(__new|__old)?`",
+                sql)
             self.assertNotRegex(sql, r"[^`]`;DROP")
 
     def test_unknown_column_shadow_quotes_the_dumps_column_names(self):
@@ -473,9 +500,10 @@ class TestIdentifierQuoting(unittest.TestCase):
         src_cols = {"id": col("int"), "x`; DROP TABLE y; --": col()}
         stmts = o19etl.unknown_column_shadow_statements(
             "t", entry, "src", "arch", src_cols)
-        self.assertEqual(len(stmts), 2)
-        self.assertIn("s.`x``; DROP TABLE y; --` IS NOT NULL", stmts[1])
-        self.assertNotRegex(stmts[1], r"[^`]`; DROP")
+        ctas = next(x for x in stmts if x.startswith("CREATE TABLE `arch`"))
+        self.assertIn("s.`x``; DROP TABLE y; --` IS NOT NULL", ctas)
+        for sql in stmts:
+            self.assertNotRegex(sql, r"[^`]`; DROP")
 
     def test_unsafe_identifiers_lists_tables_and_columns(self):
         info = {"ok": {"id": col("int"), "bad col": col()},

@@ -546,34 +546,37 @@ def idmap_statements(table: str, entry: dict, src_schema: str,
     name = idmap_table(table)
     keys = entry["merge_keys"]
     join = merge_join(entry, archive_schema, dst_cols)
-    return [
-        "DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema, name),
-        "CREATE TABLE `{0}`.`{1}` (old_id BIGINT NOT NULL PRIMARY KEY, "
-        "new_id BIGINT NOT NULL)".format(archive_schema, name),
-        # twin n maps to target twin n; a surplus source twin (its key was
-        # already satisfied by a CARLOS seed, so the anti-join appended
-        # nothing for it) falls back to the target's first row for that key
-        # — every source id a child references gets a deterministic map
-        # The SOURCE side partitions by the expressions the insert
-        # stores, not by the raw columns: a key rewritten by value_exprs,
-        # a zero-date NULLIF, an enum fallback or an fk_remap puts two
-        # source rows in different partitions while the target holds them
-        # as one — and both would then map to the same new id.
-        "INSERT INTO `{0}`.`{1}` (old_id, new_id) SELECT s.`{2}`, "
-        "COALESCE(d.`{2}`, d1.`{2}`) "
-        "FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY {9} ORDER BY "
-        "s.`{2}`) AS rn FROM `{4}`.`{5}` s) s LEFT JOIN (SELECT *, "
-        "ROW_NUMBER() OVER (PARTITION BY {3} ORDER BY `{2}`) AS rn FROM "
-        "`{6}`.`{5}`) d ON "
-        "{7} AND s.rn = d.rn LEFT JOIN (SELECT *, ROW_NUMBER() OVER "
-        "(PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d1 ON {8} "
-        "AND d1.rn = 1 WHERE COALESCE(d.`{2}`, d1.`{2}`) IS NOT NULL".format(
-            archive_schema, name, pk,
-            ", ".join("`{0}`".format(k) for k in keys),
-            src_schema, table, dst_schema, join,
-            merge_join(entry, archive_schema, dst_cols, dst_alias="d1"),
-            ", ".join(merge_key_exprs(entry, archive_schema, dst_cols))),
-    ]
+
+    def build(scratch: str) -> List[str]:
+        return [
+            "CREATE TABLE `{0}`.`{1}` (old_id BIGINT NOT NULL PRIMARY KEY, "
+            "new_id BIGINT NOT NULL)".format(archive_schema, scratch),
+            # twin n maps to target twin n; a surplus source twin (its key was
+            # already satisfied by a CARLOS seed, so the anti-join appended
+            # nothing for it) falls back to the target's first row for that key
+            # — every source id a child references gets a deterministic map
+            # The SOURCE side partitions by the expressions the insert
+            # stores, not by the raw columns: a key rewritten by value_exprs,
+            # a zero-date NULLIF, an enum fallback or an fk_remap puts two
+            # source rows in different partitions while the target holds them
+            # as one — and both would then map to the same new id.
+            "INSERT INTO `{0}`.`{1}` (old_id, new_id) SELECT s.`{2}`, "
+            "COALESCE(d.`{2}`, d1.`{2}`) "
+            "FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY {9} ORDER BY "
+            "s.`{2}`) AS rn FROM `{4}`.`{5}` s) s LEFT JOIN (SELECT *, "
+            "ROW_NUMBER() OVER (PARTITION BY {3} ORDER BY `{2}`) AS rn FROM "
+            "`{6}`.`{5}`) d ON "
+            "{7} AND s.rn = d.rn LEFT JOIN (SELECT *, ROW_NUMBER() OVER "
+            "(PARTITION BY {3} ORDER BY `{2}`) AS rn FROM `{6}`.`{5}`) d1 "
+            "ON {8} AND d1.rn = 1 WHERE COALESCE(d.`{2}`, d1.`{2}`) IS NOT "
+            "NULL".format(
+                archive_schema, scratch, pk,
+                ", ".join("`{0}`".format(k) for k in keys),
+                src_schema, table, dst_schema, join,
+                merge_join(entry, archive_schema, dst_cols, dst_alias="d1"),
+                ", ".join(merge_key_exprs(entry, archive_schema, dst_cols))),
+        ]
+    return rebuild_statements(archive_schema, name, build)
 
 
 def fk_unmapped_count_sql(table: str, entry: dict, src_schema: str,
@@ -635,6 +638,53 @@ def etl_order(tables: Dict[str, dict]) -> List[str]:
     return order
 
 
+#: Suffixes for the build-aside swap below. Short on purpose: the longest
+#: archived table name is 37 characters and the longest shadow suffix is
+#: `__unknown_cols`, so `<37>__unknown_cols__old` is 56 -- comfortably
+#: inside MySQL's 64-character identifier limit, which `__superseded`
+#: would have sat exactly on.
+REBUILD_NEW = "__new"
+REBUILD_OLD = "__old"
+
+
+def rebuild_statements(archive_schema: str, final: str,
+                       build: Callable[[str], List[str]]) -> List[str]:
+    """Rebuild `archive_schema`.`final` without it ever ceasing to exist.
+
+    The obvious shape -- DROP the old copy, then CREATE and fill a new one
+    -- leaves nothing at all if anything between the DROP and the INSERT
+    fails, and that is a table holding the clinic's only copy of records
+    CARLOS has no home for. The ETL ledger makes it recoverable while
+    staging survives, but `--cleanup` drops staging, so "recoverable" has
+    an expiry date.
+
+    So: build beside it, then swap atomically. `RENAME TABLE a TO b, c TO
+    a` needs both sides to exist, which is what the CREATE ... IF NOT
+    EXISTS immediately before it guarantees; the leftover `__old` is only
+    ever the superseded copy, because the rename is atomic and there is
+    no state in which it holds the sole one.
+
+    `build` receives the scratch name and returns the statements that
+    create and fill a table under it -- LIKE + INSERT for a whole-table
+    archive, a single CREATE ... AS SELECT for a shadow capture.
+    """
+    new = ident(final + REBUILD_NEW)
+    old = ident(final + REBUILD_OLD)
+    live = ident(final)
+    return (
+        # our own scratch names, never the live copy: a leftover `__new`
+        # is a failed build, a leftover `__old` a swap that landed but
+        # whose cleanup did not
+        ["DROP TABLE IF EXISTS `{0}`.{1}".format(archive_schema, new),
+         "DROP TABLE IF EXISTS `{0}`.{1}".format(archive_schema, old)]
+        + build(final + REBUILD_NEW)
+        + ["CREATE TABLE IF NOT EXISTS `{0}`.{1} LIKE `{0}`.{2}".format(
+            archive_schema, live, new),
+           "RENAME TABLE `{0}`.{1} TO `{0}`.{2}, `{0}`.{3} TO `{0}`.{1}"
+           .format(archive_schema, live, old, new),
+           "DROP TABLE IF EXISTS `{0}`.{1}".format(archive_schema, old)])
+
+
 def archive_statements(table: str, src_schema: str,
                        archive_schema: str) -> List[str]:
     # unknown (unclassified) tables reach here under the dump's own
@@ -646,14 +696,17 @@ def archive_statements(table: str, src_schema: str,
     columns, the OSCAR 19 token tables) and for unclassified tables the
     dump carries under names this tool never chose -- hence `ident`,
     which doubles an embedded backtick rather than trusting the name."""
-    t = ident(table)
-    return [
-        "DROP TABLE IF EXISTS `{0}`.{1}".format(archive_schema, t),
-        "CREATE TABLE `{0}`.{1} LIKE `{2}`.{1}".format(
-            archive_schema, t, src_schema),
-        "INSERT INTO `{0}`.{1} SELECT * FROM `{2}`.{1}".format(
-            archive_schema, t, src_schema),
-    ]
+    src = ident(table)
+
+    def build(scratch: str) -> List[str]:
+        name = ident(scratch)
+        return [
+            "CREATE TABLE `{0}`.{1} LIKE `{2}`.{3}".format(
+                archive_schema, name, src_schema, src),
+            "INSERT INTO `{0}`.{1} SELECT * FROM `{2}`.{3}".format(
+                archive_schema, name, src_schema, src),
+        ]
+    return rebuild_statements(archive_schema, table, build)
 
 
 def _context_cols(entry: dict) -> List[str]:
@@ -696,12 +749,12 @@ def shadow_statements(table: str, entry: dict, src_schema: str,
         "({0})".format(d["nondefault"]) for d in dropped.values())
     shadow = "{0}__dropped".format(table)
     cols = ", ".join("s.`{0}`".format(c) for c in select_cols)
-    return [
-        "DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema, shadow),
-        "CREATE TABLE `{0}`.`{1}` AS SELECT {2} FROM `{3}`.`{4}` s "
-        "WHERE {5}".format(archive_schema, shadow, cols, src_schema,
-                           table, predicate),
-    ]
+
+    def build(scratch: str) -> List[str]:
+        return ["CREATE TABLE `{0}`.{1} AS SELECT {2} FROM `{3}`.`{4}` s "
+                "WHERE {5}".format(archive_schema, ident(scratch), cols,
+                                   src_schema, table, predicate)]
+    return rebuild_statements(archive_schema, shadow, build)
 
 
 def unknown_columns(entry: dict, src_cols: Dict[str, dict]) -> List[str]:
@@ -735,12 +788,12 @@ def unknown_column_shadow_statements(table: str, entry: dict,
     cols = ", ".join("s." + ident(c) for c in select_cols)
     predicate = " OR ".join("s.{0} IS NOT NULL".format(ident(c))
                             for c in extra)
-    return [
-        "DROP TABLE IF EXISTS `{0}`.`{1}`".format(archive_schema, shadow),
-        "CREATE TABLE `{0}`.`{1}` AS SELECT {2} FROM `{3}`.`{4}` s "
-        "WHERE {5}".format(archive_schema, shadow, cols, src_schema,
-                           table, predicate),
-    ]
+
+    def build(scratch: str) -> List[str]:
+        return ["CREATE TABLE `{0}`.{1} AS SELECT {2} FROM `{3}`.`{4}` s "
+                "WHERE {5}".format(archive_schema, ident(scratch), cols,
+                                   src_schema, table, predicate)]
+    return rebuild_statements(archive_schema, shadow, build)
 
 
 def chunk_windows(lo: int, hi: int, size: int = CHUNK_ROWS

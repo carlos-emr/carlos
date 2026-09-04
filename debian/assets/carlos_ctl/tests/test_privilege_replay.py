@@ -50,6 +50,22 @@ CLINIC = [("doctor", "_rx", "x", 0),            # identical: one row
           ("999997", "_rx", "o", 0)]
 
 
+def rename_pairs(sql):
+    """The (source, destination) pairs of a MySQL `RENAME TABLE` swap.
+
+    sqlite has only `ALTER TABLE x RENAME TO y`, and its destination must
+    be UNQUALIFIED, so the schema prefix is stripped here. Replaying the
+    pairs in order reaches the same end state, which is what this file
+    asserts; the atomicity of the real swap is asserted on the statement
+    text in test_etl_sql.
+    """
+    out = []
+    for pair in sql[len("RENAME TABLE "):].split(", "):
+        src, dst = (x.strip() for x in pair.split(" TO "))
+        out.append((src, dst.split(".", 1)[-1]))
+    return out
+
+
 class TestPrivilegeReplay(unittest.TestCase):
 
     def setUp(self):
@@ -84,9 +100,35 @@ class TestPrivilegeReplay(unittest.TestCase):
             "provider_no FROM {0}.secObjPrivilege".format(schema)).fetchall())
 
     def snapshot(self):
+        # snapshot_statements builds beside the live copy and swaps, so a
+        # failed rebuild cannot leave the seed baseline missing. sqlite has
+        # no multi-table RENAME, so the swap is replayed as its two halves
+        # -- this models the END STATE, which is what the replay is for;
+        # the atomicity itself is asserted on the statements in
+        # test_etl_sql.
         for sql in o19roles.snapshot_statements(DST, ARCH):
-            if "secObjPrivilege" in sql:
-                self.run_sql(sql)
+            if "secObjPrivilege" not in sql:
+                continue
+            if sql.startswith("CREATE TABLE IF NOT EXISTS"):
+                # `CREATE ... LIKE` is MySQL-only. Its job is to give the
+                # RENAME a left-hand side on a first run; here the rename
+                # below simply tolerates the live copy not existing yet.
+                continue
+            if sql.startswith("RENAME TABLE"):
+                for src, dst in rename_pairs(sql):
+                    self.run_sql("DROP TABLE IF EXISTS {0}.{1}".format(
+                        ARCH, dst))
+                    try:
+                        self.run_sql("ALTER TABLE {0} RENAME TO {1}".format(
+                            src, dst))
+                    except sqlite3.OperationalError as exc:
+                        # first run: there is no previous snapshot to move
+                        # aside, which is exactly the case the CREATE ...
+                        # IF NOT EXISTS covers on MariaDB
+                        if "no such table" not in str(exc):
+                            raise
+                continue
+            self.run_sql(sql)
 
     def merge(self):
         self.run_sql(o19etl.merge_statement("secObjPrivilege", self.entry,

@@ -25,6 +25,15 @@ def idempotent(sql):
     if s.startswith("INSERT IGNORE") or s.startswith("DROP TABLE IF EXISTS") \
             or s.startswith("CREATE TABLE"):
         return True
+    if s.startswith("RENAME TABLE"):
+        # The rebuild swap. This one statement is NOT re-runnable alone --
+        # after it, its source no longer exists -- but the block it closes
+        # is: `rebuild_statements` opens with an unconditional
+        # DROP ... IF EXISTS of both `__new` and `__old`, so re-running the
+        # sequence rebuilds the scratch copy and swaps again to the same
+        # end state. Accepted only in that shape, so an unguarded rename
+        # elsewhere still fails this check.
+        return "__NEW` TO " in s and "` TO `" in s
     if s.startswith("INSERT"):
         return "NOT EXISTS" in s
     if s.startswith("DELETE"):
@@ -45,13 +54,26 @@ class TestStatementShapes(unittest.TestCase):
 
     def test_snapshot_copies_every_seed_table_into_the_archive(self):
         stmts = o19roles.snapshot_statements("carlos", "o19_archive")
-        self.assertEqual(len(stmts), 2 * len(o19roles.SNAPSHOT_TABLES))
+        self.assertEqual(len(stmts), 6 * len(o19roles.SNAPSHOT_TABLES))
         self.assertIn("CREATE TABLE `o19_archive`.`carlos_seed_"
-                      "secObjPrivilege` AS SELECT * FROM "
+                      "secObjPrivilege__new` AS SELECT * FROM "
                       "`carlos`.`secObjPrivilege`", stmts)
         for table in ("secObjPrivilege", "secObjectName", "secRole",
                       "access_type"):
             self.assertIn(table, o19roles.SNAPSHOT_TABLES)
+
+    def test_the_snapshot_never_drops_the_previous_one_first(self):
+        # this snapshot is taken BEFORE the merges, so once they have run
+        # the target no longer holds only the seed and it cannot be
+        # rebuilt: a DROP whose CREATE then failed would take the
+        # privilege baseline the roles diff needs with it
+        stmts = o19roles.snapshot_statements("carlos", "o19_archive")
+        for sql in stmts:
+            if sql.startswith("DROP TABLE"):
+                self.assertRegex(sql, r"__(new|old)`$", sql)
+        self.assertEqual(
+            len([x for x in stmts if x.startswith("RENAME TABLE")]),
+            len(o19roles.SNAPSHOT_TABLES))
 
     def test_startup_rows_delete_in_manifest_order_with_bound_schema(self):
         stmts = o19roles.startup_row_delete_statements("carlos")
