@@ -1048,58 +1048,49 @@ def comma_named_roles_sql(dst_schema: str) -> str:
             "'%,%' ORDER BY role_name".format(dst_schema))
 
 
-def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
-    """The post-copy step, ledger-marked per sub-step under progress['roles'].
-    ctx carries the ETL executors (query_etl with the bulk-copy prelude,
-    query plain), the schema names, the report callback and the CLI
-    options (role_templates, fixups_dir).
+class RolesRun(object):
+    """The handles every step of the roles post-step shares.
 
-    Crash discipline: every write is idempotent, and everything the
-    ledger records is either taken from the database AFTER the write
-    (appended-row counts are the same anti-join row parity checks) or
-    decided and persisted BEFORE the write (private lists, planned
-    counts, the RTL plan), so a resume after a crash between a write and
-    its mark reports the same facts as an uninterrupted run. Report lines
-    are emitted before the mark: a crash in between repeats a line on
-    resume rather than losing it."""
+    The six helpers carried here are CLOSURES, not free functions:
+    ``mark`` and ``plan`` write to the ledger and call ``save()``, and
+    ``append_private`` appends to this run's roles-details.txt. Carrying
+    them on the run object is what lets each step below keep the body it
+    had inside run_roles, unchanged, while becoming separately testable.
+    """
+
+    def __init__(self, ctx, query, plain, report, state_dir, ledger,
+                 appended, details_path, n, count, mark, record_appended,
+                 plan, append_private):
+        self.query = query
+        self.plain = plain
+        self.src = ctx["src_schema"]
+        self.dst = ctx["target_db"]
+        self.arch = ctx["archive_schema"]
+        self.report = report
+        self.state_dir = state_dir
+        self.ledger = ledger
+        self.appended = appended
+        self.details_path = details_path
+        self.n = n
+        self.count = count
+        self.mark = mark
+        self.record_appended = record_appended
+        self.plan = plan
+        self.append_private = append_private
+
+
+def roles_bind_role_templates(
+        run: 'RolesRun', ctx) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """Bind --role-template to the ledger, and return the mapping to use.
+
+    Returns ``(requested, overrides)``: what this invocation asked for,
+    and what the backfill will actually apply. The flag stays changeable
+    on a resume until the backfill has DECIDED on it -- after that a
+    changed template would graft a second stock role's grants onto a
+    custom role, so it is refused."""
     from .util import die
-    from . import o19import
-    query = ctx["query_etl"]
-    plain = ctx["query"]
-    src, dst, arch = ctx["src_schema"], ctx["target_db"], ctx["archive_schema"]
-    report = ctx["report"]
-    state_dir = ctx["state_dir"]
-    ledger = progress.setdefault(LEDGER_KEY, {})
-    appended = ledger.setdefault("appended", {})
-    details_path = os.path.join(state_dir, "roles-details.txt")
-
-    def n(sql):
-        return int(plain(sql)[0][0])
-
-    def count(table):
-        return n("SELECT COUNT(*) FROM `{0}`.`{1}`".format(dst, table))
-
-    def mark(key, value=True):
-        ledger[key] = value
-        save()
-
-    def record_appended(table):
-        # the rows with no staging twin — exactly what row_parity will
-        # measure, so a re-entered step records the same figure
-        appended[table] = n(appended_row_count_sql(table, src, dst))
-
-    def plan(key, compute):
-        # decide once, persist, then act: the ledger keeps the decision
-        # across a crash between the write and the step's mark
-        stored = ledger.get(key + "_plan")
-        if stored is None:
-            stored = compute()
-            mark(key + "_plan", stored)
-        return stored
-
-    def append_private(lines):
-        o19import.append_private(details_path, "\n".join(lines) + "\n")
-
+    report = run.report
+    ledger = run.ledger
     # 0. --role-template: the mapping is bound to the ledger once the
     #    backfill has DECIDED on it (validated, planned); until then a
     #    resume may add or change the flag, and the change is reported
@@ -1119,7 +1110,27 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                "backfill decided — the new mapping is used".format(
                    _fmt_templates(recorded), _fmt_templates(requested)))
     overrides = dict(requested or recorded or {})
+    return requested, overrides
 
+
+def roles_append_carlos_roles(run: 'RolesRun') -> None:
+    """Add the roles CARLOS requires to the clinic's catalogue.
+
+    An O19 assignment to a role that had no secRole row there granted
+    nothing; it carries the CARLOS seed's grants now, so every such live
+    assignment is itemised in roles-details.txt."""
+    query = run.query
+    plain = run.plain
+    src = run.src
+    dst = run.dst
+    arch = run.arch
+    report = run.report
+    ledger = run.ledger
+    appended = run.appended
+    count = run.count
+    mark = run.mark
+    record_appended = run.record_appended
+    append_private = run.append_private
     # 1. hard-coded role names, CARLOS-only roles
     if not ledger.get("roles_appended"):
         before = count("secRole")
@@ -1150,6 +1161,23 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                         .format(len(dangling))) if dangling else ""))
         mark("roles_appended")
 
+
+def roles_align_role_spelling(run: 'RolesRun') -> None:
+    """One spelling per role, everywhere.
+
+    CARLOS matches role names exactly and the database matches them
+    case-insensitively; the privilege merge opens the gap. Aligning adds
+    and removes no grant. Comma-bearing names can never match at all
+    (CARLOS splits a provider's role list on ","), so they are named for
+    the operator rather than renamed under them."""
+    query = run.query
+    plain = run.plain
+    dst = run.dst
+    report = run.report
+    ledger = run.ledger
+    n = run.n
+    mark = run.mark
+    append_private = run.append_private
     # 1b. one spelling per role, everywhere (see role_spelling_drift_sql:
     #     the app matches role names exactly, the database matches them
     #     case-insensitively, and the privilege merge creates the gap)
@@ -1177,6 +1205,25 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                    .format(len(commas)))
         mark("role_spelling")
 
+
+def roles_facility_links(run: 'RolesRun') -> None:
+    """Facility/clinic guarantees and provider_facility links.
+
+    The two refusals here are backstops for run_etl pre-checks that
+    already passed against the STAGED dump, so if one fires the source
+    was fine and the copy lost the row: an import defect, not a clinic
+    condition -- which is why they do not say "re-export"."""
+    from .util import die
+    query = run.query
+    dst = run.dst
+    report = run.report
+    state_dir = run.state_dir
+    ledger = run.ledger
+    appended = run.appended
+    n = run.n
+    count = run.count
+    mark = run.mark
+    record_appended = run.record_appended
     # 2. facility / clinic guarantees, facility links (run_etl pre-checks
     #    the same conditions against staging before the first write; this
     #    is the backstop)
@@ -1212,6 +1259,23 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                                           added))
         mark("facility_links")
 
+
+def roles_normalise_activeyn(run: 'RolesRun') -> None:
+    """Activate secUserRole rows of live accounts, and report every one.
+
+    Admin assignments are the deliberate exception: CARLOS treats a NULL
+    admin row as inactive on purpose. The lists are decided and written
+    to the private file BEFORE the UPDATE, so a crash in between cannot
+    lose the record of what changed."""
+    query = run.query
+    plain = run.plain
+    dst = run.dst
+    report = run.report
+    ledger = run.ledger
+    n = run.n
+    mark = run.mark
+    plan = run.plan
+    append_private = run.append_private
     # 3. activeyn normalisation (user decision: activate rows of live
     #    accounts, report every one) — except admin assignments, which
     #    CARLOS deliberately treats as inactive when NULL. The lists are
@@ -1258,6 +1322,25 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                           "admin_left_inactive": len(admin_left),
                           "null_rows_left": remaining})
 
+
+def roles_program_memberships(run: 'RolesRun') -> None:
+    """The OSCAR program and its memberships.
+
+    Runs after activeyn normalisation on purpose: role_id follows the
+    provider's ACTIVE role, so the memberships would be built from
+    pre-normalisation state otherwise."""
+    query = run.query
+    plain = run.plain
+    dst = run.dst
+    report = run.report
+    ledger = run.ledger
+    appended = run.appended
+    n = run.n
+    count = run.count
+    mark = run.mark
+    record_appended = run.record_appended
+    plan = run.plan
+    append_private = run.append_private
     # 4. OSCAR program + memberships (after activeyn: role_id follows the
     #    provider's active role)
     if not ledger.get("program"):
@@ -1292,6 +1375,29 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                         .format(still)) if still else ""))
         mark("program")
 
+
+def roles_backfill_custom_grants(run: 'RolesRun', overrides: Dict[str, str],
+                                 requested: Dict[str, str]) -> None:
+    """Backfill CARLOS-era grants onto the clinic's custom roles.
+
+    A role the clinic invented has no CARLOS-era objects in its grants,
+    because those objects did not exist in OSCAR 19. Each custom role is
+    matched to the stock role it most resembles (Jaccard over the shared
+    grant set, or an operator's --role-template) and given that role's
+    CARLOS-era grants. The decision is planned and persisted before the
+    first write."""
+    from .util import die
+    query = run.query
+    plain = run.plain
+    src = run.src
+    dst = run.dst
+    arch = run.arch
+    report = run.report
+    ledger = run.ledger
+    n = run.n
+    mark = run.mark
+    plan = run.plan
+    append_private = run.append_private
     # 5. custom-role backfill of CARLOS-era grants
     if not ledger.get("backfill"):
         seed_rows = plain("SELECT roleUserGroup, objectName, privilege, "
@@ -1402,6 +1508,21 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                "performed the backfill (recorded: {0})".format(
                    _fmt_templates(ledger.get("role_templates") or {})))
 
+
+def roles_privilege_diff(run: 'RolesRun') -> None:
+    """Itemise every privilege the merge resolved, for technical review.
+
+    Clinic grants the CARLOS seed overrode, seed grants restored, stock
+    role appends and exclusions -- written to privilege-diff.txt rather
+    than the report, because the list is long and root-only."""
+    from . import o19import
+    plain = run.plain
+    src = run.src
+    arch = run.arch
+    report = run.report
+    state_dir = run.state_dir
+    ledger = run.ledger
+    mark = run.mark
     # 6. privilege diff (clinic grants CARLOS's seed overrode), restored
     #    seed grants, stock-role appends and exclusions — all itemised for
     #    the technical review
@@ -1455,6 +1576,16 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
         mark("diff", {"overridden": len(diff), "restored": len(restored),
                       "appended": len(appends), "excluded": len(excluded)})
 
+
+def roles_prune_property_keys(run: 'RolesRun') -> None:
+    """Remove property keys belonging to modules CARLOS no longer has."""
+    query = run.query
+    dst = run.dst
+    report = run.report
+    ledger = run.ledger
+    n = run.n
+    mark = run.mark
+    plan = run.plan
     # 7. removed-module keys in the property table
     if not ledger.get("property_pruned"):
         from . import o19_preflight
@@ -1479,6 +1610,17 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
                    + ", ".join("{0} ({1})".format(p, c) for p, c in pruned))
         mark("property_pruned", {"pruned": pruned})
 
+
+def roles_prevention_types(run: 'RolesRun') -> None:
+    """Reconcile prevention type codes against the CARLOS set."""
+    query = run.query
+    plain = run.plain
+    dst = run.dst
+    report = run.report
+    ledger = run.ledger
+    n = run.n
+    mark = run.mark
+    plan = run.plan
     # 8. prevention type codes (binary compare — see
     #    prevention_type_statements)
     if not ledger.get("prevention_types"):
@@ -1510,6 +1652,24 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
         mark("prevention_types", {"applied": applied,
                                   "unknown": len(unknown)})
 
+
+def roles_rich_text_letter(run: 'RolesRun', ctx) -> None:
+    """Modernise the Rich Text Letter eform.
+
+    The plan -- which rows to disable, which scripts to run, which
+    canonical rows to re-disable -- is persisted BEFORE the first write:
+    the enable script flips every canonical row on, so a resumed run
+    could not otherwise tell a clinic-disabled form from one the script
+    enabled."""
+    from .util import die
+    query = run.query
+    plain = run.plain
+    dst = run.dst
+    report = run.report
+    ledger = run.ledger
+    mark = run.mark
+    record_appended = run.record_appended
+    plan = run.plan
     # 9. Rich Text Letter — the plan (which rows to disable, which scripts
     #    to run, which canonical rows to re-disable) is persisted BEFORE
     #    the first write: the enable script flips every canonical row on,
@@ -1572,6 +1732,75 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
             outcome, ("\n  " + "\n  ".join(notes)) if notes else ""))
         mark("rtl", {"disabled": disable, "restored_disabled": restore,
                      "scripts": scripts, "outcome": outcome})
+
+
+def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
+    """The post-copy step, ledger-marked per sub-step under progress['roles'].
+    ctx carries the ETL executors (query_etl with the bulk-copy prelude,
+    query plain), the schema names, the report callback and the CLI
+    options (role_templates, fixups_dir).
+
+    Crash discipline: every write is idempotent, and everything the
+    ledger records is either taken from the database AFTER the write
+    (appended-row counts are the same anti-join row parity checks) or
+    decided and persisted BEFORE the write (private lists, planned
+    counts, the RTL plan), so a resume after a crash between a write and
+    its mark reports the same facts as an uninterrupted run. Report lines
+    are emitted before the mark: a crash in between repeats a line on
+    resume rather than losing it."""
+    from . import o19import
+    query = ctx["query_etl"]
+    plain = ctx["query"]
+    src = ctx["src_schema"]
+    dst = ctx["target_db"]
+    report = ctx["report"]
+    state_dir = ctx["state_dir"]
+    ledger = progress.setdefault(LEDGER_KEY, {})
+    appended = ledger.setdefault("appended", {})
+    details_path = os.path.join(state_dir, "roles-details.txt")
+
+    def n(sql):
+        return int(plain(sql)[0][0])
+
+    def count(table):
+        return n("SELECT COUNT(*) FROM `{0}`.`{1}`".format(dst, table))
+
+    def mark(key, value=True):
+        ledger[key] = value
+        save()
+
+    def record_appended(table):
+        # the rows with no staging twin — exactly what row_parity will
+        # measure, so a re-entered step records the same figure
+        appended[table] = n(appended_row_count_sql(table, src, dst))
+
+    def plan(key, compute):
+        # decide once, persist, then act: the ledger keeps the decision
+        # across a crash between the write and the step's mark
+        stored = ledger.get(key + "_plan")
+        if stored is None:
+            stored = compute()
+            mark(key + "_plan", stored)
+        return stored
+
+    def append_private(lines):
+        o19import.append_private(details_path, "\n".join(lines) + "\n")
+    run = RolesRun(ctx, query, plain, report, state_dir, ledger, appended,
+                   details_path, n, count, mark, record_appended, plan,
+                   append_private)
+    requested, overrides = roles_bind_role_templates(run, ctx)
+    roles_append_carlos_roles(run)
+    roles_align_role_spelling(run)
+    roles_facility_links(run)
+    # activeyn before program: a membership's role_id follows the
+    # provider's ACTIVE role, so it must be normalised first
+    roles_normalise_activeyn(run)
+    roles_program_memberships(run)
+    roles_backfill_custom_grants(run, overrides, requested)
+    roles_privilege_diff(run)
+    roles_prune_property_keys(run)
+    roles_prevention_types(run)
+    roles_rich_text_letter(run, ctx)
 
 
 def _fmt_templates(mapping: Dict[str, str]) -> str:
