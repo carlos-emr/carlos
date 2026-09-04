@@ -454,6 +454,23 @@ class TestTheEntityNameCheckerReadsTheRightMember(unittest.TestCase):
             '    private String lastName;\n')
         self.assertEqual(got[2], {"lastName": "last_name"})
 
+    def test_a_url_in_an_annotation_is_not_read_as_a_comment(self):
+        # `//` inside a string literal: a regex masker blanks to end of
+        # line from there and the member vanishes from the audit without
+        # a word -- the same mistake the Java `#` stripper had
+        got = self.entity(
+            '    @Column(name = "u")\n'
+            '    @Doc(url = "http://example/x") private String u;\n')
+        self.assertEqual(got[2], {"u": "u"})
+
+    def test_a_real_comment_is_still_blanked(self):
+        # the masker must not become a no-op in the process
+        got = self.entity(
+            '    @Column(name = "last_name")\n'
+            '    // public String getSomethingElse() { }\n'
+            '    private String lastName;\n')
+        self.assertEqual(got[2], {"lastName": "last_name"})
+
     def test_a_field_annotation_still_binds_to_the_field(self):
         # the ordinary case must not regress: the field sits right after
         # the annotation, so it wins on position

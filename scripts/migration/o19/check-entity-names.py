@@ -72,14 +72,55 @@ GETTER_RE = re.compile(
 QUOTES = '`"[]'
 
 
-#: Comment bodies, blanked (not deleted) so offsets inside the window
-#: still line up with the source they came from.
-COMMENT_RE = re.compile(r'(?s)/\*.*?\*/|//[^\n]*')
-
-
 def _uncommented(text):
-    """`text` with comment bodies replaced by spaces of the same length."""
-    return COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
+    """`text` with comment bodies replaced by spaces of the same length.
+
+    Blanked rather than deleted so offsets still line up with the source
+    the window came from -- the caller compares match POSITIONS.
+
+    String-aware, and that is not fussiness: `@Doc(url = "http://x")`
+    between an annotation and its member has a `//` inside a literal, and
+    a regex masker blanks from there to end of line, hiding the member
+    and dropping its mapping from the audit SILENTLY. (The same mistake,
+    in the other direction, is why the Java migration contract's `#`
+    stripper is quote-aware.) No instance occurs in this tree today; an
+    audit that quietly stops covering a member is the one failure this
+    tool must not have."""
+    out = []
+    i, n = 0, len(text)
+    quote = None
+    while i < n:
+        c = text[i]
+        if quote:
+            out.append(c)
+            if c == "\\" and i + 1 < n:        # escaped char inside a literal
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in ('"', "'"):
+            quote = c
+            out.append(c)
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and text[i + 1] == "*":
+            end = text.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.append(" " * (end - i))
+            i = end
+            continue
+        if c == "/" and i + 1 < n and text[i + 1] == "/":
+            end = text.find("\n", i)
+            end = n if end == -1 else end
+            out.append(" " * (end - i))
+            i = end
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
 
 
 def parse_entity(path):

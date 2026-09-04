@@ -88,10 +88,12 @@ class MigrationColumnListContractUnitTest {
      * reported. Compiled once: {@link #withoutComments} runs per migration file and the reporting
      * one runs per match, so leaving them as {@code String.replaceAll} recompiled the pattern on
      * every iteration.
+     *
+     * <p>{@code #} is not among them: it needs to know about quoting, so
+     * {@link #stripHashComments} scans for it instead of a regex.</p>
      */
     private static final Pattern BLOCK_COMMENT = Pattern.compile("(?s)/\\*.*?\\*/");
     private static final Pattern DASH_COMMENT = Pattern.compile("(?m)--[^\\n]*");
-    private static final Pattern HASH_COMMENT = Pattern.compile("(?m)#[^\\n]*");
     private static final Pattern WHITESPACE_RUN = Pattern.compile("\\s+");
 
     /**
