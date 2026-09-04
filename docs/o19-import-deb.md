@@ -215,7 +215,11 @@ verdict with it.
 Clinic-defined lookup lists, waiting-list criteria and similar merge-class
 rows may receive new ids where a CARLOS seed already holds the old one;
 their dependent rows are remapped through `o19_archive.<table>__idmap`, and
-the report itemizes every table whose ids changed. Nothing is dropped, whether the
+the report itemizes every table whose ids changed. Each merge table's live
+rows are also snapshotted, before the merge inserts anything, into
+`o19_archive.<table>__preseed` — afterwards a CARLOS seed row and a clinic
+row the merge appended are both simply live rows, and the verification
+needs to tell them apart. Nothing is dropped, whether the
 manifest knows it or not. A table CARLOS has no home for — `archive`,
 removed-module (`drop`), or a name the manifest has never seen — is
 preserved twice: `o19_archive.<table>` and
@@ -226,20 +230,28 @@ and is shadow-captured to `o19_archive` as well. Tables the manifest
 classifies `reference` keep the CARLOS seed in the live table; the
 clinic's rows go to `o19_archive.<table>`, where a locally curated code
 can still be found. The verification counts all of it before it passes,
-and then reads it: every preserved copy must hold the same **values** as
-staging (compared by content digest), and every copied row's twin in the
-live schema must hold the value the copy actually wrote — rebuilt from
-the copy's own expressions, so renames, curated expressions, the charset
+and then reads it. Every preserved copy must hold the same **values** as
+staging (compared by content digest). Every copied row's twin in the live
+schema must hold the value the copy actually wrote — rebuilt from the
+copy's own expressions, so renames, curated expressions, the charset
 repair, zero dates and enum fallbacks are expected exactly as the copy
-applied them. Either mismatch is a blocker cleared only by
-`--accept content-migration`. A handful of copy-class tables are the
-exception: a later step deliberately rewrites the rows the copy wrote
+applied them. Each merge table is read three ways against its pre-merge
+snapshot: the CARLOS seed rows must still hold exactly what they held
+(the merge's policy is that the seed WINS, which the row counts cannot
+see — a merge that overwrote every seed row moves the same number of
+rows), every appended clinic row must hold what the merge's own INSERT
+produced (paired through the id map where the id moved), and every seed
+row that beat a clinic row must carry that row's values in its
+`import_archived_` columns. Any of these mismatches is a blocker cleared
+only by `--accept content-migration`. A handful of tables are the
+exception: a later step deliberately rewrites the rows the ETL wrote
 (`security` gets the forced password reset, `secUserRole` its activated
 assignments and canonical role names, `eform` its disabled forms,
-`preventions` its folded types, `HRMDocument` its repointed report
-paths), so their twins no longer hold the copied value by design. The
-report names each as `NOT CHECKED — <table>: <why>` rather than
-comparing it; their row sets are still counted. The preflight sweeps the
+`preventions` its folded types, `HRMDocument` its repointed report paths,
+`secObjPrivilege` its normalized role names), so their twins no longer
+hold the migrated value by design. The report names each as
+`NOT CHECKED — <table>: <why>` rather than comparing it; their row sets
+are still counted. The preflight sweeps the
 archive-class, patient-data and removed-module tables, the last as an
 advisory naming each one that holds rows.
 

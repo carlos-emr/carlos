@@ -1328,6 +1328,33 @@ class TestRowParityComposition(unittest.TestCase):
         self.assertEqual(bad, [])
         self.assertTrue(any("ACKNOWLEDGED" in line for line in ok), ok)
 
+    MERGE_TABLE = next(t for t, e in sorted(o19map_schema.TABLES.items())
+                       if e["class"] == "merge"
+                       and t not in o19etl.POST_ETL_REWRITTEN)
+
+    def test_a_merge_that_changed_the_carlos_seed_is_reported(self):
+        """merge_content_parity's business, and nothing else's: the row
+        counts cannot see it (a merge that overwrote every seed row
+        moves the same number of rows), and dropping it from the
+        composition would leave the merge class checked by count alone
+        again."""
+        table = self.MERGE_TABLE
+        entry = o19map_schema.TABLES[table]
+        query = self.db(
+            staging={table: 3},
+            archive={o19etl.preseed_table(table): 2,
+                     o19etl.idmap_table(table): 3},
+            live={table: 5},
+            columns={"o19_import": {table: list(entry["cols"])},
+                     "o19_archive": {
+                         o19etl.preseed_table(table): list(entry["cols"]),
+                         o19etl.idmap_table(table): ["old_id", "new_id"]},
+                     "carlos": {table: list(entry["cols"])}})
+        ok, bad = o19import._row_parity(self.ctx(query))
+        self.assertTrue(
+            any(table in line and "pre-merge CARLOS row(s)" in line
+                for line in bad), bad)
+
     def test_the_transfer_sign_off_does_not_clear_a_migration_mismatch(
             self):
         # content-transfer is about the dump and the restore; this one is

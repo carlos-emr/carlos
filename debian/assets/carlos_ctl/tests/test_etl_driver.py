@@ -488,6 +488,43 @@ class TestTheCopyPath(EtlDriverBase):
                         if w.startswith("INSERT INTO `carlos`.`HL7Map`"))
         self.assertLess(counted, inserted, db.log)
 
+    def test_the_target_is_snapshotted_before_the_merge_inserts(self):
+        # After the insert a CARLOS seed row and an appended clinic row
+        # are both just live rows. P7's three merge claims all rest on
+        # being able to tell them apart, which only a snapshot taken
+        # BEFORE the insert can do.
+        db, _lines, _counts = self.run_etl()
+        snapshot = next(
+            i for i, w in enumerate(db.log)
+            if w.startswith("INSERT INTO `o19_archive`."
+                            "`HL7Map__preseed__new` SELECT * FROM "
+                            "`carlos`.`HL7Map`"))
+        inserted = next(i for i, w in enumerate(db.log)
+                        if w.startswith("INSERT INTO `carlos`.`HL7Map`"))
+        self.assertLess(snapshot, inserted, db.log)
+        self.assertTrue(
+            o19etl.load_progress(self.state_dir)["tables"]["HL7Map"]
+            ["preseeded"])
+
+    def test_a_crash_after_the_merge_never_re_snapshots_the_target(self):
+        # The dangerous window: the insert landed, the checkpoint did
+        # not. A resumed run that re-took the snapshot would capture the
+        # clinic's own appended rows and call them "the CARLOS seed" --
+        # after which P7 would happily verify the import against itself.
+        db = FakeDb(counts={(SRC, "HL7Map"): 9}, overridden=2,
+                    fail_on="`o19_archive`.`HL7Map__idmap__new`")
+        with self.assertRaises(o19etl.QueryError):
+            self.run_etl(db=db)
+        ledger = o19etl.load_progress(self.state_dir)
+        self.assertTrue(ledger["tables"]["HL7Map"]["preseeded"])
+        self.assertNotIn("done", ledger["tables"]["HL7Map"])
+
+        resumed = FakeDb(counts={(SRC, "HL7Map"): 9}, overridden=2)
+        resumed.merged.add("HL7Map")       # the first run's insert landed
+        self.run_etl(db=resumed)
+        self.assertEqual(
+            [w for w in resumed.log if "__preseed" in w], [])
+
     def test_a_replace_seed_table_is_emptied_before_the_copy(self):
         # `log` carries the deploy's own audit rows and the copy is
         # id-intact, so the DELETE must precede the INSERT

@@ -1059,6 +1059,182 @@ def _copy_values_body(client: Client, src: str, dst: str) -> List[str]:
     return failures
 
 
+MERGE_SRC_DDL = (
+    "CREATE TABLE m ("
+    " id int NOT NULL AUTO_INCREMENT,"
+    " status varchar(32),"
+    " descr varchar(64),"
+    " note varchar(64),"          # unmapped on the target -> archived
+    " PRIMARY KEY (id))")
+
+MERGE_DST_DDL = (
+    "CREATE TABLE m ("
+    " id int NOT NULL AUTO_INCREMENT,"
+    " status varchar(32),"
+    " descr varchar(64),"
+    " import_archived_note varchar(64),"
+    " PRIMARY KEY (id))")
+
+#: the CARLOS seed: one row whose natural key the clinic also uses
+MERGE_SEED_ROWS = "(1, 'booked', 'Booked', NULL)"
+
+MERGE_STAGE_ROWS = [
+    # loses to the seed on 'booked'; its `note` must survive as the seed
+    # row's import_archived_note (requirement B for the merge class)
+    "(1, 'booked', 'Clinic booked', 'clinic note')",
+    # appends, and carries an accent the target's default collation would
+    # call equal to its unaccented spelling
+    "(2, 'cancelled', 'Annulé', 'n2')",
+    "(3, 'noshow', NULL, NULL)",
+]
+
+MERGE_ENTRY = {
+    "class": "merge",
+    "merge_keys": ["status"],
+    "surrogate_pk": "id",
+    "cols": ["id", "status", "descr", "import_archived_note"],
+    "archived_cols": {"import_archived_note": "note"},
+    "renames": {"import_archived_note": "note"},
+}
+
+#: (label, SQL applied to the TARGET, which claim must catch it, why)
+MERGE_SABOTAGE = [
+    ("a seed row was edited by the import",
+     "UPDATE m SET descr = 'Clinic booked' WHERE id = 1", "seed",
+     "the merge's whole policy is that CARLOS's row WINS; overwriting it "
+     "with the clinic's value moves the same number of rows"),
+    ("a seed row was deleted by the import",
+     "DELETE FROM m WHERE id = 1", "seed",
+     "an inner join would forgive this silently"),
+    ("an appended row lost its accent",
+     "UPDATE m SET descr = 'Annule' WHERE id = 2", "appended",
+     "utf8mb4_general_ci calls the two equal, so a plain <=> passes"),
+    ("an appended row changed case",
+     "UPDATE m SET status = 'Cancelled' WHERE id = 2", "appended",
+     "the same collation blindness, on the natural key itself"),
+    ("an appended NULL became a value",
+     "UPDATE m SET descr = 'x' WHERE id = 3", "appended",
+     "the all-NULL payload is the row a careless comparison skips"),
+    ("the archived backfill was lost",
+     "UPDATE m SET import_archived_note = NULL WHERE id = 1", "backfill",
+     "the clinic's dropped column would then exist nowhere once staging "
+     "is dropped, which is exactly what requirement B forbids"),
+]
+
+
+def check_merge_values(client: Client, src: str, dst: str,
+                       arch: str) -> List[str]:
+    """`merge_content_parity`'s three claims, against the engine.
+
+    The unit tests assert on generated SQL against a fake. They cannot
+    answer the question this check exists for: after the REAL merge --
+    anti-join, archived backfill, id map and pre-merge snapshot, run in
+    the order `etl_merge_table` runs them -- do the three checks agree
+    that a faithful merge is faithful? A check that false-alarms on
+    every clinic is worse than no check, and the ways to get one are all
+    in the fixture: a seed row whose archived column the backfill writes
+    AFTER the snapshot, an appended row whose id AUTO_INCREMENT chose,
+    and a payload that is entirely NULL.
+    """
+    try:
+        return _merge_values_body(client, src, dst, arch)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+                   "`{1}`; DROP DATABASE IF EXISTS `{2}`;".format(
+                       src, dst, arch))
+
+
+def _merge_values_body(client: Client, src: str, dst: str,
+                       arch: str) -> List[str]:
+    """The checks themselves; the caller owns the teardown."""
+    failures: List[str] = []
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=latin1;".format(src))
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=utf8mb4;".format(dst))
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=utf8mb4;".format(arch))
+    client.setup(MERGE_SRC_DDL + ";", src)
+    client.setup("INSERT INTO m VALUES {0};"
+                 .format(", ".join(MERGE_STAGE_ROWS)), src)
+    client.setup(MERGE_DST_DDL + ";", dst)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    dst_cols = o19etl.introspect_columns(query, dst)["m"]
+
+    def rebuild() -> None:
+        """The target as the ETL leaves it: seeded, snapshotted, merged,
+        backfilled, mapped -- in that order, because the snapshot must
+        predate the insert and the backfill must follow it."""
+        client.setup("TRUNCATE TABLE m; INSERT INTO m VALUES {0};"
+                     .format(MERGE_SEED_ROWS), dst)
+        for sql in o19etl.archive_statements(
+                "m", dst, arch, o19etl.preseed_table("m")):
+            client.setup(sql + ";", dst)
+        client.setup(o19etl.merge_statement("m", MERGE_ENTRY, src, dst,
+                                            dst_cols) + ";", dst)
+        client.setup(o19etl.archived_backfill_statement(
+            "m", MERGE_ENTRY, src, dst, dst_cols) + ";", dst)
+        for sql in o19etl.idmap_statements("m", MERGE_ENTRY, src, dst,
+                                           arch, dst_cols):
+            client.setup(sql + ";", dst)
+
+    rebuild()
+    claims = {
+        "seed": o19etl.merge_seed_change_sql(
+            "m", dst, arch, dst_cols, ("id",),
+            ["id", "status", "descr"]),
+        "appended": o19etl.merge_appended_mismatch_sql(
+            "m", MERGE_ENTRY, src, dst, arch, dst_cols, ("id",)),
+        "backfill": o19etl.merge_backfill_mismatch_sql(
+            "m", MERGE_ENTRY, src, dst, arch, ("id",)),
+    }
+
+    def findings(claim: str) -> int:
+        return int(client.rows(claims[claim], dst)[0][0])
+
+    print("\n  merge values (merge_content_parity)")
+    # the merge must have actually done something, or every "no mismatch"
+    # below is a statement about an empty result set
+    live = client.rows("SELECT COUNT(*) FROM m", dst)[0][0]
+    print("    {0:<44} {1}".format("the fixture merged", "{0} live row(s)"
+                                   .format(live)))
+    if int(live) != 3:
+        return ["the fixture did not merge as expected ({0} live rows, "
+                "expected 3) -- every line below is meaningless"
+                .format(live)]
+    for claim in ("seed", "appended", "backfill"):
+        n = findings(claim)
+        print("    {0:<44} {1}".format(
+            "a faithful merge: {0}".format(claim),
+            "ok" if n == 0 else "{0} FALSE ALARM(S)".format(n)))
+        if n:
+            failures.append(
+                "the {0} check disagreed with the merge on a faithful run "
+                "({1} row(s)) -- it would fail every clinic".format(
+                    claim, n))
+    if failures:
+        return failures
+
+    for label, sql, claim, why in MERGE_SABOTAGE:
+        client.setup(sql + ";", dst)
+        caught = findings(claim) > 0
+        print("    {0:<44} {1}".format(
+            label, "caught" if caught else "MISSED"))
+        if not caught:
+            failures.append("{0} was NOT caught by the {1} check ({2})"
+                            .format(label, claim, why))
+        rebuild()
+        if any(findings(c) for c in claims):
+            failures.append(
+                "the merge did not come back after '{0}'; every later line "
+                "is meaningless".format(label))
+            break
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -1127,6 +1303,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                                args.prefix + "_cvd")
     if copied:
         failures["copy values"] = copied
+    merged = check_merge_values(client, args.prefix + "_mvs",
+                                args.prefix + "_mvd",
+                                args.prefix + "_mva")
+    if merged:
+        failures["merge values"] = merged
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
@@ -1143,8 +1324,11 @@ def main(argv: Optional[List[str]] = None) -> int:
           "whole P2 chain (clinic digest -> mysqldump -> restore -> "
           "compare) verifies a faithful transfer and refuses a damaged "
           "one, the preserved copies really are value-for-value equal to "
-          "their source, and the copy class's value check agrees with the "
-          "copy on a faithful run while catching every change put to it")
+          "their source, the copy class's value check agrees with the "
+          "copy on a faithful run while catching every change put to it, "
+          "and the merge class's three claims -- the seed is untouched, "
+          "the appended rows hold what the merge wrote, the dropped "
+          "columns are backfilled -- do the same")
     return 0
 
 

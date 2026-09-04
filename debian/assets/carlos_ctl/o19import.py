@@ -1693,12 +1693,21 @@ def _row_parity(ctx):
     # and the copy class, where a declared transform sits between the two
     # sides: rebuilt from the copy's OWN expressions, so the check cannot
     # model the copy differently from the copy
+    src_info = o19etl.introspect_columns(ctx["query"], STAGING_SCHEMA)
+    dst_info = o19etl.introspect_columns(ctx["query"], ctx["target_db"])
     copy_ok, copy_bad = o19etl.copy_content_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"],
-        o19etl.introspect_columns(ctx["query"], STAGING_SCHEMA),
-        o19etl.introspect_columns(ctx["query"], ctx["target_db"]),
+        src_info, dst_info,
         repairs=progress.get("repairs"), archive_schema=archive)
-    content_ok, content_bad = content_ok + copy_ok, content_bad + copy_bad
+    # and the merge class, whose live rows come from two places: the
+    # pre-merge snapshot is what lets the check say which is which, so
+    # "the seed won" and "the clinic's row arrived" become separate
+    # answers instead of one row count
+    merge_ok, merge_bad = o19etl.merge_content_parity(
+        ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive,
+        src_info, dst_info, repairs=progress.get("repairs"))
+    content_ok = content_ok + copy_ok + merge_ok
+    content_bad = content_bad + copy_bad + merge_bad
     if content_bad and "content-migration" in (ctx.get("accepted") or ()):
         # a recorded sign-off: the operator was shown the mismatches and
         # accepted them, so they stay in the report as findings but no

@@ -20,11 +20,9 @@ Run (from debian/assets):
     python3 -m unittest carlos_ctl.tests.test_copy_content_parity -v
 """
 
-import io
-import re
 import unittest
 
-from carlos_ctl import o19docs, o19etl, o19map_schema, o19roles
+from carlos_ctl import o19etl, o19map_schema
 
 
 def dst_cols(**over):
@@ -277,15 +275,6 @@ class TestTheDriver(unittest.TestCase):
         self.assertEqual(
             [q for q in db.sql if "`o19_import`.`security`" in q], [])
 
-    def test_every_post_step_rewrite_names_its_reason(self):
-        for table, why in o19etl.POST_COPY_REWRITTEN.items():
-            self.assertTrue(why and len(why) > 20,
-                            "{0} has no usable reason".format(table))
-            self.assertEqual(
-                o19map_schema.TABLES[table]["class"], "copy",
-                "{0} is not a copy table; this list is only about the "
-                "copy class".format(table))
-
     def test_a_table_absent_from_the_dump_is_left_to_row_parity(self):
         entry = o19map_schema.TABLES[self.TABLE]
         cols = entry["cols"][:2]
@@ -293,80 +282,6 @@ class TestTheDriver(unittest.TestCase):
         ok, bad = o19etl.copy_content_parity(
             db, "o19_import", "carlos", self.info(cols), self.info(cols))
         self.assertEqual((ok, bad), ([], []))
-
-
-class TestTheRewriteListIsComplete(unittest.TestCase):
-    """`POST_COPY_REWRITTEN` was written by reading the import once.
-    This reads it again on every run.
-
-    A post-step added later that rewrites a copy-class table would
-    otherwise turn P7 red on every clinic -- and the operator's only way
-    out would be `--accept content-migration`, which is the acknowledge
-    switch, not a fix. Finding it here, in the suite, is cheap; finding
-    it on a clinic's server at 2am is not.
-    """
-
-    #: The modules an import runs that write to the TARGET schema.
-    #: `dbops.py` is deliberately absent: its one UPDATE is the
-    #: carlos-emr package's own break-glass credential reset, which no
-    #: import phase calls.
-    MODULES = (o19etl, o19roles, o19docs)
-
-    #: Tables whose UPDATE runs BEFORE the copy fills them, so the copy's
-    #: values are still what the target holds when P7 looks. File a table
-    #: here rather than in POST_COPY_REWRITTEN -- an entry there stops
-    #: the check running at all.
-    PRE_COPY_UPDATED = {}
-
-    #: `UPDATE `{0}`.tbl` / `UPDATE `{0}`.`tbl``. A statement whose table
-    #: is itself a placeholder (the merge backfill's `UPDATE `{0}`.`{1}``)
-    #: does not match, and does not need to: it is not the copy class.
-    PATTERN = re.compile(r"UPDATE\s+`\{\d\}`\.`?(\w+)`?")
-
-    def rewritten_copy_tables(self):
-        found = {}
-        for mod in self.MODULES:
-            with io.open(mod.__file__, encoding="utf-8") as fh:
-                src = fh.read()
-            for name in self.PATTERN.findall(src):
-                entry = o19map_schema.TABLES.get(name)
-                if entry and entry["class"] == "copy":
-                    found.setdefault(name, set()).add(
-                        mod.__name__.rsplit(".", 1)[-1])
-        return found
-
-    def test_the_scan_finds_the_rewrites_it_is_meant_to_find(self):
-        """A regex that matched nothing would make every assertion below
-        pass vacuously."""
-        found = self.rewritten_copy_tables()
-        self.assertIn("security", found)
-        self.assertIn("o19etl", found["security"])
-
-    def test_every_rewritten_copy_table_is_named_or_ruled_pre_copy(self):
-        unnamed = sorted(
-            "{0} (rewritten in {1})".format(t, ", ".join(sorted(mods)))
-            for t, mods in self.rewritten_copy_tables().items()
-            if t not in o19etl.POST_COPY_REWRITTEN
-            and t not in self.PRE_COPY_UPDATED)
-        self.assertEqual(
-            unnamed, [],
-            "copy-class table(s) an import rewrites but "
-            "POST_COPY_REWRITTEN does not name. P7 would report a "
-            "mismatch on every clinic. Add each with its reason, or -- "
-            "if the UPDATE runs BEFORE the copy -- to this test's "
-            "PRE_COPY_UPDATED with why:\n  " + "\n  ".join(unnamed))
-
-    def test_no_named_table_has_stopped_being_rewritten(self):
-        """A stale entry is not harmless: it keeps a table the import no
-        longer rewrites permanently unchecked."""
-        found = self.rewritten_copy_tables()
-        stale = sorted(t for t in o19etl.POST_COPY_REWRITTEN
-                       if t not in found)
-        self.assertEqual(
-            stale, [],
-            "POST_COPY_REWRITTEN names table(s) no import module "
-            "rewrites any more; each is now excluded from P7's value "
-            "check for no reason: " + ", ".join(stale))
 
 
 if __name__ == "__main__":

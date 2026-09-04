@@ -276,6 +276,17 @@ def enum_values(column_type: str) -> List[str]:
 # pure statement generation
 # --------------------------------------------------------------------------
 
+def preseed_table(table: str) -> str:
+    """The archive name under which a merge table's target rows are kept
+    AS THEY WERE before the merge inserted anything.
+
+    P7 cannot otherwise tell a CARLOS seed row from a clinic row the
+    merge appended: after the insert both are simply live rows. This
+    snapshot is what makes "the seed is untouched" and "the appended
+    rows hold what staging held" two separable, checkable claims."""
+    return table + "__preseed"
+
+
 def idmap_table(parent: str) -> str:
     """Name of the archive-schema table holding `parent`'s old-id -> new-id
     map, written when a surrogate key had to be renumbered."""
@@ -758,7 +769,8 @@ REBUILD_OLD = "__old"
 #: it constructs; a manifest test measures the margin against the real
 #: table names, and `oversized_preserved_names` bounds the ones a dump
 #: brings.
-SHADOW_SUFFIXES = ("", "__dropped", "__unknown_cols", "__idmap")
+SHADOW_SUFFIXES = ("", "__dropped", "__unknown_cols", "__idmap",
+                   "__preseed")
 
 
 def rebuild_statements(archive_schema: str, final: str,
@@ -2122,6 +2134,19 @@ def etl_merge_table(run: 'EtlRun', table: str, entry: dict, tstate: dict,
                 merge_overridden_count_sql(
                     table, entry, src, dst, dcols, arch))[0][0])
             save_progress(state_dir, progress)
+        # The target AS IT WAS, kept before the insert for the same
+        # reason as `overridden`: afterwards a seed row and an appended
+        # clinic row are both just live rows, and P7 could not tell them
+        # apart to check either claim. Its flag is saved BEFORE the
+        # insert, so a crash between the two does not let a resumed run
+        # re-snapshot a table that already holds appended rows and call
+        # the clinic's own data "the seed".
+        if not tstate.get("preseeded"):
+            for sql in archive_statements(table, dst, arch,
+                                          preseed_table(table)):
+                query(sql)
+            tstate["preseeded"] = True
+            save_progress(state_dir, progress)
         query(merge_statement(table, entry, src, dst, dcols,
                               repaired, arch))
         # rows the merge kept CARLOS's copy of never passed
@@ -2863,6 +2888,26 @@ def value_comparison(col: str, expr: str, dst_info: dict) -> str:
             .format(target, expr))
 
 
+def written_expr(entry: dict, col: str, dst_cols: Dict[str, dict],
+                 repaired: Optional[set] = None,
+                 archive_schema: Optional[str] = None) -> str:
+    """The expression the ETL's own INSERT stores in `col`.
+
+    One definition, shared by the copy and merge value checks, because a
+    check that models the write differently from the write proves
+    nothing. `copy_statement` and `merge_statement` build their SELECT
+    lists this way: `source_expr` for the id remaps, renames and curated
+    expressions, then `sanitize_expr` for the zero-date NULLIF and the
+    enum fallback -- except for an `import_archived_` column, which both
+    copy verbatim into a column of the SOURCE's own type and therefore
+    must not be sanitized here either."""
+    e = source_expr(entry, col, repaired, archive_schema,
+                    dst_cols[col]["nullable"])
+    if col in (entry.get("archived_cols") or {}):
+        return e
+    return sanitize_expr(e, dst_cols[col])
+
+
 def copy_value_mismatch_sql(table: str, entry: dict, src_schema: str,
                             dst_schema: str, dst_cols: Dict[str, dict],
                             key: Sequence[str],
@@ -2894,14 +2939,7 @@ def copy_value_mismatch_sql(table: str, entry: dict, src_schema: str,
     row is the target row with the same key.
     """
     def expr(col: str) -> str:
-        e = source_expr(entry, col, repaired, archive_schema,
-                        dst_cols[col]["nullable"])
-        # an `import_archived_` column is a verbatim copy into a column of
-        # the source's own type: copy_statement does not sanitize it, so
-        # neither may this
-        if col in (entry.get("archived_cols") or {}):
-            return e
-        return sanitize_expr(e, dst_cols[col])
+        return written_expr(entry, col, dst_cols, repaired, archive_schema)
 
     # the JOIN uses the server's own equality, because that is what
     # decided which target row IS this staging row's twin; the value
@@ -2916,19 +2954,24 @@ def copy_value_mismatch_sql(table: str, entry: dict, src_schema: str,
                 join, same))
 
 
-#: Copy-class tables whose COPIED ROWS a declared post-step rewrites
-#: after the copy, with the reason. Their target rows deliberately no
-#: longer hold what the copy wrote, so `copy_content_parity` cannot make
-#: its claim about them -- and would report a mismatch on every clinic if
-#: it tried. They are named, not skipped: "we did not check this, and
+#: Copy- and merge-class tables whose MIGRATED ROWS a declared later
+#: step rewrites, with the reason. Their target rows deliberately no
+#: longer hold what the ETL wrote, so the value checks cannot make their
+#: claim about them -- and would report a mismatch on every clinic if
+#: they tried. They are named, not skipped: "we did not check this, and
 #: here is why" is a report; silence is not.
 #:
-#: Tables a post-step only INSERTS into or DELETES from are absent on
-#: purpose. The check pairs a STAGING row with its target twin, so a row
-#: the post-step added has no staging row to disagree with, and one it
-#: removed simply does not join -- `row_parity` owns those row-set
-#: claims. Only a REWRITE of a copied row defeats the value comparison.
-POST_COPY_REWRITTEN = {
+#: Tables a later step only INSERTS into or DELETES from are absent on
+#: purpose. Every value check here pairs a row with its twin through an
+#: inner join, so a row the step added has nothing to disagree with and
+#: one it removed simply does not join -- `row_parity` owns those
+#: row-set claims. Only a REWRITE defeats a value comparison.
+#:
+#: The merge's own `archived_backfill_statement` is not listed either:
+#: it writes only `import_archived_` columns, onto rows the merge did
+#: not insert, and `merge_content_parity` models that write instead of
+#: excusing the table from the check.
+POST_ETL_REWRITTEN = {
     "security": "the ETL sets forcePasswordReset on every carried login "
                 "(force_reset_statement)",
     "secUserRole": "the roles step activates dormant assignments and "
@@ -2940,6 +2983,8 @@ POST_COPY_REWRITTEN = {
     "HRMDocument": "the documents step repoints reportFile at the report's "
                    "basename inside the CARLOS DOCUMENT_DIR "
                    "(o19docs.hrm_rewrite_sql)",
+    "secObjPrivilege": "the roles step rewrites roleUserGroup to the "
+                       "target's spelling of the role name",
 }
 
 
@@ -2987,8 +3032,8 @@ def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
         if not cols:
             continue
         entry = dict(entry, cols=cols)
-        if table in POST_COPY_REWRITTEN:
-            unchecked(table, POST_COPY_REWRITTEN[table])
+        if table in POST_ETL_REWRITTEN:
+            unchecked(table, POST_ETL_REWRITTEN[table])
             continue
         reason = _unpairable_reason(table, entry, dst_keys.get(table) or [],
                                     dst_info[table])
@@ -3035,6 +3080,131 @@ def _unpairable_reason(table: str, entry: dict, key: Sequence[str],
     return None
 
 
+def _key_match(key: Sequence[str], left: str, right: str) -> str:
+    """NULL-safe equality on every primary-key column between two
+    aliases. The key is the target's own PK, so its columns are NOT
+    NULL; `<=>` is used anyway, for one equality operator across every
+    check in this file."""
+    return " AND ".join("{0}.{2} <=> {1}.{2}".format(left, right, ident(k))
+                        for k in key)
+
+
+def merge_seed_change_sql(table: str, dst_schema: str, archive_schema: str,
+                          dst_cols: Dict[str, dict], key: Sequence[str],
+                          cols: Sequence[str],
+                          select: Optional[str] = None) -> str:
+    """Pre-merge target rows that are gone, or no longer hold what they
+    held.
+
+    "CARLOS's seed wins on a shared natural key" is the merge's whole
+    policy, and the row counts cannot see it: a merge that overwrote
+    every seed row with the clinic's values moves the same number of
+    rows. `preseed_table` is what makes the claim checkable at all --
+    after the insert a seed row and an appended row are both just live
+    rows.
+
+    `cols` excludes the `import_archived_` columns: the merge's own
+    `archived_backfill_statement` writes those onto exactly these rows,
+    by design. `merge_backfill_mismatch_sql` makes that write its own
+    claim rather than leaving it unexamined."""
+    same = " AND ".join(
+        value_comparison(c, "p.{0}".format(ident(c)), dst_cols[c])
+        for c in cols)
+    # LEFT JOIN, not a semi-join: a seed row the import DELETED is as
+    # much a violation as one it edited, and only the outer join sees it
+    return ("SELECT {0} FROM `{1}`.{2} p LEFT JOIN `{3}`.{4} d ON {5} "
+            "WHERE d.{6} IS NULL OR NOT ({7})".format(
+                select or "COUNT(*)", archive_schema,
+                ident(preseed_table(table)), dst_schema, ident(table),
+                _key_match(key, "d", "p"), ident(key[0]), same))
+
+
+def merge_appended_mismatch_sql(table: str, entry: dict, src_schema: str,
+                                dst_schema: str, archive_schema: str,
+                                dst_cols: Dict[str, dict],
+                                key: Sequence[str],
+                                repaired: Optional[set] = None,
+                                select: Optional[str] = None) -> str:
+    """Appended clinic rows whose live row does NOT hold the value the
+    merge's own INSERT produced.
+
+    Appended, not merged-away: the `NOT EXISTS` against the pre-merge
+    snapshot drops every row CARLOS's seed won, whose target values are
+    the seed's by design.
+
+    The pairing differs by table shape, and must:
+
+    * with a surrogate PK the insert let AUTO_INCREMENT assign the id,
+      so the only thing that knows which live row a staging row became
+      is the id map -- and the map is deliberately twin-aware, pairing
+      the n-th staging row on a key with the n-th target row on it. The
+      join reads `s`.`<pk>` exactly as `idmap_statements` does.
+    * without one, the manifest guarantees the natural key IS the
+      primary key (the generator refuses any other shape), so the
+      natural-key join pairs one row with one row.
+
+    The surrogate itself is left out of the comparison: the merge
+    deliberately did not carry the clinic's id, and `idmap_changed_count`
+    reports how many moved."""
+    surrogate = entry.get("surrogate_pk")
+    cols = [c for c in entry["cols"] if c != surrogate]
+    same = " AND ".join(
+        value_comparison(c, written_expr(entry, c, dst_cols, repaired,
+                                         archive_schema), dst_cols[c])
+        for c in cols)
+    if surrogate:
+        pair = ("JOIN `{0}`.{1} m ON m.old_id <=> s.{2} JOIN `{3}`.{4} d "
+                "ON d.{2} <=> m.new_id".format(
+                    archive_schema, ident(idmap_table(table)),
+                    ident(surrogate), dst_schema, ident(table)))
+    else:
+        pair = "JOIN `{0}`.{1} d ON {2}".format(
+            dst_schema, ident(table),
+            merge_join(entry, archive_schema, dst_cols))
+    where = ("NOT EXISTS (SELECT 1 FROM `{0}`.{1} p WHERE {2}) AND NOT "
+             "({3})".format(archive_schema, ident(preseed_table(table)),
+                            _key_match(key, "p", "d"), same))
+    if entry.get("merge_exclude"):
+        # rows the insert never carried cannot be checked against it
+        where += " AND NOT ({0})".format(entry["merge_exclude"])
+    return ("SELECT {0} FROM `{1}`.{2} s {3} WHERE {4}".format(
+        select or "COUNT(*)", src_schema, ident(table), pair, where))
+
+
+def merge_backfill_mismatch_sql(table: str, entry: dict, src_schema: str,
+                                dst_schema: str, archive_schema: str,
+                                key: Sequence[str],
+                                select: Optional[str] = None) -> str:
+    """Seed rows that had a clinic twin on the natural key but do not
+    carry that twin's `import_archived_` values.
+
+    This is requirement B's half of the merge: the clinic's other
+    columns on a key CARLOS's seed won are dropped from the live row by
+    policy, and `archived_backfill_statement` is what keeps them
+    reachable instead of orphaned.
+
+    Phrased as "no matching staging row agrees" rather than "every
+    matching staging row agrees", because a clinic table may hold TWINS
+    on the natural key: the backfill's `UPDATE ... JOIN` assigns from
+    one of them and the server does not say which, so demanding all of
+    them would report a mismatch the import cannot avoid."""
+    archived = entry.get("archived_cols") or {}
+    same = " AND ".join(
+        "d.{0} <=> s.{1}".format(ident(t), ident(src))
+        for t, src in sorted(archived.items()))
+    join = merge_join(entry, archive_schema, None)
+    excl = (" AND NOT ({0})".format(entry["merge_exclude"])
+            if entry.get("merge_exclude") else "")
+    twin = ("SELECT 1 FROM `{0}`.{1} s WHERE {2}{3}".format(
+        src_schema, ident(table), join, excl))
+    return ("SELECT {0} FROM `{1}`.{2} d WHERE EXISTS (SELECT 1 FROM "
+            "`{3}`.{4} p WHERE {5}) AND EXISTS ({6}) AND NOT EXISTS "
+            "({6} AND {7})".format(
+                select or "COUNT(*)", dst_schema, ident(table),
+                archive_schema, ident(preseed_table(table)),
+                _key_match(key, "p", "d"), twin, same))
+
+
 def ordered_columns(plain_query, schema: str
                     ) -> Dict[str, List[Tuple[str, str]]]:
     """`{table: [(column, DATA_TYPE)]}` in ORDINAL_POSITION order.
@@ -3051,6 +3221,149 @@ def ordered_columns(plain_query, schema: str
         if len(row) >= 3 and row[0]:
             out.setdefault(row[0], []).append((row[1], row[2]))
     return out
+
+
+def merge_content_parity(plain_query, src_schema: str, dst_schema: str,
+                         archive_schema: str,
+                         src_info: Dict[str, Dict[str, dict]],
+                         dst_info: Dict[str, Dict[str, dict]],
+                         repairs: Optional[Dict[str, Sequence[str]]] = None
+                         ) -> Tuple[List[str], List[str]]:
+    """(ok_lines, mismatch_lines) for the merge class, which `row_parity`
+    can only count.
+
+    A merge table's live rows come from two places, and the counts
+    cannot tell them apart. Three claims, each checkable only against
+    the pre-merge snapshot `etl_merge_table` takes:
+
+    1. the CARLOS seed rows are still exactly as they were (the merge's
+       policy is that they WIN, which is a claim about values);
+    2. every appended clinic row holds what the merge's own INSERT
+       produced, paired through the id map when the id had to move;
+    3. every seed row that beat a clinic row carries that row's values
+       in its `import_archived_` columns -- requirement B's promise that
+       nothing is orphaned.
+
+    A table this cannot pair is reported UNCHECKED rather than passed:
+    "we could not look" and "we looked and it was fine" are different
+    answers, and only one of them is a verification.
+    """
+    ok, bad = [], []
+    repairs = repairs or {}
+    src_tables = schema_tables(plain_query, src_schema)
+    arch_columns = ordered_columns(plain_query, archive_schema)
+    dst_keys = primary_key_columns(plain_query, dst_schema)
+
+    def unchecked(table: str, why: str) -> None:
+        ok.append("NOT CHECKED — {0}: {1}".format(table, why))
+
+    def count(table: str, sql: str) -> Optional[int]:
+        try:
+            return int(plain_query(sql)[0][0])
+        except Exception as exc:                      # noqa: BLE001
+            bad.append("{0}: values could not be checked ({1})".format(
+                table, _query_reason(exc)))
+            return None
+
+    for table, entry in sorted(o19map_schema.TABLES.items()):
+        if entry["class"] != "merge" or table not in src_tables:
+            continue
+        if table not in dst_info or table not in src_info:
+            continue        # absent at this patch level: row_parity's
+        entry, _notes = effective_entry(table, entry, src_info[table],
+                                        src_tables)
+        if entry.get("fk_remap"):
+            entry = dict(entry, fk_remap={
+                c: parent for c, parent in entry["fk_remap"].items()
+                if parent in src_tables})
+        cols = [c for c in entry.get("cols") or () if c in dst_info[table]]
+        if not cols:
+            continue
+        entry = dict(entry, cols=cols)
+        if table in POST_ETL_REWRITTEN:
+            unchecked(table, POST_ETL_REWRITTEN[table])
+            continue
+        key = dst_keys.get(table) or []
+        reason = _unpairable_reason(table, entry, key, dst_info[table])
+        if reason:
+            unchecked(table, reason)
+            continue
+        preseed = arch_columns.get(preseed_table(table))
+        if not preseed:
+            # an import run before this snapshot existed, or one whose
+            # merge phase has not reached this table
+            unchecked(table, "no pre-merge snapshot at {0}.{1}, so the "
+                             "seed rows and the appended rows cannot be "
+                             "told apart".format(archive_schema,
+                                                 preseed_table(table)))
+            continue
+        _merge_table_parity(plain_query, table, entry, src_schema,
+                            dst_schema, archive_schema, dst_info[table],
+                            key, [c for c, _t in preseed],
+                            set(repairs.get(table) or ()),
+                            arch_columns, ok, bad, unchecked, count)
+    return ok, bad
+
+
+def _merge_table_parity(plain_query, table: str, entry: dict,
+                        src_schema: str, dst_schema: str,
+                        archive_schema: str, dst_cols: Dict[str, dict],
+                        key: Sequence[str], preseed_cols: Sequence[str],
+                        repaired: set,
+                        arch_columns: Dict[str, List[Tuple[str, str]]],
+                        ok: List[str], bad: List[str],
+                        unchecked, count) -> None:
+    """The three merge claims for one table. Separate from the loop so
+    each claim reads as one paragraph rather than one more nesting
+    level."""
+    archived = entry.get("archived_cols") or {}
+    # only columns BOTH sides have: the snapshot is taken after the
+    # `import_archived_` columns are added, but an import from an older
+    # carlos-ctl may have taken it before, and a missing column would
+    # make the statement an error rather than an answer
+    seed_cols = [c for c in sorted(dst_cols)
+                 if c in preseed_cols and c not in archived]
+    if not seed_cols:
+        unchecked(table, "the pre-merge snapshot shares no comparable "
+                         "column with the live table")
+    else:
+        n = count(table, merge_seed_change_sql(
+            table, dst_schema, archive_schema, dst_cols, key, seed_cols))
+        if n:
+            bad.append("{0}: {1} pre-merge CARLOS row(s) were removed or "
+                       "changed by the import; the merge must leave the "
+                       "seed alone".format(table, n))
+        elif n == 0:
+            ok.append("{0} (merge): the CARLOS seed rows are unchanged"
+                      .format(table))
+
+    surrogate = entry.get("surrogate_pk")
+    if surrogate and not arch_columns.get(idmap_table(table)):
+        unchecked(table, "no id map at {0}.{1}, so an appended row "
+                         "cannot be paired with the staging row it came "
+                         "from".format(archive_schema, idmap_table(table)))
+    else:
+        n = count(table, merge_appended_mismatch_sql(
+            table, entry, src_schema, dst_schema, archive_schema,
+            dst_cols, key, repaired))
+        if n:
+            bad.append("{0}: {1} appended row(s) do not hold the value "
+                       "the merge wrote".format(table, n))
+        elif n == 0:
+            ok.append("{0} (merge): every appended row holds the value "
+                      "the merge wrote".format(table))
+
+    if not archived:
+        return
+    n = count(table, merge_backfill_mismatch_sql(
+        table, entry, src_schema, dst_schema, archive_schema, key))
+    if n:
+        bad.append("{0}: {1} seed row(s) beat a clinic row whose values "
+                   "their import_archived_ columns do not carry"
+                   .format(table, n))
+    elif n == 0:
+        ok.append("{0} (merge): every seed row that beat a clinic row "
+                  "carries its archived values".format(table))
 
 
 def preserved_content_parity(plain_query, src_schema: str, dst_schema: str,
