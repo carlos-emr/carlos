@@ -206,6 +206,24 @@ class TestTheDdlParser(unittest.TestCase):
         s = self.parse("CREATE TABLE t (a int, PRIMARY KEY (nosuch));")
         self.assertNotIn("t", s.pks)
 
+    def test_an_add_primary_key_may_carry_an_index_name(self):
+        # update-2012-10-30.sql writes `ADD PRIMARY KEY
+        # billcenter_code(billcenter_code)`. MySQL accepts the name and
+        # discards it; the parser used to reject the whole clause, so
+        # billcenter came out with no primary key at all.
+        s = self.parse(
+            "CREATE TABLE billcenter (billcenter_code varchar(10) NOT NULL,"
+            " x int);"
+            "ALTER TABLE billcenter ADD PRIMARY KEY"
+            " billcenter_code(billcenter_code);")
+        self.assertEqual(s.pks["billcenter"], ["billcenter_code"])
+
+    def test_an_unnamed_add_primary_key_still_parses(self):
+        # the optional name must not eat the column list
+        s = self.parse("CREATE TABLE t (a int NOT NULL, b int NOT NULL);"
+                       "ALTER TABLE t ADD PRIMARY KEY (a, b);")
+        self.assertEqual(s.pks["t"], ["a", "b"])
+
     def test_add_column_after_lands_where_mysql_puts_it(self):
         # 27 ALTERs in the O19 corpus position a column this way;
         # appending instead describes a table the clinic does not have
@@ -317,12 +335,109 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
         got = self.mod.probe_alter("ALTER TABLE t ADD c int", "p7")
         self.assertEqual(got, "ALTER TABLE `p7` ADD c int")
 
+    def test_a_setup_failure_exits_with_the_documented_status(self):
+        # the module docstring reserves 1 for "the parse disagreed" and 2
+        # for a usage or connection error; `raise SystemExit("text")`
+        # exits 1, which would report a dead client as a generator bug
+        with self.assertRaises(SystemExit) as caught:
+            self.mod.fail("no server")
+        self.assertEqual(caught.exception.code, 2)
+
+    def test_a_password_in_argv_is_named_back_to_the_operator(self):
+        # the message quotes what it refuses, so a bare --password must
+        # come back as --password and not as the first two characters
+        self.assertEqual(self.mod.reject_password_args(
+            ["--password"]), ["--password"])
+        self.assertEqual(self.mod.reject_password_args(
+            ["--password=hunter2"]), ["--password"])
+        self.assertEqual(self.mod.reject_password_args(["-phunter2"]), ["-p"])
+
+    def test_an_innocent_client_argument_is_left_alone(self):
+        # --protocol starts with "-p" too; refusing it would block a
+        # legitimate invocation
+        self.assertEqual(self.mod.reject_password_args(
+            ["-uroot", "--protocol=tcp", "--socket=/run/m.sock"]), [])
+
     def test_the_scaffold_preserves_column_order_and_quotes_names(self):
         got = self.mod.scaffold("p1", ["id", "we`ird"])
         self.assertEqual(
             got,
             "CREATE TABLE `p1` (`id` varchar(191), `we``ird` varchar(191));")
         self.assertEqual(self.mod.scaffold("p1", []), "")
+
+
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestTheEntityNameCheckerReadsTheRightMember(unittest.TestCase):
+
+    """check-entity-names.py compares each entity's Java property against
+    the DB column the manifest carries, so reading the WRONG property
+    turns the audit into noise -- and silently: a mismatch it invents is
+    indistinguishable from one it found.
+
+    JPA reads @Column from the field or from the getter, per entity. On a
+    getter-annotated entity the field pattern used to win anyway, because
+    `return providerNo;` in the getter body has the shape of a
+    declaration and the search is not anchored -- so the annotation was
+    bound to a field belonging to a different property further down the
+    400-character window."""
+
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location(
+            "check_entity_names", GEN.parent / "check-entity-names.py")
+        cls.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.mod)
+
+    def entity(self, body):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory(prefix="o19entity-")
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "E.java"
+        path.write_text('@Entity\n@Table(name = "e")\n'
+                        'public class E {\n' + body + "\n}\n",
+                        encoding="utf-8")
+        return self.mod.parse_entity(str(path))
+
+    def test_a_getter_annotation_binds_to_that_getter(self):
+        # the shape that misread: the getter's own body, then another
+        # property's field, inside one 400-character window
+        got = self.entity(
+            '    @Column(name = "provider_no")\n'
+            '    public String getProviderNo() {\n'
+            '        return this.providerNo;\n'
+            '    }\n'
+            '    public void setProviderNo(String v) {\n'
+            '        this.providerNo = v;\n'
+            '    }\n'
+            '    private String otherThing;\n')
+        self.assertEqual(got[2], {"providerNo": "provider_no"})
+
+    def test_a_getter_returning_its_field_plainly_binds_to_the_getter(self):
+        # `return name;` IS `<type> <name>;` to a pattern that does not
+        # know Java statements from declarations
+        got = self.entity(
+            '    @Column(length = 255)\n'
+            '    public String getName() {\n'
+            '        return name;\n'
+            '    }\n'
+            '    private String status;\n')
+        self.assertEqual(got[2], {"name": "name"})
+
+    def test_a_field_annotation_still_binds_to_the_field(self):
+        # the ordinary case must not regress: the field sits right after
+        # the annotation, so it wins on position
+        got = self.entity(
+            '    @Column(name = "last_name")\n'
+            '    private String lastName;\n'
+            '    public String getLastName() { return lastName; }\n')
+        self.assertEqual(got[2], {"lastName": "last_name"})
+
+    def test_a_package_private_field_still_binds(self):
+        # composite-id classes declare `Integer formId;` with no modifier
+        got = self.entity(
+            '    @Column(name = "form_id")\n'
+            '    Integer formId;\n')
+        self.assertEqual(got[2], {"formId": "form_id"})
 
 
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
@@ -359,6 +474,22 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
         # it would be checking a case that cannot happen
         for good in self.mod.CHARSET_SAMPLES:
             good.encode("utf-8").decode("cp1252")
+
+    def test_a_prefix_that_is_not_an_identifier_is_refused(self):
+        # the prefix reaches SQL unquoted and the script DROPs what it
+        # builds from it
+        self.assertIsNotNone(self.mod.prefix_problem("a`b"))
+        self.assertIsNotNone(self.mod.prefix_problem(""))
+        self.assertIsNone(self.mod.prefix_problem("carlos_merge_verify"))
+
+    def test_a_prefix_that_would_overrun_the_schema_name_is_refused(self):
+        # MariaDB refuses a schema name over 64 characters, and the
+        # longest suffix is `_arch`; without this the run dies as ERROR
+        # 1102 from the first DROP, which reads like a broken server
+        self.assertIsNone(self.mod.prefix_problem("p" * self.mod.MAX_PREFIX))
+        self.assertIsNotNone(
+            self.mod.prefix_problem("p" * (self.mod.MAX_PREFIX + 1)))
+        self.assertEqual(self.mod.MAX_PREFIX + len("_arch"), 64)
 
     def test_every_scenario_states_why_it_exists(self):
         # a scenario with no stated reason is a scenario nobody can judge

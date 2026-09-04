@@ -74,6 +74,26 @@ from typing import Dict, List, Optional, Tuple
 #: not a dropped database.
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 
+#: MariaDB refuses a schema name over 64 characters, and the scratch names
+#: are the prefix plus a suffix -- `_arch` being the longest. Without this
+#: a 60-character prefix fails as ERROR 1102 from the first DROP, which
+#: reads like a broken server rather than a too-long argument.
+MAX_PREFIX = 64 - len("_arch")
+
+
+def prefix_problem(prefix: str) -> Optional[str]:
+    """Return why `prefix` cannot be used as a scratch schema name, or
+    None if it can."""
+    if not IDENTIFIER_RE.match(prefix):
+        return ("--prefix must be a plain identifier ({0} is not): this "
+                "script DROPs the schemas built from it".format(prefix))
+    if len(prefix) > MAX_PREFIX:
+        return ("--prefix must be at most {0} characters ({1} is {2}): the "
+                "scratch schemas append up to '_arch', and MariaDB refuses "
+                "a schema name over 64".format(MAX_PREFIX, prefix,
+                                               len(prefix)))
+    return None
+
 
 def reject_password_args(args):
     """Return the args that would carry a credential in argv.
@@ -367,10 +387,9 @@ def main(argv: Optional[List[str]] = None) -> int:
               "(--mysql-arg=--defaults-extra-file=...)."
               .format(", ".join(leaked)), file=sys.stderr)
         return 2
-    if not IDENTIFIER_RE.match(args.prefix):
-        print("--prefix must be a plain identifier ({0} is not): this script "
-              "DROPs the schemas built from it".format(args.prefix),
-              file=sys.stderr)
+    problem = prefix_problem(args.prefix)
+    if problem:
+        print(problem, file=sys.stderr)
         return 2
 
     client = Client(args.mysql_cmd, args.mysql_args)

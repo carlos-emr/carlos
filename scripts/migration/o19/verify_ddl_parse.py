@@ -85,13 +85,30 @@ IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
 PASSWORD_ARGS = ("-p", "--password")
 
 
+def fail(message):
+    """Print `message` and exit 2 -- this script's documented status for a
+    usage or connection error.
+
+    `raise SystemExit("text")` prints the text but exits **1**, which the
+    contract at the top of this file reserves for "the parse disagreed with
+    the server". A caller reading the status would take a dead client for a
+    generator bug."""
+    print(message, file=sys.stderr)
+    raise SystemExit(2)
+
+
 def reject_password_args(args):
     """Return the args that would carry a credential in argv."""
     bad = []
     for a in args:
-        if a.startswith("--password") or (
-                a.startswith("-p") and not a.startswith("--")):
-            bad.append(a.split("=")[0] if "=" in a else a[:2])
+        for flag in PASSWORD_ARGS:
+            # `-p` must not swallow every other long option: --protocol
+            # starts with "-p" too, and only the short form is meant here.
+            if not a.startswith(flag) or (flag == "-p"
+                                          and a.startswith("--")):
+                continue
+            bad.append(a.split("=")[0] if "=" in a else a[:len(flag)])
+            break
     return bad
 
 
@@ -101,7 +118,7 @@ def load_generator():
     spec = importlib.util.spec_from_file_location(
         "generate_manifests", HERE / "generate_manifests.py")
     if spec is None or spec.loader is None:      # pragma: no cover - defensive
-        raise SystemExit("cannot import generate_manifests.py")
+        fail("cannot import generate_manifests.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -142,7 +159,7 @@ class Client:
     def rows(self, sql: str) -> List[List[str]]:
         rc, out, err = self.run(sql)
         if rc != 0:
-            raise SystemExit("query failed: {0}".format(err[:400]))
+            fail("query failed: {0}".format(err[:400]))
         return [line.split("\t") for line in out.split("\n") if line]
 
 
@@ -332,9 +349,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             # connection, a missing client -- means this batch never ran,
             # and its probes would then read as "server refused", i.e. as
             # silence. An oracle must not report OK for work it did not do.
-            raise SystemExit(
-                "client failed on a batch (not a statement error): {0}"
-                .format(err[:400]))
+            fail("client failed on a batch (not a statement error): {0}"
+                 .format(err[:400]))
         for line_no in re.findall(r"at line (\d+)", err):
             n = int(line_no)
             # the statement whose span contains this line

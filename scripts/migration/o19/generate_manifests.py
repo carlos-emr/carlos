@@ -490,8 +490,14 @@ class Schema:
             # ADD COLUMN branch below never reaches because its keyword
             # guard excludes "primary". reportTemplates drops the key and
             # re-adds it this way in the same statement.
+            # The optional name between `KEY` and `(` is an index name:
+            # `ADD PRIMARY KEY billcenter_code(billcenter_code)`
+            # (update-2012-10-30.sql, the single occurrence in the corpus).
+            # MySQL accepts it and then discards it -- a primary key is
+            # always called PRIMARY -- so it is skipped, not recorded.
             pm = re.match(r"add\s+(?:constraint\s+`?\w+`?\s+)?primary\s+"
-                          r"key\s*\((.*)\)\s*$", clause, re.I | re.S)
+                          r"key(?:\s+`?\w+`?)?\s*\((.*)\)\s*$",
+                          clause, re.I | re.S)
             if pm:
                 added = [c.strip().split("(")[0].strip().strip("`")
                          for c in pm.group(1).split(",")]

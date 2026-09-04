@@ -42,8 +42,16 @@ NAME_RE = re.compile(r'name\s*=\s*"([^"]+)"')
 #: DIFFERENT property -- so three mappings per class collapsed into one
 #: wrong one, silently, in a tool whose whole job is to notice a name
 #: that does not match.
+#: The lookahead keeps a STATEMENT from reading as a declaration.
+#: `return providerNo;` inside an annotated getter has exactly the shape
+#: `<type> <name>;`, and the search is not anchored -- so on a
+#: getter-annotated entity FIELD_RE reached past the getter and named a
+#: field belonging to a DIFFERENT property (FormRourke2009's
+#: @Column(name = "provider_no") came out as `p2_fallsOkConcerns`).
 FIELD_RE = re.compile(
     r'(?:(?:private|protected|public|static|final|transient|volatile)\s+)*'
+    r'(?!(?:return|throw|new|case|else|do|try|assert|break|continue|yield)'
+    r'\b)'
     r'(?:[A-Za-z_$][\w<>,\[\]\.]*(?:\s*<[^;=]*>)?)\s+(\w+)\s*[;=]')
 #: JPA reads annotations from FIELDS or from GETTERS, per entity, and an
 #: entity that annotates its getters has no annotated field for FIELD_RE
@@ -73,10 +81,14 @@ def parse_entity(path):
         # past any javadoc or further annotations between them
         window = src[match.end():match.end() + 400]
         field = FIELD_RE.search(window)
-        if field:
+        getter = GETTER_RE.search(window)
+        # WHICHEVER COMES FIRST is the member this annotation is on. The
+        # window runs 400 characters past the annotation and so reaches
+        # into the next member; preferring the field unconditionally let
+        # a later declaration outrank the getter sitting right here.
+        if field and (getter is None or field.start() < getter.start()):
             prop = field.group(1)
         else:
-            getter = GETTER_RE.search(window)
             if not getter:
                 continue
             # getFoo() -> foo, the property name JPA derives through
