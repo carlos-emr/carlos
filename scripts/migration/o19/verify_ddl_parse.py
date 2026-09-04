@@ -71,6 +71,29 @@ from typing import Dict, List, Optional, Tuple
 
 HERE = Path(__file__).resolve().parent
 
+#: Scratch schema names reach SQL as identifiers. This script DROPs what it
+#: is given, so a name that is not a plain identifier is refused rather than
+#: quoted: there is no legitimate scratch schema called `foo`; DROP DATABASE
+#: prod` -- and the operator who typo-pastes one should get an error, not a
+#: dropped database.
+IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+
+#: Client arguments that would put a password in the child's argv, where any
+#: local user can read it. The rest of this feature refuses these too
+#: (o19_preflight passes the password via MYSQL_PWD); the oracle should not
+#: be the one place that teaches an operator the bad habit.
+PASSWORD_ARGS = ("-p", "--password")
+
+
+def reject_password_args(args):
+    """Return the args that would carry a credential in argv."""
+    bad = []
+    for a in args:
+        if a.startswith("--password") or (
+                a.startswith("-p") and not a.startswith("--")):
+            bad.append(a.split("=")[0] if "=" in a else a[:2])
+    return bad
+
 
 def load_generator():
     """Import generate_manifests.py as a module (it is a script, not a
@@ -104,8 +127,14 @@ class Client:
         if force:
             argv.append("--force")
         argv.append(db if db is not None else self.db)
-        proc = subprocess.run(argv, input=sql.encode("utf-8", "replace"),
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            proc = subprocess.run(argv, input=sql.encode("utf-8", "replace"),
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE)
+        except OSError as exc:
+            # a missing or unexecutable --mysql-cmd: the documented exit 2,
+            # not a traceback out of the middle of a batch
+            return 127, "", "cannot run {0}: {1}".format(self.cmd, exc)
         return (proc.returncode,
                 proc.stdout.decode("utf-8", "replace"),
                 proc.stderr.decode("utf-8", "replace").strip())
@@ -125,6 +154,13 @@ _CREATE_HEAD = re.compile(
 _ALTER_HEAD = re.compile(r"(?is)^alter\s+table\s+`?\w+`?")
 
 
+#: The placeholder collect() leaves in a retargeted statement, filled in
+#: when the batch is built. A literal `%` is legal in DDL (a DEFAULT of
+#: '100%', a COMMENT), so the fill is a plain replace and never % formatting
+#: -- which raised TypeError on exactly those statements.
+PROBE_MARK = "\x00PROBE\x00"
+
+
 def probe_create(sql: str, probe: str) -> str:
     """The CREATE statement, retargeted at the probe table."""
     return _CREATE_HEAD.sub("CREATE TABLE `{0}`".format(probe), sql, count=1)
@@ -135,7 +171,8 @@ def probe_alter(sql: str, probe: str) -> str:
     return _ALTER_HEAD.sub("ALTER TABLE `{0}`".format(probe), sql, count=1)
 
 
-def scaffold(probe: str, columns: List[str]) -> str:
+def scaffold(probe: str, columns: List[str],
+             pk: Optional[List[str]] = None) -> str:
     """A probe table carrying `columns` in order, all one indexable type.
 
     The manifest records column NAMES and their order, never the declared
@@ -143,20 +180,31 @@ def scaffold(probe: str, columns: List[str]) -> str:
     varchar keeps `ADD PRIMARY KEY`, `AFTER <col>` and `CHANGE` replayable
     on statements whose original types (a bare AUTO_INCREMENT with no key,
     say) a modern server refuses outright.
+
+    The pre-ALTER PRIMARY KEY is carried too. Without it the probe has no
+    key, every ALTER's key effect is invisible, and a wrong Schema.pks
+    still reports OK -- which is how a stale key after a case-insensitive
+    CHANGE survived this oracle's first pass.
     """
     if not columns:
         return ""
-    cols = ", ".join("`{0}` varchar(191)".format(c.replace("`", "``"))
-                     for c in columns)
-    return "CREATE TABLE `{0}` ({1});".format(probe, cols)
+    quoted = ["`{0}` varchar(191)".format(c.replace("`", "``"))
+              for c in columns]
+    if pk:
+        quoted.append("PRIMARY KEY ({0})".format(", ".join(
+            "`{0}`".format(c.replace("`", "``")) for c in pk)))
+    return "CREATE TABLE `{0}` ({1});".format(probe, ", ".join(quoted))
 
 
 def collect(gm, files: List[Path]):
     """Replay the sources; return the per-statement comparisons to make.
 
-    Each entry is (kind, probe, setup_sql, statement_sql, expected_columns,
-    expected_pk) -- `expected_*` being what the generator concluded, which
-    is what MariaDB is asked to confirm.
+    Each entry is (kind, file, table, before, statement_sql,
+    expected_columns, expected_pk), where `before` is None for a CREATE and
+    (columns, primary key) for an ALTER -- the state the probe is built in
+    so the statement has the same thing to act on that the model did.
+    `expected_*` is what the generator concluded, which is what MariaDB is
+    asked to confirm.
     """
     schema = gm.Schema(if_not_exists_mode="union")
     cases = []
@@ -168,18 +216,22 @@ def collect(gm, files: List[Path]):
                 # than at the union/skip/replace rules layered above it
                 one = gm.Schema()
                 one.apply_create(stmt.table, stmt.body)
-                cases.append(("create", f.name, stmt.table, "",
-                              probe_create(stmt.sql, "%s"),
+                cases.append(("create", f.name, stmt.table, None,
+                              probe_create(stmt.sql, PROBE_MARK),
                               list(one.tables.get(stmt.table, {})),
                               one.pks.get(stmt.table, [])))
             elif stmt.kind == "alter" and stmt.table in schema.tables:
-                before = list(schema.tables[stmt.table])
+                before = (list(schema.tables[stmt.table]),
+                          list(schema.pks.get(stmt.table, [])))
                 after = gm.Schema()
                 after.tables[stmt.table] = dict(schema.tables[stmt.table])
+                if stmt.table in schema.pks:
+                    after.pks[stmt.table] = list(schema.pks[stmt.table])
                 after.apply_alter(stmt.table, stmt.body)
                 cases.append(("alter", f.name, stmt.table, before,
-                              probe_alter(stmt.sql, "%s"),
-                              list(after.tables[stmt.table]), None))
+                              probe_alter(stmt.sql, PROBE_MARK),
+                              list(after.tables[stmt.table]),
+                              list(after.pks.get(stmt.table, []))))
             schema.apply(stmt)
     return cases
 
@@ -229,6 +281,18 @@ def main(argv: Optional[List[str]] = None) -> int:
               file=sys.stderr)
         return 2
 
+    leaked = reject_password_args(args.mysql_args)
+    if leaked:
+        print("refusing {0}: a password in the client's argv is readable by "
+              "any local user. Use MYSQL_PWD or a client defaults file "
+              "(--mysql-arg=--defaults-extra-file=...)."
+              .format(", ".join(leaked)), file=sys.stderr)
+        return 2
+    if not IDENTIFIER_RE.match(args.db):
+        print("--db must be a plain identifier ({0} is not): this script "
+              "DROPs the schema it is given".format(args.db), file=sys.stderr)
+        return 2
+
     client = Client(args.mysql_cmd, args.mysql_args, args.db)
     rc, _out, err = client.run(
         "DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;".format(args.db),
@@ -261,7 +325,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     def flush() -> None:
         if len(script) <= 1:
             return
-        _rc, _out, err = client.run("\n".join(script), force=True)
+        rc, _out, err = client.run("\n".join(script), force=True)
+        if rc != 0 and "at line" not in err:
+            # --force returns non-zero for statement errors it continued
+            # past, and those carry "at line N". Anything else -- a dropped
+            # connection, a missing client -- means this batch never ran,
+            # and its probes would then read as "server refused", i.e. as
+            # silence. An oracle must not report OK for work it did not do.
+            raise SystemExit(
+                "client failed on a batch (not a statement error): {0}"
+                .format(err[:400]))
         for line_no in re.findall(r"at line (\d+)", err):
             n = int(line_no)
             # the statement whose span contains this line
@@ -278,8 +351,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         probe = "p{0}".format(idx)
         pieces = []
         if kind == "alter":
-            pieces.append(scaffold(probe, before))
-        pieces.append(sql_tmpl % probe + ";")
+            pieces.append(scaffold(probe, before[0], before[1]))
+        pieces.append(sql_tmpl.replace(PROBE_MARK, probe) + ";")
         spans.append((sum(x.count("\n") + 1 for x in script) + 1, idx))
         script.extend(pieces)
         if len(script) - batch_start >= args.batch:
@@ -304,7 +377,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         compared += 1
         got_cols = db_cols[probe]
         got_pk = db_pks.get(probe, [])
-        if got_cols != exp_cols or (exp_pk is not None and got_pk != exp_pk):
+        if got_cols != exp_cols or (exp_pk is not None
+                                    and list(got_pk) != list(exp_pk)):
             mismatches.append((kind, fname, table, exp_cols, got_cols,
                                exp_pk, got_pk))
 
@@ -331,7 +405,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print("    same columns, different order")
                 print("    generator: {0}".format(exp_cols))
                 print("    mariadb:   {0}".format(got_cols))
-        if exp_pk is not None and exp_pk != got_pk:
+        if exp_pk is not None and list(exp_pk) != list(got_pk):
             print("    primary key: generator {0}, mariadb {1}"
                   .format(exp_pk, got_pk))
     print("\nthe scratch schema `{0}` is kept for inspection".format(args.db))

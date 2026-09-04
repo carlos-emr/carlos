@@ -240,12 +240,53 @@ class TestTheDdlParser(unittest.TestCase):
                        "NULL;")
         self.assertEqual(list(s.tables["t"]), ["TEMPLATE_ID", "name"])
 
+    def test_a_renamed_column_takes_the_primary_key_with_it(self):
+        # the other half of the case-insensitive CHANGE fix: leaving the old
+        # spelling in pks names a column that no longer exists, and the
+        # surrogate-key detection looks that name up in tables[t]
+        s = self.parse("CREATE TABLE t (ID int, x int, PRIMARY KEY (id));"
+                       "ALTER TABLE t CHANGE id ident int NOT NULL;")
+        self.assertEqual(s.pks["t"], ["ident"])
+        self.assertIn(s.pks["t"][0], s.tables["t"])
+
+    def test_dropping_the_key_column_drops_the_key(self):
+        s = self.parse("CREATE TABLE t (ID int, x int, PRIMARY KEY (id));"
+                       "ALTER TABLE t DROP COLUMN ID;")
+        self.assertEqual(list(s.tables["t"]), ["x"])
+        self.assertNotIn("t", s.pks)
+
+    def test_drop_primary_key_actually_drops_it(self):
+        # invisible until the oracle compared keys on ALTERs: seven tables
+        # in the O19 update history drop their key this way, and the
+        # generic DROP COLUMN branch never sees the clause because its
+        # keyword guard excludes "primary"
+        s = self.parse("CREATE TABLE t (sdate date, p varchar(6), "
+                       "PRIMARY KEY (sdate));"
+                       "ALTER TABLE t DROP PRIMARY KEY;")
+        self.assertNotIn("t", s.pks)
+
+    def test_an_added_column_can_declare_the_key_inline(self):
+        s = self.parse("CREATE TABLE t (sdate date, PRIMARY KEY (sdate));"
+                       "ALTER TABLE t DROP PRIMARY KEY;"
+                       "ALTER TABLE t ADD COLUMN id int(6) NOT NULL "
+                       "auto_increment primary key;")
+        self.assertEqual(s.pks["t"], ["id"])
+        self.assertIn("id", s.tables["t"])
+
+    def test_add_primary_key_as_its_own_clause(self):
+        # reportTemplates drops the key and re-adds it in one statement
+        s = self.parse("CREATE TABLE t (templateid int, x int);"
+                       "ALTER TABLE t CHANGE templateid templateid int(11) "
+                       "NOT NULL auto_increment, ADD PRIMARY KEY(templateid);")
+        self.assertEqual(s.pks["t"], ["templateid"])
+
     def test_drop_column_matches_the_name_case_insensitively(self):
         s = self.parse("CREATE TABLE t (a int, NAME varchar(50));"
                        "ALTER TABLE t DROP COLUMN name;")
         self.assertEqual(list(s.tables["t"]), ["a"])
 
 
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
 class TestTheDdlOracleStaysUsable(unittest.TestCase):
 
     """verify_ddl_parse.py is a maintainer tool with no CI job, so the
@@ -284,6 +325,7 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
         self.assertEqual(self.mod.scaffold("p1", []), "")
 
 
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
 class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
 
     """verify_sql_semantics.py is a maintainer tool with no CI job, so

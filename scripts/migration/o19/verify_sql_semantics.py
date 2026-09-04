@@ -62,10 +62,32 @@ Exit codes: 0 = every invariant held; 1 = at least one failed (printed);
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+#: Scratch schema names reach SQL as identifiers, and this script DROPs
+#: what it is given, so anything but a plain identifier is refused rather
+#: than quoted -- an operator who typo-pastes a prefix should get an error,
+#: not a dropped database.
+IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+
+
+def reject_password_args(args):
+    """Return the args that would carry a credential in argv.
+
+    Any local user can read another process's argv, so the rest of this
+    feature passes the password via MYSQL_PWD or a defaults file; the
+    oracle should not be the one place that teaches the bad habit."""
+    bad = []
+    for a in args:
+        if a.startswith("--password") or (
+                a.startswith("-p") and not a.startswith("--")):
+            bad.append(a.split("=")[0] if "=" in a else a[:2])
+    return bad
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
@@ -98,8 +120,14 @@ class Client:
         argv = [self.cmd] + self.args + ["-N", "-B",
                                          "--default-character-set=utf8mb4",
                                          db]
-        proc = subprocess.run(argv, input=sql.encode("utf-8", "replace"),
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            proc = subprocess.run(argv, input=sql.encode("utf-8", "replace"),
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE)
+        except OSError as exc:
+            # a missing or unexecutable --mysql-cmd: the documented exit 2,
+            # not a traceback
+            return 127, "", "cannot run {0}: {1}".format(self.cmd, exc)
         return (proc.returncode,
                 proc.stdout.decode("utf-8", "replace"),
                 proc.stderr.decode("utf-8", "replace").strip())
@@ -151,15 +179,21 @@ SCENARIOS = [
 def check(client: Client, sc: Scenario, dst: str, src: str,
           arch: str) -> List[str]:
     """Run one scenario; return the invariant failures it produced."""
-    client.run("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
-               "DROP DATABASE IF EXISTS `{1}`; CREATE DATABASE `{1}`;"
-               "DROP DATABASE IF EXISTS `{2}`; CREATE DATABASE `{2}`;"
-               .format(dst, src, arch))
-    client.run(DDL, dst)
-    client.run(DDL, src)
+    # every setup statement is checked: a scenario measured against a stale
+    # or half-built schema reports on something other than what it claims
+    setup = [("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+              "DROP DATABASE IF EXISTS `{1}`; CREATE DATABASE `{1}`;"
+              "DROP DATABASE IF EXISTS `{2}`; CREATE DATABASE `{2}`;"
+              .format(dst, src, arch), "mysql"),
+             (DDL, dst), (DDL, src)]
     if sc.seed:
-        client.run("INSERT INTO {0} VALUES {1};".format(TABLE, sc.seed), dst)
-    client.run("INSERT INTO {0} VALUES {1};".format(TABLE, sc.stage), src)
+        setup.append(("INSERT INTO {0} VALUES {1};".format(TABLE, sc.seed),
+                      dst))
+    setup.append(("INSERT INTO {0} VALUES {1};".format(TABLE, sc.stage), src))
+    for stmt, db in setup:
+        rc, _out, err = client.run(stmt, db)
+        if rc != 0:
+            raise SystemExit("scenario setup failed: {0}".format(err[:300]))
 
     def query(sql: str) -> List[List[str]]:
         return client.rows(sql, dst)
@@ -325,6 +359,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="scratch schema prefix; _dst/_src/_arch are DROPPED "
                          "and recreated")
     args = ap.parse_args(argv)
+
+    leaked = reject_password_args(args.mysql_args)
+    if leaked:
+        print("refusing {0}: a password in the client's argv is readable by "
+              "any local user. Use MYSQL_PWD or a client defaults file "
+              "(--mysql-arg=--defaults-extra-file=...)."
+              .format(", ".join(leaked)), file=sys.stderr)
+        return 2
+    if not IDENTIFIER_RE.match(args.prefix):
+        print("--prefix must be a plain identifier ({0} is not): this script "
+              "DROPs the schemas built from it".format(args.prefix),
+              file=sys.stderr)
+        return 2
 
     client = Client(args.mysql_cmd, args.mysql_args)
     rc, out, err = client.run("SELECT VERSION();")

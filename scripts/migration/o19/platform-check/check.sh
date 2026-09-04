@@ -284,9 +284,14 @@ src=open('debian/assets/carlos_ctl/o19_preflight.py').read()
 bad=[]
 for n in ast.walk(ast.parse(src)):
     if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)):
+        # every argument category, not just the positional ones: an
+        # annotation on *args, **kwargs or a positional-only parameter is
+        # the same contract break and would otherwise slip past
+        a=n.args
+        params=list(a.args)+list(a.kwonlyargs)+list(getattr(a,'posonlyargs',[]))
+        params+=[x for x in (a.vararg, a.kwarg) if x is not None]
         if n.returns is not None or any(
-                a.annotation is not None
-                for a in list(n.args.args)+list(n.args.kwonlyargs)):
+                p.annotation is not None for p in params):
             bad.append('def '+n.name)
     elif isinstance(n,ast.AnnAssign):
         bad.append('annotated assignment on line %d' % n.lineno)

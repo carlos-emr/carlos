@@ -476,6 +476,29 @@ class Schema:
                         cols[pm.group(1)] = re.sub(
                             r"\s+", " ", pm.group(2)).strip()
                 continue
+            # `ALTER TABLE x DROP PRIMARY KEY` -- ignored entirely until the
+            # MariaDB oracle compared keys on ALTERs, which is how seven
+            # tables in the O19 update history (rschedule, scheduledate,
+            # reportTemplates, hash_audit, log, billingperclimit,
+            # msgDemoMap) kept a key the clinic's database does not have.
+            # The generic DROP COLUMN branch below never sees this: its
+            # keyword guard excludes "primary".
+            if re.match(r"drop\s+primary\s+key\s*$", clause, re.I):
+                self.pks.pop(name, None)
+                continue
+            # ...and its mirror: `ADD PRIMARY KEY (col, ...)`, which the
+            # ADD COLUMN branch below never reaches because its keyword
+            # guard excludes "primary". reportTemplates drops the key and
+            # re-adds it this way in the same statement.
+            pm = re.match(r"add\s+(?:constraint\s+`?\w+`?\s+)?primary\s+"
+                          r"key\s*\((.*)\)\s*$", clause, re.I | re.S)
+            if pm:
+                added = [c.strip().split("(")[0].strip().strip("`")
+                         for c in pm.group(1).split(",")]
+                added = resolve_pk_case(added, cols)
+                if added:
+                    self.pks[name] = added
+                continue
             m = re.match(r"add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?"
                          r"`?(\w+)`?\s+(.+)", clause, re.I | re.S)
             if m and m.group(1).lower() not in COLUMN_KEYWORDS:
@@ -483,6 +506,11 @@ class Schema:
                     re.sub(r"\s+", " ", m.group(2)).strip())
                 cols = place_column(cols, m.group(1), ctype, position)
                 self.tables[name] = cols
+                # ...and the other half of the same pair: five of those
+                # seven files drop the key and then add a column that
+                # declares the new one inline
+                if re.search(r"\bprimary\s+key\b", ctype, re.I):
+                    self.pks[name] = [m.group(1)]
                 continue
             m = re.match(r"drop\s+(?:column\s+)?`?(\w+)`?\s*$", clause, re.I)
             if m and m.group(1).lower() not in (
@@ -503,6 +531,14 @@ class Schema:
                 # is not. Matching case-sensitively left the old spelling
                 # standing (update-2012-11-11.sql on vacancy_template).
                 old = next((c for c in cols if c.lower() == old.lower()), old)
+                if old in cols and name in self.pks:
+                    # the key follows the column: leaving the old spelling
+                    # in self.pks names a column that no longer exists, and
+                    # the surrogate-key detection looks that name up in
+                    # tables[t] -- the same miss resolve_pk_case() fixes for
+                    # CREATE, one statement later
+                    self.pks[name] = [new if c == old else c
+                                      for c in self.pks[name]]
                 if old in cols:
                     # preserve position: rebuild dict with rename in place
                     rebuilt: Dict[str, str] = {}
@@ -516,6 +552,16 @@ class Schema:
                 continue
             # MODIFY changes type only — column set is unaffected; other
             # clauses (indexes, engine, charset) don't affect the column map.
+        # A DROP COLUMN takes the column out of the primary key too, and a
+        # key naming no column would be looked up in tables[t] and missed.
+        # Re-resolving against the final column set covers every clause that
+        # removes or re-spells one, including any added later.
+        if name in self.pks:
+            resolved = resolve_pk_case(self.pks[name], cols)
+            if resolved:
+                self.pks[name] = resolved
+            else:
+                del self.pks[name]
 
     def feed(self, text: str) -> None:
         """Apply every DDL statement in `text`, in document order."""
