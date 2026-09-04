@@ -18,6 +18,14 @@ on:
 #   contents: write
 #
 # https://docs.github.com/en/enterprise-cloud@latest/code-security/supply-chain-security/understanding-your-software-supply-chain/using-the-dependency-submission-api
+# Superseded pushes to the same PR cancel the in-progress run; every other
+# event (push to a protected branch, schedule, dispatch) gets a unique group
+# via run_id and is never queued behind or cancelled by another run. The final
+# head of a PR always gets its own complete run, so no check outcome changes.
+concurrency:
+  group: dependency-review-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
   # Write permissions for pull-requests are required for using the `comment-summary-in-pr` option, comment out if you aren't using this option

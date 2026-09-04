@@ -25,6 +25,14 @@ on:
       - 'scripts/check-i18n-properties.sh'
       - 'scripts/audit-i18n-coverage.sh'
 
+# Superseded pushes to the same PR cancel the in-progress run; every other
+# event (push to a protected branch, schedule, dispatch) gets a unique group
+# via run_id and is never queued behind or cancelled by another run. The final
+# head of a PR always gets its own complete run, so no check outcome changes.
+concurrency:
+  group: i18n-validation-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   i18n-key-parity:
     name: Properties Key Parity

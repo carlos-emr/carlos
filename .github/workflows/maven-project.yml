@@ -65,6 +65,17 @@ on:
       - community/*/staging/*
 
 
+# Superseded pushes to the same PR cancel the in-progress run; every other
+# event gets a unique group via run_id. The slug is a literal rather than
+# github.workflow on purpose: when publish-release.yml calls this workflow,
+# github.* is the CALLER's context, and sharing the caller's `publish-release`
+# group would deadlock the release run. A release run therefore lands in
+# check-carlos-emr-<run_id> with cancel-in-progress: false. The final head of
+# a PR always gets its own complete run, so no check outcome changes.
+concurrency:
+  group: check-carlos-emr-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}
