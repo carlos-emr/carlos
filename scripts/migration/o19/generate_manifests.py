@@ -814,6 +814,46 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
                 "STARTUP_CREATED_ROWS names {}, which is not a copy-class "
                 "table".format(t))
 
+    # -- renames: a decision, never an accident ---------------------------
+    # Columns are matched by NAME (case-folded), so a genuine rename is
+    # invisible twice over: the O19 column falls into `dropped` and the
+    # CARLOS column silently takes its default. Each half looks
+    # deliberate alone. The signature is the CO-OCCURRENCE, so refuse to
+    # emit a manifest while any table has both an unmatched O19 column
+    # and an unfilled CARLOS column that nobody has ruled on.
+    not_renames = dict(getattr(ov, "NOT_RENAMES", {}))
+    for (t, col), reason in sorted(not_renames.items()):
+        if not reason:
+            raise SystemExit(
+                "NOT_RENAMES[{!r}, {!r}] has no reason; a ruling without "
+                "one is not a ruling".format(t, col))
+        if col not in tables.get(t, {}).get("dropped", {}):
+            raise SystemExit(
+                "NOT_RENAMES names {}.{}, which is not a dropped column of "
+                "a shared table (stale entry)".format(t, col))
+    unruled = []
+    for t, entry in sorted(tables.items()):
+        dropped = entry.get("dropped") or {}
+        if not dropped:
+            continue
+        mapped = set(entry.get("cols") or ())
+        unfilled = [c for c in carlos.tables.get(t, ()) if c not in mapped]
+        if not unfilled:
+            continue
+        for col in sorted(dropped):
+            if (t, col) in not_renames:
+                continue
+            unruled.append(
+                "{0}: O19 {0}.{1} is dropped while CARLOS {0}.{{{2}}} "
+                "is never written".format(t, col, ", ".join(unfilled)))
+    if unruled:
+        raise SystemExit(
+            "unruled possible rename(s) -- a column dropped on one side "
+            "while a column on the other side goes unwritten is how a "
+            "rename hides. Rule each in overrides_schema.py, as "
+            "RENAMES[table][carlos_col] = o19_col or as a NOT_RENAMES "
+            "entry with a reason:\n  " + "\n  ".join(unruled))
+
     for t in o19_only:
         if t in archive_patient:
             tables[t] = {"class": "archive", "patient_data": True,

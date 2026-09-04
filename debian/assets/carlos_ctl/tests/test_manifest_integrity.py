@@ -12,7 +12,9 @@ Run (from debian/assets):
     python3 -m unittest discover -v -s carlos_ctl/tests -t .
 """
 
+import importlib.util
 import unittest
+from pathlib import Path
 
 from carlos_ctl import o19etl, o19map_props, o19map_schema
 
@@ -403,3 +405,104 @@ class TestPropsManifest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+OVERRIDES = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \
+    "o19" / "overrides_schema.py"
+
+
+def load_overrides():
+    """The curated overlay, loaded from the repo checkout.
+
+    The rename rulings live there rather than in the shipped manifest, so
+    these tests need both halves. The generator enforces the same contract
+    at emission time -- but it needs an OSCAR 19 checkout to run, and CI
+    has none, so this is the copy that actually guards a pull request.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "overrides_schema", OVERRIDES)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def co_occurrences():
+    """(table, o19_column, [unfilled CARLOS columns]) for every table with
+    BOTH an unmatched O19 column and a CARLOS column the copy never writes.
+
+    That pair is the signature of a rename the name-matching missed: the
+    O19 column falls into `dropped` and the CARLOS column takes its
+    default, and each half looks deliberate on its own.
+    """
+    out = []
+    for table, entry in sorted(o19map_schema.TABLES.items()):
+        dropped = entry.get("dropped") or {}
+        if not dropped:
+            continue
+        mapped = set(entry.get("cols") or ())
+        unfilled = [c for c in o19map_schema.CARLOS_COLUMNS.get(table, ())
+                    if c not in mapped]
+        if not unfilled:
+            continue
+        for col in sorted(dropped):
+            out.append((table, col, unfilled))
+    return out
+
+
+@unittest.skipUnless(OVERRIDES.is_file(), "overlay not in this checkout")
+class TestRenameRulings(unittest.TestCase):
+    """No column may be dropped opposite an unwritten CARLOS column
+    without a human having said which it is."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ov = load_overrides()
+
+    def test_every_co_occurrence_is_ruled(self):
+        renames = getattr(self.ov, "RENAMES", {})
+        not_renames = getattr(self.ov, "NOT_RENAMES", {})
+        unruled = [
+            "{0}.{1} (opposite {0}.{{{2}}})".format(t, c, ", ".join(u))
+            for t, c, u in co_occurrences()
+            if (t, c) not in not_renames
+            and c not in renames.get(t, {}).values()]
+        self.assertEqual(
+            unruled, [],
+            "a dropped O19 column sitting opposite an unwritten CARLOS "
+            "column is how a rename hides -- each half reads as "
+            "deliberate alone. Rule each one in overrides_schema.py, as "
+            "RENAMES[table][carlos_col] = o19_col or as a NOT_RENAMES "
+            "entry with a reason.")
+
+    def test_no_ruling_names_a_column_that_is_not_dropped(self):
+        # a stale ruling silently re-permits the very thing it was added
+        # to rule on, so it is an error rather than dead weight
+        stale = [
+            "{0}.{1}".format(t, c)
+            for (t, c) in getattr(self.ov, "NOT_RENAMES", {})
+            if c not in (o19map_schema.TABLES.get(t, {}).get("dropped") or {})]
+        self.assertEqual(stale, [], "NOT_RENAMES entries no longer describe "
+                                    "a dropped column of a shared table")
+
+    def test_every_ruling_carries_a_reason(self):
+        blank = [k for k, v in getattr(self.ov, "NOT_RENAMES", {}).items()
+                 if not (v or "").strip()]
+        self.assertEqual(blank, [],
+                         "a ruling without a reason is not a ruling")
+
+    def test_a_rename_names_real_columns_on_both_sides(self):
+        bad = []
+        for table, pairs in getattr(self.ov, "RENAMES", {}).items():
+            entry = o19map_schema.TABLES.get(table, {})
+            carlos_cols = set(o19map_schema.CARLOS_COLUMNS.get(table, ()))
+            dropped = set(entry.get("dropped") or {})
+            mapped = {entry.get("renames", {}).get(c, c)
+                      for c in (entry.get("cols") or ())}
+            for target, source in pairs.items():
+                if target not in carlos_cols:
+                    bad.append("{0}.{1} is not a CARLOS column".format(
+                        table, target))
+                if source not in dropped and source not in mapped:
+                    bad.append("{0}.{1} is not an O19 column".format(
+                        table, source))
+        self.assertEqual(bad, [])

@@ -362,6 +362,75 @@ B3_COLUMNS = {
 # renamed it to official_lang, which is shared and copies. A pre-2009
 # unpatched database surfaces it through preflight's unknown-column flow.)
 
+# --------------------------------------------------------------------------
+# Renames, and the pairs that only look like renames
+#
+# The generator matches O19 columns to CARLOS columns by NAME, case-folded.
+# That is silent when it is wrong: an unmatched O19 column falls into
+# `dropped` (captured, but only as a shadow) while the unmatched CARLOS
+# column takes its default, and each half reads as deliberate on its own.
+# So the generator refuses to emit a manifest for any table that has BOTH
+# an unmatched O19 column and an unfilled CARLOS column until a human has
+# ruled on it here -- as a rename, or explicitly as a coincidence.
+#
+# RENAMES is target -> source, the direction `source_expr` reads.
+RENAMES = {}
+
+# Ruled coincidental: (table, o19_column) -> why. Keyed by the individual
+# column rather than the table so that a NEW unmatched column in an
+# already-ruled table re-triggers the refusal instead of inheriting an
+# old blanket ruling.
+NOT_RENAMES = {
+    # O19 re-created this table in 2008 (caisi/updates/
+    # patch-2008-12-06-2-quatromerge.sql) keyed by `code varchar(3)`;
+    # CARLOS keys it by an AUTO_INCREMENT `id`. That IS a re-key, but it
+    # strands nothing: no Java, JSP or XML in the O19 tree reads
+    # lst_discharge_reason at all (only two 2008 report patches mention
+    # it), and admission.radioDischargeReason -- the field that looks
+    # like a foreign key into it -- stores a DischargeReason enum
+    # ORDINAL, not a code (PMmodule/ClientManager/discharge.jsp builds
+    # the select from DischargeReason.<VALUE>.ordinal()).
+    ("lst_discharge_reason", "code"):
+        "O19 keys on code, CARLOS on a surrogate id; nothing reads the "
+        "table and radioDischargeReason is an enum ordinal, not an FK",
+    ("lst_discharge_reason", "lastUpdateDate"):
+        "audit column CARLOS does not carry on this lookup table",
+    ("lst_discharge_reason", "lastUpdateUser"):
+        "audit column CARLOS does not carry on this lookup table",
+
+    # CARLOS additions, not counterparts: `stable` is a NOT NULL DEFAULT 1
+    # flag and `errorLog` a tinyblob, neither of which O19 has.
+    ("eform", "disableUpdate"):
+        "removed O19 flag; CARLOS's stable/errorLog are additions",
+
+    # Curated B3 drops (see B3_COLUMNS above) sitting beside unrelated
+    # CARLOS additions -- the co-occurrence is coincidence, and the drop
+    # itself was ruled on when it was added to B3_COLUMNS.
+    ("document", "fileSignature"):
+        "curated B3 drop; CARLOS's abnormal/report_media/sent_date_time "
+        "are additions",
+    ("drugs", "dispensingUnits"):
+        "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
+        "priorRxProtocol/pharmacyId are additions",
+
+    # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
+    # defaultSliCode are unrelated additions.
+    ("ProviderPreference", "eRxEnabled"): "removed eRx module",
+    ("ProviderPreference", "eRx_SSO_URL"): "removed eRx module",
+    ("ProviderPreference", "eRxUsername"): "removed eRx module",
+    ("ProviderPreference", "eRxPassword"): "removed eRx module",
+    ("ProviderPreference", "eRxFacility"): "removed eRx module",
+    ("ProviderPreference", "eRxTrainingMode"): "removed eRx module",
+    ("ProviderPreference", "encryptedMyOscarPassword"):
+        "removed MyOscar integration",
+
+    # CARLOS's oneId*/mfa* columns are the modern auth additions; O19's
+    # storageVersion belonged to a storage scheme CARLOS does not use.
+    ("security", "storageVersion"):
+        "O19 storage-scheme marker; CARLOS's oneId*/usingMfa/mfaSecret "
+        "are additions",
+}
+
 # Big tables copied in PK windows (single-column integer PK verified by the
 # generator at emission time).
 CHUNK_TABLES = {
