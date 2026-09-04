@@ -235,8 +235,10 @@ jobs:
           # The release WAR must be compiled by the same JDK build that CI
           # verified it with. Both Dockerfiles pin the base image by digest;
           # nothing else keeps them in sync, so refuse to build if they differ.
-          dev=$(grep -m1 -oE '^FROM [^ ]+@sha256:[0-9a-f]{64}' .devcontainer/development/Dockerfile | cut -d' ' -f2)
-          rel=$(grep -m1 -oE '^FROM [^ ]+@sha256:[0-9a-f]{64}' .github/release-build/Dockerfile | cut -d' ' -f2)
+          # `|| true` so a Dockerfile with no digest-pinned FROM yields an empty
+          # value for the check below instead of tripping pipefail/errexit first.
+          dev=$(grep -m1 -oE '^FROM [^ ]+@sha256:[0-9a-f]{64}' .devcontainer/development/Dockerfile | cut -d' ' -f2 || true)
+          rel=$(grep -m1 -oE '^FROM [^ ]+@sha256:[0-9a-f]{64}' .github/release-build/Dockerfile | cut -d' ' -f2 || true)
           if [ -z "$dev" ] || [ -z "$rel" ] || [ "$dev" != "$rel" ]; then
             echo "::error::.github/release-build/Dockerfile base ($rel) does not match .devcontainer/development/Dockerfile base ($dev); update them together."
             exit 1
