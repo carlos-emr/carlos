@@ -1714,64 +1714,27 @@ def precheck_scope(state_dir: str) -> str:
     return "nothing was written"
 
 
-def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
-    """Execute P4. make_password_hash() -> (password, bcrypt_hash, pin)
-    so the crypto (and its bcrypt dependency) stays injectable."""
-    from .util import die
+def etl_precheck_problems(ctx, plain, query, src_schema: str,
+                          arch_schema: str,
+                          src_info: Dict[str, Dict[str, dict]],
+                          dst_info: Dict[str, Dict[str, dict]],
+                          effective: Dict[str, dict],
+                          repairs: Dict[str, set],
+                          admin_user: str) -> List[str]:
+    """Every reason to refuse P4, gathered BEFORE the first write.
+
+    Returns the refusal lines; an empty list means the copy may start.
+    Collecting rather than dying on the first problem is deliberate: an
+    operator who has to re-export a dump wants the whole list, not one
+    round trip per defect. The caller owns the die() so the phase's
+    control flow stays in one place.
+
+    Read-only by contract -- it counts and introspects, never writes,
+    because the pristine-target guarantee P0 established still holds
+    while it runs.
+    """
     from . import o19roles  # imports this module; resolved lazily
-    query = ctx["query_etl"]          # carries the session prelude
-    plain = ctx["query"]
-    src, dst, arch = ctx["src_schema"], ctx["target_db"], ctx["archive_schema"]
-    state_dir = ctx["state_dir"]
-    report = ctx["report"]
-
-    src_info = introspect_columns(plain, src)
-    # the first thing decided about the staged dump, before the staging
-    # schema is touched: a table or column name outside the identifier
-    # class is refused outright (root runs every statement below)
-    odd = unsafe_identifiers(src_info)
-    if odd:
-        die("ETL pre-checks failed ({0}): the staged dump "
-            .format(precheck_scope(state_dir))
-            + "carries {0} table/column name(s) outside the accepted "
-              "identifier class [A-Za-z0-9_$] — not an OSCAR 19 clinic "
-              "dump as shipped; rename them in the source and re-export: "
-              "{1}".format(len(odd),
-                           ", ".join(repr(x) for x in odd[:10])))
-    renamed = normalize_table_case(plain, src, list(src_info))
-    if renamed:
-        report("staged table names normalised to the manifest spelling "
-               "(source server ran lower_case_table_names=1):\n  "
-               + "\n  ".join(renamed))
-        src_info = introspect_columns(plain, src)
-    dst_info = introspect_columns(plain, dst)
-    src_tables = set(src_info)
-
-    patch_notes: List[str] = []
-    effective: Dict[str, dict] = {}
-    for table, entry in o19map_schema.TABLES.items():
-        if entry["class"] in ("copy", "merge") and table in src_info:
-            adjusted, notes = effective_entry(table, entry,
-                                              src_info[table], src_tables)
-            effective[table] = adjusted
-            patch_notes.extend(notes)
-    if patch_notes:
-        report("patch-level variance ({0} note(s)):\n  ".format(
-            len(patch_notes)) + "\n  ".join(patch_notes))
-
-    # the charset scan first (reads only): the never-truncate pre-check
-    # below must measure the text as it will be stored, i.e. repaired
-    scan_notes: List[str] = []
-    repairs = detect_repairs(plain, src, ctx["accepted"], scan_notes)
-    if scan_notes:
-        report("charset scan:\n  " + "\n  ".join(scan_notes))
-    if repairs:
-        report("per-row charset repair active on: " + ", ".join(
-            sorted("{0}.{1}".format(t, c)
-                   for t, cs in repairs.items() for c in cs)))
-
-    # -- loud pre-checks over every table before the first write ----------
-    admin_user = validate_admin_user(ctx["admin_user"])
+    src, arch = src_schema, arch_schema
     problems = []
     if admin_user == o19map_schema.SEED_USER_NAME:
         problems.append("--admin-user must not be the seeded login '{0}'"
@@ -1902,12 +1865,22 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             wide = oversized_rows(table, dst_info[table], plans[table])
             if wide:
                 problems.append(wide)
-    if problems:
-        die("ETL pre-checks failed ({0}):\n  ".format(
-            precheck_scope(state_dir)) + "\n  ".join(problems))
+    return problems
 
-    # enum values outside the target set fall to the column default —
-    # counted up front so the fallback is never silent
+
+def enum_fallback_lines(query, src_schema: str, arch_schema: str,
+                        dst_info: Dict[str, Dict[str, dict]],
+                        effective: Dict[str, dict],
+                        repairs: Dict[str, set]) -> List[str]:
+    """Report lines for values that will fall to their column default.
+
+    A value outside the target enum set is stored as the column default
+    rather than refused -- an OSCAR 19 clinic accumulates twenty years of
+    enum drift, and refusing would block every import. Counting them up
+    front is what keeps that substitution visible to the operator.
+    """
+    src, arch = src_schema, arch_schema
+    enum_lines: List[str] = []
     enum_lines = []
     for table in sorted(effective):
         for col, sql in enum_fallback_count_sql(
@@ -1922,43 +1895,405 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                         enum_fallback(dst_info[table][col],
                                       enum_values(dst_info[table][col]
                                                   ["column_type"]))))
-    if enum_lines:
-        report("enum fallbacks:\n  " + "\n  ".join(enum_lines))
+    return enum_lines
 
-    plain("CREATE DATABASE IF NOT EXISTS `{0}`".format(arch))
-    progress = load_progress(state_dir, ctx.get("dump_sha256"),
-                             o19map_schema.SCHEMA_MAP_VERSION)
 
-    # Has the target been rewound under this ledger? The pre-import
-    # restic snapshot covers the CARLOS schema and the documents tree,
-    # NOT this workspace — so an operator who follows the rollback advice
-    # in any of our refusals ends up with a pristine database and a
-    # ledger that still says two hundred tables are done. A --resume then
-    # skips every one of them, leaving CARLOS seed rows in the clinic's
-    # place, and --cleanup and --restage both refuse with messages that
-    # point back at the snapshot they just restored. The break-glass
-    # admin is the cheapest witness: this run created it, so its absence
-    # means the target is not the one this ledger describes.
-    # ...but only once the INSERT is recorded. Between the ledger save
-    # that names the provider_no and the seed INSERT itself there is a
-    # window in which the row legitimately does not exist yet; the
-    # partial-admin retry below (seed_admin_cleanup_statements) is what
-    # covers that, and this witness would otherwise refuse the resume it
-    # is meant to protect.
-    recorded_pn = progress.get("admin_provider_no")
-    if recorded_pn and progress.get("seed_admin_inserted"):
-        still_there = int(plain(
-            "SELECT COUNT(*) FROM `{0}`.provider WHERE provider_no = {1}"
-            .format(dst, _sql_str(recorded_pn)))[0][0])
-        if not still_there:
-            die("the target no longer holds this import's break-glass "
-                "administrator (provider_no {0}), but the ledger records "
-                "its work — the database was rewound underneath it "
-                "(a restored snapshot does not cover {1}). This run "
-                "cannot be resumed: move {1} aside and start the import "
-                "over against the restored database."
-                .format(recorded_pn, state_dir))
+class EtlRun(object):
+    """The state one P4 table pass shares between its per-class steps.
 
+    run_etl() owns the phase's control flow; the etl_* step functions
+    below own one table-class decision each. Threading this object rather
+    than twenty positional arguments is not merely brevity: the ledger
+    (``progress``), the running ``counts`` and the per-class report lists
+    are shared MUTABLE objects, so a step records its finding into the
+    very list run_etl renders at the end. A step handed copies would lose
+    every line it wrote.
+
+    Bound once, in run_etl, after the pre-checks have passed and the
+    target introspection is final.
+    """
+
+    def __init__(self, ctx, progress, src_info, dst_info, effective,
+                 repairs, admin_user, admin_pn, seed_group,
+                 tolerated_tables, counts, kept, absent_tables):
+        self.query = ctx["query_etl"]      # carries the session prelude
+        self.plain = ctx["query"]
+        self.src = ctx["src_schema"]
+        self.dst = ctx["target_db"]
+        self.arch = ctx["archive_schema"]
+        self.state_dir = ctx["state_dir"]
+        self.report = ctx["report"]
+        self.progress = progress
+        self.src_info = src_info
+        self.dst_info = dst_info
+        self.effective = effective
+        self.repairs = repairs
+        self.admin_user = admin_user
+        self.admin_pn = admin_pn
+        self.seed_group = seed_group
+        self.tolerated_tables = tolerated_tables
+        self.counts = counts
+        self.absent_tables = absent_tables
+        self.kept = kept
+        self.idmap_lines = kept.setdefault("idmap", [])
+        self.fk_lines = kept.setdefault("fk", [])
+        self.drop_lines = kept.setdefault("drop", [])
+        self.reference_lines = kept.setdefault("reference", [])
+        self.merge_lines = kept.setdefault("merge", [])
+        self.archived_col_lines = kept.setdefault("archived_cols", [])
+        self.shadow_notes = kept.setdefault("shadow", [])
+
+
+def etl_absent_table(run: 'EtlRun', table: str, cls: str) -> None:
+    """A table the manifest knows but this dump does not carry.
+
+    Patch-level variance, not an error -- but never silent: a seeded
+    table left alone would keep CARLOS's seed rows standing in for the
+    clinic's. absent_table_plan() decides whether those rows are cleared
+    and what the operator is told; this step only executes that plan."""
+    query, dst = run.query, run.dst
+    state_dir, progress = run.state_dir, run.progress
+    dst_info, tolerated_tables = run.dst_info, run.tolerated_tables
+    absent_tables = run.absent_tables
+    # not in this dump (patch-level variance): said so, because a
+    # seeded table then keeps CARLOS's seed rows in the clinic's
+    # place
+    do_clear, line = absent_table_plan(
+        table, cls, tolerated_tables, table in dst_info,
+        bool(progress["tables"].get(table, {}).get(
+            "absent_cleared")))
+    if do_clear:
+        query("DELETE FROM `{0}`.`{1}`".format(dst, table))
+        progress["tables"].setdefault(
+            table, {})["absent_cleared"] = True
+        save_progress(state_dir, progress)
+    if line is not None:
+        absent_tables.append(line)
+
+
+def etl_reference_table(run: 'EtlRun', table: str, tstate: dict) -> None:
+    """CARLOS's own reference rows win -- the clinic's are still kept."""
+    query, plain = run.query, run.plain
+    src, arch = run.src, run.arch
+    state_dir, progress = run.state_dir, run.progress
+    counts, reference_lines = run.counts, run.reference_lines
+    # CARLOS's own reference rows win, but the clinic's are not
+    # thrown away: they go to o19_archive so a curated local code
+    # can still be found afterwards. No live twin -- the table
+    # exists in CARLOS already, holding CARLOS's rows.
+    counts["reference"] += 1
+    if not tstate.get("done"):
+        for sql in archive_statements(table, src, arch):
+            query(sql)
+        tstate["done"] = True
+        save_progress(state_dir, progress)
+    n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
+        src, table))[0][0])
+    line = ("{0}: {1} row(s) kept at {2}.{0} (CARLOS reference "
+            "data wins in the live table)".format(table, n, arch))
+    if n and line not in reference_lines:
+        reference_lines.append(line)
+
+
+def etl_drop_table(run: 'EtlRun', table: str, tstate: dict) -> None:
+    """Removed-module infrastructure: no live home, never destroyed."""
+    query, plain = run.query, run.plain
+    src, dst, arch = run.src, run.dst, run.arch
+    state_dir, progress = run.state_dir, run.progress
+    counts, drop_lines = run.counts, run.drop_lines
+    # NOT report-only any more: these rows used to be counted and
+    # then destroyed with the staging schema at --cleanup. They
+    # are removed-module infrastructure CARLOS has no home for,
+    # which is a reason not to give them a live table of their
+    # own -- not a reason to delete the clinic's only copy.
+    counts["drop"] += 1
+    n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
+        src, table))[0][0])
+    if n and not tstate.get("done"):
+        for sql in preserve_statements(table, src, arch, dst):
+            query(sql)
+        tstate["done"] = True
+        save_progress(state_dir, progress)
+    line = ("{0}: {1} row(s) not migrated (removed module "
+            "infrastructure); preserved at {2}.{0} and {3}.{4}"
+            .format(table, n, arch, dst, archived_table(table)))
+    if n and line not in drop_lines:
+        drop_lines.append(line)
+
+
+def etl_archive_table(run: 'EtlRun', table: str, tstate: dict) -> None:
+    """An O19-only table: preserved whole, both as the o19_archive
+    verification copy and as the live import_archived_ twin."""
+    query = run.query
+    src, dst, arch = run.src, run.dst, run.arch
+    state_dir, progress = run.state_dir, run.progress
+    counts = run.counts
+    # counted from the ledger, so a resumed run reports the same
+    # figure as the first
+    if tstate.get("done"):
+        counts["archive"] += 1
+        return
+    for sql in preserve_statements(table, src, arch, dst):
+        query(sql)
+    tstate["done"] = True
+    save_progress(state_dir, progress)
+    counts["archive"] += 1
+
+
+def etl_archived_columns(run: 'EtlRun', table: str, entry: dict,
+                         tstate: dict, dcols: Dict[str, dict]) -> dict:
+    """Requirement B's column half: give every unmapped source column a
+    live home, and return the entry that names it.
+
+    ``dcols`` is updated IN PLACE on purpose -- copy_statement indexes
+    dst_cols[c] unconditionally, so a column ALTERed in here after the
+    introspection at the top of run_etl would otherwise be a KeyError
+    mid-import."""
+    query, dst = run.query, run.dst
+    state_dir, progress = run.state_dir, run.progress
+    src_info = run.src_info
+    archived_col_lines = run.archived_col_lines
+    col_plan = archived_column_plan(entry, src_info[table])
+    if col_plan:
+        for sql in add_archived_column_statements(
+                table, dst, col_plan, dcols):
+            query(sql)
+        if not tstate.get("archived_cols_added"):
+            archived_col_lines.append(
+                "{0}: {1}".format(table, ", ".join(
+                    "{0} -> {1}".format(src_col, target)
+                    for src_col, target, _t in col_plan)))
+            tstate["archived_cols_added"] = True
+            save_progress(state_dir, progress)
+        # the introspected shape must agree with what the copy is
+        # about to name, whether the ALTER ran now or on an earlier
+        # attempt of this same run
+        for src_col, target, _ctype in col_plan:
+            dcols.setdefault(target, dict(src_info[table][src_col],
+                                          nullable=True))
+        entry = with_archived_columns(entry, col_plan)
+    return entry
+
+
+def etl_merge_table(run: 'EtlRun', table: str, entry: dict, tstate: dict,
+                    dcols: Dict[str, dict], repaired) -> None:
+    """Anti-join the clinic's rows onto CARLOS's seeded ones, then archive
+    the clinic's whole staging table -- policy is a reason not to make a
+    rejected row live, not a reason to leave it nowhere."""
+    query, plain = run.query, run.plain
+    src, dst, arch = run.src, run.dst, run.arch
+    state_dir, progress = run.state_dir, run.progress
+    counts, merge_lines = run.counts, run.merge_lines
+    idmap_lines = run.idmap_lines
+    if not tstate.get("done"):
+        # counted BEFORE the insert and kept in the ledger: after
+        # the merge every staging row has a target twin (its own
+        # included), so nothing can tell afterwards which rows
+        # the CARLOS seed rejected
+        # Recorded ONCE, and persisted before the insert. A
+        # crash after the merge but before the checkpoint
+        # re-enters this branch, and by then every staging row
+        # has a target twin -- its own included -- so a recount
+        # would report the whole table as seed-overridden and
+        # the operator's report would say the clinic lost
+        # everything on it. Saving without the guard is not
+        # enough: the resumed run would overwrite the saved
+        # figure with that recount before ever reading it.
+        if "overridden" not in tstate:
+            tstate["overridden"] = int(query(
+                merge_overridden_count_sql(
+                    table, entry, src, dst, dcols, arch))[0][0])
+            save_progress(state_dir, progress)
+        query(merge_statement(table, entry, src, dst, dcols,
+                              repaired, arch))
+        # rows the merge kept CARLOS's copy of never passed
+        # through that insert; their archived columns are filled
+        # by joining on the same natural key
+        backfill = archived_backfill_statement(
+            table, entry, src, dst, dcols, arch)
+        if backfill:
+            query(backfill)
+        # the id map is rebuilt with every (re)merge so child
+        # tables always read a map matching the target's ids
+        for sql in idmap_statements(table, entry, src, dst, arch,
+                                    dcols):
+            query(sql)
+        if entry.get("surrogate_pk"):
+            changed = int(query(idmap_changed_count_sql(
+                table, arch))[0][0])
+            if changed:
+                idmap_lines.append(
+                    "{0}: {1} row(s) received a new id (map in "
+                    "{2}.{3})".format(table, changed, arch,
+                                      idmap_table(table)))
+                save_progress(state_dir, progress)
+        tstate["done"] = True
+        save_progress(state_dir, progress)
+    # The clinic's whole staging table goes to o19_archive, with
+    # no live twin (the live table exists and holds the merged
+    # result). A merge keeps CARLOS's row on a shared natural
+    # key, so the clinic's other columns on that key -- an edited
+    # encounter template, a local fee on a seeded billing code,
+    # a customised measurement instruction -- are dropped by
+    # policy. Policy is a reason not to make them live, not a
+    # reason to leave them nowhere once --cleanup drops staging.
+    n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
+        src, table))[0][0])
+    if n and not tstate.get("archived"):
+        for sql in archive_statements(table, src, arch):
+            query(sql)
+        tstate["archived"] = True
+        save_progress(state_dir, progress)
+    overridden = tstate.get("overridden") or 0
+    if n and overridden:
+        line = ("{0}: {1} of {2} clinic row(s) kept CARLOS's row "
+                "on the shared key; all {2} preserved at {3}.{0}"
+                .format(table, overridden, n, arch))
+        if line not in merge_lines:
+            merge_lines.append(line)
+    counts["merge"] += 1
+    counts["merge_overridden"] += overridden
+
+
+def etl_copy_table(run: 'EtlRun', table: str, entry: dict, tstate: dict,
+                   dcols: Dict[str, dict], repaired) -> None:
+    """Copy a table id-intact, in one statement or in id-range windows.
+
+    The windowed path is resumable at window granularity: any window may
+    have committed without its checkpoint, so a run that has touched this
+    table before re-deletes its first unconfirmed window before
+    re-inserting it."""
+    from .util import die
+    query, plain = run.query, run.plain
+    src, dst, arch = run.src, run.dst, run.arch
+    state_dir, progress = run.state_dir, run.progress
+    counts, seed_group = run.counts, run.seed_group
+    admin_user, admin_pn = run.admin_user, run.admin_pn
+    if entry.get("chunk_by"):
+        chunk = entry["chunk_by"]
+        bounds = plain(
+            "SELECT IFNULL(MIN(`{0}`),0), IFNULL(MAX(`{0}`),0) "
+            "FROM `{1}`.`{2}`".format(chunk, src, table))[0]
+        lo, hi = int(bounds[0]), int(bounds[1])
+        # a table this run has touched before (any window, even
+        # the first one, may have committed without its
+        # checkpoint) clears its first unconfirmed window
+        resumed = bool(tstate.get("started"))
+        done_through = tstate.get("done_through", lo - 1)
+        # bounded BEFORE the window list is built AND before the
+        # replace_seed DELETE below — see chunk_span_refusal
+        refusal = chunk_span_refusal(table, entry["chunk_by"],
+                                     lo, hi)
+        if refusal:
+            die(refusal)
+        if not tstate.get("started"):
+            if entry.get("replace_seed"):
+                # the unchunked branch does this too: the target
+                # may already hold rows this copy would collide
+                # with on its id-intact insert (`log` carries the
+                # deploy's own audit rows). Once a window has
+                # landed, `started` is set and this never re-runs.
+                query("DELETE FROM `{0}`.`{1}`".format(dst, table))
+            tstate["started"] = True
+            save_progress(state_dir, progress)
+        windows = chunk_windows(lo, hi)
+        if len(windows) > 1000:
+            # id-range windows, not row windows: a sparse id space
+            # means many empty client invocations, not a hang
+            warn("{0}: {1} id-range windows (sparse ids) — this "
+                 "table takes a while".format(table, len(windows)))
+        for window in windows:
+            if window[1] <= done_through:
+                continue
+            if resumed:
+                query(window_delete_statement(table, entry, dst,
+                                              window))
+                resumed = False
+            query(copy_statement(table, entry, src, dst, dcols,
+                                 repaired, window, arch))
+            tstate["done_through"] = window[1]
+            save_progress(state_dir, progress)
+        tstate["done"] = True
+    else:
+        if not tstate.get("done"):
+            if table in seed_group:
+                query(seed_group_retry_delete(
+                    table, dst, admin_user, admin_pn or "", dcols))
+            elif entry.get("replace_seed") or tstate.get("started"):
+                query("DELETE FROM `{0}`.`{1}`".format(dst, table))
+            tstate["started"] = True
+            save_progress(state_dir, progress)
+            query(copy_statement(table, entry, src, dst, dcols,
+                                 repaired, None, arch))
+            tstate["done"] = True
+    save_progress(state_dir, progress)
+    counts["copy"] += 1
+
+
+def etl_post_copy(run: 'EtlRun', table: str, entry: dict, base_entry: dict,
+                  tstate: dict, dcols: Dict[str, dict]) -> None:
+    """What every copied or merged table owes the operator afterwards:
+    the dangling foreign keys the id maps could not resolve, and the
+    o19_archive shadow captures of the columns CARLOS has no home for."""
+    query, report = run.query, run.report
+    src, arch = run.src, run.arch
+    state_dir, progress = run.state_dir, run.progress
+    src_info, counts = run.src_info, run.counts
+    fk_lines, shadow_notes = run.fk_lines, run.shadow_notes
+    # dangling foreign keys the id maps could not resolve
+    if entry.get("fk_remap") and not tstate.get("fk_reported"):
+        for col, parent, sql in fk_unmapped_count_sql(table, entry, src,
+                                                      arch):
+            n = int(query(sql)[0][0])
+            if n:
+                fk_lines.append(
+                    "{0}.{1}: {2} row(s) referenced a {3} id that does "
+                    "not exist in the source ({4})".format(
+                        table, col, n, parent,
+                        "set to NULL" if dcols[col]["nullable"]
+                        else "raw id kept — column is NOT NULL"))
+        tstate["fk_reported"] = True
+        save_progress(state_dir, progress)
+
+    # shadow-capture dropped columns alongside the copy
+    if base_entry.get("dropped") and not tstate.get("shadow_done"):
+        for sql in shadow_statements(table, base_entry, src, arch,
+                                     src_info[table], shadow_notes):
+            query(sql)
+        tstate["shadow_done"] = True
+        save_progress(state_dir, progress)
+    # ... and vendor-fork columns the manifest does not know at all
+    if not tstate.get("unknown_shadow_done"):
+        stmts = unknown_column_shadow_statements(
+            table, base_entry, src, arch, src_info[table])
+        for sql in stmts:
+            query(sql)
+        if stmts:
+            counts["unknown_column_shadows"] += 1
+            report("{0}: unmapped column(s) {1} shadow-captured to "
+                   "{2}.{0}__unknown_cols".format(
+                       table, ", ".join(unknown_columns(
+                           base_entry, src_info[table])), arch))
+        tstate["unknown_shadow_done"] = True
+        save_progress(state_dir, progress)
+
+
+def reconcile_seed_rows(ctx, query, plain, src_schema: str,
+                        dst_schema: str, state_dir: str, report,
+                        progress: Dict,
+                        dst_info: Dict[str, Dict[str, dict]],
+                        admin_user: str,
+                        make_password_hash) -> Optional[str]:
+    """Create the break-glass admin, then remove CARLOS's seeded rows.
+
+    Returns the admin's provider_no (already recorded in the ledger on a
+    resume). The ordering is why this is its own step: the seed clinician
+    is what the admin is cloned from, so it cannot be deleted first, and
+    the clinic's rows reuse the seed ids, so it cannot be deleted last.
+    """
+    from .util import die
+    from . import o19roles  # imports this module; resolved lazily
+    src, dst = src_schema, dst_schema
     # -- seed reconciliation (strictly ordered, before provider/security) --
     # Resumable in two recorded steps: admin rows inserted, then seeds
     # deleted. A retry after an interrupted insert clears the partial admin
@@ -2066,332 +2401,28 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         progress["seed_done"] = True
         save_progress(state_dir, progress)
         report("seeded clinician and startup-created rows removed")
-    seed_group = set(seed_group_tables())
+    return admin_pn
 
-    # -- CARLOS seed snapshot (before any clinic row lands) -----------------
-    # the pristine target IS the seed; the roles post-step reads the
-    # snapshot for the privilege diff, the role append and the template
-    # choice, and it must predate the merges below
-    if not progress.get("seed_priv_snapshot"):
-        for sql in o19roles.snapshot_statements(dst, arch):
-            query(sql)
-        progress["seed_priv_snapshot"] = True
-        save_progress(state_dir, progress)
 
-    # -- table loop --------------------------------------------------------
-    counts = {"copy": 0, "merge": 0, "archive": 0, "drop": 0,
-              "reference": 0, "rows": 0, "unknown_archived": 0,
-              "unknown_column_shadows": 0, "merge_overridden": 0}
-    # per-table findings are persisted in the ledger as they are made, so
-    # a resumed run's report still carries the lines of tables the crashed
-    # run completed (they are never re-derived: the marks skip the work)
-    kept = progress.setdefault("report_lines", {})
-    idmap_lines: List[str] = kept.setdefault("idmap", [])
-    fk_lines: List[str] = kept.setdefault("fk", [])
-    drop_lines: List[str] = kept.setdefault("drop", [])
-    reference_lines: List[str] = kept.setdefault("reference", [])
-    merge_lines: List[str] = kept.setdefault("merge", [])
-    archived_col_lines: List[str] = kept.setdefault("archived_cols", [])
-    shadow_notes: List[str] = kept.setdefault("shadow", [])
-    absent_tables: List[str] = []
-    # tables whose target rows P0 tolerated because this copy deletes them
-    tolerated_tables = set(getattr(
-        o19map_schema, "PRISTINE_TOLERATED_TABLES", ()))
-    for table in etl_order(o19map_schema.TABLES):
-        entry = o19map_schema.TABLES[table]
-        cls = entry["class"]
-        if table not in src_info:
-            # not in this dump (patch-level variance): said so, because a
-            # seeded table then keeps CARLOS's seed rows in the clinic's
-            # place
-            do_clear, line = absent_table_plan(
-                table, cls, tolerated_tables, table in dst_info,
-                bool(progress["tables"].get(table, {}).get(
-                    "absent_cleared")))
-            if do_clear:
-                query("DELETE FROM `{0}`.`{1}`".format(dst, table))
-                progress["tables"].setdefault(
-                    table, {})["absent_cleared"] = True
-                save_progress(state_dir, progress)
-            if line is not None:
-                absent_tables.append(line)
-            continue
-        entry = effective.get(table, entry)
-        tstate = progress["tables"].setdefault(table, {})
+def etl_unknown_tables(run: 'EtlRun') -> None:
+    """Preserve every staged table the manifest has never heard of.
 
-        if cls == "reference":
-            # CARLOS's own reference rows win, but the clinic's are not
-            # thrown away: they go to o19_archive so a curated local code
-            # can still be found afterwards. No live twin -- the table
-            # exists in CARLOS already, holding CARLOS's rows.
-            counts[cls] += 1
-            if not tstate.get("done"):
-                for sql in archive_statements(table, src, arch):
-                    query(sql)
-                tstate["done"] = True
-                save_progress(state_dir, progress)
-            n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
-                src, table))[0][0])
-            line = ("{0}: {1} row(s) kept at {2}.{0} (CARLOS reference "
-                    "data wins in the live table)".format(table, n, arch))
-            if n and line not in reference_lines:
-                reference_lines.append(line)
-            continue
-        if cls == "drop":
-            # NOT report-only any more: these rows used to be counted and
-            # then destroyed with the staging schema at --cleanup. They
-            # are removed-module infrastructure CARLOS has no home for,
-            # which is a reason not to give them a live table of their
-            # own -- not a reason to delete the clinic's only copy.
-            counts[cls] += 1
-            n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
-                src, table))[0][0])
-            if n and not tstate.get("done"):
-                for sql in preserve_statements(table, src, arch, dst):
-                    query(sql)
-                tstate["done"] = True
-                save_progress(state_dir, progress)
-            line = ("{0}: {1} row(s) not migrated (removed module "
-                    "infrastructure); preserved at {2}.{0} and {3}.{4}"
-                    .format(table, n, arch, dst, archived_table(table)))
-            if n and line not in drop_lines:
-                drop_lines.append(line)
-            continue
-
-        if cls == "archive":
-            # counted from the ledger, so a resumed run reports the same
-            # figure as the first
-            if tstate.get("done"):
-                counts["archive"] += 1
-                continue
-            for sql in preserve_statements(table, src, arch, dst):
-                query(sql)
-            tstate["done"] = True
-            save_progress(state_dir, progress)
-            counts["archive"] += 1
-            continue
-
-        dcols = dst_info[table]
-        repaired = repairs.get(table)
-
-        # -- requirement B, column half ------------------------------------
-        # every source column the manifest has no home for joins the live
-        # table as `import_archived_<col>`, carrying the source type and
-        # the source value. The ALTER runs HERE, inside the loop and
-        # before this table's first INSERT (chunked tables included), and
-        # `dcols` is updated in place: `copy_statement` indexes
-        # dst_cols[c] unconditionally, so a column added after the
-        # introspection at the top of run_etl would be a KeyError
-        # mid-import.
-        # the shadow captures below describe the manifest's own view of
-        # this table, so they read the entry BEFORE the archived columns
-        # are folded in -- otherwise a vendor-fork column stops being
-        # "unknown" the moment it is preserved, and the o19_archive
-        # verification copy the operator was promised disappears
-        base_entry = entry
-        col_plan = archived_column_plan(entry, src_info[table])
-        if col_plan:
-            for sql in add_archived_column_statements(
-                    table, dst, col_plan, dcols):
-                query(sql)
-            if not tstate.get("archived_cols_added"):
-                archived_col_lines.append(
-                    "{0}: {1}".format(table, ", ".join(
-                        "{0} -> {1}".format(src_col, target)
-                        for src_col, target, _t in col_plan)))
-                tstate["archived_cols_added"] = True
-                save_progress(state_dir, progress)
-            # the introspected shape must agree with what the copy is
-            # about to name, whether the ALTER ran now or on an earlier
-            # attempt of this same run
-            for src_col, target, _ctype in col_plan:
-                dcols.setdefault(target, dict(src_info[table][src_col],
-                                              nullable=True))
-            entry = with_archived_columns(entry, col_plan)
-
-        if cls == "merge":
-            if not tstate.get("done"):
-                # counted BEFORE the insert and kept in the ledger: after
-                # the merge every staging row has a target twin (its own
-                # included), so nothing can tell afterwards which rows
-                # the CARLOS seed rejected
-                # Recorded ONCE, and persisted before the insert. A
-                # crash after the merge but before the checkpoint
-                # re-enters this branch, and by then every staging row
-                # has a target twin -- its own included -- so a recount
-                # would report the whole table as seed-overridden and
-                # the operator's report would say the clinic lost
-                # everything on it. Saving without the guard is not
-                # enough: the resumed run would overwrite the saved
-                # figure with that recount before ever reading it.
-                if "overridden" not in tstate:
-                    tstate["overridden"] = int(query(
-                        merge_overridden_count_sql(
-                            table, entry, src, dst, dcols, arch))[0][0])
-                    save_progress(state_dir, progress)
-                query(merge_statement(table, entry, src, dst, dcols,
-                                      repaired, arch))
-                # rows the merge kept CARLOS's copy of never passed
-                # through that insert; their archived columns are filled
-                # by joining on the same natural key
-                backfill = archived_backfill_statement(
-                    table, entry, src, dst, dcols, arch)
-                if backfill:
-                    query(backfill)
-                # the id map is rebuilt with every (re)merge so child
-                # tables always read a map matching the target's ids
-                for sql in idmap_statements(table, entry, src, dst, arch,
-                                            dcols):
-                    query(sql)
-                if entry.get("surrogate_pk"):
-                    changed = int(query(idmap_changed_count_sql(
-                        table, arch))[0][0])
-                    if changed:
-                        idmap_lines.append(
-                            "{0}: {1} row(s) received a new id (map in "
-                            "{2}.{3})".format(table, changed, arch,
-                                              idmap_table(table)))
-                        save_progress(state_dir, progress)
-                tstate["done"] = True
-                save_progress(state_dir, progress)
-            # The clinic's whole staging table goes to o19_archive, with
-            # no live twin (the live table exists and holds the merged
-            # result). A merge keeps CARLOS's row on a shared natural
-            # key, so the clinic's other columns on that key -- an edited
-            # encounter template, a local fee on a seeded billing code,
-            # a customised measurement instruction -- are dropped by
-            # policy. Policy is a reason not to make them live, not a
-            # reason to leave them nowhere once --cleanup drops staging.
-            n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
-                src, table))[0][0])
-            if n and not tstate.get("archived"):
-                for sql in archive_statements(table, src, arch):
-                    query(sql)
-                tstate["archived"] = True
-                save_progress(state_dir, progress)
-            overridden = tstate.get("overridden") or 0
-            if n and overridden:
-                line = ("{0}: {1} of {2} clinic row(s) kept CARLOS's row "
-                        "on the shared key; all {2} preserved at {3}.{0}"
-                        .format(table, overridden, n, arch))
-                if line not in merge_lines:
-                    merge_lines.append(line)
-            counts["merge"] += 1
-            counts["merge_overridden"] += overridden
-        else:  # copy
-            if entry.get("chunk_by"):
-                chunk = entry["chunk_by"]
-                bounds = plain(
-                    "SELECT IFNULL(MIN(`{0}`),0), IFNULL(MAX(`{0}`),0) "
-                    "FROM `{1}`.`{2}`".format(chunk, src, table))[0]
-                lo, hi = int(bounds[0]), int(bounds[1])
-                # a table this run has touched before (any window, even
-                # the first one, may have committed without its
-                # checkpoint) clears its first unconfirmed window
-                resumed = bool(tstate.get("started"))
-                done_through = tstate.get("done_through", lo - 1)
-                # bounded BEFORE the window list is built AND before the
-                # replace_seed DELETE below — see chunk_span_refusal
-                refusal = chunk_span_refusal(table, entry["chunk_by"],
-                                             lo, hi)
-                if refusal:
-                    die(refusal)
-                if not tstate.get("started"):
-                    if entry.get("replace_seed"):
-                        # the unchunked branch does this too: the target
-                        # may already hold rows this copy would collide
-                        # with on its id-intact insert (`log` carries the
-                        # deploy's own audit rows). Once a window has
-                        # landed, `started` is set and this never re-runs.
-                        query("DELETE FROM `{0}`.`{1}`".format(dst, table))
-                    tstate["started"] = True
-                    save_progress(state_dir, progress)
-                windows = chunk_windows(lo, hi)
-                if len(windows) > 1000:
-                    # id-range windows, not row windows: a sparse id space
-                    # means many empty client invocations, not a hang
-                    warn("{0}: {1} id-range windows (sparse ids) — this "
-                         "table takes a while".format(table, len(windows)))
-                for window in windows:
-                    if window[1] <= done_through:
-                        continue
-                    if resumed:
-                        query(window_delete_statement(table, entry, dst,
-                                                      window))
-                        resumed = False
-                    query(copy_statement(table, entry, src, dst, dcols,
-                                         repaired, window, arch))
-                    tstate["done_through"] = window[1]
-                    save_progress(state_dir, progress)
-                tstate["done"] = True
-            else:
-                if not tstate.get("done"):
-                    if table in seed_group:
-                        query(seed_group_retry_delete(
-                            table, dst, admin_user, admin_pn or "", dcols))
-                    elif entry.get("replace_seed") or tstate.get("started"):
-                        query("DELETE FROM `{0}`.`{1}`".format(dst, table))
-                    tstate["started"] = True
-                    save_progress(state_dir, progress)
-                    query(copy_statement(table, entry, src, dst, dcols,
-                                         repaired, None, arch))
-                    tstate["done"] = True
-            save_progress(state_dir, progress)
-            counts["copy"] += 1
-
-        # dangling foreign keys the id maps could not resolve
-        if entry.get("fk_remap") and not tstate.get("fk_reported"):
-            for col, parent, sql in fk_unmapped_count_sql(table, entry, src,
-                                                          arch):
-                n = int(query(sql)[0][0])
-                if n:
-                    fk_lines.append(
-                        "{0}.{1}: {2} row(s) referenced a {3} id that does "
-                        "not exist in the source ({4})".format(
-                            table, col, n, parent,
-                            "set to NULL" if dcols[col]["nullable"]
-                            else "raw id kept — column is NOT NULL"))
-            tstate["fk_reported"] = True
-            save_progress(state_dir, progress)
-
-        # shadow-capture dropped columns alongside the copy
-        if base_entry.get("dropped") and not tstate.get("shadow_done"):
-            for sql in shadow_statements(table, base_entry, src, arch,
-                                         src_info[table], shadow_notes):
-                query(sql)
-            tstate["shadow_done"] = True
-            save_progress(state_dir, progress)
-        # ... and vendor-fork columns the manifest does not know at all
-        if not tstate.get("unknown_shadow_done"):
-            stmts = unknown_column_shadow_statements(
-                table, base_entry, src, arch, src_info[table])
-            for sql in stmts:
-                query(sql)
-            if stmts:
-                counts["unknown_column_shadows"] += 1
-                report("{0}: unmapped column(s) {1} shadow-captured to "
-                       "{2}.{0}__unknown_cols".format(
-                           table, ", ".join(unknown_columns(
-                               base_entry, src_info[table])), arch))
-            tstate["unknown_shadow_done"] = True
-            save_progress(state_dir, progress)
-
-    # persisted for the validation report, which is written by a later
-    # phase and cannot re-derive them: the ledger's marks make the second
-    # pass skip the work that produced them
-    kept["absent"] = list(absent_tables)
-    save_progress(state_dir, progress)
-    if absent_tables:
-        report("manifest tables absent from this dump ({0}; patch-level "
-               "variance — nothing copied for them):\n  ".format(
-                   len(absent_tables)) + "\n  ".join(absent_tables))
-
+    A vendor fork's own tables land here. The unknown-as-archive sign-off
+    the operator gave is a preservation promise, not permission to drop,
+    so each is copied to o19_archive AND given a live import_archived_
+    twin -- except an empty one, which is named in the report rather than
+    silently skipped.
+    """
+    query, plain = run.query, run.plain
+    src, dst, arch = run.src, run.dst, run.arch
+    state_dir, progress = run.state_dir, run.progress
+    src_info, counts = run.src_info, run.counts
+    unknown_lines = run.kept.setdefault("unknown", [])
     # -- tables the manifest does not know: archived whole ------------------
     # (the unknown-as-archive sign-off is a preservation promise, not a
     # permission to drop)
     unknown_tables = sorted(t for t in src_info
                             if t not in o19map_schema.TABLES)
-    unknown_lines: List[str] = kept.setdefault("unknown", [])
     for table in unknown_tables:
         tstate = progress["tables"].setdefault(table, {})
         if tstate.get("done"):
@@ -2412,6 +2443,22 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
             counts["unknown_archived"] += 1
         tstate["done"] = True
         save_progress(state_dir, progress)
+
+
+def report_etl_findings(run: 'EtlRun') -> None:
+    """Render the per-class findings the table pass accumulated.
+
+    Every list here is read from the ledger-backed ``kept`` dict, so a
+    resumed run reports what the crashed run found as well as its own --
+    the ledger's marks make the second pass skip the work, which means it
+    could not re-derive these lines.
+    """
+    report, src_info = run.report, run.src_info
+    unknown_lines = run.kept.setdefault("unknown", [])
+    drop_lines, reference_lines = run.drop_lines, run.reference_lines
+    archived_col_lines = run.archived_col_lines
+    shadow_notes, merge_lines = run.shadow_notes, run.merge_lines
+    idmap_lines, fk_lines = run.idmap_lines, run.fk_lines
     if unknown_lines:
         report("unknown (unclassified) tables:\n  "
                + "\n  ".join(unknown_lines))
@@ -2447,6 +2494,189 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                "recorded when rows were present) — ROTATE/VERIFY before "
                "go-live (tokens issued by the OSCAR 19 install keep "
                "working): " + ", ".join(token_tables))
+
+
+def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
+    """Execute P4. make_password_hash() -> (password, bcrypt_hash, pin)
+    so the crypto (and its bcrypt dependency) stays injectable."""
+    from .util import die
+    from . import o19roles  # imports this module; resolved lazily
+    query = ctx["query_etl"]          # carries the session prelude
+    plain = ctx["query"]
+    src, dst, arch = ctx["src_schema"], ctx["target_db"], ctx["archive_schema"]
+    state_dir = ctx["state_dir"]
+    report = ctx["report"]
+
+    src_info = introspect_columns(plain, src)
+    # the first thing decided about the staged dump, before the staging
+    # schema is touched: a table or column name outside the identifier
+    # class is refused outright (root runs every statement below)
+    odd = unsafe_identifiers(src_info)
+    if odd:
+        die("ETL pre-checks failed ({0}): the staged dump "
+            .format(precheck_scope(state_dir))
+            + "carries {0} table/column name(s) outside the accepted "
+              "identifier class [A-Za-z0-9_$] — not an OSCAR 19 clinic "
+              "dump as shipped; rename them in the source and re-export: "
+              "{1}".format(len(odd),
+                           ", ".join(repr(x) for x in odd[:10])))
+    renamed = normalize_table_case(plain, src, list(src_info))
+    if renamed:
+        report("staged table names normalised to the manifest spelling "
+               "(source server ran lower_case_table_names=1):\n  "
+               + "\n  ".join(renamed))
+        src_info = introspect_columns(plain, src)
+    dst_info = introspect_columns(plain, dst)
+    src_tables = set(src_info)
+
+    patch_notes: List[str] = []
+    effective: Dict[str, dict] = {}
+    for table, entry in o19map_schema.TABLES.items():
+        if entry["class"] in ("copy", "merge") and table in src_info:
+            adjusted, notes = effective_entry(table, entry,
+                                              src_info[table], src_tables)
+            effective[table] = adjusted
+            patch_notes.extend(notes)
+    if patch_notes:
+        report("patch-level variance ({0} note(s)):\n  ".format(
+            len(patch_notes)) + "\n  ".join(patch_notes))
+
+    # the charset scan first (reads only): the never-truncate pre-check
+    # below must measure the text as it will be stored, i.e. repaired
+    scan_notes: List[str] = []
+    repairs = detect_repairs(plain, src, ctx["accepted"], scan_notes)
+    if scan_notes:
+        report("charset scan:\n  " + "\n  ".join(scan_notes))
+    if repairs:
+        report("per-row charset repair active on: " + ", ".join(
+            sorted("{0}.{1}".format(t, c)
+                   for t, cs in repairs.items() for c in cs)))
+
+    # -- loud pre-checks over every table before the first write ----------
+    admin_user = validate_admin_user(ctx["admin_user"])
+    problems = etl_precheck_problems(
+        ctx, plain, query, src, arch, src_info, dst_info, effective,
+        repairs, admin_user)
+    if problems:
+        die("ETL pre-checks failed ({0}):\n  ".format(
+            precheck_scope(state_dir)) + "\n  ".join(problems))
+
+    # enum values outside the target set fall to the column default —
+    # counted up front so the fallback is never silent
+    enum_lines = enum_fallback_lines(query, src, arch, dst_info,
+                                     effective, repairs)
+    if enum_lines:
+        report("enum fallbacks:\n  " + "\n  ".join(enum_lines))
+
+    plain("CREATE DATABASE IF NOT EXISTS `{0}`".format(arch))
+    progress = load_progress(state_dir, ctx.get("dump_sha256"),
+                             o19map_schema.SCHEMA_MAP_VERSION)
+
+    # Has the target been rewound under this ledger? The pre-import
+    # restic snapshot covers the CARLOS schema and the documents tree,
+    # NOT this workspace — so an operator who follows the rollback advice
+    # in any of our refusals ends up with a pristine database and a
+    # ledger that still says two hundred tables are done. A --resume then
+    # skips every one of them, leaving CARLOS seed rows in the clinic's
+    # place, and --cleanup and --restage both refuse with messages that
+    # point back at the snapshot they just restored. The break-glass
+    # admin is the cheapest witness: this run created it, so its absence
+    # means the target is not the one this ledger describes.
+    # ...but only once the INSERT is recorded. Between the ledger save
+    # that names the provider_no and the seed INSERT itself there is a
+    # window in which the row legitimately does not exist yet; the
+    # partial-admin retry below (seed_admin_cleanup_statements) is what
+    # covers that, and this witness would otherwise refuse the resume it
+    # is meant to protect.
+    recorded_pn = progress.get("admin_provider_no")
+    if recorded_pn and progress.get("seed_admin_inserted"):
+        still_there = int(plain(
+            "SELECT COUNT(*) FROM `{0}`.provider WHERE provider_no = {1}"
+            .format(dst, _sql_str(recorded_pn)))[0][0])
+        if not still_there:
+            die("the target no longer holds this import's break-glass "
+                "administrator (provider_no {0}), but the ledger records "
+                "its work — the database was rewound underneath it "
+                "(a restored snapshot does not cover {1}). This run "
+                "cannot be resumed: move {1} aside and start the import "
+                "over against the restored database."
+                .format(recorded_pn, state_dir))
+
+    # -- seed reconciliation (strictly ordered, before provider/security) --
+    admin_pn = reconcile_seed_rows(ctx, query, plain, src, dst, state_dir,
+                                   report, progress, dst_info, admin_user,
+                                   make_password_hash)
+    seed_group = set(seed_group_tables())
+
+    # -- CARLOS seed snapshot (before any clinic row lands) -----------------
+    # the pristine target IS the seed; the roles post-step reads the
+    # snapshot for the privilege diff, the role append and the template
+    # choice, and it must predate the merges below
+    if not progress.get("seed_priv_snapshot"):
+        for sql in o19roles.snapshot_statements(dst, arch):
+            query(sql)
+        progress["seed_priv_snapshot"] = True
+        save_progress(state_dir, progress)
+
+    # -- table loop --------------------------------------------------------
+    counts = {"copy": 0, "merge": 0, "archive": 0, "drop": 0,
+              "reference": 0, "rows": 0, "unknown_archived": 0,
+              "unknown_column_shadows": 0, "merge_overridden": 0}
+    # per-table findings are persisted in the ledger as they are made, so
+    # a resumed run's report still carries the lines of tables the crashed
+    # run completed (they are never re-derived: the marks skip the work)
+    kept = progress.setdefault("report_lines", {})
+    absent_tables: List[str] = []
+    # tables whose target rows P0 tolerated because this copy deletes them
+    tolerated_tables = set(getattr(
+        o19map_schema, "PRISTINE_TOLERATED_TABLES", ()))
+    run = EtlRun(ctx, progress, src_info, dst_info, effective, repairs,
+                 admin_user, admin_pn, seed_group, tolerated_tables,
+                 counts, kept, absent_tables)
+    for table in etl_order(o19map_schema.TABLES):
+        entry = o19map_schema.TABLES[table]
+        cls = entry["class"]
+        if table not in src_info:
+            etl_absent_table(run, table, cls)
+            continue
+        entry = effective.get(table, entry)
+        tstate = progress["tables"].setdefault(table, {})
+        if cls == "reference":
+            etl_reference_table(run, table, tstate)
+            continue
+        if cls == "drop":
+            etl_drop_table(run, table, tstate)
+            continue
+        if cls == "archive":
+            etl_archive_table(run, table, tstate)
+            continue
+
+        dcols = dst_info[table]
+        repaired = repairs.get(table)
+        # the shadow captures in etl_post_copy describe the manifest's own
+        # view of this table, so they read the entry BEFORE the archived
+        # columns are folded in -- otherwise a vendor-fork column stops
+        # being "unknown" the moment it is preserved, and the o19_archive
+        # verification copy the operator was promised disappears
+        base_entry = entry
+        entry = etl_archived_columns(run, table, entry, tstate, dcols)
+        if cls == "merge":
+            etl_merge_table(run, table, entry, tstate, dcols, repaired)
+        else:
+            etl_copy_table(run, table, entry, tstate, dcols, repaired)
+        etl_post_copy(run, table, entry, base_entry, tstate, dcols)
+    # persisted for the validation report, which is written by a later
+    # phase and cannot re-derive them: the ledger's marks make the second
+    # pass skip the work that produced them
+    kept["absent"] = list(absent_tables)
+    save_progress(state_dir, progress)
+    if absent_tables:
+        report("manifest tables absent from this dump ({0}; patch-level "
+               "variance — nothing copied for them):\n  ".format(
+                   len(absent_tables)) + "\n  ".join(absent_tables))
+
+    etl_unknown_tables(run)
+    report_etl_findings(run)
 
     # -- roles, privileges and CARLOS-required rows (M8) -------------------
     o19roles.run_roles(ctx, progress,

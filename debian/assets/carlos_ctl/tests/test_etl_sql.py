@@ -1736,8 +1736,11 @@ class TestChunkSpanRefusal(unittest.TestCase):
 
     def test_the_refusal_precedes_every_write_in_the_copy_path(self):
         # the ordering is the whole point: assert the call site sits
-        # above the replace_seed DELETE inside the chunked branch
-        src = inspect.getsource(o19etl.run_etl)
+        # above the replace_seed DELETE inside the chunked branch.
+        # The copy path moved out of run_etl into etl_copy_table when the
+        # phase was decomposed; the invariant did not move with it, so
+        # the walk follows the code rather than the other way round.
+        src = inspect.getsource(o19etl.etl_copy_table)
         chunked = src.index('if entry.get("chunk_by"):')
         guard = src.index("chunk_span_refusal(", chunked)
         delete = src.index(
@@ -1800,7 +1803,13 @@ class TestAbsentTableDisposition(unittest.TestCase):
         # were verified red before this note was written. Keep this test
         # for the nesting shape; keep the driver for what the operator
         # actually gets.
-        tree = ast.parse(textwrap.dedent(inspect.getsource(o19etl.run_etl)))
+        # The append now lives in etl_copy_table's sibling,
+        # etl_absent_table -- extracted verbatim when run_etl was
+        # decomposed. That is exactly the "premise going stale" case the
+        # failure message below anticipates: the walk is re-pointed and
+        # the nesting invariant is unchanged.
+        tree = ast.parse(textwrap.dedent(
+            inspect.getsource(o19etl.etl_absent_table)))
         found = []
 
         class Walk(ast.NodeVisitor):
@@ -1825,7 +1834,8 @@ class TestAbsentTableDisposition(unittest.TestCase):
         Walk().visit(tree)
         self.assertEqual(
             len(found), 1,
-            "this test walks run_etl for the single absent_tables.append, "
+            "this test walks etl_absent_table for the single "
+            "absent_tables.append, "
             "and found {0}. If you deliberately moved or split that "
             "append -- extracting it into a helper is a legitimate "
             "refactor -- this failure is the premise going stale, not "
@@ -1856,9 +1866,8 @@ class TestAbsentTableDisposition(unittest.TestCase):
         # the other half: the DELETE must stay idempotent. Without this,
         # the test above is satisfied by dropping the ledger check
         # altogether and re-deleting the target's rows on every resume.
-        src = textwrap.dedent(inspect.getsource(o19etl.run_etl))
-        start = src.index("do_clear, line = absent_table_plan(")
-        block = src[start:src.index("continue", start)]
+        block = textwrap.dedent(
+            inspect.getsource(o19etl.etl_absent_table))
         self.assertEqual(block.count('"absent_cleared")'), 1)
         self.assertEqual(block.count('"absent_cleared"] = True'), 1)
 
