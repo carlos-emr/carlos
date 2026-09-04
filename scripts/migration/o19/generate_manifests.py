@@ -834,9 +834,13 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
                 "NOT_RENAMES[{!r}, {!r}] has no reason; a ruling without "
                 "one is not a ruling".format(t, col))
         if col not in tables.get(t, {}).get("dropped", {}):
+            # a table pair filed here reads as a column ruling and would
+            # die with a confusing "stale entry"; name the right namespace
+            hint = (" -- a table pair belongs in NOT_RENAMED_TABLES"
+                    if col in carlos.tables or col in o19.tables else "")
             raise SystemExit(
                 "NOT_RENAMES names {}.{}, which is not a dropped column of "
-                "a shared table (stale entry)".format(t, col))
+                "a shared table (stale entry){}".format(t, col, hint))
     unruled = []
     for t, entry in sorted(tables.items()):
         dropped = entry.get("dropped") or {}
@@ -865,31 +869,51 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
     # its Flyway seed, and nothing says so. Jaccard rather than a
     # containment ratio: `intersection / min(len)` makes any four-column
     # audit table "match" every larger one that happens to have id/date.
-    # Ruled pairs go in NOT_RENAMES keyed by (o19_table, carlos_table).
+    #
+    # Ruled pairs go in NOT_RENAMED_TABLES, a namespace of its own: the
+    # column loop above reads element 2 of every NOT_RENAMES key as a
+    # dropped column name, so filing a table pair there would be rejected
+    # as a stale entry and the escape hatch would not exist.
     o19_only_named = {t: {c.lower() for c in o19.tables[t]}
                       for t in o19_only if len(o19.tables[t]) >= 3}
     carlos_only = {t: {c.lower() for c in carlos.tables[t]}
                    for t in set(carlos.tables) - set(o19.tables)
                    if len(carlos.tables[t]) >= 3}
-    twins = []
+    candidates = {}
     for a, ca in sorted(o19_only_named.items()):
         for b, cb in sorted(carlos_only.items()):
             union = ca | cb
             if not union:
                 continue
             overlap = len(ca & cb) / float(len(union))
-            if overlap >= 0.70 and (a, b) not in not_renames:
-                twins.append(
-                    "{0} (O19-only, {1} cols) ~ {2} (CARLOS-only, {3} "
-                    "cols): {4:.0f}% of their column names agree".format(
-                        a, len(ca), b, len(cb), overlap * 100))
+            if overlap >= 0.70:
+                candidates[(a, b)] = (overlap, len(ca), len(cb))
+    not_renamed_tables = dict(getattr(ov, "NOT_RENAMED_TABLES", {}))
+    for pair, reason in sorted(not_renamed_tables.items()):
+        if not isinstance(reason, str) or not reason.strip():
+            raise SystemExit(
+                "NOT_RENAMED_TABLES[{!r}] has no reason; a ruling without "
+                "one is not a ruling".format(pair))
+        # a ruling for a pair the detector no longer raises is dead
+        # weight that would silently cover a FUTURE pair of the same
+        # names, so it is an error rather than a warning
+        if pair not in candidates:
+            raise SystemExit(
+                "NOT_RENAMED_TABLES names {}, which is no longer a "
+                "flagged O19-only/CARLOS-only twin (stale entry)"
+                .format(pair))
+    twins = [
+        "{0} (O19-only, {1} cols) ~ {2} (CARLOS-only, {3} cols): {4:.0f}% "
+        "of their column names agree".format(a, na, b, nb, overlap * 100)
+        for (a, b), (overlap, na, nb) in sorted(candidates.items())
+        if (a, b) not in not_renamed_tables]
     if twins:
         raise SystemExit(
             "possible table rename(s): an O19-only table archived while a "
             "CARLOS table with almost the same columns keeps its seed is "
             "how a table rename hides. Rule each in overrides_schema.py "
-            "as a NOT_RENAMES entry keyed (o19_table, carlos_table):\n  "
-            + "\n  ".join(twins))
+            "as a NOT_RENAMED_TABLES entry keyed (o19_table, "
+            "carlos_table) with a reason:\n  " + "\n  ".join(twins))
 
     for t in o19_only:
         if t in archive_patient:

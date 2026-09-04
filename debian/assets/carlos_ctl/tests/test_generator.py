@@ -9,6 +9,7 @@ Run (from debian/assets):
 """
 
 import importlib.util
+import types
 import unittest
 from pathlib import Path
 
@@ -133,6 +134,122 @@ class TestGenerator(unittest.TestCase):
         for name in ("o19map_schema.py", "o19map_props.py"):
             text = (ctl / name).read_text(encoding="utf-8")
             self.assertNotIn("GENERATED_AT", text)
+
+
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestRenameRefusals(unittest.TestCase):
+    """`build_tables` refuses to emit a manifest while a rename might be
+    hiding, and each refusal has an escape hatch that actually works.
+
+    Driven over synthetic two-table schemas rather than the real ones: the
+    shipped overlay has every case ruled, so the refusals themselves are
+    unreachable from it, and a check nobody can trip is not a check.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gen = load_generator()
+
+    def overlay(self, **kw):
+        """A minimal overlay: every bucket empty unless a test fills it."""
+        ns = types.SimpleNamespace(
+            CLASS_MERGE={}, CLASS_REFERENCE=set(), ARCHIVE_PATIENT=set(),
+            ARCHIVE_OTHER=set(), DROP=set(), B3_COLUMNS=set(),
+            CHARSET_SCAN={}, CHUNK_TABLES=set())
+        for k, v in kw.items():
+            setattr(ns, k, v)
+        return ns
+
+    def schemas(self, o19_tables, carlos_tables):
+        o19 = self.gen.Schema("union")
+        carlos = self.gen.Schema("skip")
+        for schema, tables in ((o19, o19_tables), (carlos, carlos_tables)):
+            for name, cols in tables.items():
+                schema.tables[name] = {c: "varchar(20)" for c in cols}
+                schema.pks[name] = [list(cols)[0]]
+        return o19, carlos
+
+    # -- columns ------------------------------------------------------
+    #: `code` is dropped on the O19 side while CARLOS's `codeValue` is
+    #: never written -- the exact shape of a rename the name matching
+    #: cannot see.
+    RENAME_SHAPED = ({"t": ["id", "code"]}, {"t": ["id", "codeValue"]})
+
+    def build(self, ov, tables=None):
+        o19, carlos = self.schemas(*(tables or self.RENAME_SHAPED))
+        return self.gen.build_tables(o19, carlos, ov)
+
+    def test_unruled_column_co_occurrence_refuses(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay())
+        self.assertIn("unruled possible rename", str(caught.exception))
+        self.assertIn("t.code", str(caught.exception))
+
+    def test_a_column_ruling_lets_generation_through(self):
+        tables = self.build(self.overlay(
+            NOT_RENAMES={("t", "code"): "coincidence, not a rename"}))
+        self.assertIn("code", tables["t"]["dropped"])
+
+    def test_a_blank_column_reason_is_not_a_ruling(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(NOT_RENAMES={("t", "code"): "   "}))
+        self.assertIn("has no reason", str(caught.exception))
+
+    def test_a_table_pair_filed_as_a_column_ruling_says_where_it_goes(self):
+        # the bug this test exists for: (o19_table, carlos_table) in
+        # NOT_RENAMES is read as (table, dropped_column) and dies as a
+        # stale entry, so the documented escape hatch was unusable
+        ov = self.overlay(NOT_RENAMES={("t", "code"): "ruled",
+                                       ("old_t", "new_t"): "not a rename"})
+        pair = ({"t": ["id", "code"], "old_t": ["a", "b", "c"]},
+                {"t": ["id", "codeValue"], "new_t": ["a", "b", "c"]})
+        with self.assertRaises(SystemExit) as caught:
+            self.build(ov, tables=pair)
+        self.assertIn("belongs in NOT_RENAMED_TABLES", str(caught.exception))
+
+    # -- tables -------------------------------------------------------
+    #: same three columns on both sides, one name each -- Jaccard 1.0
+    TWIN_SHAPED = ({"old_t": ["a", "b", "c"]}, {"new_t": ["a", "b", "c"]})
+
+    def test_unruled_table_twin_refuses(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(), tables=self.TWIN_SHAPED)
+        self.assertIn("possible table rename", str(caught.exception))
+        self.assertIn("100% of their column names agree",
+                      str(caught.exception))
+
+    def test_a_table_ruling_lets_generation_through(self):
+        tables = self.build(
+            self.overlay(ARCHIVE_OTHER={"old_t"}, NOT_RENAMED_TABLES={
+                ("old_t", "new_t"): "unrelated tables that share a shape"}),
+            tables=self.TWIN_SHAPED)
+        self.assertEqual(tables["old_t"]["class"], "archive")
+
+    def test_a_blank_table_reason_is_not_a_ruling(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(NOT_RENAMED_TABLES={
+                ("old_t", "new_t"): ""}), tables=self.TWIN_SHAPED)
+        self.assertIn("has no reason", str(caught.exception))
+
+    def test_a_table_ruling_that_no_longer_applies_is_stale(self):
+        # dead weight that would silently cover a FUTURE pair of the same
+        # names, so it is an error rather than a warning
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(NOT_RENAMED_TABLES={
+                ("gone", "also_gone"): "ruled long ago"}),
+                tables=self.TWIN_SHAPED)
+        self.assertIn("stale entry", str(caught.exception))
+
+    def test_a_contained_small_table_is_not_flagged(self):
+        # the threshold is Jaccard, not intersection-over-smaller. Here
+        # every O19 column appears on the CARLOS side, so the containment
+        # ratio is 1.0 and would flag; Jaccard is 4/8 and does not. That
+        # difference is not academic -- scoring by the smaller side made
+        # five audit-shaped tables "match" larger unrelated ones.
+        tables = self.build(self.overlay(ARCHIVE_OTHER={"old_t"}), tables=(
+            {"old_t": ["id", "a", "b", "c"]},
+            {"new_t": ["id", "a", "b", "c", "d", "e", "f", "g"]}))
+        self.assertEqual(tables["old_t"]["class"], "archive")
 
 
 if __name__ == "__main__":

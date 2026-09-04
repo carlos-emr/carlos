@@ -379,7 +379,7 @@ B3_COLUMNS = {
 # the JPA @Column mappings in both trees -- the code's own statement of
 # which field is which column, which catches a rename even where the DDL
 # comparison cannot (both sides holding a column of the matching name).
-# Against oscaremr/oscar a7900d56 it reports no mismatches across the 247
+# Against oscaremr/oscar a7900d56 it reports no mismatches across the 253
 # entities the two trees share; the only difference is CARLOS quoting the
 # reserved word `value` in BillingService, which is Hibernate quoting and
 # not a rename. Re-run it when curating this file.
@@ -439,6 +439,22 @@ NOT_RENAMES = {
         "O19 storage-scheme marker; CARLOS's oneId*/usingMfa/mfaSecret "
         "are additions",
 }
+
+# The same question one level up: (o19_table, carlos_table) -> why the pair
+# is NOT a table rename. A renamed table classifies as O19-only `archive`
+# while its CARLOS twin keeps its Flyway seed, and nothing says so; the
+# generator flags any O19-only/CARLOS-only pair whose case-folded column
+# names agree by Jaccard >= 0.70 and refuses to emit until it is ruled.
+#
+# Deliberately a SEPARATE namespace from NOT_RENAMES: the column validator
+# reads element 2 of every NOT_RENAMES key as a dropped column name, so a
+# table pair filed there is rejected as a stale entry and the documented
+# escape hatch cannot be used.
+#
+# Empty against oscaremr/oscar a7900d56 -- no pair reaches the threshold.
+# That is the intended steady state: the check costs nothing until the day
+# a rename lands.
+NOT_RENAMED_TABLES = {}
 
 # Big tables copied in PK windows (single-column integer PK verified by the
 # generator at emission time).

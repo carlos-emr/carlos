@@ -44,21 +44,25 @@ QUOTES = '`"[]'
 def parse_entity(path):
     """(class, table, {java field: db column}) for one .java file, or None
     when it declares no mapped columns."""
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            src = fh.read()
-    except OSError:
-        return None
+    # An audit that cannot read a file must not call the result clean:
+    # every fail-open path here turns "I did not look" into "nothing is
+    # wrong", which is worse than having no tool at all.
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        src = fh.read()
     columns = {}
     for match in COLUMN_RE.finditer(src):
-        name = NAME_RE.search(match.group(1))
-        if not name:
-            continue
         # the field declaration follows the annotation; 400 chars is well
         # past any javadoc or further annotations between them
         field = FIELD_RE.search(src[match.end():match.end() + 400])
-        if field:
-            columns[field.group(1)] = name.group(1).strip(QUOTES)
+        if not field:
+            continue
+        name = NAME_RE.search(match.group(1))
+        # `@Column` with no name= maps to the FIELD name under JPA's
+        # default strategy. Skipping those would compare one side of a
+        # rename against nothing and report it clean, so resolve the
+        # implicit name rather than dropping the field.
+        columns[field.group(1)] = (name.group(1).strip(QUOTES) if name
+                                   else field.group(1))
     if not columns:
         return None
     table = TABLE_RE.search(src)
@@ -76,7 +80,13 @@ def scan(root):
         for name in files:
             if not name.endswith(".java"):
                 continue
-            parsed = parse_entity(os.path.join(dirpath, name))
+            path = os.path.join(dirpath, name)
+            try:
+                parsed = parse_entity(path)
+            except OSError as exc:
+                raise SystemExit(
+                    "cannot read {0}: {1} -- refusing to report a clean "
+                    "audit over sources it could not open".format(path, exc))
             if parsed:
                 out.setdefault(parsed[0], parsed[1:])
     return out
@@ -109,8 +119,20 @@ def main(argv=None):
         if not os.path.isdir(path):
             return ap.error("not a directory: {0}".format(path))
 
-    o19 = scan(os.path.join(args.oscar_src, "src", "main", "java"))
+    o19_java = os.path.join(args.oscar_src, "src", "main", "java")
+    if not os.path.isdir(o19_java):
+        return ap.error(
+            "{0} has no src/main/java -- pass the root of an OSCAR 19 "
+            "checkout, not a subdirectory".format(args.oscar_src))
+    o19 = scan(o19_java)
     carlos = scan(args.carlos_src)
+    # zero entities on either side means the scan found nothing to compare,
+    # which is a broken invocation rather than a clean result
+    for label, found in (("O19", o19), ("CARLOS", carlos)):
+        if not found:
+            return ap.error(
+                "no JPA-mapped entities found on the {0} side -- the audit "
+                "would report clean without comparing anything".format(label))
     shared = set(o19) & set(carlos)
     print("mapped entities: O19 {0}, CARLOS {1}, shared {2}".format(
         len(o19), len(carlos), len(shared)))
