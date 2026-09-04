@@ -74,15 +74,20 @@ public class ServiceCodeLoader {
      *
      * <p>{@code billingservice.description} is nullable and the shipped Ontario
      * reference data contains rows with no description (A505C, K041A, R381C and
-     * others). {@link Properties} is a {@code Hashtable}, so passing either a
-     * null key or a null value to {@code setProperty} throws — which on the bill
-     * review screen means an unhandled NPE and a "CARLOS Error: 500" for any
-     * claim that happens to include one of those codes. Coalesce both sides to
-     * empty instead; a missing description is a blank cell, not a failed review.
+     * others). {@link Properties} is a {@code Hashtable}, so a null value passed
+     * to {@code setProperty} throws — which on the bill review screen means an
+     * unhandled NPE and a "CARLOS Error: 500" for any claim that happens to
+     * include one of those codes. A missing description is a blank cell, not a
+     * failed review, so it becomes the empty string.
+     *
+     * <p>A null {@code service_code} is dropped rather than coalesced: it cannot
+     * serve as a map key (the same {@code Hashtable} constraint), and a row with
+     * no code is not something a caller can look up by code anyway.
      *
      * @param serviceCodeNames service codes to look up
      * @return code-to-description map; codes with no stored description map to
-     *         the empty string, and codes not on file are simply absent
+     *         the empty string, codes not on file are simply absent, and rows
+     *         with a null code are omitted
      */
     public Properties getCodeDescByNames(List serviceCodeNames) {
         Properties ret = new Properties();

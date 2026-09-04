@@ -85,13 +85,19 @@ public final class Billing2Action extends ActionSupport {
         if (region == null || region.isEmpty()) {
             CarlosProperties props = CarlosProperties.getInstance();
             // Raw Hashtable read, not getProperty(): the CarlosProperties
-            // override builds and logs a WARN for every key it cannot find and
-            // substitutes a PROPERTY_DEFAULTS entry. `billregion` is legitimately
-            // absent on an install that never set it, and this is the fall-back
-            // path, so a miss is expected rather than exceptional — going through
-            // getProperty() would turn each such request into log noise. load()
-            // populates this instance directly and there is no defaults parent,
-            // so get() reads exactly what getProperty() would have found.
+            // override builds and logs a WARN for every key it cannot find.
+            // `billregion` is legitimately absent on an install that never set
+            // it, and this is the fall-back path, so a miss is expected rather
+            // than exceptional — going through getProperty() would turn each
+            // such request into log noise.
+            //
+            // The two reads agree for THIS key only. getProperty() also
+            // substitutes a PROPERTY_DEFAULTS entry on a miss, and screens the
+            // stored value against the deprecated-namespace blacklist; neither
+            // applies to `billregion` (no default is registered for it, and a
+            // province code cannot be blacklisted). Do not copy this pattern to
+            // a key that has a registered default — there get() and
+            // getProperty() genuinely differ.
             Object configured = props == null ? null : props.get("billregion");
             region = configured instanceof String stored ? stored : null;
         }
