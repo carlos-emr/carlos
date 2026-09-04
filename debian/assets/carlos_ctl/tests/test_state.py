@@ -925,6 +925,7 @@ class TestGuardedExit(unittest.TestCase):
     verb's low exit codes are verdicts, so its failure is the tool-error
     code, never a code a caller could read as go."""
 
+    @staticmethod
     def _boom():
         raise o19import.o19etl.QueryError("mariadb: cannot connect",
                                           "stderr")

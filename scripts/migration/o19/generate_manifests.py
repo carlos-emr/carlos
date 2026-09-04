@@ -364,14 +364,14 @@ class Schema:
         i = 0
         n = len(text)
         while i < n:
-            best: Optional[Tuple[int, str, "re.Match[str]"]] = None
-            for kind, rx in patterns:
-                m = rx.search(text, i)
-                if m and (best is None or m.start() < best[0]):
-                    best = (m.start(), kind, m)
-            if best is None:
+            # the earliest match across all four patterns, keyed on the
+            # offset alone so nothing else in the tuple is ever compared
+            found = [(m.start(), kind, m)
+                     for kind, rx in patterns
+                     for m in (rx.search(text, i),) if m]
+            if not found:
                 break
-            _, kind, m = best
+            _, kind, m = min(found, key=lambda hit: hit[0])
             if kind == "create":
                 open_idx = m.end() - 1
                 try:
