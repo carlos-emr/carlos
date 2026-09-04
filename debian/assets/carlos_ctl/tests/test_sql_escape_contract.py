@@ -10,7 +10,8 @@ import ast
 import unittest
 from pathlib import Path
 
-from carlos_ctl import dbops, o19docs, o19etl, o19_preflight, util
+from carlos_ctl import (dbops, o19docs, o19etl, o19_preflight,
+                        o19props, util)
 
 # Values chosen so that any escape that drops one of the three cases -- or
 # adds a fourth -- produces a different string for at least one of them.
@@ -98,6 +99,76 @@ class TestTheStandaloneCopyAgrees(unittest.TestCase):
         self.assertNotIn("from carlos_ctl", text)
         self.assertNotIn("from .util", text)
         self.assertNotIn("from . import", text)
+
+
+class TestEveryStandaloneCopyIsPinned(unittest.TestCase):
+
+    """The escape is not the only thing `o19_preflight.py` duplicates.
+
+    It is carried to the clinic's server ALONE and may import nothing
+    from the package, so several helpers exist twice. Two of them were
+    pinned here; four were not, and nothing but habit kept them in step
+    -- the same shape as the drift this file was written after, where
+    "the one that lost a case was the one no test compared".
+
+    These check BEHAVIOUR, not source: the standalone file carries no
+    annotations (Python 3.4) and words its docstrings differently, so
+    comparing text would fail on differences that do not matter and
+    would have to be relaxed until it caught nothing."""
+
+    #: java.util.Properties corner cases: separators, continuations,
+    #: escapes, surrogate pairs, duplicate keys, CRLF, a valueless key.
+    PROPERTIES = [
+        "a=1\nb:2\nc 3\n",
+        "key\\ with\\ space = v\n",
+        "cont = one\\\n  two\n",
+        "esc = a\\tb\\nc\\u00e9\n",
+        "trail = value   \n",
+        "dup = first\ndup = second\n",
+        "# comment\n! also comment\nreal = x\n",
+        "empty =\n",
+        "colonkey\\:x = v\n",
+        "uni = \\ud83d\\ude00\n",
+        "crlf = v\r\nnext = w\r\n",
+        "novalue\n",
+    ]
+
+    def test_both_property_parsers_read_the_same_file_the_same_way(self):
+        """The preflight's advisories and the import's fragment are built
+        from the SAME clinic file. If the two parses drift, a clinic can
+        be given a verdict about properties the import then reads
+        differently -- and neither side would say so."""
+        for text in self.PROPERTIES:
+            a = o19_preflight.parse_properties_text(text)
+            b = o19props.parse_properties_text(text)
+            # the shapes differ ON PURPOSE (the preflight only needs a
+            # lookup; the fragment needs order), so compare the parse
+            self.assertEqual(
+                dict(a) if not isinstance(a, dict) else a,
+                dict(b),
+                "the two property parsers disagree on {0!r}".format(text))
+
+    def test_the_escape_and_surrogate_helpers_agree(self):
+        for raw in ("a\\tb", "\\u00e9", "\\ud83d\\ude00", "plain",
+                    "trailing\\", "\\x", ""):
+            self.assertEqual(o19_preflight._unescape_property(raw),
+                             o19props._unescape_property(raw), raw)
+        for raw in ("\ud83d\ude00", "no surrogates", "\ud800lone"):
+            self.assertEqual(o19_preflight._join_surrogates(raw),
+                             o19props._join_surrogates(raw), repr(raw))
+
+    def test_the_mojibake_predicate_is_the_same_test_on_both_sides(self):
+        """The preflight BLOCKS on this predicate and the ETL REPAIRS on
+        it. Drift means blocking a clinic whose data would not be
+        repaired, or passing one whose data would be rewritten."""
+        for col in ("x", "last_name", "we ird", "Sant\u00e9"):
+            # each side takes its own argument: the standalone one is
+            # given a column NAME and quotes it, the ETL an expression
+            # that is already quoted
+            self.assertEqual(
+                o19_preflight.double_encoded_predicate(col),
+                o19etl.double_encoded_predicate("`{0}`".format(col)),
+                col)
 
 
 class TestWhatTheEscapeActuallyDoes(unittest.TestCase):
