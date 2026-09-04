@@ -1027,6 +1027,11 @@ class TestArchivedColumnParity(unittest.TestCase):
     """A row count cannot see a column: a copy that named the prefixed
     column but fed it nothing passes `row_parity` unchanged."""
 
+    def setUp(self):
+        #: every count query the run issued, so a test can assert on the
+        #: staging-side exclusions rather than only on the verdict
+        self.seen = []
+
     def query(self, src_cols, dst_cols, nonnull):
         """information_schema for both schemas plus IS NOT NULL counts.
 
@@ -1040,8 +1045,13 @@ class TestArchivedColumnParity(unittest.TestCase):
                          "\\0NONE", "", 240]
                         for t, names in sorted(cols.items())
                         for c in names]
-            m = re.search(r"FROM `([^`]+)`\.`([^`]+)` WHERE `([^`]+)`", sql)
+            # the staging side aliases the table `s` (its exclusion
+            # predicates address that alias); the target side does not
+            m = re.search(
+                r"FROM `([^`]+)`\.`([^`]+)`(?: s)? WHERE (?:s\.)?`([^`]+)`",
+                sql)
             if m:
+                self.seen.append(sql)
                 return [[str(nonnull.get(m.groups(), 0))]]
             raise AssertionError("unexpected query: " + sql)
         return q
@@ -1082,6 +1092,125 @@ class TestArchivedColumnParity(unittest.TestCase):
             self.query({"Contact": ["id"]}, {"Contact": ["id"]}, {}),
             "stage", "carlos")
         self.assertEqual((ok, bad), ([], []))
+
+    # --- the two deliberate deletions this parity must tolerate -------
+    #
+    # Both are populations `row_parity` already subtracts. Getting one of
+    # them wrong does not lose a row: it dead-ends the migration at P4,
+    # after a complete and correct copy, with a failure no flag
+    # overrides. Three merge tables carry preserved columns and two of
+    # them are exactly the tables with a tolerance.
+
+    PROP_SRC = {"property": ["name", "provider_no", "lastUpdateDate"]}
+    PROP_DST = {"property": ["name", "provider_no",
+                             "import_archived_lastUpdateDate"]}
+
+    def test_the_pruned_property_rows_are_left_out_of_the_staging_count(
+            self):
+        # the roles post-step deletes removed-module property rows from
+        # the TARGET after the merge, taking their import_archived_
+        # values with them; their staging twins are still there, and
+        # property.lastUpdateDate is a timestamp, so an ordinary clinic
+        # hits this
+        q = self.query(self.PROP_SRC, self.PROP_DST,
+                       {("stage", "property", "lastUpdateDate"): 40,
+                        ("carlos", "property",
+                         "import_archived_lastUpdateDate"): 40})
+        ok, bad = o19etl.archived_column_parity(
+            q, "stage", "carlos",
+            pruned_property_prefixes=("OLIS_", "ldap."),
+            pruned_property_keys=("logintitle",))
+        self.assertEqual(bad, [])
+        staging = [q for q in self.seen if "`stage`" in q]
+        self.assertEqual(len(staging), 1)
+        self.assertIn("s.`name` LIKE 'OLIS\\_%'", staging[0])
+        self.assertIn("s.`name` = 'logintitle'", staging[0])
+        self.assertIn("AND NOT (", staging[0])
+
+    def test_the_target_count_is_not_narrowed_by_the_prune(self):
+        # the exclusion belongs on the staging side only: the pruned
+        # rows are gone from the target, so narrowing there too would
+        # subtract them twice and hide a real mismatch
+        q = self.query(self.PROP_SRC, self.PROP_DST, {})
+        o19etl.archived_column_parity(
+            q, "stage", "carlos", pruned_property_prefixes=("OLIS_",))
+        target = [q for q in self.seen if "`carlos`" in q]
+        self.assertEqual(len(target), 1)
+        self.assertNotIn("AND NOT (", target[0])
+
+    def test_merge_excluded_rows_are_left_out_of_the_staging_count(self):
+        # merge_statement never inserts them and
+        # archived_backfill_statement deliberately skips them, so they
+        # have no target value to count
+        entry = o19map_schema.TABLES["secObjectName"]
+        self.assertTrue(entry.get("merge_exclude"),
+                        "secObjectName no longer carries a merge_exclude "
+                        "-- this test has lost its subject")
+        q = self.query({"secObjectName": ["objectName", "note"]},
+                       {"secObjectName": ["objectName",
+                                          "import_archived_note"]},
+                       {("stage", "secObjectName", "note"): 7,
+                        ("carlos", "secObjectName",
+                         "import_archived_note"): 7})
+        ok, bad = o19etl.archived_column_parity(q, "stage", "carlos")
+        self.assertEqual(bad, [])
+        staging = [q for q in self.seen if "`stage`" in q]
+        self.assertEqual(len(staging), 1)
+        self.assertIn(entry["merge_exclude"], staging[0])
+
+    def test_a_table_with_no_tolerance_gets_no_exclusion(self):
+        q = self.query(self.SRC, self.DST,
+                       {("stage", "Contact", "legacyFlag"): 3,
+                        ("carlos", "Contact",
+                         "import_archived_legacyFlag"): 3})
+        o19etl.archived_column_parity(
+            q, "stage", "carlos", pruned_property_prefixes=("OLIS_",))
+        staging = [q for q in self.seen if "`stage`" in q]
+        self.assertEqual(len(staging), 1)
+        self.assertNotIn("AND NOT (", staging[0])
+
+    def test_a_real_mismatch_still_fails_with_the_tolerance_in_place(self):
+        # the tolerance must not become a blanket excuse: a column that
+        # arrived short for any other reason is still a mismatch
+        q = self.query(self.PROP_SRC, self.PROP_DST,
+                       {("stage", "property", "lastUpdateDate"): 40,
+                        ("carlos", "property",
+                         "import_archived_lastUpdateDate"): 11})
+        ok, bad = o19etl.archived_column_parity(
+            q, "stage", "carlos", pruned_property_prefixes=("OLIS_",))
+        self.assertEqual(len(bad), 1)
+        self.assertIn("40 non-null value(s) in staging, 11", bad[0])
+
+
+class TestArchivedColumnExclusions(unittest.TestCase):
+
+    """The tolerance as a value, so what it covers is assertable without
+    reading generated SQL."""
+
+    def test_a_copy_table_has_no_exclusion(self):
+        self.assertEqual(
+            o19etl.archived_column_exclusions(
+                "demographic", ("OLIS_",), ("logintitle",)), [])
+
+    def test_property_carries_the_prune_predicate(self):
+        out = o19etl.archived_column_exclusions(
+            "property", ("OLIS_",), ("logintitle",))
+        self.assertEqual(len(out), 1)
+        self.assertIn("s.`name`", out[0])
+
+    def test_property_without_a_prune_list_carries_nothing(self):
+        self.assertEqual(o19etl.archived_column_exclusions("property"), [])
+
+    def test_a_merge_excluded_table_carries_its_own_predicate(self):
+        out = o19etl.archived_column_exclusions("secObjectName")
+        self.assertEqual(
+            out, [o19map_schema.TABLES["secObjectName"]["merge_exclude"]])
+
+    def test_an_unknown_table_is_not_an_error(self):
+        # parity walks the TARGET's tables, which include CARLOS tables
+        # the manifest never mentions
+        self.assertEqual(
+            o19etl.archived_column_exclusions("not_in_the_manifest"), [])
 
 
 class TestPreservedParity(unittest.TestCase):

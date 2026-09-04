@@ -2541,7 +2541,34 @@ def preserved_parity(plain_query, src_schema: str, dst_schema: str,
     return ok, bad
 
 
-def archived_column_parity(plain_query, src_schema: str, dst_schema: str
+def archived_column_exclusions(table: str,
+                               pruned_property_prefixes: Sequence[str] = (),
+                               pruned_property_keys: Sequence[str] = ()
+                               ) -> List[str]:
+    """Staging-side predicates (alias `s`) for rows whose preserved
+    column has no target value BY DESIGN, so the archived-column parity
+    must not expect one.
+
+    Kept separate from the query so the tolerance is a value a test can
+    assert on rather than a substring of generated SQL, and so it stays
+    beside the two writers it mirrors: `merge_statement` /
+    `archived_backfill_statement` skip `merge_exclude` rows, and
+    `o19roles.property_prune_statements` deletes the pruned target rows
+    after the merge."""
+    entry = o19map_schema.TABLES.get(table) or {}
+    out = []
+    if entry.get("merge_exclude"):
+        out.append(entry["merge_exclude"])
+    if table == "property" and (pruned_property_prefixes
+                                or pruned_property_keys):
+        out.append(pruned_property_predicate(
+            pruned_property_prefixes or (), pruned_property_keys or ()))
+    return out
+
+
+def archived_column_parity(plain_query, src_schema: str, dst_schema: str,
+                           pruned_property_prefixes: Sequence[str] = (),
+                           pruned_property_keys: Sequence[str] = ()
                            ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) for the `import_archived_` COLUMNS.
 
@@ -2553,7 +2580,25 @@ def archived_column_parity(plain_query, src_schema: str, dst_schema: str
     Equality, not "at least": the rows the target holds beyond the copy
     (CARLOS seeds a merge kept, the break-glass administrator) have no
     source column to fill from, so they are NULL and contribute to
-    neither side."""
+    neither side.
+
+    The staging side subtracts the same two populations `row_parity`
+    subtracts, and for the same reason -- a deliberate deletion is not a
+    mismatch. Three merge tables carry preserved columns
+    (`property`, `secObjectName`, `lst_gender`), and two of them are
+    exactly the tables with a tolerance:
+
+    * `property` -- the roles post-step prunes removed-module rows from
+      the TARGET after the merge, taking their `import_archived_`
+      values with them; their staging twins are still there.
+    * `merge_exclude` rows -- never inserted by `merge_statement` and
+      deliberately skipped by `archived_backfill_statement`, so they
+      have no target value to count.
+
+    Without these, a clinic whose dump has a non-null
+    `property.lastUpdateDate` on any pruned key -- which is the ordinary
+    case, the column being a timestamp -- fails P4 parity AFTER a
+    complete and correct copy, and parity is not overridable."""
     ok, bad = [], []
     src_info = introspect_columns(plain_query, src_schema)
     dst_info = introspect_columns(plain_query, dst_schema)
@@ -2570,9 +2615,15 @@ def archived_column_parity(plain_query, src_schema: str, dst_schema: str
                 # dump that carried it; this one does not, so there is
                 # nothing to compare it against
                 continue
-            src_n = int(plain_query(
-                "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` IS NOT NULL"
-                .format(src_schema, table, source))[0][0])
+            # alias `s`: both exclusion predicates are written
+            # against the staging alias, like every other parity query
+            src_sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE "
+                       "s.`{2}` IS NOT NULL".format(
+                           src_schema, table, source))
+            for predicate in archived_column_exclusions(
+                    table, pruned_property_prefixes, pruned_property_keys):
+                src_sql += " AND NOT ({0})".format(predicate)
+            src_n = int(plain_query(src_sql)[0][0])
             dst_n = int(plain_query(
                 "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` IS NOT NULL"
                 .format(dst_schema, table, target))[0][0])
