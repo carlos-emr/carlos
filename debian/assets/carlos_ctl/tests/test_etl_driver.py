@@ -131,6 +131,12 @@ class FakeDb(object):
     def __init__(self, **over):
         self.writes = []
         self.reads = []
+        #: reads and writes in the order they were issued, across BOTH
+        #: clients. `reads`/`writes` cannot answer an ordering question
+        #: that spans the two -- "was this counted before that insert
+        #: ran?" -- and getting that ordering wrong is how a measurement
+        #: silently becomes a measurement of the wrong thing.
+        self.log = []
         # the column lists are copied, not shared with the module
         # constants: the fake applies ADD COLUMN below, and a mutation
         # that leaked into SRC_COLUMNS/DST_COLUMNS would follow every
@@ -157,6 +163,7 @@ class FakeDb(object):
 
     # -- the ETL executor: writes, and the counts run under its prelude
     def query(self, sql, db=None):
+        self.log.append(sql)
         if self.fail_on and self.fail_on in sql:
             self.fail_on = None
             raise o19etl.QueryError("planted failure", "boom")
@@ -178,6 +185,7 @@ class FakeDb(object):
 
     # -- the plain client: reads, plus the archive schema CREATE
     def plain(self, sql, db=None):
+        self.log.append(sql)
         if sql.startswith(self.IS_COLUMNS):
             return self._information_schema(sql)
         if sql.startswith(self.IS_TABLES):
@@ -368,6 +376,40 @@ class TestTheCopyPath(EtlDriverBase):
         self.assertTrue(self.writes_matching(
             db, r"`o19_archive`\.`HL7Map__idmap`"), db.writes)
         self.assertEqual(counts["merge"], 1)
+
+    def test_a_merge_tables_clinic_rows_are_archived(self):
+        # A merge keeps CARLOS's row on a shared natural key, so the
+        # clinic's other columns on that key never become live. That is
+        # policy, and it is a reason not to make them live -- not a
+        # reason to leave them nowhere once --cleanup drops staging.
+        # an EMPTY staging table is not preserved (there is nothing to
+        # lose), so the clinic rows have to exist for this to be a test
+        db, _lines, _counts = self.run_etl(
+            db=FakeDb(counts={(SRC, "HL7Map"): 9}))
+        self.assertTrue(
+            self.writes_matching(
+                db, r"INSERT INTO `o19_archive`\.`HL7Map__new` "
+                    r"SELECT \* FROM `o19_import`\.`HL7Map`"),
+            db.writes)
+        # archive-only: the live table exists and holds the merged
+        # result, so a twin beside it would be a second copy of a table
+        # that is not missing
+        self.assertEqual(
+            self.writes_matching(
+                db, r"`carlos`\.`import_archived_HL7Map"), [], db.writes)
+
+    def test_the_overridden_count_is_taken_before_the_merge(self):
+        # afterwards every staging row has a target twin -- the ones the
+        # merge itself inserted included -- so the same query answers
+        # "all of them" and the distinction is gone
+        db, _lines, _counts = self.run_etl()
+        counted = next(i for i, w in enumerate(db.log)
+                       if w.startswith("SELECT COUNT(*) FROM "
+                                       "`o19_import`.`HL7Map` s WHERE "
+                                       "EXISTS"))
+        inserted = next(i for i, w in enumerate(db.log)
+                        if w.startswith("INSERT INTO `carlos`.`HL7Map`"))
+        self.assertLess(counted, inserted, db.log)
 
     def test_a_replace_seed_table_is_emptied_before_the_copy(self):
         # `log` carries the deploy's own audit rows and the copy is

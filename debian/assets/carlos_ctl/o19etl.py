@@ -502,6 +502,27 @@ def archived_backfill_statement(table: str, entry: dict, src_schema: str,
     return sql
 
 
+def merge_overridden_count_sql(table: str, entry: dict, src_schema: str,
+                               dst_schema: str, dst_cols: Dict[str, dict],
+                               archive_schema: Optional[str] = None) -> str:
+    """Staging rows of a merge table that will NOT become live rows: the
+    positive of `merge_statement`'s anti-join (a target twin already
+    holds the natural key, so CARLOS's row wins) plus the `merge_exclude`
+    rows the merge is told to leave behind.
+
+    Must be counted BEFORE the merge runs. Afterwards every staging row
+    has a target twin -- including the ones the merge itself inserted --
+    so the same query answers "all of them" and the distinction is gone.
+    """
+    sql = ("SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE EXISTS (SELECT 1 "
+           "FROM `{2}`.`{1}` d WHERE {3})".format(
+               src_schema, table, dst_schema,
+               merge_join(entry, archive_schema, dst_cols)))
+    if entry.get("merge_exclude"):
+        sql += " OR ({0})".format(entry["merge_exclude"])
+    return sql
+
+
 def merge_missing_count_sql(table: str, entry: dict, src_schema: str,
                             dst_schema: str, dst_cols: Dict[str, dict],
                             archive_schema: Optional[str] = None,
@@ -2053,7 +2074,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # -- table loop --------------------------------------------------------
     counts = {"copy": 0, "merge": 0, "archive": 0, "drop": 0,
               "reference": 0, "rows": 0, "unknown_archived": 0,
-              "unknown_column_shadows": 0}
+              "unknown_column_shadows": 0, "merge_overridden": 0}
     # per-table findings are persisted in the ledger as they are made, so
     # a resumed run's report still carries the lines of tables the crashed
     # run completed (they are never re-derived: the marks skip the work)
@@ -2062,6 +2083,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     fk_lines: List[str] = kept.setdefault("fk", [])
     drop_lines: List[str] = kept.setdefault("drop", [])
     reference_lines: List[str] = kept.setdefault("reference", [])
+    merge_lines: List[str] = kept.setdefault("merge", [])
     archived_col_lines: List[str] = kept.setdefault("archived_cols", [])
     shadow_notes: List[str] = kept.setdefault("shadow", [])
     absent_tables: List[str] = []
@@ -2182,6 +2204,13 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
 
         if cls == "merge":
             if not tstate.get("done"):
+                # counted BEFORE the insert and kept in the ledger: after
+                # the merge every staging row has a target twin (its own
+                # included), so nothing can tell afterwards which rows
+                # the CARLOS seed rejected
+                tstate["overridden"] = int(query(
+                    merge_overridden_count_sql(
+                        table, entry, src, dst, dcols, arch))[0][0])
                 query(merge_statement(table, entry, src, dst, dcols,
                                       repaired, arch))
                 # rows the merge kept CARLOS's copy of never passed
@@ -2207,7 +2236,30 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                         save_progress(state_dir, progress)
                 tstate["done"] = True
                 save_progress(state_dir, progress)
+            # The clinic's whole staging table goes to o19_archive, with
+            # no live twin (the live table exists and holds the merged
+            # result). A merge keeps CARLOS's row on a shared natural
+            # key, so the clinic's other columns on that key -- an edited
+            # encounter template, a local fee on a seeded billing code,
+            # a customised measurement instruction -- are dropped by
+            # policy. Policy is a reason not to make them live, not a
+            # reason to leave them nowhere once --cleanup drops staging.
+            n = int(plain("SELECT COUNT(*) FROM `{0}`.`{1}`".format(
+                src, table))[0][0])
+            if n and not tstate.get("archived"):
+                for sql in archive_statements(table, src, arch):
+                    query(sql)
+                tstate["archived"] = True
+                save_progress(state_dir, progress)
+            overridden = tstate.get("overridden") or 0
+            if n and overridden:
+                line = ("{0}: {1} of {2} clinic row(s) kept CARLOS's row "
+                        "on the shared key; all {2} preserved at {3}.{0}"
+                        .format(table, overridden, n, arch))
+                if line not in merge_lines:
+                    merge_lines.append(line)
             counts["merge"] += 1
+            counts["merge_overridden"] += overridden
         else:  # copy
             if entry.get("chunk_by"):
                 chunk = entry["chunk_by"]
@@ -2359,6 +2411,10 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
                + "\n  ".join(archived_col_lines))
     if shadow_notes:
         report("dropped-column capture:\n  " + "\n  ".join(shadow_notes))
+    if merge_lines:
+        report("clinic rows the CARLOS seed overrode on a merge table "
+               "(the live table holds CARLOS's row; the clinic's is "
+               "preserved, not discarded):\n  " + "\n  ".join(merge_lines))
     if idmap_lines:
         report("surrogate ids reassigned on merge (child foreign keys "
                "remapped through the id maps):\n  "
@@ -2476,6 +2532,14 @@ def schema_tables(plain_query, schema: str) -> set:
 #: preserved in `o19_archive` alone (no live twin would be meaningful --
 #: the name is taken).
 PRESERVED_CLASSES = ("archive", "drop", "reference")
+#: preserved into `o19_archive` only, with NO `import_archived_` twin:
+#: the live table already exists and holds CARLOS's own rows, so a twin
+#: beside it would be a second copy of a table that is not missing.
+#: `merge` is here because a clinic row whose natural key collides with a
+#: CARLOS seed row is never inserted -- the seed wins by policy -- and
+#: its other columns would otherwise exist nowhere once staging is
+#: dropped.
+ARCHIVE_ONLY_CLASSES = ("reference", "merge")
 
 
 def preserved_parity(plain_query, src_schema: str, dst_schema: str,
@@ -2508,13 +2572,13 @@ def preserved_parity(plain_query, src_schema: str, dst_schema: str,
     for table in sorted(src_tables):
         entry = o19map_schema.TABLES.get(table)
         cls = entry["class"] if entry else "unknown"
-        if entry and cls not in PRESERVED_CLASSES:
-            continue        # copy/merge: row_parity's business
+        if entry and cls not in PRESERVED_CLASSES + ("merge",):
+            continue        # copy: row_parity's business
         src_n = count(src_schema, table)
         if src_n == 0:
             continue
         homes = [(archive_schema, table, arch_tables)]
-        if cls != "reference":
+        if cls not in ARCHIVE_ONLY_CLASSES:
             homes.append((dst_schema, archived_table(table), dst_tables))
         counts = []
         for schema, name, present in homes:

@@ -379,7 +379,21 @@ places, and the verification counts both before it passes:
 |---|---|
 | a table CARLOS does not have (removed module, clinic fork) | `o19_archive.<table>` **and** `<emr-schema>.import_archived_<table>` |
 | a reference table CARLOS seeds itself | `o19_archive.<table>` — CARLOS's own rows win in the live table |
+| a merge table (CARLOS seeds it, the clinic also has rows) | `o19_archive.<table>` — every clinic row, including the ones a CARLOS seed row overrode |
 | a column CARLOS does not have (dropped or clinic fork) | `<emr-schema>.<table>.import_archived_<column>`, source type and every row, plus an `o19_archive` shadow capture |
+
+A merge is the one place where a *live* row can be a CARLOS row rather
+than the clinic's. Merge policy is that CARLOS's seed wins on a shared
+natural key — the clinic's row on that key is never inserted, so its
+other columns (an edited encounter template, a local fee on a seeded
+billing code, a customised measuring instruction) do not become live.
+That is deliberate, and it is not the same thing as discarding them: the
+whole staging table goes to `o19_archive.<table>`, the report names how
+many rows the seed overrode on each table, and `--cleanup` will not drop
+staging until that copy has been counted. There is no
+`import_archived_` twin for a merge table, for the same reason a
+reference table has none — the live table is not missing, it is holding
+CARLOS's rows.
 
 The two homes answer different needs. `o19_archive` is the verification
 copy and the source of the CSV export the clinic is handed; it is dropped

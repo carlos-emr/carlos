@@ -1232,6 +1232,8 @@ class TestPreservedParity(unittest.TestCase):
     REFERENCE = next(t for t, e in o19map_schema.TABLES.items()
                      if e["class"] == "reference")
     UNKNOWN = "clinic_custom_notes"
+    MERGE = next(t for t, e in o19map_schema.TABLES.items()
+                 if e["class"] == "merge")
 
     def query(self, staging, archive, live):
         """A fake answering information_schema table lists and COUNT(*).
@@ -1258,6 +1260,36 @@ class TestPreservedParity(unittest.TestCase):
 
     def prefixed(self, table):
         return o19etl.ARCHIVED_PREFIX + table
+
+    # --- merge: archived, but with no live twin -----------------------
+    #
+    # A merge keeps CARLOS's row on a shared natural key, so the clinic's
+    # other columns on that key never become live. That is policy; it is
+    # not a licence to leave them nowhere once --cleanup drops staging.
+    # No `import_archived_` twin, for the same reason `reference` has
+    # none: the live table exists and holds CARLOS's rows.
+
+    def test_a_merge_table_is_verified_against_the_archive_alone(self):
+        ok, bad = self.parity({self.MERGE: 9}, {self.MERGE: 9}, {})
+        self.assertEqual(bad, [])
+        self.assertEqual(len(ok), 1)
+        self.assertIn("(merge): staging 9 -> arch.{0} 9".format(self.MERGE),
+                      ok[0])
+
+    def test_a_merge_table_with_no_archive_is_a_mismatch(self):
+        ok, bad = self.parity({self.MERGE: 9}, {}, {})
+        self.assertEqual(len(bad), 1)
+        self.assertIn("9 staging row(s) and no copy at arch.{0}".format(
+            self.MERGE), bad[0])
+
+    def test_a_merge_table_is_not_asked_for_a_live_twin(self):
+        # asking for one would fail every import: nothing creates it, and
+        # nothing should
+        ok, bad = self.parity({self.MERGE: 9}, {self.MERGE: 9}, {})
+        self.assertNotIn(self.prefixed(self.MERGE), " ".join(ok + bad))
+
+    def test_an_empty_merge_table_is_not_a_mismatch(self):
+        self.assertEqual(self.parity({self.MERGE: 0}, {}, {}), ([], []))
 
     def test_a_preserved_table_present_in_both_homes_passes(self):
         ok, bad = self.parity(
