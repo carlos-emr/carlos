@@ -51,8 +51,11 @@ import static org.mockito.Mockito.when;
  * Unit tests for the cross-province billing entry router. The router is
  * deliberately tiny: privilege check + decide BC vs ON. These tests pin
  * exactly that contract, including the fall-back to the deployment-wide
- * {@code billregion} property and the null-safe handling when
- * {@link CarlosProperties#getInstance()} returns null.
+ * {@code billregion} property and the router's defensive guard against a null
+ * {@link CarlosProperties#getInstance()}. That guard never fires in production
+ * — the singleton is eagerly initialized — so the case is reachable only by
+ * stubbing the static accessor, which is what the corresponding test does; it
+ * is pinned so a future move to lazy initialization cannot NPE the router.
  *
  * <p>The property fall-back is stubbed on {@link CarlosProperties} — the
  * singleton actually backed by {@code carlos.properties}. The action previously
@@ -191,8 +194,10 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldDefaultToBC_whenCarlosPropertiesReturnsNull() {
-        // getInstance() returns null before configuration is loaded. The router
-        // handles it gracefully and falls back to BC rather than NPE-ing.
+        // Contract check, not a production state: the real singleton is eagerly
+        // initialized and never null, so this is reachable only through the
+        // static stub. It pins the router's defensive guard against a future
+        // lazy-init change.
         carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(null);
 
         assertThat(new Billing2Action().execute()).isEqualTo("BC");

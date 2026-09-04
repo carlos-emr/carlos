@@ -232,8 +232,12 @@ Region resolution rules (`Billing2Action.execute`):
 3. Anything not equal to `"ON"` (including null) routes to BC. Historical
    behaviour: BC was the original deployment.
 
-The router gracefully handles `CarlosProperties.getInstance()` returning
-null (which can happen pre-config), defaulting to BC.
+The router still null-checks `CarlosProperties.getInstance()` before reading
+the property, but that is a defensive guard rather than a state production
+reaches: the singleton is eagerly initialized (`private static CarlosProperties
+carlosProperties = new CarlosProperties();`), so the instance itself is never
+null. What is genuinely absent is the `billregion` *value*, which reads back
+null on an install that never set it — rule 3 then routes to BC.
 
 **Every Ontario link into `/billing` must carry `billRegion=ON`.** Rule 3 above
 means an omitted region routes to BC, and on an Ontario install `billingBC.jsp`
