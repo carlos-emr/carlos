@@ -360,6 +360,26 @@ class TestContainment(unittest.TestCase):
         os.symlink(self.outside, os.path.join(self.root, "link"))
         self.assertFalse(o19docs.contained(self.root, "link/secret.pdf"))
 
+    def test_a_sibling_directory_sharing_the_prefix_is_not_inside(self):
+        """The separator in `root_real + os.sep` is load-bearing and
+        nothing pinned it. `/var/lib/OscarDocument/oscar` and
+        `/var/lib/OscarDocument/oscar-old` share a prefix: a bare
+        `startswith` on the root would call the second one contained,
+        and reconciliation would then satisfy a document row from a
+        directory that is not the clinic's context at all."""
+        sibling = self.root + "-old"
+        os.makedirs(sibling)
+        self.addCleanup(shutil.rmtree, sibling, True)
+        with open(os.path.join(sibling, "secret.pdf"), "w") as fh:
+            fh.write("x")
+        self.assertFalse(o19docs.contained(
+            self.root, os.path.join(sibling, "secret.pdf")))
+        self.assertFalse(o19docs.contained(self.root, "../{0}/secret.pdf"
+                                           .format(os.path.basename(
+                                               sibling))))
+        # the root itself IS contained: the check is not "strictly below"
+        self.assertTrue(o19docs.contained(self.root, "."))
+
     def test_escaping_document_row_is_blocking_not_satisfied(self):
         rows = [("9", os.path.join(self.outside, "secret.pdf")),
                 ("10", "../../etc/passwd")]
@@ -459,6 +479,33 @@ class TestMoveIntoPlace(unittest.TestCase):
         fd = self.work_fd()
         self.assertFalse(o19docs._same_file(self.src, fd, "pipe"),
                          "a FIFO was treated as an identical file")
+
+    def test_same_size_different_content_is_not_the_same_file(self):
+        """The SHA-256 half of `_same_file` decided nothing in this
+        suite: every case it was put to differed in SIZE too, so the
+        cheap guard answered first and the digest could have been
+        deleted with the tests still green.
+
+        It is the half that matters. An interrupted merge is resumed by
+        keeping what is already in place, and two documents of equal
+        length whose bytes differ is exactly the pair a size check calls
+        identical -- one patient's scan left standing in another's."""
+        with open(self.src, "w") as fh:
+            fh.write("phi-content")
+        dst = os.path.join(self.work, "dst")
+        with open(dst, "w") as fh:
+            fh.write("PHI-CONTENT")          # same length, other bytes
+        self.assertEqual(os.path.getsize(self.src), os.path.getsize(dst))
+        self.assertFalse(o19docs._same_file(self.src, self.work_fd(),
+                                            "dst"),
+                         "two files of equal size but different content "
+                         "were treated as the same file")
+        # and the identical pair still answers True, so the negative
+        # above is the digest talking and not a blanket refusal
+        with open(dst, "w") as fh:
+            fh.write("phi-content")
+        self.assertTrue(o19docs._same_file(self.src, self.work_fd(),
+                                           "dst"))
 
     def test_an_ordinary_directory_move_still_works(self):
         os.makedirs(self.src)
@@ -734,15 +781,16 @@ class TestEformImageRefs(unittest.TestCase):
                          sorted(["logo.png", "sig.png", "stamp.gif",
                                  "form.pdf?x=1"]))
 
-    def test_lookup_name_keeps_the_query_and_drops_the_fragment(self):
+    def test_a_reference_keeps_its_query_and_drops_its_fragment(self):
         # the browser never sends `#page=2`; a `?v=2` stays inside the
-        # imagefile value, so CARLOS looks up a file literally named so
-        self.assertEqual(o19docs.image_ref_lookup("logo.png?v=2"),
-                         "logo.png?v=2")
-        self.assertEqual(o19docs.image_ref_lookup("form.pdf#page=2"),
-                         "form.pdf")
-        self.assertEqual(o19docs.image_ref_lookup("plain.gif"), "plain.gif")
-        self.assertEqual(o19docs.image_ref_lookup("#only-fragment"), "")
+        # imagefile value, so CARLOS looks up a file literally named so.
+        # Asserted on `image_refs`, the function reconciliation calls --
+        # it used to be asserted on a second helper with no callers.
+        self.assertEqual(
+            o19docs.image_refs('<img src="${oscar_image_path}logo.png?v=2">'
+                               '<img src="${oscar_image_path}f.pdf#page=2">'
+                               '<img src="${oscar_image_path}#only-frag">'),
+            ["f.pdf", "logo.png?v=2"])
 
     def test_unrelated_html_has_no_refs(self):
         self.assertEqual(o19docs.image_refs("<p>no images</p>"), [])

@@ -122,10 +122,10 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
     for raw in names:
         if raw.endswith("/") or not raw:
             # a directory entry (or an empty name) can never be one of the
-            # three inputs — refusing it here keeps the later chmod/sha256
+            # named inputs — refusing it here keeps the later chmod/sha256
             # from ever touching a directory
             problems.append("member '{0}' is a directory — bundle members "
-                            "must be the three plain files at the archive "
+                            "must be the named plain files at the archive "
                             "root".format(raw))
             continue
         name = _strip_dot_slash(raw)
@@ -136,7 +136,7 @@ def classify_members(names: List[str]) -> Dict[str, Optional[str]]:
             continue
         if name.startswith("."):
             problems.append("member '{0}' is a dot-file — the bundle holds "
-                            "the three named inputs only".format(raw))
+                            "the named inputs only".format(raw))
             continue
         if name.startswith("-"):
             # a name that looks like an option must never reach tar's
@@ -234,23 +234,6 @@ def read_tar_entries(path: str, gzipped: bool
     return out
 
 
-def parse_tar_listing(verbose_lines: List[str]) -> List[Tuple[str, str]]:
-    """(type_letter, member_name) pairs from `tar -tv` output.
-
-    GNU/bsdtar verbose lines are `mode owner/group size date time name`;
-    link entries append ` -> target` / ` link to target`, which is kept in
-    the name so that a link never masquerades as a plain member."""
-    out: List[Tuple[str, str]] = []
-    for line in verbose_lines:
-        if not line.strip():
-            continue
-        parts = line.split(None, 5)
-        if len(parts) < 6 or not parts[0]:
-            raise ValueError("unparseable tar listing line: " + line)
-        out.append((parts[0][0], parts[5]))
-    return out
-
-
 def validate_tar_members(entries: List[Tuple[str, str]],
                          allow_dirs: bool) -> List[str]:
     """Refuse anything but plain files (and directories when allowed) with
@@ -305,21 +288,6 @@ def entries_size(entries: List[Tuple[str, str, int]]) -> int:
     about what it unpacks to)."""
     return sum(size for kind, _name, size in entries
                if kind == TAR_TYPE_FILE)
-
-
-def listed_size(entries_verbose: List[str]) -> int:
-    """Sum of the member sizes in a `tar -tv` listing — the archive's
-    expanded footprint, for the disk-headroom check (a compressed
-    archive's file size says nothing about what it unpacks to)."""
-    total = 0
-    for line in entries_verbose:
-        parts = line.split(None, 5)
-        if len(parts) >= 6 and parts[0][:1] == TAR_TYPE_FILE:
-            try:
-                total += int(parts[2])
-            except ValueError:
-                continue
-    return total
 
 
 def tar_header_checksum_ok(header: bytes) -> bool:
@@ -422,7 +390,15 @@ def _decrypt_to(bundle: str, dest_tar: str, cipher: str,
     # -in). Both are validated by openssl itself if unusable.
     fd = pass_spec_fd(pass_spec)
     extra = {"pass_fds": (fd,)} if fd is not None and fd > 2 else {}
-    with open(dest_tar, "wb") as out:
+    # 0600 from the first byte, and never through a plain open(): this
+    # file is the clinic's WHOLE database in clear, and `open(..., "wb")`
+    # creates it 0666 & ~umask -- 0644 under the packaged default, world
+    # readable for as long as the import runs. O_EXCL because a file
+    # already sitting at this path is not ours to write through, and its
+    # mode would survive the truncation.
+    out_fd = os.open(dest_tar, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(out_fd, "wb") as out:
+        os.fchmod(out.fileno(), 0o600)
         cp = subprocess.run(argv, stdout=out, **extra)  # nosec B603
     if cp.returncode != 0:
         try:

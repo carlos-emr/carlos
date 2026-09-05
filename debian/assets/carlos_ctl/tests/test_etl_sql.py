@@ -1047,6 +1047,76 @@ class TestArchivedColumns(unittest.TestCase):
             {"t": ["c" * o19etl.MAX_PRESERVED_COLUMN]}), [])
 
 
+class TestAViewIsNotATable(unittest.TestCase):
+
+    """The two halves of the tool must agree about what the dump holds.
+
+    A mysqldump of a clinic database carries its VIEWs, and
+    information_schema lists a view among TABLES and describes its
+    columns among COLUMNS exactly like a table's. The clinic-side
+    assessment has always filtered on TABLE_TYPE = 'BASE TABLE'; the ETL
+    side did not, so a view reached the unknown-table preservation step
+    as an "unknown table" -- and `CREATE TABLE ... LIKE <view>` is error
+    1347, raised mid-P4 with the copy already part-written."""
+
+    def test_the_table_listing_asks_for_base_tables_only(self):
+        seen = []
+
+        def plain(sql):
+            seen.append(sql)
+            return [["demographic"]]
+        got = o19etl.schema_tables(plain, "o19_import")
+        self.assertEqual(got, {"demographic"})
+        self.assertIn("TABLE_TYPE = 'BASE TABLE'", seen[0])
+
+    def test_the_column_introspection_excludes_a_views_columns(self):
+        seen = []
+
+        def query(sql):
+            seen.append(sql)
+            return []
+        o19etl.introspect_columns(query, "o19_import")
+        self.assertIn("TABLE_TYPE = 'BASE TABLE'", seen[0])
+        self.assertIn("information_schema.TABLES", seen[0])
+
+
+class TestAnUnrunnableClassIsRefused(unittest.TestCase):
+
+    """`run_etl`'s dispatch ends in `else: copy`, and both halves of P7's
+    parity skip a class they do not recognise. A class added to the
+    manifest without a matching branch would therefore be copied into
+    the live schema and verified by nothing -- so it is refused before
+    the first write instead."""
+
+    def test_every_shipped_class_is_one_this_build_runs(self):
+        self.assertEqual(
+            o19etl.unknown_manifest_classes(o19map_schema.TABLES), [])
+        for cls in o19etl.KNOWN_CLASSES:
+            self.assertEqual(o19etl.unknown_manifest_classes(
+                {"t": {"class": cls}}), [])
+
+    def test_a_class_with_no_branch_is_named_and_refused(self):
+        lines = o19etl.unknown_manifest_classes(
+            {"t": {"class": "transform"}, "u": {"class": "copy"}})
+        self.assertEqual(len(lines), 1)
+        self.assertIn("t: manifest class 'transform'", lines[0])
+        self.assertIn("copy", lines[0])
+        # a missing class is not a copy either
+        self.assertEqual(len(o19etl.unknown_manifest_classes({"t": {}})), 1)
+
+    def test_the_precheck_actually_asks(self):
+        # the refusal only protects anything if P4's pre-check runs it:
+        # the function on its own is a guard nobody consults
+        src = inspect.getsource(o19etl.etl_precheck_problems)
+        self.assertIn("unknown_manifest_classes(", src)
+
+    def test_a_manifest_gone_wholly_wrong_is_summarised(self):
+        lines = o19etl.unknown_manifest_classes(
+            dict(("t{0}".format(i), {"class": "x"}) for i in range(15)))
+        self.assertEqual(len(lines), 11)
+        self.assertIn("... and 5 more", lines[-1])
+
+
 class TestIntrospectColumns(unittest.TestCase):
     """`introspect_columns` against the rows information_schema answers
     with, including the two the charset carry-over added."""
@@ -1115,7 +1185,11 @@ class TestRowSizeCeiling(unittest.TestCase):
         self.assertIsNotNone(msg)
         self.assertIn("past MySQL's 65535-byte row limit", msg)
         self.assertIn("import_archived_src0", msg)
-        self.assertIn("still captured to the archive schema", msg)
+        # the refusal must not promise an archive capture: its lines go
+        # to the die() that ends P4 BEFORE the first write, so nothing
+        # has reached o19_archive and nothing will on this run
+        self.assertIn("refuses here, before writing anything", msg)
+        self.assertNotIn("captured to the archive", msg)
 
     def test_a_table_with_no_plan_is_never_refused(self):
         self.assertIsNone(o19etl.oversized_rows("t", self.dst(60), []))
@@ -1223,6 +1297,29 @@ class TestArchivedColumnParity(unittest.TestCase):
             "stage", "carlos")
         self.assertEqual(len(bad), 1)
         self.assertIn("40 non-null value(s) in staging, 0 in "
+                      "carlos.import_archived_legacyFlag", bad[0])
+
+    def test_a_target_holding_MORE_than_staging_is_a_mismatch_too(self):
+        """The over-count direction, which no test covered: mutating the
+        comparison to `src_n <= dst_n` left the whole suite green, so
+        nothing proved this check is an equality rather than a floor.
+
+        It has to be one. A resumed chunked copy that re-ran a window
+        without its delete duplicates rows, and the duplicates carry
+        their preserved values too -- more non-null values in the live
+        column than the clinic ever had. The neighbouring `row_parity`
+        DOES tolerate extra target rows (CARLOS's own seeds), so
+        loosening this one to match would look reasonable and would let
+        that duplication through."""
+        ok, bad = o19etl.archived_column_parity(
+            self.query(self.SRC, self.DST,
+                       {("stage", "Contact", "legacyFlag"): 40,
+                        ("carlos", "Contact",
+                         "import_archived_legacyFlag"): 41}),
+            "stage", "carlos")
+        self.assertEqual(ok, [])
+        self.assertEqual(len(bad), 1)
+        self.assertIn("40 non-null value(s) in staging, 41 in "
                       "carlos.import_archived_legacyFlag", bad[0])
 
     def test_a_column_this_dump_does_not_carry_is_not_compared(self):

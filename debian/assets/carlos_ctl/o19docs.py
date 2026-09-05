@@ -218,17 +218,6 @@ def unescape_batch_field(value: str) -> str:
     return "".join(out)
 
 
-def image_ref_lookup(ref: str) -> str:
-    """The filename CARLOS's image route looks up for an eForm reference.
-    `${oscar_image_path}` expands to `/eform/displayImage?imagefile=`, so
-    the browser drops a `#fragment` before the request ever leaves, but a
-    `?query` stays INSIDE the imagefile value: `logo.png?v=2` names a file
-    literally called that. Reconciliation checks what the route checks
-    (image_refs already decoded the value; this keeps the older callers'
-    contract for a raw reference)."""
-    return ref.split("#", 1)[0]
-
-
 def image_refs(form_html: str) -> List[str]:
     """The imagefile values the browser would send for every
     ${oscar_image_path} reference in the HTML: the whole attribute value

@@ -179,7 +179,14 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
         "IFNULL(COLUMN_DEFAULT, '\\0NONE'), EXTRA, "
         "IFNULL(CHARACTER_OCTET_LENGTH, 0), "
         "IFNULL(CHARACTER_SET_NAME, ''), IFNULL(COLLATION_NAME, '') "
-        "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{0}'"
+        "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{0}' "
+        # a VIEW's columns are described here exactly like a table's, and
+        # a dump carries the clinic's views: without this a view becomes
+        # an "unknown table" the preservation step tries to CREATE TABLE
+        # ... LIKE, which is error 1347 mid-P4
+        "AND TABLE_NAME IN (SELECT TABLE_NAME FROM "
+        "information_schema.TABLES WHERE TABLE_SCHEMA = '{0}' "
+        "AND TABLE_TYPE = 'BASE TABLE')"
         .format(schema))
     for r in rows:
         if len(r) < 8:
@@ -482,7 +489,7 @@ def merge_statement(table: str, entry: dict, src_schema: str,
     raises a fair question: does it see rows the same statement just
     added? On MariaDB 10.11 it does NOT -- verified by running it, not by
     reading the manual, in
-    scripts/migration/o19/verify_merge_semantics.py. So a clinic table
+    scripts/migration/o19/verify_sql_semantics.py. So a clinic table
     holding twins on the natural key copies BOTH of them, which is the
     behaviour this wants: the seed is what the clinic's row loses to, and
     the clinic's own duplicates are the clinic's data. Deduplicating them
@@ -1133,12 +1140,19 @@ def oversized_rows(table: str, dst_cols: Dict[str, dict],
     if current + added <= MAX_ROW_BYTES:
         return None
     plan = pending
+    # NOT "their values are still captured": this is a pre-check, and
+    # its lines go to the die() that ends P4 before the first write.
+    # Nothing is copied, nothing reaches o19_archive, and an operator
+    # told their data was safely archived would have been told something
+    # that had not happened and now never will on this run.
     return ("{0}: preserving {1} column(s) on it would take the row from "
             "roughly {2} to {3} bytes of declared width, past MySQL's "
-            "{4}-byte row limit ({5}). Their values are still captured to "
-            "the archive schema, but the live column cannot be added: "
-            "narrow or remove these columns in the source and re-export, "
-            "or migrate this table's fork columns by hand afterwards."
+            "{4}-byte row limit ({5}). The import refuses here, before "
+            "writing anything, because the live column cannot be added "
+            "and a table whose fork columns have no home is not a "
+            "migration this tool will half-perform: narrow or remove "
+            "these columns in the source and re-export, or migrate this "
+            "table's fork columns by hand and re-run."
             .format(table, len(plan), current, current + added,
                     MAX_ROW_BYTES,
                     ", ".join(t for _s, t, _c in plan)))
@@ -1800,6 +1814,29 @@ def precheck_scope(state_dir: str) -> str:
     return "nothing was written"
 
 
+def unknown_manifest_classes(tables: Dict[str, dict]) -> List[str]:
+    """Refusal lines for manifest entries whose class the ETL cannot run.
+
+    The dispatch in `run_etl` handles reference, drop, archive and merge
+    by name and ends in `else: copy`, so a class nobody wrote a branch
+    for is COPIED into the live schema. Neither half of P7 would notice:
+    `preserved_content_parity` looks only at PRESERVED_CLASSES + merge,
+    and `row_parity` skips what it does not recognise -- so the rows
+    would land unverified, in the one place a wrong class is most
+    expensive. Refused here, before the first write, naming the table and
+    the class rather than the generator that emitted it (the operator
+    reads this, and their remedy is a matching package version)."""
+    bad = sorted("{0}: manifest class {1!r} is not one this build can "
+                 "run ({2})".format(t, e.get("class"),
+                                    ", ".join(KNOWN_CLASSES))
+                 for t, e in tables.items()
+                 if e.get("class") not in KNOWN_CLASSES)
+    if not bad:
+        return []
+    return bad[:10] + (["... and {0} more".format(len(bad) - 10)]
+                       if len(bad) > 10 else [])
+
+
 def etl_precheck_problems(ctx, plain, query, src_schema: str,
                           arch_schema: str,
                           src_info: Dict[str, Dict[str, dict]],
@@ -1822,6 +1859,7 @@ def etl_precheck_problems(ctx, plain, query, src_schema: str,
     from . import o19roles  # imports this module; resolved lazily
     src, arch = src_schema, arch_schema
     problems = []
+    problems.extend(unknown_manifest_classes(o19map_schema.TABLES))
     if admin_user == o19map_schema.SEED_USER_NAME:
         problems.append("--admin-user must not be the seeded login '{0}'"
                         .format(admin_user))
@@ -2875,10 +2913,20 @@ def appended_row_count_sql(table: str, src_schema: str,
 
 
 def schema_tables(plain_query, schema: str) -> set:
-    """The table names `schema` currently holds."""
+    """The BASE TABLE names `schema` currently holds.
+
+    `TABLE_TYPE = 'BASE TABLE'` is not decoration: a mysqldump of a
+    clinic database carries its VIEWs too, and information_schema lists
+    a view here exactly like a table. Everything this set feeds then
+    treats it as one -- and `CREATE TABLE ... LIKE <view>` is error 1347,
+    raised in the middle of P4 with the copy already part-written. The
+    clinic-side assessment has always filtered (`base_table_names` in
+    o19_preflight.py); this is the half that did not, so the two halves
+    disagreed about what the dump contains."""
     return {r[0] for r in plain_query(
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
-        "TABLE_SCHEMA = '{0}'".format(schema))}
+        "TABLE_SCHEMA = '{0}' AND TABLE_TYPE = 'BASE TABLE'"
+        .format(schema))}
 
 
 #: Manifest classes whose rows CARLOS itself never stores, and so are
@@ -2887,6 +2935,13 @@ def schema_tables(plain_query, schema: str) -> set:
 #: preserved in `o19_archive` alone (no live twin would be meaningful --
 #: the name is taken).
 PRESERVED_CLASSES = ("archive", "drop", "reference")
+
+#: Every class the ETL knows how to run. The dispatch in `run_etl` ends
+#: in `else: copy`, and both halves of P7's parity SKIP a class they do
+#: not recognise -- so a class added to the manifest without a matching
+#: branch would be COPIED into the live schema and verified by nothing.
+#: `unknown_manifest_classes` refuses before the first write instead.
+KNOWN_CLASSES = ("copy", "merge", "archive", "drop", "reference")
 #: preserved into `o19_archive` only, with NO `import_archived_` twin:
 #: the live table already exists and holds CARLOS's own rows, so a twin
 #: beside it would be a second copy of a table that is not missing.
@@ -3855,9 +3910,7 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
     included — must match to the row."""
     ok, bad = [], []
     appended = appended or {}
-    src_tables = {r[0] for r in plain_query(
-        "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
-        "TABLE_SCHEMA = '{0}'".format(src_schema))}
+    src_tables = schema_tables(plain_query, src_schema)
     # The copy reduced every entry to the columns this dump actually
     # carries (effective_entry); parity has to compare the same shape or
     # merge_missing_count_sql emits `s.<column>` for a column a lower

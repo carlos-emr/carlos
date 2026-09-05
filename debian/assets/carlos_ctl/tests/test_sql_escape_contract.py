@@ -26,6 +26,12 @@ CORPUS = [
     "\\'",
     "'; DROP TABLE demographic; --",
     "line\nbreak\r\n",
+    # the CRLF case on its own, and a bare CR beside it: the mysql client
+    # strips the CR of a CRLF from its stdin before the server sees the
+    # statement -- inside a quoted literal too -- so an unescaped CR was
+    # silently dropped from the stored value, while a bare CR survived
+    "role\r\nname",
+    "bare\rcarriage",
     "quote\"double",
     "\0\0",
     "\\\\'",
@@ -70,6 +76,38 @@ class TestOneImplementation(unittest.TestCase):
             "implementation, in util.sql_escape; four copies drifted once "
             "already and the one that lost a case was the one no test "
             "compared")
+
+
+class TestTheTransportsOwnRule(unittest.TestCase):
+
+    """One escape here is about the CLIENT, not the server, so the
+    "agrees with the other copy" tests cannot catch its removal: drop it
+    from both and they still agree.
+
+    Every statement this tool runs is fed to the mariadb CLI on stdin,
+    and the client strips the CR of a CRLF as a line terminator before
+    the server parses the statement -- inside a quoted literal too.
+    Measured on MariaDB 10.11 through the real `util.sql_escape`:
+    `'a\r\nb'` was stored as `a\nb` (one byte gone), while a bare CR,
+    a lone LF and Ctrl-Z all survived. The clinic values that reach a
+    hand-built literal are role names and secObjPrivilege.objectName, so
+    the damage is a role written under a spelling that no longer matches
+    secUserRole.role_name -- grants that exist and grant nothing."""
+
+    def test_a_carriage_return_is_escaped_by_both_copies(self):
+        for fn in (util.sql_escape, o19_preflight._sql_literal):
+            self.assertEqual(fn("a\r\nb"), "a\\r\nb")
+            self.assertEqual(fn("bare\rcr"), "bare\\rcr")
+            # and the LF beside it is left alone: it survives intact and
+            # escaping it would be a change with no reason behind it
+            self.assertEqual(fn("a\nb"), "a\nb")
+
+    def test_the_other_conditions_are_still_unescaped(self):
+        # the docstring's remaining claims, pinned so a future edit that
+        # "tidies" them has to face the measurement
+        for fn in (util.sql_escape, o19_preflight._sql_literal):
+            self.assertEqual(fn('say "hi"'), 'say "hi"')
+            self.assertEqual(fn("ctrl\x1az"), "ctrl\x1az")
 
 
 class TestTheStandaloneCopyAgrees(unittest.TestCase):

@@ -139,24 +139,25 @@ class TestTarListingAndMemberTypes(unittest.TestCase):
     Every refusal here is an extraction that never happens: a symlink, a
     device node, an absolute or traversing name, or a member whose name
     could be read by tar as an option."""
-    LISTING = [
-        "-rw-r--r-- root/root      1234 2020-03-09 00:00 o19.sql.gz",
-        "-rw-r--r-- root/root        12 2020-03-09 00:00 oscar.properties",
-        "lrwxrwxrwx root/root         0 2020-03-09 00:00 o19-docs.tar -> "
-        "/etc/shadow",
-        "drwxr-xr-x root/root         0 2020-03-09 00:00 sub/",
-        "hrw-r--r-- root/root         0 2020-03-09 00:00 x.sql link to "
-        "o19.sql.gz",
-        "crw-rw-rw- root/root       1,3 2020-03-09 00:00 null",
-    ]
+    #: what `read_tar_entries` hands `validate_tar_members`: the type
+    #: letter from the tar HEADER and the member name, built here
+    #: directly. It used to be parsed out of `tar -tv` text by a helper
+    #: that production retired -- for two measured bugs, escaped
+    #: non-ASCII names and bsdtar's nine columns -- and building the
+    #: fixture through it kept the retired parser alive and testable
+    #: while proving nothing about the path that runs.
+    ENTRIES = [("-", "o19.sql.gz"), ("-", "oscar.properties"),
+               ("l", "o19-docs.tar"), ("d", "sub/"),
+               ("h", "x.sql link to o19.sql.gz"), ("c", "null")]
 
-    def test_parses_type_letter_and_name_with_spaces(self):
-        entries = o19bundle.parse_tar_listing(
-            ["-rw-r--r-- u/g 5 2020-03-09 00:00 name with spaces.sql"])
-        self.assertEqual(entries, [("-", "name with spaces.sql")])
+    def test_a_name_with_spaces_survives(self):
+        self.assertEqual(
+            o19bundle.validate_tar_members(
+                [("-", "name with spaces.sql")], allow_dirs=False),
+            ["name with spaces.sql"])
 
     def test_symlink_hardlink_device_are_refused(self):
-        entries = o19bundle.parse_tar_listing(self.LISTING)
+        entries = self.ENTRIES
         with self.assertRaises(ValueError) as cm:
             o19bundle.validate_tar_members(entries, allow_dirs=True)
         msg = str(cm.exception)
@@ -165,8 +166,7 @@ class TestTarListingAndMemberTypes(unittest.TestCase):
         self.assertNotIn("sub/", msg.split("is not a plain file")[0])
 
     def test_directories_only_when_allowed(self):
-        entries = o19bundle.parse_tar_listing(self.LISTING[:2] +
-                                              [self.LISTING[3]])
+        entries = self.ENTRIES[:2] + [self.ENTRIES[3]]
         names = o19bundle.validate_tar_members(entries, allow_dirs=True)
         self.assertEqual(names, ["o19.sql.gz", "oscar.properties", "sub/"])
         with self.assertRaises(ValueError):
@@ -192,11 +192,12 @@ class TestTarListingAndMemberTypes(unittest.TestCase):
             with self.assertRaises(ValueError):
                 o19bundle.classify_members([bad, "o19.sql", "a.properties"])
 
-    def test_listed_size_sums_plain_file_sizes(self):
-        listing = ["-rw-r--r-- u/g 1000 2020-03-09 00:00 a.sql",
-                   "drwxr-xr-x u/g 0 2020-03-09 00:00 d/",
-                   "-rw-r--r-- u/g 24 2020-03-09 00:00 d/b.pdf"]
-        self.assertEqual(o19bundle.listed_size(listing), 1024)
+    def test_the_expanded_size_sums_plain_file_members(self):
+        # the disk-headroom figure, from the tar HEADERS: a compressed
+        # archive's own size says nothing about what it unpacks to
+        self.assertEqual(o19bundle.entries_size(
+            [("-", "a.sql", 1000), ("d", "d/", 0),
+             ("-", "d/b.pdf", 24)]), 1024)
 
     def test_lone_directory_member_is_refused_by_classifier(self):
         # regression: a directory named like the dump used to classify as
@@ -393,6 +394,43 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
                 self.assertEqual(len(res["bundle_sha256"]), 64)
                 with open(res["dump"]) as fh:
                     self.assertIn("Dump completed", fh.read())
+
+    def test_the_decrypted_bundle_is_never_world_readable(self):
+        """The decrypted tar is the clinic's WHOLE database in clear, and
+        it lives on disk for as long as the extraction takes. Created by
+        a plain open(..., "wb") it was 0666 & ~umask -- 0644 under the
+        packaged default, readable by every local account on the CARLOS
+        host for that window. Measured under a permissive umask, which is
+        what a root shell or a systemd unit without UMask= may carry."""
+        plain = os.path.join(self.work, "b.tar")
+        self._tar(plain, gz=False)
+        enc = plain + ".enc"
+        self._enc(plain, enc)
+        seen = {}
+        real_run = o19bundle.subprocess.run
+
+        def watching(argv, **kw):
+            # the mode WHILE openssl is writing, not after: a chmod that
+            # only lands at the end still leaves the window open
+            cp = real_run(argv, **kw)
+            out = kw.get("stdout")
+            if out is not None and hasattr(out, "fileno"):
+                seen["mode"] = os.fstat(out.fileno()).st_mode & 0o777
+            return cp
+
+        old_umask = os.umask(0o022)
+        try:
+            o19bundle.subprocess.run = watching
+            dest = tempfile.mkdtemp(dir=self.work)
+            res = o19bundle.open_bundle(enc, dest,
+                                        pass_spec="file:" + self.passfile)
+        finally:
+            o19bundle.subprocess.run = real_run
+            os.umask(old_umask)
+        self.assertTrue(os.path.isfile(res["dump"]))
+        self.assertEqual(seen.get("mode"), 0o600,
+                         "the decrypted bundle was not 0600 while it was "
+                         "being written")
 
     def test_wrong_password_dies_with_guidance(self):
         plain = os.path.join(self.work, "b.tar")

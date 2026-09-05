@@ -123,8 +123,20 @@ def sql_escape(value: str) -> str:
       -- which would change that -- is refused by the ETL pre-checks before
       the first write (etl_precheck_problems), as is NO_BACKSLASH_ESCAPES,
       which would break the backslash form entirely.
-    * newline, CR and Ctrl-Z are legal inside a literal; only the Windows
-      client treats Ctrl-Z specially, and this runs on Debian.
+    * newline and Ctrl-Z are legal inside a literal and survive this
+      tool's transport intact (measured); only the Windows client treats
+      Ctrl-Z specially, and this runs on Debian.
+    * CR is escaped, and NOT because the server minds it. Every statement
+      here is fed to the mariadb CLI on stdin, and the client strips the
+      CR of a CRLF as a line terminator BEFORE the server parses the
+      statement -- inside a quoted literal too. Measured on 10.11:
+      `'a\r\nb'` stored as `a\nb`, while a bare CR and a lone LF both
+      survived. The clinic values that reach a hand-built literal are
+      role names and secObjPrivilege.objectName, and a role name silently
+      losing a byte is written into secObjPrivilege under a spelling that
+      no longer matches secUserRole.role_name -- grants that exist and
+      grant nothing, the exact drift `role_spelling_drift_sql` exists to
+      catch.
     * NUL is escaped because the client refuses a raw NUL in a statement at
       all, and values decoded from its batch output can carry one.
 
@@ -132,7 +144,7 @@ def sql_escape(value: str) -> str:
     o19etl.ident(), which is a different escape with a different rule.
     """
     return (value.replace("\\", "\\\\").replace("'", "\\'")
-            .replace("\0", "\\0"))
+            .replace("\0", "\\0").replace("\r", "\\r"))
 
 
 # --- Java .properties files -------------------------------------------------

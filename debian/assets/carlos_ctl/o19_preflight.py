@@ -1179,9 +1179,14 @@ def _sql_literal(value):
     tests/test_sql_escape_contract.py, because this copy had already lost
     the NUL case while the other three kept it -- reachable only from
     manifest constants today, but the next caller to reach for it with a
-    clinic value would have got the weaker escape."""
+    clinic value would have got the weaker escape.
+
+    CR is escaped for the transport, not for the server: statements go to
+    the mysql CLI on stdin, which strips the CR of a CRLF as a line
+    terminator before the server parses them -- inside a quoted literal
+    too (measured on MariaDB 10.11: `'a\r\nb'` stored as `a\nb`)."""
     return (value.replace("\\", "\\\\").replace("'", "\\'")
-            .replace("\0", "\\0"))
+            .replace("\0", "\\0").replace("\r", "\\r"))
 
 
 def _like_prefix(value):
