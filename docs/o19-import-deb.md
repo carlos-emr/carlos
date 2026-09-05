@@ -70,6 +70,24 @@ clinic-facing feasibility statement: what migrates, what becomes
 archive-only (OLIS, form modules that were removed, antenatal ONAR forms),
 and what must be decided before cutover.
 
+**A `go` is not a clearance of everything.** Some of the import's P4
+refusals cannot be evaluated from the clinic at all, because they
+compare the clinic's values against the CARLOS **target** schema, which
+is not there: `overlength_precheck_sql` ("N value(s) longer than the
+target column — refusing to truncate") and `coercion_precheck_sql`
+("non-numeric value(s) in a column CARLOS stores as a number"). Neither
+has an `--accept`. The manifest carries column lists, not target widths,
+so nothing on the clinic side can predict them. The report names what it
+could not measure under **NOT MEASURED HERE**, immediately above the
+bundling recipe; read that list before shipping. The realistic instance
+is charset-driven: TEXT/BLOB capacity is BYTES, so a latin1 `text`
+holding 65535 characters at the clinic becomes a utf8mb4 `text` holding
+65535 bytes in CARLOS, and an identically-declared column has genuinely
+narrowed for any accented content — `casemgmt_note.note`, `eform_data`
+and document descriptions are where a 20-year clinic accumulates long
+pasted text. `--dry-run` on the CARLOS host does not close the gap
+either: it returns after P2 and never reaches P4.
+
 ## 2. Produce the three inputs on the OSCAR 19 server
 
 During the cutover window, with Tomcat stopped on the OSCAR 19 server:

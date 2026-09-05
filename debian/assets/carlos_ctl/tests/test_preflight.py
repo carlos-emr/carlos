@@ -784,11 +784,58 @@ class TestImportMode(unittest.TestCase):
         self.assertEqual(f["data"], {"demographic": ["well_extra_field"]})
         self.assertIn("unknown-as-archive", report["required_accepts"])
 
-    def test_standalone_mode_defers_column_checks(self):
+    def test_standalone_mode_says_what_it_could_not_predict(self):
+        """The gap is wider than the finding used to admit.
+
+        o19etl.etl_precheck_problems collects two no-flag P4 refusals
+        that compare source VALUES against TARGET column capacity --
+        overlength_precheck_sql ("N value(s) longer than the target
+        column -- refusing to truncate") and coercion_precheck_sql -- and
+        the standalone assessment can evaluate neither: the generated
+        block carries table classes, column lists and predicates, never
+        target widths or types (o19map_schema entry keys are class /
+        cols / charset_scan and, where present, renames / dropped /
+        value_exprs -- no widths anywhere). "column-level unknown
+        detection runs in import mode" reads as "the vendor-column
+        inventory happens later", not as "a whole class of
+        unacknowledgeable refusals is unmeasured"."""
         report = pf.run_checks(FakeDb(base_tables()),
                                properties=clean_props())
-        ids = [x["id"] for x in report["findings"]]
-        self.assertIn("column-checks-deferred", ids)
+        f = [x for x in report["findings"]
+             if x["id"] == "column-checks-deferred"][0]
+        # visible where an operator reads, not filed under INFO
+        self.assertEqual(f["severity"], pf.ADVISORY)
+        self.assertIn("overlength", f["detail"])
+        self.assertIn("coercion", f["detail"])
+        self.assertIn("no --accept", f["detail"])
+
+    def test_the_go_recipe_repeats_what_was_not_measured(self):
+        """render_text prints the bundling recipe under "Next step on a
+        'go'". A `go` printed straight above it reads as a green light
+        for the whole import, including the P4 refusals nothing here
+        could look for."""
+        report = pf.run_checks(FakeDb(base_tables()),
+                               properties=clean_props())
+        self.assertEqual(report["verdict"], "go")
+        text = pf.render_text(report)
+        caveat = text.index("NOT MEASURED HERE")
+        recipe = text.index("Next step on a 'go'")
+        # the caveat must reach the operator BEFORE the recipe does
+        self.assertLess(caveat, recipe)
+        self.assertIn("no --accept clears one", text)
+
+    def test_import_mode_makes_no_such_excuse(self):
+        # carlos-ctl HAS the schema map and the target, so the caveat
+        # would be a false one there
+        from carlos_ctl import o19map_schema
+        cols = {"demographic": set(
+            o19map_schema.TABLES["demographic"]["cols"])}
+        report = pf.run_checks(FakeDb(base_tables(), columns=cols),
+                               properties=clean_props(),
+                               schema_map=o19map_schema)
+        self.assertEqual([x["id"] for x in report["findings"]
+                          if x["id"] == "column-checks-deferred"], [])
+        self.assertNotIn("NOT MEASURED HERE", pf.render_text(report))
 
 
 class TestReportContract(unittest.TestCase):

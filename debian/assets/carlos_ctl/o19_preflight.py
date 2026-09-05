@@ -924,6 +924,13 @@ CREDENTIAL_TABLES = ("ServiceClient", "oscarKeys", "publicKeys")
 # exit code for "the check itself failed" — distinct from every verdict
 EXIT_TOOL_ERROR = 3
 
+#: findings that mean "a P4 refusal was NOT measured here". They are not
+#: blockers -- nothing was found -- but nothing was LOOKED for either,
+#: and every class behind them refuses at P4 with no --accept, so
+#: render_text repeats them beside the bundling recipe: a `go` above
+#: that recipe otherwise reads as a green light for the whole import.
+UNMEASURED_FINDING_IDS = ("column-checks-deferred", "charset-b8-unmeasured")
+
 # Core-table inventory reported as sanity anchors for later row-parity.
 INVENTORY_TABLES = [
     "demographic", "provider", "security", "appointment", "casemgmt_note",
@@ -2502,12 +2509,31 @@ def check_unknown_columns(c, schema_map):
                 "as well -- never silently dropped.",
                 accept="unknown-as-archive", data=unknown_cols))
     else:
+        # An ADVISORY, not an INFO, and worded as a gap rather than as a
+        # schedule. "column-level unknown detection runs in import mode"
+        # reads as "the vendor-column inventory happens later"; what it
+        # actually means is that a whole class of P4 refusals NO --accept
+        # can clear is unmeasured here, so a `go` is silence about them
+        # rather than a clearance.
         findings.append(finding(
-            "column-checks-deferred", INFO,
-            "column-level unknown detection runs in import mode",
-            "The standalone assessment checks tables, flagged columns, "
-            "properties and text encoding; full column inventory happens "
-            "when carlos-ctl stages the dump."))
+            "column-checks-deferred", ADVISORY,
+            "column-level checks could not run without a CARLOS schema "
+            "to compare against",
+            "Two things are unmeasured here and both refuse at P4 — "
+            "after the pre-import snapshot and the full staging restore "
+            "— with no --accept. (1) The vendor-column inventory (B2 "
+            "unknown columns) needs the schema manifest carlos-ctl "
+            "supplies. (2) o19etl's overlength and numeric-coercion "
+            "pre-checks compare every value against the TARGET column's "
+            "capacity and type, which exist only on the CARLOS host: the "
+            "manifest carries no widths. The realistic instance is "
+            "charset-driven — TEXT/BLOB capacity is BYTES, so a latin1 "
+            "`text` holding 65535 CHARACTERS at the clinic becomes a "
+            "utf8mb4 `text` holding 65535 BYTES in CARLOS, and an "
+            "identically-declared column has genuinely narrowed for any "
+            "accented content (casemgmt_note.note, eform_data, document "
+            "descriptions). Nothing here can predict either; --dry-run "
+            "cannot either, since it returns after P2."))
 
 
 def record_inventory(c):
@@ -2730,6 +2756,23 @@ def render_text(report):
             "--accept " + a for a in report["required_accepts"]))
     if report["acknowledged"]:
         lines.append("acknowledged: " + ", ".join(report["acknowledged"]))
+    # A `go` printed straight above the bundling recipe reads as a
+    # green light. Some P4 refusals cannot be measured from the clinic
+    # at all, and none of them has an --accept, so the honest report
+    # repeats what it could not predict right where the operator decides
+    # to ship.
+    unmeasured = [f for f in report["findings"]
+                  if f["id"] in UNMEASURED_FINDING_IDS]
+    if unmeasured:
+        lines.append("")
+        lines.append("NOT MEASURED HERE — a 'go' is silent about these, "
+                     "not a clearance of them:")
+        for f in unmeasured:
+            lines.append("  - " + f["title"])
+        lines.append("  Each is a refusal the import makes at P4, after "
+                     "the pre-import snapshot and the")
+        lines.append("  full staging restore, and no --accept clears "
+                     "one. See the findings above.")
     lines.append("")
     lines.append("Next step on a 'go': bundle the three inputs on this "
                  "server and ship them to the CARLOS host:")
