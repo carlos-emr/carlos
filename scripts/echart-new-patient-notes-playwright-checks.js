@@ -356,14 +356,30 @@ async function assertNotesPaginationSettles(echart) {
     assert(!throbber.visible && throbber.display === 'none',
       `notes loading throbber stayed visible after pagination stopped: ${JSON.stringify(throbber)}`);
 
-    // An empty chart needs the initial load only. The encounter layout renders
-    // ChartNotes.jsp twice, so two are expected; anything beyond that means a
-    // poll walked the offset forward, or a second poll is still armed.
+    // An empty chart needs the initial load only. ChartNotes.jsp is rendered exactly
+    // once, into #notCPP, so exactly one fetch is expected; a second offset-0 fetch
+    // means the layout rendered the notes panel twice again, and anything at a higher
+    // offset means a poll walked the offset forward or a second poll is still armed.
     const paginationRequests = notesRequests.filter((r) => r.offset > 0);
     assert(paginationRequests.length === 0,
       `a chart with no notes paged for more: ${JSON.stringify(notesRequests)}`);
-    assert(notesRequests.length <= 2,
+    assert(notesRequests.length === 1,
       `unexpected number of notes fetches on an empty chart: ${JSON.stringify(notesRequests)}`);
+
+    // The notes panel must exist exactly once and live inside #notCPP, where the
+    // filter/save reloads replace it. Two Template Search fieldsets, two entry forms
+    // or two throbbers is the duplicate-render bug an alpha tester reported on an
+    // empty demo chart.
+    const panelCounts = await echart.evaluate(() => ({
+      templateSearch: document.querySelectorAll('#enTemplate').length,
+      entryForms: document.querySelectorAll('form[name="caseManagementEntryForm"]').length,
+      viewForms: document.querySelectorAll('form[name="caseManagementViewForm"]').length,
+      throbbers: document.querySelectorAll('#notesLoading').length,
+      noteContainers: document.querySelectorAll('#encMainDiv').length,
+      insideNotCpp: document.querySelectorAll('#notCPP #encMainDiv').length,
+    }));
+    assert(Object.values(panelCounts).every((count) => count === 1),
+      `the eChart must render the notes panel exactly once, inside #notCPP: ${JSON.stringify(panelCounts)}`);
     await screenshot(echart, config.screenshotDir, 'echart-new-patient-settled');
 
     const fatalConsole = recorder.consoleIssues.filter((issue) => /is not defined|SyntaxError|ReferenceError|Cannot read/i.test(issue.text || ''));
