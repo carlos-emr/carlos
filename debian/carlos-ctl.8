@@ -231,8 +231,13 @@ optionally the clinic's content digests (*.json) at its root
 flags.
 .B \-\-o19-digests
 .I FILE
-supplies those digests when they were shipped outside the bundle; without
-them the import can compare row COUNTS only, never the values themselves.
+supplies those digests when they were shipped outside the bundle. They are
+what proves the TRANSFER \(em that the dump restored here holds the values
+the clinic's own database held, which nothing on this host can otherwise
+know. Without them P2 compares row counts only. P7's value checks are
+unaffected: they compare the staged schema against the target directly and
+run either way, so what is lost is the link back to the clinic's server,
+not value checking as such.
 .B \-\-admin-user
 names the break-glass administrator created before the seeded clinician is
 removed; it is required for a real import and refused only by
@@ -480,6 +485,10 @@ binds its sha256, so a resumed run cannot substitute another) and
 schema),
 the root\-only
 .IR verify-details.txt ,
+the root\-only
+.I pristine-details.txt
+(the non\-seed logins P0's pristine sweep refused on \(em a login name
+is a person, so the sweep line in the log gives only the count),
 the root\-only
 .I content-details.txt
 (the primary keys of the rows P7's value checks disagreed about \(em

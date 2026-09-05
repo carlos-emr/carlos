@@ -93,6 +93,12 @@ CONTENT_DETAILS = "content-details.txt"
 #: the count, so 260 of 300 problem lines were simply unrecoverable.
 VERIFY_PROBLEMS = "verify-problems.txt"
 
+#: P0's own root-only record: the non-seed logins its pristine sweep
+#: refused on. Separate from P7's `verify-details.txt` because both
+#: writers open O_TRUNC and a `--dev-target` run reaches both, so P7
+#: would erase what P0 wrote while report.txt still pointed at it.
+PRISTINE_DETAILS = "pristine-details.txt"
+
 #: How many problem lines the report body and report.txt carry before
 #: they say how many more there are.
 REPORT_PROBLEM_LINES = 40
@@ -1049,15 +1055,22 @@ def run_p0(ctx) -> None:
         "SELECT user_name FROM `{0}`.security".format(ctx["target_db"]))
     users = sorted(r[0] for r in identity_rows if r)
     if users != [o19map_schema.SEED_USER_NAME]:
-        # the logins themselves go to the root-only file: a login name is
-        # a person, and report.txt is the shareable record
-        write_private(os.path.join(ctx["state_dir"], "verify-details.txt"),
+        # the logins themselves go to a root-only file: a login name is
+        # a person, and report.txt is the shareable record.
+        #
+        # Its OWN file, not verify-details.txt: that one is P7's, both
+        # writers truncate, and a --dev-target run continues past this
+        # sweep, so P7 would erase the record of what P0 refused on —
+        # and the sweep line in report.txt would point at a file
+        # describing something else entirely.
+        write_private(os.path.join(ctx["state_dir"], PRISTINE_DETAILS),
                       "P0 pristine sweep: security holds "
                       + ", ".join(repr(u) for u in users) + "\n")
         violations.append("security holds {0} login(s) where only the "
                           "'{1}' seed is expected (named in "
-                          "verify-details.txt)".format(
-                              len(users), o19map_schema.SEED_USER_NAME))
+                          "{2})".format(
+                              len(users), o19map_schema.SEED_USER_NAME,
+                              PRISTINE_DETAILS))
     if violations:
         text = ("the import runs ONLY on a stock initial deploy; this "
                 "database is not one:\n  " + "\n  ".join(violations[:25])
@@ -1553,13 +1566,15 @@ def run_p2(ctx) -> Dict:
         pf_query, properties=props, province=ctx["province"],
         accepted=ctx["accepted"], schema_map=o19map_schema,
         db_name=STAGING_SCHEMA)
-    with open(os.path.join(ctx["state_dir"], "preflight.json"), "w",
-              encoding="utf-8") as fh:
-        json.dump(report, fh, indent=1, sort_keys=True)
+    # 0600 like every other artifact naming the clinic's own objects:
+    # these two carry the unknown-table inventory, the identifier-class
+    # names, the credential tables found and the per-table counts. The
+    # workspace lives on the CARLOS host beside admin-credentials.txt,
+    # and a purpose-built private writer was already in this file.
     text = o19_preflight.render_text(report)
-    with open(os.path.join(ctx["state_dir"], "preflight.txt"), "w",
-              encoding="utf-8") as fh:
-        fh.write(text)
+    write_private(os.path.join(ctx["state_dir"], "preflight.json"),
+                  json.dumps(report, indent=1, sort_keys=True))
+    write_private(os.path.join(ctx["state_dir"], "preflight.txt"), text)
     sys.stdout.write(text)
     report_append(ctx["state_dir"], "P2 preflight",
                   "verdict: {0}; acknowledged: {1}".format(
@@ -2290,7 +2305,7 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
              "WHAT WAS NOT CHECKED, AND WHY", unchecked,
              empty="every table in scope was checked")],
         findings,
-        NEXT_STEPS)
+        FAILED_NEXT_STEPS if problems else NEXT_STEPS)
 
 
 def write_import_report(ctx, parity_ok: Sequence[str],
@@ -2729,12 +2744,40 @@ NEXT_STEPS = (
     "then `carlos-ctl import-o19 --cleanup`",
 )
 
+#: The report is written for a FAILED verification too — that is the run
+#: whose record matters most — but the go-live list above is wrong for
+#: it, and wrong in the direction that hurts: applying the properties
+#: fragment and restarting brings a half-verified clinic online, and
+#: `--cleanup` is refused by `cleanup_refusal` while verification has
+#: not passed, so the last step reads as an instruction the tool then
+#: rejects. What a failed run needs is the opposite order: read, fix,
+#: re-verify, and roll back if it cannot be fixed.
+FAILED_NEXT_STEPS = (
+    # deliberately no pointer to content-details.txt here: it exists
+    # only when a value check wrote keys, and the finding that owns it
+    # adds the pointer itself. A step naming a file that is not there
+    # sends a reviewer looking for evidence nobody produced.
+    "read the problems above, and the full list in verify-problems.txt "
+    "(root-only) when the report says there are more",
+    "do NOT apply the properties fragment or restart into this target: "
+    "the clinic is not verified, and a restart brings it online",
+    "fix what the problems name in the staging or target schema, then "
+    "`carlos-ctl import-o19 --resume` to re-verify",
+    "if it cannot be fixed, roll back to the pre-import snapshot "
+    "(`carlos-ctl restore`, see the guide's rollback section) — the "
+    "snapshot is the run's rollback point",
+    "`--cleanup` is refused while verification has not passed, and is "
+    "the LAST step after a clean re-verification, never a way to clear "
+    "a failure",
+)
+
 
 #: per-run outputs retired alongside state.json (admin-credentials.txt is
 #: deliberately not among them: the operator is told where it is)
 RUN_FILES = ("report.txt", "import-report.txt", "import-report.json",
              "roles-details.txt", "privilege-diff.txt",
-             "verify-details.txt", "documents-details.txt",
+             "verify-details.txt", PRISTINE_DETAILS,
+             "documents-details.txt",
              CONTENT_DETAILS, VERIFY_PROBLEMS, "preflight.txt",
              "preflight.json", "etl-progress.json",
              "content-transfer.json", "o19-digests.json",

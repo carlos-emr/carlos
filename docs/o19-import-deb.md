@@ -180,8 +180,16 @@ Prerequisites, all of them before the command below:
 4. **Configured backups.** The pre-import restic snapshot is the rollback
    point, and it now covers `/var/lib/carlos-emr/o19-import` as well as
    the database and the documents tree, so a restore rewinds the run's
-   ledgers with the data they describe. The break-glass credential note
-   is deliberately excluded. A restore does not *delete* files added after
+   ledgers with the data they describe. Five things under it are
+   deliberately excluded, and the list matters because a restore does not
+   bring them back: `admin-credentials.txt*` (the break-glass note),
+   `o19-derived-carlos.properties*` (the derived fragment, which carries
+   the clinic's Teleplan/MCEDT/HCV/SMTP/PGP secrets in clear), `bundle/`
+   and `bundle-assess/` (the clinic's whole source database as plaintext
+   SQL, and their documents tar), and `.lock`. The derived fragment is the
+   one to notice: if it has not been applied and `carlos-ctl restart` run,
+   a rollback to this snapshot leaves it to be produced again by a re-run.
+   A restore does not *delete* files added after
    the snapshot, so the discarded run's `etl-progress.json` is left beside
    the rewound `state.json`; the tool detects that pair and tells you to
    move the workspace aside before starting over (see the last section).
@@ -508,7 +516,10 @@ gate has no override.
    a bill, so it stays out of the shareable document. A failed verification
    lists its first 40 problems in the report and in `report.txt`, then says
    how many more there are; the full list is in `verify-problems.txt`
-   (root-only) beside them. Confirm each clinic-custom role's privileges in
+   (root-only) beside them. When P0's pristine sweep refuses a target
+   because its `security` table holds logins beyond the seeded clinician,
+   it names them in `pristine-details.txt` (root-only) — a login name is a
+   person, so the sweep line in `report.txt` gives only the count. Confirm each clinic-custom role's privileges in
    Administration > Security (the report names the template role used),
    and deal with expired or role-less accounts before go-live.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the

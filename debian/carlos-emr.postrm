@@ -88,6 +88,15 @@ case "$1" in
         # a 0700 directory, which is no protection at all once the disk
         # leaves the building. The rest of the workspace is a record of
         # the import and is KEPT — it is named in the notice below.
+        #
+        # The clinic's OWN oscar.properties goes too, and it is why the
+        # depth is 2: a run abandoned before `--cleanup` (a P2 no-go, or
+        # a failure the operator gave up on — and `--cleanup` REFUSES a
+        # mid-import workspace) leaves the extracted bundle in place,
+        # and bundle/oscar.properties is the superset the derived
+        # fragment was distilled from. Shredding the distillate while
+        # its source sat one directory below was a hole this block's own
+        # rationale did not survive.
         # A postrm must not fail (dpkg would leave the package half-purged
         # and the operator unable to proceed), so an unavailable or failing
         # `shred` falls back to an ordinary unlink. That fallback leaves the
@@ -103,28 +112,32 @@ case "$1" in
         O19_SHREDDED=1
         O19_DELETE_FAILED=0
         if [ -d "${STATE}/o19-import" ]; then
-            find "${STATE}/o19-import" -maxdepth 1 -type f \
+            find "${STATE}/o19-import" -maxdepth 2 -type f \
                 \( -name 'admin-credentials.txt*' \
-                   -o -name 'o19-derived-carlos.properties*' \) \
+                   -o -name 'o19-derived-carlos.properties*' \
+                   -o -name 'oscar.properties' \) \
                 -exec shred -u {} + 2>/dev/null \
               || {
                 O19_SHREDDED=0
-                find "${STATE}/o19-import" -maxdepth 1 -type f \
+                find "${STATE}/o19-import" -maxdepth 2 -type f \
                    \( -name 'admin-credentials.txt*' \
-                      -o -name 'o19-derived-carlos.properties*' \) -delete
+                      -o -name 'o19-derived-carlos.properties*' \
+                      -o -name 'oscar.properties' \) -delete
               } || O19_DELETE_FAILED=1
         fi
         if [ "$O19_DELETE_FAILED" = 1 ]; then
-            echo "carlos-emr: WARNING: the OSCAR 19 credential note and/or" >&2
-            echo "carlos-emr: properties fragment could NOT be removed from" >&2
+            echo "carlos-emr: WARNING: the OSCAR 19 credential note, the" >&2
+            echo "carlos-emr: properties fragment and/or the clinic's own" >&2
+            echo "carlos-emr: oscar.properties could NOT be removed from" >&2
             echo "carlos-emr:   ${STATE}/o19-import" >&2
             echo "carlos-emr: They hold a plaintext administrator password" >&2
             echo "carlos-emr: and the clinic's carried secrets. Remove them" >&2
             echo "carlos-emr: by hand (shred -u) before this disk leaves." >&2
         elif [ "$O19_SHREDDED" = 0 ]; then
             echo "carlos-emr: WARNING: shred failed or is unavailable; the" >&2
-            echo "carlos-emr: OSCAR 19 credential note and properties" >&2
-            echo "carlos-emr: fragment were DELETED, not overwritten. Their" >&2
+            echo "carlos-emr: OSCAR 19 credential note, properties fragment" >&2
+            echo "carlos-emr: and oscar.properties were DELETED, not" >&2
+            echo "carlos-emr: overwritten. Their" >&2
             echo "carlos-emr: contents remain recoverable from this disk;" >&2
             echo "carlos-emr: wipe the filesystem before the disk leaves." >&2
         fi

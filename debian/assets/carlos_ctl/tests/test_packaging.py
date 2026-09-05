@@ -44,12 +44,27 @@ def postrm_shredded_names():
     """The `-name` globs the postrm shreds out of the import workspace:
     the package's own statement of what in there is a credential."""
     text = POSTRM.read_text(encoding="utf-8")
-    block = text.split("o19-import\" -maxdepth 1 -type f", 1)
-    if len(block) < 2:
+    # the depth is part of the block's shape and has changed once (the
+    # clinic's own oscar.properties sits one level down, inside the
+    # extracted bundle), so it is matched rather than spelled
+    m = re.search(r'o19-import" -maxdepth \d+ -type f(.*?)-exec', text,
+                  re.S)
+    if not m:
         raise AssertionError(
             "the postrm no longer shreds the import workspace by name -- "
             "this contract has lost its subject")
-    return re.findall(r"-name '([^']+)'", block[1].split("-exec", 1)[0])
+    return re.findall(r"-name '([^']+)'", m.group(1))
+
+
+#: Shredded names the backup covers through an excluded DIRECTORY rather
+#: than by name. The workspace only ever holds the clinic's own
+#: `oscar.properties` inside the extracted bundle -- `bundle/` on a real
+#: run, `bundle-assess/` on an assessment -- and the backup excludes both
+#: wholesale. Listed rather than waved through: a name added here without
+#: a directory that is genuinely excluded fails the test below.
+COVERED_BY_AN_EXCLUDED_DIRECTORY = {
+    "oscar.properties": ("bundle", "bundle-assess"),
+}
 
 
 class TestSecretsAreNotBackedUp(unittest.TestCase):
@@ -62,6 +77,13 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
         self.assertTrue(names, "no shredded names parsed from the postrm")
         excluded = {e.rsplit("/", 1)[-1] for e in backup_excludes()}
         for name in names:
+            for directory in COVERED_BY_AN_EXCLUDED_DIRECTORY.get(name, ()):
+                self.assertIn(
+                    directory, excluded,
+                    "{0} is only covered because {1}/ is excluded, and it "
+                    "no longer is".format(name, directory))
+            if name in COVERED_BY_AN_EXCLUDED_DIRECTORY:
+                continue
             self.assertIn(
                 name, excluded,
                 "the postrm shreds {0} from the import workspace because it "

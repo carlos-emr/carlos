@@ -212,6 +212,71 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
         self.assertNotIn("o19_", batch)
 
 
+class TestTheP2ReportsAreWrittenPrivately(unittest.TestCase):
+
+    """P2's two artifacts were the only ones in the workspace written
+    at the process umask.
+
+    `preflight.json` and `preflight.txt` carry the clinic's unknown-table
+    inventory, the identifier-class names, which credential tables were
+    found and per-table row counts — the same class of detail every
+    other artifact here is kept at 0600 for, in a directory that also
+    holds admin-credentials.txt. A purpose-built private writer sat
+    unused a few hundred lines away in the same module."""
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19p2-")
+        self.addCleanup(shutil.rmtree, self.state_dir, True)
+        self.report = {"verdict": "go", "exit_code": 0, "acknowledged": [],
+                       "required_accepts": [], "findings": []}
+
+    def _ctx(self):
+        return {"state_dir": self.state_dir, "state": {"phases": {}},
+                "query": lambda sql, db=None: [],
+                "province": "on", "accepted": [], "properties": None,
+                "dry_run": True}
+
+    def run_p2(self):
+        out = io.StringIO()
+        with mock.patch.object(o19import.o19_preflight, "run_checks",
+                               lambda *a, **k: self.report), \
+                mock.patch.object(o19import.o19_preflight, "render_text",
+                                  lambda r: "PREFLIGHT TEXT\n"), \
+                mock.patch.object(o19import, "content_transfer_check",
+                                  lambda ctx: {"summary": "clean"}), \
+                mock.patch.object(o19import, "report_content_transfer",
+                                  lambda ctx, content: None), \
+                contextlib.redirect_stdout(out):
+            o19import.run_p2(self._ctx())
+        return out.getvalue()
+
+    def test_both_artifacts_are_written_at_0600(self):
+        self.run_p2()
+        for name in ("preflight.json", "preflight.txt"):
+            path = os.path.join(self.state_dir, name)
+            self.assertTrue(os.path.isfile(path), name)
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600, name)
+
+    def test_a_file_left_by_an_earlier_run_is_re_tightened(self):
+        # the mode argument of os.open applies to a NEW file only, so a
+        # resumed run over a world-readable leftover must fchmod it
+        for name in ("preflight.json", "preflight.txt"):
+            path = os.path.join(self.state_dir, name)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("stale")
+            os.chmod(path, 0o644)
+        self.run_p2()
+        for name in ("preflight.json", "preflight.txt"):
+            path = os.path.join(self.state_dir, name)
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600, name)
+
+    def test_the_operator_still_sees_the_report_on_stdout(self):
+        self.assertIn("PREFLIGHT TEXT", self.run_p2())
+        with open(os.path.join(self.state_dir, "preflight.txt"),
+                  encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "PREFLIGHT TEXT\n")
+
+
 class TestTheStagingRowDetector(unittest.TestCase):
 
     """`staging_holds_rows` is the input to the gate that decides
@@ -2718,6 +2783,29 @@ class TestTheImportReport(unittest.TestCase):
         self.assertIn("NEXT STEPS", text)
         self.assertIn("carlos-ctl backup full", text)
         self.assertIn("--cleanup", text)
+
+    def test_a_failed_report_does_not_print_the_go_live_list(self):
+        """The report is written for a FAILED verification too — that is
+        the run whose record matters most — and it used to carry the same
+        six go-live steps. Three of them are wrong there and wrong in the
+        direction that hurts: applying the properties fragment and
+        restarting brings a half-verified clinic online, and `--cleanup`
+        is refused by `cleanup_refusal` while verification has not
+        passed, so the last step is an instruction the tool rejects."""
+        text = o19report.render_text(
+            self.build(problems=["demographic: staging 10 -> 9"]))
+        self.assertIn("FAILED", text)
+        self.assertIn("NEXT STEPS", text)
+        self.assertIn("do NOT apply the properties fragment", text)
+        self.assertIn("--resume", text)
+        self.assertNotIn("carlos-ctl backup full", text)
+        self.assertNotIn("then `carlos-ctl import-o19 --cleanup`", text)
+
+    def test_a_passing_report_still_gives_the_go_live_list(self):
+        text = o19report.render_text(self.build())
+        self.assertIn("PASSED", text)
+        self.assertIn("carlos-ctl backup full", text)
+        self.assertNotIn("do NOT apply", text)
 
     def test_the_json_twin_carries_the_same_facts(self):
         report = self.build()

@@ -1319,7 +1319,7 @@ class TestArchivedColumnParity(unittest.TestCase):
         self.assertIn("40 non-null value(s) in staging, 0 in "
                       "carlos.import_archived_legacyFlag", bad[0])
 
-    def test_a_target_holding_MORE_than_staging_is_a_mismatch_too(self):
+    def test_a_target_holding_more_values_than_staging_fails(self):
         """The over-count direction, which no test covered: mutating the
         comparison to `src_n <= dst_n` left the whole suite green, so
         nothing proved this check is an equality rather than a floor.

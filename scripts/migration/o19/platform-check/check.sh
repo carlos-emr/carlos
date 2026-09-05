@@ -228,6 +228,29 @@ else
   printf '#!/bin/sh\nexit 1\n' > "$stubdir/find"; chmod +x "$stubdir/find"
   run_shred "$stubdir" FAILED kept
   rm -rf "$stubdir"
+
+  # Depth is part of this block's contract. An abandoned run (a P2
+  # no-go, or a failure the operator gave up on -- and --cleanup REFUSES
+  # a mid-import workspace) leaves the extracted bundle in place, and
+  # bundle/oscar.properties is the superset the derived fragment was
+  # distilled from. It must go with the fragment; the clinic's dump and
+  # the run's own record must NOT, because purge keeps the workspace as
+  # the record of the import and says so in its notice.
+  d=$(mktemp -d); mkdir -p "$d/state/o19-import/bundle"
+  printf 'x\n' > "$d/state/o19-import/o19-derived-carlos.properties"
+  printf 'x\n' > "$d/state/o19-import/bundle/oscar.properties"
+  printf 'x\n' > "$d/state/o19-import/bundle/o19.sql.gz"
+  printf 'x\n' > "$d/state/o19-import/report.txt"
+  STATE="$d/state" sh -c "set -e
+$SHRED_BLOCK" >/dev/null 2>&1 || true
+  [ ! -e "$d/state/o19-import/bundle/oscar.properties" ]
+  verdict $? "purge shreds the clinic's oscar.properties in the bundle" \
+    "bundle/oscar.properties survived purge (the derived fragment's own source)"
+  [ -e "$d/state/o19-import/bundle/o19.sql.gz" ] \
+    && [ -e "$d/state/o19-import/report.txt" ]
+  verdict $? "purge keeps the dump and the run record" \
+    "purge removed more than the credentials"
+  rm -rf "$d"
 fi
 verdict "$(command -v shred >/dev/null; echo $?)" \
   "shred present (coreutils)" "shred absent - fallback would always fire"
