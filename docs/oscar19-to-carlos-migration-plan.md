@@ -572,7 +572,14 @@ have no CARLOS counterpart at all.
    printer geometry (`label.*`), DX quick lists, `Support_Contact`,
    `instance_type`-style region flags, `isNewONbilling`, prenatal screening
    eform bindings, `lab.handler.*.enabled` toggles (still read by CARLOS code
-   even though absent from the default file).
+   even though absent from the default file). Two carried keys are templates
+   rather than plain settings: `ECHART_SIGN_LINE`/`ECHART_VERSIGN_LINE` name
+   `oscarResources` message-bundle keys whose namespace CARLOS renamed, so
+   their `${...}` tokens are remapped through the manifest's
+   `BUNDLE_KEY_RENAMES` (generated and verified against
+   `oscarResources_en.properties`) before the value is carried, and a value
+   holding a token that cannot be mapped becomes `needs-review` instead —
+   carried verbatim it would render blank words into every signed note.
 3. **`carry-secret`** — copied but printed in a separate "credentials imported —
    rotate/verify" list, never echoed to the main report: `mcedt.service.*` +
    `mcedt.keystore.*` (MOH EDT), `hcv.*` (health-card validation), `email.*`,

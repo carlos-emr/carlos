@@ -268,6 +268,83 @@ class TestFaxKeys(unittest.TestCase):
         self.assertIn("enableFax", note)
 
 
+class TestSignLineBundleTokens(unittest.TestCase):
+
+    """A customised ECHART sign line names message-bundle keys.
+
+    CARLOS renamed the namespace those keys live in, and
+    getTemplateSignature turns an unknown key into "" inside a bare
+    catch -- so a sign line carried verbatim dropped the words "Signed
+    on" and "by" out of every note signed after cutover, silently."""
+
+    SIGNED = ("[Dr. ${oscarEncounter.class.EctSaveEncounterAction."
+              "msgSigned} ${DATE} ${oscarEncounter.class."
+              "EctSaveEncounterAction.msgSigBy} ${USERSIGNATURE}"
+              " - Acme Clinic]\n")
+
+    def test_a_customised_sign_line_carries_the_carlos_bundle_keys(self):
+        result = o19props.translate_all([("ECHART_SIGN_LINE", self.SIGNED)],
+                                        documents_root=ROOT)
+        carried = dict(result["fragment"])["ECHART_SIGN_LINE"]
+        self.assertNotIn("${oscarEncounter.", carried)
+        self.assertIn("${encounter.class.EctSaveEncounterAction.msgSigned}",
+                      carried)
+        self.assertIn("${encounter.class.EctSaveEncounterAction.msgSigBy}",
+                      carried)
+        # the tokens getSignature fills from its own map are untouched
+        self.assertIn("${DATE}", carried)
+        self.assertIn("${USERSIGNATURE}", carried)
+        self.assertIn("Acme Clinic", carried)
+        key, d, note = result["rows"][0]
+        self.assertEqual((key, d), ("ECHART_SIGN_LINE", "carry"))
+        self.assertIn("message-bundle key(s) renamed", note)
+        self.assertIn("msgSigned -> encounter.class", note)
+        self.assertIn("renamed", o19props.render_report(result))
+
+    def test_every_renamed_key_really_exists_in_the_carlos_bundle(self):
+        # the manifest is only useful if its targets resolve: the
+        # generator verifies them, this pins that they were verified
+        renames = o19map_props.BUNDLE_KEY_RENAMES
+        self.assertTrue(renames)
+        for old, new in renames.items():
+            self.assertTrue(old.startswith("oscarEncounter."), old)
+            self.assertTrue(new.startswith("encounter."), new)
+            self.assertEqual(old.split(".")[-1], new.split(".")[-1], old)
+        self.assertIn(
+            "oscarEncounter.class.EctSaveEncounterAction.msgVerAndSig",
+            renames)
+
+    def test_an_unmappable_token_is_reviewed_not_carried(self):
+        # refusing loudly beats carrying a template that renders blank
+        # words into the signed clinical record
+        result = o19props.translate_all(
+            [("ECHART_VERSIGN_LINE",
+              "[${oscarEncounter.Index.by} ${DATE}]\n")],
+            documents_root=ROOT)
+        self.assertEqual(result["fragment"], [])
+        key, d, note = result["rows"][0]
+        self.assertEqual((key, d), ("ECHART_VERSIGN_LINE", "needs-review"))
+        self.assertIn("${oscarEncounter.Index.by}", note)
+        self.assertIn("empty string", note)
+
+    def test_a_sign_line_with_no_bundle_tokens_is_untouched(self):
+        result = o19props.translate_all(
+            [("ECHART_SIGN_LINE", "[Signed ${DATE} ${USERSIGNATURE}]\n")],
+            documents_root=ROOT)
+        self.assertEqual(dict(result["fragment"])["ECHART_SIGN_LINE"],
+                         "[Signed ${DATE} ${USERSIGNATURE}]\n")
+        self.assertEqual(result["rows"][0], ("ECHART_SIGN_LINE", "carry",
+                                             ""))
+
+    def test_a_value_already_in_carlos_spelling_is_left_alone(self):
+        value = ("[${encounter.class.EctSaveEncounterAction.msgSigned}"
+                 " ${DATE}]\n")
+        rewritten, changed, unmapped = o19props.rewrite_bundle_tokens(value)
+        self.assertEqual(rewritten, value)
+        self.assertEqual(changed, [])
+        self.assertEqual(unmapped, [])
+
+
 class TestRendering(unittest.TestCase):
 
     """The fragment an operator reviews, and the report beside it.

@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS properties manifest."""
 
-PROPS_MAP_VERSION = 'o19map-2+a1fd983f'
+PROPS_MAP_VERSION = 'o19map-2+65c6b9ea'
 
 # active keys of the stock O19 oscar_mcmaster.properties — the baseline-diff
 # reference: clinic keys equal to these defaults are ignored (CARLOS defaults win)
@@ -489,6 +489,18 @@ CARLOS_DEFAULTS = {
     'save_as_xml': 'false',
 }
 
+# oscarResources bundle keys CARLOS renamed, verified against the CARLOS bundle:
+# a `rewrite: bundle` value's ${...} tokens are remapped through this before the value
+# is carried, and a token that is not a key here is refused (needs-review)
+BUNDLE_KEY_RENAMES = {
+    'oscarEncounter.class.EctSaveEncounterAction.msgLocked': 'encounter.class.EctSaveEncounterAction.msgLocked',
+    'oscarEncounter.class.EctSaveEncounterAction.msgSigBy': 'encounter.class.EctSaveEncounterAction.msgSigBy',
+    'oscarEncounter.class.EctSaveEncounterAction.msgSigned': 'encounter.class.EctSaveEncounterAction.msgSigned',
+    'oscarEncounter.class.EctSaveEncounterAction.msgSplitChart': 'encounter.class.EctSaveEncounterAction.msgSplitChart',
+    'oscarEncounter.class.EctSaveEncounterAction.msgVer': 'encounter.class.EctSaveEncounterAction.msgVer',
+    'oscarEncounter.class.EctSaveEncounterAction.msgVerAndSig': 'encounter.class.EctSaveEncounterAction.msgVerAndSig',
+}
+
 KEYS = {
     'ALLOW_UPDATE_DOCUMENT_CONTENT': {
         'd': 'carry',
@@ -578,9 +590,11 @@ KEYS = {
     },
     'ECHART_SIGN_LINE': {
         'd': 'carry',
+        'rewrite': 'bundle',
     },
     'ECHART_VERSIGN_LINE': {
         'd': 'carry',
+        'rewrite': 'bundle',
     },
     'ENABLE_CONFORMANCE_ONLY_FEATURES': {
         'd': 'carry',

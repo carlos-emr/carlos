@@ -63,6 +63,11 @@ O19_SQL_SOURCES = [
 ]
 
 O19_PROPERTIES = "src/main/resources/oscar_mcmaster.properties"
+# the message bundle a carried sign-line template's ${...} tokens resolve
+# against, on each side of the migration
+O19_RESOURCE_BUNDLE = "src/main/resources/oscarResources_en.properties"
+CARLOS_RESOURCE_BUNDLE = (REPO_ROOT / "src" / "main" / "resources"
+                          / "oscarResources_en.properties")
 # CARLOS data-normalisation script the importer replays on imported rows
 # (Flyway runs on the stock deploy before the import and never sees them)
 PREVENTION_TYPE_SCRIPT = (
@@ -1591,7 +1596,40 @@ def divergent_carlos_defaults(o19_defaults, carlos_defaults, ov):
             and overlay_disposition(key, ov) == "carry"}
 
 
-def emit_props_module(o19_defaults, ov, carlos_defaults=None) -> str:
+def bundle_key_renames(o19_bundle, carlos_bundle, ov):
+    """O19 message-bundle key -> its CARLOS spelling, for the namespaces
+    the overlay declares renamed.
+
+    Only keys whose CARLOS twin actually EXISTS are emitted: the props
+    phase treats anything it cannot map as needs-review, because a
+    sign-line token that resolves to nothing silently drops words from
+    the signed clinical note. Refuses a declared prefix that matches no
+    O19 key (stale curation) or whose old spelling still resolves in
+    CARLOS (then nothing needed rewriting and the rule is wrong).
+    """
+    renames = {}
+    for old_prefix, new_prefix in getattr(ov, "BUNDLE_PREFIX_RENAMES", ()):
+        matched = [k for k in o19_bundle if k.startswith(old_prefix)]
+        if not matched:
+            raise SystemExit(
+                "generator: BUNDLE_PREFIX_RENAMES prefix {0!r} matches no "
+                "key of the OSCAR 19 message bundle — stale curation"
+                .format(old_prefix))
+        still_live = [k for k in carlos_bundle if k.startswith(old_prefix)]
+        if still_live:
+            raise SystemExit(
+                "generator: BUNDLE_PREFIX_RENAMES prefix {0!r} still "
+                "resolves in the CARLOS bundle ({1} key(s)) — nothing "
+                "needs rewriting".format(old_prefix, len(still_live)))
+        for key in matched:
+            target = new_prefix + key[len(old_prefix):]
+            if target in carlos_bundle:
+                renames[key] = target
+    return renames
+
+
+def emit_props_module(o19_defaults, ov, carlos_defaults=None,
+                      bundle_renames=None) -> str:
     """Render `o19map_props.py`.
 
     Refuses outright if any stock OSCAR 19 property key has no
@@ -1632,6 +1670,13 @@ def emit_props_module(o19_defaults, ov, carlos_defaults=None) -> str:
     out.append("CARLOS_DEFAULTS = " + _fmt(dict(sorted(
         divergent_carlos_defaults(defaults, carlos_defaults or {},
                                   ov).items()))) + "\n")
+    out.append("# oscarResources bundle keys CARLOS renamed, verified"
+               " against the CARLOS bundle:\n# a `rewrite: bundle` value's"
+               " ${...} tokens are remapped through this before the value"
+               "\n# is carried, and a token that is not a key here is"
+               " refused (needs-review)")
+    out.append("BUNDLE_KEY_RENAMES = "
+               + _fmt(dict(sorted((bundle_renames or {}).items()))) + "\n")
     out.append("KEYS = " + _fmt(dict(sorted(ov.KEYS.items()))) + "\n")
     out.append("PREFIX_RULES = " + _fmt(list(ov.PREFIX_RULES)) + "\n")
     return "\n".join(out).rstrip("\n") + "\n"
@@ -1792,10 +1837,14 @@ def main() -> int:
     # the file the deb installs as /etc/carlos-emr/carlos.properties: what
     # actually wins for any key the import leaves out of the fragment
     carlos_defaults = parse_properties(CARLOS_PROPERTIES)
+    bundle_renames = bundle_key_renames(
+        parse_properties(oscar / O19_RESOURCE_BUNDLE),
+        parse_properties(CARLOS_RESOURCE_BUNDLE), ov_props)
 
     schema_out = emit_schema_module(tables, carlos, seed_counts, ov_schema,
                                     commit, extras)
-    props_out = emit_props_module(o19_defaults, ov_props, carlos_defaults)
+    props_out = emit_props_module(o19_defaults, ov_props, carlos_defaults,
+                                  bundle_renames)
     preflight_block = emit_preflight_data(tables, ov_schema, ov_props,
                                           extras)
 

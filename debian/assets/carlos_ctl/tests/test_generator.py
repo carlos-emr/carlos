@@ -165,6 +165,35 @@ class TestGenerator(unittest.TestCase):
             ov)
         self.assertEqual(derived, {"kept": "b", "pfx.k": "b"})
 
+    def test_bundle_renames_are_verified_against_the_carlos_bundle(self):
+        # a target that does not exist would carry a token resolving to ""
+        # into every signed note, so it must not be emitted at all
+        from carlos_ctl import o19map_props
+        carlos = self.gen.parse_properties(self.gen.CARLOS_RESOURCE_BUNDLE)
+        for old, new in o19map_props.BUNDLE_KEY_RENAMES.items():
+            self.assertIn(new, carlos, old)
+            self.assertNotIn(old, carlos, old)
+
+    def test_bundle_renames_drop_keys_carlos_no_longer_defines(self):
+        ov = types.SimpleNamespace(
+            BUNDLE_PREFIX_RENAMES=[("oldNs.", "newNs.")])
+        renames = self.gen.bundle_key_renames(
+            {"oldNs.kept": "x", "oldNs.gone": "y", "other.key": "z"},
+            {"newNs.kept": "x", "other.key": "z"}, ov)
+        self.assertEqual(renames, {"oldNs.kept": "newNs.kept"})
+
+    def test_a_stale_or_pointless_bundle_rename_is_refused(self):
+        stale = types.SimpleNamespace(
+            BUNDLE_PREFIX_RENAMES=[("noSuchNs.", "newNs.")])
+        with self.assertRaises(SystemExit):
+            self.gen.bundle_key_renames({"oldNs.k": "x"}, {}, stale)
+        pointless = types.SimpleNamespace(
+            BUNDLE_PREFIX_RENAMES=[("oldNs.", "newNs.")])
+        with self.assertRaises(SystemExit):
+            self.gen.bundle_key_renames(
+                {"oldNs.k": "x"}, {"oldNs.k": "x", "newNs.k": "x"},
+                pointless)
+
     def test_generated_modules_carry_no_wall_clock_stamp(self):
         ctl = self.gen.CTL_DIR
         for name in ("o19map_schema.py", "o19map_props.py"):

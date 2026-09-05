@@ -17,7 +17,10 @@ Rules, in order:
     first, then the ordered PREFIX_RULES; anything unmatched is `unknown`
     (reported for human classification, never silently carried/dropped).
  3. carry / carry-secret go into the fragment verbatim (secrets masked in
-    the human report only); translate rewrites OscarDocument context paths
+    the human report only), except that a carry key marked
+    `rewrite: bundle` has its `${...}` message-bundle tokens remapped onto
+    the names CARLOS uses, and is refused when one cannot be mapped;
+    translate rewrites OscarDocument context paths
     onto the CARLOS tree and resolves drugref to the deployment's own
     endpoint; deploy-owned is refused with a note; dropped-flag is
     itemized by module advisory (ldap escalated already at preflight).
@@ -253,6 +256,54 @@ def disposition(key: str) -> dict:
     return {"d": "unknown"}
 
 
+_BUNDLE_TOKEN = re.compile(r"\$\{([^}]*)\}")
+
+# tokens CaseManagementManagerImpl.getSignature substitutes from its own
+# map before the bundle is consulted at all — they are not bundle keys and
+# a rewrite must leave them alone
+SIGNATURE_RUNTIME_TOKENS = ("DATE", "USERSIGNATURE", "ROLENAME")
+
+
+def rewrite_bundle_tokens(value: str,
+                          renames: Optional[Dict[str, str]] = None
+                          ) -> Tuple[str, List[Tuple[str, str]], List[str]]:
+    """Remap the `${...}` message-bundle tokens of a carried template onto
+    their CARLOS spellings.
+
+    Returns (rewritten value, [(old token, new token)], [unmapped
+    tokens]). CARLOS renamed the bundle namespace these templates name,
+    and `getTemplateSignature` resolves an unknown key to the empty
+    string inside a bare `catch (Exception e)` — so a sign line carried
+    verbatim drops the words "Signed on"/"by" out of every note signed
+    after cutover with nothing failing. A token this cannot prove
+    resolves is reported rather than guessed at: the caller refuses the
+    value instead of carrying a template that renders blanks into the
+    clinical record."""
+    if renames is None:
+        renames = getattr(o19map_props, "BUNDLE_KEY_RENAMES", {})
+    already_carlos = set(renames.values())
+    changed: List[Tuple[str, str]] = []
+    unmapped: List[str] = []
+    out: List[str] = []
+    pos = 0
+    for match in _BUNDLE_TOKEN.finditer(value):
+        token = match.group(1)
+        out.append(value[pos:match.start()])
+        pos = match.end()
+        if token in SIGNATURE_RUNTIME_TOKENS or token in already_carlos:
+            out.append(match.group(0))
+            continue
+        target = renames.get(token)
+        if target is None:
+            unmapped.append(token)
+            out.append(match.group(0))
+            continue
+        changed.append((token, target))
+        out.append("${" + target + "}")
+    out.append(value[pos:])
+    return "".join(out), changed, unmapped
+
+
 def translate_docpath(value: str,
                       documents_root: str = DOCUMENTS_ROOT
                       ) -> Optional[str]:
@@ -327,10 +378,25 @@ def translate_all(clinic: List[Tuple[str, str]],
             # (faxEnable -> enableFax): the fragment carries the key
             # CARLOS honours
             target_key = spec.get("as", key)
+            note = ("" if target_key == key
+                    else "carried as {0}".format(target_key))
+            if spec.get("rewrite") == "bundle":
+                value, renamed, unmapped = rewrite_bundle_tokens(value)
+                if unmapped:
+                    rows.append((key, "needs-review",
+                                 "message-bundle token(s) {0} have no "
+                                 "CARLOS key — not carried (they would "
+                                 "render as an empty string in the signed "
+                                 "note)".format(", ".join(
+                                     "${" + t + "}" for t in unmapped))))
+                    continue
+                if renamed:
+                    note = (note + "; " if note else "") + (
+                        "message-bundle key(s) renamed: "
+                        + ", ".join("{0} -> {1}".format(old, new)
+                                    for old, new in renamed))
             fragment.append((target_key, value))
-            rows.append((key, "carry",
-                         "" if target_key == key
-                         else "carried as {0}".format(target_key)))
+            rows.append((key, "carry", note))
         elif d == "carry-secret":
             fragment.append((key, value))
             secrets.append(key)

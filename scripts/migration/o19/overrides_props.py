@@ -21,6 +21,11 @@ default (O19_DEFAULTS in the generated module):
                 silently carried or dropped
 
 KEYS (exact match) wins over PREFIX_RULES (first match in order).
+
+A `carry` entry may also carry {"rewrite": "bundle"}: its value holds
+`${...}` tokens naming oscarResources bundle keys, and the props phase
+rewrites the ones CARLOS renamed (BUNDLE_PREFIX_RENAMES, below) before
+carrying it.
 """
 
 PROPS_MAP_VERSION = "o19map-2"
@@ -51,8 +56,13 @@ KEYS = {
     "CMESort": {"d": "carry"},
     "DATE_FORMAT": {"d": "carry"},
     "TIME_FORMAT": {"d": "carry"},
-    "ECHART_SIGN_LINE": {"d": "carry"},
-    "ECHART_VERSIGN_LINE": {"d": "carry"},
+    # a customised sign line is carried, but its ${...} tokens are keys of
+    # the oscarResources bundle and CARLOS renamed the namespace they live
+    # in; carried verbatim they resolve to "" and the words "Signed on" /
+    # "by" vanish from every note signed after cutover (rewrite: "bundle",
+    # see BUNDLE_PREFIX_RENAMES)
+    "ECHART_SIGN_LINE": {"d": "carry", "rewrite": "bundle"},
+    "ECHART_VERSIGN_LINE": {"d": "carry", "rewrite": "bundle"},
     "SINGLE_PAGE_CHART": {"d": "carry"},
     "ENCOUNTER_TIME_MANDATORY": {"d": "carry"},
     "default_view": {"d": "carry"},
@@ -366,4 +376,28 @@ PREFIX_RULES = [
     ("DEMOGRAPHIC_CONTACT", {"d": "carry"}),
     ("invoice_", {"d": "carry"}),
     ("billing", {"d": "carry"}),
+]
+
+# Resource-bundle namespaces CARLOS renamed, for values dispositioned
+# {"rewrite": "bundle"}.
+#
+# The sign-line templates are resolved token by token against the
+# `oscarResources` bundle by
+# CaseManagementManagerImpl.getTemplateSignature, whose lookup failure
+# path is `catch (Exception e) { substituteValue = ""; }` — an unknown key
+# becomes an empty string with nothing logged, so a clinic that customised
+# its sign line silently loses the "Signed on" / "by" wording from every
+# note signed after cutover. Scope is deliberately the
+# EctSaveEncounterAction message class: that is where every word a sign
+# line can name lives. A token outside it cannot be proven to resolve, so
+# the props phase refuses the value (needs-review) rather than carrying a
+# template that renders blanks into the clinical record.
+#
+# The generator verifies every target against
+# src/main/resources/oscarResources_en.properties and refuses a prefix
+# whose old spelling still resolves in CARLOS (nothing would need
+# rewriting) or that matches no O19 bundle key (stale curation).
+BUNDLE_PREFIX_RENAMES = [
+    ("oscarEncounter.class.EctSaveEncounterAction.",
+     "encounter.class.EctSaveEncounterAction."),
 ]

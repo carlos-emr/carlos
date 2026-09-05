@@ -72,6 +72,15 @@ source commit, so an unchanged input regenerates byte-identical output.
 Credential-bearing stock defaults are never emitted (`SECRET_DEFAULT_KEYS`
 lists the keys instead; the props phase always surfaces them for review).
 
+The props generator also reads two files outside the O19 checkout:
+`src/main/resources/carlos.properties`, to emit `CARLOS_DEFAULTS` (CARLOS's own
+value for each `carry` key whose O19 default differs — the props report names
+those so a baseline-skipped key cannot flip behaviour silently), and
+`src/main/resources/oscarResources_en.properties`, to verify the
+`BUNDLE_KEY_RENAMES` targets `overrides_props.BUNDLE_PREFIX_RENAMES` asks for.
+A declared bundle prefix that matches no O19 key, or that still resolves in the
+CARLOS bundle, fails generation.
+
 ## Verifying the DDL parse
 
 `generate_manifests.py` reads the SQL with a hand-written DDL reader
