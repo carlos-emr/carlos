@@ -24,7 +24,8 @@
  *      in the faxed PDF. The save is deliberately DELAYED here (route
  *      interception) so the race is deterministic: without the fix the fax POST
  *      won and rendered the stored (old) note; with it, the fax waits.
- *   D. clinic header — the clinic name must render on its own line. Preview2.jsp
+ *   D. clinic header — the page must submit the header as separate lines and the
+ *      clinic name must render as its own line. Preview2.jsp
  *      joined the header's lines with <br> and converted them for the PDF with a
  *      replaceAll whose replacement, after JSP attribute unescaping, was an
  *      escaped literal 'n': every line break became the letter n and the header
@@ -44,8 +45,8 @@
  * prescription with its drug row and stamp signature, a fax_config account for
  * the "from" line when no active SRFAX row exists on that number, the fax job
  * rows on that line with their FaxClientLog audit rows, and the destination fax
- * number seeded on the patient's active pharmacies (restored exactly, NULL vs
- * '' preserved). Files are NOT removed: two small PDFs are left under
+ * number substituted on EVERY active pharmacy of the patient so no fixture can
+ * leave for a real machine (each original restored exactly, NULL vs '' preserved). Files are NOT removed: two small PDFs are left under
  * DOCUMENT_DIR (prescription_<pdfId>.pdf) plus the pair each leaves in the fax
  * spool, which the fax scheduler consumes.
  *
@@ -140,6 +141,12 @@ function validateMysqlHost(host) {
   if (!/^[A-Za-z0-9.\-:\[\]]+$/.test(host)) {
     throw new Error('MYSQL_HOST contains unsupported characters');
   }
+  // This check seeds and deletes prescription, signature, fax and pharmacy rows, so it must target
+  // a local disposable database. Same opt-in as the sibling Rx checks for an intentional remote one.
+  const loopback = new Set(['localhost', '127.0.0.1', '::1', 'carlos', 'db']);
+  if (!loopback.has(host.toLowerCase()) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing non-local MYSQL_HOST "${host}"; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`);
+  }
   return host;
 }
 
@@ -148,7 +155,7 @@ function validateDocumentDir(rawDir) {
     throw new Error('RX_FAX_DOCUMENT_DIR is required: the install\'s DOCUMENT_DIR as seen by this process');
   }
   if (!path.isAbsolute(rawDir)) throw new Error('RX_FAX_DOCUMENT_DIR must be an absolute path');
-  const resolved = path.resolve(rawDir); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- operator-supplied read-only directory, checked to exist and be a directory; file names under it are built from a digits-validated pdfId
+  const resolved = path.resolve(rawDir); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- operator-supplied read-only directory, checked to exist and be a directory; file names under it are built from a pdfId restricted to [A-Za-z0-9_-]
   let stat;
   try { stat = fs.statSync(resolved); } catch (error) { throw new Error('RX_FAX_DOCUMENT_DIR does not exist or is not readable'); }
   if (!stat.isDirectory()) throw new Error('RX_FAX_DOCUMENT_DIR is not a directory');
@@ -240,7 +247,11 @@ function pdfTextRuns(buf) {
     }
     const content = data.toString('latin1');
     if (!/\bT[jJ]\b/.test(content)) continue;
-    const opRe = /\((?:\\.|[^\\)])*\)\s*Tj|\[(?:\((?:\\.|[^\\)])*\)|[^\]])*\]\s*TJ/g;
+    // The TJ array alternative keeps its two repeated branches DISJOINT: a string branch that
+    // consumes "(...)" and a filler branch that may consume anything except "]" and "(". Letting the
+    // filler also eat "(" gave the engine two ways to match every parenthesis and made a "[" with
+    // many "()" and no closing "] TJ" backtrack exponentially (CodeQL js/redos).
+    const opRe = /\((?:\\.|[^\\)])*\)\s*Tj|\[(?:\((?:\\.|[^\\)])*\)|[^\]\(])*\]\s*TJ/g;
     let op;
     while ((op = opRe.exec(content))) {
       const parts = [];
@@ -269,10 +280,12 @@ function pdfTextRuns(buf) {
 
 /** The servlet's PDF for this pdfId, once it is fully written (exists, %PDF header, size stable). */
 async function waitForPdf(pdfId, label) {
-  if (!/^[A-Za-z0-9]{1,64}$/.test(pdfId)) {
+  // The servlet strips everything outside [a-zA-Z0-9_-] from pdfId before naming the file; accept
+  // exactly that set so a dashed or underscored id from the page is not a false failure here.
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(pdfId)) {
     throw new Error(`${label}: pdfId is not a plain identifier`);
   }
-  const file = path.join(documentDir, `prescription_${pdfId}.pdf`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- documentDir is a validated operator-supplied directory and pdfId is restricted to [A-Za-z0-9]
+  const file = path.join(documentDir, `prescription_${pdfId}.pdf`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- documentDir is a validated operator-supplied directory and pdfId is restricted to [A-Za-z0-9_-]
   const deadline = Date.now() + 20000;
   let lastSize = -1;
   while (Date.now() < deadline) {
@@ -307,7 +320,11 @@ function stageFaxConfig() {
 }
 
 function seedPharmacyFax() {
-  // Same predicate and NULL/'' fidelity as the sibling stamp check; see its seedPharmacyFax().
+  // Same active-pharmacy predicate as the sibling stamp check. Unlike it, EVERY active destination
+  // is replaced for the run, not only blank ones: the Fax button queues a real job to whatever
+  // number the patient's pharmacy carries, and a fixture prescription must never be able to leave
+  // for a real fax machine. Each original value is remembered exactly (NULL and '' are distinct
+  // states) and restored by cleanupFixtures only while the column still holds this run's number.
   const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
     JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
     WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
@@ -315,9 +332,13 @@ function seedPharmacyFax() {
     .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
   for (const [rawId, rawWasNull, rawFax] of rows) {
     const recordId = rawId.trim();
-    if ((rawFax || '').trim()) continue;
+    const wasNull = String(rawWasNull).trim() === '1';
+    const originalFax = wasNull ? null : String(rawFax || '');
+    if (originalFax !== null && !/^[0-9A-Za-z .()+-]{0,32}$/.test(originalFax)) {
+      throw new Error('a pharmacy fax value has an unexpected shape; refusing to rewrite it');
+    }
     sql(`UPDATE pharmacyInfo SET fax = '${pharmacyFaxNumber}' WHERE recordId = ${recordId};`);
-    seededPharmacyFaxes.push({ recordId, wasNull: String(rawWasNull).trim() === '1' });
+    seededPharmacyFaxes.push({ recordId, wasNull, originalFax });
   }
   visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.length, active: rows.length });
   if (!rows.length) {
@@ -356,9 +377,10 @@ function cleanupFixtures() {
     if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
   });
   while (seededPharmacyFaxes.length) {
-    const { recordId, wasNull } = seededPharmacyFaxes.pop();
+    const { recordId, wasNull, originalFax } = seededPharmacyFaxes.pop();
+    const restored = wasNull ? 'NULL' : `'${originalFax}'`; // shape-validated before the rewrite
     attempt(`pharmacy-fax ${recordId}`, () => sql(
-      `UPDATE pharmacyInfo SET fax = ${wasNull ? 'NULL' : "''"} WHERE recordId = ${recordId} AND fax = '${pharmacyFaxNumber}';`));
+      `UPDATE pharmacyInfo SET fax = ${restored} WHERE recordId = ${recordId} AND fax = '${pharmacyFaxNumber}';`));
   }
 }
 
@@ -374,7 +396,11 @@ function wirePage(page, label) {
     // Pre-existing, tracked by issue #3578 (expandPreview writes into the preview iframe before it
     // has parsed on some render orders). Named so the suppression stays auditable.
     if (/Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text)) return;
-    findings.push({ label, type: 'pageerror', text: text.slice(0, 300) });
+    // Record the error CLASS only. A page error's message or stack can quote page content -- a
+    // patient name in a DOM path, a demographic number in a URL -- and this goes to stderr and the
+    // artifact file, so it must never carry the text itself.
+    const errorClass = /^([A-Za-z]+Error)\b/.exec(text);
+    findings.push({ label, type: 'pageerror', text: errorClass ? errorClass[1] : 'browser page error' });
   });
   page.on('dialog', async (dialog) => {
     // Accept only the custom-drug confirm(), and only while clicking that button. Anything else is a
@@ -409,7 +435,7 @@ async function login(context) {
 
 /** A CSRFGuard master token for this session, read the way the page's own script does. */
 async function csrfToken(page) {
-  return page.evaluate(async (tokenUrl) => {
+  return page.evaluate(async (tokenUrl) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- tokenUrl is passed as a Playwright argument, not interpolated into code, and is built by appUrl from the loopback-restricted validateBaseUrl result
     const resp = await fetch(tokenUrl, { credentials: 'same-origin' });
     const js = await resp.text();
     const m = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
@@ -460,6 +486,10 @@ function addProbeLineToRecord(scriptId) {
   if (check !== '1') throw new Error('probe line was not written to the fixture drug row');
 }
 
+// Captured from the Fax button's POST for the clinic-header assertion (see assertClinicHeader).
+let submittedClinicHeader = null;
+let headerComposedByServlet = false;
+
 async function faxThroughUi(page, modalFrame, scriptId) {
   // Deterministic race: hold the notes save so the fax POST can only carry the note if the page
   // waited for it. The route covers the modal iframe's requests too.
@@ -489,6 +519,11 @@ async function faxThroughUi(page, modalFrame, scriptId) {
     body = await response.text().catch(() => '');
     const post = new URLSearchParams(request.postData() || '');
     pdfId = post.get('pdfId');
+    // What the page put on the wire for the clinic header, and whether the servlet will use it. A
+    // specialist/satellite address (useSC=true) makes the servlet compose the header itself, so
+    // only the submitted value, not the rendered lines, can be judged in that case.
+    submittedClinicHeader = post.get('clinicName');
+    headerComposedByServlet = /[?&]useSC=true(&|$)/.test(request.url());
     if (post.get('scriptId') !== scriptId && new URL(request.url()).searchParams.get('scriptId') !== scriptId) {
       findings.push({ label: 'ui-fax', type: 'wrong-script', text: 'the Fax button posted a different scriptId than the prescription just written' });
     }
@@ -518,7 +553,7 @@ async function faxWithForgedIdentity(page, scriptId) {
   const token = await csrfToken(page);
   if (!token) findings.push({ label: 'forged-fax', type: 'no-csrf-token', text: 'could not obtain a CSRFGuard token for the forged-identity POST' });
   const pdfId = `pwbind${runSuffix}`;
-  const result = await page.evaluate(async ({ postUrl, token: t, params }) => {
+  const result = await page.evaluate(async ({ postUrl, token: t, params }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- all values are passed as Playwright arguments, not interpolated into code: postUrl comes from the loopback-restricted validateBaseUrl, token from the app's own /csrfguard, and params are digits-validated ids plus this script's fixed probe strings
     const resp = await fetch(postUrl, {
       method: 'POST',
       headers: {
@@ -604,33 +639,36 @@ function assertProbeLine(runs) {
 }
 
 /**
- * The clinic name exactly as rx/Preview2.jsp puts it at the top of the prescriber header: the
- * single clinic row's name with a trailing "(nnnnnn)" site code removed. Empty when the install has
- * no clinic row, in which case the header assertion is skipped and says so.
+ * The clinic header must reach the servlet as separate lines and render that way.
+ *
+ * <p>Judged from what the page actually POSTed rather than from the clinic table: Preview2.jsp
+ * composes {@code name<br>address<br>city   postal} and converts the joins to line breaks for the
+ * hidden {@code clinicName} input, so a correct submission has at least two lines and its first
+ * line is the clinic name. The defect this pins produced ONE line with the letter n where each
+ * break belonged, so a single-line submission whose text is longer than a name is the signature.
+ * That judgement holds for a program or satellite address too; only the rendered-line check is
+ * skipped then, because the servlet composes the header itself when useSC=true.</p>
  */
-function expectedClinicName() {
-  const raw = sql('SELECT IFNULL(clinic_name, \'\') FROM clinic ORDER BY clinic_no LIMIT 1;').trim();
-  return raw.replace(/\(\d{6}\)/g, '').trim();
-}
-
 function assertClinicHeader(runs) {
-  const clinicName = expectedClinicName();
-  if (!clinicName) {
-    visited.push({ label: 'clinic-header', skipped: 'no clinic row' });
+  if (submittedClinicHeader === null) {
+    visited.push({ label: 'clinic-header', skipped: 'no clinicName on the fax POST' });
+    return;
+  }
+  const lines = submittedClinicHeader.split(/\r?\n/).map((l) => l.trim());
+  const firstLine = lines[0] || '';
+  const multiLine = lines.length >= 2;
+  if (!multiLine && firstLine.length > 0) {
+    findings.push({ label: 'clinic-header', type: 'lines-glued', text: 'the page submitted the clinic header as a single line: the <br> to line-break conversion lost the breaks (the letter-n defect)' });
+  }
+  if (headerComposedByServlet) {
+    visited.push({ label: 'clinic-header', multiLine, rendered: 'skipped (useSC: servlet composes the header)' });
     return;
   }
   const trimmed = runs.map((r) => r.trim());
-  const ownLine = trimmed.includes(clinicName);
-  // The defect's signature: the name is there but the address is glued onto the same rendered line.
-  const glued = trimmed.some((r) => r.startsWith(clinicName) && r.length > clinicName.length);
-  visited.push({ label: 'clinic-header', ownLine, glued });
-  if (ownLine) return;
-  if (glued) {
-    findings.push({ label: 'clinic-header', type: 'lines-glued', text: 'the faxed clinic header renders the clinic name and its address on one glued line (the <br> to line-break conversion lost the break)' });
-  } else {
-    // Not this defect. A specialist-address (useSC) fax composes the header server-side; on the
-    // demo install the header is the clinic's, so its absence is still worth a look.
-    findings.push({ label: 'clinic-header', type: 'absent', text: 'the faxed PDF has no line carrying the clinic name at all' });
+  const ownLine = firstLine.length > 0 && trimmed.includes(firstLine);
+  visited.push({ label: 'clinic-header', multiLine, ownLine });
+  if (multiLine && !ownLine) {
+    findings.push({ label: 'clinic-header', type: 'name-not-rendered', text: 'the clinic name submitted on the fax POST is not a rendered line of the faxed PDF' });
   }
 }
 

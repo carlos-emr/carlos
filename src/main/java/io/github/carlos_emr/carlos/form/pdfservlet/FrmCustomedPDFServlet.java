@@ -911,8 +911,19 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // rx/Preview2.jsp reaches the same row through RxPatientData, which is a pass-through over
         // DemographicManager; going straight to the manager keeps the consent and audit behaviour
         // of the preview without RxPatientData's static bean plumbing.
-        Demographic demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(req),
-                demographicId);
+        Demographic demographic;
+        try {
+            demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(req), demographicId);
+        } catch (RuntimeException e) {
+            // The manager's own privilege check rethrows PatientDirectiveException. resolveSignatureImage
+            // has already authorized this caller for this patient, so a refusal here is a consent
+            // directive on the demographic read, not an authorization failure; unguarded it would turn
+            // an otherwise valid fax into a 500 after the signature gate passed. The heading stays
+            // blank -- the same outcome as a missing row, and never the request's values.
+            logger.warn("Faxing prescription for demographic {} with a blank patient heading: the demographic could not be read",
+                    LogSafe.sanitize(String.valueOf(demographicId)), e);
+            return;
+        }
         if (demographic == null) {
             logger.warn("Faxing prescription for demographic {} with a blank patient heading: its demographic row is missing",
                     LogSafe.sanitize(String.valueOf(demographicId)));

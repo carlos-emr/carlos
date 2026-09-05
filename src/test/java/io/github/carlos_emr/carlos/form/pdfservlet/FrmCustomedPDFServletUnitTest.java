@@ -39,6 +39,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletConfig;
@@ -565,7 +566,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(bound.getParameter("patientHIN")).isEqualTo("1234567890");
         assertThat(bound.getParameter("patientAddress")).isEqualTo("1 Record Lane");
         assertThat(bound.getParameter("patientCityPostal")).isEqualTo("Hamilton, ON L8S 4L8");
-        assertThat(bound.getParameter("patientPhone")).endsWith("9055550101").doesNotContain("4165559999");
+        // The label is whatever RxPreview.msgTel resolves to on this classpath (the key itself when the
+        // bundle is absent); resolving it the way production does keeps the assertion exact either way.
+        assertThat(bound.getParameter("patientPhone"))
+                .isEqualTo(LocaleUtils.getMessage(request.getLocale(), "RxPreview.msgTel") + ": 9055550101");
         // Never populated by the Rx preview, so the only thing it could carry is chosen text.
         assertThat(bound.getParameter("patientChartNo")).isEmpty();
     }
@@ -587,6 +591,23 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(bound.getParameter("patientHIN")).isEmpty();
         assertThat(bound.getParameter("patientAddress")).isEmpty();
         assertThat(bound.getParameter("patientCityPostal")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should blank the patient heading, not fail the fax, when the demographic read is refused")
+    void shouldBlankPatientIdentity_whenDemographicReadThrows() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("patientName", "Someone Else");
+        stubStoredSignature();
+        // DemographicManager rethrows PatientDirectiveException from its own privilege check; after the
+        // signature gate has passed, that must not surface as a 500 -- and must not fall back to the request.
+        when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(new RuntimeException("directive"));
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound).isNotNull();
+        assertThat(bound.getParameter("patientName")).isEmpty();
+        assertThat(bound.getParameter("rx")).contains("Amoxicillin 500 mg capsule");
     }
 
     @Test
