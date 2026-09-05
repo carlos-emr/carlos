@@ -64,6 +64,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
@@ -914,13 +915,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         Demographic demographic;
         try {
             demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(req), demographicId);
-        } catch (RuntimeException e) {
-            // The manager's own privilege check rethrows PatientDirectiveException. resolveSignatureImage
-            // has already authorized this caller for this patient, so a refusal here is a consent
-            // directive on the demographic read, not an authorization failure; unguarded it would turn
-            // an otherwise valid fax into a 500 after the signature gate passed. The heading stays
-            // blank -- the same outcome as a missing row, and never the request's values.
-            logger.warn("Faxing prescription for demographic {} with a blank patient heading: the demographic could not be read",
+        } catch (PatientDirectiveException e) {
+            // The manager's read is gated by its own privilege check, which surfaces a consent directive
+            // as PatientDirectiveException. resolveSignatureImage has already authorized this caller for
+            // this patient on the same check, so this is defence in depth rather than an expected path;
+            // when it does fire, the heading stays blank -- the same outcome as a missing row, and never
+            // the request's values. ONLY that exception is absorbed: a database or wiring failure must
+            // abort the fax loudly, not send a prescription with no patient on it.
+            logger.warn("Faxing prescription for demographic {} with a blank patient heading: a directive refused the demographic read",
                     LogSafe.sanitize(String.valueOf(demographicId)), e);
             return;
         }

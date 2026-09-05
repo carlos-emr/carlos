@@ -409,7 +409,8 @@ function wirePage(page, label) {
       await dialog.accept().catch(() => {});
       return;
     }
-    findings.push({ label, type: 'unexpected-dialog', text: `${dialog.type()}: ${dialog.message()}`.slice(0, 200) });
+    // Type only: a dialog's text can quote page content, and findings reach stderr and the artifact.
+    findings.push({ label, type: 'unexpected-dialog', text: `unexpected ${dialog.type()} dialog` });
     await dialog.dismiss().catch(() => dialog.accept().catch(() => {}));
   });
 }
@@ -544,7 +545,9 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   } else if (/not signed/i.test(body)) {
     findings.push({ label: 'ui-fax', type: 'signed-refused', text: 'the freshly stamp-signed prescription was refused as unsigned' });
   } else if (!/fax-success/i.test(body)) {
-    findings.push({ label: 'ui-fax', type: 'not-successful', text: `fax did not report fax-success: ${body.replace(/\s+/g, ' ').slice(0, 160)}` });
+    // Classify the response; never quote it. An error page can carry patient-identifying content
+    // and findings are printed and persisted.
+    findings.push({ label: 'ui-fax', type: 'not-successful', text: /fax-failure/i.test(body) ? 'the servlet reported fax-failure' : 'the response carried neither fax-success nor fax-failure' });
   }
   return pdfId;
 }
@@ -596,7 +599,7 @@ async function faxWithForgedIdentity(page, scriptId) {
     return null;
   }
   if (!/fax-success/i.test(result.body)) {
-    findings.push({ label: 'forged-fax', type: 'not-successful', text: `forged-identity fax did not report fax-success: ${result.body.replace(/\s+/g, ' ').slice(0, 160)}` });
+    findings.push({ label: 'forged-fax', type: 'not-successful', text: /fax-failure/i.test(result.body) ? 'the servlet reported fax-failure for the forged-identity POST' : 'the forged-identity POST response carried neither fax-success nor fax-failure' });
     return null;
   }
   return pdfId;
@@ -639,36 +642,54 @@ function assertProbeLine(runs) {
 }
 
 /**
+ * The clinic name as rx/Preview2.jsp puts it at the head of the clinic-address header: the single
+ * clinic row's name with a trailing "(nnnnnn)" site code removed. Used only to tell the letter-n
+ * defect apart from a legitimately single-line header (a program address is one line by design).
+ */
+function clinicRowName() {
+  const raw = sql('SELECT IFNULL(clinic_name, \'\') FROM clinic ORDER BY clinic_no LIMIT 1;').trim();
+  return raw.replace(/\(\d{6}\)/g, '').trim();
+}
+
+/**
  * The clinic header must reach the servlet as separate lines and render that way.
  *
- * <p>Judged from what the page actually POSTed rather than from the clinic table: Preview2.jsp
- * composes {@code name<br>address<br>city   postal} and converts the joins to line breaks for the
- * hidden {@code clinicName} input, so a correct submission has at least two lines and its first
- * line is the clinic name. The defect this pins produced ONE line with the letter n where each
- * break belonged, so a single-line submission whose text is longer than a name is the signature.
- * That judgement holds for a program or satellite address too; only the rendered-line check is
- * skipped then, because the servlet composes the header itself when useSC=true.</p>
+ * <p>Judged from what the page actually POSTed. Preview2.jsp composes {@code name<br>address<br>
+ * city   postal} and converts the joins to line breaks for the hidden {@code clinicName} input, so
+ * a correct submission has at least two lines and its first line is the clinic name. The defect this
+ * pins produced ONE line with the letter n where each break belonged. A single line is only called
+ * glued when the clinic row's name is a proper prefix of it -- a program address is legitimately one
+ * line and must not fail the check. A missing or empty header on the normal path is a finding, not a
+ * skip. When {@code useSC=true} the servlet composes the header itself and ignores the submitted
+ * value, so nothing is judged.</p>
  */
 function assertClinicHeader(runs) {
-  if (submittedClinicHeader === null) {
-    visited.push({ label: 'clinic-header', skipped: 'no clinicName on the fax POST' });
+  if (headerComposedByServlet) {
+    visited.push({ label: 'clinic-header', skipped: 'useSC: the servlet composes the header' });
     return;
   }
-  const lines = submittedClinicHeader.split(/\r?\n/).map((l) => l.trim());
+  const submitted = (submittedClinicHeader || '').trim();
+  if (!submitted) {
+    findings.push({ label: 'clinic-header', type: 'absent', text: 'the Fax POST carried no clinicName, so the faxed prescription has no clinic header' });
+    return;
+  }
+  const lines = submitted.split(/\r?\n/).map((l) => l.trim());
   const firstLine = lines[0] || '';
   const multiLine = lines.length >= 2;
-  if (!multiLine && firstLine.length > 0) {
-    findings.push({ label: 'clinic-header', type: 'lines-glued', text: 'the page submitted the clinic header as a single line: the <br> to line-break conversion lost the breaks (the letter-n defect)' });
-  }
-  if (headerComposedByServlet) {
-    visited.push({ label: 'clinic-header', multiLine, rendered: 'skipped (useSC: servlet composes the header)' });
+  if (!multiLine) {
+    const clinicName = clinicRowName();
+    const glued = clinicName.length > 0 && firstLine.startsWith(clinicName) && firstLine.length > clinicName.length;
+    visited.push({ label: 'clinic-header', multiLine: false, glued });
+    if (glued) {
+      findings.push({ label: 'clinic-header', type: 'lines-glued', text: 'the page submitted the clinic header as a single line beginning with the clinic name: the <br> to line-break conversion lost the breaks (the letter-n defect)' });
+    }
     return;
   }
   const trimmed = runs.map((r) => r.trim());
   const ownLine = firstLine.length > 0 && trimmed.includes(firstLine);
-  visited.push({ label: 'clinic-header', multiLine, ownLine });
-  if (multiLine && !ownLine) {
-    findings.push({ label: 'clinic-header', type: 'name-not-rendered', text: 'the clinic name submitted on the fax POST is not a rendered line of the faxed PDF' });
+  visited.push({ label: 'clinic-header', multiLine: true, ownLine });
+  if (!ownLine) {
+    findings.push({ label: 'clinic-header', type: 'name-not-rendered', text: 'the first line of the clinic header submitted on the fax POST is not a rendered line of the faxed PDF' });
   }
 }
 

@@ -16,14 +16,17 @@ import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
@@ -37,9 +40,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletConfig;
@@ -57,6 +57,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
@@ -594,20 +595,33 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should blank the patient heading, not fail the fax, when the demographic read is refused")
-    void shouldBlankPatientIdentity_whenDemographicReadThrows() throws Exception {
+    @DisplayName("should blank the patient heading, not fail the fax, when a directive refuses the demographic read")
+    void shouldBlankPatientIdentity_whenDirectiveRefusesDemographicRead() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
         request.setParameter("patientName", "Someone Else");
         stubStoredSignature();
-        // DemographicManager rethrows PatientDirectiveException from its own privilege check; after the
-        // signature gate has passed, that must not surface as a 500 -- and must not fall back to the request.
-        when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(new RuntimeException("directive"));
+        // getDemographic declares PatientDirectiveException from its own privilege check. After the
+        // signature gate has passed that must not surface as a 500 -- and must not fall back to the request.
+        when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(new PatientDirectiveException("directive"));
 
         HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
         assertThat(bound).isNotNull();
         assertThat(bound.getParameter("patientName")).isEmpty();
         assertThat(bound.getParameter("rx")).contains("Amoxicillin 500 mg capsule");
+    }
+
+    @Test
+    @DisplayName("should abort the fax, not send a blank heading, when the demographic read fails for any other reason")
+    void shouldPropagateFailure_whenDemographicReadFailsUnexpectedly() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        // A database or wiring failure is not a directive. Absorbing it would fax a prescription with no
+        // patient on it while masking an outage; it must propagate and stop the fax.
+        when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(new IllegalStateException("datasource down"));
+
+        assertThatThrownBy(() -> new FrmCustomedPDFServlet().bindFaxContentToRecord(request))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
