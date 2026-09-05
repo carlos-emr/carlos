@@ -307,6 +307,97 @@ class TestEveryStandaloneCopyIsPinned(unittest.TestCase):
                 col)
 
 
+class TestTheUnknownColumnRuleIsOneRule(unittest.TestCase):
+
+    """The unknown-column rule exists twice and NOTHING measured them
+    against each other.
+
+    `o19_preflight.unknown_columns` decides whether the operator is shown
+    the B2-unknown-columns blocker and what `--accept unknown-as-archive`
+    is signing off on -- its own detail text promises "each is preserved
+    on the live table as import_archived_<column> ... never silently
+    dropped". `o19etl.unknown_columns`, through `archived_column_plan`
+    and `unknown_column_shadow_statements`, decides what is actually
+    preserved.
+
+    A divergence cannot be caught downstream: `archived_column_parity`
+    iterates the columns that already carry the `import_archived_` prefix
+    in the TARGET, i.e. the set the ETL side produced. A column the
+    preflight declared unknown and the ETL treats as known has no target
+    column, so it is never iterated and never reported -- P7 says the
+    import is clean over an orphaned column, the exact violation the
+    promise rules out.
+
+    Behaviour, not source: the standalone copy carries no annotations
+    (Python 3.4) and takes a plain iterable of names where the ETL takes
+    its `{column: info}` map."""
+
+    #: manifest entries chosen so that any divergence in the rename
+    #: lookup, the dropped set or the case folding shows up somewhere
+    ENTRIES = [
+        {},
+        {"cols": []},
+        {"cols": ["demographic_no", "last_name"]},
+        {"cols": ["programNo"], "renames": {"programNo": "program_no"}},
+        {"cols": ["a"], "dropped": {"legacy_flag": {}}},
+        {"cols": ["MixedCase"], "dropped": {"UPPER_DROPPED": {}}},
+        {"cols": ["x"], "renames": {"x": "SourceX"}, "dropped": {"y": {}}},
+        {"cols": ["computed"], "value_exprs": {"computed": "1"}},
+        {"cols": ["kept"], "renames": {"other": "kept"}},
+        # Only `cols` (through `renames`) and `dropped` may widen
+        # `known`. Each entry below names a live column under a DIFFERENT
+        # manifest key, so a maintainer who folds that key into one
+        # side's `known` set -- value_exprs is the natural one, since
+        # effective_entry already special-cases it -- makes the two
+        # answers differ here.
+        {"cols": ["a"], "value_exprs": {"vendor_extra": "NULL"}},
+        {"cols": ["a"], "merge_keys": ["vendor_extra"]},
+        {"cols": ["a"], "surrogate_pk": "vendor_extra"},
+        {"cols": ["a"], "chunk_by": "vendor_extra"},
+        {"cols": ["a"], "fk_remap": {"vendor_extra": "demographic"}},
+        {"cols": ["a"], "merge_exclude": ["vendor_extra"]},
+        {"cols": ["a"], "patient_data": True, "accept_class": "vendor_extra"},
+    ]
+
+    #: staged column names, including the case twins and the columns the
+    #: entries above name under a different spelling
+    COLUMNS = ["demographic_no", "last_name", "program_no", "programno",
+               "legacy_flag", "LEGACY_FLAG", "mixedcase", "upper_dropped",
+               "SourceX", "y", "computed", "kept", "vendor_extra", "x"]
+
+    def test_both_sides_call_the_same_column_unknown(self):
+        for entry in self.ENTRIES:
+            for names in (self.COLUMNS, self.COLUMNS[:3], []):
+                # the ETL takes {column: info}; the standalone copy takes
+                # the names alone, which is all either one reads
+                src_cols = dict((c, {}) for c in names)
+                self.assertEqual(
+                    o19_preflight.unknown_columns(entry, names),
+                    o19etl.unknown_columns(entry, src_cols),
+                    "{0!r} over {1!r}".format(entry, names))
+
+    def test_the_rule_is_exercised_over_the_shipped_manifest(self):
+        """Not only over hand-written entries: every copy/merge entry the
+        manifest actually ships, against its own column list plus a
+        vendor addition."""
+        from carlos_ctl import o19map_schema
+        seen = 0
+        for table, entry in sorted(o19map_schema.TABLES.items()):
+            if entry.get("class") not in ("copy", "merge"):
+                continue
+            renames = entry.get("renames", {})
+            names = [renames.get(c, c) for c in entry.get("cols", [])]
+            names += list(entry.get("dropped", {}))
+            names += ["vendor_extra_col", "VENDOR_EXTRA_COL"]
+            self.assertEqual(
+                o19_preflight.unknown_columns(entry, names),
+                o19etl.unknown_columns(entry,
+                                       dict((c, {}) for c in names)),
+                table)
+            seen += 1
+        self.assertGreater(seen, 50, "the manifest scan found no entries")
+
+
 class TestTheStandaloneDigestIsTheSameDigest(unittest.TestCase):
 
     """The content digest exists twice, and MUST hash identically.

@@ -2441,6 +2441,28 @@ def check_text_encoding(c):
             "as silent about this one class."))
 
 
+def unknown_columns(entry, col_names):
+    """Staged columns the manifest neither copies, renames nor lists as
+    dropped (vendor-fork additions) -- matched case-insensitively.
+
+    A deliberate copy of o19etl.unknown_columns, which this file may not
+    import, and the two must agree EXACTLY: this copy decides whether the
+    operator is shown the B2-unknown-columns blocker and what
+    `--accept unknown-as-archive` is signing off on ("each is preserved
+    on the live table as import_archived_<column> ... never silently
+    dropped"), while the ETL copy, through archived_column_plan, decides
+    what is actually preserved. A divergence is invisible downstream:
+    o19etl.archived_column_parity iterates the `import_archived_` columns
+    the ETL side PRODUCED, so a column the preflight called unknown and
+    the ETL called known has no target column to iterate and P7 reports a
+    clean import over an orphaned column. Pinned in
+    tests/test_sql_escape_contract.py."""
+    known = set(entry.get("renames", {}).get(c, c).lower()
+                for c in entry.get("cols", []))
+    known.update(c.lower() for c in entry.get("dropped", {}))
+    return sorted(c for c in col_names if c.lower() not in known)
+
+
 def check_unknown_columns(c, schema_map):
     """Columns the manifest has no home for (import mode only).
 
@@ -2466,13 +2488,7 @@ def check_unknown_columns(c, schema_map):
         for t, entry in schema_map.TABLES.items():
             if entry.get("class") not in ("copy", "merge") or t not in col_map:
                 continue
-            renames = entry.get("renames", {})
-            # MySQL column names are case-insensitive — fold case
-            known = set(renames.get(c, c).lower()
-                        for c in entry.get("cols", []))
-            known.update(c.lower() for c in entry.get("dropped", {}))
-            extra = sorted(c for c in col_map[t]
-                           if c.lower() not in known)
+            extra = unknown_columns(entry, col_map[t])
             if extra:
                 unknown_cols[t] = extra
         if unknown_cols:
