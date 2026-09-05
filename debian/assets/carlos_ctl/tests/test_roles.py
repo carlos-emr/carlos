@@ -267,6 +267,31 @@ class TestCustomRoleBackfill(unittest.TestCase):
         self.assertNotIn(
             "_hrm", o19roles.carlos_era_objects(seed, stage, self.OBJECTS))
 
+    def test_a_case_split_object_name_is_one_object_when_scoring(self):
+        # secObjPrivilege.objectName is case-insensitive and PAD SPACE in
+        # both schemas, and the O19 baseline's secObjectName spells
+        # `_masterlink` where the CARLOS seed grants `_masterLink`, so a
+        # role built in the O19 admin matrix plausibly holds the lowercase
+        # spelling. Scoring the two as different objects drops the pair
+        # from the intersection but NOT from the union, so the score can
+        # only fall -- here below ROLE_TEMPLATE_MIN_JACCARD, leaving a
+        # role that plainly resembles `receptionist` reported as
+        # resembling nothing and left for hand work.
+        seed = [("receptionist", "_masterLink", "r", "0"),
+                ("receptionist", "_appointment", "x", "0"),
+                ("receptionist", "_demographic", "x", "0"),
+                ("doctor", "_rx", "x", "0")]
+        clinic = [("Front Desk", "_masterlink", "r", "0"),
+                  ("Front Desk", "_appointment ", "x", "0")]
+        self.assertEqual(
+            o19roles.role_pairs(clinic, "Front Desk"),
+            {("_masterlink", "r"), ("_appointment", "x")})
+        template, score = o19roles.choose_template(
+            "Front Desk", clinic, seed, 0.3, ["receptionist", "doctor"])
+        self.assertEqual(template, "receptionist")
+        # 2 shared pairs over a union of 3 -- raw it is 0 over 5
+        self.assertAlmostEqual(score, 2 / 3.0, places=3)
+
     def test_custom_roles_exclude_provider_numbers_queues_and_stock(self):
         roles = o19roles.custom_roles(
             ["doctor", "Triage Nurse", "Ghost", "Unused"], self.STAGE,

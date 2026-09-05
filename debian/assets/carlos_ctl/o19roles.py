@@ -435,10 +435,20 @@ def role_pairs(rows: Sequence[Sequence[str]],
                role: str) -> Set[Tuple[str, str]]:
     """{(object, privilege)} granted to one role.
 
-    The role name is folded the way the database's own pad-space
-    collation folds it, so "Nurse " and "nurse" are one role here as
-    they are there; the privilege is stripped for the same reason."""
-    return {(r[1], (r[2] or "").strip()) for r in rows
+    Role name AND object name are folded the way the database's own
+    pad-space collation folds them, so "Nurse " and "nurse" are one role
+    here as they are there, and `_masterlink` is `_masterLink` -- the
+    spelling the O19 baseline's secObjectName carries against the one the
+    CARLOS seed grants. Comparing object names raw (while
+    carlos_era_objects, the backfill INSERT's `objectName IN (...)` and
+    the merge join all fold them) dropped such a pair from the
+    intersection without dropping it from the union, so choose_template's
+    Jaccard score fell -- and fell unevenly across candidates, because a
+    difference on `_masterLink` costs only the templates that hold it. On
+    a small custom role that is enough to sink the best score under
+    ROLE_TEMPLATE_MIN_JACCARD and leave the role for hand work. The
+    privilege is stripped for the same collation reason."""
+    return {(_fold(r[1]), (r[2] or "").strip()) for r in rows
             if _fold(r[0]) == _fold(role)}
 
 
