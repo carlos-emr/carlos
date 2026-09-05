@@ -1129,9 +1129,8 @@ class TestArchivedColumns(unittest.TestCase):
         at all — the surplus comes out 0 and the correct import fails."""
         entry = dict(o19map_schema.TABLES["property"])
         exprs = o19etl.merge_twin_partition(entry)
-        seeded = o19etl.preseed_exists(entry and "property" or "", entry,
-                                       "arch", dst_alias="s",
-                                       source_exprs=exprs)
+        seeded = o19etl.preseed_exists("property", entry, "arch",
+                                       dst_alias="s", source_exprs=exprs)
         self.assertIn("p.`provider_no` <=> NULLIF(s.`provider_no`, '')",
                       seeded)
         # the target-side caller is unchanged: both sides are stored
