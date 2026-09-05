@@ -838,6 +838,57 @@ def default_nondefault_expr(coltype: str, col: str) -> str:
     return "s.`{0}` IS NOT NULL AND s.`{0}` <> ''".format(col)
 
 
+#: The FK naming convention both schemas use: `<parent>_id`, `<parent>Id`,
+#: `<parent>_no`, `<parent>No`. Anchored at the END of the name on purpose --
+#: a rule that merely looked for a parent's name anywhere in a column
+#: (`provider.specialty`, `billingdetail.diagnostic_code`) flags fifteen
+#: columns of the shipped schema that are not keys at all.
+FK_SUFFIX_RE = re.compile(r"(_?id|_?no)$", re.IGNORECASE)
+
+
+def fk_parent_by_name(col, parents):
+    """The table `col` names by the FK naming convention, or None.
+
+    `parents` maps a FOLDED table name (case and underscores removed) to
+    the table. A bare `id` / `no` names nothing. This sees names, not
+    semantics: a key spelled outside the convention (`tickler.category_id`
+    into tickler_category, `consultationRequests.serviceId`) is invisible
+    here and is ruled in FK_REMAP by hand."""
+    m = FK_SUFFIX_RE.search(col)
+    if not m or m.start() == 0:
+        return None
+    return parents.get(col[:m.start()].replace("_", "").lower())
+
+
+def renumbered_parents(tables):
+    """folded name -> table, for every table whose ids the import does
+    NOT keep: `reference` (CARLOS's seed stands, the clinic's rows never
+    land) and `merge` with a surrogate id (appended rows are renumbered).
+    A copy-class parent keeps its ids; so does a merge on its own PK."""
+    return {
+        t.replace("_", "").lower(): t
+        for t, e in tables.items()
+        if e.get("class") == "reference"
+        or (e.get("class") == "merge" and e.get("surrogate_pk"))}
+
+
+def flagged_fk_columns(tables):
+    """(child, column, parent) for every copied or merged column that
+    names a renumbered parent other than its own table -- ruled or not.
+    Reads `cols` only: an unfilled CARLOS-only column and a dropped O19
+    column carry no id into the target and are never flagged."""
+    parents = renumbered_parents(tables)
+    out = []
+    for t, e in sorted(tables.items()):
+        if e.get("class") not in ("copy", "merge"):
+            continue
+        for col in e.get("cols") or ():
+            parent = fk_parent_by_name(col, parents)
+            if parent and parent != t:
+                out.append((t, col, parent))
+    return out
+
+
 class TableRules(object):
     """Every overlay ruling `build_tables` consults, resolved once.
 
@@ -870,6 +921,8 @@ class TableRules(object):
         self.not_renames = dict(getattr(ov, "NOT_RENAMES", {}))
         self.not_renamed_tables = dict(
             getattr(ov, "NOT_RENAMED_TABLES", {}))
+        # (child, col) -> why it is NOT a key into a renumbered parent
+        self.not_fk = dict(getattr(ov, "NOT_FK", {}))
 
 
 def _shared_table_class(t, carlos, r):
@@ -1130,6 +1183,58 @@ def _refuse_stale_column_rules(carlos, tables, r):
                 "table".format(t))
 
 
+def _refuse_unruled_fk_columns(tables, r):
+    """A copied id into a table whose ids the import does not keep.
+
+    This is the one relationship that crosses manifest classes, and the
+    class rulings are curated by hand with nothing else reading them
+    together: `consentType` was ruled `reference` (CARLOS's seed stands)
+    while `Consent.consent_type_id` was copied raw -- and the two seeds
+    disagree on id 1, so every clinic's integrator consent arrived filed
+    as the demonstration consent. P7 passed: the value 1 was copied
+    faithfully, and faithfulness to the manifest is all it can check. A
+    correct copy of a now-wrong reference is invisible downstream, which
+    is why the refusal lives here, where the ruling is made."""
+    flagged = flagged_fk_columns(tables)
+    flagged_keys = {(t, col) for t, col, _p in flagged}
+    for (t, col), reason in sorted(r.not_fk.items()):
+        # `"   "` is truthy, and a ruling whose reason is whitespace is
+        # the refusal being switched off quietly
+        if not isinstance(reason, str) or not reason.strip():
+            raise SystemExit(
+                "NOT_FK[{!r}, {!r}] has no reason; a ruling without one is "
+                "not a ruling".format(t, col))
+        if (t, col) not in flagged_keys:
+            raise SystemExit(
+                "NOT_FK names {}.{}, which is not an id-shaped column into "
+                "a reference or surrogate-id parent (stale entry)"
+                .format(t, col))
+        if col in tables.get(t, {}).get("fk_remap", {}):
+            raise SystemExit(
+                "NOT_FK names {}.{}, which FK_REMAP also remaps -- one "
+                "ruling, not both".format(t, col))
+    unruled = []
+    for t, col, parent in flagged:
+        if col in tables[t].get("fk_remap", {}) or (t, col) in r.not_fk:
+            continue
+        why = ("reference: ids never land"
+               if tables[parent]["class"] == "reference"
+               else "merge, surrogate id: ids may move")
+        unruled.append("{}.{} -> {} ({})".format(t, col, parent, why))
+    if unruled:
+        raise SystemExit(
+            "unruled foreign key(s) into a table whose ids the import does "
+            "not keep: a copied column named like <parent>_id / <parent>Id "
+            "whose parent is reference-class (CARLOS's seed stands, the "
+            "clinic's ids never land) or merge-class with a surrogate id "
+            "(appended rows are renumbered). Copied raw, the id points at "
+            "whichever CARLOS row happens to hold it. Rule each in "
+            "overrides_schema.py, as FK_REMAP[child] = {column: parent} (a "
+            "reference-class parent must move to CLASS_MERGE first -- "
+            "nothing maps ids for a table whose rows are ignored) or as a "
+            "NOT_FK entry with a reason:\n  " + "\n  ".join(unruled))
+
+
 def _refuse_unruled_column_renames(o19, carlos, tables, r):
     """A column dropped on one side while a column on the other goes
     unwritten -- how a rename hides."""
@@ -1278,6 +1383,7 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
     _warn_unknown_overlay_tables(o19, carlos, r)
     _refuse_inverted_buckets(o19, carlos, r)
     _refuse_stale_column_rules(carlos, tables, r)
+    _refuse_unruled_fk_columns(tables, r)
     _refuse_unruled_column_renames(o19, carlos, tables, r)
     _refuse_unruled_table_renames(o19, carlos, o19_only, r)
     _classify_o19_only(tables, o19_only, r)

@@ -323,6 +323,37 @@ class TestSurrogateIdRemap(unittest.TestCase):
                         order.index("LookupListItem"))
         self.assertLess(order.index("criteria_type"),
                         order.index("criteria_type_option"))
+        # the parents the unruled-FK guard found: a child copied before
+        # its parent would read an id map that does not exist yet
+        self.assertLess(order.index("consentType"), order.index("Consent"))
+        self.assertLess(order.index("HRMCategory"),
+                        order.index("HRMDocument"))
+        self.assertLess(order.index("HRMCategory"),
+                        order.index("HRMSubClass"))
+
+    def test_consent_type_is_read_through_the_map_on_the_shipped_entry(
+            self):
+        """The defect the guard exists for, pinned on the real entry:
+        `Consent.consent_type_id` must be REWRITTEN through consentType's
+        id map, and an id the map does not know must become NULL -- never
+        the raw value, which on the target names whichever CARLOS seed
+        row happens to hold that id."""
+        entry = o19map_schema.TABLES["Consent"]
+        cols = {c: {"type": "int" if c.endswith("_id") or c == "id"
+                    else "varchar",
+                    "column_type": "int(11)" if c.endswith("_id")
+                    or c == "id" else "varchar(255)",
+                    "nullable": c != "id", "char_len": 255,
+                    "octet_len": 1020, "has_default": False,
+                    "default": None, "auto_increment": False}
+                for c in entry["cols"]}
+        sql = o19etl.copy_statement("Consent", entry, "src", "dst", cols,
+                                    archive_schema="arch")
+        self.assertEqual(
+            selected_expr(sql, "consent_type_id"),
+            "(SELECT m.new_id FROM `arch`.`consentType__idmap` m WHERE "
+            "m.old_id = s.`consent_type_id`)")
+        self.assertNotIn("IFNULL", selected_expr(sql, "consent_type_id"))
 
 
 class TestResumeIdempotency(unittest.TestCase):

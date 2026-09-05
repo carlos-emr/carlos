@@ -19,8 +19,10 @@ generate_manifests.py    regenerates the shipped manifest modules from an
 verify_ddl_parse.py      checks that generator's DDL reader against a real
                          MariaDB (see "Verifying the DDL parse")
 verify_sql_semantics.py  settles the merge/id-map and charset-repair
-                         behaviour against a real MariaDB (see "Verifying
-                         the ETL's SQL semantics")
+                         behaviour against a real MariaDB, and proves a
+                         copied id into a merged parent lands on the right
+                         row by NAME (see "Verifying the ETL's SQL
+                         semantics")
 overrides_schema.py      hand-curated table/column classifications (durable)
 overrides_props.py       hand-curated oscar.properties dispositions (durable)
 build-o19-fixture.sh     builds the rehearsal database + turnkey inputs

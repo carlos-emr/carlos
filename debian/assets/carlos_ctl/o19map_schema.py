@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-2+541b9f40'
+SCHEMA_MAP_VERSION = 'o19map-2+d6061d0a'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -77,6 +77,9 @@ TABLES = {
             'optout_date',
             'edit_date',
         ],
+        'fk_remap': {
+            'consent_type_id': 'consentType',
+        },
     },
     'Contact': {
         'class': 'copy',
@@ -310,7 +313,10 @@ TABLES = {
         'cols': ['id', 'hospital_site', 'facility', 'facility_name', 'notes'],
     },
     'HRMCategory': {
-        'class': 'reference',
+        'class': 'merge',
+        'merge_keys': ['subClassNameMnemonic'],
+        'surrogate_pk': 'id',
+        'cols': ['id', 'categoryName', 'subClassNameMnemonic'],
     },
     'HRMDocument': {
         'class': 'copy',
@@ -331,6 +337,9 @@ TABLES = {
             'hrmCategoryId',
             'description',
         ],
+        'fk_remap': {
+            'hrmCategoryId': 'HRMCategory',
+        },
     },
     'HRMDocumentComment': {
         'class': 'copy',
@@ -371,6 +380,9 @@ TABLES = {
             'sendingFacilityId',
             'hrmCategoryId',
         ],
+        'fk_remap': {
+            'hrmCategoryId': 'HRMCategory',
+        },
     },
     'HnrDataValidation': {
         'class': 'copy',
@@ -1445,7 +1457,10 @@ TABLES = {
         'class': 'reference',
     },
     'consentType': {
-        'class': 'reference',
+        'class': 'merge',
+        'merge_keys': ['type'],
+        'surrogate_pk': 'id',
+        'cols': ['id', 'type', 'name', 'description', 'active'],
     },
     'consultResponseDoc': {
         'class': 'copy',
@@ -11756,6 +11771,7 @@ CARLOS_COLUMNS = {
     'FunctionalCentre': ['accountId', 'description'],
     'GroupNoteLink': ['id', 'created', 'noteId', 'demographicNo', 'anonymous', 'active'],
     'HL7HandlerMSHMapping': ['id', 'hospital_site', 'facility', 'facility_name', 'notes'],
+    'HRMCategory': ['id', 'categoryName', 'subClassNameMnemonic', 'sendingFacilityId'],
     'HRMDocument': [
         'id',
         'timeReceived',
@@ -12563,6 +12579,7 @@ CARLOS_COLUMNS = {
     ],
     'clinic_location': ['id', 'clinic_location_no', 'clinic_no', 'clinic_location_name'],
     'clinic_nbr': ['nbr_id', 'nbr_value', 'nbr_string', 'nbr_status'],
+    'consentType': ['id', 'type', 'name', 'description', 'active', 'providerNo', 'remoteEnabled'],
     'consultResponseDoc': ['id', 'responseId', 'documentNo', 'docType', 'deleted', 'attachDate', 'providerNo'],
     'consultationRequestExt': ['id', 'requestId', 'name', 'value', 'dateCreated'],
     'consultationRequests': [
@@ -20941,6 +20958,7 @@ SEED_ROW_COUNTS = {
     'Facility': 1,
     'FunctionalCentre': 5,
     'HL7HandlerMSHMapping': 17,
+    'HRMCategory': 20,
     'Icd9Synonym': 54,
     'LookupList': 4,
     'LookupListItem': 47,
@@ -20958,6 +20976,7 @@ SEED_ROW_COUNTS = {
     'clinic': 1,
     'clinic_location': 11,
     'clinic_nbr': 3,
+    'consentType': 2,
     'consultationServices': 257,
     'criteria_type': 24,
     'criteria_type_option': 106,

@@ -1367,6 +1367,222 @@ def _merge_shape_body(client: Client, src: str, dst: str, arch: str,
     return failures
 
 
+# ---------------------------------------------------------------------------
+# a copied id into a merged parent -- by NAME
+# ---------------------------------------------------------------------------
+
+#: `consentType` as OSCAR 19 ships it and as CARLOS seeds it, and `Consent`
+#: reduced to the three columns the claim is about. The defect this proves
+#: fixed: consentType was ruled `reference` while Consent.consent_type_id
+#: was copied raw, and the two seeds disagree on id 1 -- so a clinic's
+#: integrator consent arrived filed as CARLOS's demonstration consent, and
+#: P7 passed because the value 1 was copied faithfully.
+FK_PARENT_SRC_DDL = (
+    "CREATE TABLE consentType ("
+    " id int NOT NULL AUTO_INCREMENT,"
+    " type varchar(50),"
+    " name varchar(100),"
+    " description text,"
+    " active tinyint,"
+    " PRIMARY KEY (id))")
+
+FK_PARENT_DST_DDL = (
+    "CREATE TABLE consentType ("
+    " id int NOT NULL AUTO_INCREMENT,"
+    " type varchar(50),"
+    " name varchar(100),"
+    " description text,"
+    " active tinyint,"
+    " providerNo varchar(6),"        # CARLOS additions, never filled
+    " remoteEnabled tinyint,"
+    " PRIMARY KEY (id))")
+
+FK_CHILD_SRC_DDL = (
+    "CREATE TABLE Consent ("
+    " id int NOT NULL AUTO_INCREMENT,"
+    " demographic_no int,"
+    " consent_type_id int,"
+    " PRIMARY KEY (id))")
+FK_CHILD_DST_DDL = FK_CHILD_SRC_DDL
+
+#: CARLOS's two seed rows, verbatim from on/V1.0.2__on_data.sql
+FK_PARENT_SEED = (
+    "(1, 'default_consent_entry', 'Demonstraton Consent', 'demo', 0, NULL, "
+    "NULL), (2, 'electronic_communication_consent', 'Electronic "
+    "Communication Consent', 'e-comm', 1, NULL, NULL)")
+
+FK_PARENT_STAGE = [
+    # O19's stock row: id 1 on ITS side, no twin on ours -> appended (id 3)
+    "(1, 'integrator_patient_consent', 'Sunshiner frailty network', "
+    "'integrator sharing', 1)",
+    # collides with the seed on `type`: the seed wins, id 2 maps to 2
+    "(2, 'electronic_communication_consent', 'Clinic e-comm', 'x', 1)",
+    # clinic-added -> appended (id 4)
+    "(3, 'research_registry', 'Research registry', 'x', 1)",
+]
+
+#: demographic -> clinic consent type; 103 references a type that never
+#: existed (a dangling O19 reference)
+FK_CHILD_STAGE = ["(1, 100, 1)", "(2, 101, 2)", "(3, 102, 3)",
+                  "(4, 103, 9)"]
+
+#: the shipped entries' SHAPE, hard-coded so the pin test in
+#: test_generator.py detects drift rather than restating it
+FK_PARENT_ENTRY = {
+    "class": "merge",
+    "merge_keys": ["type"],
+    "surrogate_pk": "id",
+    "cols": ["id", "type", "name", "description", "active"],
+}
+FK_CHILD_ENTRY = {
+    "class": "copy",
+    # the real entry copies nine columns; the claim is about one
+    "cols": ["id", "demographic_no", "consent_type_id"],
+    "fk_remap": {"consent_type_id": "consentType"},
+}
+
+
+def check_fk_remap_by_name(client: Client, src: str, dst: str,
+                           arch: str) -> List[str]:
+    """A copied id into a merged parent lands on the right row, judged by
+    the row's NAME after the real merge + id map + copy.
+
+    This is the claim P7 cannot make. Its value checks verify that the
+    target holds what the manifest's expressions produced -- and for a
+    raw copy that is the raw id, faithfully. The negative control below
+    reproduces the original defect and shows `copy_value_mismatch_sql`
+    returning 0 on it: a correct copy of a now-wrong reference is invisible
+    downstream, which is why the guard lives in the generator.
+    """
+    try:
+        return _fk_remap_body(client, src, dst, arch)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+                   "`{1}`; DROP DATABASE IF EXISTS `{2}`;".format(
+                       src, dst, arch))
+
+
+def _fk_remap_body(client: Client, src: str, dst: str,
+                   arch: str) -> List[str]:
+    failures: List[str] = []
+    for schema, charset in ((src, "latin1"), (dst, "utf8mb4"),
+                            (arch, "utf8mb4")):
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "DEFAULT CHARSET={1};".format(schema, charset))
+    client.setup(FK_PARENT_SRC_DDL + ";" + FK_CHILD_SRC_DDL + ";", src)
+    client.setup("INSERT INTO consentType VALUES {0}; INSERT INTO Consent "
+                 "VALUES {1};".format(", ".join(FK_PARENT_STAGE),
+                                      ", ".join(FK_CHILD_STAGE)), src)
+    client.setup(FK_PARENT_DST_DDL + ";" + FK_CHILD_DST_DDL + ";", dst)
+    client.setup("INSERT INTO consentType VALUES {0};".format(
+        FK_PARENT_SEED), dst)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    info = o19etl.introspect_columns(query, dst)
+    parent_cols, child_cols = info["consentType"], info["Consent"]
+
+    # the real sequence: etl_merge_table's snapshot, anti-join and id map,
+    # then the child's copy through that map
+    for sql in o19etl.archive_statements(
+            "consentType", dst, arch, o19etl.preseed_table("consentType")):
+        client.setup(sql + ";", dst)
+    client.setup(o19etl.merge_statement(
+        "consentType", FK_PARENT_ENTRY, src, dst, parent_cols) + ";", dst)
+    for sql in o19etl.idmap_statements("consentType", FK_PARENT_ENTRY, src,
+                                       dst, arch, parent_cols):
+        client.setup(sql + ";", dst)
+    client.setup(o19etl.copy_statement(
+        "Consent", FK_CHILD_ENTRY, src, dst, child_cols,
+        archive_schema=arch) + ";", dst)
+
+    print("\n  copied id into a merged parent (fk_remap, by name)")
+    by_name = {r[0]: r[1] for r in client.rows(
+        "SELECT c.demographic_no, t.type FROM Consent c JOIN consentType t "
+        "ON t.id = c.consent_type_id ORDER BY c.demographic_no", dst)}
+    want = {"100": "integrator_patient_consent",
+            "101": "electronic_communication_consent",
+            "102": "research_registry"}
+    ok = by_name == want
+    print("    {0:<44} {1}".format(
+        "every consent names the clinic's type",
+        "ok" if ok else "WRONG: {0}".format(by_name)))
+    if not ok:
+        failures.append("Consent rows landed on the wrong type by name: "
+                        "{0}, expected {1}".format(by_name, want))
+
+    dangling = client.rows("SELECT consent_type_id IS NULL FROM Consent "
+                           "WHERE demographic_no = 103", dst)[0][0]
+    (_col, _parent, unmapped_sql), = o19etl.fk_unmapped_count_sql(
+        "Consent", FK_CHILD_ENTRY, src, arch)
+    reported = client.rows(unmapped_sql, dst)[0][0]
+    ok = dangling == "1" and reported == "1"
+    print("    {0:<44} {1}".format(
+        "a dangling id becomes NULL and is reported",
+        "ok" if ok else "NULL={0} reported={1}".format(dangling, reported)))
+    if not ok:
+        failures.append("the dangling reference was not nulled (NULL={0}) "
+                        "or not reported ({1})".format(dangling, reported))
+
+    idmap = {r[0]: r[1] for r in client.rows(
+        "SELECT old_id, new_id FROM `{0}`.`{1}` ORDER BY old_id".format(
+            arch, o19etl.idmap_table("consentType")), dst)}
+    live = client.rows("SELECT COUNT(*) FROM consentType", dst)[0][0]
+    ok = idmap == {"1": "3", "2": "2", "3": "4"} and live == "4"
+    print("    {0:<44} {1}".format(
+        "the seed won its twin; the rest appended",
+        "ok" if ok else "map={0} live={1}".format(idmap, live)))
+    if not ok:
+        failures.append("id map {0} / live rows {1}; expected {{1:3, 2:2, "
+                        "3:4}} and 4".format(idmap, live))
+
+    # P7 agrees with the faithful run
+    seed_n = client.rows(o19etl.merge_seed_change_sql(
+        "consentType", dst, arch, parent_cols, ("id",),
+        ["id", "type", "name", "description", "active"]), dst)[0][0]
+    app_n = client.rows(o19etl.merge_appended_mismatch_sql(
+        "consentType", FK_PARENT_ENTRY, src, dst, arch, parent_cols,
+        ("id",)), dst)[0][0]
+    copy_n = client.rows(o19etl.copy_value_mismatch_sql(
+        "Consent", FK_CHILD_ENTRY, src, dst, child_cols, ("id",),
+        archive_schema=arch), dst)[0][0]
+    ok = seed_n == app_n == copy_n == "0"
+    print("    {0:<44} {1}".format(
+        "P7 agrees with the faithful run",
+        "ok" if ok else "seed={0} appended={1} copy={2}".format(
+            seed_n, app_n, copy_n)))
+    if not ok:
+        failures.append("a P7 value check false-alarmed on the faithful "
+                        "run (seed {0}, appended {1}, copy {2})".format(
+                            seed_n, app_n, copy_n))
+
+    # negative control: the defect as shipped before the guard. Copy the
+    # child RAW (no fk_remap) and watch demographic 100's integrator
+    # consent become the demonstration consent -- while P7's value check
+    # on that raw entry still reports nothing wrong.
+    raw_entry = {k: v for k, v in FK_CHILD_ENTRY.items() if k != "fk_remap"}
+    client.setup("TRUNCATE TABLE Consent;" + o19etl.copy_statement(
+        "Consent", raw_entry, src, dst, child_cols) + ";", dst)
+    misfiled = client.rows(
+        "SELECT t.type FROM Consent c JOIN consentType t ON t.id = "
+        "c.consent_type_id WHERE c.demographic_no = 100", dst)[0][0]
+    blind = client.rows(o19etl.copy_value_mismatch_sql(
+        "Consent", raw_entry, src, dst, child_cols, ("id",)), dst)[0][0]
+    ok = misfiled == "default_consent_entry" and blind == "0"
+    print("    {0:<44} {1}".format(
+        "the raw copy misfiles, and P7 cannot see it",
+        "reproduced" if ok else "type={0} P7={1}".format(misfiled, blind)))
+    if not ok:
+        failures.append(
+            "the negative control did not reproduce the defect (raw copy "
+            "filed demographic 100 under {0}; P7 reported {1}) -- if the "
+            "raw copy no longer misfiles, the seeds have converged and "
+            "this fixture's premise needs re-checking".format(
+                misfiled, blind))
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -1440,6 +1656,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                                 args.prefix + "_mva")
     if merged:
         failures["merge values"] = merged
+    remapped = check_fk_remap_by_name(client, args.prefix + "_fks",
+                                      args.prefix + "_fkd",
+                                      args.prefix + "_fka")
+    if remapped:
+        failures["fk remap"] = remapped
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
@@ -1462,7 +1683,9 @@ def main(argv: Optional[List[str]] = None) -> int:
           "the appended rows hold what the merge wrote, the dropped "
           "columns are backfilled -- do the same on both merge shapes "
           "(surrogate id paired through the map, and natural key with "
-          "merge_exclude)")
+          "merge_exclude), and a copied id into a merged parent lands on "
+          "the right row by NAME while the raw copy it replaces "
+          "demonstrably does not")
     return 0
 
 

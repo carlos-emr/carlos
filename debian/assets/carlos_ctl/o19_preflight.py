@@ -64,7 +64,7 @@ import subprocess
 import sys
 
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
-SCHEMA_MAP_VERSION = 'o19map-2+541b9f40'
+SCHEMA_MAP_VERSION = 'o19map-2+d6061d0a'
 REQUIRED_TABLES = [
     'Facility',
     'clinic',
@@ -182,7 +182,7 @@ KNOWN_TABLES = {
     'FunctionalCentre': 'copy',
     'GroupNoteLink': 'copy',
     'HL7HandlerMSHMapping': 'merge',
-    'HRMCategory': 'reference',
+    'HRMCategory': 'merge',
     'HRMDocument': 'copy',
     'HRMDocumentComment': 'copy',
     'HRMDocumentSubClass': 'copy',
@@ -311,7 +311,7 @@ KNOWN_TABLES = {
     'clinic_nbr': 'copy',
     'complaint': 'archive',
     'config_Immunization': 'reference',
-    'consentType': 'reference',
+    'consentType': 'merge',
     'consultResponseDoc': 'copy',
     'consultationRequestExt': 'copy',
     'consultationRequests': 'copy',

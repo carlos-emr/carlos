@@ -516,6 +516,20 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
                          self.mod.ENTRY["surrogate_pk"])
         self.assertEqual(entry["cols"], self.mod.ENTRY["cols"])
 
+    def test_the_fk_oracle_drives_the_shipped_consent_entries(self):
+        # the fixture merges consentType and copies Consent through its
+        # id map; if either shipped entry drifts, the oracle proves a
+        # shape the import no longer runs
+        parent = o19map_schema.TABLES["consentType"]
+        self.assertEqual(parent["merge_keys"],
+                         self.mod.FK_PARENT_ENTRY["merge_keys"])
+        self.assertEqual(parent["surrogate_pk"],
+                         self.mod.FK_PARENT_ENTRY["surrogate_pk"])
+        self.assertEqual(set(self.mod.FK_PARENT_ENTRY["cols"]),
+                         set(parent["cols"]))
+        self.assertEqual(o19map_schema.TABLES["Consent"]["fk_remap"],
+                         self.mod.FK_CHILD_ENTRY["fk_remap"])
+
     def test_the_charset_samples_all_survive_a_cp1252_round_trip(self):
         # MySQL's latin1 is CP1252: a sample whose UTF-8 bytes are not
         # decodable as CP1252 could not be stored by a real O19 either, so
@@ -596,6 +610,189 @@ class TestPreservedColumnsFitTheRow(unittest.TestCase):
 
 
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestForeignKeyRefusals(unittest.TestCase):
+    """`build_tables` refuses to emit a manifest while a copied id names a
+    table whose ids the import does not keep, and each ruling that lets
+    it through means what it says.
+
+    The defect this guards: `consentType` was ruled `reference` while
+    `Consent.consent_type_id` was copied raw, and the two seeds disagree
+    on id 1 -- so every clinic's integrator consent arrived filed as the
+    demonstration consent, and P7 passed because the value was copied
+    faithfully. Driven over synthetic two-table schemas: the shipped
+    overlay has every case ruled, so the refusal is unreachable from it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gen = load_generator()
+
+    def overlay(self, **kw):
+        ns = types.SimpleNamespace(
+            CLASS_MERGE={}, CLASS_REFERENCE=set(), ARCHIVE_PATIENT=set(),
+            ARCHIVE_OTHER=set(), DROP=set(), B3_COLUMNS=set(),
+            CHARSET_SCAN={}, CHUNK_TABLES=set())
+        for k, v in kw.items():
+            setattr(ns, k, v)
+        return ns
+
+    def schemas(self, tables, int_cols=("id",)):
+        """Both sides identical; `int_cols` are typed int so the generator
+        can see a surrogate PK (its rule needs "int" in the PK's type)."""
+        o19 = self.gen.Schema("union")
+        carlos = self.gen.Schema("skip")
+        for schema in (o19, carlos):
+            for name, cols in tables.items():
+                schema.tables[name] = {
+                    c: ("int(11)" if c in int_cols else "varchar(20)")
+                    for c in cols}
+                schema.pks[name] = [list(cols)[0]]
+        return o19, carlos
+
+    #: the shape of the defect: a child whose column NAMES the parent
+    FK_SHAPED = {"consentType": ["id", "type"],
+                 "Consent": ["id", "consent_type_id"]}
+
+    def build(self, ov, tables=None, **kw):
+        o19, carlos = self.schemas(tables or self.FK_SHAPED, **kw)
+        return self.gen.build_tables(o19, carlos, ov)
+
+    def test_a_reference_parent_named_by_a_child_column_refuses(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(CLASS_REFERENCE={"consentType"}))
+        text = str(caught.exception)
+        self.assertIn("unruled foreign key", text)
+        self.assertIn("Consent.consent_type_id -> consentType", text)
+        self.assertIn("reference", text)
+        self.assertIn("NOT_FK", text)
+
+    def test_a_surrogate_merge_parent_named_by_a_child_column_refuses(
+            self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(CLASS_MERGE={"consentType": ["type"]}))
+        text = str(caught.exception)
+        self.assertIn("Consent.consent_type_id -> consentType", text)
+        self.assertIn("surrogate", text)
+
+    def test_an_fk_remap_ruling_lets_generation_through(self):
+        tables = self.build(self.overlay(
+            CLASS_MERGE={"consentType": ["type"]},
+            FK_REMAP={"Consent": {"consent_type_id": "consentType"}}))
+        self.assertEqual(tables["Consent"]["fk_remap"],
+                         {"consent_type_id": "consentType"})
+        self.assertEqual(tables["consentType"]["surrogate_pk"], "id")
+
+    def test_a_not_fk_ruling_lets_generation_through(self):
+        tables = self.build(self.overlay(
+            CLASS_REFERENCE={"consentType"},
+            NOT_FK={("Consent", "consent_type_id"):
+                    "both seeds agree on every id (compared 2026-09)"}))
+        self.assertEqual(tables["Consent"]["class"], "copy")
+        self.assertNotIn("fk_remap", tables["Consent"])
+
+    def test_a_blank_not_fk_reason_is_not_a_ruling(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(
+                CLASS_REFERENCE={"consentType"},
+                NOT_FK={("Consent", "consent_type_id"): "   "}))
+        self.assertIn("has no reason", str(caught.exception))
+
+    def test_a_not_fk_ruling_that_no_longer_applies_is_stale(self):
+        # the parent is copy-class here, so its ids ARE kept and nothing
+        # is flagged: the ruling now excuses nothing
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(
+                NOT_FK={("Consent", "consent_type_id"): "a reason"}))
+        self.assertIn("stale entry", str(caught.exception))
+
+    def test_a_column_ruled_both_ways_refuses(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.build(self.overlay(
+                CLASS_MERGE={"consentType": ["type"]},
+                FK_REMAP={"Consent": {"consent_type_id": "consentType"}},
+                NOT_FK={("Consent", "consent_type_id"): "a reason"}))
+        self.assertIn("one ruling, not both", str(caught.exception))
+
+    def test_a_parent_whose_ids_are_kept_is_not_flagged(self):
+        with self.subTest("copy-class parent keeps its ids"):
+            tables = self.build(self.overlay())
+            self.assertEqual(tables["Consent"]["class"], "copy")
+        with self.subTest("a merge on its own PK keeps its ids"):
+            tables = self.build(
+                self.overlay(CLASS_MERGE={"consentType": ["id"]}),
+                int_cols=())
+            self.assertNotIn("surrogate_pk", tables["consentType"])
+
+    def test_the_convention_folds_case_and_underscores_and_nothing_else(
+            self):
+        parents = {"consenttype": "consentType",
+                   "hrmcategory": "HRMCategory",
+                   "criteriatype": "criteria_type",
+                   "ticklercategory": "tickler_category"}
+        by_name = self.gen.fk_parent_by_name
+        self.assertEqual(by_name("consent_type_id", parents), "consentType")
+        self.assertEqual(by_name("hrmCategoryId", parents), "HRMCategory")
+        self.assertEqual(by_name("CRITERIA_TYPE_ID", parents),
+                         "criteria_type")
+        self.assertIsNone(by_name("id", parents))
+        # the documented blind spot: `category_id` does not name
+        # tickler_category by convention; it is ruled in FK_REMAP by hand
+        self.assertIsNone(by_name("category_id", parents))
+
+
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestForeignKeyRulings(unittest.TestCase):
+    """The shipped manifest, read by the generator's own rule.
+
+    This is the copy that guards a pull request: the generator itself
+    only runs with an O19 checkout, which CI does not have, so the rule
+    is re-applied here to the manifest as shipped."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gen = load_generator()
+        cls.flagged = cls.gen.flagged_fk_columns(o19map_schema.TABLES)
+
+    def test_the_rule_still_sees_the_columns_it_was_written_for(self):
+        """A rule that matched nothing would make the assertion below
+        pass vacuously."""
+        self.assertIn(("Consent", "consent_type_id", "consentType"),
+                      self.flagged)
+        self.assertIn(("LookupListItem", "lookupListId", "LookupList"),
+                      self.flagged)
+
+    def test_every_id_shaped_column_into_a_renumbered_parent_is_ruled(
+            self):
+        unruled = [
+            "{}.{} -> {}".format(t, c, p) for t, c, p in self.flagged
+            if c not in o19map_schema.TABLES[t].get("fk_remap", {})]
+        self.assertEqual(
+            unruled, [],
+            "copied id(s) into a table whose ids the import does not "
+            "keep, with no FK_REMAP: copied raw, each points at whichever "
+            "CARLOS row happens to hold that id. Rule each in "
+            "overrides_schema.py and regenerate.")
+
+    def test_consent_rows_follow_their_type_through_the_id_map(self):
+        parent = o19map_schema.TABLES["consentType"]
+        self.assertEqual(parent["class"], "merge")
+        self.assertEqual(parent["merge_keys"], ["type"])
+        self.assertEqual(parent["surrogate_pk"], "id")
+        self.assertEqual(o19map_schema.TABLES["Consent"]["fk_remap"],
+                         {"consent_type_id": "consentType"})
+        self.assertEqual(o19map_schema.SEED_ROW_COUNTS["consentType"], 2)
+
+    def test_hrm_documents_follow_their_category_through_the_id_map(self):
+        parent = o19map_schema.TABLES["HRMCategory"]
+        self.assertEqual(parent["class"], "merge")
+        self.assertEqual(parent["merge_keys"], ["subClassNameMnemonic"])
+        self.assertEqual(parent["surrogate_pk"], "id")
+        for child in ("HRMDocument", "HRMSubClass"):
+            self.assertEqual(o19map_schema.TABLES[child]["fk_remap"],
+                             {"hrmCategoryId": "HRMCategory"}, child)
+        self.assertEqual(o19map_schema.SEED_ROW_COUNTS["HRMCategory"], 20)
+
+
 class TestRenameRefusals(unittest.TestCase):
     """`build_tables` refuses to emit a manifest while a rename might be
     hiding, and each refusal has an escape hatch that actually works.

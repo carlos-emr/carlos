@@ -63,9 +63,9 @@ CLASS_REFERENCE = {
     "OscarJob", "OscarJobType", "OscarCode", "oscar_msg_type",
     "fax_config",                    # CARLOS fax is SRFax/DB-configured
     "documentDescriptionTemplate",   # CARLOS-era feature seed
-    "HRMCategory", "CdsFormOption", "batchEligibility", "CtlRelationships",
+    "CdsFormOption", "batchEligibility", "CtlRelationships",
     "specialty", "ContactSpecialty",
-    "config_Immunization", "consentType",
+    "config_Immunization",
 }
 
 # Seeded tables whose ids clinic data references: delete seeds, copy clinic
@@ -123,6 +123,20 @@ CLASS_MERGE = {
     "app_lookuptable_fields": ["tableid", "fieldname"],
     "LookupList": ["name"],
     "LookupListItem": ["lookupListId", "value"],
+    # consentType.type is the code the application looks a consent up by
+    # (ConsentTypeDao.findConsentType); name is its label. Ruled
+    # `reference` until 2026-09, which filed every clinic's Consent rows
+    # under CARLOS's seed by RAW id -- and the seeds disagree on id 1
+    # (CARLOS default_consent_entry, O19 integrator_patient_consent), so
+    # integrator consents arrived as "Demonstration Consent". The id is a
+    # surrogate; Consent reads it through the id map (FK_REMAP below).
+    "consentType": ["type"],
+    # HRM matches an incoming report on the mnemonic
+    # (HRMCategoryDao.findBySubClassNameMnemonic -- a bare getSingleResult
+    # that throws on a second row per mnemonic), and the two seeds spell
+    # the DEFAULT row differently by NAME, so the mnemonic is the key: the
+    # ten stock rows twin id-for-id and only clinic-added categories move.
+    "HRMCategory": ["subClassNameMnemonic"],
     "quickList": ["quickListName", "dxResearchCode"],
     "tickler_category": ["category"],
     "tickler_text_suggest": ["suggested_text"],
@@ -220,6 +234,11 @@ ROLE_TEMPLATE_MIN_JACCARD = 0.3
 # child -> {column: parent}. Parents are processed before children.
 FK_REMAP = {
     "LookupListItem": {"lookupListId": "LookupList"},
+    # flagged by the generator's unruled-FK refusal (see NOT_FK): each names
+    # a parent whose ids the import does not keep
+    "Consent": {"consent_type_id": "consentType"},
+    "HRMDocument": {"hrmCategoryId": "HRMCategory"},
+    "HRMSubClass": {"hrmCategoryId": "HRMCategory"},
     "criteria_type_option": {"CRITERIA_TYPE_ID": "criteria_type"},
     "criteria": {"CRITERIA_TYPE_ID": "criteria_type"},
     "consultationRequests": {"serviceId": "consultationServices"},
@@ -465,6 +484,26 @@ NOT_RENAMES = {
 # That is the intended steady state: the check costs nothing until the day
 # a rename lands.
 NOT_RENAMED_TABLES = {}
+
+# Ruled NOT a foreign key into a renumbered parent: (table, column) -> why.
+# The generator flags any copied column named <parent>_id / <parent>Id /
+# <parent>_no (case- and underscore-folded, anchored at the end of the
+# name) whose parent is reference-class (the clinic's ids never land) or
+# merge-class with a surrogate id (appended rows are renumbered) and has
+# no FK_REMAP entry. Copied raw, such an id points at whichever CARLOS row
+# happens to hold it -- consentType's two seeds disagree on id 1, so every
+# clinic's integrator consent arrived filed as the demonstration consent,
+# and P7 passed because the value was copied faithfully.
+#
+# Names, not semantics: a key that does not follow the convention
+# (tickler.category_id into tickler_category, consultationRequests.
+# serviceId) is invisible to it and is ruled in FK_REMAP by hand. A reason
+# here for a reference-class parent is a claim that BOTH seeds agree on
+# EVERY id; state which seeds were compared.
+#
+# Empty against oscaremr/oscar a7900d56 -- every flagged column is ruled
+# in FK_REMAP. That is the intended steady state.
+NOT_FK = {}
 
 # Big tables copied in PK windows (single-column integer PK verified by the
 # generator at emission time).
