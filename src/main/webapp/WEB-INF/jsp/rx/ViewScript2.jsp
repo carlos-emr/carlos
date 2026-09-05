@@ -39,6 +39,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxSatelliteClinicAddress" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
@@ -205,16 +206,11 @@
                 for (int i = 0; i < sites.size(); i++) {
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
-                    String addressHtml = "<b>" + encodedDoctorName + "</b><br>"
-                            + SafeEncode.forHtml(s.getName()) + "<br>"
-                            + SafeEncode.forHtml(s.getAddress()) + "<br>"
-                            + SafeEncode.forHtml(s.getCity()) + ", "
-                            + SafeEncode.forHtml(s.getProvince()) + " "
-                            + SafeEncode.forHtml(s.getPostal()) + "<br>"
-                            + encodedTelLabel + ": "
-                            + SafeEncode.forHtml(s.getPhone()) + "<br>"
-                            + encodedFaxLabel + ": "
-                            + SafeEncode.forHtml(s.getFax());
+                    // One composer for this block on both ends: FrmCustomedPDFServlet parses the
+                    // chosen block back out of scAddress AND recomputes the blocks this provider was
+                    // offered, so a fax cannot carry a clinic header the request made up.
+                    String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, s.getName(), s.getAddress(),
+                            s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
                         session.setAttribute("RX_ADDR", String.valueOf(i));
@@ -252,16 +248,12 @@
 
                 for (int i = 0; i < temp0.length; i++) {
                     vecAddressName.add(temp0[i]);
-                    String addressHtml = "<b>" + encodedDoctorName + "</b><br>"
-                            + SafeEncode.forHtml(temp0[i]) + "<br>"
-                            + SafeEncode.forHtml(temp1[i]) + "<br>"
-                            + SafeEncode.forHtml(temp2[i]) + ", "
-                            + SafeEncode.forHtml(temp3[i]) + " "
-                            + SafeEncode.forHtml(temp4[i]) + "<br>"
-                            + encodedTelLabel + ": "
-                            + SafeEncode.forHtml(temp5[i]) + "<br>"
-                            + encodedFaxLabel + ": "
-                            + SafeEncode.forHtml(temp6[i]);
+                    // Every list is indexed by the name list; a shorter one reads as blank (RxSatelliteClinicAddress.at).
+                    String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, temp0[i],
+                            RxSatelliteClinicAddress.at(temp1, i), RxSatelliteClinicAddress.at(temp2, i),
+                            RxSatelliteClinicAddress.at(temp3, i), RxSatelliteClinicAddress.at(temp4, i),
+                            RxSatelliteClinicAddress.at(temp5, i), RxSatelliteClinicAddress.at(temp6, i),
+                            encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                 }
             }
@@ -347,6 +339,17 @@
             }
 
 
+            /*
+             * The most recent Additional Notes save, so a fax can wait for it. A fax renders
+             * additNotes from the STORED prescription row (FrmCustomedPDFServlet.bindFaxContentToRecord
+             * replaces the posted value, deliberately, so a caller cannot print arbitrary text above
+             * another prescriber's signature). addNotes() saves that row with a fire-and-forget
+             * fetch, and the textarea's own onchange fires as focus leaves it for the Fax button --
+             * so without this the fax POST races the save, and a note the clinician just typed, and
+             * can still see in the preview, is silently absent from the outgoing fax.
+             */
+            var pendingNotesSave = Promise.resolve();
+
             function onPrint2(method, scriptId) {
                 var useSC = false;
                 var scAddress = "";
@@ -362,11 +365,26 @@
                 <%}
             }%>
                 let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
-                document.getElementById("preview").contentWindow.document.getElementById("preview2Form").action = action;
-                if (method !== "oscarRxFax") {
-                    document.getElementById("preview").contentWindow.document.getElementById("preview2Form").target = "_blank";
+                var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
+                previewForm.action = action;
+                if (method === "oscarRxFax") {
+                    // Only the fax waits. A print renders additNotes from the request, which
+                    // addNotes() already updated synchronously, so there is nothing to wait for --
+                    // and deferring a target="_blank" submit out of the click's user-gesture context
+                    // would hand it to the popup blocker.
+                    pendingNotesSave.then(function () {
+                        // Set the target at submit time, not click time: a print in the same modal
+                        // leaves target="_blank" on this shared form, and the fax must post back into
+                        // the modal, never open a tab. Doing it here also covers a print that lands
+                        // while this fax is still waiting on the notes save.
+                        previewForm.target = "";
+                        previewForm.action = action;
+                        previewForm.submit();
+                    });
+                } else {
+                    previewForm.target = "_blank";
+                    previewForm.submit();
                 }
-                document.getElementById("preview").contentWindow.document.getElementById("preview2Form").submit();
 
                 return true;
             }
@@ -397,11 +415,31 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
-                fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
-                    credentials: 'same-origin',
-                    body: params
+                // CHAIN onto the previous save, never replace it. Two edits in quick succession
+                // (type, blur, type, blur) would otherwise leave pendingNotesSave holding only the
+                // second request: if that one resolved first the fax would submit while the first
+                // was still in flight, and the first committing afterwards would overwrite the row
+                // with the older note -- the same stale-note fax this is meant to prevent, just
+                // harder to see. Chaining serializes the writes AND makes the fax await all of them.
+                //
+                // A non-2xx is a failed save: fetch() only rejects on network errors, so a CSRF
+                // rejection or a 500 would otherwise resolve and let the fax race ahead silently.
+                // The trailing catch keeps the chain usable -- an unrecovered rejection would block
+                // every later fax on this page -- and a fax that proceeds after one carries the
+                // previously stored note, the same outcome as before this was made awaitable.
+                pendingNotesSave = pendingNotesSave.then(function () {
+                    return fetch(url, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
+                        credentials: 'same-origin',
+                        body: params
+                    }).then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('ViewAddRxComment returned HTTP ' + response.status);
+                        }
+                    });
+                }).catch(function (e) {
+                    console.warn('Additional notes save failed; faxing the stored note', e);
                 });
                 var additNotesEl = frames['preview'].document.getElementById('additNotes');
                 additNotesEl.style.whiteSpace = 'pre-wrap';

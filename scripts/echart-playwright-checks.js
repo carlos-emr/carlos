@@ -141,7 +141,10 @@ async function loginAndOpenSearch(context) {
   await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
+  // login/index.jsp renders #pin only when MfaManager.isOscarLegacyPinEnabled(); filling it
+  // unconditionally throws on an install with the legacy PIN disabled and the check never runs.
+  const pin = page.locator('#pin');
+  if ((await pin.count()) > 0) await pin.fill(testPin);
   await Promise.all([
     page.waitForURL(/providercontrol/, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
