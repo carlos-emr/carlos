@@ -309,7 +309,12 @@ starting `Rich Text Letter Generator`, as the database compares them); the
 step re-reads the row afterwards and reports "modernised" only when it is,
 otherwise it says what to apply by hand (an edited subject). A form that
 was disabled stays disabled; a clinic with no stock row gets a new, enabled
-Rich Text Letter. The per-run files are retired with the same
+Rich Text Letter. Retiring an eForm in OSCAR/CARLOS is a soft delete
+(`status` 0), so a clinic that replaced its template legitimately holds a
+retired `Rich Text Letter` row beside the live one: the retired row is left
+retired and reported as an advisory, and only more than one ENABLED
+addressable row is a P7 failure (that one is the v1 seed applied twice, and
+disabling all but one clears it). The per-run files are retired with the same
 `.completed-<timestamp>` suffix as `state.json` when the import is cleaned
 up, so a later import in the same directory starts its own: `report.txt`,
 `import-report.txt`, `import-report.json`, `etl-progress.json`,

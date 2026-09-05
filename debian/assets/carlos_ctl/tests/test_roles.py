@@ -522,6 +522,25 @@ class TestRichTextLetter(unittest.TestCase):
         self.assertIn(o19roles.RTL_ENABLE_SCRIPT, scripts)
         self.assertTrue(any("left disabled" in n for n in notes))
 
+    def test_a_retired_template_beside_the_live_one_stays_retired(self):
+        # replacing the Rich Text Letter template and retiring the old one
+        # is a SOFT delete, so both rows are addressable by the packaged
+        # scripts and the enable script (which carries no status term)
+        # would switch the retired one back on
+        retired = ("5", "Rich Text Letter", "0",
+                   "Rich Text Letter Generator v2.0", "0", "1", "1", "0")
+        live = ("90", "Rich Text Letter", "1",
+                "Rich Text Letter Generator v2.1", "0", "1", "1", "0")
+        disable, scripts, restore, notes = o19roles.rtl_plan([retired, live])
+        self.assertEqual(disable, [])
+        self.assertEqual(restore, ["5"])
+        self.assertEqual(scripts, list(o19roles.RTL_FIXUP_SCRIPTS))
+        joined = "\n".join(notes)
+        # the note used to diagnose the cause, and got it wrong here: the
+        # clinic did enable this form, then replaced and retired it
+        self.assertNotIn("never enabled it", joined)
+        self.assertIn("or the clinic retired it", joined)
+
     def test_letter_named_row_is_disabled_and_seed_added_when_absent(self):
         rows = [("1", "letter", "1", "letter generator", "0", "1", "0")]
         disable, scripts, restore, notes = o19roles.rtl_plan(rows)
@@ -734,6 +753,51 @@ class TestVerifyRoleChecks(unittest.TestCase):
             "carlos", "100001", 513)
         self.assertEqual(bad, [])
         self.assertTrue(any("Rich Text Letter" in a for a in adv))
+
+    #: the shape a clinic reaches by uploading a replacement Rich Text
+    #: Letter and retiring the old template. Retiring an eForm is a SOFT
+    #: delete (EFormUtil.delEForm sets status 0) and the same-name upload
+    #: guard counts live rows only, so BOTH rows are named `Rich Text
+    #: Letter` with an addressable subject -- a normal clinic state that
+    #: used to abort the whole import at P7, unclearably.
+    RTL_RETIRED = ["5", "Rich Text Letter", "0",
+                   "Rich Text Letter Generator 2026.3.0", "1", "0", "1", "0"]
+    RTL_LIVE = ["90", "Rich Text Letter", "1",
+                "Rich Text Letter Generator 2026.3.0", "1", "0", "1", "0"]
+
+    def test_a_retired_rtl_beside_the_live_one_is_not_a_failure(self):
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(rtl=[list(self.RTL_RETIRED),
+                                 list(self.RTL_LIVE)]),
+            "carlos", "100001", 513)
+        self.assertEqual(bad, [])
+        self.assertTrue(any("Rich Text Letter at 2026.3.0" in line
+                            for line in ok), ok)
+        # said, not silent: the packaged scripts have no status term, so
+        # the retired row's form_html and subject were rewritten too
+        self.assertTrue(any("retired" in a and "fid 5" in a for a in adv),
+                        adv)
+
+    def test_two_enabled_rtl_rows_still_fail_and_name_the_fids(self):
+        live_dupe = list(self.RTL_RETIRED)
+        live_dupe[2] = "1"
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(rtl=[live_dupe, list(self.RTL_LIVE)]),
+            "carlos", "100001", 513)
+        self.assertEqual(len(bad), 1, bad)
+        self.assertIn("ENABLED", bad[0])
+        # the remedy has to be able to clear the check, so it names the
+        # rows to disable rather than "the duplicate"
+        self.assertIn("fid 5, 90", bad[0])
+
+    def test_an_entirely_retired_rtl_is_reported_not_claimed_current(self):
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(rtl=[list(self.RTL_RETIRED)]),
+            "carlos", "100001", 513)
+        self.assertEqual(bad, [])
+        self.assertFalse(any("Rich Text Letter at 2026.3.0" in line
+                             for line in ok), ok)
+        self.assertTrue(any("is retired (disabled)" in a for a in adv), adv)
 
     def test_clinic_conditions_are_advisories_with_private_names(self):
         ok, bad, adv, private = o19roles.verify_role_checks(

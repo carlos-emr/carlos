@@ -800,11 +800,19 @@ def rtl_plan(rows: Sequence[Sequence[str]]
                              .format(fid))
             if str(status) == "0" and RTL_ENABLE_SCRIPT in scripts:
                 restore.append(fid)
+                # do not assert WHY it is off: retiring an eForm is a soft
+                # delete (status 0), so this is equally the O19 seed's
+                # shipped-disabled row and a template the clinic replaced
+                # and retired. Either way the enable script matches on name
+                # and subject with no status term, so it must be switched
+                # back off after the scripts run
                 notes.append("fid {0}: disabled in the clinic's O19 (the O19 "
-                             "seed ships it disabled and this clinic never "
-                             "enabled it, or switched it off) — modernised "
-                             "but left disabled; enable it in Administration "
-                             "> eForms if the clinic wants it".format(fid))
+                             "seed ships it disabled, or the clinic retired "
+                             "it) — the packaged scripts match on name and "
+                             "subject whatever the status, so it is "
+                             "modernised but left disabled; enable it in "
+                             "Administration > eForms if the clinic wants "
+                             "it".format(fid))
             if RTL_MODERNIZE_SCRIPT in scripts:
                 notes.append("fid {0}: form_html replaced by the 2026.3.0 "
                              "build (clinic edits to the template are not "
@@ -979,14 +987,30 @@ def verify_role_checks(query: Callable, dst_schema: str,
                           "job types (CARLOS ships none; configure in "
                           "Administration if the clinic used scheduled jobs)")
     rtl_rows = query(rtl_rows_sql(dst_schema))
-    canonical = sum(1 for r in rtl_rows if is_rtl_canonical(r))
-    if canonical > 1:
+    canonical = [r for r in rtl_rows if is_rtl_canonical(r)]
+    # count ENABLED rows only. Retiring an eForm is a SOFT delete
+    # (EFormUtil.delEForm sets status 0) and CARLOS's own same-name guard
+    # counts live rows only, so a clinic that replaced its Rich Text
+    # Letter template legitimately holds a retired row beside the live
+    # one. Counting retired rows here failed the whole import on that
+    # normal clinic — and unclearably, because the predicate is
+    # status-blind: disabling "the duplicate" left the count where it was
+    enabled = [r for r in canonical if str(r[2]) != "0"]
+    retired = [r for r in canonical if str(r[2]) == "0"]
+    if len(enabled) > 1:
         # the v1 seed ran twice (it is a bare INSERT): row parity tolerates
-        # one synthesised eform row, never two identical forms
-        problems.append("{0} Rich Text Letter rows addressable by the "
-                        "packaged scripts (the v1 seed was applied more "
-                        "than once) — disable the duplicate in "
-                        "Administration > eForms".format(canonical))
+        # one synthesised eform row, never two live identical forms
+        problems.append("{0} ENABLED Rich Text Letter rows addressable by "
+                        "the packaged scripts (fid {1}) — the v1 seed was "
+                        "applied more than once; disable all but one in "
+                        "Administration > eForms and --resume".format(
+                            len(enabled),
+                            ", ".join(str(r[0]) for r in enabled)))
+    elif not enabled and canonical:
+        advisories.append("every Rich Text Letter row the packaged scripts "
+                          "address is retired (disabled) in this clinic — "
+                          "left retired; enable one in Administration > "
+                          "eForms if the clinic wants the form")
     elif rtl_current(rtl_rows):
         ok.append("Rich Text Letter at 2026.3.0 with live attachment routes")
     else:
@@ -994,6 +1018,19 @@ def verify_role_checks(query: Callable, dst_schema: str,
                           "attachment routes — apply the packaged RTL "
                           "scripts by hand before go-live (see the roles: "
                           "Rich Text Letter report line)")
+    if retired and enabled:
+        # not a problem: the clinic retired it on purpose and the step put
+        # it back to status 0. Say so, because the packaged scripts have no
+        # status term and rewrote its form_html and subject on the way past
+        advisories.append("{0} retired (disabled) Rich Text Letter row(s) "
+                          "beside the live one (fid {1}) — left retired; "
+                          "the packaged scripts address rows by name and "
+                          "subject whatever the status, so their form_html "
+                          "and subject now carry the 2026.3.0 build too "
+                          "(the originals stay in the staging schema until "
+                          "--cleanup)".format(
+                              len(retired),
+                              ", ".join(str(r[0]) for r in retired)))
     return ok, problems, advisories, private
 
 
