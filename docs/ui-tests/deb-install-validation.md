@@ -261,6 +261,14 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).
+# Read-only: it opens the Ontario bill form for this appointment and switches the bill
+# type, but never submits a bill, so it seeds nothing and cleans nothing up. It asserts
+# billRegion travels on every self-navigation, which is what #3588 pinned -- an install
+# that has the `billregion` property set still routes correctly with the parameter
+# missing, so a status-only assertion would pass on a re-broken page.
+export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
+export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
 # Rich Text Letter print/PDF check (fixture c above); omit to skip only its template step.
 export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 # Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
