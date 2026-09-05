@@ -648,6 +648,9 @@ function recordIdentity() {
 function assertHeaderBound(runs) {
   const joined = runs.join('\n');
   const markers = {
+    // The outgoing fax line this run staged in fax_config: it selects the sending line and must
+    // never print as the clinic's call-back fax (the header carries the clinic's official number).
+    clinicFax: faxNumber,
     rxDate: forgedHeader.rxDate,
     clinicName: forgedHeader.clinicName.split('\n')[0],
     clinicPhone: forgedHeader.clinicPhone,

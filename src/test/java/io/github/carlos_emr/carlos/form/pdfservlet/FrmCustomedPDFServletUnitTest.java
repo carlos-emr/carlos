@@ -70,7 +70,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -247,7 +246,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             assertThat(response.getContentAsString()).contains("Unable to generate fax");
-            verify(faxJobDao, never()).persist(any()); // binding reads fax lines; dispatch never ran
+            verify(faxConfigDao, never()).findAll(any(), any());
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
         }
@@ -285,7 +284,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxConfigDao, atLeastOnce()).findAll(any(), any());
+            verify(faxConfigDao).findAll(any(), any());
             verify(faxJobDao, never()).persist(any());
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
@@ -327,7 +326,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(existingPdf).hasContent("existing pdf");
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).hasContent("existing pdf");
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxConfigDao, atLeastOnce()).findAll(any(), any());
+            verify(faxConfigDao).findAll(any(), any());
             verify(faxJobDao, never()).persist(any());
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
@@ -366,7 +365,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             assertThat(response.getContentAsString()).contains("Unable to generate fax");
             assertThat(faxDir.resolve("prescription_rx-123.txt")).isDirectory();
-            verify(faxJobDao, never()).persist(any()); // binding reads fax lines; dispatch never ran
+            verify(faxConfigDao, never()).findAll(any(), any());
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
@@ -1333,18 +1332,21 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should print the sending fax line only when it is a configured fax_config line")
-    void shouldBindClinicFax_toConfiguredLineOnly() throws Exception {
-        MockHttpServletRequest request = createFaxRequest(); // clinicFax 4165553434
+    @DisplayName("should print the clinic's official fax, never the outgoing line the request names")
+    void shouldBindClinicFax_toClinicOfficialFax() throws Exception {
+        MockHttpServletRequest request = createFaxRequest(); // clinicFax 4165553434 = the sending line
         stubStoredSignature();
-        FaxConfig line = new FaxConfig();
-        line.setFaxNumber("4165553434");
-        when(faxConfigDao.findAll(any(), any())).thenReturn(List.of(line));
+        stubPrescriberClinic(); // clinic row fax 9055550009
 
-        assertThat(new FrmCustomedPDFServlet().bindFaxContentToRecord(request).getParameter("clinicFax")).isEqualTo("4165553434");
+        assertThat(new FrmCustomedPDFServlet().bindFaxContentToRecord(request).getParameter("clinicFax")).isEqualTo("9055550009");
 
-        request.setParameter("clinicFax", "(416) 555-9999");
-        assertThat(new FrmCustomedPDFServlet().bindFaxContentToRecord(request).getParameter("clinicFax")).isEmpty();
+        // The prescriber's own faxnumber preference wins over the clinic row, as on the preview.
+        UserProperty faxPreference = new UserProperty();
+        faxPreference.setProviderNo("999998");
+        faxPreference.setName("faxnumber");
+        faxPreference.setValue("9055551234");
+        when(userPropertyDao.getProp("999998", "faxnumber")).thenReturn(faxPreference);
+        assertThat(new FrmCustomedPDFServlet().bindFaxContentToRecord(request).getParameter("clinicFax")).isEqualTo("9055551234");
     }
 
     @Test

@@ -913,8 +913,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *   <li>{@code rxDate}: the latest {@code rx_date} among the script's drugs, in the page's
      *       {@code "MMMM d, yyyy"} format — the same "latest in the stash" rule the preview uses.</li>
      *   <li>Clinic block: the prescriber's clinic as {@code RxProviderData} resolves it (clinic
-     *       table, overridden by the prescriber's own rxAddress/rxPhone preferences), composed as
-     *       the preview composes its {@code clinicName}. The preview's other branch — a program
+     *       table, overridden by the prescriber's own rxAddress/rxPhone/faxnumber preferences),
+     *       composed as the preview composes its {@code clinicName}; the printed fax is the
+     *       clinic's official number, never the outgoing line the request names in
+     *       {@code clinicFax} (that value still selects the sending line in {@code service()}). The preview's other branch — a program
      *       address from an {@code infirmaryView_programAddress} attribute — has no remaining
      *       setter in CARLOS, so it is not reproduced here. A satellite clinic ({@code useSC=true})
      *       is honoured only when the posted {@code scAddress}
@@ -949,13 +951,12 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 + nz(clinic.getClinicCity()) + "   " + nz(clinic.getClinicPostal());
         bound.put("clinicName", clinicName);
         bound.put("clinicPhone", clinic == null ? "" : nz(clinic.getClinicPhone()));
-        // clinicFax is the sending line the prescriber picked from the fax_config lines the page
-        // lists, and the header prints it as the pharmacy's call-back number. The fax itself only
-        // goes out when that value matches a configured line (the dispatch loop in service()), but
-        // the PDF is rendered and spooled before that match, so render the line only when it IS a
-        // configured one; anything else prints no fax number rather than a number the caller typed.
-        // Not the clinic's own fax on purpose: the page deliberately shows the line the fax left from.
-        bound.put("clinicFax", configuredFaxLine(req.getParameter("clinicFax")));
+        // The header's "Fax:" is the clinic's OFFICIAL fax number -- the clinic row's fax, or the
+        // prescriber's own "faxnumber" preference, exactly as RxProviderData resolves it for the
+        // preview -- not the outgoing line. The request's clinicFax is the fax_config line the fax
+        // is SENT from; service() still reads that from the original request to pick the line, but
+        // an outgoing line is only that, and it must not print as the pharmacy's call-back number.
+        bound.put("clinicFax", clinic == null ? "" : nz(clinic.getClinicFax()));
 
         // useSC/scAddress select a satellite clinic block that generatePDFDocumentBytes parses INSTEAD
         // of clinicName/clinicPhone/clinicFax. The flag is ALWAYS rebound, never read: it is true
@@ -993,30 +994,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             bound.put("origPrintDate", "");
             bound.put("numPrints", "");
         }
-    }
-
-    /**
-     * The digits of {@code requested} when they name a configured fax line ({@code fax_config.faxNumber},
-     * the same match the dispatch loop in {@link #service} applies), otherwise {@code ""}.
-     */
-    private String configuredFaxLine(String requested) {
-        if (requested == null) {
-            return "";
-        }
-        String digits = requested.trim().replaceAll("\\D", "");
-        if (digits.isEmpty()) {
-            return "";
-        }
-        List<FaxConfig> lines = faxConfigDao.findAll(null, null);
-        if (lines == null) {
-            return "";
-        }
-        for (FaxConfig line : lines) {
-            if (digits.equals(line.getFaxNumber())) {
-                return digits;
-            }
-        }
-        return "";
     }
 
     private static String nz(String value) {
