@@ -235,7 +235,15 @@ def image_refs(form_html: str) -> List[str]:
     after the token (a quoted value may carry spaces — `my scan[1].png`
     is a real form), HTML entities decoded, the `#fragment` dropped,
     anything after `&` (a second query parameter) cut, percent-encoding
-    undone — what the servlet reads as `imagefile`."""
+    undone — what the servlet reads as `imagefile`.
+
+    Decoded as a QUERY PARAMETER (`unquote_plus`), because that is what
+    `${oscar_image_path}` expands to (`/eform/displayImage?imagefile=`)
+    and `request.getParameter` form-decodes it: a literal `+` is a
+    space, `%2B` is a plus. Plain `unquote` left `+` alone, so a form
+    written `consent+form.png` for the asset `consent form.png` was a
+    blocking "missing image asset" that CARLOS would in fact serve, and
+    an asset literally named `logo+.png` passed while CARLOS 404s it."""
     refs = set()
     for m in IMAGE_TOKEN_RE.finditer(form_html):
         start = m.end()
@@ -262,7 +270,7 @@ def image_refs(form_html: str) -> List[str]:
             value = form_html[start:end]
         value = html_module.unescape(value)
         value = value.split("#", 1)[0].split("&", 1)[0]
-        value = urllib.parse.unquote(value)
+        value = urllib.parse.unquote_plus(value)
         if value:
             refs.add(value)
     return sorted(refs)

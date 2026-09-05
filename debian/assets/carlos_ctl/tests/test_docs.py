@@ -763,6 +763,42 @@ class TestEformImageRefs(unittest.TestCase):
                                  "logo.png", "bare.gif", "a.png",
                                  "sub/deep.png", "bg.png"]))
 
+    def test_a_plus_is_a_space_the_way_the_servlet_decodes_it(self):
+        # ${oscar_image_path} expands to a QUERY parameter and
+        # request.getParameter form-decodes it: `+` is a space, `%2B` is
+        # a plus. Decoding with unquote left `+` alone, so the two
+        # models disagreed in both directions
+        self.assertEqual(
+            o19docs.image_refs('<img src="${oscar_image_path}consent+form'
+                               '.png"><img src="${oscar_image_path}'
+                               'a%2Bb.png">'),
+            sorted(["consent form.png", "a+b.png"]))
+        root = tempfile.mkdtemp(prefix="o19docs-plus-")
+        self.addCleanup(shutil.rmtree, root)
+        os.makedirs(os.path.join(root, "document"))
+        images = os.path.join(root, "eform", "images")
+        os.makedirs(images)
+        for name in ("consent form.png", "a+b.png", "logo+.png"):
+            with open(os.path.join(images, name), "wb") as fh:
+                fh.write(b"png")
+
+        def query(sql):
+            if ".eform" in sql:
+                return [("3", "Consent",
+                         '<img src="${oscar_image_path}consent+form.png">'
+                         '<img src="${oscar_image_path}a%2Bb.png">'
+                         '<img src="${oscar_image_path}logo+.png">')]
+            return []
+
+        problems, lines, _private = o19docs.reconcile(query, "o19_import",
+                                                      root)
+        # the first two are served: `consent form.png` and `a+b.png` are
+        # what CARLOS opens. The third is what CARLOS 404s -- it opens
+        # `logo .png` -- and was a false pass before
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("missing image asset: logo .png", problems[0])
+        self.assertIn("3 eForm image reference(s) checked", lines)
+
     def test_a_percent_encoded_name_is_decoded_exactly_once(self):
         # image_refs already percent-decoded; decoding again in reconcile
         # would split a name that legitimately contains '#' or '&' and
