@@ -235,8 +235,17 @@ class TestSurrogateIdRemap(unittest.TestCase):
         # anti-join appended nothing) falls back to the target's first row
         self.assertIn("LEFT JOIN", insert)
         self.assertIn("d1 ON d1.`name` <=> s.`name` AND d1.rn = 1", insert)
-        self.assertIn("COALESCE(d.`id`, d1.`id`)", insert)
-        self.assertTrue(insert.endswith("IS NOT NULL"))
+        # BOTH occurrences, counted: the fallback appears in the SELECT
+        # list and again in the trailing WHERE, so `assertIn` alone was
+        # satisfied by either one. Deleting the SELECT-side fallback --
+        # the half that decides what is STORED -- left the whole suite
+        # green while a surplus twin's new_id became NULL against a
+        # BIGINT NOT NULL column, aborting P4 mid-merge.
+        self.assertEqual(insert.count("COALESCE(d.`id`, d1.`id`)"), 2)
+        stored = insert.split(" FROM ", 1)[0]
+        self.assertIn("COALESCE(d.`id`, d1.`id`)", stored)
+        self.assertTrue(insert.endswith(
+            "WHERE COALESCE(d.`id`, d1.`id`) IS NOT NULL"), insert[-90:])
 
     def test_the_source_partition_uses_the_rewritten_key(self):
         # value_exprs maps '' to NULL: two source rows with '' and NULL
@@ -248,8 +257,14 @@ class TestSurrogateIdRemap(unittest.TestCase):
         insert = next(x for x in stmts
                       if x.startswith('INSERT INTO'))
         self.assertIn("PARTITION BY NULLIF(s.`name`, '')", insert)
-        self.assertIn("d.`name` <=> NULLIF(s.`name`, '')", insert)
-        self.assertIn("d1.`name` <=> NULLIF(s.`name`, '')", insert)
+        # the same duplicate-substring trap: `d.` and `d1.` join
+        # predicates both appear, and the shorter one is a substring of
+        # neither -- but each occurs once, so pin the count as well as
+        # the presence
+        self.assertEqual(insert.count("d.`name` <=> NULLIF(s.`name`, '')"),
+                         1)
+        self.assertEqual(insert.count("d1.`name` <=> NULLIF(s.`name`, '')"),
+                         1)
 
     def test_no_idmap_without_surrogate(self):
         self.assertEqual(o19etl.idmap_statements(

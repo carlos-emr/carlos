@@ -106,6 +106,14 @@ Statements a modern server refuses outright (a 2006 definition such as
 `AUTO_INCREMENT` with no key, or an ALTER whose anchor column the model does
 not carry) are reported as "not comparable" rather than as disagreements.
 
+A probe table the script itself fails to build is counted and reported
+separately, and it exits 1. That is a hole in the oracle rather than in the
+generator, and it is not benign: the statements it hides are the widest
+tables in the schema, which are the clinical encounter forms. It was one
+before — a `varchar(191)` probe hit MariaDB's 65535-byte row cap at 86
+columns and InnoDB's 1017-column cap above that, so 649 statements were
+filed as "server refused" and the run still printed OK.
+
 Run it after any change to the reader. It found three defects on its first
 pass — a primary key recorded in the clause's spelling rather than the
 column's, `ADD COLUMN ... AFTER x` appending instead of positioning, and

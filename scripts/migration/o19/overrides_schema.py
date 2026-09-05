@@ -410,10 +410,25 @@ B3_COLUMNS = {
 # was compared. Re-run it when curating this file.
 RENAMES = {}
 
-# Ruled coincidental: (table, o19_column) -> why. Keyed by the individual
-# column rather than the table so that a NEW unmatched column in an
-# already-ruled table re-triggers the refusal instead of inheriting an
-# old blanket ruling.
+# Ruled coincidental: (table, o19_column) -> (why, the CARLOS columns the
+# ruling covers). Keyed by the individual column rather than the table so
+# that a NEW unmatched O19 column in an already-ruled table re-triggers the
+# refusal instead of inheriting an old blanket ruling.
+#
+# The second half of the value is why the ruling names the CARLOS columns
+# machine-checkably and not only in prose. A ruling is a statement about a
+# PAIR -- "this dropped O19 column is not the counterpart of THOSE unwritten
+# CARLOS columns" -- and CARLOS is the side under active Flyway development.
+# Keyed by the O19 column alone, a later migration that adds a CARLOS column
+# to an already-ruled table would inherit the old ruling and the new column
+# would face the drop unexamined: exactly the rename this namespace exists
+# to catch, on the side more likely to move. The generator refuses unless
+# the recorded columns are still the unwritten ones, so any change on either
+# side re-opens the ruling.
+#: named once: all seven ProviderPreference rulings face the same two
+#: CARLOS additions, and a list repeated seven times is a list that drifts
+_PROVIDER_PREFERENCE_ADDITIONS = ("defaultBillingLocation", "defaultSliCode")
+
 NOT_RENAMES = {
     # O19 re-created this table in 2008 (caisi/updates/
     # patch-2008-12-06-2-quatromerge.sql) keyed by `code varchar(3)`;
@@ -424,45 +439,60 @@ NOT_RENAMES = {
     # like a foreign key into it -- stores a DischargeReason enum
     # ORDINAL, not a code (PMmodule/ClientManager/discharge.jsp builds
     # the select from DischargeReason.<VALUE>.ordinal()).
-    ("lst_discharge_reason", "code"):
+    ("lst_discharge_reason", "code"): (
         "O19 keys on code, CARLOS on a surrogate id; nothing reads the "
         "table and radioDischargeReason is an enum ordinal, not an FK",
-    ("lst_discharge_reason", "lastUpdateDate"):
+        ("id",)),
+    ("lst_discharge_reason", "lastUpdateDate"): (
         "audit column CARLOS does not carry on this lookup table",
-    ("lst_discharge_reason", "lastUpdateUser"):
+        ("id",)),
+    ("lst_discharge_reason", "lastUpdateUser"): (
         "audit column CARLOS does not carry on this lookup table",
+        ("id",)),
 
     # CARLOS additions, not counterparts: `stable` is a NOT NULL DEFAULT 1
     # flag and `errorLog` a tinyblob, neither of which O19 has.
-    ("eform", "disableUpdate"):
+    ("eform", "disableUpdate"): (
         "removed O19 flag; CARLOS's stable/errorLog are additions",
+        ("stable", "errorLog")),
 
     # Curated B3 drops (see B3_COLUMNS above) sitting beside unrelated
     # CARLOS additions -- the co-occurrence is coincidence, and the drop
     # itself was ruled on when it was added to B3_COLUMNS.
-    ("document", "fileSignature"):
+    ("document", "fileSignature"): (
         "curated B3 drop; CARLOS's abnormal/report_media/sent_date_time "
         "are additions",
-    ("drugs", "dispensingUnits"):
+        ("abnormal", "report_media", "sent_date_time")),
+    ("drugs", "dispensingUnits"): (
         "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
         "priorRxProtocol/pharmacyId are additions",
+        ("demographic_contact_id", "protocol", "priorRxProtocol",
+         "pharmacyId")),
 
     # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
     # defaultSliCode are unrelated additions.
-    ("ProviderPreference", "eRxEnabled"): "removed eRx module",
-    ("ProviderPreference", "eRx_SSO_URL"): "removed eRx module",
-    ("ProviderPreference", "eRxUsername"): "removed eRx module",
-    ("ProviderPreference", "eRxPassword"): "removed eRx module",
-    ("ProviderPreference", "eRxFacility"): "removed eRx module",
-    ("ProviderPreference", "eRxTrainingMode"): "removed eRx module",
-    ("ProviderPreference", "encryptedMyOscarPassword"):
-        "removed MyOscar integration",
+    ("ProviderPreference", "eRxEnabled"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRx_SSO_URL"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxUsername"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxPassword"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxFacility"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxTrainingMode"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "encryptedMyOscarPassword"): (
+        "removed MyOscar integration", _PROVIDER_PREFERENCE_ADDITIONS),
 
     # CARLOS's oneId*/mfa* columns are the modern auth additions; O19's
     # storageVersion belonged to a storage scheme CARLOS does not use.
-    ("security", "storageVersion"):
+    ("security", "storageVersion"): (
         "O19 storage-scheme marker; CARLOS's oneId*/usingMfa/mfaSecret "
         "are additions",
+        ("oneIdKey", "oneIdEmail", "delegateOneIdEmail", "usingMfa",
+         "mfaSecret")),
 }
 
 # The same question one level up: (o19_table, carlos_table) -> why the pair

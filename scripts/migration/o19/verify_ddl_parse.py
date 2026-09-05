@@ -32,7 +32,14 @@ throwaway server, never a clinic's):
         --mysql-arg=--socket=/run/mysqld/mysqld.sock --mysql-arg=-uroot
 
 Exit codes: 0 = the parse agrees everywhere it could be compared;
-1 = at least one disagreement (printed); 2 = usage or connection error.
+1 = at least one disagreement, or at least one probe this script could not
+build (both printed); 2 = usage or connection error.
+
+A statement MariaDB refuses is a fact about the corpus and is counted apart
+from a probe this script fails to build. The second is a hole in the oracle
+rather than in the generator, and it is a failure here: a statement whose
+fixture was never created was never checked, and reporting OK for it is the
+silence this script exists to remove.
 
 ## Why not a library
 
@@ -205,12 +212,25 @@ def scaffold(probe: str, columns: List[str],
     """
     if not columns:
         return ""
-    quoted = ["`{0}` varchar(191)".format(c.replace("`", "``"))
+    # varchar(1), not a wider one: MariaDB caps a row at 65535 bytes, so
+    # a 4-byte charset at varchar(191) refuses the CREATE at 86 columns --
+    # and 26 CARLOS tables are wider than that, every one of them a
+    # clinical encounter form (formRourke2009 alone has 1227 columns).
+    # Those probes were then missing from information_schema and every
+    # ALTER against them was filed as "server refused" and never compared.
+    # No value is ever stored here, so one character is as good as 191.
+    quoted = ["`{0}` varchar(1)".format(c.replace("`", "``"))
               for c in columns]
     if pk:
         quoted.append("PRIMARY KEY ({0})".format(", ".join(
             "`{0}`".format(c.replace("`", "``")) for c in pk)))
-    return "CREATE TABLE `{0}` ({1});".format(probe, ", ".join(quoted))
+    # MyISAM, not the server default: InnoDB caps a table at 1017 columns
+    # (errno 185) and the corpus has forms far past it -- formONAREnhanced
+    # reaches 1158 columns and formRourke2009 1515. MyISAM allows 4096,
+    # and the probe stores nothing, so the engine's only job here is to
+    # accept the shape MariaDB's parser has already agreed to.
+    return "CREATE TABLE `{0}` ({1}) ENGINE=MyISAM;".format(
+        probe, ", ".join(quoted))
 
 
 def collect(gm, files: List[Path]):
@@ -334,9 +354,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     # its pre-ALTER shape. So every statement's line span in the fed script
     # is recorded, and the client's "ERROR ... at line N" is mapped back to
     # the statement it refused.
-    refused_idx = set()
+    # ... and the two reasons a case is not comparable are kept apart.
+    # A statement the server refuses is a fact about the corpus; a PROBE
+    # the server refuses is a hole in this oracle, and one that hides
+    # exactly the widest tables. Counting them together let the second
+    # kind grow silently while the run still printed OK.
+    refused_idx = set()          # the statement under test was refused
+    unscaffolded_idx = set()     # the probe could not be built at all
     script: List[str] = ["SET sql_mode='';"]
-    spans: List[Tuple[int, int]] = []          # (first_line, statement index)
+    # (first_line, case index, "scaffold" | "stmt")
+    spans: List[Tuple[int, int, str]] = []
     batch_start = 0
 
     def flush() -> None:
@@ -355,22 +382,29 @@ def main(argv: Optional[List[str]] = None) -> int:
             n = int(line_no)
             # the statement whose span contains this line
             hit = None
-            for first, sidx in spans:
+            for first, sidx, which in spans:
                 if first <= n:
-                    hit = sidx
+                    hit = (sidx, which)
                 else:
                     break
             if hit is not None:
-                refused_idx.add(hit)
+                (unscaffolded_idx if hit[1] == "scaffold"
+                 else refused_idx).add(hit[0])
 
     for idx, (kind, _f, _t, before, sql_tmpl, _cols, _pk) in enumerate(cases):
         probe = "p{0}".format(idx)
-        pieces = []
+        line = sum(x.count("\n") + 1 for x in script) + 1
         if kind == "alter":
-            pieces.append(scaffold(probe, before[0], before[1]))
-        pieces.append(sql_tmpl.replace(PROBE_MARK, probe) + ";")
-        spans.append((sum(x.count("\n") + 1 for x in script) + 1, idx))
-        script.extend(pieces)
+            piece = scaffold(probe, before[0], before[1])
+            if not piece:
+                # the model has the table with no columns at this point,
+                # so there is nothing to build the probe from
+                unscaffolded_idx.add(idx)
+            spans.append((line, idx, "scaffold"))
+            script.append(piece)
+            line += piece.count("\n") + 1
+        spans.append((line, idx, "stmt"))
+        script.append(sql_tmpl.replace(PROBE_MARK, probe) + ";")
         if len(script) - batch_start >= args.batch:
             flush()
             script, spans, batch_start = ["SET sql_mode='';"], [], 0
@@ -379,10 +413,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     db_cols, db_pks = introspect(client, args.db)
 
     mismatches = []
-    compared = refused = 0
+    compared = refused = unscaffolded = 0
     for idx, (kind, fname, table, _before, _sql, exp_cols, exp_pk) in \
             enumerate(cases):
         probe = "p{0}".format(idx)
+        if idx in unscaffolded_idx:
+            # this oracle could not build the fixture, so it did not test
+            # the statement -- reported apart from a real refusal below
+            unscaffolded += 1
+            continue
         if probe not in db_cols or idx in refused_idx:
             # MariaDB refused the statement outright (a 2006 definition a
             # modern server rejects, e.g. AUTO_INCREMENT with no key, or an
@@ -398,8 +437,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             mismatches.append((kind, fname, table, exp_cols, got_cols,
                                exp_pk, got_pk))
 
-    print("compared: {0}    not comparable (server refused): {1}"
-          .format(compared, refused))
+    print("compared: {0}    not comparable (server refused): {1}    "
+          "probe not buildable: {2}".format(compared, refused, unscaffolded))
+    if unscaffolded:
+        # not a generator defect, but not a pass either: these statements
+        # were never put to MariaDB, and saying OK for them would be the
+        # silence this oracle exists to remove
+        print("\n{0} statement(s) were NOT CHECKED because this script "
+              "could not build their probe table. Fix scaffold() -- an "
+              "unbuildable probe is an untested statement, and the "
+              "unbuildable ones are the widest tables in the schema."
+              .format(unscaffolded), file=sys.stderr)
+        client.run("DROP DATABASE `{0}`;".format(args.db), db="mysql")
+        return 1
     if not mismatches:
         print("OK - the generator's parse agrees with MariaDB everywhere "
               "it could be compared")

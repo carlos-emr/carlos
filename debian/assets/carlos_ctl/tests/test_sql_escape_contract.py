@@ -10,8 +10,8 @@ import ast
 import unittest
 from pathlib import Path
 
-from carlos_ctl import (dbops, o19digest, o19docs, o19etl, o19_preflight,
-                        o19props, util)
+from carlos_ctl import (dbops, o19digest, o19docs, o19etl, o19map_schema,
+                        o19_preflight, o19props, util)
 
 # Values chosen so that any escape that drops one of the three cases -- or
 # adds a fourth -- produces a different string for at least one of them.
@@ -194,6 +194,84 @@ class TestEveryStandaloneCopyIsPinned(unittest.TestCase):
         for raw in ("\ud83d\ude00", "no surrogates", "\ud800lone"):
             self.assertEqual(o19_preflight._join_surrogates(raw),
                              o19props._join_surrogates(raw), repr(raw))
+
+    #: server messages the two absent-object predicates must agree on.
+    #: The last three are the reason the text regex carries a negative
+    #: lookahead: 1932 is a CORRUPT table, not an absent one.
+    ERRORS = [
+        "ERROR 1146 (42S02) at line 1: Table 'o19.x' doesn't exist",
+        "ERROR 1054 (42S22) at line 1: Unknown column 'disabled'",
+        "ERROR 1045 (28000): Access denied for user 'root'@'localhost'",
+        "ERROR 2002 (HY000): Can't connect to local server",
+        "ERROR 1064 (42000): You have an error in your SQL syntax",
+        "Unknown column 'disabled' in 'field list'",
+        "Table 'o19.formAR' doesn't exist",
+        "ERROR 1932 (42S02): Table 'o19.x' doesn't exist in engine",
+        "Table 'o19.x' doesn't exist in engine",
+        "Table 'o19.x' doesn't exist IN ENGINE",
+        "",
+    ]
+
+    def test_the_absent_object_predicate_is_the_same_predicate(self):
+        """This is the one helper that decides no-go vs shrug: an error
+        it calls absent is downgraded to an INFO, and everything else
+        stops the import. Drift here means one side reads a corrupt
+        table (1932) as merely absent while the other calls it a
+        no-go."""
+        class _Failure(Exception):
+            def __init__(self, stderr):
+                Exception.__init__(self, stderr)
+                self.stderr = stderr
+
+        for text in self.ERRORS:
+            self.assertEqual(
+                o19_preflight._absent_object(text),
+                o19etl.absent_object_error(_Failure(text)),
+                text)
+
+    def test_a_corrupt_table_is_absent_to_neither_side(self):
+        # pinned separately from the agreement test above: two copies
+        # that lost the lookahead together would still agree
+        for text in ("ERROR 1932 (42S02): Table 'o19.x' doesn't exist "
+                     "in engine",
+                     "Table 'o19.x' doesn't exist in engine"):
+            self.assertFalse(o19_preflight._absent_object(text), text)
+
+    def test_the_absent_object_constants_agree(self):
+        self.assertEqual(tuple(o19_preflight._ABSENT_OBJECT_CODES),
+                         tuple(o19etl.ABSENT_OBJECT_CODES))
+        for a, b in ((o19_preflight._ERROR_CODE_RE, o19etl.ERROR_CODE_RE),
+                     (o19_preflight._ABSENT_OBJECT_TEXT_RE,
+                      o19etl.ABSENT_OBJECT_TEXT_RE)):
+            self.assertEqual((a.pattern, a.flags), (b.pattern, b.flags))
+
+    def test_both_sides_accept_the_same_identifiers(self):
+        """The preflight's copy says it is 'the identifier class
+        o19etl.IDENTIFIER_RE accepts'. Tighten one and the assessment
+        passes names the import then refuses before its first write."""
+        for name in ("demographic", "billing_on_item", "a$b", "_x", "9",
+                     "", "a b", "a-b", "a`b", "a'b", "a;b", "sant\u00e9",
+                     "a\nb", "a.b", "A" * 64):
+            self.assertEqual(
+                bool(o19_preflight.IDENTIFIER_RE.match(name)),
+                bool(o19etl.IDENTIFIER_RE.match(name)), repr(name))
+
+    def test_both_batch_decoders_decode_the_same_way(self):
+        """o19docs calls itself 'the ONE place batch escapes are
+        decoded'; the preflight carries a second one. A value decoded
+        differently on the two sides is a clinic value the assessment
+        read and the import did not."""
+        for raw in ("plain", "a\\tb", "a\\nb", "a\\0b", "a\\\\b",
+                    "a\\qb", "trailing\\", "\\", "",
+                    "tab\\tand\\nnewline", "NULL"):
+            self.assertEqual(o19_preflight._unescape_batch(raw),
+                             o19docs.unescape_batch_field(raw), repr(raw))
+
+    def test_the_required_table_list_is_the_manifest_list(self):
+        # the preflight refuses a dump the import would refuse; that is
+        # only true while the two lists are the same list
+        self.assertEqual(list(o19_preflight.REQUIRED_TABLES),
+                         list(o19map_schema.REQUIRED_TABLES))
 
     def test_the_mojibake_predicate_is_the_same_test_on_both_sides(self):
         """The preflight BLOCKS on this predicate and the ETL REPAIRS on

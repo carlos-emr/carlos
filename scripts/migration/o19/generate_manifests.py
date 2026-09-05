@@ -830,6 +830,31 @@ def load_module(path: Path):
     return mod
 
 
+def integer_column(definition: str) -> bool:
+    """Whether a stored column DEFINITION begins with an integer type.
+
+    `Schema.tables[t][col]` is the whole definition after the name --
+    type, NOT NULL, DEFAULT and COMMENT, whitespace-collapsed -- so a
+    substring test for "int" reads `varchar(20) COMMENT 'appointment
+    slug'`, `DEFAULT 'internal'` and `enum('Uninterested', ...)` as
+    integers. Two columns in the CARLOS schema already carry "int" in
+    their definition text without being integers
+    (appointment_status.short_letters, form_hsfo2_visit.PtView); neither
+    is a single-column primary key today, so this was latent.
+
+    It decides whether a merge table's primary key is a SURROGATE the
+    ETL must reassign. Read wrong for a string key, the refusal on the
+    next branch is skipped and `surrogate_pk` is emitted for a varchar:
+    `idmap_statements` then builds `old_id BIGINT NOT NULL PRIMARY KEY`
+    and inserts the string into it, where under the ETL's `sql_mode=''`
+    non-numeric codes all coerce to 0 -- a duplicate-key abort mid-merge,
+    or, for numeric-prefixed codes, distinct keys collapsing onto one id
+    and every child row remapped through the map re-pointed at the wrong
+    parent. Anchored like `default_nondefault_expr` beside it."""
+    return bool(re.match(r"(tiny|small|medium|big)?int\b|integer\b",
+                         definition.strip().lower()))
+
+
 def default_nondefault_expr(coltype: str, col: str) -> str:
     """The predicate that decides whether a dropped column actually holds
     anything -- numeric columns compared against 0, everything else
@@ -957,7 +982,7 @@ def _shared_table_class(t, carlos, r):
                     "merge key {}.{} not a CARLOS column".format(t, k))
         pk = carlos.pks.get(t) or []
         if (len(pk) == 1 and pk[0] not in merge_keys[t]
-                and "int" in carlos.tables[t].get(pk[0], "").lower()):
+                and integer_column(carlos.tables[t].get(pk[0], ""))):
             # integer surrogate id off the natural key: the ETL must
             # reassign it on appended rows instead of copying the
             # clinic's id (which may collide with a CARLOS seed row).
@@ -1252,13 +1277,23 @@ def _refuse_unruled_column_renames(o19, carlos, tables, r):
     # deliberate alone. The signature is the CO-OCCURRENCE, so refuse to
     # emit a manifest while any table has both an unmatched O19 column
     # and an unfilled CARLOS column that nobody has ruled on.
-    for (t, col), reason in sorted(not_renames.items()):
+    for (t, col), ruling in sorted(not_renames.items()):
+        if (not isinstance(ruling, (tuple, list)) or len(ruling) != 2):
+            raise SystemExit(
+                "NOT_RENAMES[{!r}, {!r}] must be (reason, the CARLOS "
+                "columns the ruling covers)".format(t, col))
+        reason, covered = ruling
         # `"   "` is truthy, and a ruling whose reason is whitespace is
         # not a ruling -- it is the refusal being switched off quietly
         if not isinstance(reason, str) or not reason.strip():
             raise SystemExit(
                 "NOT_RENAMES[{!r}, {!r}] has no reason; a ruling without "
                 "one is not a ruling".format(t, col))
+        if (isinstance(covered, str)
+                or not all(isinstance(c, str) for c in covered)):
+            raise SystemExit(
+                "NOT_RENAMES[{!r}, {!r}] must name the covered CARLOS "
+                "columns as a sequence of names".format(t, col))
         if col not in tables.get(t, {}).get("dropped", {}):
             # a table pair filed here reads as a column ruling and would
             # die with a confusing "stale entry"; name the right namespace
@@ -1278,6 +1313,18 @@ def _refuse_unruled_column_renames(o19, carlos, tables, r):
             continue
         for col in sorted(dropped):
             if (t, col) in not_renames:
+                # a ruling covers the CARLOS columns it was written
+                # against, and only those. CARLOS is the side still
+                # moving: a Flyway migration that adds a column to an
+                # already-ruled table would otherwise face this drop
+                # with nobody having looked at the pair.
+                covered = list(not_renames[(t, col)][1])
+                if sorted(covered) != sorted(unfilled):
+                    unruled.append(
+                        "{0}: the ruling on O19 {0}.{1} covers CARLOS "
+                        "{0}.{{{2}}}, but the unwritten columns are now "
+                        "{0}.{{{3}}}".format(
+                            t, col, ", ".join(covered), ", ".join(unfilled)))
                 continue
             unruled.append(
                 "{0}: O19 {0}.{1} is dropped while CARLOS {0}.{{{2}}} "
@@ -1288,7 +1335,10 @@ def _refuse_unruled_column_renames(o19, carlos, tables, r):
             "while a column on the other side goes unwritten is how a "
             "rename hides. Rule each in overrides_schema.py, as "
             "RENAMES[table][carlos_col] = o19_col or as a NOT_RENAMES "
-            "entry with a reason:\n  " + "\n  ".join(unruled))
+            "entry giving a reason and the CARLOS columns it covers "
+            "(a ruling whose covered columns no longer match is listed "
+            "here too, and is re-ruled the same way):\n  "
+            + "\n  ".join(unruled))
 
 
 def _refuse_unruled_table_renames(o19, carlos, o19_only, r):

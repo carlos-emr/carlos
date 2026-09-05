@@ -1136,6 +1136,38 @@ class TestTheStagingCredentialNeverOutlivesTheRestore(unittest.TestCase):
             "revoke_staging_account: on a failed restore the throwaway "
             "account stays live and its password stays on disk")
 
+    def test_the_staging_drop_is_gated_before_it_can_destroy_rows(self):
+        """`staging_drop_refusal` is unit-tested on its own, which says
+        nothing about whether run_p1 still asks it. Stubbing the call
+        out (`refusal = None`) left the entire suite green while P1
+        regained the ability to drop a previous dump's rows -- the one
+        thing this phase can destroy that exists nowhere else.
+
+        Structural for the reason the class docstring gives: reaching
+        this line behaviourally means standing up the opener, the dump
+        head and the collation query first. What is pinned is that the
+        gate is asked, that it is asked about the staging schema's own
+        rows, and that it is asked BEFORE the drop."""
+        run_p1 = self._run_p1_node()
+        gates = self._calls(run_p1, "staging_drop_refusal")
+        self.assertEqual(len(gates), 1,
+                         "run_p1 must ask the staging-drop gate exactly "
+                         "once")
+        self.assertTrue(
+            self._calls(gates[0], "staging_holds_rows"),
+            "the gate must be asked about the rows actually staged, not "
+            "about a value carried from somewhere else")
+        drops = [n for n in ast.walk(run_p1)
+                 if isinstance(n, ast.Constant)
+                 and isinstance(n.value, str)
+                 and n.value.startswith("DROP DATABASE")]
+        self.assertTrue(drops, "expected the staging drop in run_p1")
+        self.assertLess(
+            gates[0].lineno, min(d.lineno for d in drops),
+            "the staging schema is dropped before the gate that decides "
+            "whether dropping it destroys a dump this workspace never "
+            "staged")
+
     def test_revoking_removes_the_password_even_if_the_drop_fails(self):
         # the other half of the guarantee, and this one IS behavioural:
         # a DROP USER that fails must still take the file off disk

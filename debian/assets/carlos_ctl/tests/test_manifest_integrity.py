@@ -489,9 +489,32 @@ class TestRenameRulings(unittest.TestCase):
 
     def test_every_ruling_carries_a_reason(self):
         blank = [k for k, v in getattr(self.ov, "NOT_RENAMES", {}).items()
-                 if not (v or "").strip()]
+                 if not (v[0] or "").strip()]
         self.assertEqual(blank, [],
                          "a ruling without a reason is not a ruling")
+
+    def test_every_ruling_still_covers_the_columns_it_faces(self):
+        """A ruling is about a PAIR, and CARLOS is the side still moving.
+        Keyed by the O19 column alone, a Flyway migration that adds a
+        column to an already-ruled table hands the new column the old
+        ruling -- the clinic's data then lands only in the shadow copy
+        while the live CARLOS column keeps its default, which is the
+        rename this namespace exists to catch."""
+        facing = dict(((t, c), u) for t, c, u in co_occurrences())
+        stale = []
+        for key, value in sorted(
+                getattr(self.ov, "NOT_RENAMES", {}).items()):
+            if key not in facing:
+                continue        # ruled but no longer a co-occurrence
+            covered, unfilled = sorted(value[1]), sorted(facing[key])
+            if covered != unfilled:
+                stale.append("{0}.{1}: covers {2}, now faces {3}".format(
+                    key[0], key[1], covered, unfilled))
+        self.assertEqual(
+            stale, [],
+            "a NOT_RENAMES ruling no longer describes the columns it "
+            "faces. Re-read the pair and re-rule it in "
+            "overrides_schema.py, listing the CARLOS columns it covers.")
 
     def test_every_table_ruling_names_one_side_of_the_diff(self):
         # the O19 side must be a table the manifest carries; the CARLOS
@@ -524,6 +547,139 @@ class TestRenameRulings(unittest.TestCase):
                     bad.append("{0}.{1} is not an O19 column".format(
                         table, source))
         self.assertEqual(bad, [])
+
+
+@unittest.skipUnless(OVERRIDES.is_file(), "overlay not in this checkout")
+class TestOverlayRulingsReachTheManifest(unittest.TestCase):
+    """The shipped manifest must still say what the overlay rules.
+
+    The overlay is the human-edited half and the manifest is the
+    generated half, but only the manifest ships in the package -- the
+    ETL never reads overrides_schema.py. Regeneration needs an OSCAR 19
+    checkout, which CI does not have, so an overlay edit committed
+    without a regenerated manifest is inert: the reviewer reads the
+    ruling, the import ignores it, and --check is never run to notice.
+    These tests are that check, in the one place that runs on every PR.
+
+    Both directions matter. Overlay-to-manifest catches a ruling that
+    never landed; manifest-to-overlay catches a ruling that was deleted
+    (or moved between buckets) while the manifest kept the old answer.
+    An overlay name the manifest does not carry at all is skipped, not
+    failed: a bucket may legitimately name a table this patch level of
+    OSCAR 19 does not have -- the generator warns about those itself.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ov = load_overrides()
+        cls.tables = o19map_schema.TABLES
+
+    def shared(self, names):
+        """The overlay names that the manifest actually carries."""
+        return sorted(n for n in names if n in self.tables)
+
+    def assertClass(self, names, want, bucket):
+        wrong = ["{0}: {1} not {2}".format(
+            n, self.tables[n].get("class"), want)
+            for n in self.shared(names)
+            if self.tables[n].get("class") != want]
+        self.assertEqual(wrong, [], self.stale(bucket))
+
+    @staticmethod
+    def stale(bucket):
+        return ("overrides_schema.py {0} disagrees with the shipped "
+                "manifest. The overlay was edited without regenerating: "
+                "run generate_manifests.py --oscar-src <checkout> and "
+                "commit o19map_schema.py with the overlay change."
+                .format(bucket))
+
+    def test_class_buckets_are_the_classes_the_manifest_ships(self):
+        self.assertClass(self.ov.CLASS_REFERENCE, "reference",
+                         "CLASS_REFERENCE")
+        self.assertClass(self.ov.ARCHIVE_PATIENT, "archive",
+                         "ARCHIVE_PATIENT")
+        self.assertClass(self.ov.ARCHIVE_OTHER, "archive", "ARCHIVE_OTHER")
+        self.assertClass(self.ov.ARCHIVE_SHARED, "archive", "ARCHIVE_SHARED")
+        self.assertClass(self.ov.DROP, "drop", "DROP")
+        self.assertClass(self.ov.CLASS_MERGE, "merge", "CLASS_MERGE")
+
+    def test_no_manifest_class_is_ruled_by_a_bucket_that_lost_it(self):
+        buckets = {
+            "reference": set(self.ov.CLASS_REFERENCE),
+            "merge": set(self.ov.CLASS_MERGE),
+            "drop": set(self.ov.DROP),
+            "archive": (set(self.ov.ARCHIVE_PATIENT)
+                        | set(self.ov.ARCHIVE_OTHER)
+                        | set(self.ov.ARCHIVE_SHARED)),
+        }
+        orphan = sorted(
+            "{0} is class {1} with no overlay entry".format(t, cls)
+            for t, e in self.tables.items()
+            for cls in [e.get("class")]
+            if cls in buckets and t not in buckets[cls])
+        self.assertEqual(orphan, [], self.stale("class buckets"))
+
+    def test_merge_keys_are_the_overlay_keys_in_order(self):
+        wrong = ["{0}: {1} not {2}".format(
+            t, self.tables[t].get("merge_keys"), list(keys))
+            for t, keys in sorted(self.ov.CLASS_MERGE.items())
+            if t in self.tables
+            and self.tables[t].get("merge_keys") != list(keys)]
+        self.assertEqual(wrong, [], self.stale("CLASS_MERGE keys"))
+
+    def test_patient_data_marks_exactly_the_patient_archive_bucket(self):
+        want = set(self.shared(self.ov.ARCHIVE_PATIENT))
+        got = set(t for t, e in self.tables.items() if e.get("patient_data"))
+        self.assertEqual(got, want, self.stale("ARCHIVE_PATIENT"))
+
+    def test_replace_seed_marks_exactly_the_replace_seed_bucket(self):
+        want = set(self.shared(self.ov.REPLACE_SEED))
+        got = set(t for t, e in self.tables.items() if e.get("replace_seed"))
+        self.assertEqual(got, want, self.stale("REPLACE_SEED"))
+
+    def test_chunked_tables_are_exactly_the_chunk_bucket(self):
+        want = set(self.shared(self.ov.CHUNK_TABLES))
+        got = set(t for t, e in self.tables.items() if e.get("chunk_by"))
+        self.assertEqual(got, want, self.stale("CHUNK_TABLES"))
+
+    def test_charset_scan_columns_are_the_overlay_columns(self):
+        want = dict((t, list(c)) for t, c in self.ov.CHARSET_SCAN.items()
+                    if t in self.tables)
+        got = dict((t, e["charset_scan"]) for t, e in self.tables.items()
+                   if e.get("charset_scan"))
+        self.assertEqual(got, want, self.stale("CHARSET_SCAN"))
+
+    def test_fk_remaps_are_the_overlay_remaps(self):
+        want = dict((t, dict(m)) for t, m in self.ov.FK_REMAP.items()
+                    if t in self.tables)
+        got = dict((t, e["fk_remap"]) for t, e in self.tables.items()
+                   if e.get("fk_remap"))
+        self.assertEqual(got, want, self.stale("FK_REMAP"))
+
+    def test_merge_exclusions_are_the_overlay_exclusions(self):
+        want = dict((t, w) for t, w in self.ov.MERGE_EXCLUDE.items()
+                    if t in self.tables)
+        got = dict((t, e["merge_exclude"]) for t, e in self.tables.items()
+                   if e.get("merge_exclude"))
+        self.assertEqual(got, want, self.stale("MERGE_EXCLUDE"))
+
+    def test_verbatim_overlay_constants_are_copied_through(self):
+        # these are emitted unchanged, so equality is the whole contract
+        for name in ("CREDENTIAL_TABLES", "PRISTINE_TOLERATED_TABLES",
+                     "ROLE_TEMPLATE_MIN_JACCARD", "STARTUP_CREATED_ROWS",
+                     "REQUIRED_TABLES", "CARLOSDOC_SEED_DELETES",
+                     "SEED_PROVIDER_NO", "SEED_USER_NAME"):
+            self.assertEqual(getattr(o19map_schema, name),
+                             getattr(self.ov, name),
+                             self.stale(name))
+
+    def test_the_map_version_carries_the_overlay_base_token(self):
+        # the generator appends a digest of the emitted content, so the
+        # overlay's token is a prefix rather than the whole string
+        self.assertTrue(
+            o19map_schema.SCHEMA_MAP_VERSION.startswith(
+                self.ov.SCHEMA_MAP_VERSION),
+            self.stale("SCHEMA_MAP_VERSION"))
 
 
 if __name__ == "__main__":

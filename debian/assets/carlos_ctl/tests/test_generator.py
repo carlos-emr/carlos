@@ -9,6 +9,7 @@ Run (from debian/assets):
 """
 
 import importlib.util
+import re
 import types
 import unittest
 from pathlib import Path
@@ -422,8 +423,30 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
         got = self.mod.scaffold("p1", ["id", "we`ird"])
         self.assertEqual(
             got,
-            "CREATE TABLE `p1` (`id` varchar(191), `we``ird` varchar(191));")
+            "CREATE TABLE `p1` (`id` varchar(1), `we``ird` varchar(1)) "
+            "ENGINE=MyISAM;")
         self.assertEqual(self.mod.scaffold("p1", []), "")
+
+    def test_the_scaffold_can_build_the_widest_form_in_the_corpus(self):
+        """A probe the server refuses is a statement the oracle never
+        checks, and the widest tables are the encounter forms -- exactly
+        where a mis-parsed column is a clinical field silently dropped.
+
+        Both limits are real and both were hit: at varchar(191) the
+        65535-byte row cap refused every table past 85 columns, and on
+        InnoDB the 1017-column cap refused the forms past that. The
+        oracle now counts an unbuildable probe as a failure, so this
+        test is the database-free half of the same guard."""
+        wide = ["c{0}".format(i) for i in range(1515)]
+        got = self.mod.scaffold("p1", wide)
+        widths = set(int(w) for w in re.findall(r"varchar\((\d+)\)", got))
+        self.assertEqual(widths, {1}, "one declared width, and a narrow one")
+        # utf8mb4 charges 4 bytes per character plus a 2-byte length
+        row_bytes = len(wide) * (max(widths) * 4 + 2)
+        self.assertLess(row_bytes, 65535,
+                        "the probe would be refused: row size too large")
+        self.assertIn("ENGINE=MyISAM", got,
+                      "InnoDB stops at 1017 columns; the corpus goes past it")
 
 
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
@@ -667,6 +690,79 @@ class TestPreservedColumnsFitTheRow(unittest.TestCase):
 
 
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestASurrogateKeyIsAnIntegerKey(unittest.TestCase):
+
+    """A merge table's primary key is treated as a surrogate the ETL must
+    reassign only when it really is an integer.
+
+    `Schema.tables[t][col]` holds the whole column DEFINITION -- type,
+    NOT NULL, DEFAULT and COMMENT, whitespace-collapsed -- so the
+    substring test this replaces read `varchar(20) COMMENT 'appointment
+    slug'`, `DEFAULT 'internal'` and `enum('Uninterested', ...)` as
+    integers. The CARLOS schema already carries two such columns
+    (appointment_status.short_letters, form_hsfo2_visit.PtView); neither
+    is a single-column primary key today, which is the only reason this
+    was latent rather than shipped.
+
+    Read wrong, the refusal on the next branch is skipped and a
+    `surrogate_pk` is emitted for a string column. `idmap_statements`
+    then declares `old_id BIGINT NOT NULL PRIMARY KEY` and inserts that
+    string into it: under the ETL's `sql_mode=''` non-numeric codes all
+    coerce to 0, so the insert dies on a duplicate key mid-merge -- or,
+    for numeric-prefixed codes, distinct keys collapse onto one id and
+    every child row remapped through the map is re-pointed at the wrong
+    parent.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gen = load_generator()
+
+    def test_it_reads_the_type_and_not_the_comment(self):
+        for definition in ("int(11) NOT NULL AUTO_INCREMENT", "bigint(20)",
+                           "integer", "tinyint(1)", "smallint",
+                           "mediumint(9)", "INT UNSIGNED"):
+            self.assertTrue(self.gen.integer_column(definition), definition)
+        for definition in ("varchar(20) NOT NULL COMMENT 'appointment "
+                           "slug'", "varchar(8) DEFAULT 'internal'",
+                           "enum('Uninterested','x')", "char(2)", "point",
+                           "text COMMENT 'print this'", ""):
+            self.assertFalse(self.gen.integer_column(definition), definition)
+
+    def test_a_string_primary_key_is_refused_not_made_a_surrogate(self):
+        o19 = self.gen.Schema("union")
+        carlos = self.gen.Schema("skip")
+        for schema in (o19, carlos):
+            schema.tables["reasonCode"] = {
+                "slug": "varchar(20) NOT NULL COMMENT 'appointment slug'",
+                "code": "varchar(10)"}
+            schema.pks["reasonCode"] = ["slug"]
+        ov = types.SimpleNamespace(
+            CLASS_MERGE={"reasonCode": ["code"]}, CLASS_REFERENCE=set(),
+            ARCHIVE_PATIENT=set(), ARCHIVE_OTHER=set(), DROP=set(),
+            B3_COLUMNS=set(), CHARSET_SCAN={}, CHUNK_TABLES=set())
+        with self.assertRaises(SystemExit) as caught:
+            self.gen.build_tables(o19, carlos, ov)
+        self.assertIn("must equal its primary key", str(caught.exception))
+
+    def test_the_shipped_surrogates_are_all_int_typed_columns(self):
+        # the manifest that ships, read back through the same rule: every
+        # surrogate_pk is a column whose CARLOS type the ETL can put in a
+        # BIGINT id map. Nothing here needs an OSCAR 19 checkout, so it
+        # guards a PR as well as a regeneration.
+        surrogates = [(t, e["surrogate_pk"])
+                      for t, e in o19map_schema.TABLES.items()
+                      if e.get("surrogate_pk")]
+        self.assertTrue(surrogates)
+        for table, col in surrogates:
+            self.assertIn(col, o19map_schema.TABLES[table]["cols"],
+                          "{0}.{1}".format(table, col))
+            self.assertNotIn(col,
+                             o19map_schema.TABLES[table]["merge_keys"],
+                             "{0}.{1} is both the surrogate and a merge "
+                             "key".format(table, col))
+
+
 class TestForeignKeyRefusals(unittest.TestCase):
     """`build_tables` refuses to emit a manifest while a copied id names a
     table whose ids the import does not keep, and each ruling that lets
@@ -899,21 +995,50 @@ class TestRenameRefusals(unittest.TestCase):
         self.assertIn("t.code", str(caught.exception))
 
     def test_a_column_ruling_lets_generation_through(self):
-        tables = self.build(self.overlay(
-            NOT_RENAMES={("t", "code"): "coincidence, not a rename"}))
+        tables = self.build(self.overlay(NOT_RENAMES={
+            ("t", "code"): ("coincidence, not a rename", ("codeValue",))}))
         self.assertIn("code", tables["t"]["dropped"])
 
     def test_a_blank_column_reason_is_not_a_ruling(self):
         with self.assertRaises(SystemExit) as caught:
-            self.build(self.overlay(NOT_RENAMES={("t", "code"): "   "}))
+            self.build(self.overlay(
+                NOT_RENAMES={("t", "code"): ("   ", ("codeValue",))}))
         self.assertIn("has no reason", str(caught.exception))
+
+    def test_a_ruling_that_names_no_carlos_columns_is_not_a_ruling(self):
+        # the shape check earns its place: a bare reason string is what
+        # every ruling used to be, and read as a pair it would silently
+        # become reason="c", covered="o" -- a ruling covering a column
+        # named "o"
+        for value in ("coincidence", ("only a reason",),
+                      ("reason", "codeValue")):
+            with self.assertRaises(SystemExit) as caught:
+                self.build(self.overlay(
+                    NOT_RENAMES={("t", "code"): value}))
+            self.assertIn("NOT_RENAMES", str(caught.exception), repr(value))
+
+    def test_a_new_carlos_column_re_opens_an_existing_ruling(self):
+        """The hole this closes: CARLOS is the side still under Flyway
+        development, so the column that appears opposite an already-ruled
+        drop appears on THAT side -- and a ruling keyed by the O19 column
+        alone would cover it without anyone having looked."""
+        ruled = self.overlay(NOT_RENAMES={
+            ("t", "code"): ("coincidence, not a rename", ("codeValue",))})
+        grown = ({"t": ["id", "code"]},
+                 {"t": ["id", "codeValue", "code_value"]})
+        with self.assertRaises(SystemExit) as caught:
+            self.build(ruled, tables=grown)
+        text = str(caught.exception)
+        self.assertIn("covers CARLOS t.{codeValue}", text)
+        self.assertIn("code_value", text)
 
     def test_a_table_pair_filed_as_a_column_ruling_says_where_it_goes(self):
         # the bug this test exists for: (o19_table, carlos_table) in
         # NOT_RENAMES is read as (table, dropped_column) and dies as a
         # stale entry, so the documented escape hatch was unusable
-        ov = self.overlay(NOT_RENAMES={("t", "code"): "ruled",
-                                       ("old_t", "new_t"): "not a rename"})
+        ov = self.overlay(NOT_RENAMES={
+            ("t", "code"): ("ruled", ("codeValue",)),
+            ("old_t", "new_t"): ("not a rename", ())})
         pair = ({"t": ["id", "code"], "old_t": ["a", "b", "c"]},
                 {"t": ["id", "codeValue"], "new_t": ["a", "b", "c"]})
         with self.assertRaises(SystemExit) as caught:
