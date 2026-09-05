@@ -1321,7 +1321,7 @@ def _merge_shape_body(client: Client, src: str, dst: str, arch: str,
         "appended": o19etl.merge_appended_mismatch_sql(
             t, shape.entry, src, dst, arch, dst_cols, shape.key),
         "backfill": o19etl.merge_backfill_mismatch_sql(
-            t, shape.entry, src, dst, arch, shape.key),
+            t, shape.entry, src, dst, arch, shape.key, dst_cols),
     }
 
     def findings(claim: str) -> int:

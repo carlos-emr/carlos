@@ -950,6 +950,22 @@ class TestBundleDigest(unittest.TestCase):
             o19import.merged_acknowledgements([], state, True),
             ["no-pre-backup", "unverified-bundle"])
 
+    def test_a_cleanup_continues_the_recorded_run(self):
+        """The defect: --cleanup re-runs row parity before dropping
+        staging, and an import verified with --accept content-migration
+        was re-checked with an EMPTY accept set -- so it refused, and a
+        passed import could never be cleaned up."""
+        ns = argparse.Namespace
+        self.assertTrue(o19import.continues_recorded_run(
+            ns(resume=False, cleanup=True)))
+        self.assertTrue(o19import.continues_recorded_run(
+            ns(resume=True, cleanup=False)))
+        # a fresh invocation must NOT inherit: a sign-off as consequential
+        # as no-pre-backup would otherwise apply to a run nobody gave it
+        self.assertFalse(o19import.continues_recorded_run(
+            ns(resume=False, cleanup=False)))
+        self.assertFalse(o19import.continues_recorded_run(ns()))
+
     def test_resolve_inputs_uses_the_merged_acknowledgements(self):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
@@ -1607,6 +1623,9 @@ class TestTheImportReport(unittest.TestCase):
                  "infrastructure); preserved at o19_archive.cr_user and "
                  "carlos.import_archived_cr_user"],
         "reference": ["icd9: 9 row(s) kept at o19_archive.icd9"],
+        "merge": ["LookupList: 2 of 7 clinic row(s) kept CARLOS's row on "
+                  "the shared key; all 7 preserved at o19_archive."
+                  "LookupList"],
         "unknown": ["clinic_notes: 4 row(s) preserved"],
         "archived_cols": ["Contact: programNo -> "
                           "import_archived_programNo"],
@@ -1717,8 +1736,13 @@ class TestTheImportReport(unittest.TestCase):
                      "icd9: 9 row(s) kept at o19_archive.icd9",
                      "clinic_notes: 4 row(s) preserved",
                      "import_archived_programNo",
-                     "log (absent:"):
+                     "log (absent:",
+                     # the rows a CARLOS seed won: the one population that
+                     # is deliberately not live, and was never rendered
+                     "LookupList: 2 of 7 clinic row(s) kept CARLOS's row"):
             self.assertIn(line, text)
+        head = text.split("WHAT DID NOT ARRIVE", 1)[0]
+        self.assertNotIn("LookupList: 2 of 7", head)
 
     def test_findings_are_ordered_by_severity_not_by_arrival(self):
         # given in the wrong order on purpose: a report whose order is

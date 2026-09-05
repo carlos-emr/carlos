@@ -1925,8 +1925,14 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
             acknowledged.append(line[len(ACKNOWLEDGED_PREFIX):])
         else:
             arrived.append(line)
+    # "merge" is the one bucket that names clinic rows deliberately NOT
+    # made live -- the rows CARLOS's seed won on a shared key -- and
+    # where they went. It was recorded by the ETL from the start and
+    # never rendered; a report that itemises every other population but
+    # that one is not the report requirement A asks for.
     elsewhere = (_ledger_lines(progress, "absent")
                  + _ledger_lines(progress, "reference")
+                 + _ledger_lines(progress, "merge")
                  + _ledger_lines(progress, "drop")
                  + _ledger_lines(progress, "unknown")
                  + _ledger_lines(progress, "archived_cols"))
@@ -2790,11 +2796,26 @@ def _dev_mode(args) -> bool:
     return bool(args.dev_target or args.mariadb_arg)
 
 
+def continues_recorded_run(args) -> bool:
+    """Whether this invocation continues the run the ledger records --
+    and so inherits the sign-offs that run was given.
+
+    `--resume` obviously does. `--cleanup` does too, and it was the one
+    that did not: it re-runs row parity before dropping staging, and an
+    import verified with `--accept content-migration` re-checked with an
+    empty accept set refuses -- leaving a passed import permanently
+    un-cleanable. Cleanup is the epilogue of the recorded run, whose
+    ledger already says verification passed; it is not the fresh
+    invocation the inheritance rule guards against."""
+    return bool(getattr(args, "resume", False)
+                or getattr(args, "cleanup", False))
+
+
 def merged_acknowledgements(cli_accept, state: Dict,
                             resume: bool) -> List[str]:
-    """This run's --accept classes, plus — on a resume only — the
-    sign-offs the ledger already records, so continuing a run need not
-    repeat them.
+    """This run's --accept classes, plus — when continuing the recorded
+    run (`--resume`, `--cleanup`) — the sign-offs the ledger already
+    records, so continuing a run need not repeat them.
 
     A fresh run gets exactly what it passed. The ledger's `accepted` is
     written before the first phase runs, so an invocation that dies in a
@@ -2898,7 +2919,7 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     if getattr(args, "fixups_dir", None) and not dev_target:
         die("--fixups-dir is a development seam and needs --dev-target")
     accepted = merged_acknowledgements(args.accept, state,
-                                       getattr(args, "resume", False))
+                                       continues_recorded_run(args))
     inputs = _resolve_inputs(
         args, state_dir, accepted,
         recorded_digest=state.get("inputs", {}).get("bundle_sha256"),

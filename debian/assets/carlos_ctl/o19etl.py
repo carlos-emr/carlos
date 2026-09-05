@@ -969,14 +969,20 @@ def archived_column_plan(entry: dict, src_cols: Dict[str, dict]
     # name keeps the manifest's spelling so it is stable across dumps;
     # MySQL resolves the source column name case-insensitively either
     # way, so the emitted SQL is unaffected.
-    lower = {c.lower(): info for c, info in src_cols.items()}
+    lower = {c.lower(): (c, info) for c, info in src_cols.items()}
     out = []
     for col in sorted(set(entry.get("dropped", {}))
                       | set(unknown_columns(entry, src_cols))):
-        info = lower.get(col.lower())
-        if not info:
+        found = lower.get(col.lower())
+        if not found:
             continue
-        out.append((col, archived_column(col), info["column_type"]))
+        # the SOURCE half of the plan is the dump's own spelling: it is
+        # what `renames` will read and what `etl_archived_columns` indexes
+        # src_info by, and a manifest that says `programNo` where the
+        # dump says `programno` was a KeyError mid-P4 before this. The
+        # TARGET keeps the manifest's spelling, stable across dumps.
+        real, info = found
+        out.append((real, archived_column(col), info["column_type"]))
     return out
 
 
@@ -3256,6 +3262,7 @@ def merge_appended_mismatch_sql(table: str, entry: dict, src_schema: str,
 def merge_backfill_mismatch_sql(table: str, entry: dict, src_schema: str,
                                 dst_schema: str, archive_schema: str,
                                 key: Sequence[str],
+                                dst_cols: Optional[Dict[str, dict]] = None,
                                 select: Optional[str] = None) -> str:
     """Seed rows that had a clinic twin on the natural key but do not
     carry that twin's `import_archived_` values.
@@ -3274,7 +3281,12 @@ def merge_backfill_mismatch_sql(table: str, entry: dict, src_schema: str,
     same = " AND ".join(
         "d.{0} <=> s.{1}".format(ident(t), ident(src))
         for t, src in sorted(archived.items()))
-    join = merge_join(entry, archive_schema, None)
+    # `dst_cols` for the same reason archived_backfill_statement passes
+    # it: merge_join sanitizes the key expressions only when it has the
+    # target's column info, and a check that pairs on the UNsanitized
+    # key (a zero date, an out-of-set enum) would pair rows the write
+    # did not -- and report the write wrong for a difference of its own
+    join = merge_join(entry, archive_schema, dst_cols)
     excl = (" AND NOT ({0})".format(entry["merge_exclude"])
             if entry.get("merge_exclude") else "")
     twin = ("SELECT 1 FROM `{0}`.{1} s WHERE {2}{3}".format(
@@ -3488,7 +3500,8 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
     if not archived:
         return
     n = count(table, merge_backfill_mismatch_sql(
-        table, entry, src_schema, dst_schema, archive_schema, key))
+        table, entry, src_schema, dst_schema, archive_schema, key,
+        dst_cols))
     if n:
         bad.append("{0}: {1} seed row(s) beat a clinic row whose values "
                    "their import_archived_ columns do not carry"
@@ -3498,7 +3511,7 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
                 plain_query, table, "merge/backfill",
                 merge_backfill_mismatch_sql(
                     table, entry, src_schema, dst_schema, archive_schema,
-                    key, select=key_projection(key, "d")), key))
+                    key, dst_cols, select=key_projection(key, "d")), key))
     elif n == 0:
         ok.append("{0} (merge): every seed row that beat a clinic row "
                   "carries its archived values".format(table))

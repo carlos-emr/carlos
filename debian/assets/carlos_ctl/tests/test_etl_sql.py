@@ -356,6 +356,33 @@ class TestSurrogateIdRemap(unittest.TestCase):
         self.assertNotIn("IFNULL", selected_expr(sql, "consent_type_id"))
 
 
+class TestArchivedColumnPlanSpelling(unittest.TestCase):
+    """A dump that spells a dropped column differently from the manifest
+    (`programno` for `programNo`) must still be preserved -- and the
+    copy must read the column by the name the dump actually has."""
+
+    ENTRY = {"class": "copy", "cols": ["id"],
+             "dropped": {"programNo": {"nondefault": "x"}}}
+    SRC = {"id": {"column_type": "int(11)"},
+           "programno": {"column_type": "varchar(20)"}}
+
+    def test_the_source_half_is_the_dumps_own_spelling(self):
+        plan = o19etl.archived_column_plan(self.ENTRY, self.SRC)
+        self.assertEqual(plan, [("programno", "import_archived_programNo",
+                                 "varchar(20)")])
+
+    def test_the_source_spelling_is_what_the_copy_reads(self):
+        entry = o19etl.with_archived_columns(
+            self.ENTRY, o19etl.archived_column_plan(self.ENTRY, self.SRC))
+        self.assertEqual(entry["renames"]["import_archived_programNo"],
+                         "programno")
+        # ... and what the caller indexes the dump's columns by: the
+        # KeyError this existed for was src_info[table][src_col]
+        plan = o19etl.archived_column_plan(self.ENTRY, self.SRC)
+        for src_col, _t, _c in plan:
+            self.assertIn(src_col, self.SRC)
+
+
 class TestResumeIdempotency(unittest.TestCase):
 
     """What a resumed run may repeat, and what it must refuse.
@@ -789,12 +816,17 @@ class TestArchivedColumns(unittest.TestCase):
         column spelled `legacyflag` is neither planned by an exact lookup
         NOR counted as a vendor-fork column -- it would be preserved
         nowhere at all. The target name keeps the manifest's spelling so
-        it is stable across dumps."""
+        it is stable across dumps; the SOURCE half is the dump's own
+        spelling, because that is what `renames` reads and what the
+        caller indexes the dump's columns by (a manifest spelling there
+        was a KeyError mid-P4)."""
         cols = self.src_cols()
         cols["legacyflag"] = cols.pop("legacyFlag")
         plan = o19etl.archived_column_plan(self.ENTRY, cols)
-        self.assertIn(("legacyFlag", "import_archived_legacyFlag",
+        self.assertIn(("legacyflag", "import_archived_legacyFlag",
                        "tinyint(1)"), plan)
+        for src_col, _target, _ctype in plan:
+            self.assertIn(src_col, cols)
 
     def test_the_shadow_capture_agrees_about_which_columns_are_absent(
             self):

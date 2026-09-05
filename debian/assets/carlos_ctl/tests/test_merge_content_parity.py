@@ -195,10 +195,27 @@ class TestTheBackfillStatement(unittest.TestCase):
              "archived_cols": {"import_archived_note": "note"},
              "renames": {"import_archived_note": "note"}}
 
-    def sql(self, entry=None, **kw):
+    def sql(self, entry=None, cols=None, **kw):
         return o19etl.merge_backfill_mismatch_sql(
             "t", entry or self.ENTRY, "o19_import", "carlos",
-            "o19_archive", ("id",), **kw)
+            "o19_archive", ("id",), cols, **kw)
+
+    def test_it_pairs_rows_exactly_as_the_backfill_paired_them(self):
+        """The write sanitizes its key expressions (a zero date becomes
+        NULL, an out-of-set enum its fallback). A check that paired on
+        the raw key would pair rows the write did not, and report the
+        write wrong for a difference of its own making."""
+        entry = dict(self.ENTRY, merge_keys=["d"],
+                     cols=["id", "d", "import_archived_note"])
+        cols = dst_cols(["id", "d", "import_archived_note"],
+                        d={"type": "date", "column_type": "date"})
+        check = self.sql(entry=entry, cols=cols)
+        write = o19etl.archived_backfill_statement(
+            "t", entry, "o19_import", "carlos", cols, "o19_archive")
+        join = o19etl.merge_join(entry, "o19_archive", cols)
+        self.assertIn("NULLIF", join)          # the sanitized shape
+        self.assertIn(join, check)
+        self.assertIn(join, write)
 
     def test_it_asks_only_about_rows_that_were_already_there(self):
         self.assertIn("EXISTS (SELECT 1 FROM `o19_archive`.`t__preseed` "
