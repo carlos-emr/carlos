@@ -302,9 +302,10 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # "<pom version> (carlos-emr-deb <debian/changelog version>)", e.g.
 #   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha11-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot18)'
 # Leave it unset when validating a WAR you did not build through the packaging.
-# Rx fax record-binding check (rx-fax-record-binding-playwright-checks.js). Pins the four
-# guarantees of PR #3606: a forged patient identity on the fax POST never reaches the faxed PDF
-# (the prescription's own demographic does), a standalone one-character direction line survives,
+# Rx fax record-binding check (rx-fax-record-binding-playwright-checks.js). Pins the
+# guarantees of PR #3606: a forged patient identity, prescription date, clinic block, reprint
+# annotation or satellite-clinic block on the fax POST never reaches the faxed PDF (the
+# prescription record's own values do), a standalone one-character direction line survives,
 # a note typed immediately before Fax is on the fax (the save is deliberately delayed so the race
 # is deterministic), and the clinic header is submitted as separate lines with the clinic name
 # rendered as its own line (the glued-letter-n defect collapsed it to one line). Same
@@ -314,6 +315,10 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # process sees it. It leaves two prescription_<pdfId>.pdf files there per run (one from the Fax
 # button, one from the forged POST) plus their fax-spool pairs; nothing from a PDF is printed.
 export RX_FAX_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# Straight after `carlos-ctl restart`, Tomcat compiles the Rx JSPs on first hit and one Fax
+# click can take longer than the check's default 45 s round-trip allowance; raise it for a
+# cold server rather than reading the timeout as a fax failure.
+export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below

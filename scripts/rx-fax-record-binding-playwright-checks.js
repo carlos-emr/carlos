@@ -92,6 +92,10 @@ const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = String(process.env.RX_FAX_DEMOGRAPHIC_NO || '1').trim();
 const providerNo = String(process.env.RX_FAX_PROVIDER_NO || '999998').trim();
 const notesSaveDelayMs = Number(process.env.RX_FAX_NOTES_SAVE_DELAY_MS || '2500');
+// How long one Fax click may take to produce its createcustomedpdf request and response. The
+// default is generous for a warm server; a freshly restarted Tomcat compiling the Rx JSPs on
+// first hit can need more, so the deb-install runbook raises it rather than lowering the bar.
+const faxRoundTripTimeoutMs = Number(process.env.RX_FAX_ROUND_TRIP_TIMEOUT_MS || '45000');
 const artifactDir = process.env.ARTIFACT_DIR || '/tmp/carlos-playwright-artifacts';
 const documentDir = validateDocumentDir(process.env.RX_FAX_DOCUMENT_DIR);
 
@@ -119,6 +123,19 @@ const customDrugName = `PW FAX BIND ${Date.now()}${runSuffix}`;
 const probeLine = 'Z';
 const probeLineContext = `PW PROBE ${runSuffix}`;
 const noteText = `PW NOTE ${runSuffix}`;
+// Header values with record sources the servlet must bind the same way: the prescription date,
+// the clinic block, the reprint annotation, and a satellite-clinic block (useSC/scAddress) the
+// provider was never offered. Distinct markers so a rendered one names the field that leaked.
+const forgedHeader = {
+  rxDate: 'January 1, 1900',
+  clinicName: `ZQFORGEDCLINIC${runSuffix}\n1 Forged Way\nForgedville   Z0Z 0Z0`,
+  clinicPhone: '4165550001',
+  rxReprint: 'true',
+  origPrintDate: `ZQFORGEDPRINT${runSuffix}`,
+  numPrints: '77',
+  useSC: 'true',
+  scAddress: `<b>Dr F</b><br>ZQFORGEDSAT${runSuffix}<br>2 Forged Rd<br>Forgedville, ZZ Z0Z 0Z0<br>Tel: 4165550002<br>Fax: 4165550003`,
+};
 const forged = {
   patientName: `ZQFORGEDNAME${runSuffix}`,
   patientHIN: '9999999999',
@@ -502,10 +519,15 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   });
 
   await modalFrame.locator('#additionalNotes').waitFor({ state: 'visible', timeout: 30000 });
+  // The Fax button's handler writes into the preview iframe (finalFax, pdfId) before it submits the
+  // iframe's form, so a click that lands before ViewPreview2 has rendered throws inside the page and
+  // no request is ever made. A clinician cannot click that fast on a warm server; a headless run
+  // against a cold one can, so wait for the form the click needs.
+  await modalFrame.frameLocator('#preview').locator('#preview2Form').waitFor({ state: 'attached', timeout: faxRoundTripTimeoutMs });
   await modalFrame.locator('#additionalNotes').fill(noteText);
 
-  const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 45000 });
-  const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: 45000 });
+  const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: faxRoundTripTimeoutMs });
+  const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: faxRoundTripTimeoutMs });
   // The click moves focus off the textarea, firing its onchange (addNotes -> delayed save) before
   // the click handler faxes: the same order a clinician's click produces.
   await modalFrame.locator('#faxButton').click();
@@ -514,8 +536,12 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   let status = 0;
   let body = '';
   try {
-    const request = await faxRequestPromise;
-    const response = await faxResponsePromise;
+    // Await BOTH together. Awaiting them one after the other leaves the second promise with no
+    // handler while the first is pending; when the click produces no round trip at all, both time
+    // out at once and the un-awaited rejection is an unhandled rejection that kills the process --
+    // before the finally-block cleanup below has run, leaving the pharmacy fax numbers, the
+    // fax_config row and the fixture prescription in the database.
+    const [request, response] = await Promise.all([faxRequestPromise, faxResponsePromise]);
     status = response.status();
     body = await response.text().catch(() => '');
     const post = new URLSearchParams(request.postData() || '');
@@ -586,6 +612,7 @@ async function faxWithForgedIdentity(page, scriptId) {
       rxDate: 'January 1, 2026',
       sigDoctorName: 'Dr Forged',
       showPatientDOB: 'true',
+      ...forgedHeader,
       ...forged,
     },
   });
@@ -614,6 +641,32 @@ function recordIdentity() {
   return { name: `${first} ${last}`.trim(), hin: (row[2] || '').trim() };
 }
 
+function assertHeaderBound(runs) {
+  const joined = runs.join('\n');
+  const markers = {
+    rxDate: forgedHeader.rxDate,
+    clinicName: forgedHeader.clinicName.split('\n')[0],
+    clinicPhone: forgedHeader.clinicPhone,
+    origPrintDate: forgedHeader.origPrintDate,
+    scAddress: `ZQFORGEDSAT${runSuffix}`,
+  };
+  for (const [field, needle] of Object.entries(markers)) {
+    if (joined.includes(needle)) {
+      findings.push({ label: 'header', type: 'forged-value-rendered', field, text: `the faxed PDF rendered the request's ${field}, not the record's` });
+    }
+  }
+  // The record's date is the fixture prescription's rx_date, written today, in the page's own
+  // "MMMM d, yyyy" shape; the date cell is one PDF phrase, so it is one text run.
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dateBound = runs.some((r) => r.trim() === today);
+  // The record's clinic header is whatever the page itself posted for the UI fax (the page composes
+  // it from the same record), so its first line must be a rendered line of the forged-request fax.
+  const recordClinicLine = ((submittedClinicHeader || '').split(/\r?\n/)[0] || '').trim();
+  const clinicBound = recordClinicLine.length > 0 && runs.map((r) => r.trim()).includes(recordClinicLine);
+  visited.push({ label: 'header', dateBound, clinicBound, recordClinicKnown: recordClinicLine.length > 0 });
+  if (!dateBound) findings.push({ label: 'header', type: 'record-date-absent', text: 'the forged-request fax does not carry the prescription record\'s own date' });
+  if (recordClinicLine.length > 0 && !clinicBound) findings.push({ label: 'header', type: 'record-clinic-absent', text: 'the forged-request fax does not carry the clinic header the page itself posted for the same prescription' });
+}
 function assertIdentityBound(runs, identity) {
   const joined = runs.join('\n');
   for (const [field, value] of Object.entries(forged)) {
@@ -646,9 +699,12 @@ function assertProbeLine(runs) {
  * clinic row's name with a trailing "(nnnnnn)" site code removed. Used only to tell the letter-n
  * defect apart from a legitimately single-line header (a program address is one line by design).
  */
-function clinicRowName() {
-  const raw = sql('SELECT IFNULL(clinic_name, \'\') FROM clinic ORDER BY clinic_no LIMIT 1;').trim();
-  return raw.replace(/\(\d{6}\)/g, '').trim();
+// Every clinic row's name (suffix "(nnnnnn)" stripped as the page strips it). ClinicDAO.getClinic()
+// takes the first row of an unordered query, so no single ORDER BY reproduces which row the page
+// used; any row's name being a proper prefix of the one-line header is enough to call it glued.
+function clinicRowNames() {
+  return sql('SELECT IFNULL(clinic_name, \'\') FROM clinic;').split('\n')
+    .map((raw) => raw.replace(/\(\d{6}\)/g, '').trim()).filter((name) => name.length > 0);
 }
 
 /**
@@ -677,8 +733,7 @@ function assertClinicHeader(runs) {
   const firstLine = lines[0] || '';
   const multiLine = lines.length >= 2;
   if (!multiLine) {
-    const clinicName = clinicRowName();
-    const glued = clinicName.length > 0 && firstLine.startsWith(clinicName) && firstLine.length > clinicName.length;
+    const glued = clinicRowNames().some((clinicName) => firstLine.startsWith(clinicName) && firstLine.length > clinicName.length);
     visited.push({ label: 'clinic-header', multiLine: false, glued });
     if (glued) {
       findings.push({ label: 'clinic-header', type: 'lines-glued', text: 'the page submitted the clinic header as a single line beginning with the clinic name: the <br> to line-break conversion lost the breaks (the letter-n defect)' });
@@ -729,6 +784,7 @@ async function runChecks(context) {
       visited.push({ label: 'forged-fax-pdf', runs: runs.length });
       if (!runs.length) findings.push({ label: 'forged-fax', type: 'no-text', text: 'the forged-identity fax PDF has no text runs' });
       assertIdentityBound(runs, recordIdentity());
+      assertHeaderBound(runs);
     }
   } finally {
     cleanupFixtures();
@@ -766,7 +822,7 @@ async function runChecks(context) {
     console.error(`FAIL: ${findings.length} finding(s)`);
     for (const f of findings) console.error(` - [${f.label}] ${f.type}: ${f.text || ''}`);
   } else {
-    console.log('PASS: identity, one-character line and notes are bound to the prescription record; the clinic header renders on its own lines');
+    console.log('PASS: identity, header (date, clinic, reprint), one-character line and notes are bound to the prescription record; the clinic header renders on its own lines');
   }
   process.exit(exitCode);
 })();

@@ -103,7 +103,10 @@ function initMysqlDefaults() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'echart-new-patient-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
   try {
-    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+    // Option-file values are quoted: an unquoted password ending at a '#' or containing a space
+    // is silently truncated by the mysql client and the check fails as an access denial.
+    const quoted = `"${mysqlPassword.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+    fs.writeFileSync(file, `[client]\npassword=${quoted}\n`, { mode: 0o600 });
   } catch (error) {
     // Never leave a half-written file holding the database password behind.
     fs.rmSync(dir, { recursive: true, force: true });

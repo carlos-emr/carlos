@@ -14,13 +14,20 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
+import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
+import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
+import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.prescript.data.RxSatelliteClinicAddress;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
@@ -29,6 +36,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -53,6 +61,7 @@ import javax.imageio.ImageIO;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 
@@ -87,6 +96,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     private DrugDao drugDao;
     private ProviderExtDao providerExtDao;
     private DemographicManager demographicManager;
+    private ProviderDao providerDao;
+    private ClinicDAO clinicDao;
+    private UserPropertyDAO userPropertyDao;
+    private SiteDao siteDao;
 
     @BeforeEach
     void setUp() {
@@ -100,8 +113,14 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         registerMock(DigitalSignatureManager.class, digitalSignatureManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(FaxManager.class, mock(FaxManager.class));
-        registerMock(ClinicDAO.class, mock(ClinicDAO.class));
-        registerMock(ProviderDao.class, mock(ProviderDao.class));
+        clinicDao = mock(ClinicDAO.class);
+        registerMock(ClinicDAO.class, clinicDao);
+        providerDao = mock(ProviderDao.class);
+        registerMock(ProviderDao.class, providerDao);
+        userPropertyDao = mock(UserPropertyDAO.class);
+        registerMock(UserPropertyDAO.class, userPropertyDao);
+        siteDao = mock(SiteDao.class);
+        registerMock(SiteDao.class, siteDao);
         registerMock(DemographicDao.class, mock(DemographicDao.class));
         demographicManager = mock(DemographicManager.class);
         registerMock(DemographicManager.class, demographicManager);
@@ -170,6 +189,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
         // Grant both READ and WRITE for the patient; the fax path requires WRITE, a preview READ.
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(true);
+        // The fax also heads the page with the demographic record, so faxing needs _demographic READ.
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
     }
 
@@ -719,6 +741,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         when(prescriptionDao.find(SCRIPT_ID)).thenReturn(unsigned);
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(true);
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
             loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -1166,6 +1190,253 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     /** The same request as {@link #createFaxRequest()} but a print/preview: no {@code __method}. */
+    @Test
+    @DisplayName("should refuse to fax on anything but POST before touching the prescription")
+    void shouldRejectFax_whenRequestMethodIsNotPost() throws Exception {
+        // CSRFGuard protects POST only, and this servlet answers every method through service():
+        // a GET that faxed would be a cross-site-triggerable fax of a real prescription to a
+        // caller-chosen number.
+        MockHttpServletRequest request = createFaxRequest();
+        request.setMethod("GET");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            verify(prescriptionDao, never()).find(anyInt());
+            verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+            verify(faxJobDao, never()).persist(any());
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse to fax when the caller may not read the patient's demographic")
+    void shouldRefuseFax_whenCallerLacksDemographicRead() throws Exception {
+        // The fax heads the page with the demographic record, so _demographic READ is part of the
+        // permission to fax; refused here deliberately instead of surfacing as DemographicManager's
+        // RuntimeException half-way through.
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(false);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("fax-failure").contains("permission").doesNotContain("not signed");
+            verify(demographicManager, never()).getDemographic(any(), anyInt());
+            verify(faxJobDao, never()).persist(any());
+        }
+    }
+
+    @Test
+    @DisplayName("should fax the latest drug date of the record, not the request's rxDate")
+    void shouldBindRxDate_toLatestRecordDrugDate() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("rxDate", "January 1, 1900");
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        Drug older = drugRow(5, RECORD_DRUG_LINE);
+        older.setRxDate(new GregorianCalendar(2026, 2, 4).getTime());
+        Drug newer = drugRow(6, SECOND_DRUG_LINE);
+        Date latest = new GregorianCalendar(2026, 4, 6).getTime();
+        newer.setRxDate(latest);
+        stubRecordDrugs(prescription, older, newer);
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound.getParameter("rxDate")).isEqualTo(RxUtil.DateToString(latest, "MMMM d, yyyy")).doesNotContain("1900");
+    }
+
+    @Test
+    @DisplayName("should fax the prescriber's clinic header, not the request's")
+    void shouldBindClinicHeader_toPrescriberClinic() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("clinicName", "Forged Clinic\n1 Forged Way");
+        request.setParameter("clinicPhone", "4165550001");
+        stubStoredSignature();
+        stubPrescriberClinic();
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        // The page strips the "(nnnnnn)" clinic number and joins name, address, "city   postal".
+        assertThat(bound.getParameter("clinicName")).isEqualTo("Record Clinic \n10 Record Rd\nHamilton   L8S 4L8");
+        assertThat(bound.getParameter("clinicPhone")).isEqualTo("9055550000");
+        assertThat(bound.getParameter("useSC")).isNull();
+    }
+
+    @Test
+    @DisplayName("should let the prescriber's rxPhone preference win over the clinic telephone")
+    void shouldBindClinicPhone_toPrescriberPreference() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        UserProperty rxPhone = new UserProperty();
+        rxPhone.setProviderNo("999998");
+        rxPhone.setName("rxPhone");
+        rxPhone.setValue("4161112222");
+        when(userPropertyDao.getProp("999998", "rxPhone")).thenReturn(rxPhone);
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound.getParameter("clinicPhone")).isEqualTo("4161112222");
+    }
+
+    @Test
+    @DisplayName("should keep a satellite clinic block the provider was offered")
+    void shouldKeepSatelliteClinic_whenBlockIsOffered() throws Exception {
+        String previousMultisites = CarlosProperties.getInstance().getProperty("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        String offered = RxSatelliteClinicAddress.html("Dr A", "North Site", "2 North Ave", "Barrie", "ON", "L4M 1A1",
+                "7055551111", "7055552222", telLabel(request), faxLabel(request));
+        request.setParameter("useSC", "true");
+        request.setParameter("scAddress", offered);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(northSite()));
+
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+            assertThat(bound.getParameter("useSC")).isEqualTo("true");
+            assertThat(bound.getParameter("scAddress")).isEqualTo(offered);
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
+    }
+
+    @Test
+    @DisplayName("should fall back to the main clinic when the satellite block was never offered")
+    void shouldDropSatelliteClinic_whenBlockIsNotOffered() throws Exception {
+        String previousMultisites = CarlosProperties.getInstance().getProperty("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        // A well-formed block for a clinic this provider has no site for.
+        String forged = RxSatelliteClinicAddress.html("Dr A", "Forged Site", "2 Forged Rd", "Forgedville", "ZZ", "Z0Z 0Z0",
+                "4165550002", "4165550003", telLabel(request), faxLabel(request));
+        request.setParameter("useSC", "true");
+        request.setParameter("scAddress", forged);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(northSite()));
+
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+            assertThat(bound.getParameter("useSC")).isEqualTo("false");
+            assertThat(bound.getParameter("scAddress")).isEmpty();
+            assertThat(bound.getParameter("clinicName")).startsWith("Record Clinic");
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
+    }
+
+    @Test
+    @DisplayName("should fax the record's print history as the reprint annotation when reprinting")
+    void shouldBindReprintAnnotation_fromRecordPrintHistory() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("rxReprint", "true");
+        request.setParameter("origPrintDate", "FORGED DATE");
+        request.setParameter("numPrints", "77");
+        request.getSession().setAttribute("rePrint", "true");
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        Date firstPrinted = new GregorianCalendar(2026, 0, 2).getTime();
+        prescription.setDatePrinted(firstPrinted);
+        prescription.setDatesReprinted("2026-02-03"); // reprinted once: printed twice in all
+        stubRecordDrugs(prescription, drugRow(5, RECORD_DRUG_LINE));
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound.getParameter("rxReprint")).isEqualTo("true");
+        assertThat(bound.getParameter("origPrintDate")).isEqualTo(String.valueOf(firstPrinted));
+        assertThat(bound.getParameter("numPrints")).isEqualTo("2");
+    }
+
+    @Test
+    @DisplayName("should blank the reprint annotation when this session is not reprinting")
+    void shouldBlankReprintAnnotation_whenNotReprinting() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("rxReprint", "true");
+        request.setParameter("origPrintDate", "FORGED DATE");
+        request.setParameter("numPrints", "77");
+        stubStoredSignature();
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound.getParameter("rxReprint")).isEqualTo("false");
+        assertThat(bound.getParameter("origPrintDate")).isEmpty();
+        assertThat(bound.getParameter("numPrints")).isEmpty();
+    }
+
+    /** The prescriber 999998 and the clinic row RxProviderData composes the clinic header from. */
+    private void stubPrescriberClinic() {
+        Clinic clinic = new Clinic();
+        clinic.setClinicName("Record Clinic (123456)");
+        clinic.setClinicAddress("10 Record Rd");
+        clinic.setClinicCity("Hamilton");
+        clinic.setClinicProvince("ON");
+        clinic.setClinicPostal("L8S 4L8");
+        clinic.setClinicPhone("9055550000");
+        clinic.setClinicFax("9055550009");
+        when(clinicDao.getClinic()).thenReturn(clinic);
+        io.github.carlos_emr.carlos.commn.model.Provider prescriber = new io.github.carlos_emr.carlos.commn.model.Provider();
+        prescriber.setProviderNo("999998");
+        prescriber.setFirstName("Ann");
+        prescriber.setLastName("Prescriber");
+        when(providerDao.getProvider("999998")).thenReturn(prescriber);
+    }
+
+    private static Site northSite() {
+        Site site = new Site();
+        site.setName("North Site");
+        site.setAddress("2 North Ave");
+        site.setCity("Barrie");
+        site.setProvince("ON");
+        site.setPostal("L4M 1A1");
+        site.setPhone("7055551111");
+        site.setFax("7055552222");
+        return site;
+    }
+
+    private static String telLabel(HttpServletRequest request) {
+        return SafeEncode.forHtml(LocaleUtils.getMessage(request.getLocale(), "RxPreview.msgTel"));
+    }
+
+    private static String faxLabel(HttpServletRequest request) {
+        return SafeEncode.forHtml(LocaleUtils.getMessage(request.getLocale(), "RxPreview.msgFax"));
+    }
+
     private MockHttpServletRequest createPreviewRequest() {
         MockHttpServletRequest request = createFaxRequest();
         request.removeParameter("__method");

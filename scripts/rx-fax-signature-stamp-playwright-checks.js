@@ -562,11 +562,15 @@ async function runChecks(context) {
     let faxBody = '';
     let faxStatus = 0;
     try {
-      faxRequest = await faxRequestPromise;
-      const faxResponse = await faxResponsePromise;
+      // Await both together: awaited one after the other, a click that produces no round trip
+      // times both out at once and the second, still-unhandled rejection kills the process before
+      // the fixture cleanup runs.
+      const [request, faxResponse] = await Promise.all([faxRequestPromise, faxResponsePromise]);
+      faxRequest = request;
       faxStatus = faxResponse.status();
       faxBody = await faxResponse.text().catch(() => '');
-      visited.push({ label: 'fax-request', url: faxRequest.url(), status: faxStatus });
+      // Path only: the query carries scriptId and the satellite-clinic block, and this goes to the artifact file.
+      visited.push({ label: 'fax-request', url: new URL(faxRequest.url()).pathname + ' (query redacted)', status: faxStatus });
     } catch (error) {
       findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
     }

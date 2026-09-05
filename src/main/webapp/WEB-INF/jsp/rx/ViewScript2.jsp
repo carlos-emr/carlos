@@ -39,6 +39,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxSatelliteClinicAddress" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
@@ -205,16 +206,11 @@
                 for (int i = 0; i < sites.size(); i++) {
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
-                    String addressHtml = "<b>" + encodedDoctorName + "</b><br>"
-                            + SafeEncode.forHtml(s.getName()) + "<br>"
-                            + SafeEncode.forHtml(s.getAddress()) + "<br>"
-                            + SafeEncode.forHtml(s.getCity()) + ", "
-                            + SafeEncode.forHtml(s.getProvince()) + " "
-                            + SafeEncode.forHtml(s.getPostal()) + "<br>"
-                            + encodedTelLabel + ": "
-                            + SafeEncode.forHtml(s.getPhone()) + "<br>"
-                            + encodedFaxLabel + ": "
-                            + SafeEncode.forHtml(s.getFax());
+                    // One composer for this block on both ends: FrmCustomedPDFServlet parses the
+                    // chosen block back out of scAddress AND recomputes the blocks this provider was
+                    // offered, so a fax cannot carry a clinic header the request made up.
+                    String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, s.getName(), s.getAddress(),
+                            s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
                         session.setAttribute("RX_ADDR", String.valueOf(i));
@@ -252,16 +248,8 @@
 
                 for (int i = 0; i < temp0.length; i++) {
                     vecAddressName.add(temp0[i]);
-                    String addressHtml = "<b>" + encodedDoctorName + "</b><br>"
-                            + SafeEncode.forHtml(temp0[i]) + "<br>"
-                            + SafeEncode.forHtml(temp1[i]) + "<br>"
-                            + SafeEncode.forHtml(temp2[i]) + ", "
-                            + SafeEncode.forHtml(temp3[i]) + " "
-                            + SafeEncode.forHtml(temp4[i]) + "<br>"
-                            + encodedTelLabel + ": "
-                            + SafeEncode.forHtml(temp5[i]) + "<br>"
-                            + encodedFaxLabel + ": "
-                            + SafeEncode.forHtml(temp6[i]);
+                    String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, temp0[i], temp1[i], temp2[i],
+                            temp3[i], temp4[i], temp5[i], temp6[i], encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                 }
             }
@@ -373,20 +361,24 @@
                 <%}
             }%>
                 let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
-                document.getElementById("preview").contentWindow.document.getElementById("preview2Form").action = action;
-                if (method !== "oscarRxFax") {
-                    document.getElementById("preview").contentWindow.document.getElementById("preview2Form").target = "_blank";
-                }
                 var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
+                previewForm.action = action;
                 if (method === "oscarRxFax") {
                     // Only the fax waits. A print renders additNotes from the request, which
                     // addNotes() already updated synchronously, so there is nothing to wait for --
                     // and deferring a target="_blank" submit out of the click's user-gesture context
                     // would hand it to the popup blocker.
                     pendingNotesSave.then(function () {
+                        // Set the target at submit time, not click time: a print in the same modal
+                        // leaves target="_blank" on this shared form, and the fax must post back into
+                        // the modal, never open a tab. Doing it here also covers a print that lands
+                        // while this fax is still waiting on the notes save.
+                        previewForm.target = "";
+                        previewForm.action = action;
                         previewForm.submit();
                     });
                 } else {
+                    previewForm.target = "_blank";
                     previewForm.submit();
                 }
 
