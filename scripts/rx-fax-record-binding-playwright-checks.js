@@ -359,7 +359,7 @@ function seedPharmacyFax() {
   }
   visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.length, active: rows.length });
   if (!rows.length) {
-    findings.push({ label: 'pharmacy-fax', type: 'no-active-pharmacy', text: `patient ${demographicNo} has no active pharmacy, so a prescription for them can never be faxed` });
+    findings.push({ label: 'pharmacy-fax', type: 'no-active-pharmacy', text: 'the configured RX_FAX_DEMOGRAPHIC_NO patient has no active pharmacy, so a prescription for them can never be faxed' });
   }
 }
 

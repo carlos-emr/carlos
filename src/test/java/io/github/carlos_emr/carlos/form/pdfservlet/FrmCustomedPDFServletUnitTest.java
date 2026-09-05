@@ -1304,7 +1304,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep a satellite clinic block the provider was offered")
     void shouldKeepSatelliteClinic_whenBlockIsOffered() throws Exception {
-        String previousMultisites = CarlosProperties.getInstance().getProperty("multisites");
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
         stubPrescriberClinic();
@@ -1333,7 +1333,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should fall back to the main clinic when the satellite block was never offered")
     void shouldDropSatelliteClinic_whenBlockIsNotOffered() throws Exception {
-        String previousMultisites = CarlosProperties.getInstance().getProperty("multisites");
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();
         stubPrescriberClinic();

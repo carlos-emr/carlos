@@ -52,7 +52,9 @@ class RxSatelliteClinicAddressUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         for (int i = 0; i < KEYS.length; i++) {
-            previous[i] = CarlosProperties.getInstance().getProperty(KEYS[i]);
+            // Raw stored value: getProperty() warns and substitutes a default for a missing key,
+            // and this only snapshots state to restore it.
+            previous[i] = (String) CarlosProperties.getInstance().get(KEYS[i]);
             CarlosProperties.getInstance().remove(KEYS[i]);
         }
         siteDao = mock(SiteDao.class);
