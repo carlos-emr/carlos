@@ -1643,6 +1643,31 @@ class TestVerifyPhaseFiles(unittest.TestCase):
         self.assertNotIn("billing totals match", report)
         self.assertIn("verification cannot compare billing totals", report)
 
+    def test_the_parity_count_line_does_not_count_unchecked_as_passed(
+            self):
+        """`ok` carries three answers so that the phase does not fail on
+        a table nobody could compare or a mismatch the operator signed
+        off on. Summing them as passes told report.txt -- the only
+        place the count appears without the sections that split it --
+        that every one of them was a check that passed."""
+        o19import._row_parity = lambda ctx: ([
+            "demographic: staging 10 -> target 10",
+            "drugs: staging 4 -> target 4",
+            o19etl.UNCHECKED_PREFIX + "providerExt: no primary key",
+            o19etl.UNCHECKED_PREFIX + "mdsMSH: no primary key",
+            o19import.ACKNOWLEDGED_PREFIX
+            + "casemgmt_note: 7 copied row(s) whose target twin does "
+              "not hold the value the copy wrote"], [])
+        ctx = self._ctx()
+        o19import.run_p7(ctx)
+        expected = ("row parity and preserved content: 2 check(s) passed, "
+                    "2 not checked, 1 mismatch(es) acknowledged")
+        for name in ("report.txt", "import-report.txt"):
+            with open(os.path.join(self.state_dir, name)) as fh:
+                text = fh.read()
+            self.assertIn(expected, text, name)
+            self.assertNotIn("5 check(s)", text, name)
+
     def test_rerun_replaces_the_verify_block(self):
         o19import.write_private(
             os.path.join(self.state_dir, "roles-details.txt"),

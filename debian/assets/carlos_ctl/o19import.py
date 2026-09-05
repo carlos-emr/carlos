@@ -1992,6 +1992,29 @@ def phase_report_rows(state: Dict, content: Optional[Dict]
     return arrived, unchecked, findings
 
 
+def split_parity_lines(parity_ok: Sequence[str]
+                       ) -> Tuple[List[str], List[str], List[str]]:
+    """The three answers `_row_parity` returns as one `ok` list, apart:
+    (passed, not checked, acknowledged), each stripped of its prefix.
+
+    One split for both readers. `report.txt`'s count line once did
+    `len(ok)` on the unsplit list, so every table nobody could compare
+    and every mismatch the operator signed off on was reported as a
+    check that passed -- a number that contradicted the sections the
+    validation report built from the same list."""
+    passed: List[str] = []
+    unchecked: List[str] = []
+    acknowledged: List[str] = []
+    for line in parity_ok:
+        if line.startswith(o19etl.UNCHECKED_PREFIX):
+            unchecked.append(line[len(o19etl.UNCHECKED_PREFIX):])
+        elif line.startswith(ACKNOWLEDGED_PREFIX):
+            acknowledged.append(line[len(ACKNOWLEDGED_PREFIX):])
+        else:
+            passed.append(line)
+    return passed, unchecked, acknowledged
+
+
 def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
                   problems: Sequence[str], verify_lines: Sequence[str],
                   advisories: Sequence[str], finished: str,
@@ -2026,14 +2049,9 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
     # the phases before the ETL and after it speak first: whether the
     # bytes arrived at all (P2) comes before which rows did
     arrived, unchecked, findings = phase_report_rows(state, content)
-    acknowledged: List[str] = []
-    for line in parity_ok:
-        if line.startswith(o19etl.UNCHECKED_PREFIX):
-            unchecked.append(line[len(o19etl.UNCHECKED_PREFIX):])
-        elif line.startswith(ACKNOWLEDGED_PREFIX):
-            acknowledged.append(line[len(ACKNOWLEDGED_PREFIX):])
-        else:
-            arrived.append(line)
+    passed, not_checked, acknowledged = split_parity_lines(parity_ok)
+    arrived.extend(passed)
+    unchecked.extend(not_checked)
     # "merge" is the one bucket that names clinic rows deliberately NOT
     # made live -- the rows CARLOS's seed won on a shared key -- and
     # where they went. It was recorded by the ETL from the start and
@@ -2131,8 +2149,15 @@ def run_p7(ctx) -> None:
     lines: List[str] = []
 
     ok, bad = _row_parity(ctx)
-    lines.append("row parity and preserved content: {0} check(s) pass"
-                 .format(len(ok)))
+    # three counts, never one: NOT CHECKED lines and acknowledged
+    # mismatches travel in `ok` so that the phase does not fail on
+    # them, and `len(ok)` told the operator "345 check(s) pass" when 31
+    # of those were tables nobody looked at and 3 were mismatches
+    # somebody signed off on. This line is all report.txt carries.
+    passed, unchecked, acknowledged = split_parity_lines(ok)
+    lines.append("row parity and preserved content: {0} check(s) passed, "
+                 "{1} not checked, {2} mismatch(es) acknowledged"
+                 .format(len(passed), len(unchecked), len(acknowledged)))
     problems.extend(bad)
 
     # referential spot checks: random patients joined across the chart.
