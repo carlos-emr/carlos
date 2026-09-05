@@ -1415,15 +1415,84 @@ class TestRowParityComposition(unittest.TestCase):
         body = open(ctx["content_details"], encoding="utf-8").read()
         self.assertIn("no per-row key", body)
 
-    def test_a_clean_import_leaves_no_details_file_behind(self):
-        """An empty "here are the rows that disagreed" file is a
-        question an operator should never have to ask."""
+    def test_a_clean_import_writes_clean_and_carries_no_pointer(self):
+        """A clean pass says "clean" in the details file, like
+        verify-details.txt does, and the report gets no pointer: there
+        is nothing to send a reviewer to open."""
         query = self.sound()
         ctx = self.ctx(query)
         o19import._row_parity(ctx)
         self.assertNotIn("content_details", ctx)
-        self.assertFalse(os.path.exists(os.path.join(
-            ctx["state_dir"], o19import.CONTENT_DETAILS)))
+        path = os.path.join(ctx["state_dir"], o19import.CONTENT_DETAILS)
+        self.assertEqual(open(path, encoding="utf-8").read(), "clean\n")
+        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+
+    def test_a_clean_rerun_replaces_a_failed_passes_details_file(self):
+        """The realistic path after a failed P7 is --resume in the same
+        state directory. The keys the failed attempt wrote must not
+        outlive the clean pass that follows, or a PASSED report ships
+        beside a 0600 file headed "rows whose values disagree" that
+        carries no run identifier to say it is stale."""
+        table = self.COPY_TABLE
+        cols = list(o19map_schema.TABLES[table]["cols"])[:2]
+        failing = self.db(
+            staging={table: 3}, archive={}, live={table: 3},
+            columns={"o19_import": {table: cols},
+                     "carlos": {table: cols}})
+        first = self.ctx(failing)
+        _ok, bad = o19import._row_parity(first)
+        self.assertTrue(bad)
+        path = os.path.join(first["state_dir"], o19import.CONTENT_DETAILS)
+        self.assertIn("{0} (copy)".format(table),
+                      open(path, encoding="utf-8").read())
+        # the second pass, same state directory, nothing wrong
+        second = dict(first, query=self.sound())
+        second.pop("content_details")
+        ok, bad = o19import._row_parity(second)
+        self.assertEqual(bad, [])
+        self.assertEqual(open(path, encoding="utf-8").read(), "clean\n")
+        self.assertNotIn("content_details", second)
+        text = o19report.render_text(o19import.import_report(
+            second, {}, ok, bad, [], [], "2026-09-05T10:00:00"))
+        self.assertNotIn(o19import.CONTENT_DETAILS, text)
+        self.assertIn("VERDICT: PASSED", text)
+
+    def test_an_acknowledged_live_table_is_not_called_preserved(self):
+        """"Preserved" is this tool's word for the inert archive/drop/
+        reference copies. A copy-class mismatch is the opposite -- the
+        LIVE clinical table -- and the console line that summarises the
+        sign-off used to call it a preserved table, sending the operator
+        to the archive for a difference that sits in patient data."""
+        table = self.COPY_TABLE
+        cols = list(o19map_schema.TABLES[table]["cols"])[:2]
+        query = self.db(
+            staging={table: 3}, archive={}, live={table: 3},
+            columns={"o19_import": {table: cols},
+                     "carlos": {table: cols}})
+        ctx = self.ctx(query)
+        ctx["accepted"] = ["content-migration"]
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok, bad = o19import._row_parity(ctx)
+        self.assertEqual(bad, [])
+        warning = err.getvalue()
+        self.assertIn("1 content mismatch(es) acknowledged", warning)
+        self.assertIn("1 LIVE copy-class table(s)", warning)
+        self.assertNotIn("preserved", warning)
+
+    def test_an_acknowledged_preserved_copy_is_still_called_preserved(
+            self):
+        # the archive copy IS a preserved table; only that class keeps
+        # the word
+        query = self.sound(content={("o19_archive", self.ARCHIVE_TABLE): 99})
+        ctx = self.ctx(query)
+        ctx["accepted"] = ["content-migration"]
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            o19import._row_parity(ctx)
+        warning = err.getvalue()
+        self.assertIn("1 preserved copy table(s)", warning)
+        self.assertNotIn("LIVE", warning)
 
     def test_the_transfer_sign_off_does_not_clear_a_migration_mismatch(
             self):

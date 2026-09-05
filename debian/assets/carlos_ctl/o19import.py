@@ -1751,24 +1751,43 @@ def _row_parity(ctx):
         details=details,
         pruned_property_prefixes=o19_preflight.DROPPED_PROP_PREFIXES,
         pruned_property_keys=o19_preflight.DROPPED_PROP_KEYS)
+    preserved_bad = content_bad
     content_ok = content_ok + copy_ok + merge_ok
     content_bad = content_bad + copy_bad + merge_bad
+    path = os.path.join(ctx["state_dir"], CONTENT_DETAILS)
+    # written on EVERY pass, "clean" when there is nothing to itemize:
+    # a failed attempt's keys used to survive the clean --resume that
+    # followed it, so a PASSED report sat beside a 0600 file headed
+    # "rows whose values disagree" with no run identifier to say it was
+    # stale. verify-details.txt and documents-details.txt are truncated
+    # per pass for the same reason.
+    write_private(path, ("rows whose values disagree, by primary key "
+                         "(at most {0} per check)\n".format(
+                             o19etl.DETAIL_ROWS)
+                         + "\n".join(details) + "\n")
+                  if details else "clean\n")
+    # read back by `import_report`, which must stay derivable from its
+    # arguments rather than from the filesystem. A clean pass carries no
+    # pointer: "clean" is nothing to send a reviewer to open.
+    ctx.pop("content_details", None)
     if details:
-        path = os.path.join(ctx["state_dir"], CONTENT_DETAILS)
-        write_private(path, "rows whose values disagree, by primary key "
-                            "(at most {0} per check)\n".format(
-                                o19etl.DETAIL_ROWS)
-                      + "\n".join(details) + "\n")
-        # read back by `import_report`, which must stay derivable from
-        # its arguments rather than from the filesystem
         ctx["content_details"] = path
     if content_bad and "content-migration" in (ctx.get("accepted") or ()):
         # a recorded sign-off: the operator was shown the mismatches and
         # accepted them, so they stay in the report as findings but no
-        # longer fail the phase
-        warn("{0} preserved table(s) differ in CONTENT from staging — "
-             "acknowledged (--accept content-migration)"
-             .format(len(content_bad)))
+        # longer fail the phase. Counted by CLASS: "preserved" is this
+        # tool's word for the inert archive/drop/reference copies, and a
+        # copy- or merge-class mismatch is the opposite -- a LIVE
+        # clinical table -- so one "preserved" label for all three sent
+        # the operator to the archive for a difference in patient data
+        by_class = [(len(preserved_bad), "preserved copy table(s)"),
+                    (len(copy_bad), "LIVE copy-class table(s)"),
+                    (len(merge_bad), "LIVE merge-class table(s)")]
+        warn("{0} content mismatch(es) acknowledged (--accept "
+             "content-migration): {1} differ from staging".format(
+                 len(content_bad),
+                 ", ".join("{0} {1}".format(n, what)
+                           for n, what in by_class if n)))
         content_ok = content_ok + [
             ACKNOWLEDGED_PREFIX + line
             for line in content_bad]
