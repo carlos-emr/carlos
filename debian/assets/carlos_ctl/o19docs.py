@@ -29,7 +29,7 @@ import tempfile
 import urllib.parse
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from . import o19bundle, o19etl
+from . import o19bundle, o19digest, o19etl
 from .util import STATE, die, log, run, sql_escape, warn
 
 DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
@@ -970,13 +970,51 @@ def reconcile(query, dst_schema: str, ctx_root: str
     return problems, lines, private
 
 
+ARCHIVE_EXPORT_README = "README.txt"
+
+
+def _archive_readme(hexed: List[str]) -> str:
+    """The note that makes the export readable without this source: how
+    NULL, text and binary cells are written, and which columns are hex."""
+    return (
+        "OSCAR 19 archive export (CARLOS EMR import, phase P5)\n"
+        "\n"
+        "One CSV per table of the o19_archive schema: a header row of "
+        "column names,\nthen one row per stored row.\n"
+        "  * SQL NULL is a bare empty field; a stored empty string is a "
+        "quoted \"\".\n"
+        "  * Text, number and date columns are written verbatim (UTF-8).\n"
+        "  * Binary columns ({0}) are written as\n"
+        "    the hexadecimal digits of the stored bytes (MariaDB HEX(); "
+        "decode with\n    UNHEX() or bytes.fromhex). A byte sequence that "
+        "is not valid UTF-8 has no\n    verbatim text form: written as "
+        "text it would be replaced by U+FFFD, and two\n    different "
+        "stored values could read the same.\n"
+        "\n"
+        "Hex-encoded columns in this export (table.column):\n"
+        "{1}\n".format(
+            ", ".join(o19digest.HEXED_TYPES),
+            "\n".join("  " + h for h in hexed) or "  (none)"))
+
+
 def export_archive_csv(query, archive_schema: str, out_dir: str,
                        stream=None) -> List[str]:
     """Write every o19_archive table as CSV so the clinic holds a readable
     copy of everything that became archive-only. SQL NULL is told from a
     stored value by a companion `IS NULL` flag per column (the batch client
     prints both a NULL and the four-letter string NULL identically), so a
-    NULL becomes an empty field and every stored value survives verbatim.
+    NULL becomes an empty field and every stored text value survives
+    verbatim.
+
+    Binary columns (o19digest.HEXED_TYPES: BLOB, BINARY, VARBINARY, BIT,
+    geometry) are selected through HEX(). The batch client emits those
+    bytes unconverted and the reader decodes them as UTF-8 with
+    replacement, so written as text every byte that is not valid UTF-8
+    became U+FFFD -- lossy, and NOT injective: measured, X'FF' and X'FE'
+    wrote identical CSV text. The stock O19 schema has such columns
+    (sharing_document_export.document, ProviderPreference.
+    encryptedMyOscarPassword), so this is not only a fork's problem. A
+    README.txt beside the files says which columns are hex.
 
     `stream` reads one statement's rows unbuffered (o19import.
     make_row_stream); `query` is used only for the information_schema
@@ -994,6 +1032,7 @@ def export_archive_csv(query, archive_schema: str, out_dir: str,
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE "
         "TABLE_SCHEMA = '{0}' ORDER BY TABLE_NAME".format(archive_schema))]
     lines = []
+    hexed_all: List[str] = []
     for table in tables:
         # archive table names derive from the staged dump's own table
         # names: the ETL refuses names outside the identifier class before
@@ -1003,15 +1042,20 @@ def export_archive_csv(query, archive_schema: str, out_dir: str,
             die("archive table name {0!r} is outside the identifier class "
                 "the import accepts — the archive schema was not written "
                 "by this import".format(table))
-        cols = [r[0] for r in query(
-            "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE "
-            "TABLE_SCHEMA = '{0}' AND TABLE_NAME = '{1}' ORDER BY "
+        columns = [(r[0], r[1] if len(r) > 1 else "") for r in query(
+            "SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = '{0}' AND TABLE_NAME = '{1}' ORDER BY "
             "ORDINAL_POSITION".format(archive_schema, table))]
+        cols = [c for c, _ in columns]
         if any(not o19etl.IDENTIFIER_RE.match(c) for c in cols):
             die("archive table {0} carries a column name outside the "
                 "identifier class the import accepts".format(table))
-        select = ", ".join("{0}, ({0} IS NULL)".format(o19etl.ident(c))
-                           for c in cols)
+        hexed = [c for c, t in columns if o19digest.is_hexed(t)]
+        select = ", ".join(
+            "{0}, ({1} IS NULL)".format(
+                "HEX({0})".format(o19etl.ident(c)) if c in hexed
+                else o19etl.ident(c), o19etl.ident(c))
+            for c in cols)
         # ordered so a re-run of P5 rewrites the same file, not the same
         # rows in a different order (the clinic diffs these between
         # passes). It no longer has a second job: the read used to be
@@ -1051,7 +1095,17 @@ def export_archive_csv(query, archive_schema: str, out_dir: str,
                        for i in range(0, width, 2)]
                 writer.writerow(out)
                 written += 1
-        lines.append("{0}.csv: {1} row(s)".format(table, written))
+        note = ""
+        if hexed:
+            note = " (binary column(s) written as hex: {0})".format(
+                ", ".join(hexed))
+            hexed_all.extend(table + "." + c for c in hexed)
+        lines.append("{0}.csv: {1} row(s){2}".format(table, written, note))
+    readme = os.path.join(out_dir, ARCHIVE_EXPORT_README)
+    fd = os.open(readme, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+    os.fchmod(fd, 0o640)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(_archive_readme(hexed_all))
     return lines
 
 

@@ -149,6 +149,15 @@ class Digest(NamedTuple):
                    int(row[3] or 0))
 
 
+def is_hexed(coltype: str) -> bool:
+    """True for an information_schema DATA_TYPE whose bytes must be
+    HEXed rather than read as text. The one membership test every
+    rendering of a column shares -- the digest, the comparison and the
+    archive CSV export -- so no second copy of HEXED_TYPES can drift
+    into rendering a BLOB as text somewhere."""
+    return (coltype or "").lower() in HEXED_TYPES
+
+
 def value_expr(col: str, coltype: str) -> str:
     """The normalised, unambiguous contribution of one column to a row's
     hash.
@@ -166,7 +175,7 @@ def value_expr(col: str, coltype: str) -> str:
     """
     quoted = "`{0}`".format(col.replace("`", "``"))
     normalised = (coltype or "").lower()
-    if normalised in HEXED_TYPES:
+    if is_hexed(coltype):
         rendered = "HEX({0})".format(quoted)
     elif normalised in CONVERTED_TYPES:
         rendered = "CONVERT({0} USING utf8mb4)".format(quoted)
@@ -417,10 +426,9 @@ def _rendering(coltype: str) -> str:
     The COMPARISON cares about the class, not the exact type: a column
     the clinic called `varchar` and staging calls `text` still hashes
     identically, and refusing that pair would fail a correct restore."""
-    normalised = (coltype or "").lower()
-    if normalised in HEXED_TYPES:
+    if is_hexed(coltype):
         return "hex"
-    if normalised in CONVERTED_TYPES:
+    if (coltype or "").lower() in CONVERTED_TYPES:
         return "convert"
     return ""
 

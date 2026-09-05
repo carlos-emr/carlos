@@ -919,6 +919,71 @@ class TestArchiveCsvExport(unittest.TestCase):
                           ["1", "line1\nline2"],
                           ["2", "back\\nslash"]])   # decoded exactly once
 
+    def test_binary_columns_are_written_as_hex_so_the_export_is_injective(
+            self):
+        # the batch client emits a BLOB's bytes unconverted and the
+        # reader decodes them as UTF-8 with replacement: written as text,
+        # every byte that is not valid UTF-8 became U+FFFD, and X'FF' and
+        # X'FE' produced identical CSV text. The export must select such
+        # columns through HEX() -- the same type list the digest hexes --
+        # and say so beside the files.
+        out = tempfile.mkdtemp(prefix="o19docs-csvhex-")
+        self.addCleanup(shutil.rmtree, out)
+        stored = b"\xde\xad\xbe\xef\x00\xc3\xa9\xff"
+
+        def q(sql):
+            if "information_schema.TABLES" in sql:
+                return [["t"]]
+            if "information_schema.COLUMNS" in sql:
+                self.assertIn("DATA_TYPE", sql)
+                return [["id", "int"], ["b", "blob"], ["s", "varchar"]]
+            # render the way the real client + reader do: a HEX() select
+            # yields the digits, a raw select yields the replacement-
+            # decoded bytes
+            if "HEX(`b`), (`b` IS NULL)" in sql:
+                b = stored.hex().upper()
+            else:
+                b = stored.decode("utf-8", "replace")
+            self.assertNotIn("HEX(`s`)", sql)      # text stays text
+            return [["1", "0", b, "0", "plain", "0"]]
+
+        lines = o19docs.export_archive_csv(q, "arch", out)
+        rows = _read_csv(os.path.join(out, "t.csv"))
+        self.assertEqual(rows[0], ["id", "b", "s"])   # header unchanged
+        self.assertEqual(rows[1], ["1", "DEADBEEF00C3A9FF", "plain"])
+        self.assertEqual(bytes.fromhex(rows[1][1]), stored)
+        self.assertEqual(lines, ["t.csv: 1 row(s) (binary column(s) "
+                                 "written as hex: b)"])
+        with open(os.path.join(out, "README.txt"), encoding="utf-8") as fh:
+            readme = fh.read()
+        self.assertIn("  t.b", readme)
+        self.assertIn("HEX()", readme)
+        self.assertEqual(os.stat(os.path.join(out, "README.txt")).st_mode
+                         & 0o777, 0o640)
+
+    def test_a_column_of_unknown_type_is_still_written_as_text(self):
+        # the digest REFUSES a type it has no rendering for; the export
+        # cannot -- it is the clinic's only readable copy -- so a fake
+        # that answers no DATA_TYPE at all (the older driver fixtures)
+        # and a type outside both lists both fall back to text
+        out = tempfile.mkdtemp(prefix="o19docs-csvunk-")
+        self.addCleanup(shutil.rmtree, out)
+
+        def q(sql):
+            if "information_schema.TABLES" in sql:
+                return [["t"]]
+            if "information_schema.COLUMNS" in sql:
+                return [["a"], ["b", "mystery"]]
+            self.assertNotIn("HEX(", sql)
+            return [["x", "0", "y", "0"]]
+
+        lines = o19docs.export_archive_csv(q, "arch", out)
+        self.assertEqual(lines, ["t.csv: 1 row(s)"])
+        self.assertEqual(_read_csv(os.path.join(out, "t.csv"))[1],
+                         ["x", "y"])
+        with open(os.path.join(out, "README.txt"), encoding="utf-8") as fh:
+            self.assertIn("(none)", fh.read())
+
 
 class TestArchiveCsvWindowing(unittest.TestCase):
 

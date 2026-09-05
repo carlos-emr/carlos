@@ -718,6 +718,10 @@ clinic's sign-off.
   `documents-details.txt` (root-only); the report and the console carry
   the count. The batch client prints SQL NULL as the word `NULL`; the
   archive CSV export tells it from a stored `NULL` string by a companion
-  flag, so an empty CSV field is a real NULL.
+  flag, so an empty CSV field is a real NULL. Binary columns (BLOB,
+  BINARY, VARBINARY, BIT, geometry) are written as the hexadecimal digits
+  of the stored bytes -- a byte sequence that is not valid UTF-8 has no
+  verbatim text form -- and `o19-archive-export/README.txt` lists which
+  `table.column` cells are hex.
 - A failed run keeps its state for diagnosis; the documented rollback is
   restoring the pre-import restic snapshot.
