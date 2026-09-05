@@ -1162,7 +1162,7 @@ class TestRowParityComposition(unittest.TestCase):
                          if e["class"] == "archive")
 
     def db(self, staging, archive, live, columns, nonnull=None,
-           content=None, digest_errors=None):
+           content=None, digest_errors=None, value_errors=None):
         """A fake answering the four shapes the parities ask for:
         information_schema columns (ordered and unordered),
         information_schema table names, COUNT(*) (with or without an
@@ -1176,6 +1176,10 @@ class TestRowParityComposition(unittest.TestCase):
         nonnull = nonnull or {}
         content = content or {}
         digest_errors = set(digest_errors or ())
+        #: tables whose copy/merge VALUE check (a JOIN, not a digest)
+        #: raises. That path appends a finding and NO detail line, which
+        #: is the one way content_bad is non-empty while details is not
+        value_errors = set(value_errors or ())
         rows = {"o19_import": staging, "o19_archive": archive,
                 "carlos": live}
 
@@ -1214,6 +1218,9 @@ class TestRowParityComposition(unittest.TestCase):
                                    sql).group(1)
                 return [[t] for t in sorted(rows.get(schema, {}))]
             m = re.search(r"FROM `([^`]+)`\.`?([A-Za-z0-9_$]+)`?", sql)
+            if m and " JOIN " in sql and m.group(2) in value_errors:
+                raise RuntimeError(
+                    "banner\nERROR 1054: Unknown column in 'on clause'")
             if m and "IS NOT NULL" in sql:
                 col = re.search(r"`([^`]+)` IS NOT NULL", sql).group(1)
                 return [[str(nonnull.get(
@@ -1413,6 +1420,33 @@ class TestRowParityComposition(unittest.TestCase):
         self.assertTrue(bad)
         body = open(ctx["content_details"], encoding="utf-8").read()
         self.assertIn("no per-row key", body)
+
+    def test_a_failure_with_no_keys_does_not_write_clean(self):
+        """A content check can FAIL without naming a single row: the
+        value query itself errored, and `copy_content_parity` records
+        "values could not be checked" and moves on WITHOUT a detail
+        line. `details` is then empty while `content_bad` is not, and
+        writing "clean" there said the exact opposite of the verdict
+        beside it -- with no pointer in the report either, so the
+        reviewer had nothing to open and a file claiming all was well."""
+        table = self.COPY_TABLE
+        cols = list(o19map_schema.TABLES[table]["cols"])[:2]
+        query = self.db(
+            staging={table: 3}, archive={}, live={table: 3},
+            columns={"o19_import": {table: cols},
+                     "carlos": {table: cols}},
+            value_errors=[table])
+        ctx = self.ctx(query)
+        _ok, bad = o19import._row_parity(ctx)
+        self.assertTrue(any("values could not be checked" in line
+                            for line in bad), bad)
+        path = os.path.join(ctx["state_dir"], o19import.CONTENT_DETAILS)
+        body = open(path, encoding="utf-8").read()
+        self.assertNotEqual(body, "clean\n")
+        self.assertIn("no row keys are available", body)
+        # and the report still sends the reviewer here
+        self.assertEqual(ctx.get("content_details"), path)
+        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
 
     def test_a_clean_import_writes_clean_and_carries_no_pointer(self):
         """A clean pass says "clean" in the details file, like

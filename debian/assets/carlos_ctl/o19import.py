@@ -1761,16 +1761,30 @@ def _row_parity(ctx):
     # "rows whose values disagree" with no run identifier to say it was
     # stale. verify-details.txt and documents-details.txt are truncated
     # per pass for the same reason.
-    write_private(path, ("rows whose values disagree, by primary key "
-                         "(at most {0} per check)\n".format(
-                             o19etl.DETAIL_ROWS)
-                         + "\n".join(details) + "\n")
-                  if details else "clean\n")
-    # read back by `import_report`, which must stay derivable from its
-    # arguments rather than from the filesystem. A clean pass carries no
-    # pointer: "clean" is nothing to send a reviewer to open.
-    ctx.pop("content_details", None)
     if details:
+        body = ("rows whose values disagree, by primary key (at most "
+                "{0} per check)\n".format(o19etl.DETAIL_ROWS)
+                + "\n".join(details) + "\n")
+    elif content_bad:
+        # a check can FAIL without naming rows: the count query itself
+        # errored, or the check is a whole-table digest with no keys to
+        # give. Writing "clean" beside a FAILED verification would say
+        # the opposite of what happened, so the file states that instead
+        # and the report still points here.
+        body = ("no row keys are available for this run's content "
+                "findings: the failing check(s) either could not be "
+                "queried or compare whole tables by digest rather than "
+                "row by row. The finding lines are in the validation "
+                "report and report.txt.\n")
+    else:
+        body = "clean\n"
+    write_private(path, body)
+    # read back by `import_report`, which must stay derivable from its
+    # arguments rather than from the filesystem. Only a pass with nothing
+    # to say carries no pointer: "clean" is nothing to send a reviewer to
+    # open, but a failure with no keys still needs explaining.
+    ctx.pop("content_details", None)
+    if details or content_bad:
         ctx["content_details"] = path
     if content_bad and "content-migration" in (ctx.get("accepted") or ()):
         # a recorded sign-off: the operator was shown the mismatches and

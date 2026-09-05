@@ -156,6 +156,22 @@ def hrm_rewrite_sql(dst_schema: str,
     return update, select
 
 
+def served_name(value: str) -> str:
+    """The filename CARLOS actually serves for a stored path.
+
+    `document.docfilename` and `HRMDocument.reportFile` both reach the
+    application as a NAME inside DOCUMENT_DIR, but a clinic's rows carry
+    whatever OSCAR 19 stored -- including `sub/report.pdf` and, from a
+    Windows-era install, `sub\\report.pdf`. `hrm_rewrite_sql` reduces the
+    HRM side to its basename with SUBSTRING_INDEX over both separators;
+    anything compared against it must be reduced the same way, or a
+    document row claiming `sub/report.pdf` fails to match the HRM report
+    `report.pdf` it really does collide with, and the collision guard
+    that is supposed to keep one patient's chart out of another's
+    hospital report simply misses."""
+    return value.replace("\\", "/").rsplit("/", 1)[-1]
+
+
 def classify_hrm_files(rows: List[Tuple[str, str]],
                        doc_dir: str,
                        claimed: Optional[Set[str]] = None) -> List[str]:
@@ -172,9 +188,9 @@ def classify_hrm_files(rows: List[Tuple[str, str]],
     as this patient's hospital report."""
     problems = []
     doc_real = os.path.realpath(doc_dir)
-    taken = claimed or set()
+    taken = {served_name(c) for c in (claimed or set())}
     for hrm_id, report in rows:
-        name = report.rsplit("/", 1)[-1]
+        name = served_name(report)
         path = os.path.join(doc_dir, name)
         if os.path.isabs(report):
             real = os.path.realpath(report)
@@ -960,7 +976,8 @@ def reconcile(query, dst_schema: str, ctx_root: str
     # never stand in for an HRM report of the same basename
     problems.extend("missing HRM report for " + p
                     for p in classify_hrm_files(hrm_rows, doc_dir,
-                                                claimed={f for _, f in rows
+                                                claimed={served_name(f)
+                                                         for _, f in rows
                                                          if f}))
     lines.append("{0} HRM report row(s) reconciled against {1}".format(
         len(hrm_rows), doc_dir))
@@ -1265,7 +1282,10 @@ def run_docs(ctx) -> None:
     # every pass, not only the first (a no-op once hrm/ is gone): a
     # relocation that failed after the restore was recorded must be retried
     # on --resume rather than skipped
-    claimed = {r[0] for r in query(
+    # reduced to the name CARLOS serves: a row storing `sub/report.pdf`
+    # reserves `report.pdf`, which is the name the relocation would put
+    # an HRM report under
+    claimed = {served_name(r[0]) for r in query(
         "SELECT DISTINCT docfilename FROM `{0}`.document"
         .format(ctx["target_db"])) if r and r[0]}
     hrm_lines = relocate_hrm_reports(ctx_root, private=private,

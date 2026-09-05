@@ -293,6 +293,27 @@ class TestHrmRewrite(unittest.TestCase):
         self.assertTrue(any("HRMDocument 5" in p and "escapes" in p
                             for p in problems))
 
+    def test_a_document_row_with_a_path_still_reserves_its_basename(self):
+        """`document.docfilename` carries whatever OSCAR 19 stored --
+        `sub/report.pdf`, or `sub\\report.pdf` from a Windows-era
+        install -- while `hrm_rewrite_sql` reduces the HRM side to a bare
+        basename. Comparing the two un-normalised let a document row that
+        really does collide slip past the guard, and reconciliation would
+        then accept that row's file as the patient's hospital report."""
+        self.assertEqual(o19docs.served_name("sub/report.pdf"),
+                         "report.pdf")
+        self.assertEqual(o19docs.served_name("sub\\report.pdf"),
+                         "report.pdf")
+        self.assertEqual(o19docs.served_name("report.pdf"), "report.pdf")
+        # and the guard fires on the path form, as it does on the bare one
+        for claimed in ("report.pdf", "sub/report.pdf",
+                        "C:\\docs\\report.pdf"):
+            problems = o19docs.classify_hrm_files(
+                [("1", "/var/lib/x/document/report.pdf")],
+                "/var/lib/x/document", claimed={claimed})
+            self.assertEqual(len(problems), 1, claimed)
+            self.assertIn("belongs to a document row", problems[0])
+
     def test_a_document_file_never_satisfies_a_missing_hrm_report(self):
         # the HRM report was NOT in the tar (deleted, or the export
         # missed sftp_downloads); a document row's file carries the same

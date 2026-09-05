@@ -720,24 +720,32 @@ def _oversized_value_body(client: Client, stage: str) -> List[str]:
     prior = client.rows("SELECT @@global.max_allowed_packet", stage)[0][0]
     rc, _out, err = client.run("SET GLOBAL max_allowed_packet = 16777216;")
     if rc != 0:
-        print("    {0:<44} skipped ({1})".format(
+        # NOT a silent skip: this script's OK line claims the packet
+        # invariant was tested, and a check that did not run cannot back
+        # that claim. Recorded like the end-to-end chain's skipped path.
+        print("    {0:<44} NOT RUN ({1})".format(
             "cannot move max_allowed_packet", err[:60]))
-        return failures
-    cols = ["id", "doc", "note"]
-    types = {"id": "int", "doc": "mediumblob", "note": "mediumtext"}
-    sql = o19digest.digest_sql(stage, "big", cols, types)
-    old = sql
-    for new_form, old_form in FORMAT_1_LARGE:
-        if new_form not in old:
-            failures.append("the shipped digest no longer spells {0}; "
-                            "the format-1 control cannot be built"
-                            .format(new_form))
-            return failures
-        old = old.replace(new_form, old_form)
-    # CONCAT(NULL, ...) is NULL: every row hash NULL, so the lane must
-    # count every row
-    broken = sql.replace("SHA2(CONCAT(", "SHA2(CONCAT(NULL, ")
+        return ["the oversized-value check did not run: this server "
+                "refused SET GLOBAL max_allowed_packet ({0}). Re-run "
+                "against a throwaway server where the client has SUPER."
+                .format(err[:200])]
+    # everything from here runs inside the restore: the global is already
+    # moved, so ANY exit before the finally leaves this shared server at
+    # 16M for whatever runs next -- including the format-control guard
+    # below, which returns early when the shipped digest is respelled
     try:
+        cols = ["id", "doc", "note"]
+        types = {"id": "int", "doc": "mediumblob", "note": "mediumtext"}
+        sql = o19digest.digest_sql(stage, "big", cols, types)
+        old = sql
+        for new_form, old_form in FORMAT_1_LARGE:
+            if new_form not in old:
+                return ["the shipped digest no longer spells {0}; the "
+                        "format-1 control cannot be built".format(new_form)]
+            old = old.replace(new_form, old_form)
+        # CONCAT(NULL, ...) is NULL: every row hash NULL, so the lane
+        # must count every row
+        broken = sql.replace("SHA2(CONCAT(", "SHA2(CONCAT(NULL, ")
         client.setup(
             "DROP TABLE IF EXISTS big; CREATE TABLE big (id int, doc "
             "mediumblob, note mediumtext) DEFAULT CHARSET=latin1; "
@@ -1902,11 +1910,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     src = args.prefix + "_src"
     arch = args.prefix + "_arch"
 
-    print("anti-join sees same-statement inserts: {0}".format(
-        same_statement_visibility(client, dst, src)))
-
     failures: Dict[str, List[str]] = {}
     try:
+        # inside the teardown from here on: same_statement_visibility
+        # CREATEs _dst and _src itself, so a failure in it (or in the
+        # query that follows) used to leave both behind
+        print("anti-join sees same-statement inserts: {0}".format(
+            same_statement_visibility(client, dst, src)))
         return _run_checks(client, args, failures, dst, src, arch)
     finally:
         # the shared scratch schemas, dropped whatever happened: each
