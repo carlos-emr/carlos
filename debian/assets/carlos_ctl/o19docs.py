@@ -696,12 +696,42 @@ def relocate_hrm_reports(ctx_root: str,
 
     Nothing moves until the whole scan is clean: the refusal tells the
     operator to resolve the names in the source tree, and that tree must
-    still hold them when they go looking."""
+    still hold them when they go looking.
+
+    document/ is opened ONCE, `O_NOFOLLOW`, and every destination check
+    and move goes through that descriptor (`_move_into_place`), never by
+    path. The scan hashes every candidate before the first move, so a
+    path-based `shutil.move` left a window of minutes in which a
+    directory symlink planted at document/<name> -- by the service
+    account, which owns the tree -- would have sent the report (patient
+    PHI) wherever the link pointed; demonstrated, then closed."""
     src_dir = os.path.join(ctx_root, HRM_INCOMING_DIR)
     if not os.path.isdir(src_dir):
         return []
     doc_dir = os.path.join(ctx_root, "document")
     os.makedirs(doc_dir, exist_ok=True)
+    try:
+        doc_fd = os.open(doc_dir, os.O_RDONLY | os.O_DIRECTORY
+                         | os.O_NOFOLLOW)
+    except OSError as exc:
+        # ELOOP: a symlink where the skeleton directory belongs. The
+        # import never creates one, so it is foreign — refused, never
+        # followed
+        die("cannot open {0} as a directory ({1}); the documents tree is "
+            "not in a state this import can repair".format(
+                doc_dir, exc.strerror))
+    try:
+        return _relocate_hrm_through(src_dir, doc_fd, private,
+                                     reserved or set())
+    finally:
+        os.close(doc_fd)
+
+
+def _relocate_hrm_through(src_dir: str, doc_fd: int,
+                          private: Optional[Callable[[List[str]], None]],
+                          claimed: Set[str]) -> List[str]:
+    """`relocate_hrm_reports`' body, with document/ already open so the
+    descriptor is closed on every path out, refusals included."""
     by_name: Dict[str, List[str]] = {}
     for dirpath, dirnames, filenames in os.walk(src_dir):
         dirnames[:] = sorted(d for d in dirnames
@@ -711,12 +741,10 @@ def relocate_hrm_reports(ctx_root: str,
             if os.path.islink(path) or not os.path.isfile(path):
                 continue
             by_name.setdefault(name, []).append(path)
-    claimed = reserved or set()
     problems = []
     plan = []            # (name, keep_path, drop_paths, already_placed)
     for name in sorted(by_name):
         paths = by_name[name]
-        dst = os.path.join(doc_dir, name)
         digests = {_sha256(p) for p in paths}
         if len(digests) > 1:
             problems.append("{0}: {1} differing copies under hrm/".format(
@@ -729,10 +757,17 @@ def relocate_hrm_reports(ctx_root: str,
             problems.append("{0}: a document row already claims this "
                             "name".format(name))
             continue
-        if os.path.lexists(dst):
-            if os.path.isfile(dst) and not os.path.islink(dst) \
-                    and _sha256(dst) in digests:
-                # an interrupted relocation already placed it
+        try:
+            os.lstat(name, dir_fd=doc_fd)
+            present = True
+        except FileNotFoundError:
+            present = False
+        if present:
+            # _same_file reads the destination THROUGH the descriptor
+            # with O_NOFOLLOW: a plain file with this content is an
+            # interrupted relocation that already placed it; a link or
+            # anything else is a collision
+            if _same_file(paths[0], doc_fd, name):
                 plan.append((name, None, paths, True))
                 continue
             problems.append("{0}: collides with an existing document/ "
@@ -752,7 +787,7 @@ def relocate_hrm_reports(ctx_root: str,
     moved = deduped = 0
     for name, keep, drop, already in plan:
         if not already:
-            shutil.move(keep, os.path.join(doc_dir, name))
+            _move_into_place(keep, doc_fd, name)
             moved += 1
         for p in drop:
             os.unlink(p)

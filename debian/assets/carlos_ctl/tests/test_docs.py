@@ -228,6 +228,45 @@ class TestHrmRewrite(unittest.TestCase):
             os.path.join(root, "document", "aaa.xml")))
         self.assertTrue(os.path.isfile(os.path.join(a, "aaa.xml")))
 
+    def test_a_symlink_planted_during_the_scan_cannot_divert_a_report(self):
+        # the scan hashes every candidate before the first move, and
+        # the tree is owned by the service account: a directory symlink
+        # planted at document/<name> after that name's existence check
+        # sent the report (patient PHI) through the link when the move
+        # was a path-based shutil.move. The move must land INSIDE
+        # document/, replacing the link rather than writing through it.
+        root = tempfile.mkdtemp(prefix="o19docs-hrmrace-")
+        self.addCleanup(shutil.rmtree, root)
+        outside = tempfile.mkdtemp(prefix="o19docs-hrmrace-outside-")
+        self.addCleanup(shutil.rmtree, outside)
+        src = os.path.join(root, "hrm")
+        os.makedirs(src)
+        doc = os.path.join(root, "document")
+        os.makedirs(doc)
+        for name, body in (("a_report.xml", "patient A"),
+                           ("b_report.xml", "patient B")):
+            with open(os.path.join(src, name), "w") as fh:
+                fh.write(body)
+        real_sha = o19docs._sha256
+
+        def planting_sha(path):
+            # runs while b_report.xml is hashed: a_report.xml has passed
+            # its existence check and is not yet moved
+            if path.endswith("b_report.xml"):
+                os.symlink(outside, os.path.join(doc, "a_report.xml"))
+            return real_sha(path)
+
+        o19docs._sha256 = planting_sha
+        self.addCleanup(setattr, o19docs, "_sha256", real_sha)
+        lines = o19docs.relocate_hrm_reports(root)
+        self.assertIn("moved 2 HRM report file(s)", lines[0])
+        self.assertEqual(os.listdir(outside), [])       # nothing left
+        landed = os.path.join(doc, "a_report.xml")
+        self.assertFalse(os.path.islink(landed))
+        self.assertTrue(os.path.isfile(landed))
+        with open(landed) as fh:
+            self.assertEqual(fh.read(), "patient A")
+
     def test_context_with_sql_metacharacters_is_refused(self):
         for bad in ("x'; DROP TABLE HRMDocument; --", "a b", "../etc", ""):
             with self.assertRaises(ValueError):
