@@ -10,6 +10,9 @@ Run (from debian/assets):
 
 import os
 import shutil
+import ast
+import inspect
+import textwrap
 import unittest
 
 from carlos_ctl import o19map_props, o19props
@@ -643,6 +646,58 @@ class TestTheReportCannotBeForged(unittest.TestCase):
 
     def test_a_control_character_is_shown_as_an_escape(self):
         self.assertEqual(o19props.report_safe("a\x07b"), "a\\u0007b")
+
+
+class TestAKeyRoundTripsThroughTheFragment(unittest.TestCase):
+
+    r"""The fragment is read back by java.util.Properties, so a key that
+    does not round-trip is a setting the clinic loses silently.
+
+    `escape_property_key` used to build on `escape_property_value`, and
+    the two rules composed wrongly: the value escaper prefixes a LEADING
+    space with a backslash, then the key escaper escaped every remaining
+    space -- including that one. `" k"` became `"\\ k"`, an escaped
+    backslash followed by a bare space, which java.util.Properties reads
+    as the key `\` with everything after the space as its value.
+
+    Verified against OpenJDK 21: the old escaper wrote `\\ k=v` and
+    `\\ \ lead=v`, and java.util.Properties.load read ONE key, `\`, whose
+    value was ` lead=v`. Both settings were gone."""
+
+    def round_trip(self, key, value="v"):
+        line = "{0}={1}".format(o19props.escape_property_key(key),
+                                o19props.escape_property_value(value))
+        return o19props.parse_properties_text(line + "\n")
+
+    def test_a_leading_space_key_survives(self):
+        self.assertEqual(self.round_trip(" k"), [(" k", "v")])
+
+    def test_two_leading_spaces_survive(self):
+        self.assertEqual(self.round_trip("  lead"), [("  lead", "v")])
+
+    def test_a_key_that_is_only_a_space_survives(self):
+        self.assertEqual(self.round_trip(" "), [(" ", "v")])
+
+    def test_the_separator_characters_still_survive(self):
+        for key in ("a b", "a=b", "a:b", "#h", "!b", "t\ta",
+                    "back\\slash", "\u00e9 k"):
+            self.assertEqual(self.round_trip(key), [(key, "v")], repr(key))
+
+    def test_the_value_keeps_its_own_leading_space_rule(self):
+        # only the LEADING space needs escaping in a value; the rest are
+        # part of it, and escaping them all would be wrong the other way
+        self.assertEqual(self.round_trip("k", " a b "), [("k", " a b ")])
+
+    def test_the_key_escaper_does_not_build_on_the_value_escaper(self):
+        # the defect was structural: the two rules compose. Pinned so a
+        # future simplification back to one call fails here rather than
+        # in a clinic's fragment.
+        tree = ast.parse(textwrap.dedent(
+            inspect.getsource(o19props.escape_property_key)))
+        called = {n.func.id for n in ast.walk(tree)
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+        self.assertNotIn("escape_property_value", called)
+        self.assertIn("_escape_property_common", called)
 
 
 if __name__ == "__main__":

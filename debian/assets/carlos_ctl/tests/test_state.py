@@ -1429,6 +1429,84 @@ class TestStagingRestore(unittest.TestCase):
                      b"-- USE is mentioned here\n"):
             self.assertIsNone(o19import.dump_redirect_marker(text), text)
 
+    def _collations(self, chunks, available=("latin1_swedish_ci",)):
+        scanner = o19import.CollationScanner(available)
+        for chunk in chunks:
+            found = scanner.feed(chunk)
+            if found:
+                return found
+        return None
+
+    def test_a_late_collation_is_refused_by_carlos_not_by_the_client(self):
+        """The head scan reads 64 KiB. A 580-table dump puts most of its
+        DDL far past that, and mysqldump writes `COLLATE=` only where the
+        collation is not the charset default — so on an ordinary
+        all-latin1_swedish_ci clinic the head scan finds nothing at all.
+
+        Measured against the real restore: a dump declaring an
+        unavailable collation at 1.95 MB got past the head scan and the
+        client died mid-restore with `ERROR 1273 ... Unknown collation`,
+        after however much of a multi-hour restore had run. With the
+        stream scan the same dump stops at the statement that declares
+        it, with a CARLOS refusal naming the collation."""
+        found = self._collations([
+            b"INSERT INTO `early` VALUES ('x');\n" * 500,
+            b"CREATE TABLE `late` (`b` varchar(10)) DEFAULT "
+            b"CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;\n"])
+        self.assertIsNotNone(found)
+        self.assertIn("utf8mb4_0900_ai_ci", found)
+        self.assertIn("--restage", found)
+
+    def test_an_available_collation_passes(self):
+        self.assertIsNone(self._collations(
+            [b"CREATE TABLE `t` (a int) COLLATE=latin1_swedish_ci;\n"]))
+
+    def test_a_name_split_across_a_chunk_boundary_is_caught(self):
+        found = self._collations(
+            [b"CREATE TABLE `t` (a int) COLLATE=utf8mb4_",
+             b"0900_ai_ci;\n"])
+        self.assertIsNotNone(found)
+        # the WHOLE name, not the prefix the first chunk ended on: a
+        # truncated name still refuses, but names a collation that does
+        # not exist, and the operator cannot act on it
+        self.assertIn("utf8mb4_0900_ai_ci", found)
+
+    def test_the_column_form_is_caught_too(self):
+        # `COLLATE x` in a column definition, no `=`
+        self.assertIsNotNone(self._collations(
+            [b"  `a` varchar(10) COLLATE utf8mb4_0900_ai_ci,\n"]))
+
+    def test_an_empty_available_set_never_refuses(self):
+        # the tests' fakes and any caller that could not read SHOW
+        # COLLATION must not turn "not known" into "not available"
+        self.assertIsNone(self._collations(
+            [b"CREATE TABLE t (a int) COLLATE=anything_at_all;\n"],
+            available=()))
+
+    def test_the_stream_asks_both_scanners(self):
+        # the redirect scan and the collation scan share one pass and
+        # one refusal slot; dropping either from the loop leaves the
+        # other silent about its own case
+        node = next(n for n in ast.walk(ast.parse(
+            Path(o19import.__file__).read_text(encoding="utf-8")))
+            if isinstance(n, ast.FunctionDef) and n.name == "_stream_dump")
+        called = {c.func.attr for c in ast.walk(node)
+                  if isinstance(c, ast.Call)
+                  and isinstance(c.func, ast.Attribute)}
+        names = {c.func.id for c in ast.walk(node)
+                 if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)}
+        self.assertIn("feed", called)
+        self.assertIn("RedirectScanner", names)
+        self.assertIn("CollationScanner", names)
+        # constructed AND fed: a scanner that is only built is a scanner
+        # that never refuses anything
+        fed = {c.func.value.id for c in ast.walk(node)
+               if isinstance(c, ast.Call)
+               and isinstance(c.func, ast.Attribute)
+               and c.func.attr == "feed"
+               and isinstance(c.func.value, ast.Name)}
+        self.assertEqual(fed, {"scanner", "collations"})
+
     def _scan(self, chunks):
         scanner = o19import.RedirectScanner()
         for chunk in chunks:
@@ -1509,6 +1587,23 @@ class TestStagingRestore(unittest.TestCase):
             self.assertIn("ON `{0}`.*".format(o19import.STAGING_SCHEMA),
                           grant)
             self.assertNotIn("*.*", grant)
+
+    def test_a_stale_defaults_file_is_re_tightened(self):
+        """O_TRUNC does not reset an existing file's mode, and the mode
+        argument of os.open applies to a NEW file only — the reason
+        write_private, durable_json, stage_digests, write_fragment and
+        the archive CSV writer all fchmod. This file was the one
+        credential write that did not, and it carries the live password
+        of an account holding ALL PRIVILEGES on a full copy of the
+        clinic's EMR."""
+        cnf_dir = tempfile.mkdtemp(prefix="o19cnf-")
+        self.addCleanup(shutil.rmtree, cnf_dir)
+        cnf = os.path.join(cnf_dir, "c.cnf")
+        with open(cnf, "w", encoding="utf-8") as fh:
+            fh.write("stale\n")
+        os.chmod(cnf, 0o644)
+        o19import.grant_staging_account(lambda sql: [], cnf)
+        self.assertEqual(os.stat(cnf).st_mode & 0o777, 0o600)
 
     def test_missing_binlog_admin_is_refused_not_widened(self):
         # no SUPER fallback: a server without BINLOG ADMIN is refused and
@@ -2783,6 +2878,32 @@ class TestTheImportReport(unittest.TestCase):
         self.assertIn("NEXT STEPS", text)
         self.assertIn("carlos-ctl backup full", text)
         self.assertIn("--cleanup", text)
+
+    def test_the_verdict_carries_an_acknowledged_mismatch(self):
+        """VERDICT is the one line an operator and any downstream reader
+        act on. `_row_parity` moves a signed-off content mismatch out of
+        `problems` deliberately — it is not a failure — but a bare
+        "PASSED" over rows accepted as differing says less than the
+        report knows, and the acknowledgement sat only in an advisory
+        below two sections."""
+        report = self.build(ok=[
+            "demographic: staging 10 -> target 10",
+            o19import.ACKNOWLEDGED_PREFIX + "drugs: 3 row(s) differ"])
+        self.assertEqual(report["verdict"],
+                         "PASSED WITH ACKNOWLEDGED MISMATCH(ES) (1)")
+        text = o19report.render_text(report)
+        self.assertIn("VERDICT: PASSED WITH ACKNOWLEDGED MISMATCH(ES)", text)
+        # and the detail still reaches the reviewer below it
+        self.assertIn("drugs: 3 row(s) differ", text)
+
+    def test_a_clean_report_still_says_only_passed(self):
+        self.assertEqual(self.build()["verdict"], "PASSED")
+
+    def test_a_failure_outranks_an_acknowledgement_in_the_verdict(self):
+        report = self.build(
+            problems=["demographic: staging 10 -> 9"],
+            ok=[o19import.ACKNOWLEDGED_PREFIX + "drugs: 3 row(s) differ"])
+        self.assertEqual(report["verdict"], "FAILED (1 problem(s))")
 
     def test_a_failed_report_does_not_print_the_go_live_list(self):
         """The report is written for a FAILED verification too — that is

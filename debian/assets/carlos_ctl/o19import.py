@@ -1118,15 +1118,68 @@ def run_p0(ctx) -> None:
 # P1 — stage
 # --------------------------------------------------------------------------
 
-def head_collations(head: bytes) -> List[str]:
-    """The distinct collation names named in the first 64 KiB of a dump.
+#: `COLLATE=x` in a CREATE TABLE, `COLLATE x` in a column definition.
+COLLATION_RE = re.compile(rb"COLLATE[= ]([A-Za-z0-9_]+)")
 
-    Only the head is scanned: this feeds an advisory about the dump's
-    declared collations, and a clinic's dump is too large to read whole
-    for it."""
+#: enough to hold a collation name split across a chunk boundary
+COLLATION_CARRY = 64
+
+
+def head_collations(head: bytes) -> List[str]:
+    """The distinct collation names in the first 64 KiB of a dump.
+
+    The head alone is what can be read BEFORE the restore starts, so it
+    is what turns an unavailable collation into a refusal that costs
+    nothing. It is not the whole gate: `CollationScanner` below carries
+    the same test through the stream, because a dump declares
+    `COLLATE=` only where the collation is not the charset default, so
+    on an ordinary all-latin1_swedish_ci clinic this finds nothing at
+    all -- and a 580-table dump puts most of its DDL far past 64 KiB."""
     return sorted(set(
         m.decode("ascii", "replace")
-        for m in re.findall(rb"COLLATE[= ]([A-Za-z0-9_]+)", head[:65536])))
+        for m in COLLATION_RE.findall(head[:65536])))
+
+
+class CollationScanner:
+    """The head check, carried through the whole stream.
+
+    Measured: a dump declaring an unavailable collation at 1.95 MB gets
+    past the head scan, and the restore then dies mid-stream with the
+    client's own `ERROR 1273 ... Unknown collation` — after however much
+    of a multi-hour restore had already run, and with the diagnosis in
+    the client's output rather than in a CARLOS refusal. The stream is
+    already being read chunk by chunk for the redirect scan, so testing
+    each name here costs one regex per megabyte.
+
+    Unlike the redirect scan this needs no line anchoring, only a small
+    carry so a name split across a chunk boundary is not missed."""
+
+    def __init__(self, available):
+        self.available = set(available or ())
+        self.carry = b""
+
+    def feed(self, chunk: bytes) -> Optional[str]:
+        buf = self.carry + chunk
+        self.carry = buf[-COLLATION_CARRY:]
+        if not self.available:
+            return None
+        names = set()
+        for m in COLLATION_RE.finditer(buf):
+            if m.end() == len(buf):
+                # the name runs to the end of the buffer, so it may be
+                # cut in half: refusing here would name `utf8mb4_` and
+                # send the operator after a collation that does not
+                # exist. The carry re-presents it whole next feed.
+                continue
+            names.add(m.group(1).decode("ascii", "replace"))
+        missing = sorted(names - self.available)
+        if not missing:
+            return None
+        return ("the dump uses collation(s) unavailable on this server: "
+                "{0}. The restore was stopped where they appear rather "
+                "than left to fail part-way through: re-take the dump on "
+                "a server whose collations this one has, or install them "
+                "here, then --restage.".format(", ".join(missing)))
 
 
 def dump_redirect_marker(data: bytes) -> Optional[str]:
@@ -1269,6 +1322,12 @@ def grant_staging_account(query, client_cnf: str) -> None:
                 "run under a schema-scoped account".format(
                     str(exc).strip()[:200]))
     fd = os.open(client_cnf, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    # the mode argument applies to a NEW file only, and O_TRUNC does not
+    # reset an existing one's -- the same reason write_private,
+    # durable_json, stage_digests, write_fragment and the archive CSV
+    # writer all fchmod. This file carries the live password of an
+    # account holding ALL PRIVILEGES on a full copy of the clinic's EMR.
+    os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write("[client]\nuser={0}\npassword={1}\n".format(
             STAGING_USER, password.replace("\\", "\\\\")))
@@ -1327,15 +1386,19 @@ class RedirectScanner:
         return marker
 
 
-def _stream_dump(opener: List[str], restore_argv: List[str]):
+def _stream_dump(opener: List[str], restore_argv: List[str],
+                 available_collations=()):
     """Pipe the dump through the restore client, scanning every chunk for
-    redirecting statements. Returns (source_rc, client_rc, tail_bytes,
-    redirect_message_or_None)."""
+    redirecting statements and for a collation this server lacks.
+    Returns (source_rc, client_rc, tail_bytes, refusal_or_None); the
+    caller drops the staging schema and dies on a refusal, which is the
+    same handling either scan needs."""
     src = subprocess.Popen(opener, stdout=subprocess.PIPE)  # nosec B603
     sink = subprocess.Popen(restore_argv,                    # nosec B603
                             stdin=subprocess.PIPE)
     tail = b""
     scanner = RedirectScanner()
+    collations = CollationScanner(available_collations)
     broken = False
     redirect = None
     try:
@@ -1346,7 +1409,7 @@ def _stream_dump(opener: List[str], restore_argv: List[str]):
             # the whole stream is scanned, not only its head: a USE /
             # CREATE DATABASE anywhere would steer the rest of the dump
             # (the account's grants and --one-database are the backstops)
-            redirect = scanner.feed(chunk)
+            redirect = scanner.feed(chunk) or collations.feed(chunk)
             if redirect:
                 broken = True
                 break
@@ -1454,7 +1517,8 @@ def run_p1(ctx) -> None:
     grant_staging_account(query, client_cnf)
 
     try:
-        src_rc, rc, tail, redirect = _stream_dump(opener, restore_argv)
+        src_rc, rc, tail, redirect = _stream_dump(opener, restore_argv,
+                                                  available)
     finally:
         # the account and its credential file never outlive the restore,
         # whatever the failure mode
@@ -2291,10 +2355,23 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
     if verify_lines:
         findings.append(o19report.finding(
             "info", "verification checks run", list(verify_lines)))
+    # A bare "PASSED" over a signed-off content mismatch is the one line
+    # a downstream reader acts on, and it would not say that rows were
+    # accepted as differing. `_row_parity` moves an acknowledged
+    # mismatch out of `problems` deliberately -- it is not a failure --
+    # but the verdict must still carry it, the way the report's other
+    # two states carry their counts. The advisory below keeps the
+    # detail; this is the line that sends a reviewer to it.
+    if problems:
+        verdict = "FAILED ({0} problem(s))".format(len(problems))
+    elif acknowledged:
+        verdict = ("PASSED WITH ACKNOWLEDGED MISMATCH(ES) ({0})"
+                   .format(len(acknowledged)))
+    else:
+        verdict = "PASSED"
     return o19report.build(
         header,
-        "FAILED ({0} problem(s))".format(len(problems)) if problems
-        else "PASSED",
+        verdict,
         [o19report.section(
             "WHAT ARRIVED", arrived,
             empty="nothing was compared — this is not a verified import"),

@@ -2817,8 +2817,16 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     # is meant to protect.
     recorded_pn = progress.get("admin_provider_no")
     if recorded_pn and progress.get("seed_admin_inserted"):
+        # QUOTED, like every sibling builder (seed_admin_statements,
+        # seed_admin_cleanup_statements, admin_row_count_sql). Unquoted,
+        # MySQL resolves `varchar_col = <number>` by coercing the COLUMN,
+        # so `provider_no = 104` matches '104-A' -- measured on 10.11 --
+        # and this witness would accept an unrelated provider row as
+        # proof that the break-glass administrator is still there. It
+        # also made `_sql_str` inert in the one slot where the value is
+        # read back from the ledger rather than validated.
         still_there = int(plain(
-            "SELECT COUNT(*) FROM `{0}`.provider WHERE provider_no = {1}"
+            "SELECT COUNT(*) FROM `{0}`.provider WHERE provider_no = '{1}'"
             .format(dst, _sql_str(recorded_pn)))[0][0])
         if not still_there:
             die("the target no longer holds this import's break-glass "

@@ -192,13 +192,22 @@ def safe_url(value: str) -> bool:
     return parts.scheme in ("http", "https") and bool(parts.netloc)
 
 
+def _escape_property_common(text: str) -> str:
+    """The escapes a key and a value both need: the backslash first (or
+    every escape added after it would be escaped again), then the
+    control characters java.util.Properties reads as line structure."""
+    return (text.replace("\\", "\\\\").replace("\n", "\\n")
+            .replace("\r", "\\r").replace("\t", "\\t").replace("\f", "\\f"))
+
+
 def escape_property_value(value: str) -> str:
     """Inverse of the value decoding above, so a carried value round-trips
     through the fragment exactly (backslashes, line breaks, tabs, a
     leading space and non-Latin-1 characters are what java.util.Properties
     would otherwise misread or the Latin-1 file could not hold)."""
-    out = (value.replace("\\", "\\\\").replace("\n", "\\n")
-           .replace("\r", "\\r").replace("\t", "\\t").replace("\f", "\\f"))
+    out = _escape_property_common(value)
+    # only the LEADING space needs it in a value: the separator has
+    # already been seen, so every later space is part of the value
     if out[:1] == " ":
         out = "\\" + out
     return _escape_non_latin1(out)
@@ -207,11 +216,19 @@ def escape_property_value(value: str) -> str:
 def escape_property_key(key: str) -> str:
     """Keys are escaped too: a decoded key may hold '=', ':', whitespace or
     a line break (an escaped separator in the clinic file), which written
-    raw would split into a different key or inject a second line."""
-    out = escape_property_value(key)
+    raw would split into a different key or inject a second line.
+
+    Built from the common escapes rather than from
+    `escape_property_value`, because that one's LEADING-space rule and
+    this one's every-space rule compose wrongly: `" k"` became `"\\ k"`
+    and then `"\\\\ k"` -- an escaped backslash followed by a bare space,
+    which java.util.Properties reads as the key `\\` with everything
+    after the space as its value. Verified against
+    java.util.Properties.load on OpenJDK 21."""
+    out = _escape_property_common(key)
     for ch in ("=", ":", "#", "!", " "):
         out = out.replace(ch, "\\" + ch)
-    return out
+    return _escape_non_latin1(out)
 
 
 def report_safe(text: str) -> str:

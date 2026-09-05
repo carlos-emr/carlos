@@ -797,6 +797,27 @@ class TestTheLedger(EtlDriverBase):
         with self.assertRaises(SystemExit):
             self.run_etl(ctx_over={"admin_user": "someoneelse"})
 
+    def test_the_rewind_witness_quotes_the_provider_number(self):
+        """`provider_no` is a VARCHAR, and MySQL resolves
+        `varchar_col = <number>` by coercing the COLUMN — measured on
+        MariaDB 10.11, `provider_no = 104` matches '104-A' while
+        `= '104'` does not. Unquoted, the witness could accept an
+        unrelated provider row as proof that this import's break-glass
+        administrator is still there, and wave through a resume onto a
+        rewound target. It was also the one builder that called
+        `_sql_str` into a slot with no quotes, where it protects
+        nothing. Every sibling (seed_admin_statements,
+        seed_admin_cleanup_statements, admin_row_count_sql) quotes."""
+        # the witness only runs on a RESUME, where the ledger records
+        # that this run created the administrator
+        db, _lines, _counts = self.run_etl()
+        db.reads[:] = []
+        self.run_etl(db=db)
+        probes = [r for r in db.reads if ADMIN_PROBE in r]
+        self.assertTrue(probes, db.reads)
+        for probe in probes:
+            self.assertRegex(probe, ADMIN_PROBE + r"'[^']*'")
+
     def test_a_resume_onto_a_rewound_target_is_refused(self):
         # an operator who follows the rollback advice restores a snapshot
         # that covers the CARLOS schema but NOT the workspace, so the
