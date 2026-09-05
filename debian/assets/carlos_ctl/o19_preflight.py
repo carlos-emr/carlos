@@ -1257,10 +1257,17 @@ _ABSENT_OBJECT_TEXT_RE = re.compile(
 
 def _absent_object(text):
     """True when a failed query names a table or column the dump does not
-    carry. The importer anticipates patch-level variance (o19etl has a
-    branch for a Facility with no `disabled` column), so this must not
-    be reported as a failed check — but everything else must be, so the
-    numeric code decides whenever the client gave one."""
+    carry. The importer anticipates patch-level variance -- a lower patch
+    level simply lacks columns the manifest's superset knows, and
+    o19etl.effective_entry skips them WITH a report line -- so this must
+    not be reported as a failed check; everything else must be, so the
+    numeric code decides whenever the client gave one.
+
+    An absent column is not automatically harmless, though: a few of them
+    ARE no-flag P4 refusals (Facility.disabled, a merge key, a NOT NULL
+    target column without a default). Callers that know they are asking
+    about one of those must raise their own blocker rather than file the
+    error here -- see check_facility_and_clinic."""
     text = text or ""
     code = _ERROR_CODE_RE.search(text)
     if code:
@@ -1965,9 +1972,25 @@ def check_facility_and_clinic(c):
          if "Facility" in tables else 0)
     if isinstance(n, tuple):
         if _absent_object(n[1]):
-            # a Facility table without `disabled`: the ETL has its own
-            # branch for exactly this, so it must not become a no-go
-            absent_objects["Facility [disabled = 0]"] = n[1]
+            # NOT patch-level variance to be waved through. The count
+            # only runs when the TABLE is present, so an absent-object
+            # error means `disabled` itself is gone -- and
+            # o19etl.etl_precheck_problems refuses exactly that
+            # ("a patch level older than the import supports"), inside
+            # run_etl at P4, with no --accept. Routing it to the INFO
+            # lane also short-circuited the `elif n == 0` arm below, so a
+            # Facility that was BOTH column-less and empty verdicted
+            # `go` twice over.
+            findings.append(finding(
+                "facility-no-disabled-column", BLOCKER,
+                "the Facility table has no `disabled` column",
+                "A patch level older than the import supports. The ETL "
+                "refuses the dump at P4 — after the pre-import snapshot "
+                "and the full staging restore — and nothing here can "
+                "tell whether a Facility is enabled either. Re-export "
+                "from a patch level that carries the column. No "
+                "--accept flag exists for this.",
+                data={"Facility [disabled = 0]": n[1]}))
         else:
             query_errors["Facility [disabled = 0]"] = n[1]
     elif n == 0:
@@ -2555,11 +2578,13 @@ def run_checks(query, properties=None, province="on", accepted=(),
         double-reporting the table.
 
         An error naming an absent table or column is the exception. The
-        importer anticipates patch-level variance — o19etl has a branch
-        for a Facility table with no `disabled` column, for instance —
-        so routing it into the query-errors blocker produces an
-        unacceptable `no-go` for a clinic the import supports, with a
-        diagnosis (privileges, corruption) that is simply wrong."""
+        importer anticipates patch-level variance — o19etl.effective_entry
+        skips a column the dump does not carry and lets the target's
+        default stand — so routing it into the query-errors blocker
+        produces an unacceptable `no-go` for a clinic the import
+        supports, with a diagnosis (privileges, corruption) that is
+        simply wrong. Where an absent column is instead a P4 REFUSAL the
+        caller raises its own blocker; see check_facility_and_clinic."""
         n = _count(query, table, where)
         if isinstance(n, tuple):
             label = table if where is None else "{0} [{1}]".format(

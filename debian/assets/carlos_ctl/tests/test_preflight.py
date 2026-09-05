@@ -194,9 +194,35 @@ class TestVerdicts(unittest.TestCase):
         self.assertEqual(report["verdict"], "no-go")
 
     def test_an_absent_column_is_reported_not_a_no_go(self):
-        # o19etl has a branch for a Facility table with no `disabled`
-        # column; the assessment must not refuse that clinic outright,
-        # and must not diagnose it as a privilege problem
+        # the general policy: a lower patch level simply lacks columns
+        # the manifest superset knows, o19etl.effective_entry skips
+        # them, and the assessment must neither refuse that clinic nor
+        # diagnose it as a privilege problem
+        class NoActiveyn(FakeDb):
+            """A dump whose secUserRole predates `activeyn`."""
+
+            def __call__(self, sql):
+                if "`secUserRole`" in sql and "activeyn" in sql:
+                    raise RuntimeError(
+                        "ERROR 1054 (42S22): Unknown column 'activeyn' "
+                        "in 'where clause'")
+                return FakeDb.__call__(self, sql)
+        report = pf.run_checks(NoActiveyn(base_tables()),
+                               properties=clean_props())
+        ids = {f["id"]: f for f in report["findings"]}
+        self.assertNotIn("query-errors", ids)
+        self.assertEqual(ids["absent-objects"]["severity"], pf.INFO)
+        self.assertEqual(report["verdict"], "go")
+
+    def test_a_facility_without_disabled_is_the_refusal_p4_will_make(self):
+        """The one absent column that is NOT patch-level variance to wave
+        through. o19etl.etl_precheck_problems refuses a Facility with no
+        `disabled` ("a patch level older than the import supports") and
+        die()s inside run_etl at P4, after the pre-import snapshot and
+        the full staging restore, with no --accept. Filing it as INFO
+        also short-circuited the row-count arm, so a Facility that was
+        both column-less and empty verdicted `go` twice over. Measured on
+        MariaDB 10.11 before the fix: verdict `go`, exit 0."""
         class NoDisabled(FakeDb):
             """A dump whose Facility table predates the `disabled` column."""
 
@@ -208,10 +234,14 @@ class TestVerdicts(unittest.TestCase):
                 return FakeDb.__call__(self, sql)
         report = pf.run_checks(NoDisabled(base_tables()),
                                properties=clean_props())
-        ids = {f["id"]: f for f in report["findings"]}
-        self.assertNotIn("query-errors", ids)
-        self.assertIn("Facility [disabled = 0]", ids["absent-objects"]["data"])
-        self.assertEqual(ids["absent-objects"]["severity"], pf.INFO)
+        self.assertEqual(report["verdict"], "no-go")
+        self.assertEqual(report["exit_code"], 2)
+        f = [x for x in report["findings"]
+             if x["id"] == "facility-no-disabled-column"][0]
+        self.assertIsNone(f.get("accept"))
+        # still not a privilege diagnosis
+        self.assertEqual([x["id"] for x in report["findings"]
+                          if x["id"] == "query-errors"], [])
 
     def test_a_missing_properties_file_is_refused(self):
         # ldap.enabled is a no-accept refusal at import time, so an
