@@ -363,10 +363,54 @@ case "$1" in
         # sed replacement: sed treats |, & and \ specially there, so a host
         # name or heap value containing one would be corrupted — or abort
         # configure under set -e. Appends when the key is missing.
+        #
+        # The value is trimmed, backslash-escaped and double-quoted before it
+        # is written. carlos-emr.env has two consumers — systemd's
+        # EnvironmentFile= parser and the `.`-source in carlos-emr-tomcat that
+        # mirrors it so a manual run behaves like the service — and both strip
+        # surrounding double quotes and honour C-style backslash escapes, so
+        # the treatment is transparent to a clean value (a hostname, an IP,
+        # `2g`, a timezone — none of which contain any escaped character) yet
+        # load-bearing for a dirty one:
+        #   * a stray interior space (`2 g`) written bare as
+        #     `CARLOS_JAVA_XMX=2 g` makes the shell source read "run g with
+        #     CARLOS_JAVA_XMX=2" — exit 127, or the heap silently dropped;
+        #   * a `"`, `\`, `$` or backtick in the value would, once merely
+        #     quoted, still break the quoting or — worse — be expanded/executed
+        #     by the shell source (`$(...)`, backticks, `$VAR`) as the carlos
+        #     service user on every start. Escaping `\ " $ \`` in a single
+        #     order-safe pass (backslash first is automatic — the character
+        #     class prepends exactly one backslash to each match, itself
+        #     included) neutralises all four for both consumers.
+        # Leading/trailing whitespace is stripped outright; it is never
+        # meaningful in these keys and is the commonest way a fat-fingered
+        # answer sneaks a space in. env_get() and the round-trip reads below
+        # strip the surrounding quotes, so this stays consistent with every
+        # reader of the file.
+        #
+        # INVARIANT — escaped characters are write-only, they do NOT round-trip.
+        # The readers below (the CARLOS_JAVA_XMS/XMX equality check and the
+        # deploy-probe's CARLOS_SERVER_NAME/CARLOS_BIND_IP reads) strip the
+        # surrounding quotes but do NOT un-escape, so a value that was escaped
+        # here reads back with its backslashes intact. That is deliberate and
+        # safe: set_env_key only ever writes a fixed, constrained set of keys —
+        # a hostname, an IP, on/bc, a timezone, a heap size — none of whose
+        # legitimate values contain `\`, `"`, `$` or a backtick, so the escape
+        # pass is a no-op for every value these keys can actually hold. The
+        # escaping exists purely to neutralise a garbage/hostile debconf answer
+        # for the shell that sources this file; such a value is already invalid
+        # for its key (a "hostname" with a backtick will not resolve), so a
+        # non-identical read-back of it changes nothing. Do NOT widen these
+        # writes to free-form keys without teaching the readers to un-escape.
         set_env_key() {
             key="$1" value="$2"
             SEK_KEY="${key}" SEK_VALUE="${value}" awk '
-                BEGIN { k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"] }
+                BEGIN {
+                    k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"]
+                    gsub(/^[ \t]+/, "", v); gsub(/[ \t]+$/, "", v)
+                    gsub(/["$`\\]/, "\\\\&", v)
+                    v = "\042" v "\042"
+                }
                 index($0, k "=") == 1 { print k "=" v; done = 1; next }
                 { print }
                 END { if (!done) print k "=" v }
@@ -922,13 +966,17 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # bare IP: a numeric Host header trips CRS rule 920350 on every poll
         # and fills the brand-new audit log with noise the installer itself
         # generated.
-        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | head -1)"
+        # tr -d '\042' strips the surrounding double quotes set_env_key now
+        # writes: a raw read would hand curl --resolve a quoted host/addr and
+        # every healthy install would sit out the whole loop before wrongly
+        # reporting the front door dead. Same idiom as the XMS/XMX reads above.
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
         PROBE_NAME="${PROBE_NAME:-localhost}"
         # Probe the address nginx actually listens on: with a non-default
         # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
         # healthy install used to sit through the whole five-minute loop and
         # then blame the application.
-        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | head -1)"
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
         case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
         i=0
         while [ "${i}" -lt 60 ]; do

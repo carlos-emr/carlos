@@ -19,6 +19,21 @@ from .util import (
 )
 
 
+# CARLOS_PROVINCE answer -> the migration/billing province it resolves to.
+# 'other' is a deliberate ALIAS for Ontario, not a third jurisdiction: the WAR
+# ships only common/on/bc migration locations, and the application recognises
+# only ON and BC. Rendering billregion=OTHER would not give a neutral install,
+# it would give a broken one — Billing2Action is
+# `return "ON".equals(region) ? "ON" : "BC";`, so the Billing tab would chain
+# into the BC screens against tables the on migrations never create; ~40 JSP
+# and Java sites do an exact .equals("ON"); and FlywaySchemaValidator
+# normalises only ON/BC, so its boot-time cross-check of
+# carlos.flyway.locations against billregion would stop covering this
+# deployment. So the operator's answer is kept verbatim in carlos-emr.env for
+# the record, and everything derived from it goes through schema_province.
+PROVINCE_SCHEMA = {"on": "on", "bc": "bc", "other": "on"}
+
+
 class Settings:
     """The carlos-emr.env values every verb needs, validated once."""
 
@@ -39,12 +54,15 @@ class Settings:
         # every command.
         if not re.fullmatch(r"[A-Za-z0-9_]+", self.db_name):
             die(f"CARLOS_DB_NAME ('{self.db_name}') must be a plain identifier (A-Za-z0-9_)")
-        if self.province not in ("on", "bc"):
-            die(f"CARLOS_PROVINCE ('{self.province}') must be 'on' or 'bc'")
+        if self.province not in PROVINCE_SCHEMA:
+            die(f"CARLOS_PROVINCE ('{self.province}') must be 'on', 'bc' or 'other'")
+        # The province whose migrations and billregion this install actually
+        # gets; identical to self.province except for the 'other' alias above.
+        self.schema_province = PROVINCE_SCHEMA[self.province]
 
     @property
     def flyway_locations(self) -> str:
-        return f"classpath:db/migration/common,classpath:db/migration/{self.province}"
+        return f"classpath:db/migration/common,classpath:db/migration/{self.schema_province}"
 
 
 def load() -> Settings:
@@ -58,7 +76,7 @@ def cmd_init_config(argv) -> int:
         die(f"{PROPERTIES} does not exist; reinstall the package")
 
     doc = f"{STATE}/CarlosDocument/carlos"
-    province_uc = s.province.upper()
+    province_uc = s.schema_province.upper()
 
     # JDBC parameters, and why each one is here:
     #   zeroDateTimeBehavior=round        the OSCAR-lineage schema contains
@@ -98,16 +116,21 @@ def cmd_init_config(argv) -> int:
     # would send both down a path that does not exist here.
     prop_set(PROPERTIES, "project_home", "carlos")
 
-    # Belt and braces for the build stamp: the skeleton comes from the built
-    # WAR (already substituted), but if a future build ever ships the raw
-    # ${...} placeholders the application renders them on the LOGIN page, to
-    # every unauthenticated visitor.
-    pkg_version = util.out(["dpkg-query", "-f", "${Version}", "-W", "carlos-emr"]) or "unknown"
-    for key, fallback in (("buildDate", util.out(["date", "-I"])),
-                          ("buildVersion", f"carlos-emr {pkg_version}")):
-        cur = prop_get(PROPERTIES, key) or ""
-        if "${" in cur:
-            prop_set(PROPERTIES, key, fallback)
+    # Build identity (the build stamp shown on the authenticated About page,
+    # in REST response headers and in HL7 SFT segments; deliberately never on
+    # the login page) is NOT a carlos.properties
+    # key any more: the application reads it from carlos-build.properties
+    # inside the WAR (BuildInfo), so it follows every package upgrade on its
+    # own. Earlier packages seeded buildDate/buildVersion into THIS override
+    # file — where, because the override is loaded on top of the in-WAR copy,
+    # the value written at first install shadowed every later WAR's stamp
+    # ("it does NOT update the buildVersion", reported on the alpha line).
+    # The application ignores the keys now; comment them out so an operator
+    # reading the file is not misled into thinking they do something.
+    # Idempotent: prop_get does not see a commented line.
+    for key in ("buildDate", "buildVersion"):
+        if prop_get(PROPERTIES, key) is not None:
+            prop_comment(PROPERTIES, key)
 
     # The schema gate. `validate` is the production posture: the application
     # refuses to start against a schema it was not built for, instead of
@@ -213,8 +236,16 @@ def cmd_init_config(argv) -> int:
     # to a directory, where 0644 would break traversal outright).
     # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
     os.chmod(ngx, 0o755)  # nosec B103
-    listen6_http = "listen [::]:80;" if s.bind_ip == "0.0.0.0" else ""  # nosec B104
-    listen6_https = "listen [::]:443 ssl;" if s.bind_ip == "0.0.0.0" else ""  # nosec B104
+    # The [::] wildcard is emitted only when the host actually has an IPv6
+    # stack. A bare `listen [::]:80;` makes nginx REFUSE TO START on a kernel
+    # where IPv6 is disabled (ipv6.disable=1, or a build without it) — and
+    # because both listen fragments carry it, that takes the entire front door
+    # down, HTTP and HTTPS alike, on the next init-config of a host that never
+    # had IPv6. /proc/net/if_inet6 is present iff the IPv6 stack is loaded, so
+    # its absence is the kernel's own authoritative "no IPv6 here".
+    ipv6_available = os.path.exists("/proc/net/if_inet6")
+    listen6_http = "listen [::]:80;" if s.bind_ip == "0.0.0.0" and ipv6_available else ""  # nosec B104
+    listen6_https = "listen [::]:443 ssl;" if s.bind_ip == "0.0.0.0" and ipv6_available else ""  # nosec B104
     _write(os.path.join(ngx, "server-name.conf"),
            f"# Generated by carlos-ctl from CARLOS_SERVER_NAME in {ENV_FILE}. Do not edit.\n"
            f"server_name {s.server_name};\n")
@@ -232,7 +263,11 @@ def cmd_init_config(argv) -> int:
         os.chmod(os.path.join(ngx, "proxy-params.conf"), 0o644)
     if not os.path.exists(os.path.join(ngx, "stapling.conf")):
         _write(os.path.join(ngx, "stapling.conf"), "# Managed by carlos-emr-cert.\n")
-    log(f"configuration rendered for {s.server_name} (province {province_uc})")
+    # Report the declared answer alongside what it resolved to: an operator who
+    # answered 'other' would otherwise find billregion=ON with nothing saying why.
+    province_note = (province_uc if s.province == s.schema_province
+                     else f"{s.province} -> {province_uc}")
+    log(f"configuration rendered for {s.server_name} (province {province_note})")
 
     # RENDERING IS NOT APPLYING — finish the job so the operator loop is
     # simply "edit carlos-emr.env, run carlos-ctl init-config":

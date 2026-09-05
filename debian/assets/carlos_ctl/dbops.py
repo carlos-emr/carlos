@@ -827,7 +827,7 @@ def _demo_assemble_stream(s, out, artifact: str, pieces: list) -> None:
     # columns added after 2012.
     out.write("SET SESSION sql_mode='';\n")
     out.write("SET FOREIGN_KEY_CHECKS=0;\n")
-    if s.province == "bc":
+    if s.schema_province == "bc":
         # The sanctioned exception to add-only: swap the real BC
         # specialist directory for the fake demo list. bc/V1.0.6 seeds it
         # into THREE tables — billingreferral (~10,700 referring
@@ -868,7 +868,7 @@ def cmd_demo_data(argv) -> int:
     require_db_root()
     s = config.load()
 
-    artifact = os.path.join(DEMO_DIR, f"demo-additive-{s.province}.sql.gz")
+    artifact = os.path.join(DEMO_DIR, f"demo-additive-{s.schema_province}.sql.gz")
     if not os.path.isfile(artifact):
         die(f"{artifact} is missing — this carlos-emr package was built "
             "without the demonstration dataset (reinstall the package)")
@@ -897,6 +897,10 @@ def cmd_demo_data(argv) -> int:
         "the demo-data marker")
     if marker:
         log("the demonstration dataset is already loaded; leaving it alone")
+        # The document files are seeded separately from the SQL and skip what is
+        # already there, so a load whose file copy failed (or a store re-provisioned
+        # since) is repaired by simply re-running demo-data.
+        _demo_seed_document_files()
         return 0
 
     # Guard B: the schema must be FULLY migrated. Table existence is not
@@ -953,9 +957,13 @@ def cmd_demo_data(argv) -> int:
         # file in the devcontainer flow; the eform-rtl-attachment-* Playwright
         # checks pin this).
         os.path.join(DEMO_DIR, "update-2026-06-29-rtl-attachment-route-fix.sql"),
+        # The snapshot's HRM rows name report files that never shipped, so
+        # every HRM list is empty. Point one demographic-1 report at the
+        # fixture _demo_seed_document_files() copies in after the load.
+        os.path.join(DEMO_DIR, "demo-hrm-report.sql"),
         os.path.join(DEMO_DIR, "demo-name-sanitization.sql"),
     ]
-    if s.province == "on":
+    if s.schema_province == "on":
         # formLabReq07/10 exist only in the Ontario schema; the BC load would
         # fail on the missing tables.
         pieces.append(os.path.join(DEMO_DIR, "demo-name-sanitization-on.sql"))
@@ -1005,11 +1013,72 @@ def cmd_demo_data(argv) -> int:
             "only after fixing the cause (without the marker a re-run will "
             "refuse on the populated database).")
 
+    _demo_seed_document_files()
+
     log("demonstration dataset loaded: ~3000 FAKE- patients, demo providers, "
         "and 60 fake referral specialists.")
     log("this system now holds publicly-known demonstration content and known "
         "development credentials — it must NEVER hold real patient data.")
     return 0
+
+
+def _demo_seed_document_files() -> None:
+    """Copy the demo document FILES into the document store. The dataset's
+    document rows reference PDFs, and demo-hrm-report.sql points one HRM row
+    at the fictitious HRM report; the rows alone make every attachment
+    render fail ("could not be converted into a PDF") and leave the HRM
+    lists empty. Runs after the marker is written: a file copy that fails
+    must not make the SQL load look incomplete, so it warns and continues.
+    Files land carlos:carlos 0640 like uploads (DOCUMENT_DIR is 2750 with
+    the backup user reading through the group); existing files are left
+    alone so a re-provisioned store never has a real upload overwritten."""
+    import grp
+    import pwd
+    import shutil
+
+    src = os.path.join(DEMO_DIR, "documents")
+    dest = os.path.join(STATE, "CarlosDocument", "carlos", "document")
+    if not os.path.isdir(src):
+        warn(f"{src} is missing — demo document files not seeded; attaching "
+             "a demo document or HRM report to a letter will fail")
+        return
+    try:
+        uid = pwd.getpwnam("carlos").pw_uid
+        gid = grp.getgrnam("carlos").gr_gid
+    except KeyError:
+        warn("the carlos account is missing — demo document files not seeded")
+        return
+    os.makedirs(dest, exist_ok=True)
+    copied = 0
+    for name in sorted(os.listdir(src)):
+        target = os.path.join(dest, name)
+        if os.path.exists(target):
+            continue
+        # Copy to a temporary name beside the target and link it into place
+        # once it is complete and owned: a copy that dies half-way must never
+        # leave a truncated file under the real name, which the exists() check
+        # above (and the app) would then treat as the whole document. link()
+        # rather than replace(): it refuses an existing target, so a document
+        # the running application stored under this name between the exists()
+        # check and now is kept, never overwritten by the fixture.
+        partial = os.path.join(dest, f".{name}.carlos-demo-partial")
+        try:
+            shutil.copyfile(os.path.join(src, name), partial)
+            os.chown(partial, uid, gid)
+            os.chmod(partial, 0o640)
+            try:
+                os.link(partial, target)
+                copied += 1
+            except FileExistsError:
+                pass
+        except OSError as e:
+            warn(f"could not seed demo document {name}: {e}")
+        finally:
+            try:
+                os.unlink(partial)
+            except OSError:
+                pass
+    log(f"demo document files seeded into {dest} ({copied} copied)")
 
 
 # --- deliberate decommissioning (verb: destroy-data) ------------------------

@@ -44,6 +44,11 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would ride every navigation and surface in failure diagnostics; the
+  // checks log in through the form with TEST_USER/TEST_PASSWORD instead.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
 
   const host = parsed.hostname.toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;

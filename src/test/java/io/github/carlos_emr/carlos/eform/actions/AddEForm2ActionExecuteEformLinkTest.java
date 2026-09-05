@@ -138,8 +138,11 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         // Set required request parameters — minimal set for a clean execute() path
         mockRequest.setParameter("efmfid", "1");
         mockRequest.setParameter("efmdemographic_no", "123");
-        // Use print=true to exit cleanly after session write, avoiding EctProgram DB lookup
-        mockRequest.setParameter("print", "true");
+        // Use faxEForm=true to exit cleanly after the session write (the fax branch redirects and
+        // returns NONE before the EctProgram DB lookup and MatchManager). print=true used to serve
+        // this purpose, but it is now the legacy alias of the save-and-download workflow and renders
+        // a PDF, which is not what these tests are about.
+        mockRequest.setParameter("faxEForm", "true");
     }
 
     @AfterEach

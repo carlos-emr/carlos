@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fictitious OntarioMD HRM 1.1.2 report for the demo dataset.
+
+  The demo snapshot ships HRMDocument rows for demographic 1 (FAKE-Jacky FAKE-Jones) but not the
+  report files they reference, so HRMReportParser cannot parse them, HRMUtil.listHRMDocuments()
+  drops them, and the Rich Text Letter / consultation attach popups show "No HRM documents
+  available". Copy this file to the reportFile name of one of those rows (see
+  docs/ui-tests/deb-install-validation.md, fixture (e)) to make the HRM attachment family testable.
+
+  Every value here is invented. The TextContent marker (SEED-HRM-ATTACHMENT-MARKER) is what
+  scripts/eform-rtl-attachment-pdf-playwright-checks.js looks for in the merged PDF.
+-->
+<OmdCds xmlns="cds" xmlns:cdsd="cds_dt">
+  <PatientRecord>
+    <Demographics>
+      <Names>
+        <cdsd:LegalName namePurpose="L">
+          <cdsd:FirstName>
+            <cdsd:Part>FAKE-Jacky</cdsd:Part>
+            <cdsd:PartType>GIV</cdsd:PartType>
+          </cdsd:FirstName>
+          <cdsd:LastName>
+            <cdsd:Part>FAKE-Jones</cdsd:Part>
+            <cdsd:PartType>FAMC</cdsd:PartType>
+          </cdsd:LastName>
+        </cdsd:LegalName>
+      </Names>
+      <DateOfBirth>
+        <cdsd:FullDate>1980-01-01</cdsd:FullDate>
+      </DateOfBirth>
+      <HealthCard>
+        <cdsd:Number>0000000000</cdsd:Number>
+        <cdsd:Version>XX</cdsd:Version>
+        <cdsd:ProvinceCode>CA-ON</cdsd:ProvinceCode>
+      </HealthCard>
+      <Gender>F</Gender>
+      <UniqueVendorIdSequence>1</UniqueVendorIdSequence>
+      <PersonStatusCode>A</PersonStatusCode>
+    </Demographics>
+    <ReportsReceived>
+      <Media>Download</Media>
+      <Format>Text</Format>
+      <FileExtensionAndVersion>.txt</FileExtensionAndVersion>
+      <Content>
+        <cdsd:TextContent>SEED-HRM-ATTACHMENT-MARKER
+Diagnostic Imaging Report (fictitious demo fixture)
+
+Chest X-ray, PA and lateral. No acute cardiopulmonary abnormality.
+This report exists only so the HRM attachment family can be exercised on a demo install.</cdsd:TextContent>
+      </Content>
+      <Class>Diagnostic Imaging Report</Class>
+      <SubClass>X-Ray</SubClass>
+      <EventDateTime>
+        <cdsd:DateTime>2024-01-18T10:15:00</cdsd:DateTime>
+      </EventDateTime>
+      <ReceivedDateTime>
+        <cdsd:DateTime>2024-01-18T12:00:00</cdsd:DateTime>
+      </ReceivedDateTime>
+      <AuthorPhysician>
+        <cdsd:FirstName>Demo</cdsd:FirstName>
+        <cdsd:LastName>Radiologist</cdsd:LastName>
+      </AuthorPhysician>
+      <SendingFacility>DEMO</SendingFacility>
+      <SendingFacilityReportNumber>DEMO-DI-0001</SendingFacilityReportNumber>
+      <!-- Diagnostic Imaging reports carry their examination in OBRContent; HRM date
+           helpers read the report date from the first observation. -->
+      <OBRContent>
+        <AccompanyingSubClass>X-Ray</AccompanyingSubClass>
+        <AccompanyingMnemonic>CXR</AccompanyingMnemonic>
+        <AccompanyingDescription>Chest X-ray, PA and lateral</AccompanyingDescription>
+        <ObservationDateTime>
+          <cdsd:DateTime>2024-01-18T10:15:00</cdsd:DateTime>
+        </ObservationDateTime>
+      </OBRContent>
+      <ResultStatus>S</ResultStatus>
+    </ReportsReceived>
+    <TransactionInformation>
+      <MessageUniqueID>demo-hrm-diagnostic-imaging-0001</MessageUniqueID>
+      <DeliverToUserID>999998</DeliverToUserID>
+      <Provider>
+        <cdsd:FirstName>Demo</cdsd:FirstName>
+        <cdsd:LastName>Provider</cdsd:LastName>
+      </Provider>
+    </TransactionInformation>
+  </PatientRecord>
+</OmdCds>

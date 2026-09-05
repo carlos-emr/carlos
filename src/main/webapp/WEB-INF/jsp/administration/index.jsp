@@ -386,6 +386,9 @@
             if (!href || href === "#" || /^\s*javascript:/i.test(href)) {
                 return;
             }
+            // AJAX-loaded content flows in the shell's own scroll; drop any
+            // height the previous framed section left on the container.
+            resetFrameSizing();
             $("#dynamic-content").removeClass("dynamic-iframe-content");
             $("#dynamic-content").load(href,
                 function (response, status, xhr) {
@@ -511,11 +514,156 @@
         }
     }
 
-    /* function resizeIframe(newHgt)
-    {
-        $('#myFrame').height((parseInt(newHgt)+75)+'px');
-        $("html, body").animate({ scrollTop: 0 }, "slow");
-    } */
+    // The admin shell hosts most section pages inside #myFrame (see the .xlink
+    // handler in leftNav.jspf). Two things have to happen when the framed page
+    // changes: the frame has to be tall enough for the new document, and the
+    // SHELL has to scroll back to the top so the reader is looking at the top of
+    // it. This function is the hook a framed page calls to ask for both, passing
+    // its own content height; scrollFramedContentIntoView() below is the same
+    // behaviour driven from the shell for the many legacy pages that never call
+    // in.
+    //
+    // It was commented out during the Bootstrap 5 rework, which left the shell
+    // parked at whatever scroll offset the reader had used to reach a button
+    // near the bottom of the frame. A multi-step wizard then looks broken: the
+    // schedule week-setting "Next" posts, saves, and loads the next step, but the
+    // reader is still looking at the middle of it and reports that "nothing
+    // happens". The pages that DID call in got a hard
+    // "parent.parent.resizeIframe is not a function" instead. Keep it defined.
+    function resizeIframe(newHgt) {
+        var frame = document.getElementById('myFrame');
+        if (!frame) {
+            // AJAX-loaded (non-framed) content also reaches this via a nested
+            // page; there is nothing to size, but the scroll is still wanted.
+            scrollShellToTop();
+            return;
+        }
+        growFrameTo(parseInt(newHgt, 10));
+        scrollShellToTop();
+    }
+
+    // Breathing room added on top of a framed document's own height, so the
+    // grown frame does not sit flush against its content and re-introduce a
+    // nested scrollbar from sub-pixel rounding.
+    var FRAME_HEIGHT_MARGIN = 75;
+
+    // Grow the frame (and the aspect-ratio box it lives in) to fit a framed
+    // document `contentHeight` px tall. Only ever grows, and only when the
+    // content genuinely does not fit.
+    //
+    // The margin is added ONLY when growth is needed, which is what keeps this
+    // from ratcheting. A document shorter than its frame reports a scrollHeight
+    // equal to the frame's own height — the viewport is its lower bound — so
+    // adding the margin first and comparing afterwards would grow the frame by
+    // FRAME_HEIGHT_MARGIN on EVERY in-frame navigation, accumulating blank
+    // space without limit across a multi-step flow. Comparing the bare content
+    // height first makes the fitting case a no-op, and one growth step is
+    // enough: the next measurement equals the new frame height and stops.
+    function growFrameTo(contentHeight) {
+        var frame = document.getElementById('myFrame');
+        var container = document.getElementById('dynamic-content');
+        if (!frame || !isFinite(contentHeight) || contentHeight <= 0) {
+            return;
+        }
+        if (contentHeight <= frame.getBoundingClientRect().height) {
+            return;
+        }
+        var height = contentHeight + FRAME_HEIGHT_MARGIN;
+        if (container) {
+            // The .dynamic-iframe-content box is sized by `padding-top: 80%`, an
+            // aspect-ratio hack with no relation to the content. Swap it for a
+            // real height once the real height is known.
+            container.style.paddingTop = '0';
+            container.style.height = height + 'px';
+        }
+        frame.style.height = height + 'px';
+    }
+
+    // Undo anything growFrameTo() applied, so the next section starts from the
+    // CSS box again instead of inheriting the previous page's height.
+    function resetFrameSizing() {
+        var container = document.getElementById('dynamic-content');
+        if (container) {
+            container.style.paddingTop = '';
+            container.style.height = '';
+        }
+    }
+
+    // .stop(true) first: the .xlink handler scrolls on click and this runs again
+    // when the frame finishes loading, so without it the two animations queue and
+    // the shell keeps animating after it has already arrived. Clearing the queue
+    // also means a reader who scrolls during the animation is not fought by a
+    // stale one that is still ticking.
+    function scrollShellToTop() {
+        $("html, body").stop(true).animate({ scrollTop: 0 }, "slow");
+    }
+
+    // Called by the .xlink handler on every document the frame loads. Reads the
+    // framed document's own height (same-origin — every section route is served
+    // by this application) so a page taller than the aspect box is not clipped
+    // behind a nested scrollbar, then puts the shell back at the top so the
+    // reader sees the new page from its beginning. A page that also calls
+    // resizeIframe() itself just asks for the same thing twice, which is
+    // harmless: growFrameTo() is a no-op once the content fits.
+    function scrollFramedContentIntoView(frame) {
+        try {
+            var doc = frame && frame.contentDocument;
+            if (doc && doc.documentElement) {
+                growFrameTo(doc.documentElement.scrollHeight);
+                observeFramedContentHeight(frame, doc);
+            }
+        } catch (e) {
+            // A cross-origin document cannot be measured; the CSS box still applies.
+        }
+        scrollShellToTop();
+    }
+
+    // Keep following the framed document's height after load.
+    //
+    // Measuring once at load is not enough for the pages this shell-side path
+    // exists to cover: a section that renders a table from its own AJAX call,
+    // expands an accordion, or loads images without declared dimensions is
+    // taller a moment later, and would sit clipped behind the aspect box with a
+    // nested scrollbar — the defect this is meant to remove. The legacy pages
+    // escape that by calling resizeIframe() again themselves; a page that never
+    // calls in has no second chance without this.
+    //
+    // It only grows the frame — it deliberately does NOT scroll. A reader who
+    // opens a collapsed panel half way down a section has not asked to be sent
+    // back to the top.
+    function observeFramedContentHeight(frame, doc) {
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        // One observer per frame: each load replaces the document, and a stale
+        // observer would keep measuring the previous one.
+        if (frame.carlosContentObserver) {
+            frame.carlosContentObserver.disconnect();
+        }
+        var observer = new ResizeObserver(function () {
+            try {
+                var current = frame.contentDocument;
+                if (current && current.documentElement) {
+                    growFrameTo(current.documentElement.scrollHeight);
+                }
+            } catch (e) {
+                // Document went away or turned cross-origin mid-observation.
+            }
+        });
+        // Observe BOTH roots. ResizeObserver reports an element's own box, not
+        // the document's scrollHeight, so which of the two actually changes
+        // depends on the framed page's CSS. Measured in Chromium: with the
+        // default auto heights either one fires; with `html { height: 100% }`
+        // and an auto body only <body> fires; with `body { height: 100% }`
+        // neither does — such a page still has to call resizeIframe() itself.
+        // Observing both costs one extra registration and covers a case a
+        // single root misses.
+        observer.observe(doc.documentElement);
+        if (doc.body) {
+            observer.observe(doc.body);
+        }
+        frame.carlosContentObserver = observer;
+    }
 
     $(document).ready(function () {
 

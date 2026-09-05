@@ -170,6 +170,14 @@
              references onto the token-authorized image servlet instead. -->
         <action name="eform/displayImage.do" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
+        <!-- LEGACY BACKWARD-COMPATIBILITY ALIAS (keep): the shipped Rich Text Letter form_html
+             (update-2026-03-22-rtl-2026.3.0-modernize.sql) calls
+             $.ajax({url: "../eform/rtlPreventions.do"}) from its Preventions sidebar button, and
+             that HTML lives in every installed database. Without this alias the button rendered
+             "Error loading preventions." on every install. Same action, same security gate as the
+             extensionless route above; the concrete corpus reference is the one the displayImage.do
+             note above requires. -->
+        <action name="eform/rtlPreventions.do" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
 
     </package>
 </struts>

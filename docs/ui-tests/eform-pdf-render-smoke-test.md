@@ -135,6 +135,7 @@ npm run test:eform-test-pattern-playwright
 npm run test:eform-rtl-attachment-routes-playwright
 npm run test:eform-rtl-attachment-behavior-playwright
 npm run test:eform-rtl-attachment-types-playwright
+npm run test:eform-rtl-attachment-pdf-playwright
 npm run test:consultation-signature-playwright
 npm run test:consultation-signature-submit-playwright
 ```
@@ -306,3 +307,29 @@ npm run test:eform-rtl-attachment-types-playwright
 Expected result:
 - the RTL attachment surface exposes documents, labs, HRM, eForms, and encounter forms
 - missing attachment families are reported as an explicit regression
+
+### 4. RTL Attachment Family PDF Check
+
+Command:
+
+```bash
+npm run test:eform-rtl-attachment-pdf-playwright
+```
+
+Prerequisites beyond the demo rows: the demo document FILES in the document store
+and the fictitious HRM report (`.devcontainer/db/db_data/hrm/demo-hrm-diagnostic-imaging.xml`)
+that `demo-hrm-report.sql` points one demographic-1 `HRMDocument` row at. The
+devcontainer seed (`seed_data.sh` + `populate_db.sh`) and `carlos-ctl demo-data`
+both place them; on an older store push them by hand (see
+`docs/ui-tests/deb-install-validation.md`, fixture (a)). With poppler's `pdftotext`
+on PATH the check also asserts PDF text; without it, page counts only.
+
+Expected result, for each family (document, lab, HRM, other eForm, encounter form):
+- one item attaches through the letter's own paperclip popup and the popup answers `ok`
+- a fresh load of the saved letter shows it in the "Attached Files" panel, carries it as
+  a hidden `docNo`/`labNo`/`hrmNo`/`eFormNo`/`formNo` input, and counts it in the toolbar badge
+- the toolbar Download PDF has more pages than the same letter downloaded before attaching
+- the form's PDF button (`print=true`, the legacy alias) returns a PDF with the same page count
+- the attachment is still listed after both downloads re-saved the letter
+- a family the demo patient cannot offer is reported as `SKIP` (set
+  `RTL_REQUIRE_ALL_FAMILIES=1` to make that a failure)

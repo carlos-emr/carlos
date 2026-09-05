@@ -199,7 +199,17 @@ override_dh_auto_install:
 	    database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
 	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
 	    database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	    .devcontainer/db/scripts/demo-hrm-report.sql \
 	    $(STAGE)/$(SHAREDIR)/demo/
+	# Demo document FILES. The snapshot's document rows reference these PDFs and
+	# its HRM rows are retargeted (demo-hrm-report.sql) at the fictitious HRM
+	# report; without the files every attachment render fails "could not be
+	# converted into a PDF" and the HRM lists stay empty. carlos-ctl demo-data
+	# copies them into the document store after the SQL load.
+	install -d $(STAGE)/$(SHAREDIR)/demo/documents
+	install -m 0644 .devcontainer/db/db_data/documents/*.pdf \
+	    .devcontainer/db/db_data/hrm/*.xml \
+	    $(STAGE)/$(SHAREDIR)/demo/documents/
 	# Tomcat's global web.xml and catalina.properties come from the
 	# distribution's own tomcat11 package (a build dependency) rather than
 	# being vendored into this repo: they then track the Tomcat the runtime
@@ -258,15 +268,15 @@ override_dh_auto_install:
 	# Config skeletons the maintainer scripts instantiate (never conffiles:
 	# they carry generated credentials).
 	install -d $(STAGE)/$(SHAREDIR)/skel
-	# The skeleton comes from the BUILT WAR, not from src/main/resources.
-	# Those two files are not the same: the pom's antrun step substitutes the
-	# build stamp into target/classes/carlos.properties
-	# (buildDate=$${build.dateTime}, buildVersion=$${build.JOB_NAME}
-	# $${build.BUILD_NUMBER}) and only the WAR's copy has the real values.
-	# Since /etc/carlos-emr/carlos.properties is loaded as an OVERRIDE on top
-	# of the in-WAR file, shipping the unsubstituted source copy put the raw
-	# placeholder text back — and the application prints it in the corner of
-	# the LOGIN page, to every unauthenticated visitor. Verified live.
+	# The skeleton comes from the BUILT WAR, not from src/main/resources, so
+	# the file an operator edits is byte-for-byte the one the deployed WAR
+	# would otherwise fall back to (Maven resource filtering runs on it).
+	# The build stamp is deliberately NOT in this file any more: it lives in
+	# WEB-INF/classes/carlos-build.properties and is read by BuildInfo. Since
+	# /etc/carlos-emr/carlos.properties is loaded as an OVERRIDE on top of the
+	# in-WAR file, a stamp carried here was frozen at first install and never
+	# followed a package upgrade (verified live on the alpha line); carlos-ctl
+	# init-config comments out the legacy buildDate/buildVersion keys.
 	install -m 0644 \
 	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/carlos.properties \
 	    $(STAGE)/$(SHAREDIR)/skel/carlos.properties

@@ -102,8 +102,13 @@ The application server and database always listen on loopback only.
 
 ![Listen address question](images/install/02-bind-ip.png)
 
-**3. Billing province** — Ontario (`on`) or British Columbia (`bc`).
-**This one is permanent** — the two provinces create different tables.
+**3. Billing province** — Ontario (`on`), British Columbia (`bc`), or `other`.
+Pick `other` for a clinic anywhere else: it installs the Ontario schema and
+billing configuration, so the deployment is an Ontario one in every respect —
+it exists as a separate answer only so you are not asked to claim a province
+you are not in. **This one is permanent** — `on` and `bc` create different
+tables, and although `dpkg-reconfigure` will show the question again, the
+answer is not written back.
 
 ![Billing province question](images/install/03-province.png)
 

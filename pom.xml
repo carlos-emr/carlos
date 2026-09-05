@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha10</version>
+    <version>2026.08.0-alpha11</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -19,7 +19,7 @@
         <url>https://github.com/carlos-emr/carlos</url>
         <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
         <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
-        <tag>2026.08.0-alpha10</tag>
+        <tag>2026.08.0-alpha11</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -1586,15 +1586,25 @@
                         </goals>
                         <configuration>
                             <target>
+                                <!-- Build identity stamp. Written into carlos-build.properties (read by
+                                     BuildInfo), NOT into carlos.properties: that file is deployment
+                                     configuration and is re-loaded from an operator override copy, which
+                                     froze the stamp at first install. Ant properties are immutable once
+                                     set, so the two <property name="env.*"> lines below only take effect
+                                     when JOB_NAME / BUILD_NUMBER are absent from the environment; without
+                                     them an unset variable survived as the literal text ${env.JOB_NAME}
+                                     and was rendered on the login page. -->
                                 <tstamp>
                                     <format property="build.dateTime.value" pattern="yyyy-MM-dd hh:mm aa"/>
                                 </tstamp>
                                 <echo level="info" message="build time : ${build.dateTime.value}"/>
-                                <replace file="target/classes/carlos.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
                                 <property environment="env"/>
+                                <property name="env.JOB_NAME" value=""/>
+                                <property name="env.BUILD_NUMBER" value=""/>
                                 <echo level="info" message="JOB_NAME - BUILD_NUMBER : ${env.JOB_NAME}-${env.BUILD_NUMBER}"/>
-                                <replace file="target/classes/carlos.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
-                                <replace file="target/classes/carlos.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
+                                <replace file="target/classes/carlos-build.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
+                                <replace file="target/classes/carlos-build.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
+                                <replace file="target/classes/carlos-build.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
                             </target>
                         </configuration>
                     </execution>

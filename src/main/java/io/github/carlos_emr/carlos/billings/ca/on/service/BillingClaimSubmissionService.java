@@ -569,12 +569,16 @@ public class BillingClaimSubmissionService {
     }
 
     // HCP/WCB/RMB/NOT/PAT/...
+    // hcType comes straight off the request and is absent whenever the patient
+    // has no health-card province on file, so it is compared constant-first: an
+    // ODP claim for such a patient used to NPE here and fail the save with a
+    // bare 500 instead of the out-of-province (RMB) routing the null implies.
     private String getPayProgram(String val, String hcType) {
         String ret = prefix(requiredValue(val, "xml_billtype"), "xml_billtype", 3);
         if (val.startsWith("PAT")) {
             ret = BillingOnConstants.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
         } else if (val.startsWith("ODP")) {
-            ret = hcType.equals("ON") ? "HCP" : "RMB";
+            ret = "ON".equals(hcType) ? "HCP" : "RMB";
         } else if (val.startsWith("BON")) {
             ret = "HCP";
         }

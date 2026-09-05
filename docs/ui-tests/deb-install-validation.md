@@ -94,6 +94,25 @@ critical answer: it keeps the published dev credential
 it **only** on a disposable machine that will never hold patient data — which
 this VM is.
 
+The preseed below answers the province question with `on`. To validate the
+`other` alias instead, substitute `carlos-emr/province select other` and assert
+after the install that the env file records the answer while the rendered
+properties still name the Ontario billing region. The two files are written by
+different code and do not share a format, so match each as it is actually
+written:
+
+```bash
+# set_env_key writes env values quoted and unspaced
+lxc exec carlos-test -- grep '^CARLOS_PROVINCE=' /etc/carlos-emr/carlos-emr.env
+# expect CARLOS_PROVINCE="other"
+# prop_set rewrites properties with spaces around the '='
+lxc exec carlos-test -- grep -E '^billregion[[:space:]]*=' /etc/carlos-emr/carlos.properties
+# expect billregion = ON
+```
+
+`other` applies the Ontario migrations, so every other step in this runbook is
+unchanged.
+
 ```bash
 cat > /tmp/carlos-preseed.txt <<'EOF'
 carlos-emr carlos-emr/server-name string localhost
@@ -140,6 +159,19 @@ the Flyway-seeded rows, so the V1.0.17 digital-signatures default survives.
 if the two ever disagree about the RTL chain, that script and
 `debian/assets/carlos_ctl/dbops.py` are the authorities.)
 
+`carlos-ctl demo-data` also copies the demo document FILES (the PDFs the
+dump's document rows reference, plus the fictitious HRM report that
+`demo-hrm-report.sql` points one demographic-1 `HRMDocument` row at) into
+`/var/lib/carlos-emr/CarlosDocument/carlos/document/` as `carlos:carlos 0640`.
+Confirm they arrived before running the attachment checks; without them every
+attachment render fails "could not be converted into a PDF" and the attach
+popups list no HRM documents:
+
+```bash
+lxc exec carlos-test -- ls -la /var/lib/carlos-emr/CarlosDocument/carlos/document/
+# expect six *_LabReport.pdf and demo-hrm-diagnostic-imaging.xml
+```
+
 One database tweak and three fixtures remain:
 
 ```bash
@@ -153,15 +185,12 @@ lxc exec carlos-test -- mariadb -u root carlos \
 Fixtures the dataset alone does not provide:
 
 ```bash
-# a) Demo document FILES. The dump ships document table rows; the PDFs they
-#    reference live in the repo. Without them, attaching a document to a
-#    consultation or eForm packet fails PDF conversion.
-for f in .devcontainer/db/db_data/documents/*.pdf; do
-  lxc file push "$f" carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/document/
-done
-lxc exec carlos-test -- bash -c \
-  'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/document/*.pdf
-   chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/document/*.pdf'
+# a) (Demo document files: seeded by carlos-ctl demo-data, see above. On a
+#    store provisioned by an older package, push them by hand:)
+#    for f in .devcontainer/db/db_data/documents/*.pdf .devcontainer/db/db_data/hrm/*.xml; do
+#      lxc file push "$f" carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/document/
+#    done
+#    then chown carlos:carlos and chmod 0640 the pushed files.
 
 # b) Provider stamp for the consultation-signature checks: any small PNG,
 #    named consult_sig_<providerNo>.png in the eForm image directory.
@@ -173,7 +202,16 @@ lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png'
 
-# c) The three LOCAL_SEED_OBEC_REPORT appointments that
+# c) A clinic Rich Text Letter template, so eform-rtl-print-pdf-playwright-checks.js
+#    (RTL_TEMPLATE_NAME=MissedAppointment.rtl) can prove clinic .rtl templates load
+#    into the editor unsandboxed. The repo ships one.
+lxc file push release/Document/carlos/eform/images/MissedAppointment.rtl \
+  carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
+lxc exec carlos-test -- bash -c \
+  'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
+   chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl'
+
+# d) The three LOCAL_SEED_OBEC_REPORT appointments that
 #    patient-list-by-appointment-export-playwright-checks.js documents as its
 #    operator-provisioned fixture contract (see that script's header):
 lxc exec carlos-test -- mariadb -u root carlos -e "
@@ -223,6 +261,47 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998 CONSULT_UNSIGNED_REQUEST_ID=3
 export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).
+# Read-only: it opens the Ontario bill form for this appointment and switches the bill
+# type, but never submits a bill, so it seeds nothing and cleans nothing up. It asserts
+# billRegion travels on every self-navigation, which is what #3588 pinned -- an install
+# that has the `billregion` property set still routes correctly with the parameter
+# missing, so a status-only assertion would pass on a re-broken page.
+export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
+export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
+# Rich Text Letter print/PDF check (fixture c above); omit to skip only its template step.
+export RTL_TEMPLATE_NAME=MissedAppointment.rtl
+# Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
+# deletes its own prescription (and every other row it creates: drugs, DigitalSignature, faxes,
+# FaxClientLog, fax_config), so it needs no fixture script id. It cannot remove FILES: each run
+# leaves one prescription_<providerNo><millis>.pdf under DOCUMENT_DIR plus the .pdf/.txt pair in
+# the fax spool (fax_file_location) that the fax scheduler consumes. Harmless on a throwaway VM. Two prerequisites, both
+# operator-staged like the consultation stamp checks:
+#   1. rx_fax_enabled=true in /etc/carlos-emr/carlos.properties (rx_signature_enabled is already
+#      true by default), then `carlos-ctl restart`. Without rx_fax the Fax buttons never render.
+#   2. the same provider stamp PNG the consultation checks stage, consult_sig_999998.png, in the
+#      eForm image dir (CarlosDocument/eform/images and .../carlos/eform/images).
+# It also stages a destination fax number on the patient's active pharmacies and restores their
+# original value on cleanup: the demo dataset ships pharmacies with a blank fax, and the servlet
+# refuses such a prescription with "Valid fax number not found", so without it the check would be
+# measuring the missing pharmacy number rather than the signature gate.
+export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
+# Rx reprint / re-prescribe check (rx-fax-reprint-represcribe-playwright-checks.js). Same two
+# prerequisites as the fax check above, and it reuses RX_FAX_PROVIDER_NO / RX_FAX_DEMOGRAPHIC_NO.
+# It creates one prescription through the UI and removes it (with its drugs row and stored
+# signature) in a finally; it reprints and re-prescribes only that row, so no pre-existing patient
+# record is touched, and it writes no files. Like the fax check it stages, and then restores, a fax
+# number on the patient's active pharmacies — ViewScript2 folds `hasFaxNumber` into the Fax button,
+# so without one the pad assertions would not isolate the stamp.
+# It reaches the reprint list the way an operator does: the "Reprint" link in the drug-profile
+# section head reveals a cell that starts hidden, and that link only renders with `_rx` write
+# access. It tolerates one known pre-existing page error (issue #3578, expandPreview writing into
+# the preview iframe before it has parsed) and fails on any other.
+# Optional: RX_EXPECTED_BUILD_TAG makes the About-page assertion exact instead of merely
+# "looks like a version" — set it to the tag the packaged WAR should carry, which is
+# "<pom version> (carlos-emr-deb <debian/changelog version>)", e.g.
+#   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha11-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot18)'
+# Leave it unset when validating a WAR you did not build through the packaging.
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
@@ -254,6 +333,13 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **`eform-rtl-print-pdf-playwright-checks.js` must be run through `:443`** too. It
+  drives the Rich Text Letter the way a clinician does (Preventions, Download,
+  the form's PDF and "Submit & PDF" buttons — the latter must auto-close the window
+  after the download — toolbar Print, "Submit & Print", a clinic template) and
+  verifies real PDF bytes come back from the render browser. One of the defects
+  it pins exists only behind the WAF: CRS 932100 scored the letter's own prose
+  in `ARGS:Letter` and answered the save with a 403 (package exclusion 1045).
 - **`eform-admin-crud-playwright-checks.js` must be run through `:443`.** It
   covers the eForm administration create/edit/delete round trip, and one of the
   three defects it pins (the CRS block on the editor's `ARGS:formHtml`, rule
@@ -263,6 +349,28 @@ Notes on the contract:
   is not HTTPS. It creates its own timestamped probe eForm and deletes only
   that one; a failing run leaves the probe behind on purpose, so clear strays
   with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
+- **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
+  it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
+  them, and opens the eChart from that appointment, which is the path the
+  notes-pagination loop was reported on. It deletes the patient, the
+  appointment and the note lock in its `finally`, including after a failure, so
+  repeat runs stay clean. A run killed mid-flight (SIGINT/SIGKILL) skips that
+  `finally`; identify and remove any stray with
+
+  ```sql
+  SELECT demographic_no, last_name FROM demographic WHERE last_name LIKE 'PLAYWRIGHT-EC-%';
+  DELETE a, l, adm, arch, d
+    FROM demographic d
+    LEFT JOIN appointment a        ON a.demographic_no   = d.demographic_no
+    LEFT JOIN casemgmt_note_lock l ON l.demographic_no   = d.demographic_no
+    LEFT JOIN admission adm        ON adm.client_id      = d.demographic_no
+    LEFT JOIN demographicArchive arch ON arch.demographic_no = d.demographic_no
+   WHERE d.last_name LIKE 'PLAYWRIGHT-EC-%';
+  ```
+
+  It shrinks the notes wrapper in the browser before watching the poll: the
+  pagination only fires when that pane overflows and sits at the top, which a
+  tall headless window never reproduces on its own.
 - **`error-sanitization-playwright-checks.js` provokes two real 500s on
   purpose**, and must also run through `:443`. It is the only check that
   exercises `ResponseSanitizationFilter`'s error-replacement path — every other

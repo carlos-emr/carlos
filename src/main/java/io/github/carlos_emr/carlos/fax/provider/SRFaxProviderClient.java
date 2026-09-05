@@ -33,12 +33,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import org.apache.cxf.common.util.Base64Utility;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.NameValuePair;
@@ -316,6 +318,52 @@ public class SRFaxProviderClient implements FaxProviderClient {
             logger.info("SRFax inbox listed unreadCount={}", result.size());
         }
         return result;
+    }
+
+    /**
+     * Verifies the SRFax account number / password pair with a read-only inbox probe.
+     *
+     * <p>Issues the same {@code Get_Fax_Inbox} (unread-only) call the scheduler poll uses, which
+     * SRFax rejects with a failed {@code Status} when {@code access_id}/{@code access_pwd} are
+     * wrong. Nothing is downloaded or marked read, so the probe is safe to repeat from the
+     * admin page. Credentials are never logged.</p>
+     */
+    @Override
+    public void verifyConnection(FaxConfig faxConfig) throws FaxProviderException {
+        requireMatchingProviderType(faxConfig);
+        validateCredentials(faxConfig);
+
+        List<NameValuePair> params = createAuthParams(faxConfig);
+        params.add(new BasicNameValuePair("action", ACTION_GET_INBOX));
+        params.add(new BasicNameValuePair("sViewedStatus", "UNREAD"));
+
+        JsonNode root;
+        try {
+            root = postForm(getSrfaxApiUrl(), params);
+        } catch (FaxProviderException e) {
+            // SRFax answers a wrong access_id/access_pwd pair with a bare HTTP 401/403 rather
+            // than a JSON "Failed" body. Branch on the status carried by postForm(), not on the
+            // message text. A 403 is also what an egress proxy, an SRFax-side IP block, or a
+            // wrong API URL produce, so say so rather than sending the admin back to the
+            // credentials alone.
+            if (e.getHttpStatus() == 401) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check both values in your SRFax portal.", e, 401);
+            }
+            if (e.getHttpStatus() == 403) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check both values in your SRFax portal; a proxy or firewall blocking"
+                                + " the SRFax API produces the same response.", e, 403);
+            }
+            throw e;
+        }
+        // A JSON "Failed" body carries SRFax's own reason (an invalid access code/password,
+        // but also account-state or request problems), so keep the prefix neutral and let the
+        // provider text say what went wrong. Only the bare 401/403 above is a credential verdict.
+        ensureSuccess(root, "SRFax connection test failed");
+        logger.info("SRFax connection test succeeded");
     }
 
     /**
@@ -621,10 +669,21 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 .setResponseTimeout(Timeout.ofSeconds(60))
                 .build();
 
+        // RequestConfig no longer carries the TCP connect timeout (httpclient5 >= 5.2); without
+        // this the connect phase falls back to the 3-minute default, which would pin a scheduler
+        // thread or an admin's connection test on an unreachable host far longer than the
+        // 30s/60s budget above suggests.
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(30))
+                .build();
+
         HttpPost httpPost = new HttpPost(endpoint);
         httpPost.setConfig(requestConfig);
 
         try (CloseableHttpClient client = HttpClients.custom()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDefaultConnectionConfig(connectionConfig)
+                        .build())
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
             httpPost.setEntity(new UrlEncodedFormEntity(params));
@@ -633,7 +692,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
                     throw new FaxProviderException("SRFax API returned HTTP " + statusCode +
-                            ": " + response.getReasonPhrase());
+                            ": " + response.getReasonPhrase(), statusCode);
                 }
 
                 HttpEntity entity = response.getEntity();
@@ -655,7 +714,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     private void validateCredentials(FaxConfig faxConfig) throws FaxProviderException {
         if (faxConfig.getFaxUser() == null || faxConfig.getFaxUser().trim().isEmpty()) {
-            throw new FaxProviderException("SRFax username (faxUser) is not configured for this fax account");
+            throw new FaxProviderException("SRFax account number (faxUser) is not configured for this fax account");
         }
         if (faxConfig.getFaxPasswd() == null || faxConfig.getFaxPasswd().trim().isEmpty()) {
             throw new FaxProviderException("SRFax password is not configured for this fax account");
