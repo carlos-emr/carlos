@@ -302,6 +302,16 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # "<pom version> (carlos-emr-deb <debian/changelog version>)", e.g.
 #   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha11-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot18)'
 # Leave it unset when validating a WAR you did not build through the packaging.
+# Rx fax record-binding check (rx-fax-record-binding-playwright-checks.js). Pins the three
+# guarantees of PR #3606: a forged patient identity on the fax POST never reaches the faxed PDF
+# (the prescription's own demographic does), a standalone one-character direction line survives,
+# and a note typed immediately before Fax is on the fax (the save is deliberately delayed so the
+# race is deterministic). Same prerequisites and the same seed-then-delete fixtures as the two Rx
+# checks above; it asserts on the PDF the servlet writes, so it must be able to READ DOCUMENT_DIR
+# -- run it as root on the VM, and point RX_FAX_DOCUMENT_DIR at the install's DOCUMENT_DIR as this
+# process sees it. It leaves two prescription_<pdfId>.pdf files there per run (one from the Fax
+# button, one from the forged POST) plus their fax-spool pairs; nothing from a PDF is printed.
+export RX_FAX_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
