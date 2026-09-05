@@ -2894,9 +2894,10 @@ def main(argv=None):
             print("taking content digests (one full scan of '{0}')..."
                   .format(args.db), file=sys.stderr)
             schema_expr = "'{0}'".format(args.db)
-            write_private_json(args.digests, collect_digests(
+            digests = collect_digests(
                 query, schema_expr, base_table_names(query, schema_expr),
-                province=args.province, db_name=args.db))
+                province=args.province, db_name=args.db)
+            write_private_json(args.digests, digests)
         text = render_text(report)
         # bytes, not str: a 2014-era Python under LANG=C would refuse any
         # non-ASCII character in a role or table name on the way out
@@ -2910,7 +2911,26 @@ def main(argv=None):
         if args.json:
             print("json report written to " + args.json)
         if args.digests:
-            print("content digests written to " + args.digests)
+            print("content digests written to {0} ({1} table(s))".format(
+                args.digests, len(digests["tables"])))
+            # A table left out of `tables` is the fail-closed half of
+            # collect_digests, and the operator is the only person who
+            # can act on it while still AT the clinic. Buried in the
+            # JSON it costs a second trip: at P2 the import reports the
+            # table as unverified and demands --accept no-content-digests
+            # or a re-run of the assessment. Most of these tables are
+            # copy-class clinical or billing tables that no CHECK counts,
+            # so the query-errors blocker never sees them and the verdict
+            # stays a clean `go`. On stderr, beside the "taking content
+            # digests" line, so the report on stdout is unchanged.
+            errors = digests.get("errors") or {}
+            if errors:
+                print("WARNING: {0} table(s) could NOT be measured and "
+                      "carry no digest; the import will report them as "
+                      "unverified:".format(len(errors)), file=sys.stderr)
+                for name in sorted(errors):
+                    print("  {0}: {1}".format(name, errors[name]),
+                          file=sys.stderr)
     except Exception as exc:
         print("ERROR: preflight could not complete: {0}".format(exc),
               file=sys.stderr)

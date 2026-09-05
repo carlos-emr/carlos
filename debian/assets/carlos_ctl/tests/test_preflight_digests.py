@@ -18,6 +18,8 @@ Run (from debian/assets):
     python3 -m unittest carlos_ctl.tests.test_preflight_digests -v
 """
 
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -248,6 +250,102 @@ class TestWhatGetsDigested(unittest.TestCase):
         pf.column_types(db, "'oscar'")
         self.assertIn("ORDER BY TABLE_NAME, ORDINAL_POSITION",
                       db.queries[0])
+
+
+class TestTheOperatorIsToldWhatCouldNotBeMeasured(unittest.TestCase):
+
+    """A silent hole in the digest document costs a second trip.
+
+    `collect_digests` records an unmeasurable table in `errors` and
+    leaves it out of `tables` -- the fail-closed half -- but `main()`
+    printed only "content digests written to PATH". The digest errors
+    are not in the verdict (run_checks never sees them), not in
+    render_text and not in the --json report, so the operator's only
+    signal was to open the JSON by hand.
+
+    Nor does the query-errors blocker cover it: the preflight's COUNT
+    checks touch a specific subset of tables, and the bulk copy-class
+    clinical and billing tables are counted by no check at all. An
+    unreadable one of those produces no query_errors, no blocker -- and
+    a silent digest hole under a clean `go`. Reproduced on MariaDB 10.11
+    with a MyISAM table whose index file was corrupted (the realistic
+    2014-era shape of this): before the fix `main()` printed only the
+    "written to" line while the document carried
+    errors={'crashed_lab': "ERROR 130 ... Incorrect file format"}.
+
+    This drives the real `main()`; only the client factory is replaced,
+    so the digest collection and the reporting branch are the shipped
+    ones."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="o19digests-main-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def _run(self, fail=None):
+        """main() over a fake client; returns (exit, stdout, stderr)."""
+        from carlos_ctl.tests import test_preflight as tp
+
+        class Db(tp.FakeDb):
+            """Answers run_checks AND the digest statements."""
+
+            def __call__(self, sql):
+                if sql.startswith(pf.DIGEST_UTC_SESSION):
+                    table = sql.split("FROM `", 1)[1].split("`", 1)[0]
+                    if table in (fail or {}):
+                        raise RuntimeError(fail[table])
+                    return [["0", "0", "0", "0"]]
+                if "information_schema.COLUMNS" in sql \
+                        and "DATA_TYPE" in sql:
+                    return [[t, "id", "int"] for t in sorted(self.tables)]
+                return tp.FakeDb.__call__(self, sql)
+
+        # billing_on_item is copy-class and NO check counts it, so an
+        # unreadable one raises no query_errors and no blocker: the
+        # verdict stays `go` and the only trace is the digest hole
+        db = Db(tp.base_tables(billing_on_item=7))
+        path = os.path.join(self.dir, "d.json")
+        out, err = io.StringIO(), io.StringIO()
+        original = pf.make_cli_query
+        pf.make_cli_query = lambda *a, **kw: db
+        try:
+            with contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(err):
+                code = pf.main(["--db", "oscar", "--digests", path,
+                                "--properties", self.props()])
+        finally:
+            pf.make_cli_query = original
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        return code, out.getvalue(), err.getvalue(), doc
+
+    def props(self):
+        path = os.path.join(self.dir, "oscar.properties")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("billregion=ON\n")
+        return path
+
+    def test_an_unmeasurable_table_is_named_on_stderr(self):
+        code, out, err, doc = self._run(
+            fail={"billing_on_item":
+                  "ERROR 1142 (42000): SELECT command denied"})
+        # the hole is real and the verdict never saw it
+        self.assertIn("billing_on_item", doc["errors"])
+        self.assertNotIn("billing_on_item", doc["tables"])
+        self.assertEqual(code, 0)
+        # ... and the operator is told, while still at the clinic
+        self.assertIn("could NOT be measured", err)
+        self.assertIn("billing_on_item", err)
+        self.assertIn("SELECT command denied", err)
+
+    def test_the_written_line_says_how_many_tables_it_holds(self):
+        code, out, err, doc = self._run()
+        self.assertIn("content digests written to", out)
+        self.assertIn("({0} table(s))".format(len(doc["tables"])), out)
+
+    def test_a_complete_document_raises_no_warning(self):
+        code, out, err, doc = self._run()
+        self.assertEqual(doc["errors"], {})
+        self.assertNotIn("could NOT be measured", err)
 
 
 class TestTheDocumentIsWrittenPrivately(unittest.TestCase):

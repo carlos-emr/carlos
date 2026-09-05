@@ -35,6 +35,16 @@ database (measured at roughly 200k rows/s, so about two minutes for a
 20M-row clinic) and can be run outside the cutover window, as long as it
 runs against the same data the dump is taken from.
 
+A table the assessment cannot hash is deliberately left OUT of the
+document's `tables` and recorded in its `errors` map, so the import
+treats it as **unverified** rather than reporting a clean transfer for
+the one table nobody could measure. The run says so on stderr, naming
+each table and the server's reason — most of them are copy-class
+clinical or billing tables that no `--verdict` check counts, so they
+raise no blocker and the verdict stays `go`. Fix the access (or the
+crashed table) and re-run `--digests` while still at the clinic: at P2
+the alternative is `--accept no-content-digests` or a second trip.
+
 Client options that start with `-` need the `--mysql-arg=VALUE` form. The
 password goes through `--mysql-password-file` (handed to the client as
 `MYSQL_PWD`) or a client defaults file

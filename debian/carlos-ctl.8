@@ -420,7 +420,11 @@ and charset\-repair.
 .I PATH
 writes a content digest of every table (0600) for the clinic to ship in
 the bundle; it costs one full scan of the database and is what lets the
-CARLOS host prove the transfer carried every value.
+CARLOS host prove the transfer carried every value. A table it could not
+hash is left out of the document and named on standard error, with the
+server's reason: the import treats such a table as unverified, and most
+of them raise no blocker here, so the warning is the operator's only
+chance to fix it before leaving the clinic.
 .SH FILES
 .TP
 .I /etc/carlos-emr/carlos-emr.env
