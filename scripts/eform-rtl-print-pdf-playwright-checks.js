@@ -132,8 +132,11 @@ async function openNewLetter(context, recorder, fid, label) {
 /** Clicks a control that ends in a browser download and returns the saved PDF's bytes. */
 async function clickAndDownloadPdf(page, locator, label) {
   const downloadPromise = page.waitForEvent('download', { timeout: 120000 });
+  const saveResponsePromise = page.waitForResponse(
+    (r) => r.url().includes('/eform/addEForm') && r.request().method() === 'POST', { timeout: 120000 });
   await locator.click();
-  const download = await downloadPromise;
+  const [download, saveResponse] = await Promise.all([downloadPromise, saveResponsePromise]);
+  assert(saveResponse.status() < 400, `${label}: addEForm answered HTTP ${saveResponse.status()}`);
   // buildArtifactPath keeps the file under the validated artifact directory and creates it.
   const target = buildArtifactPath(config.screenshotDir, `rtl-${label}-${Date.now()}`, '.pdf');
   await download.saveAs(target);
