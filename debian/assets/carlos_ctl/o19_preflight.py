@@ -1931,27 +1931,60 @@ def check_required_tables(c):
 
 
 def check_identifier_class(c):
-    """Table names outside the identifier class the ETL accepts.
+    """Table AND column names outside the identifier class the ETL
+    accepts.
 
     The import refuses [^A-Za-z0-9_$] before its first write and no flag
-    clears it, so counting such a table as merely "unknown, acknowledge
-    it" would send the operator to a refusal the sign-off cannot reach."""
+    clears it, so counting such a name as merely "unknown, acknowledge
+    it" would send the operator to a refusal the sign-off cannot reach.
+
+    o19etl.unsafe_identifiers applies the same regex to every COLUMN as
+    well, and o19etl.py:2617 die()s on the result at the top of run_etl
+    (P4) — after the pre-import snapshot and the full staging restore.
+    Columns were never scanned here, although nothing structural stopped
+    it: the character-class test needs only
+    information_schema.COLUMNS, not the schema manifest that
+    check_unknown_columns waits for. Measured on MariaDB 10.11:
+    `vendorlabs`.`result-value` gave verdict `go`, exit 0 and no
+    identifier finding, while o19etl.unsafe_identifiers over the same
+    schema returned ['vendorlabs.result-value']."""
+    query = c.query
     findings = c.findings
     live_names = c.live_names
+    schema_expr = c.schema_expr
     # --- identifier class -------------------------------------------------
     # the ETL refuses any table or column name outside [A-Za-z0-9_$]
     # before its first write, and no flag clears it; an assessment that
     # counts such a table and calls it "unknown, acknowledge it" sends the
     # operator to a refusal the sign-off cannot reach
     odd_names = sorted(n for n in live_names if not IDENTIFIER_RE.match(n))
-    if odd_names:
+    odd = dict((n, "outside [A-Za-z0-9_$]") for n in odd_names)
+    # a failure here must not read as "no odd columns": it is a check
+    # that could not run, which report_query_diagnostics turns into the
+    # same no-go the count closures produce
+    try:
+        rows = query(
+            "SELECT TABLE_NAME, COLUMN_NAME FROM "
+            "information_schema.COLUMNS WHERE TABLE_SCHEMA = {0}"
+            .format(schema_expr))
+    except Exception as exc:                               # noqa: BLE001
+        text = str(exc).strip()
+        c.query_errors["information_schema.COLUMNS [identifier class]"] = (
+            text.splitlines()[-1] if text else "")
+        rows = []
+    for row in rows:
+        if len(row) < 2 or not row[0] or row[0] in odd:
+            continue
+        if not IDENTIFIER_RE.match(row[1] or ""):
+            odd["{0}.{1}".format(row[0], row[1])] = "outside [A-Za-z0-9_$]"
+    if odd:
         findings.append(finding(
             "identifier-class", BLOCKER,
-            "{0} table name(s) outside the identifier class the import "
-            "accepts".format(len(odd_names)),
+            "{0} table/column name(s) outside the identifier class the "
+            "import accepts".format(len(odd)),
             "Not an OSCAR 19 clinic schema as shipped. Rename them in the "
             "source and re-export. No --accept flag exists for this.",
-            data=dict((n, "outside [A-Za-z0-9_$]") for n in odd_names)))
+            data=odd))
 
 
 def check_facility_and_clinic(c):

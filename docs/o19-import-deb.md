@@ -659,7 +659,10 @@ clinic's sign-off.
   outside the accepted identifier class* — a table or column whose name
   is not plain `[A-Za-z0-9_$]` (no OSCAR 19 schema has one); every
   statement runs as the database root, so such a name is refused rather
-  than quoted. Rename it in the source and re-export.
+  than quoted. Rename it in the source and re-export. The clinic-side
+  assessment scans both tables and columns for this and raises
+  `identifier-class`, so it should be found before the bundle is built
+  rather than at P4.
 - *manifest column(s) not in the target schema* — the installed package's
   manifest names a column the deployed Flyway level lacks; report it.
 - *ETL pre-checks failed (nothing was written)* — the copy refused before

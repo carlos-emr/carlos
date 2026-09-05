@@ -193,6 +193,39 @@ class TestVerdicts(unittest.TestCase):
         self.assertIsNone(f.get("accept"))
         self.assertEqual(report["verdict"], "no-go")
 
+    def test_an_odd_column_name_is_refused_here_like_an_odd_table(self):
+        """o19etl.unsafe_identifiers applies the same regex to every
+        COLUMN and o19etl.py die()s on the result at the top of run_etl
+        (P4), after the pre-import snapshot and the full staging restore,
+        with no --accept. Only table names were scanned. Measured on
+        MariaDB 10.11 before the fix: `vendorlabs`.`result-value` gave
+        verdict `go`, exit 0 and no identifier finding, while
+        o19etl.unsafe_identifiers over the same schema returned
+        ['vendorlabs.result-value']."""
+        db = FakeDb(base_tables(vendorlabs=1),
+                    columns={"vendorlabs": ["id", "result-value"]})
+        report = pf.run_checks(db, properties=clean_props(),
+                               accepted=["unknown-as-archive"])
+        f = [x for x in report["findings"]
+             if x["id"] == "identifier-class"][0]
+        self.assertIn("vendorlabs.result-value", f["data"])
+        self.assertIsNone(f.get("accept"))
+        self.assertEqual(report["verdict"], "no-go")
+
+    def test_an_unreadable_column_listing_is_a_hard_no_go(self):
+        # a check that could not run is never "no odd columns"
+        class NoColumns(FakeDb):
+            def __call__(self, sql):
+                if "information_schema.COLUMNS" in sql:
+                    raise RuntimeError("ERROR 1142: SELECT command denied")
+                return FakeDb.__call__(self, sql)
+        report = pf.run_checks(NoColumns(base_tables()),
+                               properties=clean_props())
+        self.assertEqual(report["verdict"], "no-go")
+        f = [x for x in report["findings"] if x["id"] == "query-errors"][0]
+        self.assertIn("information_schema.COLUMNS [identifier class]",
+                      f["data"])
+
     def test_an_absent_column_is_reported_not_a_no_go(self):
         # the general policy: a lower patch level simply lacks columns
         # the manifest superset knows, o19etl.effective_entry skips
