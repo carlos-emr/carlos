@@ -90,14 +90,21 @@ CONTENT_DETAILS = "content-details.txt"
 #: waved through before go-live -- not a line among the passes.
 ACKNOWLEDGED_PREFIX = "ACKNOWLEDGED (--accept content-migration): "
 
-#: How the report points at the private keys without carrying
+#: How the report points at the private details without carrying
 #: them. Both the failure finding and the accepted-mismatch
 #: advisory use it: an accepted mismatch is the case a reviewer
 #: is most likely to want the rows for.
+#:
+#: It promises no more than the file delivers. The copy and merge
+#: checks pair ROWS, so they name primary keys; a preserved copy is
+#: compared by whole-table digest, which has no per-row key to give
+#: and is named by table. Promising keys for that case would send a
+#: reviewer looking for something the check cannot produce.
 CONTENT_DETAILS_NOTE = (
-    "the rows behind the value mismatches are named by primary "
-    "key in {0} (0600) — they are PHI-correlating and are not "
-    "repeated here")
+    "what differs is itemized in {0} (0600) — by primary key where "
+    "the check pairs rows, by table for a preserved copy (compared "
+    "by whole-table digest, so it has no per-row key). The contents "
+    "are PHI-correlating and are not repeated here")
 
 DUMP_COMPLETED_MARKER = b"-- Dump completed"
 # statements a `mysqldump --databases/--all-databases` emits that would

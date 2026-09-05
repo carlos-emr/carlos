@@ -1673,6 +1673,21 @@ class TestTheImportReport(unittest.TestCase):
             "accepted with --accept content-migration", 1)[1]
         self.assertIn("/var/lib/x/content-details.txt", acknowledged)
 
+    def test_the_pointer_promises_only_what_the_file_delivers(self):
+        """The copy and merge checks pair ROWS and name primary keys; a
+        preserved copy is compared by whole-table digest and has none.
+        A note that promised keys unconditionally would send a reviewer
+        looking for something the check cannot produce."""
+        text = o19report.render_text(self.build(
+            problems=["archive_x: content differs from staging"],
+            content_details="/var/lib/x/content-details.txt"))
+        note = o19import.CONTENT_DETAILS_NOTE.format("/x")
+        self.assertIn("primary key", note)
+        self.assertIn("preserved copy", note)
+        self.assertIn("no per-row key", note)
+        # and the caveat travels with the pointer, not just the constant
+        self.assertIn("preserved copy", text)
+
     def test_no_pointer_is_offered_when_no_keys_were_written(self):
         text = o19report.render_text(self.build(
             problems=["roles: something else went wrong"]))
