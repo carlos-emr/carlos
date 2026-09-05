@@ -68,6 +68,11 @@ class FakeDb(object):
             "pending": 1, "property_counts": {"INTEGRATOR_": 1},
             "prevention_counts": {"Flu": 1}, "unknown": [["Weird", "2"]],
             "restored": [["receptionist", "_billing", "r", "0"]],
+            # seed grants on a CARLOS role the clinic had pruned, and the
+            # CARLOS-era grants the backfill put on a custom role: both
+            # are access GAINED and neither appears in any other list
+            "readded": [["HRMAdmin", "_hrm.administrator", "x", "0"]],
+            "backfilled": [["Triage Nurse", "_fax", "x", "0"]],
         }
         self.answers.update(over)
         prune = o19roles.property_prune_statements(
@@ -113,6 +118,15 @@ class FakeDb(object):
             return a["dangling"]
         if sql == o19roles.restored_seed_grants_sql(SRC, ARCH):
             return a["restored"]
+        if sql == o19roles.appended_role_seed_grants_sql(SRC, DST, ARCH):
+            return a["readded"]
+        if sql.startswith("SELECT d.roleUserGroup, d.objectName, "
+                          "d.privilege, d.priority FROM `{0}`."
+                          "secObjPrivilege d WHERE".format(DST)) \
+                or sql.startswith("SELECT roleUserGroup, objectName, "
+                                  "privilege, priority FROM `{0}`."
+                                  "secObjPrivilege WHERE 1 = 0".format(DST)):
+            return a["backfilled"]
         if sql == o19roles.activeyn_null_remaining_sql(DST):
             return [[str(a["activeyn_left"])]]
         if sql == o19roles.providers_without_membership_sql(DST):
@@ -340,6 +354,26 @@ class TestCleanRun(RunRolesBase):
                       "row", report)
         self.assertIn("modernised to 2026.3.0", report)
         self.assertIn("Weird (2)", report)
+
+    def test_the_two_access_gaining_lists_are_itemised_and_counted(self):
+        # both were reported only as counts elsewhere, and neither can
+        # appear in the four original lists: restored_seed_grants_sql
+        # restricts itself to roles the clinic HAS, and the diff never
+        # reads the target at all, where the backfill's rows live
+        db = FakeDb()
+        progress, _ = self.run_roles(db)
+        diff = self.private("privilege-diff.txt")
+        self.assertIn("roles this import RE-ADDED", diff)
+        self.assertIn("HRMAdmin | _hrm.administrator | x/0", diff)
+        self.assertIn("backfill added to the clinic's custom roles", diff)
+        self.assertIn("Triage Nurse | _fax | x/0", diff)
+        report = "\n".join(self.reports)
+        self.assertIn("1 seed grant(s) on the CARLOS roles this import "
+                      "re-added are live now", report)
+        self.assertIn("1 CARLOS-era grant(s) were backfilled onto "
+                      "clinic-custom roles", report)
+        self.assertEqual(progress["roles"]["diff"]["readded_roles"], 1)
+        self.assertEqual(progress["roles"]["diff"]["backfilled"], 1)
 
     def test_rerun_over_a_complete_ledger_writes_nothing(self):
         db = FakeDb()

@@ -292,9 +292,15 @@ least-privileged clinic role and is listed in `roles-details.txt`. The
 `roles:` lines of the report say what was done; `privilege-diff.txt`
 (root-only) itemises the clinic grants the CARLOS seed overrode, the seed
 grants on the clinic's roles that the clinic's own matrix did not hold (a
-removed grant comes back), the clinic grants on stock roles the seed does
-not hold (appended; those on `_admin*` objects are named in the report),
-and the grants on objects CARLOS no longer checks (not carried);
+removed grant comes back), the seed grants on the CARLOS roles this import
+re-added to the clinic's catalogue (they granted nothing in O19 and are
+live now on every assignment the clinic kept), the CARLOS-era grants the
+backfill added to the clinic's custom roles from their templates, the
+clinic grants on stock roles the seed does not hold (appended; those on
+`_admin*` objects are named in the report),
+and the grants on objects CARLOS no longer checks (not carried) — the six
+ways the effective grant matrix differs from O19, with the middle two
+being the categories where access is GAINED;
 `roles-details.txt` names the providers whose assignments were activated
 (provider = role), whose dormant admin rows were left alone, who received
 the fallback membership, who hold an assignment to a re-added CARLOS-only

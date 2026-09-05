@@ -637,6 +637,57 @@ def restored_seed_grants_sql(src_schema: str, archive_schema: str) -> str:
                                   snapshot_table("secObjPrivilege")))
 
 
+def appended_role_seed_grants_sql(src_schema: str, dst_schema: str,
+                                  archive_schema: str) -> str:
+    """CARLOS seed grants on roles the clinic did NOT have.
+
+    The companion to restored_seed_grants_sql, which restricts itself to
+    roles the clinic HAS -- so neither it nor any other diff query could
+    ever name these. carlos_role_append_statement re-adds every CARLOS
+    seed role missing from the clinic's catalogue, and the seed's grants
+    for those role names are already sitting in the merged
+    secObjPrivilege (the merge is a union, and CARLOS resolves a grant
+    from secUserRole.role_name straight to secObjPrivilege with no secRole
+    lookup). So the moment the role row exists, every one of these becomes
+    live on any assignment the clinic still held -- an addition of access
+    the technical review has to see itemised, not just counted."""
+    return ("SELECT d.roleUserGroup, d.objectName, d.privilege, d.priority "
+            "FROM `{1}`.`{2}` d WHERE d.roleUserGroup IN (SELECT role_name "
+            "FROM `{3}`.secRole) AND d.roleUserGroup NOT IN (SELECT "
+            "role_name FROM `{0}`.secRole) AND NOT EXISTS (SELECT 1 FROM "
+            "`{0}`.secObjPrivilege s WHERE s.roleUserGroup = d.roleUserGroup "
+            "AND s.objectName = d.objectName) ORDER BY d.roleUserGroup, "
+            "d.objectName".format(src_schema, archive_schema,
+                                  snapshot_table("secObjPrivilege"),
+                                  dst_schema))
+
+
+def backfilled_custom_grants_sql(src_schema: str, dst_schema: str,
+                                 customs: Sequence[str]) -> str:
+    """Grants the target holds on the clinic's custom roles that the
+    clinic's own matrix never held -- i.e. the rows backfill_statement
+    inserted, measured rather than re-derived from the plan.
+
+    The report gives a per-role template name and a COUNT; the (object,
+    privilege) rows themselves appeared in no artifact, and the `doctor`
+    template's CARLOS-era grants include PHI-transmission objects
+    (`_fax x`, `_email x`, `_rx.editPharmacy x`). A custom role holds no
+    CARLOS-era grant of its own by construction, so dst-minus-src on these
+    roles is exactly what the backfill added."""
+    if not customs:
+        # no custom roles -> nothing was backfilled; a `roleUserGroup IN
+        # ()` would be a syntax error, so answer with an empty result set
+        return ("SELECT roleUserGroup, objectName, privilege, priority FROM "
+                "`{0}`.secObjPrivilege WHERE 1 = 0".format(dst_schema))
+    roles = ", ".join("'{0}'".format(_sql_str(r)) for r in customs)
+    return ("SELECT d.roleUserGroup, d.objectName, d.privilege, d.priority "
+            "FROM `{1}`.secObjPrivilege d WHERE d.roleUserGroup IN ({2}) AND "
+            "NOT EXISTS (SELECT 1 FROM `{0}`.secObjPrivilege s WHERE "
+            "s.roleUserGroup = d.roleUserGroup AND s.objectName = "
+            "d.objectName) ORDER BY d.roleUserGroup, d.objectName".format(
+                src_schema, dst_schema, roles))
+
+
 def stock_role_appends_sql(src_schema: str, archive_schema: str,
                            stock_roles: Sequence[str]) -> str:
     """Clinic grants on STOCK role names that the CARLOS seed does not hold
@@ -1558,23 +1609,36 @@ def roles_backfill_custom_grants(run: 'RolesRun', overrides: Dict[str, str],
 def roles_privilege_diff(run: 'RolesRun') -> None:
     """Itemise every privilege the merge resolved, for technical review.
 
-    Clinic grants the CARLOS seed overrode, seed grants restored, stock
-    role appends and exclusions -- written to privilege-diff.txt rather
-    than the report, because the list is long and root-only."""
+    Clinic grants the CARLOS seed overrode, seed grants restored on the
+    clinic's own roles, seed grants on the CARLOS roles this import
+    re-added, the custom-role backfill's grants, stock role appends and
+    exclusions -- written to privilege-diff.txt rather than the report,
+    because the list is long and root-only.
+
+    The two seed-driven lists (re-added roles, backfill) are additions of
+    ACCESS and were previously reported only as counts: the reviewer had
+    to reconstruct them by diffing the o19_archive snapshot by hand."""
     from . import o19import
     plain = run.plain
     src = run.src
+    dst = run.dst
     arch = run.arch
     report = run.report
     state_dir = run.state_dir
     ledger = run.ledger
     mark = run.mark
     # 6. privilege diff (clinic grants CARLOS's seed overrode), restored
-    #    seed grants, stock-role appends and exclusions — all itemised for
-    #    the technical review
+    #    seed grants, seed grants on re-added CARLOS roles, backfilled
+    #    custom-role grants, stock-role appends and exclusions — all
+    #    itemised for the technical review
     if not ledger.get("diff"):
         diff = plain(privilege_diff_sql(src, arch))
         restored = plain(restored_seed_grants_sql(src, arch))
+        readded = plain(appended_role_seed_grants_sql(src, dst, arch))
+        # the backfill sub-step runs before this one and records which
+        # roles it treated as custom; nothing was backfilled without it
+        customs = list((ledger.get("backfill") or {}).get("customs") or [])
+        backfilled = plain(backfilled_custom_grants_sql(src, dst, customs))
         appends = plain(stock_role_appends_sql(
             src, arch, o19map_schema.STOCK_ROLE_NAMES))
         excluded_sql = excluded_grants_sql(src)
@@ -1590,6 +1654,19 @@ def roles_privilege_diff(run: 'RolesRun') -> None:
                          len(restored)),
                  "role | object | privilege/priority"]
         for r in restored:
+            text.append("{0} | {1} | {2}/{3}".format(*r))
+        text += ["", "CARLOS seed grants on roles this import RE-ADDED to the "
+                     "clinic's catalogue — these granted nothing in O19 (no "
+                     "secRole row) and are live now on every assignment the "
+                     "clinic kept: {0}".format(len(readded)),
+                 "role | object | privilege/priority"]
+        for r in readded:
+            text.append("{0} | {1} | {2}/{3}".format(*r))
+        text += ["", "CARLOS-era grants the backfill added to the clinic's "
+                     "custom roles from their templates — access no O19 role "
+                     "held: {0}".format(len(backfilled)),
+                 "role | object | privilege/priority"]
+        for r in backfilled:
             text.append("{0} | {1} | {2}/{3}".format(*r))
         text += ["", "clinic grants on stock roles the CARLOS seed does not "
                      "hold (appended as the clinic had them): {0}".format(
@@ -1609,18 +1686,22 @@ def roles_privilege_diff(run: 'RolesRun') -> None:
         report("roles: {0} clinic grant(s) differ from the CARLOS seed on "
                "the same (role, object) — CARLOS's value stands; {1} seed "
                "grant(s) on the clinic's roles have no clinic row (the "
-               "role can do more than in O19); {2} clinic grant(s) on "
-               "stock roles have no CARLOS seed row and were appended{3}; "
-               "{4} grant(s) on objects no CARLOS code checks not carried "
-               "— all itemised in privilege-diff.txt for the technical "
-               "review".format(
+               "role can do more than in O19); {5} seed grant(s) on the "
+               "CARLOS roles this import re-added are live now; {6} "
+               "CARLOS-era grant(s) were backfilled onto clinic-custom "
+               "roles; {2} clinic grant(s) on stock roles have no CARLOS "
+               "seed row and were appended{3}; {4} grant(s) on objects no "
+               "CARLOS code checks not carried — all itemised in "
+               "privilege-diff.txt for the technical review".format(
                    len(diff), len(restored), len(appends),
                    (" (administration objects: " + ", ".join(
                        "{0}/{1}".format(r[0], r[1]) for r in admin_appends)
                     + ")") if admin_appends else "",
-                   len(excluded)))
+                   len(excluded), len(readded), len(backfilled)))
         mark("diff", {"overridden": len(diff), "restored": len(restored),
-                      "appended": len(appends), "excluded": len(excluded)})
+                      "appended": len(appends), "excluded": len(excluded),
+                      "readded_roles": len(readded),
+                      "backfilled": len(backfilled)})
 
 
 def roles_prune_property_keys(run: 'RolesRun') -> None:

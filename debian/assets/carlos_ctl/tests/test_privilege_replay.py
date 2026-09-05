@@ -207,6 +207,53 @@ class TestPrivilegeReplay(unittest.TestCase):
         self.assertEqual(self.run_sql(
             o19roles.excluded_grants_count_sql(SRC))[0][0], 1)
 
+    def test_seed_grants_on_re_added_roles_are_listed_for_review(self):
+        # a clinic that pruned `HRMAdmin` from its secRole but kept
+        # assignments to it: the role granted nothing in O19 (no secRole
+        # row) and carries the CARLOS seed's grants the moment
+        # carlos_role_append_statement puts the row back. None of the four
+        # original lists can name that -- restored_seed_grants_sql is
+        # scoped by design to roles the clinic HAS.
+        self.db.execute("INSERT INTO dst.secObjPrivilege VALUES "
+                        "('HRMAdmin', '_hrm.administrator', 'x', 0, NULL)")
+        self.snapshot()
+        self.merge()
+        for schema in (SRC, DST):
+            self.db.execute(
+                "CREATE TABLE {0}.secRole (role_name TEXT)".format(schema))
+        clinic_roles = [("doctor",), ("nurse",), ("admin",),
+                        ("Triage Nurse",)]
+        self.db.executemany("INSERT INTO src.secRole VALUES (?)",
+                            clinic_roles)
+        self.db.executemany("INSERT INTO dst.secRole VALUES (?)",
+                            clinic_roles + [("HRMAdmin",)])
+        restored = self.run_sql(o19roles.restored_seed_grants_sql(SRC, ARCH))
+        self.assertNotIn(("HRMAdmin", "_hrm.administrator", "x", 0),
+                         restored)
+        self.assertEqual(
+            self.run_sql(
+                o19roles.appended_role_seed_grants_sql(SRC, DST, ARCH)),
+            [("HRMAdmin", "_hrm.administrator", "x", 0)])
+
+    def test_backfilled_custom_role_grants_are_listed_for_review(self):
+        # the report gives a template name and a COUNT; the rows the
+        # backfill actually inserted appeared in no artifact, and the
+        # doctor template's CARLOS-era grants are PHI-transmission objects
+        self.snapshot()
+        self.merge()
+        era = ["_fax", "_email"]
+        self.run_sql(o19roles.backfill_statement(DST, ARCH, "Triage Nurse",
+                                                 "doctor", era))
+        added = self.run_sql(o19roles.backfilled_custom_grants_sql(
+            SRC, DST, ["Triage Nurse"]))
+        self.assertEqual(added, [("Triage Nurse", "_email", "x", 0),
+                                 ("Triage Nurse", "_fax", "x", 0)])
+        # the role's own imported grants were carried, not gained
+        self.assertNotIn(("Triage Nurse", "_rx", "r", 0), added)
+        # no custom roles at all: an empty list, not a SQL syntax error
+        self.assertEqual(self.run_sql(
+            o19roles.backfilled_custom_grants_sql(SRC, DST, [])), [])
+
     def test_prevention_rewrite_is_case_sensitive(self):
         self.db.execute("CREATE TABLE dst.preventions (id INTEGER PRIMARY "
                         "KEY, prevention_type TEXT)")
