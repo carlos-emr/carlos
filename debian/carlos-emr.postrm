@@ -293,6 +293,11 @@ To destroy the data deliberately, reinstall the package and run
   carlos-ctl destroy-data --confirm <server-name>
 or do it by hand:
   sudo mariadb -e "DROP DATABASE ${O19_DBNAME}; DROP DATABASE drugref2;"
+  sudo mariadb -e "DROP DATABASE IF EXISTS o19_archive;
+                   DROP DATABASE IF EXISTS o19_import;"
+    (only on a host that ran an OSCAR 19 import: o19_archive holds the
+     archive-only clinical records and o19_import the clinic's whole
+     source database. \`carlos-ctl destroy-data\` drops both for you)
   sudo shred -u /etc/carlos-emr/carlos.properties /etc/carlos-emr/backup.env
   sudo rm -rf /var/lib/carlos-emr /var/backups/carlos-emr /var/log/carlos-emr
     (/var/lib/carlos-emr includes the o19-import workspace and its CSV export

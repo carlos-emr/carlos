@@ -562,14 +562,27 @@ reference table has none — the live table is not missing, it is holding
 CARLOS's rows.
 
 The two homes answer different needs. `o19_archive` is the verification
-copy and the source of the CSV export the clinic is handed; it is dropped
-by hand once they hold that export, and the nightly `carlos-emr-backup`
-does not dump it. The `import_archived_` objects live in the EMR schema,
-so they *are* in that backup, they survive `--cleanup`, and they are
-reachable with an ordinary SQL query a year later. Nothing in the
-application reads either: no UI, no report, no API. `carlos-ctl
-destroy-data` drops the EMR schema and takes the `import_archived_`
-objects with it.
+copy and the source of the CSV export the clinic is handed; it survives
+`--cleanup` by design, and the nightly `carlos-emr-backup` does not dump
+it. The `import_archived_` objects live in the EMR schema, so they *are*
+in that backup, they survive `--cleanup`, and they are reachable with an
+ordinary SQL query a year later. Nothing in the application reads either:
+no UI, no report, no API.
+
+`carlos-ctl destroy-data` is what removes both. It drops the EMR schema
+(taking the `import_archived_` objects with it) **and** the `o19_archive`
+and `o19_import` schemas, and it destroys the
+`/var/lib/carlos-emr/o19-import` workspace — shredding
+`admin-credentials.txt` and `o19-derived-carlos.properties*` first,
+because those hold a working administrator password and the clinic's
+carried Teleplan/MCEDT/HCV/SMTP/PGP secrets in clear. Each schema is
+named with its table count before it is dropped, and the estate is named
+again in the summary: data is never destroyed silently. What it cannot
+reach is the **retained backups** — `carlos-emr-backup` excludes the
+credential note, the properties fragment and `bundle/`, but not
+`o19-archive-export/`, and the EMR dump carries the `import_archived_`
+objects. `destroy-data` says so when backups are kept; pass
+`--including-backups`, or treat the repository as clinical records.
 
 ### What this means for Flyway
 
@@ -766,8 +779,9 @@ clinic's sign-off.
   arm catches an `o19_archive` schema left by an earlier run; this one
   catches the `import_archived_` tables that survive `--cleanup` by
   design and live in the EMR schema. Both mean a previous clinic's data
-  is still here: finish with it (`carlos-ctl destroy-data`, or drop the
-  named objects) before importing a second clinic.
+  is still here: finish with it (`carlos-ctl destroy-data`, which now
+  removes the whole estate, or drop the named objects) before importing a
+  second clinic.
 - *roles: Rich Text Letter fixup script(s) missing* — the package is
   incomplete (they ship under `/usr/share/carlos-emr/schema/o19-fixups/`);
   reinstall `carlos-emr` and `--resume`. *scripts ran but no row carries

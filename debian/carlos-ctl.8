@@ -184,7 +184,20 @@ Rotate every generated database password and restart the application.
 The ONLY supported way this software destroys clinical data. It DROPs the
 EMR and DrugRef databases and deletes patient documents, heap dumps and
 application logs (the empty directory skeleton is recreated so the still-
-installed services keep working); backups survive unless
+installed services keep working). On a host that ran an OSCAR 19 import
+it also DROPs the
+.B o19_archive
+and
+.B o19_import
+schemas and destroys the
+.I /var/lib/carlos-emr/o19-import
+workspace, shredding the plaintext administrator note and the carried
+properties fragment first; each schema is named with its table count
+before it is dropped, and the estate is named again in the summary.
+Retained backups still hold the clinic's archive CSV export and the
+.B import_archived_
+objects inside the EMR dump, and the command says so. Backups survive
+unless
 .B --including-backups
 is also given, which additionally deletes /var/backups/carlos-emr and
 SHREDS backup.env and carlos.properties \(em the restic passphrase and the

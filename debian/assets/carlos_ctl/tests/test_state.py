@@ -21,6 +21,7 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
+from carlos_ctl import dbops
 from carlos_ctl import (o19etl, o19import, o19map_schema,
                         o19report)
 
@@ -30,6 +31,172 @@ from carlos_ctl import (o19etl, o19import, o19map_schema,
 # the value under test matches the shipped one and no reader -- human or
 # static analyser -- has to wonder whether a test writes to /tmp.
 CLIENT_CNF = "/var/lib/carlos-emr/o19-import/.stage-client.cnf"
+
+
+class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
+
+    """`destroy-data` is the documented decommissioning command and its
+    own comment states its contract: "this command's whole value is that
+    its report is exact -- 'destroyed' must not mean 'mostly'". It had no
+    knowledge of the O19 import at all.
+
+    It dropped the EMR schema and drugref2 and removed the documents,
+    heap dumps and logs -- and left behind the `o19_archive` schema
+    (which survives `--cleanup` BY DESIGN and holds the archive-class
+    rows the clinic signed off with `--accept archived-forms`), the
+    `o19_import` staging schema (the clinic's whole source database,
+    whenever a run was abandoned before `--cleanup`), and the
+    `/var/lib/carlos-emr/o19-import` workspace with
+    `admin-credentials.txt` (a plaintext administrator password and PIN,
+    deliberately excluded from `--cleanup`'s retirement list),
+    `o19-derived-carlos.properties` (the clinic's carried secrets in
+    clear), the archive CSV export and, for an abandoned run, `bundle/`
+    with the source database as plaintext SQL. Then it printed "done."
+    and returned 0. `carlos-emr.postrm` does not close the gap: it
+    shreds two globs at -maxdepth 1 and never drops either schema.
+
+    Standing rule: data is never destroyed silently, so each schema is
+    announced with its table count before the DROP, and the estate is
+    named again in the summary."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="o19destroy-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.workspace = os.path.join(self.dir, "o19-import")
+        os.makedirs(self.workspace)
+        for name in ("admin-credentials.txt",
+                     "o19-derived-carlos.properties.completed-20260101T0000",
+                     "report.txt"):
+            with open(os.path.join(self.workspace, name), "w",
+                      encoding="utf-8") as fh:
+                fh.write("x")
+        os.makedirs(os.path.join(self.workspace, "o19-archive-export"))
+        self.dropped = []
+        self.commands = []
+
+    def _patched(self, schemas, workspace=True):
+        """Every external effect replaced, EXCEPT the verb's own logic.
+
+        rmtree really removes paths inside the test's temp dir and
+        records anything else, so the workspace is genuinely destroyed
+        while the host's /var paths are not touched."""
+        real_rmtree = shutil.rmtree
+        removed = self.removed = []
+
+        def fake_rmtree(path, **kw):
+            removed.append(path)
+            if path.startswith(self.dir):
+                real_rmtree(path, ignore_errors=True)
+
+        def fake_db_root(args, **kw):
+            if args and args[0] == "-N":
+                sql = args[-1]
+                for name, tables in schemas.items():
+                    if "'{0}'".format(name) in sql:
+                        if "SCHEMATA" in sql:
+                            return _Cp(0, "1\n")
+                        return _Cp(0, "{0}\n".format(tables))
+                return _Cp(0, "0\n")
+            self.dropped.append(kw.get("input", ""))
+            return _Cp(0, "")
+
+        def fake_run(argv, **kw):
+            self.commands.append(list(argv))
+            return _Cp(0, "")
+
+        settings = argparse.Namespace(server_name="clinic-1",
+                                      db_name="carlos")
+        return contextlib.ExitStack(), [
+            mock.patch.object(dbops, "need_root", lambda verb: None),
+            mock.patch.object(dbops.config, "load", lambda: settings),
+            mock.patch.object(dbops, "db_root", fake_db_root),
+            mock.patch.object(dbops, "db_root_ok", lambda: True),
+            mock.patch.object(dbops, "run", fake_run),
+            mock.patch.object(shutil, "rmtree", fake_rmtree),
+            mock.patch.object(
+                o19import, "STATE_DIR",
+                self.workspace if workspace else os.path.join(
+                    self.dir, "absent")),
+        ]
+
+    def _destroy(self, schemas, argv=("--confirm", "clinic-1"),
+                 workspace=True):
+        stack, patches = self._patched(schemas, workspace)
+        out, err = io.StringIO(), io.StringIO()
+        with stack:
+            for p in patches:
+                stack.enter_context(p)
+            with contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(err):
+                code = dbops.cmd_destroy_data(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_both_o19_schemas_are_dropped_with_the_emr_schema(self):
+        code, out, err = self._destroy({"o19_import": 412,
+                                        "o19_archive": 184})
+        self.assertEqual(code, 0)
+        batch = "\n".join(self.dropped)
+        self.assertIn("DROP DATABASE IF EXISTS `carlos`", batch)
+        self.assertIn("DROP DATABASE IF EXISTS `o19_archive`", batch)
+        self.assertIn("DROP DATABASE IF EXISTS `o19_import`", batch)
+
+    def test_a_schema_holding_tables_is_announced_before_it_is_dropped(self):
+        # data is never destroyed silently: the table count reaches the
+        # operator, and it reaches them before the DROP runs
+        code, out, err = self._destroy({"o19_archive": 184})
+        # log() writes to stdout, warn()/the refusal to stderr
+        self.assertIn("o19_archive", out)
+        self.assertIn("184 table(s)", out)
+        self.assertIn("OSCAR 19 import estate destroyed", out)
+
+    def test_the_workspace_is_shredded_and_removed(self):
+        code, out, err = self._destroy({"o19_archive": 3})
+        shredded = [c for c in self.commands if c[:2] == ["shred", "-u"]]
+        names = sorted(os.path.basename(c[2]) for c in shredded)
+        # the credential note and the carried-secrets fragment, INCLUDING
+        # a copy retired with a .completed- suffix by --cleanup
+        self.assertEqual(names, [
+            "admin-credentials.txt",
+            "o19-derived-carlos.properties.completed-20260101T0000"])
+        self.assertIn(self.workspace, self.removed)
+        self.assertFalse(os.path.exists(self.workspace))
+
+    def test_the_refusal_names_the_estate_before_anything_is_destroyed(self):
+        code, out, err = self._destroy({"o19_import": 412,
+                                        "o19_archive": 184},
+                                       argv=("--confirm", "wrong-host"))
+        self.assertEqual(code, 2)
+        self.assertIn("also carries an OSCAR 19 import", err)
+        self.assertIn("'o19_archive' schema (184 table(s))", err)
+        self.assertIn("'o19_import' schema (412 table(s))", err)
+        self.assertIn(self.workspace, err)
+        # nothing was destroyed by the refusal
+        self.assertEqual(self.dropped, [])
+        self.assertTrue(os.path.isdir(self.workspace))
+
+    def test_kept_backups_are_flagged_as_still_holding_the_archive(self):
+        # carlos-emr-backup excludes the credential note, the properties
+        # fragment and bundle/ from restic -- but NOT o19-archive-export,
+        # and the EMR dump carries the import_archived_ objects
+        code, out, err = self._destroy({"o19_archive": 3})
+        self.assertIn("archive CSV export", err)
+        self.assertIn("import_archived_", err)
+
+    def test_a_host_that_never_imported_says_nothing_about_o19(self):
+        code, out, err = self._destroy({}, workspace=False)
+        self.assertEqual(code, 0)
+        self.assertNotIn("OSCAR 19", out + err)
+        batch = "\n".join(self.dropped)
+        self.assertNotIn("o19_", batch)
+
+
+class _Cp(object):
+    """The two fields cmd_destroy_data reads off a CompletedProcess."""
+
+    def __init__(self, returncode, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
 
 
 class TestStateLedger(unittest.TestCase):
