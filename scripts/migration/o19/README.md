@@ -148,6 +148,17 @@ in question is patient names. Mind the trap this check itself fell into —
 building the sample mojibake with Python's ISO-8859-1 rather than CP1252
 produces inputs no MySQL could hold and three false failures.
 
+It also pins the digest against `max_allowed_packet`. `CONCAT` returns NULL
+(warning 1301, no error) when its result would exceed that setting, and the
+format-1 digest concatenated a document's whole HEX rendering: under the
+clinic's stock 16M an 8.4 MB document was filed as a NULL, two different
+documents hashed alike, and one table digested differently under 16M and 1G.
+Format 2 hashes every TEXT/BLOB value on its own first, joins the row with
+NULL-propagating `CONCAT`, and counts rows whose hash is NULL in a fourth
+lane; the check moves the global between 16M and 1G, requires the same
+answer with nothing unhashed, requires the format-1 rendering to disagree
+with itself, and requires a deliberately broken join to be counted.
+
 It also settles the capacity of an `import_archived_` column. TEXT is 65535
 **bytes**: a latin1 `text` holds 65535 characters, a utf8mb4 one as few as
 16383, and an archived column that took the CARLOS table's utf8mb4 lost half

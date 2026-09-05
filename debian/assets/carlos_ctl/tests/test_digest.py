@@ -83,8 +83,8 @@ class TestTheTwoLanesAreIndependent(unittest.TestCase):
         sql = self.sql()
         self.assertIn("IFNULL(SUM(", sql)
         self.assertIn("IFNULL(BIT_XOR(", sql)
-        self.assertEqual(o19digest.Digest.from_row(["0", "", ""]),
-                         o19digest.Digest(0, 0, 0))
+        self.assertEqual(o19digest.Digest.from_row(["0", "", "", ""]),
+                         o19digest.Digest(0, 0, 0, 0))
 
 
 class TestValuesAreNormalisedBeforeHashing(unittest.TestCase):
@@ -210,6 +210,84 @@ class TestTheComparisonSaysWhatWentWrong(unittest.TestCase):
     def test_a_short_row_is_refused_not_guessed(self):
         with self.assertRaises(ValueError):
             o19digest.Digest.from_row(["1", "2"])
+        # the three-column answer is the FORMAT-1 statement's: numbers
+        # taken under rules this build does not compare under
+        with self.assertRaises(ValueError):
+            o19digest.Digest.from_row(["1", "2", "3"])
+
+    def test_an_unhashed_row_on_either_side_is_not_verified(self):
+        """Two sides that each failed to hash the same rows are EQUAL,
+        and equal is not verified: SUM and BIT_XOR ignore a NULL hash,
+        so the other two lanes agree while nobody measured the row."""
+        full = o19digest.Digest(5, 10, 20, 0)
+        for side, expected, actual in (
+                ("the clinic", o19digest.Digest(5, 10, 20, 2), full),
+                ("this side", full, o19digest.Digest(5, 10, 20, 1)),
+                ("the clinic", o19digest.Digest(5, 10, 20, 1),
+                 o19digest.Digest(5, 10, 20, 1))):
+            lines = o19digest.compare("t", expected, actual)
+            self.assertEqual(len(lines), 1, (side, lines))
+            self.assertIn("could not be hashed", lines[0])
+            self.assertIn(side, lines[0])
+            self.assertIn("NOT verified", lines[0])
+
+
+class TestOversizedValuesDoNotCollapse(unittest.TestCase):
+
+    """CONCAT and CONCAT_WS return NULL -- with a warning, not an error
+    -- when their result would exceed the server's max_allowed_packet.
+    Measured on MariaDB 10.11: an 8.4 MB document HEXes to 16.8 MB, and
+    under the stock 16M setting the format-1 `CONCAT(CHAR_LENGTH(HEX(doc)),
+    ':', HEX(doc))` was NULL, filed as a NULL by the IFNULL, so two
+    different documents hashed alike and one table digested differently
+    under 16M and 1G. The clinic's server and the CARLOS host do not share
+    that setting."""
+
+    def test_a_large_value_is_hashed_before_it_is_concatenated(self):
+        for coltype, rendered in (("mediumblob", "HEX(`v`)"),
+                                  ("longtext", "CONVERT(`v` USING utf8mb4)"),
+                                  ("text", "CONVERT(`v` USING utf8mb4)"),
+                                  ("json", "CONVERT(`v` USING utf8mb4)")):
+            expr = o19digest.value_expr("v", coltype)
+            self.assertIn("SHA2({0}, 256)".format(rendered), expr, coltype)
+            # the length prefix still describes the rendered value; the
+            # raw rendering never sits inside a CONCAT
+            self.assertIn("CHAR_LENGTH({0})".format(rendered), expr)
+            self.assertNotIn("':', {0})".format(rendered), expr)
+
+    def test_a_bounded_value_keeps_the_plain_concatenation(self):
+        # a VARCHAR cannot exceed the 64 KB row limit; hashing it on its
+        # own would cost a SHA-256 per value for nothing
+        for coltype in ("varchar", "int", "decimal", "bit", "tinytext"):
+            self.assertNotIn("SHA2(", o19digest.value_expr("v", coltype),
+                             coltype)
+
+    def test_the_row_join_propagates_a_null(self):
+        # CONCAT_WS drops a NULL piece and hashes the rest of the row as
+        # if the column were not there; CONCAT makes the row hash NULL,
+        # which the fourth lane counts
+        expr = o19digest.row_hash_expr(["a", "b"], {"a": "int",
+                                                    "b": "int"})
+        self.assertTrue(expr.startswith("SHA2(CONCAT("))
+        self.assertNotIn("CONCAT_WS", expr)
+        self.assertIn(", " + o19digest.SEP + ", ", expr)
+
+    def test_the_digest_counts_the_rows_it_could_not_hash(self):
+        sql = o19digest.digest_sql("s", "t", ["a"], {"a": "text"})
+        self.assertIn("IFNULL(SUM(SHA2(", sql)
+        self.assertIn(", 256) IS NULL), 0)", sql)
+        self.assertEqual(o19digest.Digest.from_row(["3", "1", "2", "1"]),
+                         o19digest.Digest(3, 1, 2, 1))
+
+    def test_the_format_was_bumped_for_it(self):
+        # a format-1 document was taken under the collapsing rules and
+        # must be refused, not compared
+        self.assertEqual(o19digest.DIGEST_FORMAT, 2)
+        self.assertEqual(o19digest.digest_entry(
+            [("a", "int")], o19digest.Digest(1, 2, 3, 0))["unhashed"], 0)
+        with self.assertRaises(ValueError):
+            o19digest.entry_digest({"rows": 1, "total": "2",
+                                    "parity": "3"})
 
 
 if __name__ == "__main__":

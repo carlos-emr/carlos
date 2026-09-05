@@ -1189,7 +1189,7 @@ class TestRowParityComposition(unittest.TestCase):
                         "banner\nERROR 1142: SELECT command denied")
                 n = rows.get(schema, {}).get(table, 0)
                 mark = content.get((schema, table), n)
-                return [[str(n), str(mark), str(mark)]]
+                return [[str(n), str(mark), str(mark), "0"]]
             # `ordered_columns` and `introspect_columns` BOTH start
             # "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE"; only the
             # former asks for an order, and answering the latter with a

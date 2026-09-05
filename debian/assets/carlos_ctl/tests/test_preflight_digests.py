@@ -56,7 +56,7 @@ class FakeDb(object):
             raise RuntimeError(self.fail[table])
         if table in self.malformed:
             return self.malformed[table]
-        return [list(self.digests.get(table, ("0", "0", "0")))]
+        return [list(self.digests.get(table, ("0", "0", "0", "0")))]
 
     def digest_query_for(self, table):
         marker = "FROM `{0}`".format(table)
@@ -78,8 +78,9 @@ class TestEveryTableIsMeasured(unittest.TestCase):
 
     def setUp(self):
         self.db = FakeDb(SCHEMA, digests={
-            "demographic": ("3", "123456789012345678901234567890", "77"),
-            "document": ("1", "5", "6")})
+            "demographic": ("3", "123456789012345678901234567890", "77",
+                            "0"),
+            "document": ("1", "5", "6", "0")})
         self.doc = pf.collect_digests(self.db, "'oscar'",
                                       pf.base_table_names(self.db,
                                                           "'oscar'"),
@@ -104,6 +105,24 @@ class TestEveryTableIsMeasured(unittest.TestCase):
         self.assertEqual(
             [c for c, _t in self.doc["tables"]["demographic"]["columns"]],
             ["demographic_no", "last_name", "first_name"])
+
+    def test_the_unhashed_lane_travels_with_the_numbers(self):
+        # rows the clinic's server would not render are carried as a
+        # count, so the import files the table as "not compared" rather
+        # than agreeing on the rows nobody hashed
+        db = FakeDb(SCHEMA, digests={"document": ("4", "5", "6", "2")})
+        doc = pf.collect_digests(db, "'oscar'", ["document"])
+        self.assertEqual(doc["tables"]["document"]["unhashed"], 2)
+        self.assertIn("IS NULL), 0)", db.digest_query_for("document"))
+
+    def test_a_three_column_answer_is_an_error_not_a_measurement(self):
+        # the format-1 statement answered three columns; a server (or a
+        # fake) still answering three has not been measured under
+        # format-2 rules
+        db = FakeDb(SCHEMA, malformed={"document": [["1", "5", "6"]]})
+        doc = pf.collect_digests(db, "'oscar'", ["document"])
+        self.assertNotIn("document", doc["tables"])
+        self.assertIn("document", doc["errors"])
 
     def test_the_types_travel_with_the_columns(self):
         self.assertEqual(self.doc["tables"]["document"]["columns"],
@@ -158,7 +177,7 @@ class TestATableThatCannotBeMeasuredIsNotReportedAsMeasured(
 
     def test_one_refused_table_does_not_cost_the_others(self):
         db = FakeDb(SCHEMA, fail={"document": "denied"},
-                    digests={"demographic": ("3", "9", "8")})
+                    digests={"demographic": ("3", "9", "8", "0")})
         doc = self._collect(db)
         self.assertIn("demographic", doc["tables"])
         self.assertEqual(list(doc["errors"]), ["document"])

@@ -1308,8 +1308,20 @@ DIGEST_CONVERTED_TYPES = (
 #: transfer. DATETIME is unaffected; the setting is unconditional anyway
 #: so the two sides cannot differ about when it applies.
 DIGEST_UTC_SESSION = "SET time_zone = '+00:00'"
-#: version of the digest document this file emits
-DIGEST_FORMAT = 1
+#: types whose ONE value can reach megabytes (TEXT/BLOB past 64 KB, and
+#: JSON, a LONGTEXT underneath). CONCAT returns NULL, not an error, when
+#: its result would exceed the server's max_allowed_packet -- measured:
+#: an 8.4 MB document HEXes to 16.8 MB and under the stock 16M setting
+#: the length-prefixed CONCAT was NULL, filed as a NULL by the IFNULL,
+#: and the table digested differently under 16M and 1G. So a large value
+#: is hashed on its own first and only its 64 characters are joined.
+DIGEST_LARGE_TYPES = (
+    "text", "mediumtext", "longtext", "json",
+    "blob", "mediumblob", "longblob",
+)
+#: version of the digest document this file emits. 2: large values
+#: hashed on their own, NULL-propagating row join, the `unhashed` lane
+DIGEST_FORMAT = 2
 
 
 def digest_value_expr(col, coltype):
@@ -1334,22 +1346,35 @@ def digest_value_expr(col, coltype):
             "column `{0}` has type {1!r}, which the digest has no "
             "rendering for; neither HEX nor CONVERT is safe for an "
             "unknown type".format(col, coltype))
+    if normalised in DIGEST_LARGE_TYPES:
+        # hashed on its own so the CONCAT joins a length and 64 hex
+        # characters, never the megabytes the value may be
+        return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', SHA2({0}, 256)), "
+                "{1})".format(rendered, DIGEST_NULL_MARK))
     return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', {0}), {1})"
             .format(rendered, DIGEST_NULL_MARK))
 
 
 def digest_row_hash_expr(columns, types):
-    """SHA-256 of one row over `columns`, in the order given."""
+    """SHA-256 of one row over `columns`, in the order given.
+
+    CONCAT, not CONCAT_WS: every piece is non-NULL (the IFNULL above), so
+    the only NULL that can reach the join is a piece the server refused
+    to render, and it must make the whole row hash NULL -- which the
+    fourth lane counts -- rather than be dropped from the row."""
     if not columns:
         raise ValueError("a row hash needs at least one column")
-    parts = ", ".join(digest_value_expr(c, types.get(c, ""))
-                      for c in columns)
-    return "SHA2(CONCAT_WS({0}, {1}), 256)".format(DIGEST_SEP, parts)
+    parts = (", " + DIGEST_SEP + ", ").join(
+        digest_value_expr(c, types.get(c, "")) for c in columns)
+    return "SHA2(CONCAT({0}), 256)".format(parts)
 
 
 def digest_sql(schema, table, columns, types, where=None):
     """Two statements: the UTC prelude, then `SELECT rows, total,
-    parity` for one table.
+    parity, unhashed` for one table. The fourth lane counts rows whose
+    hash is NULL: SUM and BIT_XOR both ignore a NULL, so without it a
+    row the server would not render vanishes from the digest -- the
+    same way on both sides, which would read as agreement.
 
     The prelude is part of the result, not decoration: every query runs
     in its own client process, so the session time zone has to be pinned
@@ -1369,11 +1394,12 @@ def digest_sql(schema, table, columns, types, where=None):
         "SELECT COUNT(*), "
         "IFNULL(SUM(CAST(CONV(SUBSTR({h}, 1, 16), 16, 10) "
         "AS DECIMAL(30, 0))), 0), "
-        "IFNULL(BIT_XOR(CONV(SUBSTR({h}, 17, 16), 16, 10)), 0) "
+        "IFNULL(BIT_XOR(CONV(SUBSTR({h}, 17, 16), 16, 10)), 0), "
+        "IFNULL(SUM({h} IS NULL), 0) "
         "FROM {t}{w}".format(h=h, t=ident, w=clause))
 
 
-def digest_entry(columns, rows, total, parity):
+def digest_entry(columns, rows, total, parity, unhashed):
     """One table's entry in the digest document.
 
     The column list travels WITH the numbers because the other side must
@@ -1384,7 +1410,8 @@ def digest_entry(columns, rows, total, parity):
     return {"columns": [[c, t] for c, t in columns],
             "rows": int(rows),
             "total": str(total),
-            "parity": str(parity)}
+            "parity": str(parity),
+            "unhashed": int(unhashed)}
 
 
 def column_types(query, schema_expr):
@@ -1432,18 +1459,19 @@ def collect_digests(query, schema_expr, table_names, province="on",
             text = str(exc).strip()
             errors[name] = text.splitlines()[-1] if text else "query failed"
             continue
-        if not rows or len(rows[0]) < 3:
+        if not rows or len(rows[0]) < 4:
             errors[name] = "digest query returned no row"
             continue
         try:
             entry = digest_entry(spec, int(rows[0][0] or 0),
-                                 int(rows[0][1] or 0), int(rows[0][2] or 0))
+                                 int(rows[0][1] or 0), int(rows[0][2] or 0),
+                                 int(rows[0][3] or 0))
         except (TypeError, ValueError) as exc:
             # a server that answers a digest with something other than
-            # three integers has not been measured; recording the table
+            # four integers has not been measured; recording the table
             # as digested with zeros would read as "empty and verified"
             errors[name] = "digest query returned {0!r} ({1})".format(
-                rows[0][:3], exc)
+                rows[0][:4], exc)
             continue
         tables[name] = entry
     return {

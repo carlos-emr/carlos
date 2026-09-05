@@ -25,6 +25,20 @@ naive spelling of this check is worse than no check at all:
   Hence the DECIMAL(30, 0) cast.
 * The two lanes read DIFFERENT 16-hex-digit halves of the same SHA-256,
   so they cannot fail together on a collision in one half.
+* `CONCAT`/`CONCAT_WS` do not raise when their result would exceed the
+  server's `max_allowed_packet`: they return NULL with warning 1301.
+  Measured: an 8.4 MB scanned document HEXes to 16.8 MB, and under the
+  stock 16M setting `CONCAT(CHAR_LENGTH(HEX(doc)), ':', HEX(doc))` was
+  NULL -- so the `IFNULL` filed the document as a NULL, two different
+  documents hashed the same, and the digest of ONE table came out
+  different under 16M and 1G. The clinic's server and the CARLOS host
+  do not share that setting. So a value that can reach megabytes
+  (`LARGE_TYPES`) is hashed ON ITS OWN first and only its 64-character
+  SHA-256 is concatenated; the row is joined with NULL-propagating
+  `CONCAT` rather than `CONCAT_WS`, so anything that still collapses
+  makes the row hash NULL; and a fourth lane COUNTS the rows whose hash
+  is NULL, so a row nobody hashed is reported, never silently skipped
+  by SUM and BIT_XOR (both ignore NULL).
 
 Charset: the clinic's OSCAR 19 stores latin1 and live CARLOS is utf8mb4,
 so the same logical text has different STORED BYTES (`Santé` is
@@ -93,26 +107,46 @@ CONVERTED_TYPES = (
 )
 
 
+#: Column types whose ONE value can reach megabytes: the TEXT and BLOB
+#: families past 64 KB, and JSON (a LONGTEXT underneath). Their rendered
+#: form is hashed on its own before it is concatenated with anything,
+#: which keeps every CONCAT in the digest under a few hundred bytes per
+#: column, whatever the server's `max_allowed_packet`. TINYTEXT/TINYBLOB
+#: (255 bytes) and CHAR/VARCHAR (bounded by the 64 KB row limit) need
+#: no such step and keep the cheaper plain concatenation.
+LARGE_TYPES = (
+    "text", "mediumtext", "longtext", "json",
+    "blob", "mediumblob", "longblob",
+)
+
+
 class Digest(NamedTuple):
     """One table's content digest.
 
     `rows` alone is what the old parity checks compared. `total` and
     `parity` are the two independent lanes over the row hashes.
+    `unhashed` counts the rows whose hash came out NULL -- a value the
+    server would not render -- and is zero on every table that was
+    actually measured in full.
     """
 
     rows: int
     total: int
     parity: int
+    unhashed: int = 0
 
     @classmethod
     def from_row(cls, row: Sequence[str]) -> "Digest":
-        """Build from the three columns `digest_sql` selects. An empty
-        table yields NULLs for the aggregates, which read as zero."""
-        if len(row) < 3:
+        """Build from the four columns `digest_sql` selects. An empty
+        table yields NULLs for the aggregates, which read as zero. A
+        three-column answer is refused: it is the format-1 statement,
+        whose numbers were taken under different rules."""
+        if len(row) < 4:
             raise ValueError(
-                "a digest row must carry (rows, total, parity); got "
-                "{0!r}".format(row))
-        return cls(int(row[0] or 0), int(row[1] or 0), int(row[2] or 0))
+                "a digest row must carry (rows, total, parity, unhashed); "
+                "got {0!r}".format(row))
+        return cls(int(row[0] or 0), int(row[1] or 0), int(row[2] or 0),
+                   int(row[3] or 0))
 
 
 def value_expr(col: str, coltype: str) -> str:
@@ -141,6 +175,14 @@ def value_expr(col: str, coltype: str) -> str:
             "column `{0}` has type {1!r}, which the digest has no "
             "rendering for; neither HEX nor CONVERT is safe for an "
             "unknown type".format(col, coltype))
+    if normalised in LARGE_TYPES:
+        # hashed on its own: the CONCAT below then joins a length and 64
+        # hex characters, never the megabytes the value itself may be,
+        # so `max_allowed_packet` cannot turn it into a NULL (see the
+        # module docstring). HEX and CONVERT are not subject to that
+        # limit -- measured -- only the CONCAT family is.
+        return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', SHA2({0}, 256)), "
+                "{1})".format(rendered, NULL_MARK))
     # length-prefixed on the RENDERED form, so the prefix describes what
     # is actually hashed
     return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', {0}), {1})"
@@ -156,14 +198,21 @@ def row_hash_expr(columns: Sequence[str], types: Dict[str, str]) -> str:
     information_schema's."""
     if not columns:
         raise ValueError("a row hash needs at least one column")
-    parts = ", ".join(value_expr(c, types.get(c, "")) for c in columns)
-    return "SHA2(CONCAT_WS({0}, {1}), 256)".format(SEP, parts)
+    # CONCAT, not CONCAT_WS: every column contributes a non-NULL piece
+    # (value_expr's IFNULL), so the only NULL that can reach this join
+    # is a piece the server refused to render. CONCAT_WS would drop it
+    # and hash the REST of the row as if the column were not there;
+    # CONCAT makes the whole row hash NULL, which the fourth lane of
+    # `digest_sql` counts and `compare` reports.
+    parts = (", " + SEP + ", ").join(value_expr(c, types.get(c, ""))
+                                     for c in columns)
+    return "SHA2(CONCAT({0}), 256)".format(parts)
 
 
 def digest_sql(schema: Optional[str], table: str, columns: Sequence[str],
                types: Dict[str, str], where: Optional[str] = None) -> str:
-    """Two statements: `UTC_SESSION`, then `SELECT rows, total, parity`
-    for one table.
+    """Two statements: `UTC_SESSION`, then `SELECT rows, total, parity,
+    unhashed` for one table.
 
     The prelude is part of the result, not decoration, and callers must
     neither strip nor reorder it: every query here runs in its own client
@@ -178,10 +227,15 @@ def digest_sql(schema: Optional[str], table: str, columns: Sequence[str],
     archive and live open at once and an unqualified name there would
     silently digest whichever schema was last selected.
 
-    Both lanes are computed from the same hash in one pass; the hash is
-    spelled twice rather than materialised in a derived table because
-    MariaDB evaluates it per row either way and the derived form loses
-    the index-free single scan on very large archives."""
+    All lanes are computed from the same hash in one pass; the hash is
+    spelled three times rather than materialised in a derived table
+    because MariaDB evaluates it per row either way and the derived form
+    loses the index-free single scan on very large archives.
+
+    The fourth column counts rows whose hash is NULL. SUM and BIT_XOR
+    both IGNORE a NULL, so without it a row the server would not render
+    simply vanishes from the other two lanes -- and vanishes the same
+    way on both sides, which reads as agreement."""
     h = row_hash_expr(columns, types)
     ident = "`{0}`".format(table.replace("`", "``"))
     if schema is not None:
@@ -192,7 +246,8 @@ def digest_sql(schema: Optional[str], table: str, columns: Sequence[str],
         "SELECT COUNT(*), "
         "IFNULL(SUM(CAST(CONV(SUBSTR({h}, 1, 16), 16, 10) "
         "AS DECIMAL(30, 0))), 0), "
-        "IFNULL(BIT_XOR(CONV(SUBSTR({h}, 17, 16), 16, 10)), 0) "
+        "IFNULL(BIT_XOR(CONV(SUBSTR({h}, 17, 16), 16, 10)), 0), "
+        "IFNULL(SUM({h} IS NULL), 0) "
         "FROM {t}{w}".format(h=h, t=ident, w=clause))
 
 
@@ -203,6 +258,14 @@ def compare(name: str, expected: Digest, actual: Digest) -> List[str]:
     count that matches while a lane does not means the rows were altered
     rather than lost, and that is the case a count-only check has always
     missed."""
+    # before equality: two sides that each failed to hash the same rows
+    # are EQUAL, and equal is not verified
+    for side, digest in (("the clinic", expected), ("this side", actual)):
+        if digest.unhashed:
+            return ["{0}: {1} row(s) on {2} could not be hashed (a value "
+                    "that server would not render -- see max_allowed_"
+                    "packet), so the table's content is NOT verified"
+                    .format(name, digest.unhashed, side)]
     if expected == actual:
         return []
     if expected.rows != actual.rows:
@@ -234,7 +297,9 @@ UTC_SESSION = "SET time_zone = '+00:00'"
 #: Bumped only when the shape or the hash changes; a document the import
 #: does not recognise is refused rather than half-understood, because a
 #: digest compared under the wrong rules is worse than no digest.
-DIGEST_FORMAT = 1
+#: 2: large values hashed on their own, NULL-propagating row join, the
+#: `unhashed` lane (format 1 collapsed under max_allowed_packet).
+DIGEST_FORMAT = 2
 
 
 def digest_entry(columns: Sequence[Sequence[str]],
@@ -252,7 +317,8 @@ def digest_entry(columns: Sequence[Sequence[str]],
     return {"columns": [[c, t] for c, t in columns],
             "rows": digest.rows,
             "total": str(digest.total),
-            "parity": str(digest.parity)}
+            "parity": str(digest.parity),
+            "unhashed": digest.unhashed}
 
 
 def entry_digest(entry: Dict[str, object]) -> Digest:
@@ -263,7 +329,7 @@ def entry_digest(entry: Dict[str, object]) -> Digest:
     against zeros -- which would pass for every empty table."""
     try:
         return Digest(int(entry["rows"]), int(entry["total"]),
-                      int(entry["parity"]))
+                      int(entry["parity"]), int(entry["unhashed"]))
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(
             "digest entry is not readable: {0}".format(exc))
@@ -431,7 +497,11 @@ def compare_document(document: Dict[str, object],
                                if str(exc).strip() else "digest failed"))
             continue
         problems = compare(name, expected, actual)
-        if problems:
+        if expected.unhashed or actual.unhashed:
+            # nobody could measure it in full: not a disagreement to
+            # decide on, an acknowledgement to give
+            unverified.append((name, problems[0]))
+        elif problems:
             failed.append((name, problems[0]))
         else:
             verified.append(name)

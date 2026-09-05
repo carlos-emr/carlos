@@ -237,6 +237,11 @@ class TestTheStandaloneDigestIsTheSameDigest(unittest.TestCase):
                          tuple(o19digest.HEXED_TYPES))
         self.assertEqual(tuple(o19_preflight.DIGEST_CONVERTED_TYPES),
                          tuple(o19digest.CONVERTED_TYPES))
+        # the third list decides which values are hashed on their own
+        # before the join; one side hashing and the other concatenating
+        # is a guaranteed disagreement on every table with a TEXT
+        self.assertEqual(tuple(o19_preflight.DIGEST_LARGE_TYPES),
+                         tuple(o19digest.LARGE_TYPES))
 
     def test_no_type_is_in_both_lists(self):
         # a type in both would render one way here and the other way
@@ -269,8 +274,8 @@ class TestTheStandaloneDigestIsTheSameDigest(unittest.TestCase):
         cols = [("a", "int"), ("b", "varchar")]
         big = 2 ** 70 + 3           # past what a JSON reader keeps exact
         self.assertEqual(
-            o19_preflight.digest_entry(cols, 7, big, 11),
-            o19digest.digest_entry(cols, o19digest.Digest(7, big, 11)))
+            o19_preflight.digest_entry(cols, 7, big, 11, 1),
+            o19digest.digest_entry(cols, o19digest.Digest(7, big, 11, 1)))
 
     def test_the_document_version_agrees(self):
         # a clinic emitting one version and an import reading another

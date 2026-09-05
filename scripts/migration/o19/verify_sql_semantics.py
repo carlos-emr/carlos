@@ -685,6 +685,105 @@ def _content_digest_body(client: Client, clinic: str, stage: str,
             "the SUM lane did not see the swapped identical pair -- the "
             "one thing it is there for")
 
+    failures.extend(_oversized_value_body(client, stage))
+    return failures
+
+
+#: the format-1 rendering of a large value: the raw HEX/CONVERT inside
+#: the length-prefixed CONCAT, which is what collapsed to NULL under a
+#: 16M max_allowed_packet
+FORMAT_1_LARGE = (
+    ("SHA2(HEX(`doc`), 256)", "HEX(`doc`)"),
+    ("SHA2(CONVERT(`note` USING utf8mb4), 256)",
+     "CONVERT(`note` USING utf8mb4)"),
+)
+
+
+def _oversized_value_body(client: Client, stage: str) -> List[str]:
+    """A value the server's `max_allowed_packet` cannot hold in a CONCAT.
+
+    CONCAT and CONCAT_WS return NULL -- warning 1301, not an error --
+    when their result would exceed the setting, and the clinic's server
+    (stock 16M) and the CARLOS host (packaged 1G) do not share it. This
+    runs the shipped digest over two 8.4 MB documents (16.8 MB as HEX)
+    and a 9 MB accented TEXT under BOTH settings and requires the same
+    answer with nothing unhashed; then runs the format-1 rendering the
+    same way and requires it to DISAGREE with itself, which is the defect
+    reproduced; then breaks the row join on purpose and requires the
+    fourth lane to count every row, which is what makes a row nobody
+    hashed visible.
+
+    Needs SUPER to move the global; a server that refuses is reported as
+    skipped, not as passed."""
+    failures: List[str] = []
+    print("\n  a value larger than max_allowed_packet")
+    prior = client.rows("SELECT @@global.max_allowed_packet", stage)[0][0]
+    rc, _out, err = client.run("SET GLOBAL max_allowed_packet = 16777216;")
+    if rc != 0:
+        print("    {0:<44} skipped ({1})".format(
+            "cannot move max_allowed_packet", err[:60]))
+        return failures
+    cols = ["id", "doc", "note"]
+    types = {"id": "int", "doc": "mediumblob", "note": "mediumtext"}
+    sql = o19digest.digest_sql(stage, "big", cols, types)
+    old = sql
+    for new_form, old_form in FORMAT_1_LARGE:
+        if new_form not in old:
+            failures.append("the shipped digest no longer spells {0}; "
+                            "the format-1 control cannot be built"
+                            .format(new_form))
+            return failures
+        old = old.replace(new_form, old_form)
+    # CONCAT(NULL, ...) is NULL: every row hash NULL, so the lane must
+    # count every row
+    broken = sql.replace("SHA2(CONCAT(", "SHA2(CONCAT(NULL, ")
+    try:
+        client.setup(
+            "DROP TABLE IF EXISTS big; CREATE TABLE big (id int, doc "
+            "mediumblob, note mediumtext) DEFAULT CHARSET=latin1; "
+            "INSERT INTO big VALUES "
+            "(1, REPEAT(X'AB', 8400000), REPEAT(X'E9', 9000000)), "
+            "(2, REPEAT(X'AC', 8400000), REPEAT(X'E9', 9000000)), "
+            "(3, X'01', 'small');", stage)
+        at_16m = _digest_of(client, stage, sql)
+        old_16m = _digest_of(client, stage, old)
+        broken_16m = _digest_of(client, stage, broken)
+        client.setup("SET GLOBAL max_allowed_packet = 1073741824;", stage)
+        at_1g = _digest_of(client, stage, sql)
+        old_1g = _digest_of(client, stage, old)
+    finally:
+        client.run("SET GLOBAL max_allowed_packet = {0};".format(prior))
+        client.run("DROP TABLE IF EXISTS big;", stage)
+    same = at_16m == at_1g
+    print("    {0:<44} {1}".format(
+        "the digest agrees under 16M and 1G",
+        "ok" if same else "DIFFERS ({0} vs {1})".format(at_16m, at_1g)))
+    if not same:
+        failures.append("the digest of an oversized value depends on the "
+                        "server's max_allowed_packet: {0} vs {1}".format(
+                            at_16m, at_1g))
+    whole = at_16m[3] == "0" and at_1g[3] == "0" and at_16m[0] == "3"
+    print("    {0:<44} {1}".format(
+        "and every row was hashed",
+        "ok" if whole else "NOT ({0})".format(at_16m)))
+    if not whole:
+        failures.append("rows went unhashed on an oversized value: {0}"
+                        .format(at_16m))
+    reproduced = old_16m != old_1g
+    print("    {0:<44} {1}".format(
+        "control: the format-1 rendering does not",
+        "reproduced" if reproduced else "NOT REPRODUCED"))
+    if not reproduced:
+        failures.append("the format-1 rendering agreed across settings, so "
+                        "this check no longer shows the defect it guards "
+                        "against (is the fixture still over 16M as HEX?)")
+    counted = broken_16m[3] == "3"
+    print("    {0:<44} {1}".format(
+        "a NULL row hash is counted, not skipped",
+        "ok" if counted else "MISSED ({0})".format(broken_16m)))
+    if not counted:
+        failures.append("the unhashed lane did not count NULL row hashes: "
+                        "{0}".format(broken_16m))
     return failures
 
 
@@ -1871,7 +1970,10 @@ def main(argv: Optional[List[str]] = None) -> int:
           "the right row by NAME while the raw copy it replaces "
           "demonstrably does not, and an import_archived_ column holds "
           "the source's bytes at the source's capacity where the "
-          "charset-less column it replaces demonstrably truncates")
+          "charset-less column it replaces demonstrably truncates, and "
+          "the digest of a value larger than max_allowed_packet is the "
+          "same under 16M and 1G where the format-1 rendering "
+          "demonstrably is not")
     return 0
 
 

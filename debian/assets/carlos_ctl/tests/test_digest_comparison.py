@@ -21,9 +21,9 @@ import unittest
 from carlos_ctl import o19digest, o19import
 
 
-def entry(columns, rows, total, parity):
+def entry(columns, rows, total, parity, unhashed=0):
     return o19digest.digest_entry(
-        columns, o19digest.Digest(rows, total, parity))
+        columns, o19digest.Digest(rows, total, parity, unhashed))
 
 
 COLUMNS = [("id", "int"), ("last_name", "varchar"), ("scan", "blob")]
@@ -49,7 +49,7 @@ class Runner(object):
         table = sql.split("FROM ", 1)[1].split("`")[3]
         if table in self.raises:
             raise RuntimeError(self.raises[table])
-        return o19digest.Digest(*self.answers.get(table, (3, 900, 77)))
+        return o19digest.Digest(*self.answers.get(table, (3, 900, 77, 0)))
 
 
 def compare(document=None, columns=None, runner=None):
@@ -105,12 +105,12 @@ class TestDisagreement(unittest.TestCase):
     of it is `failed` -- never softened into "could not be measured"."""
 
     def test_a_content_change_at_the_same_row_count_is_caught(self):
-        result = compare(runner=Runner({"demographic": (3, 901, 77)}))
+        result = compare(runner=Runner({"demographic": (3, 901, 77, 0)}))
         self.assertEqual(result.verified, [])
         self.assertIn("CONTENT differs", result.failed[0][1])
 
     def test_a_row_count_change_is_caught_and_named_as_one(self):
-        result = compare(runner=Runner({"demographic": (2, 900, 77)}))
+        result = compare(runner=Runner({"demographic": (2, 900, 77, 0)}))
         self.assertIn("3 row(s) expected, 2 found", result.failed[0][1])
 
     def test_a_table_the_restore_did_not_create_is_a_failure(self):
@@ -160,6 +160,39 @@ class TestWhatCouldNotBeMeasured(unittest.TestCase):
     def test_an_unreadable_entry_is_unverified_not_a_zero_digest(self):
         doc = dict(DOCUMENT, tables={"demographic": {"columns": []}})
         result = compare(document=doc)
+        self.assertEqual(result.verified, [])
+        self.assertEqual(len(result.unverified), 1)
+
+
+class TestRowsNobodyCouldHash(unittest.TestCase):
+
+    """A NULL row hash is ignored by SUM and BIT_XOR, on both sides
+    alike, so a table whose largest rows the server would not render
+    could agree lane for lane while nobody measured them. The fourth lane
+    exists so that reads as "not compared", never as "verified"."""
+
+    def test_unhashed_rows_here_make_the_table_unverified(self):
+        result = compare(runner=Runner({"demographic": (3, 900, 77, 1)}))
+        self.assertEqual(result.verified, [])
+        self.assertEqual(result.failed, [])
+        self.assertEqual(len(result.unverified), 1)
+        self.assertIn("could not be hashed", result.unverified[0][1])
+        self.assertIn("this side", result.unverified[0][1])
+
+    def test_unhashed_rows_at_the_clinic_make_it_unverified_too(self):
+        document = dict(DOCUMENT, tables={
+            "demographic": entry(COLUMNS, 3, 900, 77, 2)})
+        result = compare(document=document)
+        self.assertEqual(result.verified, [])
+        self.assertEqual(result.failed, [])
+        self.assertIn("the clinic", result.unverified[0][1])
+
+    def test_a_format_one_entry_is_unreadable_not_zero(self):
+        # an entry without the lane was taken under the old rules
+        stale = entry(COLUMNS, 3, 900, 77)
+        del stale["unhashed"]
+        result = compare(document=dict(DOCUMENT,
+                                       tables={"demographic": stale}))
         self.assertEqual(result.verified, [])
         self.assertEqual(len(result.unverified), 1)
 
@@ -335,7 +368,7 @@ class FakeCtx(dict):
         table = sql.split("FROM ", 1)[1].split("`")[3]
         if table in self.raises:
             raise RuntimeError(self.raises[table])
-        return [[str(v) for v in self.answers.get(table, (3, 900, 77))]]
+        return [[str(v) for v in self.answers.get(table, (3, 900, 77, 0))]]
 
 
 class TestTheCheckAsThePhaseRunsIt(unittest.TestCase):
@@ -372,7 +405,7 @@ class TestTheCheckAsThePhaseRunsIt(unittest.TestCase):
     def test_a_changed_staging_schema_fails(self):
         result = o19import.content_transfer_check(FakeCtx(
             digests=self.path, state_dir=self.dir,
-            answers={"demographic": (3, 901, 77)}))
+            answers={"demographic": (3, 901, 77, 0)}))
         self.assertEqual(result["failed"][0][0], "demographic")
 
     def test_the_check_reads_the_staging_schema_not_the_live_one(self):
@@ -399,7 +432,7 @@ class TestTheCheckAsThePhaseRunsIt(unittest.TestCase):
 
     def test_the_report_records_what_disagreed(self):
         ctx = FakeCtx(digests=self.path, state_dir=self.dir,
-                      answers={"demographic": (2, 900, 77)})
+                      answers={"demographic": (2, 900, 77, 0)})
         o19import.report_content_transfer(
             ctx, o19import.content_transfer_check(ctx))
         with open(os.path.join(self.dir, "report.txt"),
