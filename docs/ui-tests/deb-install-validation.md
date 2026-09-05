@@ -341,6 +341,28 @@ Notes on the contract:
   is not HTTPS. It creates its own timestamped probe eForm and deletes only
   that one; a failing run leaves the probe behind on purpose, so clear strays
   with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
+- **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
+  it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
+  them, and opens the eChart from that appointment, which is the path the
+  notes-pagination loop was reported on. It deletes the patient, the
+  appointment and the note lock in its `finally`, including after a failure, so
+  repeat runs stay clean. A run killed mid-flight (SIGINT/SIGKILL) skips that
+  `finally`; identify and remove any stray with
+
+  ```sql
+  SELECT demographic_no, last_name FROM demographic WHERE last_name LIKE 'PLAYWRIGHT-EC-%';
+  DELETE a, l, adm, arch, d
+    FROM demographic d
+    LEFT JOIN appointment a        ON a.demographic_no   = d.demographic_no
+    LEFT JOIN casemgmt_note_lock l ON l.demographic_no   = d.demographic_no
+    LEFT JOIN admission adm        ON adm.client_id      = d.demographic_no
+    LEFT JOIN demographicArchive arch ON arch.demographic_no = d.demographic_no
+   WHERE d.last_name LIKE 'PLAYWRIGHT-EC-%';
+  ```
+
+  It shrinks the notes wrapper in the browser before watching the poll: the
+  pagination only fires when that pane overflows and sits at the top, which a
+  tall headless window never reproduces on its own.
 - **`error-sanitization-playwright-checks.js` provokes two real 500s on
   purpose**, and must also run through `:443`. It is the only check that
   exercises `ResponseSanitizationFilter`'s error-replacement path — every other
