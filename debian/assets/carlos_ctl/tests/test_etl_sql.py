@@ -1266,13 +1266,25 @@ class TestTableCaseNormalisationIsRecorded(unittest.TestCase):
         return []
 
     def a_manifest_table(self):
-        return sorted(o19map_schema.TABLES)[0]
+        """A manifest table whose name is NOT all lower case.
+
+        The rename only happens for a table staged in a spelling that
+        differs from the manifest's, so a lower-case pick makes every
+        test in this class vacuous. Each carried its own `skipTest` on
+        `sorted(TABLES)[0]` — true of today's first entry by luck, and a
+        silent skip of the whole class if that ever changed. A manifest
+        with no mixed-case table at all is a reason to rewrite these
+        tests, not to pass them."""
+        for name in sorted(o19map_schema.TABLES):
+            if name != name.lower():
+                return name
+        raise AssertionError(
+            "no mixed-case table in the manifest: this class cannot "
+            "exercise the rename path any more")
 
     def test_a_rename_is_in_the_ledger_before_it_runs(self):
         table = self.a_manifest_table()
         lower = table.lower()
-        if lower == table:
-            self.skipTest("no mixed-case table in the manifest")
 
         def failing(sql, db=None):
             raise o19etl.QueryError("planted", "boom")
@@ -1286,8 +1298,6 @@ class TestTableCaseNormalisationIsRecorded(unittest.TestCase):
     def test_the_resumed_run_reports_the_rename_it_cannot_see(self):
         table = self.a_manifest_table()
         lower = table.lower()
-        if lower == table:
-            self.skipTest("no mixed-case table in the manifest")
         first = o19etl.normalize_table_case(
             self.plain, "stage", [lower], self.dir)
         self.assertEqual(first, ["{0} -> {1}".format(lower, table)])
@@ -1301,8 +1311,6 @@ class TestTableCaseNormalisationIsRecorded(unittest.TestCase):
     def test_a_case_twin_is_reported_and_not_persisted(self):
         table = self.a_manifest_table()
         lower = table.lower()
-        if lower == table:
-            self.skipTest("no mixed-case table in the manifest")
         lines = o19etl.normalize_table_case(
             self.plain, "stage", [lower, table], self.dir)
         self.assertEqual(lines, ["{0} left as is: {1} also exists"

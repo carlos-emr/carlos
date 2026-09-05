@@ -44,7 +44,7 @@ import subprocess
 import sys
 import time
 from typing import (Callable, Dict, Iterator, List, Optional,
-                    Sequence, Tuple)
+                    Sequence, Set, Tuple)
 
 from . import (dbops, o19_preflight, o19bundle, o19digest, o19docs,
                o19etl, o19map_props, o19map_schema,
@@ -1121,8 +1121,38 @@ def run_p0(ctx) -> None:
 #: `COLLATE=x` in a CREATE TABLE, `COLLATE x` in a column definition.
 COLLATION_RE = re.compile(rb"COLLATE[= ]([A-Za-z0-9_]+)")
 
+#: Lines whose content is the clinic's DATA, not its schema. They are
+#: skipped: a progress note, an eform template or one of OSCAR's saved
+#: SQL report templates can contain the word COLLATE, and a name read
+#: out of a text column would refuse a perfectly good dump — mid-cutover,
+#: with no flag to clear it. mysqldump writes DDL and data as separate
+#: statements, one statement per line for INSERTs, so the line is the
+#: boundary.
+DATA_LINE_RE = re.compile(rb"\s*(?:INSERT|REPLACE)\b", re.I)
+
 #: enough to hold a collation name split across a chunk boundary
 COLLATION_CARRY = 64
+
+#: an unfinished non-data line is held whole up to this much before it is
+#: scanned and trimmed. mysqldump writes DDL a few hundred bytes to a
+#: line, so this exists to bound memory on a pathological input (a dump
+#: with no newlines at all), not because it is ever reached.
+MAX_UNFINISHED_LINE = 1 << 20
+
+
+def ddl_collations(data: bytes) -> Set[str]:
+    """The collation names `data` declares, ignoring its data lines.
+
+    `data` is treated as whole lines; a trailing partial line is read
+    like any other, which is safe here because both callers either hold
+    the whole head or have already split the stream on newlines."""
+    names = set()
+    for line in data.split(b"\n"):
+        if DATA_LINE_RE.match(line):
+            continue
+        for m in COLLATION_RE.finditer(line):
+            names.add(m.group(1).decode("ascii", "replace"))
+    return names
 
 
 def head_collations(head: bytes) -> List[str]:
@@ -1135,9 +1165,7 @@ def head_collations(head: bytes) -> List[str]:
     `COLLATE=` only where the collation is not the charset default, so
     on an ordinary all-latin1_swedish_ci clinic this finds nothing at
     all -- and a 580-table dump puts most of its DDL far past 64 KiB."""
-    return sorted(set(
-        m.decode("ascii", "replace")
-        for m in COLLATION_RE.findall(head[:65536])))
+    return sorted(ddl_collations(head[:65536]))
 
 
 class CollationScanner:
@@ -1151,27 +1179,46 @@ class CollationScanner:
     already being read chunk by chunk for the redirect scan, so testing
     each name here costs one regex per megabyte.
 
-    Unlike the redirect scan this needs no line anchoring, only a small
-    carry so a name split across a chunk boundary is not missed."""
+    It IS line-anchored, like the redirect scan: only complete lines are
+    tested, INSERT/REPLACE lines are skipped as the clinic's own text
+    (see DATA_LINE_RE), and an unfinished line is carried whole so a
+    name split across a chunk boundary is neither missed nor reported
+    cut in half."""
 
     def __init__(self, available):
         self.available = set(available or ())
+        #: the unfinished last line of the stream so far
         self.carry = b""
+        #: True while the rest of the current line is a data line
+        self.skipping = False
 
     def feed(self, chunk: bytes) -> Optional[str]:
-        buf = self.carry + chunk
-        self.carry = buf[-COLLATION_CARRY:]
         if not self.available:
             return None
+        buf = self.carry + chunk
+        self.carry = b""
         names = set()
-        for m in COLLATION_RE.finditer(buf):
-            if m.end() == len(buf):
-                # the name runs to the end of the buffer, so it may be
-                # cut in half: refusing here would name `utf8mb4_` and
-                # send the operator after a collation that does not
-                # exist. The carry re-presents it whole next feed.
-                continue
-            names.add(m.group(1).decode("ascii", "replace"))
+        pos = 0
+        while pos < len(buf):
+            nl = buf.find(b"\n", pos)
+            if nl < 0:
+                break
+            if not self.skipping:
+                names |= ddl_collations(buf[pos:nl])
+            self.skipping = False
+            pos = nl + 1
+        tail = buf[pos:]
+        if self.skipping:
+            pass                       # the rest of a data line: drop it
+        elif DATA_LINE_RE.match(tail):
+            # decided even though the line is unfinished: an extended
+            # INSERT runs to megabytes and must not be buffered
+            self.skipping = True
+        elif len(tail) > MAX_UNFINISHED_LINE:
+            names |= ddl_collations(tail[:-COLLATION_CARRY])
+            self.carry = tail[-COLLATION_CARRY:]
+        else:
+            self.carry = tail
         missing = sorted(names - self.available)
         if not missing:
             return None
@@ -2839,11 +2886,19 @@ FAILED_NEXT_STEPS = (
     "(root-only) when the report says there are more",
     "do NOT apply the properties fragment or restart into this target: "
     "the clinic is not verified, and a restart brings it online",
-    "fix what the problems name in the staging or target schema, then "
-    "`carlos-ctl import-o19 --resume` to re-verify",
-    "if it cannot be fixed, roll back to the pre-import snapshot "
-    "(`carlos-ctl restore`, see the guide's rollback section) — the "
-    "snapshot is the run's rollback point",
+    # --resume re-runs the CHECKS, not the copy: P4 records `etl` done
+    # and P4 skips a done phase, so a change made in the staging schema
+    # is never re-copied — it would only move the comparison, and a
+    # re-verify that passes on it proves nothing about the target
+    "fix what the problems name IN THE TARGET schema, then `carlos-ctl "
+    "import-o19 --resume` to re-verify — --resume re-runs the checks "
+    "only: the etl phase is recorded done, so a change made in the "
+    "staging schema is never copied across",
+    "if the fix belongs in the clinic's source data, or cannot be made "
+    "at all, roll back to the pre-import snapshot (`carlos-ctl backup "
+    "restic restore latest --tag db --target ...`, see the guide's "
+    "rollback section) and start the run over — the snapshot is the "
+    "run's rollback point",
     "`--cleanup` is refused while verification has not passed, and is "
     "the LAST step after a clean re-verification, never a way to clear "
     "a failure",

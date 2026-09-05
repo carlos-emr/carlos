@@ -562,11 +562,23 @@ cmd_run() {
     #                 a year by the retention policy. The operator still
     #                 holds the bundle itself; a backup is not the place for
     #                 an unpacked copy of an input file.
+    #   oscar.properties  the clinic's OWN deployed properties file, carried
+    #                 in the bundle: it holds their OSCAR 19 database
+    #                 password and their Teleplan/MCEDT/HCV/SMTP/PGP
+    #                 secrets. It lives inside bundle/ today and is covered
+    #                 by that exclusion, but the postrm shreds it BY NAME at
+    #                 -maxdepth 2, so it is excluded by name here too --
+    #                 otherwise the day it is written anywhere else in the
+    #                 workspace, one script treats it as a credential store
+    #                 and the other keeps it in a year of snapshots. Both
+    #                 depths the postrm reaches are named.
     restic backup --tag files --host "$(hostname -s)-carlos" \
         --exclude "${CONF_DIR}/tls" \
         --exclude "${CONF_DIR}/initial-admin.txt" \
         --exclude "${O19_DIR}/admin-credentials.txt*" \
         --exclude "${O19_DIR}/o19-derived-carlos.properties*" \
+        --exclude "${O19_DIR}/oscar.properties" \
+        --exclude "${O19_DIR}/**/oscar.properties" \
         --exclude "${O19_DIR}/bundle" \
         --exclude "${O19_DIR}/bundle-assess" \
         --exclude "${O19_DIR}/.lock" \

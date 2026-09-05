@@ -281,21 +281,49 @@ _BUNDLE_TOKEN = re.compile(r"\$\{([^}]*)\}")
 SIGNATURE_RUNTIME_TOKENS = ("DATE", "USERSIGNATURE", "ROLENAME")
 
 
+def unterminated_bundle_tokens(value: str) -> List[str]:
+    """Every `${` in `value` that no `}` closes.
+
+    `CaseManagementManagerImpl.getTemplateSignature` walks the template
+    with `indexOf("${")` / `indexOf("}")` and then
+    `template.substring(tagstart + 2, tagend)` — with tagend -1 that
+    throws StringIndexOutOfBoundsException, which `getSignature` catches
+    into `signature = "[Unknown Signature Type Requested]"`. So a
+    carried ECHART_SIGN_LINE with one unclosed `${` puts that literal
+    string at the foot of EVERY note signed after cutover, and the
+    `${...}` regex never sees it: it matches nothing, reports nothing,
+    and the value is carried verbatim.
+
+    Only the first is returned — everything after it is inside the same
+    broken tag as far as the Java reader is concerned."""
+    bad = []
+    i = value.find("${")
+    while i >= 0:
+        if value.find("}", i) < 0:
+            bad.append(value[i:i + 40])
+            break
+        i = value.find("${", i + 2)
+    return bad
+
+
 def rewrite_bundle_tokens(value: str,
                           renames: Optional[Dict[str, str]] = None
-                          ) -> Tuple[str, List[Tuple[str, str]], List[str]]:
+                          ) -> Tuple[str, List[Tuple[str, str]],
+                                     List[str], List[str]]:
     """Remap the `${...}` message-bundle tokens of a carried template onto
     their CARLOS spellings.
 
     Returns (rewritten value, [(old token, new token)], [unmapped
-    tokens]). CARLOS renamed the bundle namespace these templates name,
-    and `getTemplateSignature` resolves an unknown key to the empty
-    string inside a bare `catch (Exception e)` — so a sign line carried
-    verbatim drops the words "Signed on"/"by" out of every note signed
-    after cutover with nothing failing. A token this cannot prove
-    resolves is reported rather than guessed at: the caller refuses the
-    value instead of carrying a template that renders blanks into the
-    clinical record."""
+    tokens], [unterminated `${` fragments]). CARLOS renamed the bundle
+    namespace these templates name, and `getTemplateSignature` resolves
+    an unknown key to the empty string inside a bare `catch (Exception
+    e)` — so a sign line carried verbatim drops the words "Signed
+    on"/"by" out of every note signed after cutover with nothing
+    failing. A token this cannot prove resolves is reported rather than
+    guessed at: the caller refuses the value instead of carrying a
+    template that renders blanks into the clinical record. An
+    unterminated `${` is reported the same way and for a louder reason
+    — see unterminated_bundle_tokens."""
     if renames is None:
         renames = getattr(o19map_props, "BUNDLE_KEY_RENAMES", {})
     already_carlos = set(renames.values())
@@ -318,7 +346,7 @@ def rewrite_bundle_tokens(value: str,
         changed.append((token, target))
         out.append("${" + target + "}")
     out.append(value[pos:])
-    return "".join(out), changed, unmapped
+    return "".join(out), changed, unmapped, unterminated_bundle_tokens(value)
 
 
 def translate_docpath(value: str,
@@ -398,7 +426,20 @@ def translate_all(clinic: List[Tuple[str, str]],
             note = ("" if target_key == key
                     else "carried as {0}".format(target_key))
             if spec.get("rewrite") == "bundle":
-                value, renamed, unmapped = rewrite_bundle_tokens(value)
+                value, renamed, unmapped, unclosed = \
+                    rewrite_bundle_tokens(value)
+                if unclosed:
+                    # report_safe: the fragment is clinic-supplied text
+                    # going into report.txt and the operator's
+                    # validation report
+                    rows.append((key, "needs-review",
+                                 "unterminated message-bundle token near "
+                                 "{0!r} — not carried (getTemplateSignature "
+                                 "throws on it, and every note signed after "
+                                 "cutover would end in [Unknown Signature "
+                                 "Type Requested])".format(
+                                     report_safe(unclosed[0]))))
+                    continue
                 if unmapped:
                     rows.append((key, "needs-review",
                                  "message-bundle token(s) {0} have no "

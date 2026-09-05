@@ -186,11 +186,14 @@ Prerequisites, all of them before the command below:
    `o19-derived-carlos.properties*` (the derived fragment, which carries
    the clinic's Teleplan/MCEDT/HCV/SMTP/PGP secrets in clear), `bundle/`
    and `bundle-assess/` (the clinic's whole source database as plaintext
-   SQL, and their documents tar), and `.lock`. The derived fragment is the
-   one to notice: if it has not been applied and `carlos-ctl restart` run,
-   a rollback to this snapshot leaves it to be produced again by a re-run.
-   A restore does not *delete* files added after
-   the snapshot, so the discarded run's `etl-progress.json` is left beside
+   SQL, their documents tar, and their own `oscar.properties` — which is
+   excluded by name as well, because the purge path shreds it by name),
+   and `.lock`. The derived fragment is the one to notice: a rollback
+   discards it. If the run had not yet applied it — that is, if you had
+   not merged it into `carlos.properties` and run `carlos-ctl restart` —
+   a re-run has to produce it again.
+   A restore does not *delete* files added after the snapshot, so the
+   discarded run's `etl-progress.json` is left beside
    the rewound `state.json`; the tool detects that pair and tells you to
    move the workspace aside before starting over (see the last section).
 5. **Keep the bundle, its passfile and the bundle SHA-256** until

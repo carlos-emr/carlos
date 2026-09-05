@@ -653,10 +653,26 @@ O19_SCHEMAS = {
 }
 
 
+class EstateUnknown(Exception):
+
+    """MariaDB could not be asked what the OSCAR 19 import left behind.
+
+    Raised instead of answering "nothing": a failed inventory query and
+    an absent schema look identical in the answer and could not be more
+    different in the consequence. Reporting absence on a failed query
+    let a confirmed `destroy-data` skip the DROP for a schema that was
+    really there -- `o19_import` is the clinic's whole source database
+    -- and still print "done." with exit 0. The reachability gate above
+    the drop exists for exactly this reason; it cannot see a query that
+    fails after it passes."""
+
+
 def o19_estate():
     """What an OSCAR 19 import has left on this host.
 
     Returns ``([(schema, table count), ...], workspace_path_or_None)``.
+    Raises `EstateUnknown` if MariaDB cannot answer -- callers that are
+    about to destroy something must refuse rather than assume absence.
 
     `o19_archive` survives `--cleanup` BY DESIGN (it is the source of the
     CSV export the clinic is handed) and `o19_import` survives any run
@@ -673,19 +689,10 @@ def o19_estate():
     from . import o19import           # imports this module; lazy on purpose
     found = []
     for schema in O19_SCHEMAS:
-        cp = db_root(["-N", "-B", "-e",
-                      "SELECT COUNT(*) FROM information_schema.TABLES "
-                      "WHERE TABLE_SCHEMA = '{0}'".format(schema)],
-                     capture_output=True)
-        if cp.returncode != 0:
-            continue
-        text = (cp.stdout or "").strip()
-        if not text:
-            continue
-        try:
-            n = int(text.splitlines()[-1])
-        except ValueError:
-            continue
+        n = _count(
+            "SELECT COUNT(*) FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = '{0}'".format(schema),
+            "count the tables in the '{0}' schema".format(schema))
         # a schema that does not exist answers 0 tables; only a real one
         # is reported, and an EMPTY real one still is (it is a schema the
         # operator must be told is going)
@@ -695,12 +702,36 @@ def o19_estate():
     return found, (workspace if os.path.isdir(workspace) else None)
 
 
+def _count(sql: str, what: str) -> int:
+    """One COUNT(*) off `information_schema`, or `EstateUnknown`.
+
+    Every failure mode is the same refusal: a non-zero exit, no output
+    at all (a successful COUNT always prints a number, so silence is a
+    fault), and output that is not an integer."""
+    cp = db_root(["-N", "-B", "-e", sql], capture_output=True)
+    if cp.returncode != 0:
+        raise EstateUnknown("could not {0}: mysql exited {1}{2}".format(
+            what, cp.returncode,
+            (" (" + (cp.stderr or "").strip().splitlines()[-1] + ")")
+            if (cp.stderr or "").strip() else ""))
+    text = (cp.stdout or "").strip()
+    if not text:
+        raise EstateUnknown(
+            "could not {0}: mysql answered nothing".format(what))
+    try:
+        return int(text.splitlines()[-1])
+    except ValueError:
+        raise EstateUnknown(
+            "could not {0}: mysql answered {1!r}".format(
+                what, text.splitlines()[-1][:80]))
+
+
 def schema_exists(name: str) -> bool:
-    cp = db_root(["-N", "-B", "-e",
-                  "SELECT COUNT(*) FROM information_schema.SCHEMATA "
-                  "WHERE SCHEMA_NAME = '{0}'".format(name)],
-                 capture_output=True)
-    return cp.returncode == 0 and (cp.stdout or "").strip().endswith("1")
+    """Whether `name` is a schema on this host. Raises `EstateUnknown`
+    if MariaDB cannot answer -- see `o19_estate`."""
+    return _count("SELECT COUNT(*) FROM information_schema.SCHEMATA "
+                  "WHERE SCHEMA_NAME = '{0}'".format(name),
+                  "look up the '{0}' schema".format(name)) > 0
 
 
 def cmd_destroy_data(argv) -> int:
@@ -726,8 +757,14 @@ def cmd_destroy_data(argv) -> int:
         # what will actually go rather than a generic paragraph. It is
         # read before the reachability gate below on purpose: naming what
         # is at stake must not depend on MariaDB being up.
+        o19_unknown = ""
         try:
             o19_schemas, o19_workspace = o19_estate()
+        except EstateUnknown as e:
+            # Still prints, but says the estate could not be READ rather
+            # than implying there is none; the confirmed run below
+            # refuses outright on the same condition.
+            o19_schemas, o19_workspace, o19_unknown = [], None, str(e)
         except Exception:                                     # noqa: BLE001
             o19_schemas, o19_workspace = [], None
         o19_note = ""
@@ -744,6 +781,10 @@ def cmd_destroy_data(argv) -> int:
                 lines.append("    source database as plaintext SQL")
             o19_note = ("\n\nThis host also carries an OSCAR 19 import. That "
                         "will be destroyed too:\n" + "\n".join(lines))
+        elif o19_unknown:
+            o19_note = ("\n\nThis host could NOT be asked whether it carries an "
+                        "OSCAR 19 import\n(" + o19_unknown + "). If it does, that "
+                        "will be destroyed too.")
         print(f"""carlos-ctl: this destroys the clinical record on this host and cannot be undone.
 
 It will DROP the '{s.db_name}' and 'drugref2' databases, and delete every
@@ -770,15 +811,24 @@ instance whose backups are gone is not decommissioned, it is lost.""", file=sys.
             "refusing to start a destruction that would be incomplete. Start MariaDB "
             "(systemctl start mariadb) and re-run.")
 
+    # Enumerated BEFORE anything is stopped or dropped, so the report can
+    # name what went. The standing rule is that data is never destroyed
+    # silently: a schema holding tables is announced with its table count
+    # first, and only then dropped. A MariaDB that answers the
+    # reachability probe above but not this query stops the run right
+    # here, with the service still running and nothing removed —
+    # "absent" and "could not tell" must not be the same answer to a
+    # command that is about to DROP.
+    try:
+        o19_schemas, o19_workspace = o19_estate()
+    except EstateUnknown as e:
+        die(f"{e} — refusing to start a destruction that could leave the clinic's "
+            "OSCAR 19 source database behind while reporting success. Check MariaDB "
+            "and re-run.")
+
     warn(f"destroying the CARLOS clinical data on {s.server_name}")
     if os.path.isdir("/run/systemd/system"):
         run(["systemctl", "stop", "carlos-emr.service"], capture_output=True)
-
-    # Enumerated BEFORE the drop so the report can name what went. The
-    # standing rule is that data is never destroyed silently: a schema
-    # holding tables is announced with its table count first, and only
-    # then dropped.
-    o19_schemas, o19_workspace = o19_estate()
     o19_sql = "".join(f"DROP DATABASE IF EXISTS `{schema}`;\n"
                       for schema, _n in o19_schemas)
     if db_root_ok():

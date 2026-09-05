@@ -9,6 +9,7 @@ Run (from debian/assets):
 """
 
 import os
+import re
 import shutil
 import ast
 import inspect
@@ -17,12 +18,44 @@ import unittest
 
 from carlos_ctl import o19map_props, o19props
 
+#: CARLOS's own message bundle, in this repository. The generator
+#: verifies BUNDLE_KEY_RENAMES against it, but only when it runs -- and
+#: it needs an OSCAR 19 source tree, which CI has not got. This is the
+#: copy of that check a PR can run.
+CARLOS_BUNDLE = os.path.join(
+    os.path.dirname(__file__), "..", "..", "..", "..", "src", "main",
+    "resources", "oscarResources_en.properties")
+
 FIXTURE = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "..", "scripts",
     "migration", "o19", "fixtures", "properties",
     "oscar-clinic-example.properties")
 
 ROOT = "/var/lib/carlos-emr/OscarDocument"
+
+
+def carlos_bundle_keys():
+    """The key names of CARLOS's oscarResources bundle.
+
+    java.util.Properties, enough of it for a bundle of plain
+    `key=value` lines: comments and blanks are skipped, and a line
+    continued with a trailing odd number of backslashes carries its
+    successor, which is a VALUE and never a key."""
+    keys = set()
+    continued = False
+    with open(os.path.abspath(CARLOS_BUNDLE), encoding="latin-1") as fh:
+        for raw in fh:
+            line = raw.rstrip("\n").rstrip("\r")
+            was_continued, continued = continued, False
+            stripped = line.lstrip()
+            trailing = len(line) - len(line.rstrip("\\"))
+            continued = bool(trailing % 2)
+            if was_continued or not stripped or stripped[0] in "#!":
+                continue
+            m = re.match(r"([^=:\s]+)\s*[=:]", stripped)
+            if m:
+                keys.add(m.group(1))
+    return keys
 
 
 def fixture_result():
@@ -331,10 +364,25 @@ class TestSignLineBundleTokens(unittest.TestCase):
         self.assertIn("renamed", o19props.render_report(result))
 
     def test_every_renamed_key_really_exists_in_the_carlos_bundle(self):
-        # the manifest is only useful if its targets resolve: the
-        # generator verifies them, this pins that they were verified
+        """The manifest is only useful if its TARGETS RESOLVE.
+
+        `getTemplateSignature` swallows a missing bundle key into the
+        empty string inside a bare `catch (Exception e)`, so a rename
+        onto a key CARLOS does not have is silent at runtime: the sign
+        line simply loses a word in every note. The generator checks
+        this, but only when it runs, and it needs an OSCAR 19 source
+        tree CI has not got -- so this reads CARLOS's own bundle out of
+        the repository instead of restating the naming convention and
+        calling that existence."""
+        bundle = carlos_bundle_keys()
+        # the parser is only trustworthy if it found a real bundle
+        self.assertGreater(len(bundle), 1000, CARLOS_BUNDLE)
         renames = o19map_props.BUNDLE_KEY_RENAMES
         self.assertTrue(renames)
+        self.assertEqual(
+            sorted(v for v in renames.values() if v not in bundle), [],
+            "rename target(s) absent from oscarResources_en.properties: "
+            "getTemplateSignature would render them as an empty string")
         for old, new in renames.items():
             self.assertTrue(old.startswith("oscarEncounter."), old)
             self.assertTrue(new.startswith("encounter."), new)
@@ -368,10 +416,40 @@ class TestSignLineBundleTokens(unittest.TestCase):
     def test_a_value_already_in_carlos_spelling_is_left_alone(self):
         value = ("[${encounter.class.EctSaveEncounterAction.msgSigned}"
                  " ${DATE}]\n")
-        rewritten, changed, unmapped = o19props.rewrite_bundle_tokens(value)
+        rewritten, changed, unmapped, unclosed = \
+            o19props.rewrite_bundle_tokens(value)
         self.assertEqual(rewritten, value)
         self.assertEqual(changed, [])
         self.assertEqual(unmapped, [])
+        self.assertEqual(unclosed, [])
+
+    def test_an_unterminated_token_is_reviewed_not_carried(self):
+        """`${` with no `}` is not a token this can see, and it is worse
+        than an unmapped one: `getTemplateSignature` does
+        `substring(tagstart + 2, indexOf("}"))` with -1, which throws,
+        and `getSignature` catches that into the literal string
+        "[Unknown Signature Type Requested]" at the foot of EVERY note
+        signed after cutover."""
+        result = o19props.translate_all(
+            [("ECHART_SIGN_LINE", "[Signed ${DATE} by ${USERSIGNATURE]\n")],
+            documents_root=ROOT)
+        self.assertEqual(result["fragment"], [])
+        key, d, note = result["rows"][0]
+        self.assertEqual((key, d), ("ECHART_SIGN_LINE", "needs-review"))
+        self.assertIn("unterminated", note)
+        self.assertIn("Unknown Signature Type Requested", note)
+
+    def test_an_unterminated_token_after_a_good_one_is_still_caught(self):
+        # the Java reader restarts its scan after each token, so a
+        # well-formed token first does not make the broken one invisible
+        self.assertEqual(
+            o19props.unterminated_bundle_tokens("${a} ${b"), ["${b"])
+        self.assertEqual(o19props.unterminated_bundle_tokens("${a} ${b}"), [])
+        # a report-forging fragment cannot write its own report lines
+        result = o19props.translate_all(
+            [("ECHART_SIGN_LINE", "${x\ncarry-secret (0):")],
+            documents_root=ROOT)
+        self.assertNotIn("\n", result["rows"][0][2])
 
 
 class TestRendering(unittest.TestCase):

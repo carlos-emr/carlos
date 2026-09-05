@@ -56,17 +56,6 @@ def postrm_shredded_names():
     return re.findall(r"-name '([^']+)'", m.group(1))
 
 
-#: Shredded names the backup covers through an excluded DIRECTORY rather
-#: than by name. The workspace only ever holds the clinic's own
-#: `oscar.properties` inside the extracted bundle -- `bundle/` on a real
-#: run, `bundle-assess/` on an assessment -- and the backup excludes both
-#: wholesale. Listed rather than waved through: a name added here without
-#: a directory that is genuinely excluded fails the test below.
-COVERED_BY_AN_EXCLUDED_DIRECTORY = {
-    "oscar.properties": ("bundle", "bundle-assess"),
-}
-
-
 class TestSecretsAreNotBackedUp(unittest.TestCase):
 
     """Anything the postrm shreds as a credential must not be inside the
@@ -76,14 +65,12 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
         names = postrm_shredded_names()
         self.assertTrue(names, "no shredded names parsed from the postrm")
         excluded = {e.rsplit("/", 1)[-1] for e in backup_excludes()}
+        # No exemptions. `oscar.properties` sits inside the excluded
+        # bundle/ today, so "the directory covers it" was true -- and it
+        # left the two scripts free to disagree the moment that file is
+        # written anywhere else the postrm's -maxdepth 2 find reaches.
+        # The backup names it instead, at both depths.
         for name in names:
-            for directory in COVERED_BY_AN_EXCLUDED_DIRECTORY.get(name, ()):
-                self.assertIn(
-                    directory, excluded,
-                    "{0} is only covered because {1}/ is excluded, and it "
-                    "no longer is".format(name, directory))
-            if name in COVERED_BY_AN_EXCLUDED_DIRECTORY:
-                continue
             self.assertIn(
                 name, excluded,
                 "the postrm shreds {0} from the import workspace because it "
@@ -117,6 +104,44 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
         # `--exclude "${O19_DIR}"` followed by a newline could never fire
         # and the guard passed no matter what was excluded
         self.assertNotIn("${O19_DIR}", backup_excludes())
+
+
+class TestEveryCommandWeTellAnOperatorToTypeExists(unittest.TestCase):
+
+    """A `carlos-ctl <verb>` printed in an operator instruction must be
+    a verb the tool dispatches.
+
+    The failed-import next steps sent an operator to `carlos-ctl
+    restore` — which has never existed. It reads as a real instruction,
+    it is printed at the worst possible moment (a verification failure,
+    with the clinic's data half-migrated), and the only answer it gets
+    is `unknown command: restore`. Nothing checked, because the string
+    lives in a tuple far from the verb table.
+
+    Scoped to backticked commands: the modules also write `carlos-ctl`
+    in prose ("carlos-ctl carries ...") and the point is to check what
+    an operator would COPY."""
+
+    #: `carlos-ctl x` inside backticks -- the way every instruction in
+    #: this package writes a command
+    COMMAND = re.compile(r"`carlos-ctl\s+([A-Za-z][A-Za-z0-9-]*)")
+
+    def test_every_backticked_verb_is_a_real_verb(self):
+        from carlos_ctl import cli
+        verbs = set(cli._VERBS)
+        self.assertIn("import-o19", verbs)          # the table was read
+        package = ROOT / "debian" / "assets" / "carlos_ctl"
+        seen = 0
+        for path in sorted(package.glob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            for m in self.COMMAND.finditer(text):
+                seen += 1
+                self.assertIn(
+                    m.group(1), verbs,
+                    "{0} tells an operator to run `carlos-ctl {1}`, which "
+                    "is not a verb".format(path.name, m.group(1)))
+        # the scan is only worth anything if it found the instructions
+        self.assertGreater(seen, 10)
 
 
 if __name__ == "__main__":

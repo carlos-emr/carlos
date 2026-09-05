@@ -60,6 +60,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -1985,8 +1986,17 @@ def check_identifier_class(c):
         c.query_errors["information_schema.COLUMNS [identifier class]"] = (
             text.splitlines()[-1] if text else "")
         rows = []
+    # COLUMNS spans VIEWS too, while `live_names` -- and the dump the
+    # operator is told to take, and the ETL's own introspection -- is
+    # BASE TABLE only. A view's odd column name is not an identifier the
+    # import will ever meet, and this finding is a no-go no --accept
+    # clears, so it must not be raised on one. (A view in the schema is
+    # separately a blocker of its own: see check_views.)
+    base_lower = set(n.lower() for n in live_names)
     for row in rows:
         if len(row) < 2 or not row[0] or row[0] in odd:
+            continue
+        if row[0].lower() not in base_lower:
             continue
         if not IDENTIFIER_RE.match(row[1] or ""):
             odd["{0}.{1}".format(row[0], row[1])] = "outside [A-Za-z0-9_$]"
@@ -2053,12 +2063,28 @@ def check_views(c):
         data=names))
 
 
+#: a view name that needs no shell quoting in the copy-paste recipe
+PLAIN_IDENTIFIER_RE = re.compile(r"\A[A-Za-z0-9_]+\Z")
+
+
 def ignore_table_flags(names):
     """The mysqldump flags that leave `names` out of the dump.
 
     `<db>` rather than the real schema name: it is the same placeholder
-    the bundling recipe uses on the line these flags are appended to."""
-    return ["--ignore-table=<db>.{0}".format(n) for n in names]
+    the bundling recipe uses on the line these flags are appended to.
+
+    These flags are printed for an operator to COPY INTO A SHELL, and a
+    view name is an arbitrary MySQL identifier read off the clinic's own
+    database -- backquoted, it may hold a space, a quote, a `$` or a
+    `;`. Anything but a plain identifier is single-quoted, so a hostile
+    or merely awkward name becomes one argument instead of a second
+    command."""
+    flags = []
+    for n in names:
+        flag = "--ignore-table=<db>.{0}".format(n)
+        flags.append(flag if PLAIN_IDENTIFIER_RE.match(n)
+                     else shlex.quote(flag))
+    return flags
 
 
 def check_facility_and_clinic(c):

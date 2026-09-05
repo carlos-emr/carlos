@@ -291,6 +291,57 @@ def introspect(client: Client, db: str) -> Tuple[Dict[str, List[str]],
     return cols, pks
 
 
+def summarise(compared, refused, unscaffolded, mismatches, db):
+    """The oracle's whole report: (stdout lines, stderr lines, exit code,
+    keep the scratch schema).
+
+    BOTH failures are reported. Unbuildable probes used to `return 1`
+    before the DISAGREEMENTS block ran, so a run that had one of each
+    printed the lesser finding, dropped the scratch schema holding the
+    greater one, and left a maintainer reading "fix scaffold()" with no
+    hint that the parser also disagreed with MariaDB. The schema is kept
+    whenever there is something in it to inspect."""
+    out = ["compared: {0}    not comparable (server refused): {1}    "
+           "probe not buildable: {2}".format(compared, refused,
+                                             unscaffolded)]
+    err = []
+    if unscaffolded:
+        # not a generator defect, but not a pass either: these statements
+        # were never put to MariaDB, and saying OK for them would be the
+        # silence this oracle exists to remove
+        err.append("\n{0} statement(s) were NOT CHECKED because this "
+                   "script could not build their probe table. Fix "
+                   "scaffold() -- an unbuildable probe is an untested "
+                   "statement, and the unbuildable ones are the widest "
+                   "tables in the schema.".format(unscaffolded))
+    if not mismatches:
+        if not unscaffolded:
+            out.append("OK - the generator's parse agrees with MariaDB "
+                       "everywhere it could be compared")
+        return out, err, (1 if unscaffolded else 0), False
+
+    out.append("\nDISAGREEMENTS ({0}):".format(len(mismatches)))
+    for kind, fname, table, exp_cols, got_cols, exp_pk, got_pk in mismatches:
+        out.append("\n  {0} {1} ({2})".format(kind.upper(), table, fname))
+        if exp_cols != got_cols:
+            only_gen = [c for c in exp_cols if c not in got_cols]
+            only_db = [c for c in got_cols if c not in exp_cols]
+            if only_gen or only_db:
+                out.append("    columns the generator invented: {0}"
+                           .format(only_gen or "-"))
+                out.append("    columns the generator MISSED:   {0}"
+                           .format(only_db or "-"))
+            else:
+                out.append("    same columns, different order")
+                out.append("    generator: {0}".format(exp_cols))
+                out.append("    mariadb:   {0}".format(got_cols))
+        if exp_pk is not None and list(exp_pk) != list(got_pk):
+            out.append("    primary key: generator {0}, mariadb {1}"
+                       .format(exp_pk, got_pk))
+    out.append("\nthe scratch schema `{0}` is kept for inspection".format(db))
+    return out, err, 1, True
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the manifest generator's DDL parse against "
@@ -437,45 +488,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             mismatches.append((kind, fname, table, exp_cols, got_cols,
                                exp_pk, got_pk))
 
-    print("compared: {0}    not comparable (server refused): {1}    "
-          "probe not buildable: {2}".format(compared, refused, unscaffolded))
-    if unscaffolded:
-        # not a generator defect, but not a pass either: these statements
-        # were never put to MariaDB, and saying OK for them would be the
-        # silence this oracle exists to remove
-        print("\n{0} statement(s) were NOT CHECKED because this script "
-              "could not build their probe table. Fix scaffold() -- an "
-              "unbuildable probe is an untested statement, and the "
-              "unbuildable ones are the widest tables in the schema."
-              .format(unscaffolded), file=sys.stderr)
+    out, err, rc, keep = summarise(compared, refused, unscaffolded,
+                                   mismatches, args.db)
+    for line in out:
+        print(line)
+    for line in err:
+        print(line, file=sys.stderr)
+    if not keep:
         client.run("DROP DATABASE `{0}`;".format(args.db), db="mysql")
-        return 1
-    if not mismatches:
-        print("OK - the generator's parse agrees with MariaDB everywhere "
-              "it could be compared")
-        client.run("DROP DATABASE `{0}`;".format(args.db), db="mysql")
-        return 0
-
-    print("\nDISAGREEMENTS ({0}):".format(len(mismatches)))
-    for kind, fname, table, exp_cols, got_cols, exp_pk, got_pk in mismatches:
-        print("\n  {0} {1} ({2})".format(kind.upper(), table, fname))
-        if exp_cols != got_cols:
-            only_gen = [c for c in exp_cols if c not in got_cols]
-            only_db = [c for c in got_cols if c not in exp_cols]
-            if only_gen or only_db:
-                print("    columns the generator invented: {0}"
-                      .format(only_gen or "-"))
-                print("    columns the generator MISSED:   {0}"
-                      .format(only_db or "-"))
-            else:
-                print("    same columns, different order")
-                print("    generator: {0}".format(exp_cols))
-                print("    mariadb:   {0}".format(got_cols))
-        if exp_pk is not None and list(exp_pk) != list(got_pk):
-            print("    primary key: generator {0}, mariadb {1}"
-                  .format(exp_pk, got_pk))
-    print("\nthe scratch schema `{0}` is kept for inspection".format(args.db))
-    return 1
+    return rc
 
 
 if __name__ == "__main__":

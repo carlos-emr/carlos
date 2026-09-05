@@ -1289,7 +1289,11 @@ def _refuse_unruled_column_renames(o19, carlos, tables, r):
             raise SystemExit(
                 "NOT_RENAMES[{!r}, {!r}] has no reason; a ruling without "
                 "one is not a ruling".format(t, col))
-        if (isinstance(covered, str)
+        # the list check comes first: a non-sequence (a bare int, None)
+        # makes the generator expression raise TypeError, which is a
+        # traceback where a maintainer should get the refusal that names
+        # the entry and says what shape it must take
+        if (not isinstance(covered, (tuple, list))
                 or not all(isinstance(c, str) for c in covered)):
             raise SystemExit(
                 "NOT_RENAMES[{!r}, {!r}] must name the covered CARLOS "

@@ -674,11 +674,13 @@ class TestOverlayRulingsReachTheManifest(unittest.TestCase):
                              self.stale(name))
 
     def test_the_map_version_carries_the_overlay_base_token(self):
-        # the generator appends a digest of the emitted content, so the
-        # overlay's token is a prefix rather than the whole string
-        self.assertTrue(
-            o19map_schema.SCHEMA_MAP_VERSION.startswith(
-                self.ov.SCHEMA_MAP_VERSION),
+        # the generator appends "+<digest of the emitted content>", so
+        # the base is the part before it -- compared EXACTLY, because a
+        # startswith would let an overlay bumped to o19map-21 pass
+        # against a shipped manifest still built from o19map-2
+        self.assertEqual(
+            o19map_schema.SCHEMA_MAP_VERSION.rsplit("+", 1)[0],
+            self.ov.SCHEMA_MAP_VERSION,
             self.stale("SCHEMA_MAP_VERSION"))
 
 

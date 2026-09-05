@@ -27,6 +27,21 @@ def load_generator():
     return mod
 
 
+#: the parsed CARLOS schema, kept because the parse is the expensive
+#: thing in this module (~30 s over the whole Flyway set) and more than
+#: one class needs the real column definitions
+_CARLOS_SCHEMA = []
+
+
+def carlos_schema(gen):
+    """CARLOS's own columns as the generator reads them: common + on,
+    in Flyway order, `tables[t][col]` holding the whole definition."""
+    if not _CARLOS_SCHEMA:
+        _CARLOS_SCHEMA.append(gen.load_schema(gen.carlos_migration_files(
+            [gen.MIGRATION_DIR / "common", gen.MIGRATION_DIR / "on"])))
+    return _CARLOS_SCHEMA[0]
+
+
 @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
 class TestGenerator(unittest.TestCase):
 
@@ -393,6 +408,32 @@ class TestTheDdlOracleStaysUsable(unittest.TestCase):
         got = self.mod.probe_alter("ALTER TABLE t ADD c int", "p7")
         self.assertEqual(got, "ALTER TABLE `p7` ADD c int")
 
+    def test_both_oracle_failures_are_reported_not_just_the_first(self):
+        """An unbuildable probe used to `return 1` before the
+        DISAGREEMENTS block, so a run carrying one of each printed the
+        lesser finding, dropped the scratch schema holding the greater
+        one, and left the maintainer reading "fix scaffold()" with no
+        hint that the parse also disagreed with MariaDB."""
+        mismatch = ("create", "oscarinit.sql", "demographic",
+                    ["a"], ["b"], None, None)
+        out, err, rc, keep = self.mod.summarise(9, 1, 2, [mismatch], "scr")
+        text = "\n".join(out)
+        self.assertIn("DISAGREEMENTS (1)", text)
+        self.assertIn("NOT CHECKED", "\n".join(err))
+        self.assertEqual(rc, 1)
+        # and the schema that holds the disagreement survives the run
+        self.assertTrue(keep)
+        self.assertIn("kept for inspection", text)
+
+    def test_the_oracle_says_ok_only_when_everything_was_checked(self):
+        out, err, rc, keep = self.mod.summarise(9, 1, 0, [], "scr")
+        self.assertIn("OK - the generator's parse agrees", "\n".join(out))
+        self.assertEqual((rc, keep, err), (0, False, []))
+        # an unchecked statement is never a pass, and never says OK
+        out, err, rc, keep = self.mod.summarise(9, 1, 2, [], "scr")
+        self.assertNotIn("OK -", "\n".join(out))
+        self.assertEqual((rc, keep), (1, False))
+
     def test_a_setup_failure_exits_with_the_documented_status(self):
         # the module docstring reserves 1 for "the parse disagreed" and 2
         # for a usage or connection error; `raise SystemExit("text")`
@@ -666,8 +707,7 @@ class TestPreservedColumnsFitTheRow(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.gen = load_generator()
-        cls.carlos = cls.gen.load_schema(cls.gen.carlos_migration_files(
-            [cls.gen.MIGRATION_DIR / "common", cls.gen.MIGRATION_DIR / "on"]))
+        cls.carlos = carlos_schema(cls.gen)
 
     def test_every_widened_table_stays_inside_the_row_limit(self):
         worst = (0, None)
@@ -746,15 +786,28 @@ class TestASurrogateKeyIsAnIntegerKey(unittest.TestCase):
         self.assertIn("must equal its primary key", str(caught.exception))
 
     def test_the_shipped_surrogates_are_all_int_typed_columns(self):
-        # the manifest that ships, read back through the same rule: every
-        # surrogate_pk is a column whose CARLOS type the ETL can put in a
-        # BIGINT id map. Nothing here needs an OSCAR 19 checkout, so it
-        # guards a PR as well as a regeneration.
+        """The manifest that ships, read back through the same rule.
+
+        Every `surrogate_pk` must be a column whose CARLOS TYPE the ETL
+        can put in a `BIGINT` id map -- which means reading the type out
+        of the CARLOS schema in this repository, not merely checking
+        that the name appears in `cols`. Nothing here needs an OSCAR 19
+        checkout, so it guards a PR as well as a regeneration."""
+        carlos = carlos_schema(self.gen)
         surrogates = [(t, e["surrogate_pk"])
                       for t, e in o19map_schema.TABLES.items()
                       if e.get("surrogate_pk")]
         self.assertTrue(surrogates)
         for table, col in surrogates:
+            definition = carlos.tables.get(table, {}).get(col)
+            self.assertIsNotNone(
+                definition,
+                "{0}.{1} is not a CARLOS column".format(table, col))
+            self.assertTrue(
+                self.gen.integer_column(definition),
+                "{0}.{1} is {2!r} — idmap_statements would declare "
+                "old_id BIGINT and insert that into it".format(
+                    table, col, definition))
             self.assertIn(col, o19map_schema.TABLES[table]["cols"],
                           "{0}.{1}".format(table, col))
             self.assertNotIn(col,
@@ -1010,8 +1063,12 @@ class TestRenameRefusals(unittest.TestCase):
         # every ruling used to be, and read as a pair it would silently
         # become reason="c", covered="o" -- a ruling covering a column
         # named "o"
+        # a non-sequence `covered` (a bare count, a None) must reach the
+        # same refusal: iterating it raised TypeError, which is a
+        # traceback where the maintainer should be told what to write
         for value in ("coincidence", ("only a reason",),
-                      ("reason", "codeValue")):
+                      ("reason", "codeValue"), ("reason", 3),
+                      ("reason", None), ("reason", {"codeValue"})):
             with self.assertRaises(SystemExit) as caught:
                 self.build(self.overlay(
                     NOT_RENAMES={("t", "code"): value}))

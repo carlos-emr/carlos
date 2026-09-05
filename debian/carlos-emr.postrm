@@ -277,11 +277,11 @@ NOTICE
   NOTE: the import's break-glass administrator account still EXISTS in the
         retained \`${O19_DBNAME}\` database, and the note holding its password
         is now gone. The clinic's own provider logins came across with the
-        import and are unaffected -- sign in with one of those. \`carlos-ctl
-        bootstrap-admin\` will NOT help here: it only resets the seeded
-        \`carlosdoc\` credential, and the import deletes that account. With no
-        usable login left at all, the account has to be repaired by hand in
-        the retained \`security\` table: CARLOS authenticates on BOTH a
+        import and are unaffected -- sign in with one of those.
+        \`carlos-ctl bootstrap-admin\` will NOT help here: it only resets the
+        seeded \`carlosdoc\` credential, and the import deletes that account.
+        With no usable login left at all, the account has to be repaired by
+        hand in the retained \`security\` table: CARLOS authenticates on BOTH a
         \`password\` (a \`{bcrypt}\`-prefixed hash) and a numeric \`pin\`, so
         setting one without the other still leaves no way in. Clear
         \`forcePasswordReset\` at the same time, or set a password the

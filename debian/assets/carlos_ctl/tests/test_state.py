@@ -74,7 +74,8 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
         self.dropped = []
         self.commands = []
 
-    def _patched(self, schemas, workspace=True, rmtree_fails=False):
+    def _patched(self, schemas, workspace=True, rmtree_fails=False,
+                 inventory=None):
         """Every external effect replaced, EXCEPT the verb's own logic.
 
         rmtree really removes paths inside the test's temp dir and
@@ -98,6 +99,8 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
 
         def fake_db_root(args, **kw):
             if args and args[0] == "-N":
+                if inventory is not None:
+                    return inventory
                 sql = args[-1]
                 for name, tables in schemas.items():
                     if "'{0}'".format(name) in sql:
@@ -128,15 +131,23 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
         ]
 
     def _destroy(self, schemas, argv=("--confirm", "clinic-1"),
-                 workspace=True, rmtree_fails=False):
-        stack, patches = self._patched(schemas, workspace, rmtree_fails)
+                 workspace=True, rmtree_fails=False, inventory=None):
+        stack, patches = self._patched(schemas, workspace, rmtree_fails,
+                                       inventory)
         out, err = io.StringIO(), io.StringIO()
         with stack:
             for p in patches:
                 stack.enter_context(p)
             with contextlib.redirect_stdout(out), \
                     contextlib.redirect_stderr(err):
-                code = dbops.cmd_destroy_data(list(argv))
+                try:
+                    code = dbops.cmd_destroy_data(list(argv))
+                except SystemExit:
+                    # die() aborts by exception, so the streams the
+                    # refusal wrote would be lost to the caller; they are
+                    # what the refusal tests read.
+                    self.out, self.err = out.getvalue(), err.getvalue()
+                    raise
         return code, out.getvalue(), err.getvalue()
 
     def test_both_o19_schemas_are_dropped_with_the_emr_schema(self):
@@ -203,6 +214,48 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
             self._destroy({"o19_archive": 3}, rmtree_fails=True)
         self.assertEqual(caught.exception.code, 1)
         self.assertTrue(os.path.isdir(self.workspace))
+
+    def test_a_failed_inventory_refuses_before_anything_is_destroyed(self):
+        """"absent" and "could not tell" must not be the same answer.
+
+        The reachability gate runs before the drop, but the inventory
+        queries run after it and can fail on their own (a server that
+        goes away between the two, a denied information_schema read). A
+        failure there used to be swallowed per-schema, so a confirmed
+        run dropped the EMR schema, skipped the DROP for an `o19_import`
+        that was really there -- the clinic's whole source database --
+        and printed "done." with exit 0."""
+        with self.assertRaises(SystemExit) as caught:
+            self._destroy({"o19_import": 412},
+                          inventory=_Cp(1, "", "ERROR 2002 (HY000): Can't "
+                                        "connect to local server"))
+        self.assertEqual(caught.exception.code, 1)
+        self.assertIn("refusing to start a destruction", self.err)
+        self.assertIn("ERROR 2002", self.err)
+        # nothing stopped, nothing dropped, the workspace still standing
+        self.assertEqual(self.commands, [])
+        self.assertEqual(self.dropped, [])
+        self.assertTrue(os.path.isdir(self.workspace))
+
+    def test_an_inventory_that_answers_nothing_is_not_an_absent_schema(self):
+        """A successful COUNT(*) always prints a number, so silence is a
+        fault -- and a fault must not read as zero tables."""
+        with self.assertRaises(SystemExit) as caught:
+            self._destroy({"o19_import": 412}, inventory=_Cp(0, ""))
+        self.assertEqual(caught.exception.code, 1)
+        self.assertIn("answered nothing", self.err)
+        self.assertEqual(self.dropped, [])
+
+    def test_the_refusal_says_the_estate_could_not_be_read(self):
+        """The pre-confirmation refusal must still print without
+        MariaDB, but it may not imply there is no import to lose."""
+        code, out, err = self._destroy(
+            {"o19_import": 412}, argv=("--confirm", "wrong-host"),
+            inventory=_Cp(1, "", "ERROR 2002 (HY000)"))
+        self.assertEqual(code, 2)
+        self.assertIn("could NOT be asked", err)
+        self.assertIn("will be destroyed too", err)
+        self.assertEqual(self.dropped, [])
 
     def test_a_host_that_never_imported_says_nothing_about_o19(self):
         code, out, err = self._destroy({}, workspace=False)
@@ -1475,6 +1528,45 @@ class TestStagingRestore(unittest.TestCase):
         # `COLLATE x` in a column definition, no `=`
         self.assertIsNotNone(self._collations(
             [b"  `a` varchar(10) COLLATE utf8mb4_0900_ai_ci,\n"]))
+
+    def test_a_collation_named_in_clinic_data_is_not_refused(self):
+        """The scan reads DDL, and a dump's data lines are not DDL.
+
+        OSCAR stores saved SQL report templates, eform HTML and free
+        text in ordinary columns, so `COLLATE utf8mb4_0900_ai_ci` can
+        appear inside an INSERT value. Matched there, the import refuses
+        a perfectly good dump — mid-cutover, with no flag that clears
+        it and nothing wrong to fix."""
+        self.assertIsNone(self._collations([
+            b"INSERT INTO `reportTemplates` VALUES (1,'SELECT x FROM y "
+            b"COLLATE utf8mb4_0900_ai_ci');\n"]))
+        # and the same name in real DDL still refuses
+        self.assertIsNotNone(self._collations([
+            b"INSERT INTO `t` VALUES ('COLLATE utf8mb4_0900_ai_ci');\n",
+            b"CREATE TABLE `u` (a int) COLLATE=utf8mb4_0900_ai_ci;\n"]))
+
+    def test_a_data_line_spanning_chunks_stays_data(self):
+        # an extended INSERT runs to megabytes: the decision is made on
+        # the first bytes of the line and must hold to its newline,
+        # without buffering the line to find out
+        self.assertIsNone(self._collations([
+            b"INSERT INTO `casemgmt_note` VALUES (1,'note ",
+            b"text COLLATE utf8mb4_0900_ai_ci more text');\n",
+            b"INSERT INTO `t` VALUES (2);\n"]))
+        # the line ENDED, so the next line is read normally again
+        self.assertIsNotNone(self._collations([
+            b"INSERT INTO `casemgmt_note` VALUES (1,'note ",
+            b"text');\nCREATE TABLE `u` (a int) ",
+            b"COLLATE=utf8mb4_0900_ai_ci;\n"]))
+
+    def test_the_head_scan_skips_data_lines_too(self):
+        # the pre-restore refusal reads the same shapes as the stream
+        self.assertEqual(o19import.head_collations(
+            b"INSERT INTO `t` VALUES ('COLLATE utf8mb4_0900_ai_ci');\n"),
+            [])
+        self.assertEqual(o19import.head_collations(
+            b"CREATE TABLE `t` (a int) COLLATE=utf8mb4_0900_ai_ci;\n"),
+            ["utf8mb4_0900_ai_ci"])
 
     def test_an_empty_available_set_never_refuses(self):
         # the tests' fakes and any caller that could not read SHOW

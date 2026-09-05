@@ -216,6 +216,25 @@ class TestVerdicts(unittest.TestCase):
         self.assertIsNone(f.get("accept"))
         self.assertEqual(report["verdict"], "no-go")
 
+    def test_a_view_column_is_not_an_identifier_the_import_will_meet(self):
+        """information_schema.COLUMNS spans views; the import does not.
+
+        `live_names` is BASE TABLE only, the documented dump command
+        leaves views out (--ignore-table, because their DEFINER clause
+        aborts the staging restore), and the ETL introspects base tables
+        only. A view's odd column name raised the identifier blocker --
+        a no-go with no --accept and nothing to rename that would help,
+        on a schema the import handles fine."""
+        db = FakeDb(base_tables(),
+                    columns={"v_billing": ["total-amount"],
+                             "demographic": ["demographic_no"]},
+                    rows={"information_schema.VIEWS": [["v_billing"]]})
+        report = pf.run_checks(db, properties=clean_props())
+        ids = {f["id"] for f in report["findings"]}
+        self.assertNotIn("identifier-class", ids)
+        # the view itself is still the blocker it always was
+        self.assertIn(pf.VIEWS_FINDING, ids)
+
     def test_an_unreadable_column_listing_is_a_hard_no_go(self):
         # a check that could not run is never "no odd columns"
         class NoColumns(FakeDb):
@@ -1080,6 +1099,29 @@ class TestAViewStopsTheRestoreBeforeTheCutover(unittest.TestCase):
         self.assertIn("--ignore-table=<db>.v_a", line[0])
         self.assertIn("--ignore-table=<db>.v_b", line[0])
         self.assertIn("<db> | gzip > o19.sql.gz", line[0])
+
+    def test_a_hostile_view_name_cannot_break_out_of_the_recipe(self):
+        """The recipe is copied into a shell by an operator.
+
+        A view name is an arbitrary MySQL identifier read off the
+        clinic's own database: backquoted, MySQL accepts a space, a
+        quote, a `$` or a `;`. Emitted raw, `v;rm -rf /` was a second
+        command in the line the operator pastes. Every flag must survive
+        the shell as ONE argument."""
+        import shlex
+        nasty = "v_a;rm -rf /"
+        text = pf.render_text(self.report([nasty, "v ' b", "v_ok"]))
+        line = [ln for ln in text.splitlines()
+                if ln.startswith("  mysqldump --single-transaction")][0]
+        argv = shlex.split(line.strip())
+        for name in (nasty, "v ' b", "v_ok"):
+            self.assertIn("--ignore-table=<db>.{0}".format(name), argv)
+        # nothing after the pipe but the documented gzip redirect: the
+        # `;` never became a command separator
+        self.assertNotIn("rm", argv)
+        # and the same for the finding's own remedy line
+        detail = self.finding(self.report([nasty]))["detail"]
+        self.assertIn("'--ignore-table=<db>.v_a;rm -rf /'", detail)
 
     def test_a_schema_with_no_views_says_nothing_and_keeps_the_recipe(self):
         report = self.report([])

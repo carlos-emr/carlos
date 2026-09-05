@@ -243,6 +243,9 @@ else
   printf 'x\n' > "$d/state/o19-import/report.txt"
   STATE="$d/state" sh -c "set -e
 $SHRED_BLOCK" >/dev/null 2>&1 || true
+  [ ! -e "$d/state/o19-import/o19-derived-carlos.properties" ]
+  verdict $? "purge shreds the derived properties fragment" \
+    "the derived fragment survived purge (the clinic's carried secrets, in clear)"
   [ ! -e "$d/state/o19-import/bundle/oscar.properties" ]
   verdict $? "purge shreds the clinic's oscar.properties in the bundle" \
     "bundle/oscar.properties survived purge (the derived fragment's own source)"
