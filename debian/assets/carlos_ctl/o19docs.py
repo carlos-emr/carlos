@@ -73,21 +73,32 @@ def contained(root: str, relative: str) -> bool:
 # pure helpers
 # --------------------------------------------------------------------------
 
-def detect_context_dir(member_names: List[str]) -> str:
-    """The single top-level directory of the documents tar; anything else
-    is a hard error (two contexts or loose files means the tar was not
-    made per the documented command)."""
+def detect_context_dir(entries: List[Tuple[str, str]]) -> str:
+    """The single top-level directory of the documents tar, from
+    `(type_letter, member_name)` pairs as `o19bundle.read_tar_entries`
+    returns them; anything else is a hard error (two contexts or loose
+    files means the tar was not made per the documented command).
+
+    The type letter is what tells the context directory's OWN entry from
+    a loose file. Python's `tarfile` strips the trailing slash from a
+    directory member, so the entry `tar -C /var/lib/OscarDocument -czf …
+    oscar` writes for the context arrives as the bare name `oscar` --
+    indistinguishable by name from a stray top-level file. Classifying
+    by name alone refused every tar built with the documented command
+    (P5 died after P0-P4 had already mutated the target)."""
     tops = set()
     loose = []
-    for name in member_names:
+    for kind, name in entries:
         # only a literal "./" prefix is cosmetic; anything else (".." or
         # an absolute name) must surface as a bad context name below
         if name.startswith("./"):
             name = name[2:]
-        if not name:
+        if not name or name == ".":
+            # the archive root itself (`tar -C dir -czf x .`): not a
+            # member, creates nothing
             continue
-        head = name.split("/", 1)[0]
-        if "/" in name or name.endswith("/"):
+        head, _slash, rest = name.partition("/")
+        if rest or kind == o19bundle.TAR_TYPE_DIR:
             tops.add(head)
         else:
             loose.append(name)
@@ -1089,10 +1100,12 @@ def run_docs(ctx) -> None:
         try:
             # plain files + directories only, relative traversal-free
             # names: the tree is extracted as root
-            names = o19bundle.validate_tar_members(
-                [(kind, name) for kind, name, _ in entries],
-                allow_dirs=True)
-            old_ctx = detect_context_dir(names)
+            typed = [(kind, name) for kind, name, _ in entries]
+            o19bundle.validate_tar_members(typed, allow_dirs=True)
+            # the TYPED entries, not the validated names: a directory
+            # member has no trailing slash once tarfile has read it, so
+            # the type letter is the only thing that says it is one
+            old_ctx = detect_context_dir(typed)
         except ValueError as exc:
             die(str(exc))
 

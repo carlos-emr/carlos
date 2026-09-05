@@ -96,14 +96,24 @@ class FakeDb(object):
 
 def make_tar(path, files, ctx="oscar"):
     """A documents tar shaped the way the documented export command makes
-    one: a single top-level context directory holding the tree."""
-    with tarfile.open(path, "w:gz") as tf:
+    one: a single top-level context directory holding the tree.
+
+    Built from a real directory so the archive carries DIRECTORY entries
+    exactly as `tar -C … -czf … <ctx>` writes them (`oscar`, no trailing
+    slash once read back). The fixture used to add file members only,
+    and so never produced the entry that made P5 refuse every real
+    tar."""
+    work = tempfile.mkdtemp(prefix="o19docs-maketar-")
+    try:
         for name, body in files.items():
-            member = os.path.join(ctx, name)
-            data = body.encode("utf-8")
-            info = tarfile.TarInfo(member)
-            info.size = len(data)
-            tf.addfile(info, io.BytesIO(data))
+            full = os.path.join(work, ctx, name)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "wb") as fh:
+                fh.write(body.encode("utf-8"))
+        with tarfile.open(path, "w:gz") as tf:
+            tf.add(os.path.join(work, ctx), arcname=ctx)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
     return path
 
 

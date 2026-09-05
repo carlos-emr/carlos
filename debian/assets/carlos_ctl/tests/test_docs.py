@@ -13,10 +13,11 @@ import csv
 import io
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 
-from carlos_ctl import o19docs
+from carlos_ctl import o19bundle, o19docs
 
 
 def _read_csv(path):
@@ -41,24 +42,65 @@ class TestDetectContextDir(unittest.TestCase):
     """Finding the OSCAR context directory inside the documents tar.
 
     Two candidates or none is a refusal: the tree is merged into the
-    live document root, and merging the wrong root is not undoable."""
+    live document root, and merging the wrong root is not undoable.
+
+    The entries are `(type_letter, name)` pairs in the shape
+    `o19bundle.read_tar_entries` produces: a directory member carries NO
+    trailing slash (tarfile strips it). The fixtures used to hand-write
+    `oscar/`-style names -- the `tar -tv` rendering, which the real
+    reader never returns -- and so never saw the shape that made
+    detection refuse every tar built with the documented command."""
     def test_single_context_is_detected(self):
-        names = ["oscar_mcmaster/", "oscar_mcmaster/document/",
-                 "oscar_mcmaster/document/a.pdf",
-                 "oscar_mcmaster/eform/images/logo.png"]
-        self.assertEqual(o19docs.detect_context_dir(names),
+        entries = [("d", "oscar_mcmaster"), ("d", "oscar_mcmaster/document"),
+                   ("-", "oscar_mcmaster/document/a.pdf"),
+                   ("-", "oscar_mcmaster/eform/images/logo.png")]
+        self.assertEqual(o19docs.detect_context_dir(entries),
                          "oscar_mcmaster")
 
     def test_two_contexts_are_refused(self):
         with self.assertRaises(ValueError) as cm:
-            o19docs.detect_context_dir(["a/", "a/x.pdf", "b/", "b/y.pdf"])
+            o19docs.detect_context_dir([("d", "a"), ("-", "a/x.pdf"),
+                                        ("d", "b"), ("-", "b/y.pdf")])
         self.assertIn("exactly ONE", str(cm.exception))
 
     def test_loose_files_are_refused(self):
         with self.assertRaises(ValueError) as cm:
-            o19docs.detect_context_dir(["oscar/", "oscar/a.pdf",
-                                        "stray.pdf"])
+            o19docs.detect_context_dir([("d", "oscar"), ("-", "oscar/a.pdf"),
+                                        ("-", "stray.pdf")])
         self.assertIn("loose", str(cm.exception))
+        # the context directory's own entry is not what is refused
+        self.assertNotIn("'oscar'", str(cm.exception))
+
+    def test_a_tar_built_by_the_documented_command_is_accepted(self):
+        # regression: `tar -C /var/lib/OscarDocument -czf … oscar` writes
+        # a directory entry for the context, which tarfile reads back as
+        # the bare name `oscar`; classified by name alone it was a loose
+        # file, and P5 refused every real documents tar after P0-P4 had
+        # already mutated the target
+        root = tempfile.mkdtemp(prefix="o19docs-realtar-")
+        self.addCleanup(shutil.rmtree, root)
+        src = os.path.join(root, "src")
+        os.makedirs(os.path.join(src, "oscar", "document"))
+        with open(os.path.join(src, "oscar", "document", "a.pdf"),
+                  "w") as fh:
+            fh.write("pdf")
+        tar_path = os.path.join(root, "docs.tar.gz")
+        self.assertEqual(subprocess.call(
+            ["tar", "-C", src, "-czf", tar_path, "oscar"]), 0)
+        # the whole real chain P5 runs, not a hand-written listing
+        entries = o19bundle.read_tar_entries(tar_path, True)
+        self.assertIn(("d", "oscar", 0), entries)      # no trailing slash
+        typed = [(k, n) for k, n, _ in entries]
+        o19bundle.validate_tar_members(typed, allow_dirs=True)
+        self.assertEqual(o19docs.detect_context_dir(typed), "oscar")
+
+    def test_the_archive_root_entry_of_a_dot_built_tar_is_not_a_context(
+            self):
+        # `tar -C /var/lib/OscarDocument -czf … .` writes the root as `.`
+        # and every member as ./name: the root is not a loose file and
+        # not a context; the one directory under it is
+        entries = [("d", "."), ("d", "./oscar"), ("-", "./oscar/a.pdf")]
+        self.assertEqual(o19docs.detect_context_dir(entries), "oscar")
 
 
 class TestHrmRewrite(unittest.TestCase):
@@ -189,7 +231,8 @@ class TestHrmRewrite(unittest.TestCase):
     def test_context_with_sql_metacharacters_is_refused(self):
         for bad in ("x'; DROP TABLE HRMDocument; --", "a b", "../etc", ""):
             with self.assertRaises(ValueError):
-                o19docs.detect_context_dir([bad + "/", bad + "/document/"])
+                o19docs.detect_context_dir([("d", bad),
+                                            ("d", bad + "/document")])
 
     def test_hrm_files_are_classified_inside_document_dir(self):
         doc_dir = tempfile.mkdtemp(prefix="o19docs-hrm-")
