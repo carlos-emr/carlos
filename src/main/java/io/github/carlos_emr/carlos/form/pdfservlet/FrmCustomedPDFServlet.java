@@ -935,10 +935,20 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /**
-     * The city/province/postal line exactly as {@code rx/Preview2.jsp} composes it: ", " between a
-     * city and a province when both are present, a single space when only the province is, and
-     * nothing between when only the city is. Reproduced rather than simplified so that binding the
-     * field does not visibly change a legitimate fax.
+     * The city/province/postal line exactly as {@code rx/Preview2.jsp} composes it, separator
+     * chosen by which of the two parts are present:
+     *
+     * <ul>
+     *   <li>both city and province: {@code ", "} — {@code "Hamilton, ON L8S 4L8"};</li>
+     *   <li>province only: nothing, so the line starts at the province — {@code "ON L8S 4L8"};</li>
+     *   <li>city only (or neither): a single space, which the empty province leaves as a double
+     *       space before the postal code — {@code "Hamilton  L8S 4L8"}.</li>
+     * </ul>
+     *
+     * <p>That last case looks like a typo and is not: it is what the page emits today, and the
+     * point of reproducing the rule rather than tidying it is that binding this field must not
+     * visibly change a legitimate fax. Fix it in {@code Preview2.jsp} and here together, or not at
+     * all.</p>
      */
     static String formatCityPostal(String city, String province, String postal) {
         int check = (city.trim().isEmpty() ? 0 : 1) | (province.trim().isEmpty() ? 0 : 2);
@@ -1122,7 +1132,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // newlines and has no sentinel at all, so under the old "s.length() == 1" test a
             // genuine one-character prescription line -- a standalone dose such as "1" -- was
             // treated as a block break and silently dropped from the faxed script.
-            if (s.equals("") || s.equals(newline) || s.equals("\r")) {
+            //
+            // The former "s.equals(newline)" branch is gone with it: split(newline) never yields a
+            // segment equal to its own delimiter, so it was unreachable and only made the separator
+            // contract read as though a literal newline token could arrive here.
+            if (s.isEmpty() || s.equals("\r")) {
                 listRx.add(listElem);
                 listElem = "";
             } else {

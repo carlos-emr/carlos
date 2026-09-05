@@ -419,15 +419,29 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
-                // Keep the promise so onPrint2 can await it before faxing. The catch keeps a failed
-                // save from leaving a permanently rejected promise that would block every later fax;
-                // a fax that then goes out carries the previously stored note, which is the same
-                // outcome as before this call was made awaitable.
-                pendingNotesSave = fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
-                    credentials: 'same-origin',
-                    body: params
+                // CHAIN onto the previous save, never replace it. Two edits in quick succession
+                // (type, blur, type, blur) would otherwise leave pendingNotesSave holding only the
+                // second request: if that one resolved first the fax would submit while the first
+                // was still in flight, and the first committing afterwards would overwrite the row
+                // with the older note -- the same stale-note fax this is meant to prevent, just
+                // harder to see. Chaining serializes the writes AND makes the fax await all of them.
+                //
+                // A non-2xx is a failed save: fetch() only rejects on network errors, so a CSRF
+                // rejection or a 500 would otherwise resolve and let the fax race ahead silently.
+                // The trailing catch keeps the chain usable -- an unrecovered rejection would block
+                // every later fax on this page -- and a fax that proceeds after one carries the
+                // previously stored note, the same outcome as before this was made awaitable.
+                pendingNotesSave = pendingNotesSave.then(function () {
+                    return fetch(url, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
+                        credentials: 'same-origin',
+                        body: params
+                    }).then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('ViewAddRxComment returned HTTP ' + response.status);
+                        }
+                    });
                 }).catch(function (e) {
                     console.warn('Additional notes save failed; faxing the stored note', e);
                 });
