@@ -85,6 +85,18 @@ DIGESTS_SNAPSHOT = "o19-digests.json"
 #: pointer; the keys themselves never leave this file.
 CONTENT_DETAILS = "content-details.txt"
 
+#: P7's verification problems in full, at 0600. The report and the
+#: running log show the first `REPORT_PROBLEM_LINES` -- enough to see
+#: the shape of a failure without turning a shareable document into a
+#: table dump -- and point here for the rest. Without this file the
+#: remainder existed in no artifact at all: re-running P7 prints only
+#: the count, so 260 of 300 problem lines were simply unrecoverable.
+VERIFY_PROBLEMS = "verify-problems.txt"
+
+#: How many problem lines the report body and report.txt carry before
+#: they say how many more there are.
+REPORT_PROBLEM_LINES = 40
+
 #: Marks a content mismatch the operator signed off on. Its own
 #: section in the report, because a reviewer must see what was
 #: waved through before go-live -- not a line among the passes.
@@ -2134,6 +2146,18 @@ def split_parity_lines(parity_ok: Sequence[str]
     return passed, unchecked, acknowledged
 
 
+def truncated_problems_note(total: int, path: Optional[str]) -> str:
+    """The line that keeps a capped failure list honest.
+
+    Both truncation sites ended the list at 40 with no marker, under a
+    title carrying the TRUE count -- so the report read as "there were
+    exactly these" rather than "these and more", against a tool that
+    marks every other capped list (`cleanup_data_refusal`, the P0
+    pristine sweep)."""
+    return "... and {0} more (full list in {1})".format(
+        total - REPORT_PROBLEM_LINES, path or VERIFY_PROBLEMS)
+
+
 def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
                   problems: Sequence[str], verify_lines: Sequence[str],
                   advisories: Sequence[str], finished: str,
@@ -2183,7 +2207,10 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
                  + _ledger_lines(progress, "unknown")
                  + _ledger_lines(progress, "archived_cols"))
     if problems:
-        body = list(problems)[:40]
+        body = list(problems)[:REPORT_PROBLEM_LINES]
+        if len(problems) > REPORT_PROBLEM_LINES:
+            body.append(truncated_problems_note(
+                len(problems), ctx.get("problem_details")))
         if ctx.get("content_details"):
             body.append(CONTENT_DETAILS_NOTE.format(
                 ctx["content_details"]))
@@ -2437,9 +2464,23 @@ def run_p7(ctx) -> None:
     ctx["state"]["phases"]["verify"]["mismatched"] = mismatched
     save_state(ctx["state_dir"], ctx["state"])
 
+    # the full list goes to a 0600 file so the ones the report and the
+    # log cannot fit exist somewhere: re-running P7 prints only the
+    # count, so they used to be recoverable from no artifact at all.
+    # Written on EVERY pass, "clean" when there is nothing to itemize,
+    # for the same reason content-details.txt is: a failed attempt's
+    # list must not survive beside the clean resume that followed it.
+    problems_path = os.path.join(ctx["state_dir"], VERIFY_PROBLEMS)
+    write_private(problems_path,
+                  "\n".join(problems) + "\n" if problems else "clean\n")
+    ctx.pop("problem_details", None)
+    shown = list(problems[:REPORT_PROBLEM_LINES])
+    if len(problems) > REPORT_PROBLEM_LINES:
+        ctx["problem_details"] = problems_path
+        shown.append(truncated_problems_note(len(problems), problems_path))
     report_append(ctx["state_dir"], "P7 verify",
                   "\n".join(lines)
-                  + ("\nFAILURES:\n  " + "\n  ".join(problems[:40])
+                  + ("\nFAILURES:\n  " + "\n  ".join(shown)
                      if problems else "\nall checks passed"))
     # the operator's validation report: one document, built from
     # structured data, carrying the per-table counts the running log
@@ -2661,7 +2702,7 @@ NEXT_STEPS = (
 RUN_FILES = ("report.txt", "import-report.txt", "import-report.json",
              "roles-details.txt", "privilege-diff.txt",
              "verify-details.txt", "documents-details.txt",
-             CONTENT_DETAILS, "preflight.txt",
+             CONTENT_DETAILS, VERIFY_PROBLEMS, "preflight.txt",
              "preflight.json", "etl-progress.json",
              "content-transfer.json", "o19-digests.json",
              "o19-derived-carlos.properties",

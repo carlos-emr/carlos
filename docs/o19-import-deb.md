@@ -457,7 +457,10 @@ gate has no override.
    and `roles-details.txt`. When a value check finds rows that disagree, the
    report gives the count and `content-details.txt` (root-only) gives their
    primary keys — a key joins straight back to a patient, an appointment or
-   a bill, so it stays out of the shareable document. Confirm each clinic-custom role's privileges in
+   a bill, so it stays out of the shareable document. A failed verification
+   lists its first 40 problems in the report and in `report.txt`, then says
+   how many more there are; the full list is in `verify-problems.txt`
+   (root-only) beside them. Confirm each clinic-custom role's privileges in
    Administration > Security (the report names the template role used),
    and deal with expired or role-less accounts before go-live.
 4. `carlos-ctl import-o19 --cleanup` — drops the staging schema and the

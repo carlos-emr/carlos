@@ -2314,6 +2314,117 @@ class TestTheImportReport(unittest.TestCase):
         self.assertIn("== P7 verify ==", text)
 
 
+class TestTheFullProblemListSurvives(unittest.TestCase):
+
+    """Verification problems were capped at 40 in the report AND in
+    report.txt, with no marker and no full listing anywhere.
+
+    The title carried the true count, so 40 lines under "300
+    verification problem(s)" read as "there were exactly these". Nothing
+    else recorded the rest: `die` prints only the count, re-running P7
+    prints only the count, and the JSON twin is built from the same
+    truncated body -- so 260 table names existed in no artifact at all.
+    """
+
+    PROBLEMS = ["table_{0:03d}: staging 5 -> target 0".format(i)
+                for i in range(300)]
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19problems-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+
+    def query(self, sql, db=None):
+        if "COUNT(*)" in sql and "demographic" in sql:
+            return [["0"]]
+        return []
+
+    def ctx(self):
+        return {"state_dir": self.state_dir, "query": self.query,
+                "target_db": "carlos", "province": "on",
+                "archive_schema": o19import.ARCHIVE_SCHEMA,
+                "accepted": [], "admin_user": "brk",
+                "state": {"phases": {"stage": {
+                    "status": "done", "at": "2026-09-04T09:00:00",
+                    "dump_sha256": "abc123"}}}}
+
+    def verify(self, problems):
+        """Drive the real run_p7 to its failure, with only the parity
+        and the roles gate stubbed."""
+        from carlos_ctl import o19roles
+        ctx = self.ctx()
+        err = io.StringIO()
+        with mock.patch.object(o19import, "_row_parity",
+                               lambda c: ([], list(problems))), \
+                mock.patch.object(o19roles, "verify_role_checks",
+                                  lambda *a: ([], [], [], [])), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import.run_p7(ctx)
+        return ctx, err.getvalue()
+
+    def read(self, name):
+        with open(os.path.join(self.state_dir, name),
+                  encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_the_full_list_reaches_a_private_file(self):
+        ctx, _err = self.verify(self.PROBLEMS)
+        path = os.path.join(self.state_dir, o19import.VERIFY_PROBLEMS)
+        self.assertEqual(ctx.get("problem_details"), path)
+        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+        body = self.read(o19import.VERIFY_PROBLEMS)
+        for line in (self.PROBLEMS[0], self.PROBLEMS[40],
+                     self.PROBLEMS[299]):
+            self.assertIn(line, body)
+
+    def test_both_truncated_lists_say_how_many_more_and_where(self):
+        _ctx, _err = self.verify(self.PROBLEMS)
+        marker = "... and 260 more (full list in "
+        for name in ("report.txt", "import-report.txt",
+                     "import-report.json"):
+            text = self.read(name)
+            self.assertIn(self.PROBLEMS[39], text, name)
+            self.assertNotIn(self.PROBLEMS[40], text, name)
+            self.assertIn(marker, text, name)
+            self.assertIn(o19import.VERIFY_PROBLEMS, text, name)
+
+    def test_a_short_list_is_complete_and_unmarked(self):
+        short = self.PROBLEMS[:7]
+        ctx, _err = self.verify(short)
+        self.assertIsNone(ctx.get("problem_details"))
+        text = self.read("import-report.txt")
+        for line in short:
+            self.assertIn(line, text)
+        self.assertNotIn("... and", text)
+
+    def test_a_stale_list_does_not_outlive_the_pass_that_made_it(self):
+        """The file is rewritten on every pass, like content-details.txt:
+        a failed attempt's 300 lines must not sit beside the clean report
+        of the resume that followed it."""
+        self.verify(self.PROBLEMS)
+        ctx = self.ctx()
+        from carlos_ctl import o19roles
+        with mock.patch.object(o19import, "_row_parity",
+                               lambda c: (["ok"], [])), \
+                mock.patch.object(o19roles, "verify_role_checks",
+                                  lambda *a: ([], [], [], [])), \
+                contextlib.redirect_stdout(io.StringIO()):
+            o19import.run_p7(ctx)
+        self.assertEqual(self.read(o19import.VERIFY_PROBLEMS), "clean\n")
+
+    def test_the_report_marker_is_derivable_without_the_file(self):
+        # import_report stays buildable from its arguments alone; with
+        # no pointer recorded it names the file by its conventional name
+        report = o19import.import_report(
+            self.ctx(), {}, [], self.PROBLEMS, [], [],
+            "2026-09-04T10:00:00")
+        text = o19report.render_text(report)
+        self.assertIn("300 verification problem(s)", text)
+        self.assertIn("... and 260 more (full list in verify-problems.txt)",
+                      text)
+
+
 class TestArgumentRefusals(unittest.TestCase):
     """The refusals an operator meets first, before anything is staged.
 
