@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import stat
 import tempfile
 from pathlib import Path
@@ -2696,6 +2697,120 @@ class TestTheBackupPhase(unittest.TestCase):
         ctx = self.ctx(state={"phases": {"backup": {"status": "done"}}})
         self.assertIsNone(self.run_p3(ctx))
         self.assertEqual(self.units, [])
+
+
+class TestTheRollbackPointComesFirst(unittest.TestCase):
+
+    """P3 takes the pre-import snapshot; P1 is the first phase to
+    execute clinic-supplied SQL. The module docstring and
+    docs/o19-import-deb.md both state the order as "P0, P3, P1, P2,
+    P4..P7 -- the rollback snapshot exists before any clinic-supplied
+    SQL executes", and nothing pinned it: moving `run_p3` below `run_p1`
+    reads as a tidy-up (P1..P7 then run in numeric order) and left the
+    whole suite green while removing the only rollback point for the
+    phase that first touches the clinic's dump.
+
+    Structural on purpose, in the shape the suite already uses for
+    run_p1's try/finally and run_p2's check-before-mark: driving the
+    verb body far enough to observe the order behaviourally would mean
+    standing up P0's server probes, a real dump and the whole ETL."""
+
+    @staticmethod
+    def _phase_calls():
+        """The phase runners called by the import verb body, in source
+        order."""
+        src = Path(o19import.__file__).read_text(encoding="utf-8")
+        body = next(n for n in ast.walk(ast.parse(src))
+                    if isinstance(n, ast.FunctionDef)
+                    and n.name == "_cmd_import_o19")
+        calls = [(n.lineno, n.col_offset, n.func.id)
+                 for n in ast.walk(body)
+                 if isinstance(n, ast.Call)
+                 and isinstance(n.func, ast.Name)
+                 and re.match(r"^run_p\d$", n.func.id)]
+        return [name for _line, _col, name in sorted(calls)]
+
+    def test_the_backup_runs_before_the_first_clinic_sql(self):
+        order = self._phase_calls()
+        self.assertIn("run_p3", order)
+        self.assertIn("run_p1", order)
+        self.assertLess(
+            order.index("run_p3"), order.index("run_p1"),
+            "_cmd_import_o19 stages the clinic's dump before taking the "
+            "pre-import snapshot: a restore that dies half-way, or any "
+            "P1/P2 refusal, would have no rollback point behind it")
+
+    def test_the_remaining_phases_run_in_their_documented_order(self):
+        self.assertEqual(
+            self._phase_calls(),
+            ["run_p0", "run_p3", "run_p1", "run_p2", "run_p4", "run_p5",
+             "run_p6", "run_p7"])
+
+
+class TestTheRunningWebappGuard(unittest.TestCase):
+
+    """CARLOS must not run against the target while it is being written:
+    its startup listener creates program/site/membership rows that P0
+    has already swept and P7 later fails on, and a live session could
+    read a half-copied chart.
+
+    The guard deliberately reads `systemctl show -p ActiveState` rather
+    than `is-active --quiet`, because Tomcat spends tens of seconds in
+    `activating` -- exactly the window the listener writes in -- and
+    `is-active` exits non-zero for it. Nothing asserted that, and the
+    correction is one word from being tidied away."""
+
+    def setUp(self):
+        work = tempfile.mkdtemp(prefix="o19webapp-")
+        self.addCleanup(shutil.rmtree, work)
+        self.env_file = os.path.join(work, "carlos-emr.env")
+        with open(self.env_file, "w", encoding="utf-8") as fh:
+            fh.write("CARLOS_DB_NAME=carlos\n")
+        self.argv = []
+
+    def refusal(self, active_state, env_file=None):
+        def fake_run(cmd, **kw):
+            self.argv.append(list(cmd))
+            return subprocess.CompletedProcess(cmd, 0,
+                                               stdout=active_state + "\n")
+
+        with mock.patch.object(o19import, "ENV_FILE",
+                               self.env_file if env_file is None
+                               else env_file), \
+                mock.patch.object(o19import, "run", fake_run):
+            return o19import.webapp_running_refusal()
+
+    def test_a_unit_still_starting_is_refused(self):
+        """The whole point of the check: `is-active --quiet` exits 3 for
+        `activating`, so the guard would be inert for the window in
+        which the startup listener writes its rows."""
+        message = self.refusal("activating")
+        self.assertIsNotNone(message)
+        self.assertIn("activating", message)
+        self.assertIn("carlos-ctl stop", message)
+
+    def test_every_live_state_is_refused(self):
+        for state in ("active", "activating", "reloading", "deactivating"):
+            self.assertIsNotNone(self.refusal(state), state)
+
+    def test_a_stopped_unit_lets_the_import_through(self):
+        for state in ("inactive", "failed"):
+            self.assertIsNone(self.refusal(state), state)
+
+    def test_the_state_is_read_from_systemctl_show_not_is_active(self):
+        self.refusal("inactive")
+        self.assertEqual(
+            self.argv[-1],
+            ["systemctl", "show", "-p", "ActiveState", "--value",
+             "carlos-emr"],
+            "the guard no longer asks for ActiveState: `is-active` "
+            "reports a starting Tomcat as not-active, which is the one "
+            "state this check exists for")
+
+    def test_a_development_database_has_no_service_unit_to_check(self):
+        missing = os.path.join(os.path.dirname(self.env_file), "gone.env")
+        self.assertIsNone(self.refusal("active", env_file=missing))
+        self.assertEqual(self.argv, [])
 
 
 class TestProcessGrantState(unittest.TestCase):
