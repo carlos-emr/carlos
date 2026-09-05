@@ -1889,13 +1889,100 @@ def _ledger_lines(progress: Dict, key: str) -> List[str]:
     return [ln for ln in value if isinstance(ln, str)]
 
 
+def load_content_transfer(state_dir: str) -> Optional[Dict]:
+    """The P2 content-transfer verdict this run recorded, or None.
+
+    Read back from `content-transfer.json` rather than re-derived: by P7
+    the staging schema has been read by the ETL for hours, and the
+    question the report answers is what P2 found BEFORE the first write.
+    Unreadable reads as absent -- the report then says the check has no
+    record, which is the truth of the matter."""
+    path = os.path.join(state_dir, "content-transfer.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            result = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return result if isinstance(result, dict) else None
+
+
+def phase_report_rows(state: Dict, content: Optional[Dict]
+                      ) -> Tuple[List[str], List[str], List[Dict]]:
+    """What the phases other than the ETL contributed, as (arrived,
+    unchecked, findings) rows for `import_report`.
+
+    Three phases make claims the row-count verification cannot: P2 says
+    whether the bytes that reached staging are the bytes the clinic
+    measured; P5 says whether the document tree is in place and
+    reconciled; P6 says what the properties fragment awaiting review
+    holds. A report that itemised every table and said nothing about any
+    of these was the gap the review found in requirement A. Each row goes
+    where its answer belongs: a verified transfer or a restored tree is
+    something that ARRIVED; a check nobody could run, or a phase this
+    run's state does not record as done, is NOT CHECKED; a disagreement
+    the operator signed off on is a finding a reviewer must see."""
+    arrived, unchecked, findings = [], [], []
+    phases = state.get("phases", {}) if state else {}
+
+    if content is None:
+        unchecked.append("content transfer (P2): no record of the check "
+                         "in this run's state directory")
+    else:
+        summary = content.get("summary") or "no summary recorded"
+        if content.get("status") == "compared" and content.get("failed"):
+            # P2 stops on a disagreement unless --accept content-transfer
+            # was given, so one that reached P7 was signed off; the
+            # reviewer sees it under the accepted sign-off, not as a pass
+            lines = [summary] + [
+                "{0}: {1}".format(t, why)
+                for t, why in (content.get("failed") or [])[:20]]
+            findings.append(o19report.finding(
+                "advisory", "content transfer disagreement accepted with "
+                            "--accept content-transfer", lines))
+        elif content.get("status") != "compared" \
+                or content.get("unverified"):
+            unchecked.append("content transfer (P2): {0}".format(summary))
+        else:
+            arrived.append("content transfer (P2): {0}".format(summary))
+
+    docs = phases.get("documents") or {}
+    if docs.get("status") == "done" and docs.get("skipped"):
+        unchecked.append(
+            "documents (P5): SKIPPED ({0} acknowledged) — document rows "
+            "reference files that are not there".format(docs["skipped"]))
+    elif docs.get("status") == "done":
+        arrived.append(
+            "documents (P5): tree restored from tar {0} and reconciled "
+            "clean".format(str(docs.get("tar_sha256") or "?")[:12]))
+    else:
+        unchecked.append("documents (P5): not recorded as completed in "
+                         "this run's state")
+
+    props = phases.get("props") or {}
+    if props.get("status") == "done":
+        findings.append(o19report.finding(
+            "advisory", "properties fragment awaits operator review",
+            ["{0}: {1} key(s) carried, {2} unknown key(s) needing "
+             "classification — nothing is applied until the fragment is "
+             "reviewed and appended by hand".format(
+                 props.get("fragment") or "o19-derived-carlos.properties",
+                 props.get("carried", "?"), props.get("unknown", "?"))]))
+    else:
+        unchecked.append("properties (P6): not recorded as completed in "
+                         "this run's state")
+    return arrived, unchecked, findings
+
+
 def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
                   problems: Sequence[str], verify_lines: Sequence[str],
-                  advisories: Sequence[str], finished: str) -> Dict:
+                  advisories: Sequence[str], finished: str,
+                  content: Optional[Dict] = None) -> Dict:
     """Assemble the operator's validation report.
 
-    Pure: every fact comes from the caller, the run state or the ETL
-    ledger, so the whole document can be built and asserted in a test.
+    Pure: every fact comes from the caller, the run state, the ETL
+    ledger or `content` (the P2 verdict `write_import_report` reads back
+    from `content-transfer.json`), so the whole document can be built
+    and asserted in a test.
 
     The three questions it answers, in this order, are the ones a
     reviewer actually has: what arrived, what did not arrive and where it
@@ -1917,7 +2004,10 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
     # `parity_ok` is one list of three different answers, and a reviewer
     # who reads them as one has been misled: a table nobody could check
     # and a mismatch somebody signed off on are not "what arrived".
-    arrived, unchecked, acknowledged = [], [], []
+    # the phases before the ETL and after it speak first: whether the
+    # bytes arrived at all (P2) comes before which rows did
+    arrived, unchecked, findings = phase_report_rows(state, content)
+    acknowledged: List[str] = []
     for line in parity_ok:
         if line.startswith(o19etl.UNCHECKED_PREFIX):
             unchecked.append(line[len(o19etl.UNCHECKED_PREFIX):])
@@ -1936,7 +2026,6 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
                  + _ledger_lines(progress, "drop")
                  + _ledger_lines(progress, "unknown")
                  + _ledger_lines(progress, "archived_cols"))
-    findings = []
     if problems:
         body = list(problems)[:40]
         if ctx.get("content_details"):
@@ -1996,7 +2085,8 @@ def write_import_report(ctx, parity_ok: Sequence[str],
     twin, both 0600 like every other run artifact."""
     report = import_report(
         ctx, o19etl.load_progress(ctx["state_dir"]), parity_ok, problems,
-        verify_lines, advisories, time.strftime("%Y-%m-%dT%H:%M:%S"))
+        verify_lines, advisories, time.strftime("%Y-%m-%dT%H:%M:%S"),
+        content=load_content_transfer(ctx["state_dir"]))
     write_private(os.path.join(ctx["state_dir"], "import-report.txt"),
                   o19report.render_text(report))
     write_private(os.path.join(ctx["state_dir"], "import-report.json"),

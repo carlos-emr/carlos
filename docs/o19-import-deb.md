@@ -402,7 +402,10 @@ gate has no override.
    `/var/lib/carlos-emr/o19-import/import-report.txt` — the validation
    report, written at the end of verification and built for exactly this
    review. It carries a header (manifest, dump digest, target schema,
-   timestamps), a verdict line, **what arrived** (per-table row counts for
+   timestamps), a verdict line, **what arrived** (the P2 content-transfer
+   verdict — whether the bytes that reached staging are the bytes the
+   clinic measured — and the P5 document restore, then per-table row
+   counts for
    every class: copy tables to the row with the break-glass delta itemized,
    merge tables in reverse — every staging row has a target twin —,
    preserved tables counted in every home they have (three for an
@@ -412,9 +415,13 @@ gate has no override.
    rows the manifest lists in `merge_exclude` stay archive-only),
    preserved columns counted by
    non-null value), **what did not arrive and where it went instead**
-   (absent tables, reference tables CARLOS's own data won, removed-module
-   and unclassified tables, preserved columns), then findings ordered by
-   severity and the remaining operator steps.
+   (absent tables, reference tables CARLOS's own data won, merge rows
+   CARLOS's seed won, removed-module and unclassified tables, preserved
+   columns), **what was not checked, and why** (a transfer nobody could
+   measure, skipped documents, a phase the run never completed), then
+   findings ordered by severity — an accepted transfer disagreement, the
+   properties fragment awaiting review, reassigned ids, dangling foreign
+   keys — and the remaining operator steps.
    `import-report.json` is the same content machine-readable, for diffing
    two imports or feeding a checklist. `report.txt` next to it is the
    running phase log — chronological, and the place to look for what a

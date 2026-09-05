@@ -1634,11 +1634,97 @@ class TestTheImportReport(unittest.TestCase):
         "shadow": ["Contact.gone: dropped column absent from this dump"]}}
 
     def build(self, problems=(), ok=("demographic: staging 10 -> target "
-                                     "10",), **ctx_over):
+                                     "10",), content=None, **ctx_over):
         return o19import.import_report(
             self.ctx(**ctx_over), self.LEDGER, list(ok), list(problems),
             ["row parity: 1 table(s) match"], ["1 login(s) import expired"],
-            "2026-09-04T10:00:00")
+            "2026-09-04T10:00:00", content=content)
+
+    def phases(self, **more):
+        phases = {"stage": {"status": "done", "at": "2026-09-04T09:00:00",
+                            "dump_sha256": "abc123"}}
+        phases.update(more)
+        return {"phases": phases}
+
+    COMPARED = {"status": "compared", "verified": 580, "failed": [],
+                "unverified": [],
+                "summary": "580 table(s) verified against the clinic's "
+                           "digests, 0 disagreed, 0 not compared"}
+
+    def test_a_verified_content_transfer_is_something_that_arrived(self):
+        """P2's verdict is the one claim about the BYTES the row counts
+        cannot make; a report that never carried it left requirement A
+        unmet for the question a reviewer asks first."""
+        text = o19report.render_text(self.build(content=self.COMPARED))
+        head = text.split("WHAT DID NOT ARRIVE", 1)[0]
+        self.assertIn("content transfer (P2): 580 table(s) verified", head)
+
+    def test_an_accepted_transfer_disagreement_is_a_finding(self):
+        content = dict(self.COMPARED, failed=[["drugs", "row digest "
+                                               "differs"]],
+                       summary="579 verified, 1 disagreed")
+        text = o19report.render_text(self.build(content=content))
+        self.assertIn("accepted with --accept content-transfer", text)
+        self.assertIn("drugs: row digest differs", text)
+        head = text.split("FINDINGS", 1)[0]
+        self.assertNotIn("content transfer (P2)", head)
+
+    def test_a_transfer_nobody_could_check_is_filed_as_not_checked(self):
+        for content in (
+                {"status": "absent", "summary": "no clinic content digests "
+                                                "were supplied"},
+                dict(self.COMPARED, unverified=[["x", "type unknown"]],
+                     summary="579 verified, 1 not compared")):
+            text = o19report.render_text(self.build(content=content))
+            tail = text.split("WHAT WAS NOT CHECKED, AND WHY", 1)[1]
+            self.assertIn("content transfer (P2): " + content["summary"],
+                          tail)
+        # and no record at all is said, not silently passed over
+        text = o19report.render_text(self.build(content=None))
+        tail = text.split("WHAT WAS NOT CHECKED, AND WHY", 1)[1]
+        self.assertIn("content transfer (P2): no record of the check", tail)
+
+    def test_the_documents_and_properties_phases_are_reported(self):
+        state = self.phases(
+            documents={"status": "done", "tar_sha256": "deadbeefcafe0123",
+                       "restored": True},
+            props={"status": "done", "fragment":
+                   "o19-derived-carlos.properties", "carried": 14,
+                   "unknown": 2})
+        text = o19report.render_text(self.build(state=state))
+        head = text.split("WHAT DID NOT ARRIVE", 1)[0]
+        self.assertIn("documents (P5): tree restored from tar deadbeefcafe "
+                      "and reconciled clean", head)
+        self.assertIn("properties fragment awaits operator review", text)
+        self.assertIn("o19-derived-carlos.properties: 14 key(s) carried, "
+                      "2 unknown key(s)", text)
+
+    def test_skipped_documents_and_a_missing_phase_are_not_checked(self):
+        state = self.phases(documents={"status": "done",
+                                       "skipped": "no-documents"})
+        text = o19report.render_text(self.build(state=state))
+        tail = text.split("WHAT WAS NOT CHECKED, AND WHY", 1)[1]
+        self.assertIn("documents (P5): SKIPPED (no-documents acknowledged)",
+                      tail)
+        self.assertIn("properties (P6): not recorded as completed", tail)
+        # a run whose state never recorded P5 at all says so too
+        text = o19report.render_text(self.build())
+        tail = text.split("WHAT WAS NOT CHECKED, AND WHY", 1)[1]
+        self.assertIn("documents (P5): not recorded as completed", tail)
+
+    def test_the_written_report_reads_the_recorded_transfer_verdict(self):
+        """`write_import_report` is what P7 calls; the verdict must come
+        from the file P2 wrote, not from a parameter a caller forgot."""
+        with open(os.path.join(self.state_dir, "content-transfer.json"),
+                  "w") as fh:
+            json.dump(self.COMPARED, fh)
+        report = o19import.write_import_report(
+            self.ctx(), ["demographic: staging 10 -> target 10"], [],
+            [], [])
+        lines = [ln for sec in report["sections"] for ln in sec["lines"]]
+        self.assertIn("content transfer (P2): " + self.COMPARED["summary"],
+                      lines)
+        self.assertIsNone(o19import.load_content_transfer("/nonexistent"))
 
     def test_an_unchecked_table_is_not_filed_under_what_arrived(self):
         """"We could not look" is a different answer from "we looked and
@@ -1654,7 +1740,16 @@ class TestTheImportReport(unittest.TestCase):
         self.assertNotIn("security:", head)
 
     def test_a_clean_import_says_so_rather_than_omitting_the_section(self):
-        text = o19report.render_text(self.build())
+        # a clean import has its transfer verified, its documents
+        # restored and its properties fragment written; only then is
+        # there nothing to file under "not checked"
+        state = self.phases(
+            documents={"status": "done", "tar_sha256": "deadbeef",
+                       "restored": True},
+            props={"status": "done", "fragment": "f", "carried": 1,
+                   "unknown": 0})
+        text = o19report.render_text(self.build(content=self.COMPARED,
+                                                state=state))
         self.assertIn("every table in scope was checked", text)
 
     def test_an_accepted_mismatch_is_a_finding_not_a_pass(self):
