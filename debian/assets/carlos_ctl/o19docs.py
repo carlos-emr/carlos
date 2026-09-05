@@ -66,7 +66,7 @@ def contained(root: str, relative: str) -> bool:
         return False
     root_real = os.path.realpath(root)
     full = os.path.realpath(os.path.join(root, relative))
-    return full == root_real or full.startswith(root_real)
+    return full == root_real or full.startswith(root_real + os.sep)
 
 
 # --------------------------------------------------------------------------
@@ -379,7 +379,7 @@ def _same_file(src: str, dst_fd: int, name: str) -> bool:
                 digest.update(chunk)
     finally:
         os.close(fd)
-    return True
+    return _sha256(src) == digest.hexdigest()
 
 
 def _fd_dir(dst_fd: int) -> str:
