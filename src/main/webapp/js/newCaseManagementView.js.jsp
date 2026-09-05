@@ -495,12 +495,13 @@
     var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
     /*
-     * Fetches still in flight, and the id of the most recent one. Both are needed because
-     * the encounter layout renders ChartNotes.jsp twice, so two offset-0 loads overlap on
-     * every chart open. The count holds off the scroll poll until BOTH have landed — a
-     * pagination fetch racing a pending initial load inserts its notes out of order. The
-     * id makes the older, superseded load a no-op at completion, so a first request that
-     * fails or gets redirected cannot stop the poll the second render just armed.
+     * Fetches still in flight, and the id of the most recent one. Loads can overlap: a
+     * filter or save reload re-renders ChartNotes.jsp into #notCPP and starts a fresh
+     * offset-0 load while a pagination fetch may still be pending. The count holds off the
+     * scroll poll until every pending load has landed — a pagination fetch racing a pending
+     * initial load inserts its notes out of order. The id makes the older, superseded load a
+     * no-op at completion, so a request that fails or gets redirected cannot stop the poll
+     * the latest render just armed.
      */
     var notesLoadsInFlight = 0;
     var notesLoadSequence = 0;
@@ -581,10 +582,10 @@
      * ends up looking at the notes that just arrived. (notesCurrentTop records the previous
      * top note for a scroll restore that was never written; nothing reads it today.)
      *
-     * Callers are never turned away: the encounter layout renders ChartNotes.jsp twice on
-     * open (the second render replaces #encMainDiv), so both initial loads must run or the
-     * surviving container is left empty. The in-flight count only holds off the scroll
-     * poll, which would otherwise stack requests behind a pending batch.
+     * Callers are never turned away: a filter or save reload replaces #encMainDiv and issues
+     * a new initial load while an earlier one may still be pending, and the newest load must
+     * run or the surviving container is left empty. The in-flight count only holds off the
+     * scroll poll, which would otherwise stack requests behind a pending batch.
      *
      * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
      * @param {number} numToReturn - Maximum number of notes to fetch in this batch
