@@ -499,8 +499,16 @@ def not_null_coercion_count_sql(table: str, entry: dict, src_schema: str,
             continue          # copied verbatim into a column of the
         if (info.get("type") or "").lower() == "enum":
             continue          # the enum CASE already owns this column
-        expr = source_expr(entry, c, repaired, archive_schema,
-                           info.get("nullable"))
+        # archive_schema is deliberately NOT passed: this count runs
+        # BEFORE the table loop, and a merge parent's `__idmap` does not
+        # exist until its own table is processed -- built with the
+        # lookup, an fk_remap column asks for a table that is not there
+        # yet (ERROR 1146, measured against LookupListItem on a live
+        # rehearsal). Dropping the lookup is also the RIGHT measure: the
+        # question here is how many rows CARLOS's NOT NULL forced a
+        # substitution on, while a row whose id the map does not know
+        # keeps its raw value and is reported by fk_unmapped_count_sql.
+        expr = source_expr(entry, c, repaired, None, info.get("nullable"))
         out.append((c, "SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE {2} IS "
                        "NULL".format(src_schema, table, expr)))
     return out

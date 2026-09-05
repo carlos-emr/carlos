@@ -749,6 +749,22 @@ class TestNullIntoAColumnCarlosRequires(unittest.TestCase):
         self.assertEqual([c for c, _ in pairs], ["a"])
         self.assertIn("WHERE s.`a` IS NULL", pairs[0][1])
 
+    def test_the_count_never_asks_for_an_id_map(self):
+        """This count runs BEFORE the table loop, and a merge parent's
+        `__idmap` is created inside it. Built with the fk_remap lookup,
+        an `fk_remap` column asked for a table that does not exist yet —
+        measured on a live rehearsal as `ERROR 1146 ... Table
+        'o19_archive.LookupList__idmap' doesn't exist`, which aborted
+        the whole ETL."""
+        entry = {"class": "copy", "cols": ["parentId"],
+                 "fk_remap": {"parentId": "LookupList"}}
+        dst = {"parentId": col("int", nullable=False)}
+        pairs = o19etl.not_null_coercion_count_sql(
+            "t", entry, "src", dst, None, "arch")
+        self.assertEqual(len(pairs), 1)
+        self.assertNotIn("__idmap", pairs[0][1])
+        self.assertIn("WHERE s.`parentId` IS NULL", pairs[0][1])
+
     def test_the_report_line_names_what_was_stored(self):
         entry = {"class": "copy", "cols": ["a", "t"]}
         dst = {"t": {"a": col("int", nullable=False),
