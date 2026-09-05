@@ -2461,6 +2461,48 @@ def cleanup_data_refusal(started: bool,
                     "\n  ..." if len(mismatches) > len(shown) else ""))
 
 
+def cleanup_manifest_refusal(state: Dict,
+                             current_map: str) -> Optional[str]:
+    """Why the staging drop may not be gated on a parity computed now,
+    or None.
+
+    Every component of `_row_parity` iterates the INSTALLED manifest's
+    TABLES; nothing re-derives them under the manifest the run was
+    actually made with, even though the ledger records it. The packaging
+    makes that mismatch ordinary rather than exotic: the postinst
+    upgrade gate clears as soon as `verify` is done, and NEXT_STEPS puts
+    the restart, the backup and the technical review BEFORE --cleanup,
+    so an unattended upgrade in that window is expected. A table
+    reclassified between the two package versions (copy -> archive,
+    reference -> merge, a merge table that gained a column) then reads
+    as staging rows with "no verified home", and `cleanup_data_refusal`
+    refuses the drop for a difference in the MANIFEST rather than in the
+    data -- while --resume is refused in turn by
+    `manifest_change_refusal`, which used to answer "run --cleanup".
+
+    Refusing here rather than trusting the recorded verdict is the
+    fail-safe half of that choice: the drop destroys the clinic's only
+    remaining copy of those rows, and the only measurement that ever
+    covered them was made under the recorded manifest. The remedy is the
+    one `manifest_change_refusal` already names for a half-finished
+    import -- reinstall the package version that shipped the recorded
+    manifest, retire the run, then upgrade -- which is why its
+    finished-import branch no longer promises that --cleanup alone
+    works."""
+    recorded = state.get("inputs", {}).get("schema_map_version")
+    if not recorded or recorded == current_map:
+        return None
+    return ("this import ran with manifest {0}; the installed carlos-ctl "
+            "carries {1}. --cleanup drops the staging schema only after "
+            "re-counting every staging table against the home it was "
+            "copied into, and that classification comes from the "
+            "INSTALLED manifest — under {1} it would describe a "
+            "different import. Staging is the clinic's only remaining "
+            "copy of those rows, so this is not waived: reinstall the "
+            "carlos-emr package version that shipped manifest {0}, run "
+            "--cleanup, then upgrade again.".format(recorded, current_map))
+
+
 def run_cleanup(ctx) -> None:
     """Retire a finished run: drop the staging schema and its throwaway
     account, remove the extracted bundle, and suffix this run's ledgers,
@@ -2483,6 +2525,14 @@ def run_cleanup(ctx) -> None:
         "SCHEMA_NAME = '{0}'".format(STAGING_SCHEMA))
     if staging_left:
         started = etl_started(ctx["state_dir"])
+        if started:
+            # the parity below classifies under the INSTALLED manifest;
+            # a package upgrade since the run makes that a measurement
+            # of a different import, not of this one
+            refusal = cleanup_manifest_refusal(
+                state, o19map_schema.SCHEMA_MAP_VERSION)
+            if refusal:
+                die(refusal)
         _ok, bad = _row_parity(ctx) if started else ([], [])
         refusal = cleanup_data_refusal(started, bad)
         if refusal:
@@ -2736,8 +2786,12 @@ def manifest_change_refusal(state: Dict,
     under different rules than the first half. The ETL ledger refuses
     that on its own; this covers the resume whose ETL is already marked
     done and would skip P4 entirely -- and separates the finished import,
-    where there is nothing left to continue and the answer is --cleanup,
-    from the half-finished one, where it is a package downgrade."""
+    where there is nothing left to continue, from the half-finished one,
+    which has to be resumed first. Both are retired under the package
+    that made them: --cleanup re-counts the staging tables under the
+    INSTALLED manifest (see `cleanup_manifest_refusal`), so naming it as
+    the whole answer for a finished import sent the operator into a loop
+    between the two refusals."""
     recorded = state.get("inputs", {}).get("schema_map_version")
     if not recorded or recorded == current_map:
         return None
@@ -2746,8 +2800,13 @@ def manifest_change_refusal(state: Dict,
         return None
     if phase_done(state, "verify"):
         return ("this import completed under manifest {0} (the installed "
-                "carlos-ctl carries {1}): nothing is left to resume — run "
-                "--cleanup to retire it".format(recorded, current_map))
+                "carlos-ctl carries {1}): nothing is left to resume, but "
+                "--cleanup re-counts the staging tables under the "
+                "INSTALLED manifest and would describe a different "
+                "import. Retire it under the package that made it: "
+                "reinstall the carlos-emr version that shipped manifest "
+                "{0}, run --cleanup, then upgrade again."
+                .format(recorded, current_map))
     return ("this import ran with manifest {0}; the installed carlos-ctl "
             "carries {1}. A finished ETL cannot be continued under a "
             "different manifest. Lossless path: reinstall the carlos-emr "

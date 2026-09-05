@@ -714,12 +714,16 @@ clinic's sign-off.
   as an advisory; apply the scripts by hand (they address the row named
   `Rich Text Letter` with a subject starting `Rich Text Letter Generator`;
   a clinic-edited subject needs a manual edit first).
-- *this import completed under manifest X … run --cleanup* — a package
-  upgrade after a finished import; there is nothing to resume, retire the
-  run with `--cleanup`. *A finished ETL cannot be continued under a
-  different manifest* — the upgrade landed mid-run; the lossless path is to
-  reinstall the package version that shipped the recorded manifest,
-  `--resume`, `--cleanup`, then upgrade.
+- *this import completed under manifest X … retire it under the package
+  that made it* — a package upgrade after a finished import. There is
+  nothing to resume, but `--cleanup` is not a way round it either: the
+  staging drop is gated on re-counting every staging table against the home
+  it was copied into, and that classification comes from the INSTALLED
+  manifest, so under the new one it would describe a different import.
+  Reinstall the carlos-emr version that shipped manifest X, run
+  `--cleanup`, then upgrade again. *A finished ETL cannot be continued
+  under a different manifest* — the upgrade landed mid-run; the same
+  package reinstall, then `--resume`, `--cleanup`, then upgrade.
 - *the archive schema o19_archive of a previous import exists* — a fresh
   run on a host that imported a clinic before; `--cleanup` that run (or
   drop the schema once the clinic holds its CSV export) first, or the old

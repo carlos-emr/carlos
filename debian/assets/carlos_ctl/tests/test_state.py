@@ -710,6 +710,65 @@ class TestCleanupEndToEnd(unittest.TestCase):
         ran = self.queries.index("-- PARITY RAN")
         self.assertLess(ran, drop)
 
+    def test_an_upgraded_manifest_stops_the_drop_and_names_the_remedy(
+            self):
+        """The dead end this closes: the postinst upgrade gate clears as
+        soon as verify is done, so an unattended upgrade between P7 and
+        step 6 of NEXT_STEPS is expected. --cleanup then re-derived the
+        parity under the INSTALLED manifest -- a reclassified table read
+        as "no verified home" -- while --resume was refused in turn by
+        manifest_change_refusal, which answered "run --cleanup"."""
+        o19import.save_state(
+            self.state_dir,
+            {"inputs": {"schema_map_version": "o19map-2+deadbeef"},
+             "phases": {"verify": {"status": "done"}}})
+        from carlos_ctl import o19etl
+        o19etl.save_progress(self.state_dir,
+                             {"tables": {"demographic": {"done": True}}})
+        ctx = self.ctx()
+        parity_ran = []
+        err = io.StringIO()
+        with mock.patch.object(
+                o19import, "_row_parity",
+                lambda c: parity_ran.append(1) or ([], [])), \
+                contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import.run_cleanup(ctx)
+        message = err.getvalue()
+        self.assertIn("o19map-2+deadbeef", message)
+        self.assertIn(o19map_schema.SCHEMA_MAP_VERSION, message)
+        self.assertIn("reinstall the carlos-emr package version", message)
+        # the parity under the wrong manifest is never even computed,
+        # and nothing is dropped
+        self.assertEqual(parity_ran, [])
+        self.assertFalse(any("DROP DATABASE" in q for q in self.queries))
+
+    def test_the_recorded_manifest_cleans_up_normally(self):
+        o19import.save_state(
+            self.state_dir,
+            {"inputs": {"schema_map_version":
+                        o19map_schema.SCHEMA_MAP_VERSION},
+             "phases": {"verify": {"status": "done"}}})
+        from carlos_ctl import o19etl
+        o19etl.save_progress(self.state_dir,
+                             {"tables": {"demographic": {"done": True}}})
+        ctx = self.ctx()
+        with mock.patch.object(o19import, "_row_parity",
+                               lambda c: (["ok"], [])):
+            o19import.run_cleanup(ctx)
+        self.assertTrue(any("DROP DATABASE" in q for q in self.queries))
+
+    def test_a_run_that_never_copied_is_not_held_by_the_manifest(self):
+        # nothing was written under the old manifest, so there is no
+        # measurement to preserve and no reason to strand the workspace
+        o19import.save_state(
+            self.state_dir,
+            {"inputs": {"schema_map_version": "o19map-2+deadbeef"},
+             "phases": {"stage": {"status": "done"}}})
+        ctx = self.ctx()
+        o19import.run_cleanup(ctx)
+        self.assertTrue(any("DROP DATABASE" in q for q in self.queries))
+
     def test_a_homeless_table_stops_the_drop(self):
         o19import.save_state(self.state_dir,
                              {"phases": {"verify": {"status": "done"}}})
@@ -2304,6 +2363,21 @@ class TestManifestChangeRefusal(unittest.TestCase):
             self.state("o19map-1", etl=True, verify=True), "o19map-2")
         self.assertIn("nothing is left to resume", msg)
         self.assertIn("--cleanup", msg)
+        # ... under the package that made the run. This branch used to
+        # send the operator straight to --cleanup, which then refused
+        # (it re-counts staging under the INSTALLED manifest) and sent
+        # them back here: a loop with no in-tool way out.
+        self.assertIn("reinstall the carlos-emr version", msg)
+
+    def test_the_cleanup_gate_asks_the_same_question(self):
+        refuse = o19import.cleanup_manifest_refusal
+        self.assertIsNone(refuse(self.state("o19map-2", verify=True),
+                                 "o19map-2"))
+        self.assertIsNone(refuse({"phases": {"verify": {"status": "done"}}},
+                                 "o19map-2"))
+        msg = refuse(self.state("o19map-1", verify=True), "o19map-2")
+        self.assertIn("o19map-1", msg)
+        self.assertIn("only remaining copy", msg)
 
     def test_a_workspace_with_no_recorded_manifest_is_not_refused(self):
         self.assertIsNone(o19import.manifest_change_refusal(
