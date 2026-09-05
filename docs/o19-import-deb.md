@@ -41,6 +41,16 @@ password goes through `--mysql-password-file` (handed to the client as
 (`--mysql-arg=--defaults-extra-file=/root/.my.cnf`); a bare interactive
 `-p` is refused because every check runs its own client process.
 
+The account must hold **SELECT on the whole schema** (`-uroot`, or a
+`GRANT SELECT ON oscar.*`). MySQL and MariaDB filter
+`information_schema.TABLES` by privilege, so a table a table-scoped
+account holds nothing on is not listed at all — and a table that is not
+listed produces no finding, which reads exactly like a table that does
+not exist. The assessment proves its own reach with `SHOW GRANTS FOR
+CURRENT_USER()` and refuses (no-go, no `--accept`) when it cannot: the
+dump is taken as root regardless, so the bundle would carry tables the
+clinic never signed off on.
+
 Exit 0 = go. Exit 1 = go, once the listed `--accept` sign-offs are agreed
 with the clinic (data in removed modules becomes archive-only). Exit 2 =
 no-go until remediated — notably **LDAP authentication** (CARLOS has none;

@@ -1592,6 +1592,89 @@ def live_table_inventory(query, findings, db_name):
             known_live_lower)
 
 
+_SCHEMA_WIDE_GRANT_RE = re.compile(
+    r"^GRANT\s+(?P<privs>.+?)\s+ON\s+(?P<obj>\S+)\s+TO\s", re.I)
+
+
+def _grant_covers_schema(line, db_lower):
+    """True when one `SHOW GRANTS` line gives SELECT over the WHOLE schema.
+
+    Only `ON *.*` and `` ON `db`.* `` prove the account can see every
+    table; a table-scoped grant proves the opposite. Role-grant lines
+    (`GRANT `role` TO `user``) carry no ON clause and match nothing."""
+    m = _SCHEMA_WIDE_GRANT_RE.match(line.strip())
+    if not m:
+        return False
+    privs = m.group("privs").upper()
+    if "SELECT" not in privs and "ALL PRIVILEGES" not in privs:
+        return False
+    obj = m.group("obj").replace("`", "").rstrip(",")
+    if obj == "*.*":
+        return True
+    return (obj.lower() == db_lower + ".*") if db_lower else False
+
+
+def check_account_reach(c):
+    """Whether the assessment account can SEE the whole schema at all.
+
+    Every other check begins `if t not in tables: continue`, and
+    `tables` comes from information_schema.TABLES -- which MySQL and
+    MariaDB filter BY PRIVILEGE. A table the account holds no privilege
+    on is not "readable but empty" (that case fails closed into
+    query-errors); it is simply absent from the listing, so B1, B2, B9,
+    the archive/drop counts and the charset scan all skip it without a
+    word. Measured: the same database gave `go-with-acknowledgements`
+    with three blockers as root and a clean `go` under an account
+    granted SELECT on fifteen of its eighteen tables.
+
+    The dump is then taken as root (render_text's own next-step block
+    says so), so the bundle carries the tables the assessment never saw
+    and the import raises their blockers at P2 -- against a clinic
+    sign-off that covers none of them. There is no way to enumerate what
+    was hidden, so the honest report is that the reach could not be
+    proved: a no-go with a remedy, never a `go` over an unknown."""
+    query = c.query
+    findings = c.findings
+    db_lower = (c.schema_expr or "").strip("'").lower()
+    if c.schema_expr == "DATABASE()":
+        rows = None
+        try:
+            rows = query("SELECT DATABASE()")
+        except Exception:                                  # noqa: BLE001
+            rows = None
+        db_lower = (rows[0][0] or "").lower() if rows and rows[0] else ""
+    try:
+        grants = [r[0] for r in query("SHOW GRANTS FOR CURRENT_USER()")
+                  if r and r[0]]
+    except Exception as exc:                               # noqa: BLE001
+        text = str(exc).strip()
+        findings.append(finding(
+            "account-reach-unknown", BLOCKER,
+            "cannot tell whether this account sees the whole schema",
+            "SHOW GRANTS failed, so the table listing every check above "
+            "reads may be privilege-filtered: a table this account "
+            "cannot see produces no finding at all, which is "
+            "indistinguishable from a table that does not exist. Re-run "
+            "as an account with SELECT on the whole schema (the "
+            "documented -uroot). No --accept flag exists for this.",
+            data={"SHOW GRANTS": text.splitlines()[-1] if text else ""}))
+        return
+    if any(_grant_covers_schema(g, db_lower) for g in grants):
+        return
+    findings.append(finding(
+        "account-reach-partial", BLOCKER,
+        "this account holds no schema-wide SELECT, so the table listing "
+        "may be incomplete",
+        "information_schema.TABLES is filtered by privilege: a table "
+        "this account cannot see is absent from the listing, so B1, B2, "
+        "B9, the archive/drop counts and the charset scan skip it "
+        "silently -- a clean `go` over tables nobody looked at. The dump "
+        "is taken as root and carries them anyway. Re-run as an account "
+        "with SELECT on the whole schema (the documented -uroot). No "
+        "--accept flag exists for this.",
+        data={"tables visible to this account": len(c.live_names)}))
+
+
 def check_carried_credentials(c):
     """B9: credentials the copy carries verbatim into CARLOS.
 
@@ -2387,6 +2470,9 @@ def run_checks(query, properties=None, province="on", accepted=(),
     c = PreflightState(query, count, count_live, findings, accepted,
                        query_errors, absent_objects, schema_expr, tables,
                        live_names, live_to_manifest, known_live_lower)
+    # first: everything below reads `tables`, and `tables` is only as
+    # complete as this account's privileges make it
+    check_account_reach(c)
     check_carried_credentials(c)
     locked_notes = check_locked_notes(c)
     check_unknown_tables(c)

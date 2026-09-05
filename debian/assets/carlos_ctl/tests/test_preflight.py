@@ -25,9 +25,14 @@ class FakeDb(object):
     """Serves the exact SQL shapes run_checks() issues."""
 
     def __init__(self, tables=None, where_counts=None, columns=None,
-                 rows=None):
+                 rows=None, grants=None):
         # tables: {name: rowcount}; where_counts: {(table, substring): n};
-        # rows: {sql substring: canned rows} for non-COUNT queries
+        # rows: {sql substring: canned rows} for non-COUNT queries.
+        # grants: what SHOW GRANTS answers; the default is the documented
+        # -uroot account, so every other test keeps measuring what it
+        # was written to measure
+        self.grants = ([["GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost`"]]
+                       if grants is None else grants)
         self.tables = dict(tables or {})
         self.where_counts = dict(where_counts or {})
         # every Facility row is enabled unless a test says otherwise
@@ -44,6 +49,12 @@ class FakeDb(object):
         for frag, canned in self.rows.items():
             if frag in sql:
                 return canned
+        if sql.startswith("SHOW GRANTS"):
+            # grants=False stands for a server that refuses the
+            # statement at all
+            if self.grants is False:
+                raise RuntimeError("ERROR 1045 (28000): access denied")
+            return list(self.grants)
         if "information_schema.TABLES" in sql and "TABLE_NAME" in sql \
                 and "SUM(" not in sql:
             return [[t] for t in sorted(self.tables)]
@@ -228,6 +239,54 @@ class TestVerdicts(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIsNone(errors[0].get("accept"))
         self.assertIn("vendor_x", errors[0]["data"])
+
+    def test_a_privilege_filtered_table_listing_is_a_hard_no_go(self):
+        """information_schema.TABLES is filtered BY PRIVILEGE, so a table
+        the assessment account holds nothing on is simply not listed --
+        and every check begins `if t not in tables: continue`. Measured
+        on MariaDB 10.11: the same 18-table database gave three blockers
+        as root and a clean `go` under an account granted SELECT on 15 of
+        them. There is no way to enumerate what was hidden, so the reach
+        itself must be proved before any verdict is offered."""
+        db = FakeDb(base_tables(), grants=[
+            ["GRANT USAGE ON *.* TO `reporting`@`localhost`"],
+            ["GRANT SELECT ON `oscar`.`demographic` TO "
+             "`reporting`@`localhost`"],
+        ])
+        report = pf.run_checks(db, properties=clean_props(),
+                               db_name="oscar")
+        self.assertEqual(report["verdict"], "no-go")
+        self.assertEqual(report["exit_code"], 2)
+        f = [x for x in report["findings"]
+             if x["id"] == "account-reach-partial"]
+        self.assertEqual(len(f), 1)
+        # no flag may sign this off: nobody knows what was not seen
+        self.assertIsNone(f[0].get("accept"))
+
+    def test_a_schema_wide_select_grant_leaves_the_verdict_alone(self):
+        """The consultant handed a `GRANT SELECT ON `oscar`.*` account
+        CAN see every table, so proving the reach must not cost that
+        clinic a false no-go."""
+        db = FakeDb(base_tables(), grants=[
+            ["GRANT USAGE ON *.* TO `reporting`@`localhost`"],
+            ["GRANT SELECT ON `oscar`.* TO `reporting`@`localhost`"],
+        ])
+        report = pf.run_checks(db, properties=clean_props(),
+                               db_name="oscar")
+        self.assertEqual(report["verdict"], "go")
+        self.assertEqual([x["id"] for x in report["findings"]
+                          if x["id"].startswith("account-reach")], [])
+
+    def test_a_server_that_refuses_show_grants_is_a_hard_no_go(self):
+        """Unproved reach is not proved reach: a server that will not
+        answer SHOW GRANTS leaves the listing just as unexplained."""
+        report = pf.run_checks(FakeDb(base_tables(), grants=False),
+                               properties=clean_props(), db_name="oscar")
+        self.assertEqual(report["verdict"], "no-go")
+        f = [x for x in report["findings"]
+             if x["id"] == "account-reach-unknown"]
+        self.assertEqual(len(f), 1)
+        self.assertIsNone(f[0].get("accept"))
 
     def test_empty_unknown_table_is_ignored(self):
         report = pf.run_checks(FakeDb(base_tables(well_custom_widget=0)),
