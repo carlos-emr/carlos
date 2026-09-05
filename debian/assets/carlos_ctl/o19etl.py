@@ -202,9 +202,12 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
         # MariaDB quotes string defaults in information_schema ('x'),
         # MySQL does not; a literal NULL default is "no value"
         value: Optional[str] = default if has_default else None
-        if value is not None and len(value) >= 2 \
-                and value[0] == "'" and value[-1] == "'":
-            value = value[1:-1]
+        if value is not None:
+            # MariaDB quotes string defaults in information_schema ('x')
+            # and escapes inside them; MySQL 5.x reports the bare value.
+            # The stored value is the VALUE, so a caller re-emitting it
+            # escapes once rather than twice (see unquote_default).
+            value = unquote_default(value)
         if value is not None and value.upper() == "NULL":
             value = None
         out.setdefault(t, {})[c] = {
@@ -283,11 +286,57 @@ def validate_admin_user(name: Optional[str]) -> str:
 def enum_values(column_type: str) -> List[str]:
     """The literals of an `enum(...)` column type, with their SQL escapes
     left as written. Empty for any other type, so callers can ask
-    unconditionally."""
+    unconditionally.
+
+    Two escaping conventions, both of them MariaDB's, measured on 10.11
+    for `enum('It''s','back\\slash')`: an embedded QUOTE comes back
+    DOUBLED (`It''s`) and a backslash comes back backslash-escaped
+    (`back\\slash`). Reading only the second splits the first member in
+    two, and the enum sanitiser then emits an IN-list that does not
+    contain the clinic's own value: every row holding it is rewritten to
+    the column's DEFAULT, silently, by the CASE in `sanitize_expr`.
+
+    The members are returned as written because that is what the
+    sanitiser re-emits between quotes, and both spellings are already
+    valid inside a SQL literal."""
     m = re.match(r"enum\((.*)\)$", column_type, re.I | re.S)
     if not m:
         return []
-    return re.findall(r"'((?:[^'\\]|\\.)*)'", m.group(1))
+    return re.findall(r"'((?:[^'\\]|''|\\.)*)'", m.group(1))
+
+
+def unquote_default(value: str) -> str:
+    """A COLUMN_DEFAULT expression's own value, unescaped.
+
+    MariaDB returns a string default as a quoted EXPRESSION, not as the
+    value: measured on 10.11, a column defaulting to `it's` reports
+    `'it''s'` and one defaulting to `p\\q` reports `'p\\\\q'`. Stripping
+    only the outer quotes leaves the inner escaping in place, and
+    `enum_fallback` then runs it through `_sql_str` a second time — so
+    the fallback written into the target is `it''s`, two characters
+    where the column's default is one.
+
+    MySQL 5.x reports the bare value with no quotes at all; a value that
+    is not quoted is returned unchanged."""
+    if len(value) < 2 or value[0] != "'" or value[-1] != "'":
+        return value
+    body = value[1:-1]
+    out = []
+    i = 0
+    while i < len(body):
+        c = body[i]
+        if c == "'" and body[i + 1:i + 2] == "'":
+            out.append("'")
+            i += 2
+        elif c == "\\" and i + 1 < len(body):
+            nxt = body[i + 1]
+            out.append({"0": "\0", "n": "\n", "r": "\r", "t": "\t",
+                        "b": "\b", "Z": "\x1a"}.get(nxt, nxt))
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 # --------------------------------------------------------------------------

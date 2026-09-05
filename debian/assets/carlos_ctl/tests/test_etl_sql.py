@@ -668,6 +668,71 @@ class TestEnumValues(unittest.TestCase):
                          ["RO", "NR", "TE"])
         self.assertEqual(o19etl.enum_values("varchar(10)"), [])
 
+    def test_a_member_holding_a_quote_is_one_member(self):
+        """MariaDB renders an embedded quote DOUBLED, measured on 10.11:
+        `enum('It''s','plain')`. Read with backslash rules alone the
+        first member splits in two, and the sanitiser's IN-list then
+        omits the clinic's own value — so `sanitize_expr`'s CASE rewrites
+        every row holding it to the column's DEFAULT. Silent, and
+        row-parity cannot see it: the row is still there."""
+        self.assertEqual(
+            o19etl.enum_values("enum('It''s','plain')"), ["It''s", "plain"])
+        # re-emitted between quotes by sanitize_expr, so the member must
+        # still be a valid literal exactly as returned
+        self.assertEqual(
+            o19etl.enum_values("enum('a''b''c')"), ["a''b''c"])
+
+    def test_a_member_holding_a_backslash_is_still_read(self):
+        # the other convention, and the one the old regex did handle
+        self.assertEqual(o19etl.enum_values(r"enum('back\\slash','x')"),
+                         [r"back\\slash", "x"])
+
+    def test_a_member_holding_a_comma_is_not_split(self):
+        self.assertEqual(o19etl.enum_values("enum('a,b','c')"),
+                         ["a,b", "c"])
+
+    def test_the_in_list_carries_every_member(self):
+        # what the parse is FOR: an omitted member is a value the copy
+        # replaces with the default
+        info = {"type": "enum", "column_type": "enum('It''s','plain')",
+                "nullable": False, "has_default": True, "default": "plain"}
+        expr = o19etl.sanitize_expr("s.`a`", info)
+        self.assertIn("IN ('It''s', 'plain')", expr)
+
+
+class TestTheColumnDefaultIsTheValue(unittest.TestCase):
+
+    r"""`information_schema.COLUMN_DEFAULT` is a quoted EXPRESSION on
+    MariaDB, not the value.
+
+    Measured on 10.11: a column defaulting to `it's` reports `'it''s'`
+    and one defaulting to `p\q` reports `'p\\q'`. Stripping only the
+    outer quotes leaves the inner escaping in place, and `enum_fallback`
+    then escapes it a SECOND time — so the value written into the target
+    on an out-of-set enum is `it''s`, two characters where the column's
+    default is one. MySQL 5.x reports the bare value, which must pass
+    through unchanged."""
+
+    def test_a_doubled_quote_becomes_one_quote(self):
+        self.assertEqual(o19etl.unquote_default("'it''s'"), "it's")
+
+    def test_a_backslash_escape_is_undone(self):
+        self.assertEqual(o19etl.unquote_default(r"'p\\q'"), r"p\q")
+        self.assertEqual(o19etl.unquote_default(r"'a\nb'"), "a\nb")
+
+    def test_an_unquoted_default_passes_through(self):
+        # MySQL 5.x, and every numeric default on both
+        self.assertEqual(o19etl.unquote_default("plain"), "plain")
+        self.assertEqual(o19etl.unquote_default("0"), "0")
+        self.assertEqual(o19etl.unquote_default(""), "")
+
+    def test_the_fallback_literal_round_trips(self):
+        # escape once, not twice: `_sql_str` re-escapes what this returns
+        info = {"type": "enum", "column_type": "enum('x')",
+                "nullable": False, "has_default": True,
+                "default": o19etl.unquote_default("'it''s'")}
+        self.assertEqual(o19etl.enum_fallback(info, ["x"]), "'it\\'s'")
+
 
 class TestEffectiveEntry(unittest.TestCase):
 
@@ -1160,6 +1225,31 @@ class TestIntrospectColumns(unittest.TestCase):
         self.assertIsNone(got["t"]["id"]["charset"])
         self.assertIsNone(got["t"]["id"]["collation"])
         self.assertTrue(got["t"]["id"]["auto_increment"])
+
+    def test_a_string_default_is_recorded_as_its_value(self):
+        """MariaDB answers COLUMN_DEFAULT as a quoted EXPRESSION, and
+        `enum_fallback` escapes what is recorded here a second time. Left
+        as the expression, a column defaulting to `it's` writes `it''s`
+        into the target — two characters where the default is one, on
+        every row whose enum value falls out of set."""
+        got = o19etl.introspect_columns(self.query([
+            ["t", "a", "enum", "enum('x','y')", "NO", 0, "'it''s'", "",
+             0, "utf8mb4", "utf8mb4_general_ci"],
+            ["t", "b", "varchar", "varchar(20)", "YES", 20,
+             r"'p\\q'", "", 80, "utf8mb4", "utf8mb4_general_ci"],
+            # MySQL 5.x answers the bare value, and every numeric
+            # default on both servers is unquoted
+            ["t", "c", "varchar", "varchar(20)", "YES", 20, "plain", "",
+             80, "utf8mb4", "utf8mb4_general_ci"],
+            ["t", "d", "int", "int(11)", "YES", 0, "0", "", 0, "", ""],
+        ]), "stage")
+        self.assertEqual(got["t"]["a"]["default"], "it's")
+        self.assertEqual(got["t"]["b"]["default"], r"p\q")
+        self.assertEqual(got["t"]["c"]["default"], "plain")
+        self.assertEqual(got["t"]["d"]["default"], "0")
+        # and the fallback literal built from it escapes exactly once
+        self.assertEqual(o19etl.enum_fallback(got["t"]["a"], ["x"]),
+                         "'it\\'s'")
 
     def test_a_shorter_answer_reads_as_charset_unknown(self):
         # the tests' fakes answer the nine columns this asked for before
