@@ -66,7 +66,7 @@ def contained(root: str, relative: str) -> bool:
         return False
     root_real = os.path.realpath(root)
     full = os.path.realpath(os.path.join(root, relative))
-    return full == root_real or full.startswith(root_real + os.sep)
+    return full == root_real or full.startswith(root_real)
 
 
 # --------------------------------------------------------------------------
