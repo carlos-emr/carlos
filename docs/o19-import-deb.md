@@ -679,7 +679,15 @@ clinic's sign-off.
   advisory would cost the clinic a cutover window.
 - *B8: text that looks double-encoded but does not round-trip …* — thrice
   encoded or otherwise unrepairable text. No flag overrides this; the rows
-  need manual investigation on the OSCAR 19 side.
+  need manual investigation on the OSCAR 19 side. The clinic-side
+  assessment raises the same stop as `B8-charset-unrepairable`, so it
+  should be found before the bundle is built rather than at P4: it counts
+  the thrice-encoded rows everywhere, and the mixed-encoding rows on any
+  server whose regex engine understands `\x{NN}` escapes. On MySQL < 8 /
+  MariaDB < 10.0.5 the engine reads that escape as a literal bracket
+  expression, so the assessment does not ask and reports
+  `charset-b8-unmeasured` instead — a `go` there is silent about that one
+  class, never a clearance of it.
 - *the dump uses collation(s) unavailable on this server* — the OSCAR 19
   server had collations this MariaDB lacks. Re-take the dump on a server
   whose collations match, or install them.

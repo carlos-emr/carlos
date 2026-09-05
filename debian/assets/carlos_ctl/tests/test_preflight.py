@@ -25,7 +25,7 @@ class FakeDb(object):
     """Serves the exact SQL shapes run_checks() issues."""
 
     def __init__(self, tables=None, where_counts=None, columns=None,
-                 rows=None, grants=None):
+                 rows=None, grants=None, charset=None, regexp_hex=True):
         # tables: {name: rowcount}; where_counts: {(table, substring): n};
         # rows: {sql substring: canned rows} for non-COUNT queries.
         # grants: what SHOW GRANTS answers; the default is the documented
@@ -33,6 +33,14 @@ class FakeDb(object):
         # was written to measure
         self.grants = ([["GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost`"]]
                        if grants is None else grants)
+        # charset: {(table, column): {"n": .., "multi": .., "bad": ..}}
+        # The scan issues THREE different counts per column and the
+        # repairable predicate is a literal SUBSTRING of the other two,
+        # so fragment matching cannot tell them apart -- they are keyed
+        # by lane instead. regexp_hex=False is a Spencer-engine server,
+        # where the `bad` lane cannot be measured at all.
+        self.charset = dict(charset or {})
+        self.regexp_hex = regexp_hex
         self.tables = dict(tables or {})
         self.where_counts = dict(where_counts or {})
         # every Facility row is enabled unless a test says otherwise
@@ -49,6 +57,8 @@ class FakeDb(object):
         for frag, canned in self.rows.items():
             if frag in sql:
                 return canned
+        if sql == pf.MOJIBAKE_MARKER_PROBE:
+            return [["1", "0"]] if self.regexp_hex else [["0", "0"]]
         if sql.startswith("SHOW GRANTS"):
             # grants=False stands for a server that refuses the
             # statement at all
@@ -70,6 +80,17 @@ class FakeDb(object):
             table = sql.split("`")[1]
             if " WHERE " in sql:
                 where = sql.split(" WHERE ", 1)[1]
+                lane = None
+                if " REGEXP " in where:
+                    lane = "bad"
+                elif ") AND (" in where:
+                    lane = "multi"
+                elif "CHAR_LENGTH(CONVERT(" in where:
+                    lane = "n"
+                if lane:
+                    col = where.split("`")[1]
+                    spec = self.charset.get((table, col), {})
+                    return [[str(spec.get(lane, 0))]]
                 for (t, frag), n in self.where_counts.items():
                     if t == table and frag in where:
                         return [[str(n)]]
@@ -436,9 +457,7 @@ class TestAdvisories(unittest.TestCase):
         # it refuses at P4 — after the pre-import snapshot and the full
         # staging restore. A "go" here costs the clinic a cutover window.
         db = FakeDb(base_tables(),
-                    where_counts={("demographic",
-                                   pf.double_encoded_predicate("last_name")):
-                                  3})
+                    charset={("demographic", "last_name"): {"n": 3}})
         report = pf.run_checks(db, properties=clean_props())
         f = [x for x in report["findings"]
              if x["id"] == "charset-mojibake"][0]
@@ -452,6 +471,77 @@ class TestAdvisories(unittest.TestCase):
         cleared = pf.run_checks(db, properties=clean_props(),
                                 accepted=("charset-repair",))
         self.assertEqual(cleared["verdict"], "go")
+
+
+class TestTheB8CharsetStop(unittest.TestCase):
+
+    """The half of the ETL's charset scan the assessment used to skip.
+
+    o19etl.detect_repairs runs THREE counts per scanned column; the
+    assessment ran one. The other two are B8 -- `die("...no flag
+    overrides it")` at P4, after the pre-import snapshot and the full
+    staging restore -- so a clinic measured only on the repairable
+    predicate is told `go` and loses the cutover window.
+
+    Reproduced on MariaDB 10.11 before the fix: latin1 bytes
+    C3 83 C2 A9 (thrice-encoded) gave verdict `go` with
+    --accept charset-repair, and 54 72 6C C3 A9 20 6D E9
+    (mixed-encoding) gave a clean `go` with no charset finding at all;
+    o19etl.detect_repairs over the same rows exited 1 with B8 both
+    times."""
+
+    def test_thrice_encoded_text_is_a_hard_stop_not_a_repairable_one(self):
+        # it SATISFIES the repairable predicate, so it used to be
+        # reported as ordinary mojibake -- and the flag the report
+        # offered could not clear the stop it was offered for
+        db = FakeDb(base_tables(),
+                    charset={("demographic", "last_name"):
+                             {"n": 1, "multi": 1}})
+        report = pf.run_checks(db, properties=clean_props(),
+                               accepted=["charset-repair"])
+        self.assertEqual(report["verdict"], "no-go")
+        f = [x for x in report["findings"]
+             if x["id"] == "B8-charset-unrepairable"][0]
+        self.assertIsNone(f.get("accept"))
+        self.assertIn("encoded more than twice",
+                      f["data"]["demographic.last_name"])
+
+    def test_mixed_encoding_text_blocks_although_it_never_round_trips(self):
+        # counts 0 on the repairable predicate: the assessment used to
+        # say nothing at all about it
+        db = FakeDb(base_tables(),
+                    charset={("casemgmt_note", "note"): {"bad": 2}})
+        report = pf.run_checks(db, properties=clean_props())
+        self.assertEqual(report["verdict"], "no-go")
+        f = [x for x in report["findings"]
+             if x["id"] == "B8-charset-unrepairable"][0]
+        self.assertIsNone(f.get("accept"))
+        self.assertIn("do not round-trip", f["data"]["casemgmt_note.note"])
+        self.assertEqual([x["id"] for x in report["findings"]
+                          if x["id"] == "charset-mojibake"], [])
+
+    def test_a_spencer_engine_server_says_the_stop_was_not_measured(self):
+        """The byte-signature half needs \\x{NN} escapes, which MySQL < 8
+        and MariaDB < 10.0.5 read as a literal bracket expression. The
+        answer there would be confident and wrong, so it is not asked --
+        and the report says which class it could not predict."""
+        db = FakeDb(base_tables(), regexp_hex=False,
+                    charset={("demographic", "last_name"): {"bad": 5}})
+        report = pf.run_checks(db, properties=clean_props())
+        f = [x for x in report["findings"]
+             if x["id"] == "charset-b8-unmeasured"][0]
+        self.assertEqual(f["severity"], pf.ADVISORY)
+        self.assertIn("mixed-encoding", f["detail"])
+        # the untrusted scan was not run, so it raised nothing
+        self.assertEqual([x["id"] for x in report["findings"]
+                          if x["id"] == "B8-charset-unrepairable"], [])
+
+    def test_a_modern_server_is_not_told_the_stop_was_unmeasured(self):
+        report = pf.run_checks(FakeDb(base_tables()),
+                               properties=clean_props())
+        self.assertEqual(report["verdict"], "go")
+        self.assertEqual([x["id"] for x in report["findings"]
+                          if x["id"] == "charset-b8-unmeasured"], [])
 
 
 class TestRoleAdvisories(unittest.TestCase):

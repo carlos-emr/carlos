@@ -273,6 +273,16 @@ class TestEveryStandaloneCopyIsPinned(unittest.TestCase):
         self.assertEqual(list(o19_preflight.REQUIRED_TABLES),
                          list(o19map_schema.REQUIRED_TABLES))
 
+    def test_the_repair_hop_and_marker_are_the_same_on_both_sides(self):
+        """The B8 stop is built from these two. If the standalone copy of
+        the repair hop drifts, the assessment measures a different fixed
+        point than the ETL applies -- and the clinic is told `go` for a
+        stop no flag can clear."""
+        self.assertEqual(o19_preflight.REPAIR_TEMPLATE,
+                         o19etl.REPAIR_TEMPLATE)
+        self.assertEqual(o19_preflight.MOJIBAKE_MARKER_RE,
+                         o19etl.MOJIBAKE_MARKER_RE)
+
     def test_the_mojibake_predicate_is_the_same_test_on_both_sides(self):
         """The preflight BLOCKS on this predicate and the ETL REPAIRS on
         it. Drift means blocking a clinic whose data would not be
@@ -284,6 +294,16 @@ class TestEveryStandaloneCopyIsPinned(unittest.TestCase):
             self.assertEqual(
                 o19_preflight.double_encoded_predicate(col),
                 o19etl.double_encoded_predicate("`{0}`".format(col)),
+                col)
+            # the thrice-encoded stop applies the same test to an
+            # EXPRESSION (the repaired value), so that entry point is
+            # pinned too
+            self.assertEqual(
+                o19_preflight.double_encoded_expr(
+                    o19_preflight.REPAIR_TEMPLATE.format(
+                        "`{0}`".format(col))),
+                o19etl.double_encoded_predicate(
+                    o19etl.REPAIR_TEMPLATE.format("`{0}`".format(col))),
                 col)
 
 

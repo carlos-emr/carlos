@@ -935,6 +935,25 @@ INVENTORY_TABLES = [
 # their presence in narrative text is the classic OSCAR mojibake signature.
 MOJIBAKE_HEX = "C383"
 
+#: one repair hop, exactly as the ETL applies it per row (a deliberate
+#: copy of o19etl.REPAIR_TEMPLATE, pinned by
+#: tests/test_sql_escape_contract.py). The B8 stop asks whether the
+#: repair is a FIXED POINT: text that still looks double-encoded after
+#: one hop was encoded more than twice and cannot be repaired here.
+REPAIR_TEMPLATE = "CONVERT(BINARY CONVERT({0} USING latin1) USING utf8mb4)"
+#: the mojibake byte signature (o19etl.MOJIBAKE_MARKER_RE). It needs a
+#: regex engine that understands \x{} escapes: the Spencer engine of
+#: MySQL < 8 / MariaDB < 10.0.5 reads it as a literal bracket
+#: expression, so it is only used behind _hex_escape_regexp_supported().
+MOJIBAKE_MARKER_RE = "'[\\\\x{C3}\\\\x{C2}][\\\\x{80}-\\\\x{BF}]'"
+#: proves the engine really understands the escape: a latin1 'Ã©' must
+#: match and plain ASCII must not. Spencer answers 0 to both (or errors
+#: on the reversed range), which is what makes the two-sided test
+#: necessary -- a one-sided probe cannot tell "no match" from "no engine"
+MOJIBAKE_MARKER_PROBE = (
+    "SELECT CONVERT(0xC3A9 USING latin1) REGEXP {0}, 'ab' REGEXP {0}"
+    .format(MOJIBAKE_MARKER_RE))
+
 
 def finding(fid, severity, title, detail="", accept=None, data=None):
     """One report entry. `accept` names the `--accept` class that clears a
@@ -1065,7 +1084,15 @@ def double_encoded_predicate(col):
     value must contain a non-ASCII character at all. A substring match on
     a hex dump ('%C383%') is NOT aligned and flags innocent text such as
     '1,800' — which is why this predicate exists."""
-    c = "`{0}`".format(col)
+    return double_encoded_expr("`{0}`".format(col))
+
+
+def double_encoded_expr(c):
+    """The same test over an already-quoted SQL EXPRESSION.
+
+    Split out from `double_encoded_predicate` because the thrice-encoded
+    stop has to apply the test to the value AFTER one repair hop, which
+    is an expression and not a column."""
     # normalise to utf8mb4 first: O19 tables are usually latin1, and a
     # BINARY comparison across charsets compares different byte strings
     u = "CONVERT({0} USING utf8mb4)".format(c)
@@ -2238,20 +2265,99 @@ def check_properties(c, properties, locked_notes):
             "exists for this."))
 
 
+def _hex_escape_regexp_supported(query):
+    """Whether this server's regex engine understands `\\x{NN}` escapes.
+
+    MySQL < 8 and MariaDB < 10.0.5 -- the assessment hosts this file
+    targets -- use the Spencer engine, which reads the escape as a
+    LITERAL bracket expression. Running the B8 marker scan there would
+    not fail; it would answer confidently about the wrong characters. So
+    the probe is two-sided: a latin1 'Ã©' must match and plain ASCII
+    must not. Anything else (including a server that errors on the
+    reversed range Spencer sees) means the scan cannot be trusted here."""
+    try:
+        rows = query(MOJIBAKE_MARKER_PROBE)
+    except Exception:                                      # noqa: BLE001
+        return False
+    if not rows or len(rows[0]) < 2:
+        return False
+    return (str(rows[0][0]).strip() == "1"
+            and str(rows[0][1]).strip() == "0")
+
+
 def check_text_encoding(c):
-    """Sample the text columns for mojibake (double-encoded UTF-8)."""
+    """The charset scan, all three of the ETL's predicates.
+
+    o19etl.detect_repairs runs THREE counts over each scanned column and
+    only the first was measured here:
+
+    * `n`     -- round-trips through latin1: repairable, and the ETL
+                 refuses it unacknowledged (--accept charset-repair);
+    * `multi` -- still looks double-encoded after ONE repair hop, i.e.
+                 encoded more than twice. It SATISFIES the repairable
+                 predicate, so the assessment used to report it as
+                 ordinary mojibake and hand the operator the very flag
+                 that cannot clear it;
+    * `bad`   -- carries the mojibake byte signature but does NOT
+                 round-trip (mixed-encoding text: mojibake bytes beside
+                 raw latin1 bytes, the ordinary state of a database that
+                 has been through a charset move).
+
+    The last two are B8: `die("...no flag overrides it")` at P4, after
+    the pre-import snapshot and the full staging restore. `multi` is pure
+    CONVERT/LENGTH and runs anywhere; `bad` needs a regex engine the
+    2014-era assessment host may not have, so when the probe says it
+    cannot be trusted the report SAYS the stop was not measured rather
+    than letting a silent `go` stand in for it."""
     count_live = c.count_live
+    query = c.query
     findings = c.findings
     tables = c.tables
     # --- charset / mojibake sampling --------------------------------------
     mojibake = {}
+    unrepairable = {}
+    marker_scan = _hex_escape_regexp_supported(query)
     for t, cols in CHARSET_SCAN.items():
         if t not in tables:
             continue
         for col in cols:
+            label = "{0}.{1}".format(t, col)
+            quoted = "`{0}`".format(col)
             n = count_live(t, double_encoded_predicate(col))
             if n > 0:
-                mojibake["{0}.{1}".format(t, col)] = n
+                mojibake[label] = n
+            multi = count_live(t, "({0}) AND ({1})".format(
+                double_encoded_predicate(col),
+                double_encoded_expr(REPAIR_TEMPLATE.format(quoted))))
+            if multi > 0:
+                # both halves can hit the same column; neither may
+                # overwrite the other's count in the report
+                unrepairable.setdefault(label, []).append(
+                    "{0} row(s) still double-encoded after one repair — "
+                    "encoded more than twice".format(multi))
+            if not marker_scan:
+                continue
+            bad = count_live(t, "{0} IS NOT NULL AND {0} REGEXP {1} AND "
+                                "NOT ({2})".format(
+                                    quoted, MOJIBAKE_MARKER_RE,
+                                    double_encoded_predicate(col)))
+            if bad > 0:
+                unrepairable.setdefault(label, []).append(
+                    "{0} row(s) carry mojibake bytes that do not "
+                    "round-trip".format(bad))
+    if unrepairable:
+        # B8: no --accept clears this one on either side. The ETL dies on
+        # it before the charset-repair question is even asked, so the
+        # assessment must not offer a flag here either.
+        findings.append(finding(
+            "B8-charset-unrepairable", BLOCKER,
+            "text in {0} column(s) that the latin1->utf8mb4 repair "
+            "cannot fix".format(len(unrepairable)),
+            "The ETL stops outright on this (B8) at P4 — after the "
+            "pre-import snapshot and the full staging restore — and no "
+            "--accept flag overrides it. Repair the text in the source "
+            "and re-export.",
+            data=dict((k, "; ".join(v)) for k, v in unrepairable.items())))
     if mojibake:
         # a BLOCKER, not an advisory: the ETL refuses outright without
         # --accept charset-repair, and it refuses at P4 — after the
@@ -2265,6 +2371,18 @@ def check_text_encoding(c):
             "to run unacknowledged; text the repair cannot round-trip "
             "blocks there outright (B8).", accept="charset-repair",
             data=mojibake))
+    if not marker_scan:
+        findings.append(finding(
+            "charset-b8-unmeasured", ADVISORY,
+            "one half of the B8 charset stop could not be measured on "
+            "this server",
+            "This server's regex engine does not understand the "
+            "\\x{NN} escapes the mojibake byte signature needs (MySQL < "
+            "8 / MariaDB < 10.0.5), so mixed-encoding text — mojibake "
+            "bytes beside raw latin1 bytes — was NOT counted. The ETL "
+            "does count it, at P4, and stops there with no --accept. "
+            "The thrice-encoded half of B8 WAS measured. Treat a `go` "
+            "as silent about this one class."))
 
 
 def check_unknown_columns(c, schema_map):
