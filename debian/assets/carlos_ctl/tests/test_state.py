@@ -257,6 +257,125 @@ class TestDiskHeadroom(unittest.TestCase):
         self.assertEqual(o19import.uncompressed_size(plain), len(payload))
 
 
+class TestTheDiskGateOnResume(unittest.TestCase):
+
+    """P0's capacity gate runs on EVERY invocation, --resume included.
+
+    It used to re-demand the whole fresh-run budget (2.5x the
+    uncompressed dump on the data directory) even when the staging
+    restore and the copy into the target had already been written to
+    that same volume -- so a host provisioned to the documented 2.5x was
+    refused on the tool's own recovery path, with no --accept class and
+    no way out but growing the volume mid-cutover.
+    """
+
+    class _Statvfs(object):
+        def __init__(self, free):
+            self.f_bavail = free
+            self.f_frsize = 1
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp(prefix="o19disk-")
+        self.addCleanup(shutil.rmtree, self.work)
+        self.dump = os.path.join(self.work, "clinic.sql")
+        with open(self.dump, "wb") as fh:
+            fh.write(b"INSERT INTO t VALUES (1);\n" * 4096)
+        self.dump_bytes = os.path.getsize(self.dump)
+
+    def query(self, sql, db=None):
+        if "@@datadir" in sql:
+            return [["/var/lib/mysql"]]
+        if "SHOW GRANTS" in sql:
+            return [["GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost`"]]
+        if "PROCESSLIST" in sql:
+            return [["0"]]
+        return []
+
+    def ctx(self, phases=None, **over):
+        base = {"query": self.query,
+                "state": {"phases": phases or {}},
+                "dump": self.dump,
+                "dump_size": self.dump_bytes,
+                "documents": None,
+                "bundle_size": 0,
+                "restage": False}
+        base.update(over)
+        return base
+
+    def gate(self, ctx, free):
+        """Drive the real run_p0_capacity against a volume with `free`
+        bytes; returns the refusal text, or None when it passed."""
+        err = io.StringIO()
+        with mock.patch.object(o19import, "_statvfs_nearest",
+                               lambda path: self._Statvfs(free)), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(err):
+            try:
+                o19import.run_p0_capacity(ctx)
+            except SystemExit:
+                return err.getvalue()
+        return None
+
+    def staged(self, **more):
+        phases = {"stage": {"status": "done",
+                            "uncompressed_bytes": self.dump_bytes},
+                  "check-pristine": {"status": "done"},
+                  "backup": {"status": "done"}}
+        phases.update(more)
+        return phases
+
+    def test_a_fresh_run_still_demands_the_whole_budget(self):
+        # 2x the dump free is not the documented 2.5x: refused, as before
+        msg = self.gate(self.ctx(), int(self.dump_bytes * 2))
+        self.assertIsNotNone(msg)
+        self.assertIn("insufficient disk", msg)
+        self.assertIsNone(self.gate(self.ctx(),
+                                    int(self.dump_bytes * 2.5)))
+
+    def test_a_resume_after_the_preflight_asks_only_for_what_is_left(self):
+        """The staging restore is on disk; only the copy into the target
+        and the archive schema are still to be written."""
+        ctx = self.ctx(self.staged(preflight={"status": "done"}))
+        # the same host the fresh run above was refused on now has the
+        # staging schema in it -- and the remaining 1.5x fits
+        self.assertIsNone(self.gate(ctx, int(self.dump_bytes * 1.5)))
+        # ... and it is still a real check: 1.4x does not fit
+        self.assertIsNotNone(self.gate(ctx, int(self.dump_bytes * 1.4)))
+
+    def test_a_resume_after_the_copy_asks_for_nothing_on_the_datadir(self):
+        ctx = self.ctx(self.staged(etl={"status": "done"}))
+        self.assertIsNone(self.gate(ctx, 0))
+
+    def test_restaging_owes_the_staging_restore_again(self):
+        ctx = self.ctx(self.staged(), restage=True)
+        self.assertIsNotNone(self.gate(ctx, int(self.dump_bytes * 2)))
+        self.assertIsNone(self.gate(ctx, int(self.dump_bytes * 2.5)))
+
+    def test_a_restored_document_tree_is_not_budgeted_a_second_time(self):
+        """P5 leaves the phase in-progress with restored=True and tells
+        the operator to --resume; the tree is already extracted.
+
+        The tar path does not exist, so a gate that still measured it
+        would die reading the archive headers."""
+        ctx = self.ctx(self.staged(etl={"status": "done"},
+                                   documents={"status": "in-progress",
+                                              "restored": True}),
+                       documents=os.path.join(self.work, "gone.tar.gz"))
+        self.assertIsNone(self.gate(ctx, 0))
+
+    def test_the_factors_are_the_phases_and_nothing_else(self):
+        factors = o19import.remaining_capacity_factors
+        self.assertEqual(factors({"phases": {}}, False), (2.5, 2))
+        staged = {"phases": self.staged()}
+        self.assertEqual(factors(staged, False), (1.5, 2))
+        self.assertEqual(factors(staged, True), (2.5, 2))
+        copied = {"phases": self.staged(etl={"status": "done"})}
+        self.assertEqual(factors(copied, False), (0.0, 2))
+        restored = {"phases": self.staged(
+            documents={"status": "in-progress", "restored": True})}
+        self.assertEqual(factors(restored, False), (1.5, 0))
+
+
 class TestResumeContract(unittest.TestCase):
     """--resume is the only way to continue recorded state (never implied)."""
 

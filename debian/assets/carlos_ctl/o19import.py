@@ -604,19 +604,28 @@ def server_datadir(query=None) -> str:
 
 def check_disk_headroom(dump_bytes: int, bundle_size: int,
                         documents_size: int = 0,
-                        datadir: str = "") -> Optional[str]:
+                        datadir: str = "",
+                        db_factor: float = 2.5,
+                        docs_factor: float = 2) -> Optional[str]:
     """None if fine, else a message. dump_bytes is the UNCOMPRESSED dump
     size: the database volume needs roughly 2.5x that (staging restore +
     the copy into the target + archive schema); the state volume needs
     the bundle expanded (x2) plus the documents tar extracted (x2).
+
+    The two factors default to the FRESH-run budget and are lowered by
+    `remaining_capacity_factors` on a resume, where part of that budget
+    is already occupied by the run's own output. They are arguments
+    rather than a branch inside here so this stays the pure "does this
+    fit" question the state tests drive directly.
 
     Requirements on the SAME filesystem are summed before they are
     compared: on the single-root VM this normally runs on, checking each
     against the same free figure lets a host pass both and then fill up
     part-way through."""
     needs = (("database volume", datadir or server_datadir(),
-              int(dump_bytes * 2.5)),
-             ("state volume", STATE, bundle_size * 2 + documents_size * 2))
+              int(dump_bytes * db_factor)),
+             ("state volume", STATE,
+              bundle_size * 2 + int(documents_size * docs_factor)))
     by_device: Dict[int, List] = {}
     for label, path, needed in needs:
         if needed <= 0:
@@ -740,6 +749,45 @@ def etl_started(state_dir: str) -> bool:
     return bool(progress.get("admin_provider_no") or progress.get("tables"))
 
 
+def remaining_capacity_factors(state: Dict,
+                               restage: bool) -> Tuple[float, float]:
+    """What a run still has to WRITE, as (multiple of the uncompressed
+    dump owed to the database volume, multiple of the expanded documents
+    tar owed to the state volume).
+
+    P0 runs on every invocation, `--resume` included. The fresh-run
+    budget is 2.5x the dump -- 1x the staging restore, 1x the copy into
+    the target, 0.5x the archive schema -- and re-demanding all of it on
+    a resume asked the host a second time for space the run itself had
+    already spent on that same volume. A clinic host provisioned to the
+    2.5x the documentation asks for was therefore REFUSED on the tool's
+    own recovery path: the resume P4's abort message prescribes, the one
+    P5's reconciliation failure prescribes, and the one carrying
+    `--accept content-transfer`. There is no --accept class for a disk
+    refusal, so the operator's only outs were growing the volume
+    mid-cutover or hand-dropping o19_import (which makes P4/P7 row
+    parity unrunnable).
+
+    Judged per PHASE, never per byte: a phase merely in progress still
+    budgets its whole share, because a half-written one may have written
+    almost nothing. `--restage` drops and re-restores the staging
+    schema, so its 1x is owed again.
+    """
+    db = 2.5
+    if phase_done(state, "stage") and not restage:
+        db -= 1.0                     # the staging restore is on disk
+        if phase_done(state, "etl"):
+            db -= 1.5                 # ... and so are the copy + archive
+    docs = state.get("phases", {}).get("documents", {})
+    # P5 leaves the phase in-progress with restored=True until
+    # reconciliation passes, and its failure message prescribes
+    # --resume -- so the tree is on disk for exactly the resume that
+    # used to be charged for extracting it again.
+    if docs.get("status") == "done" or docs.get("restored"):
+        return db, 0
+    return db, 2
+
+
 def run_p0_capacity(ctx) -> None:
     """The server/disk half of P0 (replicas, headroom) — shared with the
     o19-preflight verb, which must not touch the target's pristine
@@ -809,10 +857,15 @@ def run_p0_capacity(ctx) -> None:
                 len(replicas), connected))
 
     stage = ctx["state"].get("phases", {}).get("stage", {})
+    restage = bool(ctx.get("restage"))
+    # how much of the budget is still to be written; a resume that asked
+    # for the whole fresh-run figure refused hosts sized as documented
+    db_factor, docs_factor = remaining_capacity_factors(ctx["state"],
+                                                        restage)
     # --restage drops the staged dump and restores this one, but P1 pops
     # the stage phase only later — so without the restage arm the gate
     # would size the NEW dump from the OLD one's recorded figure
-    if ctx.get("restage") or not phase_done(ctx["state"], "stage"):
+    if restage or not phase_done(ctx["state"], "stage"):
         log("measuring the dump's uncompressed size for the disk check ...")
         dump_bytes = uncompressed_size(ctx["dump"])
         ctx["dump_uncompressed"] = dump_bytes
@@ -821,12 +874,13 @@ def run_p0_capacity(ctx) -> None:
         # by what the stage phase recorded (never re-measured)
         dump_bytes = int(stage.get("uncompressed_bytes") or ctx["dump_size"])
     docs_bytes = 0
-    if ctx.get("documents") and not phase_done(ctx["state"], "documents"):
+    if ctx.get("documents") and docs_factor:
         log("measuring the documents archive's expanded size ...")
         docs_bytes = documents_expanded_size(ctx["documents"])
         ctx["documents_size"] = docs_bytes
     headroom = check_disk_headroom(dump_bytes, ctx.get("bundle_size", 0),
-                                   docs_bytes, server_datadir(query))
+                                   docs_bytes, server_datadir(query),
+                                   db_factor, docs_factor)
     if headroom:
         die(headroom)
 

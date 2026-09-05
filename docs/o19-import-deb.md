@@ -168,7 +168,12 @@ target and the archive schema) — the import asks the server for
 `@@datadir` rather than assuming, because MariaDB on Ubuntu 26.04, the
 platform this package ships against, uses `/var/lib/mariadb` and not the
 older `/var/lib/mysql`, and twice the bundle plus twice the expanded documents tar
-free on `/var/lib/carlos-emr`. MariaDB must be 10.5 or newer, because the
+free on `/var/lib/carlos-emr`. That budget covers a run from start to
+finish; a `--resume` asks only for what is still to be written, so a host
+sized for the fresh run is not refused part-way through (the staging
+restore, and once the copy is done the copy and the archive schema too,
+are already on the volume, and a document tree P5 has restored is not
+budgeted for a second time). MariaDB must be 10.5 or newer, because the
 restore runs under a schema-scoped account that needs `BINLOG ADMIN`, and
 the server must have no replicas attached: the import's binlog-off bulk copy
 is not replica-safe, and a server with replicas is refused.
@@ -212,7 +217,8 @@ live schema either way. A rerun over existing
 state requires `--resume` (a staged dump left behind by a dry run or an
 assessment does not count); it is never continued implicitly. Once the
 data copy has started, a resumed run re-checks the schema, replica and
-disk gates but not the emptiness sweep (the target is mid-import by
+disk gates — the disk gate for the remaining work only — but not the
+emptiness sweep (the target is mid-import by
 design) — the row-parity gate still verifies the outcome. `--restage`
 drops and re-restores the staging schema and clears the recorded preflight
 verdict with it.
