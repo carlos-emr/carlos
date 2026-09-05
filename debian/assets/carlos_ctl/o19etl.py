@@ -2718,15 +2718,18 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     save_progress(state_dir, progress)
 
     # Has the target been rewound under this ledger? The pre-import
-    # restic snapshot covers the CARLOS schema and the documents tree,
-    # NOT this workspace — so an operator who follows the rollback advice
-    # in any of our refusals ends up with a pristine database and a
-    # ledger that still says two hundred tables are done. A --resume then
-    # skips every one of them, leaving CARLOS seed rows in the clinic's
-    # place, and --cleanup and --restage both refuse with messages that
-    # point back at the snapshot they just restored. The break-glass
-    # admin is the cheapest witness: this run created it, so its absence
-    # means the target is not the one this ledger describes.
+    # restic snapshot covers the workspace as well as the CARLOS schema
+    # and the documents tree, but an operator can restore the database
+    # alone (a `carlos-ctl backup` DB restore covers only the CARLOS
+    # schema) and end up with a pristine database and a ledger that
+    # still says two hundred tables are done. A --resume then skips
+    # every one of them, leaving CARLOS seed rows in the clinic's place.
+    # The break-glass admin is the cheapest witness: this run created
+    # it, so its absence means the target is not the one this ledger
+    # describes. The other half of the rollback -- BOTH restored, so
+    # state.json is rewound past an ETL ledger that survives -- is
+    # caught before P1 by o19import.rewound_workspace_refusal, because
+    # this witness sits behind a gate that inconsistency blocks.
     # ...but only once the INSERT is recorded. Between the ledger save
     # that names the provider_no and the seed INSERT itself there is a
     # window in which the row legitimately does not exist yet; the

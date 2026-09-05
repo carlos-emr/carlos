@@ -376,6 +376,84 @@ class TestTheDiskGateOnResume(unittest.TestCase):
         self.assertEqual(factors(restored, False), (1.5, 0))
 
 
+class TestARewoundWorkspace(unittest.TestCase):
+
+    """The documented rollback used to leave the tool with no way out.
+
+    The pre-import snapshot covers the workspace, but it is taken at P3
+    -- before P1 stages anything -- so its state.json records only
+    check-pristine and no ETL ledger exists yet. `restic restore` puts
+    that state.json back and leaves the later etl-progress.json on disk.
+    Each of the four documented next steps then refused, and two of them
+    named the snapshot the operator had just restored.
+    """
+
+    def setUp(self):
+        self.state_dir = tempfile.mkdtemp(prefix="o19rewound-")
+        self.addCleanup(shutil.rmtree, self.state_dir)
+
+    def rewind(self, **phases):
+        """A workspace as `restic restore` leaves it: state.json from
+        before P1, etl-progress.json from the run that followed."""
+        recorded = {"check-pristine": {"status": "done", "pristine": True}}
+        recorded.update(phases)
+        o19import.save_state(self.state_dir, {"phases": recorded})
+        o19etl.save_progress(self.state_dir,
+                             {"tables": {"demographic": {"done": True}},
+                              "admin_provider_no": "900001",
+                              "dump_sha256": "abc123"})
+
+    def verb(self, *flags):
+        """Drive the real import-o19 verb body; returns its stderr."""
+        err = io.StringIO()
+        argv = ["--mariadb-arg=--protocol=socket",
+                "--dump", os.path.join(self.state_dir, "d.sql"),
+                "--properties", os.path.join(self.state_dir, "o.properties"),
+                "--skip-documents", "--admin-user", "brk"] + list(flags)
+        with mock.patch.object(o19import, "STATE_DIR", self.state_dir), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import._cmd_import_o19(argv)
+        return err.getvalue()
+
+    def test_every_documented_next_step_names_the_way_out(self):
+        self.rewind()
+        for flags in ((), ("--resume",), ("--resume", "--restage"),
+                      ("--cleanup",)):
+            message = self.verb(*flags)
+            self.assertIn("describe different runs", message, flags)
+            self.assertIn("mv " + self.state_dir, message, flags)
+            # the refusals that used to send the operator back to the
+            # snapshot they had just restored
+            self.assertNotIn("Restore the pre-import snapshot and start "
+                             "over", message)
+
+    def test_a_consistent_workspace_is_not_refused(self):
+        """A DB-only restore leaves both ledgers agreeing that the ETL
+        ran; that one is the ETL's own rewind witness's job, and this
+        gate must not swallow it."""
+        self.rewind(stage={"status": "done", "dump_sha256": "abc123"},
+                    backup={"status": "done"})
+        state = o19import.load_state(self.state_dir)
+        self.assertIsNone(o19import.rewound_workspace_refusal(
+            state, self.state_dir))
+
+    def test_an_untouched_workspace_is_not_refused(self):
+        o19import.save_state(self.state_dir, {"phases": {}})
+        self.assertIsNone(o19import.rewound_workspace_refusal(
+            {"phases": {}}, self.state_dir))
+
+    def test_the_stale_ledger_alone_is_what_trips_it(self):
+        self.rewind()
+        state = o19import.load_state(self.state_dir)
+        self.assertIsNotNone(o19import.rewound_workspace_refusal(
+            state, self.state_dir))
+        os.unlink(o19etl.progress_path(self.state_dir))
+        self.assertIsNone(o19import.rewound_workspace_refusal(
+            state, self.state_dir))
+
+
 class TestResumeContract(unittest.TestCase):
     """--resume is the only way to continue recorded state (never implied)."""
 

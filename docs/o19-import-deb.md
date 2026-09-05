@@ -139,7 +139,10 @@ Prerequisites, all of them before the command below:
    point, and it now covers `/var/lib/carlos-emr/o19-import` as well as
    the database and the documents tree, so a restore rewinds the run's
    ledgers with the data they describe. The break-glass credential note
-   is deliberately excluded.
+   is deliberately excluded. A restore does not *delete* files added after
+   the snapshot, so the discarded run's `etl-progress.json` is left beside
+   the rewound `state.json`; the tool detects that pair and tells you to
+   move the workspace aside before starting over (see the last section).
 5. **Keep the bundle, its passfile and the bundle SHA-256** until
    `--cleanup`.
    Every `--resume` repeats the whole command with `--resume` appended,
@@ -744,5 +747,16 @@ clinic's sign-off.
   of the stored bytes -- a byte sequence that is not valid UTF-8 has no
   verbatim text form -- and `o19-archive-export/README.txt` lists which
   `table.column` cells are hex.
+- *the two ledgers in /var/lib/carlos-emr/o19-import describe different
+  runs* — the snapshot restore rewound `state.json` past an ETL ledger
+  that survived it (the snapshot is taken before the dump is staged, so it
+  carries no `etl-progress.json` to overwrite the later one with). The run
+  cannot be resumed or cleaned up: move the workspace aside and start over
+  against the restored database —
+  `mv /var/lib/carlos-emr/o19-import /var/lib/carlos-emr/o19-import.rolled-back`.
 - A failed run keeps its state for diagnosis; the documented rollback is
-  restoring the pre-import restic snapshot.
+  restoring the pre-import restic snapshot. That rewinds the workspace with
+  the database, which leaves the finished run's ETL ledger beside a
+  `state.json` from before the staging restore; the next invocation says so
+  and names the `mv` above, rather than starting the import over on top of
+  a ledger that describes the run just discarded.

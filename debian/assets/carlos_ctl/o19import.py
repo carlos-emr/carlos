@@ -788,6 +788,52 @@ def remaining_capacity_factors(state: Dict,
     return db, 2
 
 
+def rewound_workspace_refusal(state: Dict,
+                              state_dir: str) -> Optional[str]:
+    """The message refusing a workspace whose two ledgers describe
+    different runs, or None.
+
+    `state.json` (phases) and `etl-progress.json` (per-table marks) are
+    written at different moments and read by different guards --
+    `etl_started` sees only the second, the phase dispatch only the
+    first. The pre-import restic snapshot covers the workspace, but it
+    is taken at P3, BEFORE P1 stages anything: its `state.json` records
+    no `stage` phase and no ETL ledger exists yet. `restic restore` puts
+    that `state.json` back and leaves the LATER `etl-progress.json`
+    where it is, so the rollback the tool itself prescribes ends with
+    one ledger saying the ETL never ran and another saying two hundred
+    tables are done.
+
+    Nothing noticed, and every documented next step then refused -- two
+    of them naming the snapshot just restored: a rerun without --resume
+    (recorded state), --resume (P1's staging-drop gate, which offers
+    --restage), --resume --restage (refused because the stale ledger
+    says the ETL already copied), and --cleanup (mid-import). The one
+    instruction that works is the ETL's own rewind witness, and that
+    sits behind P1, i.e. behind the gate this inconsistency blocks.
+
+    The pair is proof rather than a heuristic: P1 records the stage
+    phase (`mark_started`, before the DROP) and P4 runs only after P1,
+    so an ETL ledger with writes and a `state.json` with no stage phase
+    cannot both belong to one run. `--restage` clears the two together,
+    and `--cleanup` retires them together, so neither leaves this
+    shape behind."""
+    if state.get("phases", {}).get("stage"):
+        return None
+    if not etl_started(state_dir):
+        return None
+    return ("the two ledgers in {0} describe different runs: state.json "
+            "records no staged dump, while the ETL ledger records writes "
+            "into the target. That is what restoring the pre-import "
+            "snapshot leaves behind — it is taken before the dump is "
+            "staged, so the restore rewinds state.json past the ETL "
+            "while etl-progress.json, written afterwards, stays on disk. "
+            "This run cannot be resumed or cleaned up. Move the "
+            "workspace aside and start the import over against the "
+            "restored database:\n  mv {0} {0}.rolled-back".format(
+                state_dir))
+
+
 def run_p0_capacity(ctx) -> None:
     """The server/disk half of P0 (replicas, headroom) — shared with the
     o19-preflight verb, which must not touch the target's pristine
@@ -3441,6 +3487,13 @@ def _cmd_import_o19(argv) -> int:
         list(argv))
     if os.geteuid() != 0 and not args.mariadb_arg:
         die("this command needs root (or --mariadb-arg for a dev database)")
+
+    # before any other gate, including --cleanup's: a workspace rewound
+    # by a restored snapshot makes every one of them refuse, and two of
+    # them point back at the snapshot the operator just restored
+    refusal = rewound_workspace_refusal(load_state(STATE_DIR), STATE_DIR)
+    if refusal:
+        die(refusal)
 
     if args.cleanup:
         if args.dry_run:
