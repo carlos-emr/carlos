@@ -50,15 +50,19 @@ class TestTheStatementPairsAndCompares(unittest.TestCase):
             "t", entry or ENTRY, "o19_import", "carlos", cols or COLS,
             key, **kw)
 
+    # `id` is NOT NULL on the target, so both sides carry the NOT NULL
+    # coercion `sanitize_expr` adds — the check models the write, and the
+    # write is `IFNULL(s.`id`, 0)` because the server would have made the
+    # same substitution silently. See `not_null_fallback`.
     def test_it_joins_staging_to_the_target_on_the_primary_key(self):
         sql = self.sql()
         self.assertIn("FROM `o19_import`.`t` s JOIN `carlos`.`t` d", sql)
-        self.assertIn("ON d.`id` <=> s.`id`", sql)
+        self.assertIn("ON d.`id` <=> IFNULL(s.`id`, 0)", sql)
 
     def test_it_counts_the_rows_whose_values_disagree(self):
         sql = self.sql()
         self.assertTrue(sql.startswith("SELECT COUNT(*)"))
-        self.assertIn("WHERE NOT (d.`id` <=> s.`id` AND "
+        self.assertIn("WHERE NOT (d.`id` <=> IFNULL(s.`id`, 0) AND "
                       "CONVERT(d.`name` USING utf8mb4) COLLATE "
                       "utf8mb4_bin <=> CONVERT(s.`name` USING utf8mb4) "
                       "COLLATE utf8mb4_bin)", sql)

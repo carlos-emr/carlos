@@ -2029,6 +2029,119 @@ def _twin_key_body(client: Client, src: str, dst: str,
     return failures
 
 
+#: OSCAR 19's shape: every one of these is nullable, and the fixture
+#: holds NULL in all of them.
+REQUIRED_SRC_DDL = (
+    "CREATE TABLE `t` (`id` int(10) NOT NULL, `flag` tinyint(1) DEFAULT "
+    "NULL, `note` varchar(255) DEFAULT NULL, `seen` datetime DEFAULT "
+    "NULL, `touched` timestamp NULL DEFAULT NULL, PRIMARY KEY (`id`))")
+
+#: CARLOS's shape: the same columns, made required. `flag` and `note`
+#: carry a DEFAULT precisely because the server IGNORES it for this
+#: substitution -- see `o19etl.not_null_fallback`.
+REQUIRED_DST_DDL = (
+    "CREATE TABLE `t` (`id` int(10) NOT NULL, `flag` tinyint(1) NOT NULL "
+    "DEFAULT 7, `note` varchar(255) NOT NULL DEFAULT 'x', `seen` "
+    "datetime NOT NULL, `touched` timestamp NOT NULL DEFAULT "
+    "CURRENT_TIMESTAMP, PRIMARY KEY (`id`))")
+
+REQUIRED_ENTRY = {"class": "copy",
+                  "cols": ["id", "flag", "note", "seen", "touched"]}
+
+
+def check_required_column_nulls(client: Client, src: str,
+                                dst: str) -> List[str]:
+    """A NULL landing in a column CARLOS declares NOT NULL.
+
+    Found by a live rehearsal: `document.restrictToProgram` and
+    `professionalSpecialists.hideFromView` are nullable in OSCAR 19,
+    `NOT NULL` in CARLOS, and NULL in an ordinary clinic dump. The
+    copy's INSERT ... SELECT stored the type's zero silently under the
+    ETL's `sql_mode=''`, while `copy_value_mismatch_sql` compared the
+    target against the NULL it believed had been written -- so P4 row
+    parity failed a faithful import, and parity is not overridable.
+
+    This puts the whole claim to the engine: that the substitution is
+    what `not_null_fallback` says it is (the TYPE's zero, not the
+    column's DEFAULT), that a NOT NULL `timestamp` is the exception the
+    check has to tolerate rather than the write suppress, and that the
+    value check agrees with the copy afterwards. The negative control
+    strips the coercion and shows the same faithful copy failing."""
+    try:
+        return _required_nulls_body(client, src, dst)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(src, dst))
+
+
+def _required_nulls_body(client: Client, src: str, dst: str) -> List[str]:
+    failures: List[str] = []
+    for schema in (src, dst):
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "DEFAULT CHARSET=utf8mb4;".format(schema))
+    client.setup(REQUIRED_SRC_DDL + ";", src)
+    client.setup("INSERT INTO `t` VALUES (1,NULL,NULL,NULL,NULL);", src)
+    client.setup(REQUIRED_DST_DDL + ";", dst)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    dst_cols = o19etl.introspect_columns(query, dst)["t"]
+    print("\n  a NULL where CARLOS requires a value (not_null_fallback)")
+
+    client.setup("SET SESSION sql_mode='';"
+                 + o19etl.copy_statement("t", REQUIRED_ENTRY, src, dst,
+                                         dst_cols) + ";", dst)
+    stored = client.rows(
+        "SELECT `flag`, CONCAT('[',`note`,']'), `seen`, "
+        "`touched` > '2000-01-01' FROM `t`", dst)[0]
+    # the column DEFAULTs are 7 and 'x'; the server stores neither
+    ok = stored[0] == "0" and stored[1] == "[]" \
+        and stored[2].startswith("0000-00-00")
+    print("    {0:<44} {1}".format(
+        "the type's zero lands, not the DEFAULT",
+        "ok" if ok else "GOT {0}".format(stored[:3])))
+    if not ok:
+        failures.append("the NOT NULL substitution is not the type zero "
+                        "this build assumes: {0}".format(stored[:3]))
+    print("    {0:<44} {1}".format(
+        "a NOT NULL timestamp takes the import's own",
+        "ok" if stored[3] == "1" else "GOT {0}".format(stored[3])))
+    if stored[3] != "1":
+        failures.append("a NOT NULL timestamp did not take "
+                        "CURRENT_TIMESTAMP; the check's tolerance rests "
+                        "on that")
+
+    check = o19etl.copy_value_mismatch_sql("t", REQUIRED_ENTRY, src, dst,
+                                           dst_cols, ("id",))
+    alarms = int(client.rows(check, dst)[0][0])
+    print("    {0:<44} {1}".format(
+        "P7 agrees with the faithful copy",
+        "ok" if alarms == 0 else "{0} FALSE ALARM(S)".format(alarms)))
+    if alarms:
+        failures.append("copy_value_mismatch_sql disagreed with its own "
+                        "copy on {0} row(s) -- this is the P4 parity "
+                        "failure a live rehearsal hit".format(alarms))
+
+    # negative control: without the coercion the check compares a NULL
+    # against the stored zero and fails a correct import
+    original = o19etl.not_null_fallback
+    o19etl.not_null_fallback = lambda info: None
+    try:
+        bare = o19etl.copy_value_mismatch_sql(
+            "t", REQUIRED_ENTRY, src, dst, dst_cols, ("id",))
+    finally:
+        o19etl.not_null_fallback = original
+    control = int(client.rows(bare, dst)[0][0])
+    print("    {0:<44} {1}".format(
+        "control: uncoerced, the same copy fails",
+        "reproduced" if control else "NOT REPRODUCED"))
+    if not control:
+        failures.append("the uncoerced check passed, so this fixture "
+                        "proves nothing about the coercion")
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -2133,6 +2246,10 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                                       args.prefix + "_tka")
     if twins:
         failures["normalised twin key"] = twins
+    required = check_required_column_nulls(client, args.prefix + "_rns",
+                                           args.prefix + "_rnd")
+    if required:
+        failures["required column nulls"] = required
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
@@ -2164,7 +2281,10 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
           "expression groups its twins the way the JOIN does -- one "
           "value landing on the seed row and P7 agreeing -- where the "
           "raw grouping it replaces demonstrably fails a correct "
-          "import")
+          "import, and a NULL in a column CARLOS requires takes the "
+          "TYPE's zero (never the column's DEFAULT) with the value "
+          "check agreeing, where the uncoerced check it replaces "
+          "demonstrably fails a faithful copy")
     return 0
 
 

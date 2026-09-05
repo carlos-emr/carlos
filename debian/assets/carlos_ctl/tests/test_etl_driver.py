@@ -146,6 +146,11 @@ class FakeDb(object):
                   over.pop("src_columns", SRC_COLUMNS).items()},
             DST: {t: list(c) for t, c in
                   over.pop("dst_columns", DST_COLUMNS).items()}}
+        #: {(schema, table, column)} rendered NOT NULL. CARLOS made a
+        #: handful of OSCAR 19's nullable columns required, and the
+        #: substitution the server then makes is reported — so a test
+        #: has to be able to say "this column is one of them".
+        self.not_null = set(over.pop("not_null", ()))
         #: {(schema, table): rows} for COUNT(*), everything else 0.
         #: Facility and clinic default to one row because the pre-checks
         #: refuse a dump with neither -- a synthetic dump is still a
@@ -222,8 +227,10 @@ class FakeDb(object):
         rows = []
         for table, cols in sorted(self.columns.get(schema, {}).items()):
             for col in cols:
-                rows.append([table, col, "varchar", "varchar(255)", "YES",
-                             255, "\\0NONE", "", 1020])
+                nullable = ("NO" if (schema, table, col) in self.not_null
+                            else "YES")
+                rows.append([table, col, "varchar", "varchar(255)",
+                             nullable, 255, "\\0NONE", "", 1020])
         return rows
 
     def _rows(self, sql):
@@ -320,6 +327,34 @@ class EtlDriverBase(unittest.TestCase):
     def writes_matching(self, db, pattern):
         rx = re.compile(pattern)
         return [w for w in db.writes if rx.search(w)]
+
+
+class TestAValueCarlosRequires(EtlDriverBase):
+
+    """A NULL landing in a column CARLOS declares NOT NULL.
+
+    OSCAR 19 left nullable what CARLOS requires, and the copy's
+    INSERT ... SELECT does not refuse it: the server substitutes the
+    type's zero. `sanitize_expr` makes that substitution explicit so the
+    value check models the write, and this pins the other half — that
+    the operator is TOLD. Without the call site in `run_etl` the whole
+    reporting path is dead code and every unit test of it still passes.
+    """
+
+    def test_a_null_into_a_required_column_reaches_the_report(self):
+        db, lines, _counts = self.run_etl(
+            not_null={(DST, "AppDefinition", "name")},
+            counts={(SRC, "AppDefinition"): 2, (DST, "AppDefinition"): 2})
+        text = self.report_text(lines)
+        self.assertIn("values CARLOS requires, supplied by the server",
+                      text)
+        self.assertIn("AppDefinition.name: 2 row(s) hold NULL where "
+                      "CARLOS requires a value; stored as ''", text)
+
+    def test_nothing_is_reported_when_every_column_is_nullable(self):
+        _db, lines, _counts = self.run_etl()
+        self.assertNotIn("values CARLOS requires",
+                         self.report_text(lines))
 
 
 class TestTheCopyPath(EtlDriverBase):

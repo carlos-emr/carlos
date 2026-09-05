@@ -661,6 +661,107 @@ class TestPrechecks(unittest.TestCase):
         self.assertIn("CHAR_LENGTH(s.`a`) > 10", checks[0][1])
 
 
+class TestNullIntoAColumnCarlosRequires(unittest.TestCase):
+
+    r"""OSCAR 19 left nullable what CARLOS made NOT NULL.
+
+    Found by a live rehearsal, not by reading: the import failed P4 row
+    parity on `document.restrictToProgram` and
+    `professionalSpecialists.hideFromView` -- both nullable in OSCAR 19,
+    both `NOT NULL` with no default in CARLOS, and both NULL in an
+    ordinary clinic dump. The copy's INSERT ... SELECT stored the type's
+    zero (silently, under the ETL's `sql_mode=''`), while
+    `copy_value_mismatch_sql` compared the target against the expression
+    it believed had been written -- a NULL -- and reported every such row
+    as a mismatch. Parity is not overridable, so an ordinary clinic could
+    not finish an import at all.
+
+    MEASURED on MariaDB 10.11 through INSERT ... SELECT, because both
+    answers are counter-intuitive: the column's own DEFAULT is NOT used
+    (`int NOT NULL DEFAULT 7` stores 0, `varchar NOT NULL DEFAULT 'x'`
+    stores ''), and a NOT NULL `timestamp` stores CURRENT_TIMESTAMP
+    rather than any zero -- which is why no expression can model it and
+    the CHECK is relaxed there instead of the write being changed."""
+
+    def test_the_fallback_is_the_types_zero_not_the_columns_default(self):
+        self.assertEqual(
+            o19etl.not_null_fallback(
+                col("int", nullable=False, has_default=True)), "0")
+        self.assertEqual(
+            o19etl.not_null_fallback(
+                col("varchar", nullable=False, has_default=True)), "''")
+        self.assertEqual(
+            o19etl.not_null_fallback(col("date", nullable=False)),
+            "'0000-00-00'")
+        self.assertEqual(
+            o19etl.not_null_fallback(col("datetime", nullable=False)),
+            "'0000-00-00 00:00:00'")
+
+    def test_a_nullable_column_is_left_alone(self):
+        self.assertIsNone(o19etl.not_null_fallback(col("int")))
+        expr = o19etl.sanitize_expr("s.`a`", col("int"))
+        self.assertEqual(expr, "s.`a`")
+
+    def test_no_literal_is_invented_for_a_not_null_timestamp(self):
+        # the server stamps CURRENT_TIMESTAMP; a static literal would
+        # replace the clinic's import time with a zero date
+        self.assertIsNone(
+            o19etl.not_null_fallback(col("timestamp", nullable=False)))
+        self.assertNotIn(
+            "IFNULL",
+            o19etl.sanitize_expr("s.`a`", col("timestamp",
+                                              nullable=False)))
+
+    def test_the_check_accepts_a_null_into_a_not_null_timestamp(self):
+        same = o19etl.value_comparison(
+            "a", "s.`a`", col("timestamp", nullable=False))
+        self.assertIn("s.`a` IS NULL OR", same)
+        # and still compares when the source HAS a value
+        self.assertIn("d.`a` <=> s.`a`", same)
+
+    def test_an_enum_keeps_its_own_case_and_is_not_double_wrapped(self):
+        info = col("enum", nullable=False, column_type="enum('x','y')")
+        self.assertIsNone(o19etl.not_null_fallback(info))
+        expr = o19etl.sanitize_expr("s.`a`", info)
+        self.assertIn("CASE", expr)
+        self.assertNotIn("IFNULL", expr)
+
+    def test_the_copy_and_its_own_check_write_the_same_expression(self):
+        """The whole point: the check must model the write. Both are
+        built from `written_expr`, so this pins that they agree on a
+        NOT NULL column rather than on the shape of one of them."""
+        entry = {"class": "copy", "cols": ["id", "flag"]}
+        dst = {"id": col("int", nullable=False),
+               "flag": col("tinyint", nullable=False)}
+        insert = o19etl.copy_statement("t", entry, "src", "dst", dst)
+        check = o19etl.copy_value_mismatch_sql(
+            "t", entry, "src", "dst", dst, ("id",))
+        self.assertIn("IFNULL(s.`flag`, 0)", insert)
+        self.assertIn("IFNULL(s.`flag`, 0)", check)
+
+    def test_the_substitution_is_counted_for_the_report(self):
+        entry = {"class": "copy", "cols": ["a", "b", "c"]}
+        dst = {"a": col("int", nullable=False), "b": col("int"),
+               "c": col("enum", nullable=False,
+                        column_type="enum('x')")}
+        pairs = o19etl.not_null_coercion_count_sql("t", entry, "src", dst)
+        # the nullable column needs no substitution; the enum owns its own
+        self.assertEqual([c for c, _ in pairs], ["a"])
+        self.assertIn("WHERE s.`a` IS NULL", pairs[0][1])
+
+    def test_the_report_line_names_what_was_stored(self):
+        entry = {"class": "copy", "cols": ["a", "t"]}
+        dst = {"t": {"a": col("int", nullable=False),
+                     "t": col("timestamp", nullable=False)}}
+        lines = o19etl.not_null_coercion_lines(
+            lambda sql: [["4"]], "src", "arch", dst,
+            {"t": entry}, {})
+        joined = "\n".join(lines)
+        self.assertIn("t.a: 4 row(s) hold NULL where CARLOS requires a "
+                      "value; stored as 0", joined)
+        self.assertIn("stored as the import's own timestamp", joined)
+
+
 class TestEnumValues(unittest.TestCase):
 
     """Parsing the member list out of an enum column type."""

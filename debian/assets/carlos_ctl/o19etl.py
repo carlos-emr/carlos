@@ -395,8 +395,59 @@ def source_expr(table_entry: dict, target_col: str,
     return expr
 
 
+#: The literal a NULL falls to on a NOT NULL target, BY TARGET TYPE.
+#:
+#: MEASURED on MariaDB 10.11 under the ETL's `sql_mode=''`, through
+#: INSERT ... SELECT -- the form the copy uses, and the only one that
+#: coerces at all: a literal `VALUES (NULL)` into a NOT NULL column is
+#: ERROR 1048 even in non-strict mode. Two results that reasoning would
+#: have got wrong:
+#:
+#:   * the column's own DEFAULT is NOT used. `int NOT NULL DEFAULT 7`
+#:     stores 0 and `varchar(10) NOT NULL DEFAULT 'x'` stores '' -- the
+#:     TYPE's implicit zero, every time.
+#:   * `timestamp NOT NULL` is the exception: it stores CURRENT_TIMESTAMP
+#:     (with a literal DEFAULT as much as with DEFAULT CURRENT_TIMESTAMP).
+#:     No static literal reproduces that, so it is deliberately absent
+#:     here -- see `value_comparison`, which relaxes the check instead of
+#:     the write changing what the server stamps.
+_NOT_NULL_ZERO = {
+    "date": "'0000-00-00'",
+    "datetime": "'0000-00-00 00:00:00'",
+    "time": "'00:00:00'",
+}
+
+
+def not_null_fallback(dst_info: dict) -> Optional[str]:
+    """The literal a NULL falls to on this NOT NULL column, or None when
+    the server's substitution cannot be written as one (`timestamp`) or
+    is already handled (`enum`, by the CASE in `sanitize_expr`)."""
+    if dst_info.get("nullable"):
+        return None
+    dtype = (dst_info.get("type") or "").lower()
+    if dtype in ("timestamp", "enum"):
+        return None
+    if dtype in _NOT_NULL_ZERO:
+        return _NOT_NULL_ZERO[dtype]
+    if dtype in NUMERIC_TYPES:
+        return "0"
+    return "''"
+
+
 def sanitize_expr(expr: str, dst_info: dict) -> str:
-    """Wrap zero-date and enum sanitizers around a source expression."""
+    """Wrap zero-date, enum and NOT NULL sanitizers around a source
+    expression.
+
+    The NOT NULL wrap is what keeps the copy and its own value check
+    telling the same story. OSCAR 19 leaves nullable what CARLOS made
+    NOT NULL (`document.restrictToProgram`,
+    `professionalSpecialists.hideFromView` are the two in the stock
+    schema), the INSERT ... SELECT silently stored the type's zero, and
+    `copy_value_mismatch_sql` -- comparing the expression it thought was
+    written against the value actually stored -- then failed P4 row
+    parity on a faithful import, with no flag that clears it. Making the
+    substitution EXPLICIT means the check models the write again, and
+    `not_null_coercion_lines` reports it so it is never silent."""
     dtype = dst_info["type"]
     if dtype in ("date", "datetime", "timestamp") and dst_info["nullable"]:
         zero = "0000-00-00" if dtype == "date" else "0000-00-00 00:00:00"
@@ -412,6 +463,9 @@ def sanitize_expr(expr: str, dst_info: dict) -> str:
                 null_case, expr,
                 ", ".join("'{0}'".format(v) for v in values),
                 enum_fallback(dst_info, values))
+    fallback = not_null_fallback(dst_info)
+    if fallback is not None:
+        expr = "IFNULL({0}, {1})".format(expr, fallback)
     return expr
 
 
@@ -426,6 +480,59 @@ def enum_fallback(dst_info: dict, values: List[str]) -> str:
     if dst_info["nullable"]:
         return "NULL"
     return "'{0}'".format(values[0])
+
+
+def not_null_coercion_count_sql(table: str, entry: dict, src_schema: str,
+                                dst_cols: Dict[str, dict],
+                                repaired: Optional[set] = None,
+                                archive_schema: Optional[str] = None
+                                ) -> List[Tuple[str, str]]:
+    """(column, COUNT-sql) pairs counting source rows that are NULL in a
+    column CARLOS declares NOT NULL — reported so the substitution the
+    server makes is never silent (the rows themselves still copy)."""
+    out = []
+    for c in entry["cols"]:
+        info = dst_cols.get(c)
+        if not info or info.get("nullable"):
+            continue
+        if c in (entry.get("archived_cols") or {}):
+            continue          # copied verbatim into a column of the
+        if (info.get("type") or "").lower() == "enum":
+            continue          # the enum CASE already owns this column
+        expr = source_expr(entry, c, repaired, archive_schema,
+                           info.get("nullable"))
+        out.append((c, "SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE {2} IS "
+                       "NULL".format(src_schema, table, expr)))
+    return out
+
+
+def not_null_coercion_lines(query, src_schema: str, arch_schema: str,
+                            dst_info: Dict[str, Dict[str, dict]],
+                            effective: Dict[str, dict],
+                            repairs: Dict[str, set]) -> List[str]:
+    """Report lines for NULLs landing in a column CARLOS requires.
+
+    OSCAR 19 left nullable what CARLOS made NOT NULL, and the server
+    substitutes rather than refusing: the type's zero for most columns,
+    and the CURRENT_TIMESTAMP of the import for a NOT NULL `timestamp`.
+    Both are recorded here for the same reason the enum fallback is —
+    a value the import CHANGED is a value the operator has to see."""
+    lines: List[str] = []
+    for table in sorted(effective):
+        for col, sql in not_null_coercion_count_sql(
+                table, effective[table], src_schema, dst_info[table],
+                repairs.get(table), arch_schema):
+            n = int(query(sql)[0][0])
+            if not n:
+                continue
+            info = dst_info[table][col]
+            fallback = not_null_fallback(info)
+            became = (fallback if fallback is not None
+                      else "the import's own timestamp")
+            lines.append(
+                "{0}.{1}: {2} row(s) hold NULL where CARLOS requires a "
+                "value; stored as {3}".format(table, col, n, became))
+    return lines
 
 
 def enum_fallback_count_sql(table: str, entry: dict, src_schema: str,
@@ -2896,6 +3003,17 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     if enum_lines:
         report("enum fallbacks:\n  " + "\n  ".join(enum_lines))
 
+    # the same rule for the other substitution the server makes on our
+    # behalf: OSCAR 19 left nullable what CARLOS requires, and a NULL
+    # becomes the type's zero (or, for a NOT NULL timestamp, the moment
+    # of the import). Counted here so a changed value reaches the
+    # operator's report rather than only the database.
+    null_lines = not_null_coercion_lines(query, src, arch, dst_info,
+                                         effective, repairs)
+    if null_lines:
+        report("values CARLOS requires, supplied by the server:\n  "
+               + "\n  ".join(null_lines))
+
     plain("CREATE DATABASE IF NOT EXISTS `{0}`".format(arch))
     progress = load_progress(state_dir, ctx.get("dump_sha256"),
                              o19map_schema.SCHEMA_MAP_VERSION)
@@ -3240,7 +3358,18 @@ def value_comparison(col: str, expr: str, dst_info: dict) -> str:
     would reintroduce the scale mismatch this join exists to avoid.
     """
     target = "d.{0}".format(ident(col))
-    if (dst_info.get("type") or "").lower() not in COLLATED_TYPES:
+    dtype = (dst_info.get("type") or "").lower()
+    if dtype == "timestamp" and not dst_info.get("nullable"):
+        # The one substitution no expression can model: measured on
+        # MariaDB 10.11, a NULL into a NOT NULL timestamp stores
+        # CURRENT_TIMESTAMP -- the moment of the INSERT, which this
+        # check runs minutes later and could never reproduce. Wrapping
+        # the WRITE instead would replace the server's stamp with a zero
+        # date, i.e. change the data to satisfy the checker. So the
+        # source's NULL is accepted here, and counted in the report by
+        # `not_null_coercion_lines` rather than passing unmentioned.
+        return "({0} IS NULL OR {1} <=> {0})".format(expr, target)
+    if dtype not in COLLATED_TYPES:
         return "{0} <=> {1}".format(target, expr)
     return ("CONVERT({0} USING utf8mb4) COLLATE utf8mb4_bin <=> "
             "CONVERT({1} USING utf8mb4) COLLATE utf8mb4_bin"
