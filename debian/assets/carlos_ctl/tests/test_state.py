@@ -212,6 +212,201 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
         self.assertNotIn("o19_", batch)
 
 
+class TestTheStagingRowDetector(unittest.TestCase):
+
+    """`staging_holds_rows` is the input to the gate that decides
+    whether P1 may drop the staging schema, and it had no test at all.
+
+    Its whole reason to exist is that it does NOT read
+    information_schema.TABLE_ROWS, which is an estimate for InnoDB and
+    reads 0 for a populated table -- the answer that would let the drop
+    proceed over another dump's rows."""
+
+    class Db(object):
+        def __init__(self, tables):
+            # tables: {name: rowcount}
+            self.tables = tables
+            self.queries = []
+
+        def __call__(self, sql):
+            self.queries.append(sql)
+            if "information_schema.TABLES" in sql:
+                return [[t] for t in sorted(self.tables)]
+            table = sql.rsplit("`.`", 1)[-1].rstrip("`")
+            return [[str(self.tables[table])]]
+
+    def test_an_empty_staging_schema_holds_nothing(self):
+        db = self.Db({"demographic": 0, "provider": 0})
+        self.assertFalse(o19import.staging_holds_rows(db))
+
+    def test_a_schema_with_no_tables_holds_nothing(self):
+        self.assertFalse(o19import.staging_holds_rows(self.Db({})))
+
+    def test_one_populated_table_is_enough(self):
+        db = self.Db({"demographic": 0, "provider": 3})
+        self.assertTrue(o19import.staging_holds_rows(db))
+
+    def test_it_stops_at_the_first_populated_table(self):
+        # a staged clinic dump is ~580 tables; the gate needs a yes/no,
+        # not a census, and counting all of them would scan the lot
+        db = self.Db({"aaa": 7, "bbb": 1, "ccc": 1})
+        self.assertTrue(o19import.staging_holds_rows(db))
+        counts = [q for q in db.queries if q.startswith("SELECT COUNT")]
+        self.assertEqual(len(counts), 1, counts)
+
+    def test_it_counts_rows_rather_than_reading_the_estimate(self):
+        db = self.Db({"demographic": 1})
+        o19import.staging_holds_rows(db)
+        self.assertTrue(any(q.startswith("SELECT COUNT(*) FROM")
+                            for q in db.queries), db.queries)
+        self.assertFalse(any("TABLE_ROWS" in q for q in db.queries),
+                         "TABLE_ROWS is an InnoDB ESTIMATE and reads 0 "
+                         "for a populated table: a drop gate must not "
+                         "ask it")
+
+    def test_every_table_it_counts_is_quoted_as_an_identifier(self):
+        db = self.Db({"we ird": 0})
+        o19import.staging_holds_rows(db)
+        counts = [q for q in db.queries if q.startswith("SELECT COUNT")]
+        self.assertEqual(len(counts), 1)
+        self.assertIn("`we ird`", counts[0])
+
+
+class TestEveryP0AndP1GateIsStillAsked(unittest.TestCase):
+
+    """The phase drivers themselves are undriven, and their gates are
+    deletable.
+
+    Branch coverage over the whole suite shows run_p0, run_p0_capacity,
+    run_p1 and run_p2 executing only their `def` line. Their decision
+    helpers are heavily tested as pure functions -- staging_drop_refusal
+    has five tests, pristine_violations four, content_transfer_refusal
+    seven -- but nothing asserted that the phases still CALL them. Nine
+    gates were each replaced in turn by their permissive answer
+    (`refusal = None`, `violations = []`, the `if` deleted) and the full
+    suite stayed green every time.
+
+    Reaching them behaviourally means standing up a server, a dump
+    stream, a documents tar and a Flyway run; the four drivers are
+    orchestration, and a test elaborate enough to reach line 60 of
+    run_p1 would pin its own scaffolding more than the invariant. What
+    is pinned instead is the one thing a deletion destroys: that the
+    gate is still asked, inside the phase that owns it. The pure
+    helpers' own tests say what each answer means.
+
+    Adding a gate to a phase does not require touching this list.
+    Removing one does -- which is the point."""
+
+    #: (phase, what the gate refuses, the marker its deletion removes).
+    #: A marker is a called name, an attribute, or a literal that
+    #: appears nowhere else in the phase.
+    GATES = [
+        ("run_p0", "a province the manifest is not curated for",
+         "province"),
+        ("run_p0", "a target carrying an earlier import's leftovers",
+         "inherited_import_refusal"),
+        ("run_p0", "a target that is not a pristine CARLOS deploy",
+         "pristine_violations"),
+        ("run_p0", "seed rows the deploy itself creates, not clinic rows",
+         "tolerate_startup_rows"),
+        ("run_p0", "a security table holding more than the seeded login",
+         "SEED_USER_NAME"),
+        ("run_p0_capacity", "a volume too small for the run",
+         "check_disk_headroom"),
+        ("run_p1", "a dump whose collations this server lacks",
+         "head_collations"),
+        ("run_p1", "a dump that chooses its own schema",
+         "dump_redirect_marker"),
+        ("run_p1", "a truncated dump", "DUMP_COMPLETED_MARKER"),
+        ("run_p1", "a second dump staged over the first without --restage",
+         "etl_started"),
+        ("run_p1", "dropping a staging schema holding another dump's rows",
+         "staging_drop_refusal"),
+        ("run_p2", "a preflight no-go", "no-go"),
+        ("run_p2", "a transfer whose content could not be shown to match",
+         "content_transfer_refusal"),
+    ]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = Path(o19import.__file__).read_text(encoding="utf-8")
+        cls.tree = ast.parse(cls.src)
+
+    def phase(self, name):
+        return next(n for n in ast.walk(self.tree)
+                    if isinstance(n, ast.FunctionDef) and n.name == name)
+
+    @staticmethod
+    def _markers(node):
+        """Names, attributes and literals in DECIDING positions only.
+
+        A gate deleted as `if False:` leaves its die() message behind,
+        and that message names the very thing the gate tested -- so a
+        marker found anywhere in the function would still be found and
+        the deletion would pass. Only `if` tests and the right-hand
+        side of assignments are read: those are where a gate decides,
+        and where stubbing it out (`= None`, `= []`, `if False`) shows."""
+        found = set()
+        deciding = []
+        for n in ast.walk(node):
+            if isinstance(n, ast.If):
+                deciding.append(n.test)
+            elif isinstance(n, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+                if n.value is not None:
+                    deciding.append(n.value)
+        for root in deciding:
+            for n in ast.walk(root):
+                if isinstance(n, ast.Name):
+                    found.add(n.id)
+                elif isinstance(n, ast.Attribute):
+                    found.add(n.attr)
+                elif isinstance(n, ast.Constant) and isinstance(n.value, str):
+                    found.add(n.value)
+        return found
+
+    def test_every_gate_is_still_asked_in_its_phase(self):
+        missing = ["{0}: {1} ({2})".format(phase, why, marker)
+                   for phase, why, marker in self.GATES
+                   if marker not in self._markers(self.phase(phase))]
+        self.assertEqual(
+            missing, [],
+            "a phase no longer asks a gate it owns. Each of these refuses "
+            "a target or a dump the import cannot safely proceed on, and "
+            "each was deletable with the whole suite green.")
+
+    def test_restaging_over_a_copied_dump_is_still_refused(self):
+        """Its own test because `etl_started` is asked twice in run_p1
+        and the manifest above cannot tell the two apart. This is the
+        gate that stops two clinics' dumps being mixed in one target:
+        --restage AFTER the ETL has copied would drop the staging
+        schema and restore a different source under rows already
+        written from the first."""
+        node = self.phase("run_p1")
+        found = False
+        for n in ast.walk(node):
+            if not isinstance(n, ast.If) or not isinstance(n.test,
+                                                           ast.BoolOp):
+                continue
+            if not isinstance(n.test.op, ast.And):
+                continue
+            markers = self._markers(ast.Module(body=[n], type_ignores=[]))
+            if "restage" in markers and "etl_started" in markers:
+                found = True
+        self.assertTrue(
+            found,
+            "run_p1 no longer refuses --restage after the ETL has "
+            "copied: two sources would be mixed in one target")
+
+    def test_every_gated_phase_can_still_stop(self):
+        # a gate that no longer stops anything is a gate in name only
+        for phase in sorted(set(p for p, _w, _m in self.GATES)):
+            node = self.phase(phase)
+            dies = [n for n in ast.walk(node)
+                    if isinstance(n, ast.Call)
+                    and isinstance(n.func, ast.Name) and n.func.id == "die"]
+            self.assertTrue(dies, "{0} has no die()".format(phase))
+
+
 class _Cp(object):
     """The two fields cmd_destroy_data reads off a CompletedProcess."""
 

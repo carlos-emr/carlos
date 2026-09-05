@@ -1406,5 +1406,129 @@ class TestOwnershipSymlinkGuard(unittest.TestCase):
         self.assertIn("-Rh", chowns[0])
 
 
+class TestTheResumeSkipRecognisesOnlyTheSameFile(unittest.TestCase):
+
+    """`_same_file` is what makes a resumed merge idempotent: it decides
+    whether a file already at its destination is left alone.
+
+    Its content comparison was never what decided a test -- the size
+    guard in front of it answered every case -- so the digest could have
+    been deleted with the suite green, and a resumed merge would then
+    keep whatever file of the right size happened to sit at the
+    destination. That file is a patient document.
+
+    The destination is opened THROUGH the directory descriptor with
+    O_NOFOLLOW and O_NONBLOCK, so the symlink and FIFO cases are part of
+    the contract, not incidental."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="o19docs-same-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.dst = os.path.join(self.dir, "dst")
+        os.makedirs(self.dst)
+        self.fd = os.open(self.dst, os.O_RDONLY)
+        self.addCleanup(os.close, self.fd)
+
+    def write(self, path, data):
+        with open(path, "wb") as fh:
+            fh.write(data)
+        return path
+
+    def src(self, data):
+        return self.write(os.path.join(self.dir, "src.pdf"), data)
+
+    def dest(self, name, data):
+        return self.write(os.path.join(self.dst, name), data)
+
+    def same(self, name="a.pdf"):
+        return o19docs._same_file(os.path.join(self.dir, "src.pdf"),
+                                  self.fd, name)
+
+    def test_identical_content_is_the_same_file(self):
+        self.src(b"chart bytes")
+        self.dest("a.pdf", b"chart bytes")
+        self.assertTrue(self.same())
+
+    def test_the_same_size_with_different_bytes_is_not(self):
+        # the case the size guard cannot see, and the only one the
+        # digest decides: one patient's scan for another's
+        self.src(b"patient A scan")
+        self.dest("a.pdf", b"patient B scan")
+        self.assertEqual(os.path.getsize(os.path.join(self.dir, "src.pdf")),
+                         os.path.getsize(os.path.join(self.dst, "a.pdf")))
+        self.assertFalse(self.same())
+
+    def test_a_different_size_is_not(self):
+        self.src(b"chart bytes")
+        self.dest("a.pdf", b"chart")
+        self.assertFalse(self.same())
+
+    def test_an_empty_file_matches_an_empty_file(self):
+        self.src(b"")
+        self.dest("a.pdf", b"")
+        self.assertTrue(self.same())
+
+    def test_a_large_file_is_read_past_one_chunk(self):
+        # the digest reads in 1 MiB chunks; a difference beyond the
+        # first chunk must still be seen
+        body = b"x" * (1024 * 1024 + 32)
+        self.src(body)
+        self.dest("a.pdf", body[:-1] + b"y")
+        self.assertFalse(self.same())
+
+    def test_a_large_identical_file_is_recognised_past_one_chunk(self):
+        # the other half of the chunked read: hashing only the first
+        # 1 MiB of the destination makes every big document look
+        # different, and a resumed merge re-copies the whole tree
+        body = (b"x" * (1024 * 1024)) + b"tail bytes"
+        self.src(body)
+        self.dest("a.pdf", body)
+        self.assertTrue(self.same())
+
+    def test_an_empty_source_does_not_match_a_fifo(self):
+        # the sharp case for the regular-file check: a FIFO reports
+        # st_size 0, so the size guard in front of it agrees with an
+        # empty source, and an O_NONBLOCK read of an unwritten FIFO
+        # returns b"" -- which hashes the same as an empty file
+        self.src(b"")
+        os.mkfifo(os.path.join(self.dst, "a.pdf"))
+        self.assertFalse(self.same())
+
+    def test_nothing_at_the_destination_is_not_the_same_file(self):
+        self.src(b"chart bytes")
+        self.assertFalse(self.same())
+
+    def test_a_symlink_at_the_destination_is_never_the_same_file(self):
+        self.src(b"chart bytes")
+        other = self.write(os.path.join(self.dir, "elsewhere"),
+                           b"chart bytes")
+        os.symlink(other, os.path.join(self.dst, "a.pdf"))
+        self.assertFalse(self.same(),
+                         "O_NOFOLLOW is what stops a planted symlink "
+                         "standing in for the document")
+
+    def test_a_directory_at_the_destination_is_not_the_same_file(self):
+        self.src(b"chart bytes")
+        os.makedirs(os.path.join(self.dst, "a.pdf"))
+        self.assertFalse(self.same())
+
+    def test_a_fifo_at_the_destination_is_not_the_same_file(self):
+        # a plain O_RDONLY open of a FIFO blocks forever in a root-run
+        # import; O_NONBLOCK is what lets the fstat below reject it
+        self.src(b"chart bytes")
+        os.mkfifo(os.path.join(self.dst, "a.pdf"))
+        self.assertFalse(self.same())
+
+    def test_a_missing_source_is_not_the_same_file(self):
+        self.dest("a.pdf", b"chart bytes")
+        self.assertFalse(self.same())
+
+    def test_a_symlinked_source_is_not_the_same_file(self):
+        real = self.write(os.path.join(self.dir, "real"), b"chart bytes")
+        os.symlink(real, os.path.join(self.dir, "src.pdf"))
+        self.dest("a.pdf", b"chart bytes")
+        self.assertFalse(self.same())
+
+
 if __name__ == "__main__":
     unittest.main()
