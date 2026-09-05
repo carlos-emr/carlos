@@ -29,21 +29,100 @@ def fixture_result():
         deployment_drugref="http://127.0.0.1:8080/drugref")
 
 
+# the `carry` keys whose CARLOS default says something different from the
+# O19 one: baseline-diff keeps them out of the fragment, so the clinic's
+# behaviour flips at cutover and the report row is the only warning
+DIVERGENT_CARRY_DEFAULTS = (
+    "CONSULTATION_AUTO_INCLUDE_ALLERGIES",
+    "CONSULTATION_AUTO_INCLUDE_MEDICATIONS",
+    "CONSULTATION_LOCK_REFERRAL_DATE",
+    "DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM",
+    "ECHART_SIGN_LINE",
+    "ECHART_VERSIGN_LINE",
+    "FORMS_PROMOTEXT",
+    "HL7TEXT_LABS",
+    "NEW_CONTACTS_UI",
+    "NEW_CONTACTS_UI_EXTERNAL_CONTACT",
+    "confidentiality_statement.v1",
+    "consultation_signature_enabled",
+    "faxPollInterval",
+    "save_as_xml",
+)
+
+
 class TestBaselineDiff(unittest.TestCase):
 
     """Clinic values equal to the stock defaults are not clinic values."""
     def test_untouched_defaults_are_ignored(self):
         result = fixture_result()
-        touched = {k for k, _, _ in result["rows"]}
-        # billregion=ON and HL7TEXT_LABS=no equal the stock defaults
+        fragment = dict(result["fragment"])
+        by_key = {k: d for k, d, _ in result["rows"]}
+        # billregion=ON and HL7TEXT_LABS=no equal the stock defaults, so
+        # neither reaches the fragment. billregion means the same thing in
+        # both products and stays entirely silent; HL7TEXT_LABS does not
+        # (CARLOS defaults to yes), so it is reported rather than dropped
         self.assertEqual(o19map_props.O19_DEFAULTS["billregion"], "ON")
-        self.assertNotIn("billregion", touched)
-        self.assertNotIn("HL7TEXT_LABS", touched)
+        self.assertNotIn("billregion", by_key)
+        self.assertNotIn("billregion", fragment)
+        self.assertEqual(by_key.get("HL7TEXT_LABS"), "carlos-default")
+        self.assertNotIn("HL7TEXT_LABS", fragment)
 
     def test_project_home_default_with_spaces_is_ignored(self):
         result = fixture_result()
         self.assertNotIn("project_home",
                          {k for k, _, _ in result["rows"]})
+
+
+class TestDivergentCarlosDefaults(unittest.TestCase):
+
+    """A stock O19 value CARLOS does not agree with.
+
+    Baseline-diff drops it so CARLOS's default wins (plan §8.1 rule 1)
+    -- correct, but for these keys that silently changes what the clinic
+    sees after cutover, and the key used to leave no trace at all in
+    report.txt."""
+
+    def test_the_manifest_lists_exactly_the_divergent_carry_keys(self):
+        self.assertEqual(sorted(o19map_props.CARLOS_DEFAULTS),
+                         sorted(DIVERGENT_CARRY_DEFAULTS))
+        for key, carlos_value in o19map_props.CARLOS_DEFAULTS.items():
+            # only `carry` keys qualify: a translate/deploy-owned key is
+            # never copied verbatim, so CARLOS owning it is the intent
+            self.assertEqual(o19props.disposition(key)["d"], "carry", key)
+            self.assertNotEqual(o19map_props.O19_DEFAULTS[key],
+                                carlos_value, key)
+
+    def test_a_stock_value_is_reported_when_the_carlos_default_differs(self):
+        result = o19props.translate_all(
+            [("CONSULTATION_AUTO_INCLUDE_ALLERGIES", "true"),
+             ("consultation_signature_enabled", "true"),
+             ("billregion", "ON")],
+            documents_root=ROOT)
+        # nothing is carried: the fragment is unchanged by this rule
+        self.assertEqual(result["fragment"], [])
+        rows = {k: (d, n) for k, d, n in result["rows"]}
+        self.assertEqual(rows["CONSULTATION_AUTO_INCLUDE_ALLERGIES"][0],
+                         "carlos-default")
+        self.assertIn("untouched O19 default 'true'",
+                      rows["CONSULTATION_AUTO_INCLUDE_ALLERGIES"][1])
+        self.assertIn("CARLOS's default is 'false'",
+                      rows["CONSULTATION_AUTO_INCLUDE_ALLERGIES"][1])
+        # a key both products default the same way stays silent
+        self.assertNotIn("billregion", rows)
+        report = o19props.render_report(result)
+        self.assertIn("carlos-default (2):", report)
+        self.assertIn("consultation_signature_enabled", report)
+
+    def test_a_clinic_value_that_differs_still_carries(self):
+        # the rule fires only on the untouched stock value; a clinic that
+        # actually changed the key keeps its choice
+        result = o19props.translate_all(
+            [("CONSULTATION_AUTO_INCLUDE_ALLERGIES", "false")],
+            documents_root=ROOT)
+        self.assertEqual(
+            result["fragment"],
+            [("CONSULTATION_AUTO_INCLUDE_ALLERGIES", "false")])
+        self.assertEqual(result["rows"][0][1], "carry")
 
 
 class TestEveryStockKeyIsClassified(unittest.TestCase):

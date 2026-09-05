@@ -421,7 +421,13 @@ gate has no override.
    `/var/lib/carlos-emr/o19-import/o19-derived-carlos.properties` (0600;
    contains imported credentials — rotate/verify them), append the approved
    lines to `/etc/carlos-emr/carlos.properties`, then `carlos-ctl restart`.
-   This step is deliberately never automatic.
+   This step is deliberately never automatic. Read the `carlos-default`
+   rows of the props section of `report.txt` alongside it: those are keys
+   the clinic left on the stock OSCAR 19 value, which the import does not
+   carry (CARLOS's own default wins) but where CARLOS's default says
+   something *different* — consultation auto-include, lab display, the
+   contacts UI. Each row names both values; restore any the clinic wants
+   by adding the key to `/etc/carlos-emr/carlos.properties` yourself.
 2. `carlos-ctl backup full` — the post-import snapshot.
 3. **Technical review before clinical use**: start at
    `/var/lib/carlos-emr/o19-import/import-report.txt` — the validation

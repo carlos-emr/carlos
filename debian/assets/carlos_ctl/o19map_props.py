@@ -469,6 +469,26 @@ SECRET_DEFAULT_KEYS = [
     'util.erx.clinic_username',
 ]
 
+# CARLOS's own default for the `carry` keys where it DIFFERS from the O19 default:
+# the baseline diff leaves such a key untouched (CARLOS wins), which silently flips
+# the clinic's behaviour at cutover unless the props report names it
+CARLOS_DEFAULTS = {
+    'CONSULTATION_AUTO_INCLUDE_ALLERGIES': 'false',
+    'CONSULTATION_AUTO_INCLUDE_MEDICATIONS': 'false',
+    'CONSULTATION_LOCK_REFERRAL_DATE': 'false',
+    'DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM': 'false',
+    'ECHART_SIGN_LINE': '[${encounter.class.EctSaveEncounterAction.msgSigned} ${DATE} ${encounter.class.EctSaveEncounterAction.msgSigBy} ${USERSIGNATURE}]\n',
+    'ECHART_VERSIGN_LINE': '[${encounter.class.EctSaveEncounterAction.msgVerAndSig} ${DATE} ${encounter.class.EctSaveEncounterAction.msgSigBy} ${USERSIGNATURE}]\n',
+    'FORMS_PROMOTEXT': '',
+    'HL7TEXT_LABS': 'yes',
+    'NEW_CONTACTS_UI': 'true',
+    'NEW_CONTACTS_UI_EXTERNAL_CONTACT': 'true',
+    'confidentiality_statement.v1': 'The information transmitted is intended only for the person to whom it is addressed and may contain confidential, proprietary and/or privileged material. Any unauthorized review, distribution or other use of or the taking of any action in reliance upon this information is prohibited. The contents of this message may be subject to privilege and all rights to that privilege are expressly claimed and not waived. If you receive this in error, please contact the sender  and delete or destroy this message and any copies. Thank you.',
+    'consultation_signature_enabled': 'false',
+    'faxPollInterval': '60000',
+    'save_as_xml': 'false',
+}
+
 KEYS = {
     'ALLOW_UPDATE_DOCUMENT_CONTENT': {
         'd': 'carry',

@@ -9,7 +9,10 @@ it (docs plan §8.1: this is deliberately the one non-automatic step).
 
 Rules, in order:
  1. Baseline-diff: keys equal to the stock O19 default are ignored —
-    CARLOS defaults win wherever the clinic never made a choice.
+    CARLOS defaults win wherever the clinic never made a choice. Where
+    CARLOS's default DIFFERS from the O19 one (manifest CARLOS_DEFAULTS)
+    that silently changes behaviour at cutover, so the key still earns a
+    `carlos-default` report row naming both values; nothing is carried.
  2. Disposition from the generated manifest (o19map_props): exact KEYS
     first, then the ordered PREFIX_RULES; anything unmatched is `unknown`
     (reported for human classification, never silently carried/dropped).
@@ -286,6 +289,10 @@ def translate_all(clinic: List[Tuple[str, str]],
     # running an O19 stock credential sees it flagged rather than silently
     # inheriting CARLOS's default
     secret_defaults = set(getattr(o19map_props, "SECRET_DEFAULT_KEYS", ()))
+    # CARLOS's own default for the carried keys where it differs from the
+    # O19 one — the baseline skip below is behaviour-neutral only while
+    # the two products agree
+    carlos_defaults = getattr(o19map_props, "CARLOS_DEFAULTS", {})
     fragment: List[Tuple[str, str]] = []
     rows: List[Tuple[str, str, str]] = []
     advisories: Dict[str, List[str]] = {}
@@ -294,7 +301,18 @@ def translate_all(clinic: List[Tuple[str, str]],
 
     for key, value in clinic:
         if defaults.get(key) == value:
-            continue  # untouched default — CARLOS's own default wins
+            # untouched default — CARLOS's own default wins (plan §8.1
+            # rule 1). Nothing is carried, but where CARLOS ships a
+            # DIFFERENT default the clinic's behaviour changes at
+            # cutover (consultation auto-include, lab display, the
+            # contacts UI), so the operator is told rather than the key
+            # leaving no trace anywhere in report.txt
+            if key in carlos_defaults:
+                rows.append((key, "carlos-default",
+                             "untouched O19 default '{0}'; CARLOS's "
+                             "default is '{1}' and wins".format(
+                                 value, carlos_defaults[key])))
+            continue
         if key in secret_defaults and value == "":
             continue  # an empty credential is "not configured", not a secret
         spec = disposition(key)
@@ -406,7 +424,8 @@ def render_report(result: dict) -> str:
                             ("  [" + report_safe(display) + "]")
                             if display else ""))
     for d in ("carry", "carry-secret", "translate", "deploy-owned",
-              "dropped-flag", "refused-invalid", "needs-review", "unknown"):
+              "dropped-flag", "carlos-default", "refused-invalid",
+              "needs-review", "unknown"):
         if d not in by_d:
             continue
         lines.append("{0} ({1}):".format(d, len(by_d[d])))

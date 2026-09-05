@@ -561,7 +561,10 @@ have no CARLOS counterpart at all.
 1. **Baseline-diff first.** Only keys whose clinic value differs from the O19
    *default* value (repo `oscar_mcmaster.properties`) are considered — a clinic
    file is mostly untouched defaults, and CARLOS defaults should win wherever the
-   clinic never made a choice.
+   clinic never made a choice. Where CARLOS's own default *differs* from the O19
+   one that silently changes behaviour at cutover, so such a key (manifest
+   `CARLOS_DEFAULTS`, derived by the generator from `carlos.properties`) is still
+   not carried but earns a `carlos-default` report row naming both values.
 2. **`carry`** — clinic identity and workflow keys copied verbatim when present
    in CARLOS: `billregion`, `billcenter`/`default_bill_center`, `clinic_no`,
    `dataCenterId`, `phoneprefix`, `visitlocation`/`visittype`, scheduling and

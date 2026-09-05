@@ -137,6 +137,34 @@ class TestGenerator(unittest.TestCase):
         for k in plain:
             self.assertFalse(self.gen.is_secret_key(k), k)
 
+    def test_divergent_carlos_defaults_are_derived_from_the_shipped_file(
+            self):
+        # the manifest's CARLOS_DEFAULTS must come from the file the deb
+        # installs as /etc/carlos-emr/carlos.properties, not from a
+        # hand-kept list: an edit there changes what wins after cutover
+        from carlos_ctl import o19map_props
+        carlos = self.gen.parse_properties(self.gen.CARLOS_PROPERTIES)
+        ov = self.gen.load_module(GEN.parent / "overrides_props.py")
+        derived = self.gen.divergent_carlos_defaults(
+            o19map_props.O19_DEFAULTS, carlos, ov)
+        self.assertEqual(derived, o19map_props.CARLOS_DEFAULTS)
+        self.assertIn("CONSULTATION_AUTO_INCLUDE_ALLERGIES", derived)
+        # a key whose stock values agree is not divergent
+        self.assertNotIn("billregion", derived)
+
+    def test_only_carry_keys_become_divergent_carlos_defaults(self):
+        ov = types.SimpleNamespace(
+            KEYS={"kept": {"d": "carry"},
+                  "owned": {"d": "deploy-owned"},
+                  "same": {"d": "carry"}},
+            PREFIX_RULES=[("pfx.", {"d": "carry"})])
+        derived = self.gen.divergent_carlos_defaults(
+            {"kept": "a", "owned": "a", "same": "a", "pfx.k": "a",
+             "absent": "a"},
+            {"kept": "b", "owned": "b", "same": "a", "pfx.k": "b"},
+            ov)
+        self.assertEqual(derived, {"kept": "b", "pfx.k": "b"})
+
     def test_generated_modules_carry_no_wall_clock_stamp(self):
         ctl = self.gen.CTL_DIR
         for name in ("o19map_schema.py", "o19map_props.py"):

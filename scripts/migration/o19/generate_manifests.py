@@ -1557,7 +1557,41 @@ def undisposed_property_keys(o19_defaults, ov):
                   and not any(key.startswith(p) for p in prefixes))
 
 
-def emit_props_module(o19_defaults, ov) -> str:
+def overlay_disposition(key, ov) -> str:
+    """The overlay's disposition letter for one key, resolved the way the
+    props phase resolves it: exact KEYS first, then the ordered
+    PREFIX_RULES. The shipped `o19props.disposition` cannot be reused
+    here — it reads the generated module this function helps build."""
+    spec = ov.KEYS.get(key)
+    if spec is not None:
+        return spec["d"]
+    for prefix, pspec in ov.PREFIX_RULES:
+        if key.startswith(prefix):
+            return pspec["d"]
+    return "unknown"
+
+
+def divergent_carlos_defaults(o19_defaults, carlos_defaults, ov):
+    """CARLOS's own default for every `carry` key whose stock O19 default
+    says something DIFFERENT.
+
+    Baseline-diff (plan §8.1 rule 1) drops a clinic key whose value
+    equals the O19 default so the CARLOS default wins. That inference is
+    only behaviour-neutral while both products ship the same default;
+    for these keys they do not, so the clinic's consultation, lab and UI
+    behaviour flips at cutover. The props phase reports each one instead
+    of returning before anything is recorded. Only `carry` keys qualify:
+    a translate/deploy-owned/dropped-flag key is never copied verbatim
+    anyway, and CARLOS owning its value there is the documented intent.
+    """
+    return {key: carlos_defaults[key]
+            for key, o19_value in o19_defaults.items()
+            if key in carlos_defaults
+            and carlos_defaults[key] != o19_value
+            and overlay_disposition(key, ov) == "carry"}
+
+
+def emit_props_module(o19_defaults, ov, carlos_defaults=None) -> str:
     """Render `o19map_props.py`.
 
     Refuses outright if any stock OSCAR 19 property key has no
@@ -1590,6 +1624,14 @@ def emit_props_module(o19_defaults, ov) -> str:
                " surfaces these for review instead of\n# baseline-diffing"
                " them")
     out.append("SECRET_DEFAULT_KEYS = " + _fmt(secret_keys) + "\n")
+    out.append("# CARLOS's own default for the `carry` keys where it"
+               " DIFFERS from the O19 default:\n# the baseline diff leaves"
+               " such a key untouched (CARLOS wins), which silently flips"
+               "\n# the clinic's behaviour at cutover unless the props"
+               " report names it")
+    out.append("CARLOS_DEFAULTS = " + _fmt(dict(sorted(
+        divergent_carlos_defaults(defaults, carlos_defaults or {},
+                                  ov).items()))) + "\n")
     out.append("KEYS = " + _fmt(dict(sorted(ov.KEYS.items()))) + "\n")
     out.append("PREFIX_RULES = " + _fmt(list(ov.PREFIX_RULES)) + "\n")
     return "\n".join(out).rstrip("\n") + "\n"
@@ -1747,10 +1789,13 @@ def main() -> int:
               "fails while any remain.", file=sys.stderr)
 
     o19_defaults = parse_properties(oscar / O19_PROPERTIES)
+    # the file the deb installs as /etc/carlos-emr/carlos.properties: what
+    # actually wins for any key the import leaves out of the fragment
+    carlos_defaults = parse_properties(CARLOS_PROPERTIES)
 
     schema_out = emit_schema_module(tables, carlos, seed_counts, ov_schema,
                                     commit, extras)
-    props_out = emit_props_module(o19_defaults, ov_props)
+    props_out = emit_props_module(o19_defaults, ov_props, carlos_defaults)
     preflight_block = emit_preflight_data(tables, ov_schema, ov_props,
                                           extras)
 
