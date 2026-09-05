@@ -21,7 +21,8 @@ verify_ddl_parse.py      checks that generator's DDL reader against a real
 verify_sql_semantics.py  settles the merge/id-map and charset-repair
                          behaviour against a real MariaDB, and proves a
                          copied id into a merged parent lands on the right
-                         row by NAME (see "Verifying the ETL's SQL
+                         row by NAME and an import_archived_ column keeps
+                         a full latin1 TEXT (see "Verifying the ETL's SQL
                          semantics")
 overrides_schema.py      hand-curated table/column classifications (durable)
 overrides_props.py       hand-curated oscar.properties dispositions (durable)
@@ -146,6 +147,16 @@ text is never altered, which is the property that actually matters: the text
 in question is patient names. Mind the trap this check itself fell into —
 building the sample mojibake with Python's ISO-8859-1 rather than CP1252
 produces inputs no MySQL could hold and three false failures.
+
+It also settles the capacity of an `import_archived_` column. TEXT is 65535
+**bytes**: a latin1 `text` holds 65535 characters, a utf8mb4 one as few as
+16383, and an archived column that took the CARLOS table's utf8mb4 lost half
+of a full accented TEXT — with a warning `sql_mode=''` turns into silence.
+The ALTER now carries the staging column's own charset and collation; the
+check copies a full 65535-character latin1 TEXT and the six CP1252-only
+bytes through the real plan/ALTER/copy path, asserts byte-identity and P7's
+agreement, and re-runs the copy with the clause stripped to show the
+truncation it guards against.
 
 ## Building the rehearsal fixture
 

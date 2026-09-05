@@ -225,7 +225,10 @@ removed-module (`drop`), or a name the manifest has never seen — is
 preserved twice: `o19_archive.<table>` and
 `<emr-schema>.import_archived_<table>`. A column CARLOS has no home for —
 curated as dropped, or added by a clinic's own fork — joins the live
-table as `import_archived_<column>` with the source type and every row,
+table as `import_archived_<column>` with the source type, character
+set and collation (a latin1 `text` holds 65535 characters; the same
+column in the CARLOS table's utf8mb4 would hold as few as 16383) and
+every row,
 and is shadow-captured to `o19_archive` as well. Tables the manifest
 classifies `reference` keep the CARLOS seed in the live table; the
 clinic's rows go to `o19_archive.<table>`, where a locally curated code
@@ -464,7 +467,7 @@ number of rows but the wrong values fails too:
 | a table CARLOS does not have (removed module, clinic fork) | `o19_archive.<table>` **and** `<emr-schema>.import_archived_<table>` |
 | a reference table CARLOS seeds itself | `o19_archive.<table>` — CARLOS's own rows win in the live table |
 | a merge table (CARLOS seeds it, the clinic also has rows) | `o19_archive.<table>` — every clinic row, including the ones a CARLOS seed row overrode |
-| a column CARLOS does not have (dropped or clinic fork) | `<emr-schema>.<table>.import_archived_<column>`, source type and every row, plus an `o19_archive` shadow capture |
+| a column CARLOS does not have (dropped or clinic fork) | `<emr-schema>.<table>.import_archived_<column>`, source type and character set, every row, plus an `o19_archive` shadow capture |
 
 A merge is the one place where a *live* row can be a CARLOS row rather
 than the clinic's. Merge policy is that CARLOS's seed wins on a shared

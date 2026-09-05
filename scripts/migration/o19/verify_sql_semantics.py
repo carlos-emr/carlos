@@ -1583,6 +1583,186 @@ def _fk_remap_body(client: Client, src: str, dst: str,
     return failures
 
 
+#: One copy table with two columns CARLOS has no home for: a curated
+#: `dropped` one and a clinic-fork one the manifest has never seen. Both
+#: latin1 on the source, as every OSCAR 19 column is.
+ARCHIVED_SRC_DDL = (
+    "CREATE TABLE t ("
+    " id int NOT NULL,"
+    " name varchar(60),"
+    " vendorNote text,"          # a fork column -> import_archived_vendorNote
+    " legacyMark varchar(8),"    # curated `dropped` -> import_archived_…
+    " PRIMARY KEY (id))")
+
+ARCHIVED_DST_DDL = (
+    "CREATE TABLE t ("
+    " id int NOT NULL,"
+    " name varchar(60),"
+    " PRIMARY KEY (id))")
+
+#: Row 1 is the case that decides it: a latin1 TEXT holding its full
+#: 65535 characters, every one of them 'é' (0xE9), and a VARCHAR of the
+#: six CP1252 bytes MySQL's latin1 maps outside ISO-8859-1. Row 2 is
+#: double-encoded text (the bytes of UTF-8 'é' stored as two latin1
+#: characters) -- an archive holds it AS IS, mojibake included, because
+#: the clinic's row said that. Row 3 is all NULL.
+ARCHIVED_ROWS = [
+    "(1, 'Santé', REPEAT(X'E9', 65535), X'80818D8F909D')",
+    "(2, 'plain', CONVERT(X'C3A9' USING latin1), NULL)",
+    "(3, NULL, NULL, NULL)",
+]
+
+ARCHIVED_ENTRY = {
+    "class": "copy",
+    "cols": ["id", "name"],
+    "dropped": {"legacyMark": {"nondefault": "1"}},
+}
+
+
+def check_archived_column_charset(client: Client, src: str,
+                                  dst: str) -> List[str]:
+    """An `import_archived_` column holds the source's bytes at the
+    source's capacity -- the claim "copied verbatim" makes, put to the
+    engine.
+
+    The unit tests see the ALTER carry `CHARACTER SET latin1`. They
+    cannot see what the review found: that without it the new column
+    took the CARLOS table's utf8mb4, in which a TEXT holds 65535 BYTES
+    rather than characters, so a full latin1 TEXT copied into it lost
+    half its characters -- with a warning the ETL's `sql_mode=''`
+    reduces to silence. The negative control below re-runs the same
+    copy with the clause stripped, so the truncation this guards against
+    is demonstrated rather than remembered.
+    """
+    try:
+        return _archived_charset_body(client, src, dst)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(src, dst))
+
+
+def _archived_charset_body(client: Client, src: str, dst: str) -> List[str]:
+    failures: List[str] = []
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=latin1;".format(src))
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=utf8mb4;".format(dst))
+    client.setup(ARCHIVED_SRC_DDL + " DEFAULT CHARSET=latin1;", src)
+    client.setup("INSERT INTO t VALUES {0};".format(
+        ", ".join(ARCHIVED_ROWS)), src)
+    client.setup(ARCHIVED_DST_DDL + ";", dst)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    print("\n  archived column charset (archived_column_plan)")
+    # the real path, end to end: introspect staging, plan, ALTER, fold
+    # the columns into the entry, copy under the ETL's sql_mode
+    src_cols = o19etl.introspect_columns(query, src)["t"]
+    plan = o19etl.archived_column_plan(ARCHIVED_ENTRY, src_cols)
+    carried = all("CHARACTER SET latin1" in ctype for _s, _t, ctype in plan)
+    print("    {0:<44} {1}".format(
+        "the plan carries the source charset",
+        "ok" if carried else "MISSING"))
+    if not carried:
+        failures.append("archived_column_plan did not carry the staging "
+                        "column's charset: {0}".format(plan))
+        return failures
+    targets = [t for _s, t, _c in plan]
+    if sorted(targets) != ["import_archived_legacyMark",
+                           "import_archived_vendorNote"]:
+        failures.append("unexpected plan: {0}".format(plan))
+        return failures
+
+    def stage_and_copy(the_plan) -> None:
+        dst_cols = o19etl.introspect_columns(query, dst)["t"]
+        for stmt in o19etl.add_archived_column_statements(
+                "t", dst, the_plan, dst_cols):
+            client.setup(stmt + ";", dst)
+        dst_cols = o19etl.introspect_columns(query, dst)["t"]
+        entry = o19etl.with_archived_columns(ARCHIVED_ENTRY, the_plan)
+        client.setup("SET SESSION sql_mode='';"
+                     + o19etl.copy_statement("t", entry, src, dst,
+                                             dst_cols) + ";", dst)
+
+    def archived_charsets() -> Dict[str, str]:
+        return {c: cs for c, _d, _t, cs in _column_shape(client, dst, "t")
+                if c.startswith("import_archived_")}
+
+    def unequal_bytes() -> int:
+        # HEX of a latin1 column is the latin1 bytes; of a utf8mb4 one,
+        # the utf8mb4 bytes -- so this is only 0 when the archived
+        # column really holds what the source held, byte for byte
+        return int(client.rows(
+            "SELECT COUNT(*) FROM `{0}`.t d JOIN `{1}`.t s USING (id) "
+            "WHERE NOT (HEX(d.import_archived_vendorNote) <=> "
+            "HEX(s.vendorNote)) OR NOT (HEX(d.import_archived_legacyMark) "
+            "<=> HEX(s.legacyMark))".format(dst, src), dst)[0][0])
+
+    def full_text_length() -> int:
+        return int(client.rows(
+            "SELECT IFNULL(CHAR_LENGTH(import_archived_vendorNote), 0) "
+            "FROM t WHERE id = 1", dst)[0][0])
+
+    stage_and_copy(plan)
+    charsets = archived_charsets()
+    declared = all(cs == "latin1" for cs in charsets.values()) \
+        and len(charsets) == 2
+    print("    {0:<44} {1}".format(
+        "the live columns are declared latin1",
+        "ok" if declared else "NOT ({0})".format(charsets)))
+    if not declared:
+        failures.append("the archived columns did not take the source "
+                        "charset: {0}".format(charsets))
+    n = unequal_bytes()
+    print("    {0:<44} {1}".format(
+        "every archived value is byte-identical",
+        "ok" if n == 0 else "{0} ROW(S) DIFFER".format(n)))
+    if n:
+        failures.append("{0} archived value(s) differ from the source "
+                        "bytes".format(n))
+    got = full_text_length()
+    print("    {0:<44} {1}".format(
+        "a full latin1 TEXT keeps all 65535 characters",
+        "ok" if got == 65535 else "TRUNCATED to {0}".format(got)))
+    if got != 65535:
+        failures.append("the full TEXT arrived with {0} characters; the "
+                        "archive lost data".format(got))
+
+    # P7's copy check must agree with a faithful copy through a latin1
+    # archived column -- it compares through CONVERT(... USING utf8mb4)
+    # on both sides, which is what makes the two charsets comparable
+    dst_cols = o19etl.introspect_columns(query, dst)["t"]
+    entry = o19etl.with_archived_columns(ARCHIVED_ENTRY, plan)
+    check = o19etl.copy_value_mismatch_sql("t", entry, src, dst, dst_cols,
+                                           ("id",))
+    alarms = int(client.rows(check, dst)[0][0])
+    print("    {0:<44} {1}".format(
+        "and the P7 value check agrees",
+        "ok" if alarms == 0 else "{0} FALSE ALARM(S)".format(alarms)))
+    if alarms:
+        failures.append("copy_value_mismatch_sql disagreed with a faithful "
+                        "copy on {0} row(s)".format(alarms))
+
+    # negative control: the pre-fix ALTER, charset clause stripped, must
+    # demonstrably truncate -- otherwise this fixture proves nothing
+    client.setup("ALTER TABLE t DROP COLUMN import_archived_vendorNote, "
+                 "DROP COLUMN import_archived_legacyMark; TRUNCATE TABLE t;",
+                 dst)
+    bare = [(s_, t_, c_.split(" CHARACTER SET", 1)[0]) for s_, t_, c_ in plan]
+    stage_and_copy(bare)
+    lost = full_text_length()
+    print("    {0:<44} {1}".format(
+        "control: without the charset the TEXT truncates",
+        "reproduced ({0} chars)".format(lost) if lost != 65535
+        else "NOT REPRODUCED"))
+    if lost == 65535:
+        failures.append("the charset-less column held the full TEXT; the "
+                        "premise this check rests on needs re-checking "
+                        "on this server ({0})".format(archived_charsets()))
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -1661,6 +1841,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                                       args.prefix + "_fka")
     if remapped:
         failures["fk remap"] = remapped
+    archived = check_archived_column_charset(client, args.prefix + "_acs",
+                                             args.prefix + "_acd")
+    if archived:
+        failures["archived charset"] = archived
 
     client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
                "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
@@ -1685,7 +1869,9 @@ def main(argv: Optional[List[str]] = None) -> int:
           "(surrogate id paired through the map, and natural key with "
           "merge_exclude), and a copied id into a merged parent lands on "
           "the right row by NAME while the raw copy it replaces "
-          "demonstrably does not")
+          "demonstrably does not, and an import_archived_ column holds "
+          "the source's bytes at the source's capacity where the "
+          "charset-less column it replaces demonstrably truncates")
     return 0
 
 

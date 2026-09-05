@@ -867,6 +867,49 @@ class TestArchivedColumns(unittest.TestCase):
                       "NULL COMMENT 'OSCAR 19 t.legacyFlag preserved by "
                       "import-o19'", stmts[0])
 
+    def test_the_alter_carries_the_source_charset_and_collation(self):
+        """A column CARLOS has no home for is preserved at the SOURCE's
+        capacity, not the target's. TEXT is 65535 bytes: a latin1 `text`
+        holds 65535 characters, a utf8mb4 one as few as 16383. Measured
+        on MariaDB 10.11, a full latin1 TEXT of accented characters
+        copied verbatim into an archived column declared in the target
+        table's utf8mb4 came back truncated to 32767 characters, with a
+        warning the ETL's sql_mode='' turns into silence. The charset on
+        the ALTER is what makes "verbatim" true."""
+        cols = self.src_cols(vendorNote={
+            "column_type": "text", "type": "text", "nullable": True,
+            "charset": "latin1", "collation": "latin1_swedish_ci"})
+        plan = o19etl.archived_column_plan(self.ENTRY, cols)
+        self.assertIn(("vendorNote", "import_archived_vendorNote",
+                       "text CHARACTER SET latin1 COLLATE "
+                       "latin1_swedish_ci"), plan)
+        stmts = o19etl.add_archived_column_statements("t", "carlos", plan,
+                                                      {})
+        self.assertIn("ADD COLUMN `import_archived_vendorNote` text "
+                      "CHARACTER SET latin1 COLLATE latin1_swedish_ci "
+                      "NULL COMMENT", stmts[1])
+        # the row-width estimate still recognises the type under the
+        # clause (it anchors at the start of the string); a 4-byte-per-
+        # char over-measure of a latin1 VARCHAR is the safe direction
+        self.assertEqual(o19etl.column_bytes(
+            "varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci"),
+            42)
+        self.assertEqual(o19etl.column_bytes(
+            "text CHARACTER SET latin1"), 10)
+        self.assertEqual(o19etl.column_bytes(
+            "enum('a','b') CHARACTER SET latin1"), 2)
+
+    def test_a_column_without_a_charset_keeps_its_bare_type(self):
+        # numbers, dates and BLOBs have no charset in information_schema,
+        # and a charset without a collation is still carried
+        self.assertEqual(o19etl.archived_column_type(
+            {"column_type": "tinyint(1)", "charset": None}), "tinyint(1)")
+        self.assertEqual(o19etl.archived_column_type(
+            {"column_type": "blob"}), "blob")
+        self.assertEqual(o19etl.archived_column_type(
+            {"column_type": "varchar(8)", "charset": "utf8mb3"}),
+            "varchar(8) CHARACTER SET utf8mb3")
+
     def test_a_column_already_present_is_not_re_added(self):
         # MySQL 8 has no ADD COLUMN IF NOT EXISTS: this skip is the whole
         # idempotency story for a resumed run
@@ -1002,6 +1045,46 @@ class TestArchivedColumns(unittest.TestCase):
         self.assertEqual(o19etl.oversized_preserved_names(
             {}, ["t" * o19etl.MAX_PRESERVED_TABLE],
             {"t": ["c" * o19etl.MAX_PRESERVED_COLUMN]}), [])
+
+
+class TestIntrospectColumns(unittest.TestCase):
+    """`introspect_columns` against the rows information_schema answers
+    with, including the two the charset carry-over added."""
+
+    def query(self, rows):
+        return lambda sql: rows
+
+    def test_it_asks_for_and_records_the_column_charset(self):
+        seen = []
+
+        def query(sql):
+            seen.append(sql)
+            return [["t", "note", "text", "text", "YES", 65535,
+                     "\\0NONE", "", 65535, "latin1", "latin1_swedish_ci"],
+                    ["t", "id", "int", "int(11)", "NO", 0, "\\0NONE",
+                     "auto_increment", 0, "", ""]]
+        got = o19etl.introspect_columns(query, "stage")
+        self.assertIn("CHARACTER_SET_NAME", seen[0])
+        self.assertIn("COLLATION_NAME", seen[0])
+        self.assertEqual(got["t"]["note"]["charset"], "latin1")
+        self.assertEqual(got["t"]["note"]["collation"],
+                         "latin1_swedish_ci")
+        self.assertEqual(got["t"]["note"]["octet_len"], 65535)
+        # a non-character column answers '' (IFNULL) and is recorded as
+        # "no charset", the value archived_column_type keys off
+        self.assertIsNone(got["t"]["id"]["charset"])
+        self.assertIsNone(got["t"]["id"]["collation"])
+        self.assertTrue(got["t"]["id"]["auto_increment"])
+
+    def test_a_shorter_answer_reads_as_charset_unknown(self):
+        # the tests' fakes answer the nine columns this asked for before
+        # the charset carry-over; they must keep working, and read as
+        # "not known" rather than crash
+        got = o19etl.introspect_columns(self.query(
+            [["t", "c", "varchar", "varchar(255)", "YES", 255, "\\0NONE",
+              "", 1020]]), "stage")
+        self.assertIsNone(got["t"]["c"]["charset"])
+        self.assertEqual(got["t"]["c"]["octet_len"], 1020)
 
 
 class TestRowSizeCeiling(unittest.TestCase):

@@ -177,7 +177,8 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
         "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, "
         "IS_NULLABLE, IFNULL(CHARACTER_MAXIMUM_LENGTH, 0), "
         "IFNULL(COLUMN_DEFAULT, '\\0NONE'), EXTRA, "
-        "IFNULL(CHARACTER_OCTET_LENGTH, 0) "
+        "IFNULL(CHARACTER_OCTET_LENGTH, 0), "
+        "IFNULL(CHARACTER_SET_NAME, ''), IFNULL(COLLATION_NAME, '') "
         "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{0}'"
         .format(schema))
     for r in rows:
@@ -185,6 +186,11 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
             continue
         t, c, dtype, ctype, nullable, char_len, default, extra = r[:8]
         octet_len = int(r[8] or 0) if len(r) > 8 else 0
+        # NULL for every non-character column (numbers, dates, BLOBs);
+        # a query answering fewer columns (the tests' fakes) reads as
+        # "not known", which archived_column_type treats the same way
+        charset = (r[9] or None) if len(r) > 9 else None
+        collation = (r[10] or None) if len(r) > 10 else None
         has_default = default not in ("\\0NONE", "\0NONE")
         # MariaDB quotes string defaults in information_schema ('x'),
         # MySQL does not; a literal NULL default is "no value"
@@ -206,6 +212,11 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
             "has_default": has_default,
             "default": value,
             "auto_increment": "auto_increment" in extra.lower(),
+            # the column's OWN charset, not its table's: what an
+            # `import_archived_` twin must be declared in to hold the
+            # same bytes at the same capacity (archived_column_type)
+            "charset": charset,
+            "collation": collation,
         }
     return out
 
@@ -959,8 +970,9 @@ def archived_column_plan(entry: dict, src_cols: Dict[str, dict]
     A dropped column this dump does not carry is not in the plan (there
     is nothing to preserve); `shadow_statements` reports that case.
 
-    The target keeps the SOURCE type verbatim, which is what makes the
-    copy of it lossless: no widening, no truncation, and nothing for
+    The target keeps the SOURCE type verbatim, character set included
+    (`archived_column_type`), which is what makes the copy of it
+    lossless: no widening, no truncation, and nothing for
     `sanitize_expr` to correct."""
     # case-insensitively, like `effective_entry` and `unknown_columns`:
     # a dump spelling a dropped column `programno` would otherwise fall
@@ -982,7 +994,7 @@ def archived_column_plan(entry: dict, src_cols: Dict[str, dict]
         # dump says `programno` was a KeyError mid-P4 before this. The
         # TARGET keeps the manifest's spelling, stable across dumps.
         real, info = found
-        out.append((real, archived_column(col), info["column_type"]))
+        out.append((real, archived_column(col), archived_column_type(info)))
     return out
 
 
@@ -1135,6 +1147,37 @@ def oversized_rows(table: str, dst_cols: Dict[str, dict],
 def archived_column(col: str) -> str:
     """The live-schema column under which a source column is preserved."""
     return ARCHIVED_PREFIX + col
+
+
+def archived_column_type(info: dict) -> str:
+    """The declared type an `import_archived_` column takes: the source
+    column's own, with its character set and collation carried along
+    when it has one.
+
+    The charset is not decoration. Without it the ALTER's new column
+    takes the TARGET table's default -- utf8mb4 on CARLOS -- while the
+    staging column is latin1, and the two are not the same capacity:
+    TEXT is 65535 BYTES, so a latin1 `text` holds 65535 characters and a
+    utf8mb4 `text` as few as 16383. Measured on MariaDB 10.11, a full
+    latin1 TEXT of accented characters copied verbatim into a utf8mb4
+    `text` lands truncated to 32767 characters -- with a warning under
+    the ETL's `sql_mode=''`, which is to say silently. Declared in the
+    source's own charset, the archived column holds the same bytes at
+    the same capacity, and the verbatim copy really is verbatim.
+
+    `column_type` from information_schema never carries a charset, so
+    this is the one place the clause is added; `column_bytes` matches
+    its type regexes at the start of the string and is unaffected. A
+    column with no charset (a number, a date, a BLOB) or one introspected
+    without the charset columns is returned as its bare type."""
+    coltype = info.get("column_type") or ""
+    charset = info.get("charset")
+    if not charset:
+        return coltype
+    out = "{0} CHARACTER SET {1}".format(coltype, charset)
+    if info.get("collation"):
+        out += " COLLATE {0}".format(info["collation"])
+    return out
 
 
 def add_archived_column_statements(table: str, dst_schema: str,
