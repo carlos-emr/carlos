@@ -313,6 +313,23 @@ coerced rather than rejected, and zero dates are accepted. Enabling
 STRICT_TRANS_TABLES is a genuine data-integrity improvement and a genuine
 application-compatibility risk; validate it on a copy of your data first.
 
+The billing province decides which migrations run. The carlos-emr/province
+debconf question takes `on`, `bc` or `other`, and CARLOS_PROVINCE in
+/etc/carlos-emr/carlos-emr.env records the answer. `on` and `bc` apply
+common + their own province location and render billregion=ON / BC.
+
+`other` is an ALIAS for `on`, for a clinic in a province CARLOS does not
+implement billing for: it applies exactly the Ontario migrations and renders
+billregion=ON, so the deployment is an Ontario one in every respect. It is a
+separate answer only so the installer does not make such a clinic claim to be
+in Ontario; nothing downstream distinguishes the two.
+
+The province is fixed at FIRST INSTALL. `dpkg-reconfigure carlos-emr` still
+shows the question, but the answer is not written back — pointing Flyway at a
+different province's migrations against an existing schema would create a
+different set of tables and leave the application failing its boot-time
+validation. Changing province means a fresh database.
+
 Adopting an existing pre-Flyway (OSCAR 19 / OpenO) database is a two-step
 operation and NOT what `db-migrate` does on its own:
 

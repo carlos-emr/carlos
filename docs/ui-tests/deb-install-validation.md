@@ -94,6 +94,25 @@ critical answer: it keeps the published dev credential
 it **only** on a disposable machine that will never hold patient data — which
 this VM is.
 
+The preseed below answers the province question with `on`. To validate the
+`other` alias instead, substitute `carlos-emr/province select other` and assert
+after the install that the env file records the answer while the rendered
+properties still name the Ontario billing region. The two files are written by
+different code and do not share a format, so match each as it is actually
+written:
+
+```bash
+# set_env_key writes env values quoted and unspaced
+lxc exec carlos-test -- grep '^CARLOS_PROVINCE=' /etc/carlos-emr/carlos-emr.env
+# expect CARLOS_PROVINCE="other"
+# prop_set rewrites properties with spaces around the '='
+lxc exec carlos-test -- grep -E '^billregion[[:space:]]*=' /etc/carlos-emr/carlos.properties
+# expect billregion = ON
+```
+
+`other` applies the Ontario migrations, so every other step in this runbook is
+unchanged.
+
 ```bash
 cat > /tmp/carlos-preseed.txt <<'EOF'
 carlos-emr carlos-emr/server-name string localhost
