@@ -180,16 +180,16 @@ Prerequisites, all of them before the command below:
 4. **Configured backups.** The pre-import restic snapshot is the rollback
    point, and it now covers `/var/lib/carlos-emr/o19-import` as well as
    the database and the documents tree, so a restore rewinds the run's
-   ledgers with the data they describe. Five things under it are
+   ledgers with the data they describe. Six things under it are
    deliberately excluded, and the list matters because a restore does not
    bring them back: `admin-credentials.txt*` (the break-glass note),
    `o19-derived-carlos.properties*` (the derived fragment, which carries
    the clinic's Teleplan/MCEDT/HCV/SMTP/PGP secrets in clear), `bundle/`
    and `bundle-assess/` (the clinic's whole source database as plaintext
-   SQL, their documents tar, and their own `oscar.properties` — which is
-   excluded by name as well, because the purge path shreds it by name),
-   and `.lock`. The derived fragment is the one to notice: a rollback
-   discards it. If the run had not yet applied it — that is, if you had
+   SQL and their documents tar), the clinic's own `oscar.properties`
+   (inside the bundle today, but excluded by name at both depths, because
+   the purge path shreds it by name), and `.lock`. The derived fragment
+   is the one to notice: a rollback discards it. If the run had not yet applied it — that is, if you had
    not merged it into `carlos.properties` and run `carlos-ctl restart` —
    a re-run has to produce it again.
    A restore does not *delete* files added after the snapshot, so the

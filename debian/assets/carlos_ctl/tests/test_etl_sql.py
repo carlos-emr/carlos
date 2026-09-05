@@ -1068,7 +1068,7 @@ class TestArchivedColumns(unittest.TestCase):
                         "has_default": False, "auto_increment": False}}
         sql = o19etl.archived_backfill_statement("HL7Map", entry, "stage",
                                                  "carlos", dst)
-        self.assertIn("ROW_NUMBER() OVER (PARTITION BY `site` "
+        self.assertIn("ROW_NUMBER() OVER (PARTITION BY s.`site` "
                       "ORDER BY (`vendorNote` IS NULL), `vendorNote`)", sql)
         self.assertIn("WHERE r.o19_twin_rank = 1", sql)
 
@@ -1096,7 +1096,49 @@ class TestArchivedColumns(unittest.TestCase):
         # rows, so it must use the name the dump carries
         entry = {"class": "merge", "merge_keys": ["siteName"],
                  "renames": {"siteName": "site_name"}}
-        self.assertEqual(o19etl.merge_twin_partition(entry), ["site_name"])
+        self.assertEqual(o19etl.merge_twin_partition(entry),
+                         ["s.`site_name`"])
+
+    def test_the_twin_partition_is_the_joins_own_expression(self):
+        """Twins are rows that land on the SAME target row, and the join
+        decides that — so the partition has to be the join's expression,
+        not the raw column.
+
+        `property`'s `provider_no` key carries `NULLIF(s.`provider_no`,
+        '')`, so a clinic holding `('faxEnable', '')` and `('faxEnable',
+        NULL)` has two rows with different raw values and one stored
+        key. Partitioned raw, both survived the back-fill's rank-1
+        filter and the UPDATE joined both to the one seed row —
+        assigning from whichever MySQL chose — while `twin_surplus`
+        counted two groups where one value can land and
+        `archived_column_parity` failed a correct import."""
+        entry = dict(o19map_schema.TABLES["property"])
+        self.assertEqual(o19etl.merge_twin_partition(entry),
+                         o19etl.merge_key_exprs(entry))
+        self.assertIn("NULLIF(s.`provider_no`, '')",
+                      o19etl.merge_twin_partition(entry))
+        # and it is the very expression the join matches on
+        for expr in o19etl.merge_twin_partition(entry):
+            self.assertIn(expr, o19etl.merge_join(entry))
+
+    def test_the_seed_test_normalises_the_staging_side(self):
+        """`twin_surplus` asks the pre-merge snapshot whether CARLOS's
+        seed held the key, with its alias on the STAGING table. The
+        snapshot holds what the merge STORES, so a raw `provider_no` of
+        `''` never matches the seed's NULL and the seed row is not found
+        at all — the surplus comes out 0 and the correct import fails."""
+        entry = dict(o19map_schema.TABLES["property"])
+        exprs = o19etl.merge_twin_partition(entry)
+        seeded = o19etl.preseed_exists(entry and "property" or "", entry,
+                                       "arch", dst_alias="s",
+                                       source_exprs=exprs)
+        self.assertIn("p.`provider_no` <=> NULLIF(s.`provider_no`, '')",
+                      seeded)
+        # the target-side caller is unchanged: both sides are stored
+        # values there, and normalising one of them would be wrong
+        self.assertIn(
+            "p.`provider_no` <=> d.`provider_no`",
+            o19etl.preseed_exists("property", entry, "arch"))
 
     def test_a_merge_with_no_archived_columns_has_no_back_fill(self):
         self.assertIsNone(o19etl.archived_backfill_statement(

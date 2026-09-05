@@ -504,8 +504,14 @@ def merge_key_exprs(entry: dict, archive_schema: Optional[str] = None,
     agree on what a row's key is."""
     out = []
     for k in entry["merge_keys"]:
+        # `k in dst_cols` as well as `dst_cols`: a caller can hold an
+        # introspection that does not carry this key (a target column
+        # renamed out from under the manifest), and the guard below
+        # already reads it that way. Crashing here would take down the
+        # parity check rather than the merge that is actually broken.
         expr = source_expr(entry, k, None, archive_schema,
-                           dst_cols[k]["nullable"] if dst_cols else None)
+                           dst_cols[k]["nullable"]
+                           if dst_cols and k in dst_cols else None)
         if dst_cols and k in dst_cols:
             expr = sanitize_expr(expr, dst_cols[k])
         out.append(expr)
@@ -599,7 +605,8 @@ def archived_backfill_statement(table: str, entry: dict, src_schema: str,
         for target, source in sorted(archived.items()))
     sql = ("UPDATE `{0}`.`{1}` d JOIN {2} s ON {3} SET {4}"
            .format(dst_schema, table,
-                   backfill_source(table, entry, src_schema),
+                   backfill_source(table, entry, src_schema,
+                                   archive_schema, dst_cols),
                    merge_join(entry, archive_schema, dst_cols), sets))
     where = []
     if entry.get("merge_exclude"):
@@ -622,36 +629,61 @@ def archived_backfill_statement(table: str, entry: dict, src_schema: str,
 
 def preseed_exists(table: str, entry: dict,
                    archive_schema: Optional[str] = None,
-                   dst_alias: str = "d") -> Optional[str]:
+                   dst_alias: str = "d",
+                   source_exprs: Optional[List[str]] = None
+                   ) -> Optional[str]:
     """`EXISTS (...)` matching a target row that was there BEFORE the
     merge, or None when no archive schema is available.
 
     `preseed_table` is the target as it stood before the insert, so a row
     it holds on the natural key is a CARLOS seed row and a row it does
     not is one the merge appended. Nothing else can tell them apart
-    afterwards: both are simply live rows."""
+    afterwards: both are simply live rows.
+
+    `source_exprs` is for the one caller whose alias is the STAGING
+    table rather than the target (`twin_surplus`): the snapshot holds
+    what the merge STORES, so a raw staging value has to be normalised
+    the way the join normalises it before the two can be compared --
+    `property`'s `provider_no` is `''` in staging and NULL in the seed,
+    and compared raw the seed row is never found."""
     keys = entry.get("merge_keys") or ()
     if not archive_schema or not keys:
         return None
+    exprs = source_exprs or ["{0}.{1}".format(dst_alias, ident(k))
+                             for k in keys]
     match = " AND ".join(
-        "p.`{0}` <=> {1}.`{0}`".format(k, dst_alias) for k in keys)
+        "p.`{0}` <=> {1}".format(k, e) for k, e in zip(keys, exprs))
     return ("EXISTS (SELECT 1 FROM `{0}`.{1} p WHERE {2})".format(
         archive_schema, ident(preseed_table(table)), match))
 
 
-def merge_twin_partition(entry: dict) -> List[str]:
-    """The SOURCE columns a merge table's natural key is spelled with.
+def merge_twin_partition(entry: dict,
+                         archive_schema: Optional[str] = None,
+                         dst_cols: Optional[Dict[str, dict]] = None
+                         ) -> List[str]:
+    """The staging-side key EXPRESSIONS a merge table's twins group by --
+    the same ones `merge_join` matches on, against source alias `s`.
 
-    The raw columns, not the key EXPRESSIONS: this groups staging rows
-    that are twins of each other, which is a question about the staging
-    table alone. `archived_backfill_statement` and
-    `archived_column_parity` must group identically or the check and the
-    write disagree about how many values can land."""
-    renames = entry.get("renames") or {}
-    return [renames.get(k, k) for k in entry.get("merge_keys") or ()]
+    The expressions, not the raw columns. What makes two staging rows
+    twins is not that they look alike but that they land on the SAME
+    target row, and that is decided by the join: `property`'s
+    `provider_no` key carries `NULLIF(s.`provider_no`, '')`, so a
+    clinic holding `('faxEnable', '')` and `('faxEnable', NULL)` has two
+    rows whose RAW values differ and whose stored keys are both NULL.
+    Partitioned raw, both survived `backfill_source` and the UPDATE
+    joined both to the one seed row, assigning from whichever MySQL
+    chose; `twin_surplus` counted two groups where one value can land,
+    and `archived_column_parity` failed a correct import with a mismatch
+    no flag clears. `archived_backfill_statement` and
+    `archived_column_parity` must group identically to each other AND to
+    the join, or the check and the write disagree about how many values
+    can reach the live column."""
+    return merge_key_exprs(entry, archive_schema, dst_cols)
 
 
-def backfill_source(table: str, entry: dict, src_schema: str) -> str:
+def backfill_source(table: str, entry: dict, src_schema: str,
+                    archive_schema: Optional[str] = None,
+                    dst_cols: Optional[Dict[str, dict]] = None) -> str:
     """The backfill's source: ONE staging row per natural-key twin group,
     preferring a row that actually carries a value.
 
@@ -669,18 +701,20 @@ def backfill_source(table: str, entry: dict, src_schema: str) -> str:
     rows on one side and rows on the other -- then failed a correct
     import with a mismatch no flag can clear. Ordering NULLs last makes
     the winner both deterministic and the one worth keeping."""
-    partition = merge_twin_partition(entry)
+    partition = merge_twin_partition(entry, archive_schema, dst_cols)
     archived = entry.get("archived_cols") or {}
     if not partition or not archived:
         return "`{0}`.`{1}`".format(src_schema, table)
     order = ", ".join(
         "({0} IS NULL), {0}".format(ident(source))
         for _target, source in sorted(archived.items()))
-    return ("(SELECT * FROM (SELECT t.*, ROW_NUMBER() OVER (PARTITION BY "
-            "{0} ORDER BY {1}) AS o19_twin_rank FROM `{2}`.`{3}` t) r "
+    # the inner alias is `s` because the partition expressions are the
+    # join's own, written against `s`; it is shadowed by the outer
+    # UPDATE's `s` only outside this subquery, which is exactly right
+    return ("(SELECT * FROM (SELECT s.*, ROW_NUMBER() OVER (PARTITION BY "
+            "{0} ORDER BY {1}) AS o19_twin_rank FROM `{2}`.`{3}` s) r "
             "WHERE r.o19_twin_rank = 1)".format(
-                ", ".join(ident(c) for c in partition), order,
-                src_schema, table))
+                ", ".join(partition), order, src_schema, table))
 
 
 def merge_overridden_count_sql(table: str, entry: dict, src_schema: str,
@@ -4040,7 +4074,8 @@ def archived_column_parity(plain_query, src_schema: str, dst_schema: str,
                 src_sql += " AND NOT ({0})".format(predicate)
             src_n = int(plain_query(src_sql)[0][0])
             surplus = twin_surplus(plain_query, table, source, src_sql,
-                                   src_schema, archive_schema)
+                                   src_schema, archive_schema,
+                                   dst_info[table])
             src_n -= surplus
             dst_n = int(plain_query(
                 "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` IS NOT NULL"
@@ -4064,8 +4099,8 @@ def archived_column_parity(plain_query, src_schema: str, dst_schema: str,
 
 
 def twin_surplus(plain_query, table: str, source: str, src_sql: str,
-                 src_schema: str, archive_schema: Optional[str] = None
-                 ) -> int:
+                 src_schema: str, archive_schema: Optional[str] = None,
+                 dst_cols: Optional[Dict[str, dict]] = None) -> int:
     """How many of a merge table's non-null `source` values cannot reach
     the live column because a twin already claimed it.
 
@@ -4085,19 +4120,22 @@ def twin_surplus(plain_query, table: str, source: str, src_sql: str,
     entry = o19map_schema.TABLES.get(table) or {}
     if entry.get("class") != "merge":
         return 0
-    partition = merge_twin_partition(entry)
+    partition = merge_twin_partition(entry, archive_schema, dst_cols)
     if not partition:
         return 0
     # only where CARLOS's seed won the key: twins on a key the seed does
     # NOT hold are BOTH appended by the merge, each with its own values,
-    # so nothing is surplus there
-    seeded = preseed_exists(table, entry, archive_schema, dst_alias="s")
+    # so nothing is surplus there. The staging side is normalised the
+    # way the join normalises it -- raw, a `provider_no` of '' never
+    # matches the seed's NULL and the seed row is not found at all.
+    seeded = preseed_exists(table, entry, archive_schema, dst_alias="s",
+                            source_exprs=partition)
     if not seeded:
         return 0
     body = src_sql.split(" FROM ", 1)[1] + " AND " + seeded
     groups = int(plain_query(
         "SELECT COUNT(*) FROM (SELECT 1 FROM {0} GROUP BY {1}) g".format(
-            body, ", ".join("s." + ident(c) for c in partition)))[0][0])
+            body, ", ".join(partition)))[0][0])
     rows = int(plain_query("SELECT COUNT(*) FROM " + body)[0][0])
     return max(0, rows - groups)
 

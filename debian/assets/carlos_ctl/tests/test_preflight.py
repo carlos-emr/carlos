@@ -235,6 +235,19 @@ class TestVerdicts(unittest.TestCase):
         # the view itself is still the blocker it always was
         self.assertIn(pf.VIEWS_FINDING, ids)
 
+    def test_a_view_that_case_twins_a_table_is_still_a_view(self):
+        # MySQL allows `Foo` (a table) beside `foo` (a view). Matched
+        # case-insensitively, the view's columns are read as the table's
+        # and the no-go comes back on a schema the import handles.
+        db = FakeDb(base_tables(Vendorlabs=1),
+                    columns={"vendorlabs": ["result-value"],
+                             "Vendorlabs": ["id"]},
+                    rows={"information_schema.VIEWS": [["vendorlabs"]]})
+        report = pf.run_checks(db, properties=clean_props(),
+                               accepted=["unknown-as-archive"])
+        ids = {f["id"] for f in report["findings"]}
+        self.assertNotIn("identifier-class", ids)
+
     def test_an_unreadable_column_listing_is_a_hard_no_go(self):
         # a check that could not run is never "no odd columns"
         class NoColumns(FakeDb):

@@ -127,7 +127,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
 
 from carlos_ctl import (o19_preflight, o19digest,               # noqa: E402
-                        o19etl)
+                        o19etl, o19map_schema)
 
 # One merge table, shaped as the manifest describes it: a surrogate integer
 # PK, one natural key, one payload column. consultationServices is the
@@ -1870,6 +1870,165 @@ def _archived_charset_body(client: Client, src: str, dst: str) -> List[str]:
     return failures
 
 
+#: the real `property` shapes, because `twin_surplus` reads the class and
+#: the merge keys out of the SHIPPED manifest: a synthetic table name
+#: would make the tolerance untestable. CARLOS seeds a global property
+#: with `provider_no` NULL (V1.0.2__on_data.sql:35546); an OSCAR 19
+#: clinic writes `''` for the same thing, which is why the manifest gives
+#: the key the expression `NULLIF(s.`provider_no`, '')`.
+TWIN_SRC_DDL = (
+    "CREATE TABLE `property` (`name` varchar(255) NOT NULL DEFAULT '', "
+    "`value` varchar(2000) DEFAULT NULL, `id` int(10) NOT NULL "
+    "AUTO_INCREMENT, `provider_no` varchar(6) DEFAULT '', "
+    "`lastUpdateDate` datetime DEFAULT NULL, PRIMARY KEY (`id`))")
+
+TWIN_DST_DDL = (
+    "CREATE TABLE `property` (`name` varchar(255) NOT NULL DEFAULT '', "
+    "`value` varchar(2000) DEFAULT NULL, `id` int(10) NOT NULL "
+    "AUTO_INCREMENT, `provider_no` varchar(6) DEFAULT '', "
+    "PRIMARY KEY (`id`))")
+
+#: two clinic rows on ONE stored key: '' and NULL both normalise to NULL
+TWIN_STAGE = ("('integrator_patient_consent','1',1,'', "
+              "'2020-01-01 00:00:00')",
+              "('integrator_patient_consent','0',2,NULL, "
+              "'2021-02-02 00:00:00')")
+
+#: the CARLOS seed row those two lose to, verbatim from the ON seed
+TWIN_SEED = "('integrator_patient_consent','1',1,NULL)"
+
+
+def check_normalised_twin_key(client: Client, src: str, dst: str,
+                              arch: str) -> List[str]:
+    """Twins are rows that land on the SAME target row -- and the merge
+    JOIN decides that, not the raw column values.
+
+    `property`'s natural key carries `NULLIF(s.`provider_no`, '')`
+    because CARLOS seeds a global property with NULL where an OSCAR 19
+    clinic writes `''`. A clinic holding both spellings for one property
+    therefore has two rows with different RAW keys and one STORED key.
+    Grouped raw, both survived the back-fill's rank-1 filter and the
+    UPDATE joined both to the single seed row (assigning from whichever
+    row MySQL chose), while `twin_surplus` could not even find the seed
+    -- it compared `''` with NULL -- so `archived_column_parity` counted
+    two source values against one live column and failed a CORRECT
+    import with a mismatch no flag clears.
+
+    The negative control at the end restores the raw grouping and shows
+    that same fixture failing, so this is demonstrated rather than
+    remembered."""
+    try:
+        return _twin_key_body(client, src, dst, arch)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+                   "`{1}`; DROP DATABASE IF EXISTS `{2}`;".format(
+                       src, dst, arch))
+
+
+def _twin_key_body(client: Client, src: str, dst: str,
+                   arch: str) -> List[str]:
+    failures: List[str] = []
+    for schema in (src, dst, arch):
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "DEFAULT CHARSET=utf8mb4;".format(schema))
+    client.setup(TWIN_SRC_DDL + ";", src)
+    client.setup("INSERT INTO `property` VALUES {0};".format(
+        ", ".join(TWIN_STAGE)), src)
+    client.setup(TWIN_DST_DDL + ";", dst)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    entry = dict(o19map_schema.TABLES["property"])
+    src_cols = o19etl.introspect_columns(query, src)["property"]
+    plan = o19etl.archived_column_plan(entry, src_cols)
+    merged_entry = o19etl.with_archived_columns(entry, plan)
+
+    def rebuild() -> None:
+        """The target as the ETL leaves it, in the ETL's own order."""
+        client.setup("DROP TABLE IF EXISTS `property`;", dst)
+        client.setup(TWIN_DST_DDL + ";", dst)
+        client.setup("INSERT INTO `property` VALUES {0};".format(TWIN_SEED),
+                     dst)
+        cols = o19etl.introspect_columns(query, dst)["property"]
+        for stmt in o19etl.add_archived_column_statements(
+                "property", dst, plan, cols):
+            client.setup(stmt + ";", dst)
+        cols = o19etl.introspect_columns(query, dst)["property"]
+        for sql in o19etl.archive_statements(
+                "property", dst, arch, o19etl.preseed_table("property")):
+            client.setup(sql + ";", dst)
+        client.setup(o19etl.merge_statement(
+            "property", merged_entry, src, dst, cols, None, arch) + ";", dst)
+        client.setup(o19etl.archived_backfill_statement(
+            "property", merged_entry, src, dst, cols, arch) + ";", dst)
+
+    print("\n  a normalised merge key groups its twins "
+          "(merge_twin_partition)")
+    rebuild()
+    live = int(client.rows(
+        "SELECT COUNT(*) FROM `property`", dst)[0][0])
+    print("    {0:<44} {1}".format(
+        "the seed won both clinic rows",
+        "ok" if live == 1 else "{0} LIVE ROW(S)".format(live)))
+    if live != 1:
+        return ["the fixture did not merge as expected ({0} live rows, "
+                "expected 1) -- every line below is meaningless"
+                .format(live)]
+
+    landed = client.rows(
+        "SELECT IFNULL(DATE_FORMAT(`import_archived_lastUpdateDate`, "
+        "'%Y-%m-%d'), 'NULL') FROM `property`", dst)[0][0]
+    print("    {0:<44} {1}".format(
+        "one value landed, and a deterministic one",
+        "ok ({0})".format(landed) if landed == "2020-01-01"
+        else "GOT {0}".format(landed)))
+    if landed != "2020-01-01":
+        failures.append("the back-fill landed {0!r}; the rank-1 order is "
+                        "meant to make the winner deterministic and "
+                        "non-NULL".format(landed))
+
+    def parity():
+        return o19etl.archived_column_parity(query, src, dst,
+                                             archive_schema=arch)
+
+    ok, bad = parity()
+    print("    {0:<44} {1}".format(
+        "P7 agrees the import is complete",
+        "ok" if not bad else "{0} FALSE ALARM(S)".format(len(bad))))
+    if bad:
+        failures.append("archived_column_parity failed a correct import: "
+                        "{0}".format("; ".join(bad)))
+    elif not any("twin value(s)" in line for line in ok):
+        failures.append("the surplus twin was not reported anywhere: "
+                        "requirement B is that nothing leaves without "
+                        "being counted ({0})".format("; ".join(ok)))
+
+    # negative control: group by the RAW columns, as before, and the
+    # same faithful import must fail -- otherwise this fixture proves
+    # nothing about the grouping
+    original = o19etl.merge_twin_partition
+
+    def raw_partition(e, archive_schema=None, dst_cols=None):
+        renames = e.get("renames") or {}
+        return ["s.{0}".format(o19etl.ident(renames.get(k, k)))
+                for k in e.get("merge_keys") or ()]
+
+    o19etl.merge_twin_partition = raw_partition
+    try:
+        rebuild()
+        _ok, control = parity()
+    finally:
+        o19etl.merge_twin_partition = original
+    print("    {0:<44} {1}".format(
+        "control: grouped raw, the same import fails",
+        "reproduced" if control else "NOT REPRODUCED"))
+    if not control:
+        failures.append("the raw grouping passed this fixture, so the "
+                        "check proves nothing about the normalised key")
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -1969,6 +2128,11 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                                              args.prefix + "_acd")
     if archived:
         failures["archived charset"] = archived
+    twins = check_normalised_twin_key(client, args.prefix + "_tks",
+                                      args.prefix + "_tkd",
+                                      args.prefix + "_tka")
+    if twins:
+        failures["normalised twin key"] = twins
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
@@ -1996,7 +2160,11 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
           "charset-less column it replaces demonstrably truncates, and "
           "the digest of a value larger than max_allowed_packet is the "
           "same under 16M and 1G where the format-1 rendering "
-          "demonstrably is not")
+          "demonstrably is not, and a merge key with a normalising "
+          "expression groups its twins the way the JOIN does -- one "
+          "value landing on the seed row and P7 agreeing -- where the "
+          "raw grouping it replaces demonstrably fails a correct "
+          "import")
     return 0
 
 

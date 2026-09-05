@@ -1992,11 +1992,16 @@ def check_identifier_class(c):
     # import will ever meet, and this finding is a no-go no --accept
     # clears, so it must not be raised on one. (A view in the schema is
     # separately a blocker of its own: see check_views.)
-    base_lower = set(n.lower() for n in live_names)
+    # EXACTLY, not case-folded: both sides of this comparison come from
+    # the same information_schema on the same schema, so the spellings
+    # already agree -- and where MySQL allows `Foo` (a table) beside
+    # `foo` (a view), folding would hand the view's columns to the table
+    # and raise the blocker this filter exists to prevent.
+    base_tables = set(live_names)
     for row in rows:
         if len(row) < 2 or not row[0] or row[0] in odd:
             continue
-        if row[0].lower() not in base_lower:
+        if row[0] not in base_tables:
             continue
         if not IDENTIFIER_RE.match(row[1] or ""):
             odd["{0}.{1}".format(row[0], row[1])] = "outside [A-Za-z0-9_$]"
