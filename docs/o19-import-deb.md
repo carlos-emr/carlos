@@ -101,6 +101,10 @@ mysqldump --single-transaction --quick --skip-triggers oscar \
 # disagree with each other, which no check downstream can detect.
 # --skip-triggers: mysqldump emits triggers by default and a trigger
 # carries a DEFINER clause the schema-scoped restore account cannot set.
+# VIEWS carry the same DEFINER clause and no flag strips it, so a schema
+# holding any view needs --ignore-table=<db>.<view> for each one. The
+# preflight lists them and prints the exact flags; the import migrates
+# base tables only, so nothing is lost by leaving them out.
 # one database, named as an argument: never --databases/--all-databases
 # (the importer refuses a dump that names its own schema); on MySQL 5.6+
 # add --set-gtid-purged=OFF
@@ -645,7 +649,15 @@ clinic's sign-off.
 - *"restore into o19_import failed"* mentioning DEFINER clauses, GRANTs or
   server-wide SET statements — the restore runs as an account limited to the staging
   schema. Re-take the dump with `--skip-triggers --set-gtid-purged=OFF`
-  (and without `--databases`); OSCAR 19 keeps nothing in triggers or views.
+  (and without `--databases`); stock OSCAR 19 keeps nothing in triggers.
+- *"ERROR 1227 ... you need (at least one of) the SUPER, SET USER
+  privilege(s)"* during the restore — the schema holds a **view**, and
+  mysqldump writes every view with a `DEFINER` clause the staging account
+  cannot set. No mysqldump flag strips it, and the three flags above do
+  not help. Re-take the dump with `--ignore-table=<db>.<view>` for each
+  view; run `o19_preflight.py` on the OSCAR 19 server and it lists them
+  with the exact flags. The import migrates base tables only, so leaving
+  the views out costs nothing.
 - *documents reconciliation FAILED* — a `document` row's file is missing,
   empty, named with a subdirectory or with a leading dot (CARLOS opens the
   basename only and refuses dot-leading names), an eForm references an

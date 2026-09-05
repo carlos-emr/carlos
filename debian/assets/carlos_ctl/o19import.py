@@ -1456,11 +1456,23 @@ def run_p1(ctx) -> None:
     # message naming the actual cause is never reached.
     if rc != 0:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))
+        # Naming the three flags alone was a remedy that could not
+        # work: all three are already true of the documented recipe,
+        # and a VIEW's DEFINER is not stripped by any mysqldump flag.
+        # A clinic view is the likeliest cause of ERROR 1227 here, and
+        # the only fix is to leave the views out of the dump — which
+        # costs nothing, the import migrating base tables only.
         die("restore into {0} failed — see the client error above. The "
             "restore runs as an account limited to that schema: a dump "
             "carrying DEFINER clauses, GRANTs or server-wide SET "
             "statements must be re-taken without them (mysqldump "
-            "--skip-triggers --set-gtid-purged=OFF, no --databases)"
+            "--skip-triggers --set-gtid-purged=OFF, no --databases). "
+            "ERROR 1227 naming SUPER or SET USER means the schema holds "
+            "a VIEW: no flag strips a view's DEFINER, so re-take the "
+            "dump excluding each one "
+            "(--ignore-table=<db>.<view>). The import needs none of "
+            "them — it migrates base tables only. o19_preflight.py "
+            "lists this schema's views and prints the exact flags."
             .format(STAGING_SCHEMA))
     if src_rc != 0:
         query("DROP DATABASE IF EXISTS `{0}`".format(STAGING_SCHEMA))

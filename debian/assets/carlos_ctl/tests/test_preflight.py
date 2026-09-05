@@ -96,6 +96,10 @@ class FakeDb(object):
                         return [[str(n)]]
                 return [["0"]]
             return [[str(self.tables.get(table, 0))]]
+        if "information_schema.VIEWS" in sql:
+            # no views unless a test passes rows= for this query; a
+            # stock OSCAR 19 schema has none
+            return []
         if sql == "SELECT 1":
             return [["1"]]
         if sql.startswith("SELECT role_name FROM "):
@@ -1021,6 +1025,84 @@ class TestTheMachineReportIsPrivate(unittest.TestCase):
         pf.write_private_json(path, {"verdict": "GO", "n": 1})
         with open(path) as fh:
             self.assertEqual(json.load(fh), {"verdict": "GO", "n": 1})
+
+
+class TestAViewStopsTheRestoreBeforeTheCutover(unittest.TestCase):
+
+    """A view anywhere in the clinic schema aborts P1's restore.
+
+    mysqldump writes every view with a DEFINER clause and the staging
+    account has no SUPER, so the restore dies with ERROR 1227 -- after
+    the pre-import snapshot, inside the cutover window. Measured on
+    MariaDB 10.11: the documented dump command restored as a
+    schema-scoped account gives
+
+        ERROR 1227 (42000) at line 67: Access denied; you need (at
+        least one of) the SUPER, SET USER privilege(s)
+
+    and the same dump taken with --ignore-table for the view restores
+    cleanly. No mysqldump flag strips a DEFINER, so the assessment must
+    find the views while there is still time to re-take the dump."""
+
+    def report(self, views=None):
+        rows = {}
+        if views is not None:
+            rows["information_schema.VIEWS"] = [[v] for v in views]
+        db = FakeDb(tables=base_tables(), rows=rows)
+        return pf.run_checks(db, clean_props())
+
+    def finding(self, report):
+        found = [f for f in report["findings"]
+                 if f["id"] == pf.VIEWS_FINDING]
+        return found[0] if found else None
+
+    def test_a_view_is_a_hard_no_go_naming_every_view(self):
+        report = self.report(["v_billing_summary", "v_report"])
+        self.assertEqual(report["verdict"], "no-go")
+        f = self.finding(report)
+        self.assertEqual(f["severity"], pf.BLOCKER)
+        self.assertEqual(f["data"], ["v_billing_summary", "v_report"])
+        # no --accept can clear it: the dump has to be re-taken
+        self.assertIsNone(f.get("accept"))
+
+    def test_the_remedy_is_the_flags_that_actually_work(self):
+        f = self.finding(self.report(["v_report"]))
+        self.assertIn("--ignore-table=<db>.v_report", f["detail"])
+        # the three flags P1 used to name are all already true of the
+        # documented recipe and none of them strips a view's DEFINER
+        self.assertNotIn("--skip-triggers", f["detail"])
+
+    def test_the_bundling_recipe_carries_the_flags(self):
+        text = pf.render_text(self.report(["v_a", "v_b"]))
+        line = [ln for ln in text.splitlines()
+                if ln.startswith("  mysqldump --single-transaction")]
+        self.assertTrue(line, text)
+        self.assertIn("--ignore-table=<db>.v_a", line[0])
+        self.assertIn("--ignore-table=<db>.v_b", line[0])
+        self.assertIn("<db> | gzip > o19.sql.gz", line[0])
+
+    def test_a_schema_with_no_views_says_nothing_and_keeps_the_recipe(self):
+        report = self.report([])
+        self.assertIsNone(self.finding(report))
+        line = [ln for ln in pf.render_text(report).splitlines()
+                if ln.startswith("  mysqldump --single-transaction")]
+        self.assertNotIn("--ignore-table", line[0])
+
+    def test_a_refused_view_listing_is_a_hard_no_go_not_a_silence(self):
+        # "the check could not run" must never read as "no views"
+        class Refusing(FakeDb):
+            def __call__(self, sql):
+                if "information_schema.VIEWS" in sql:
+                    raise RuntimeError(
+                        "ERROR 1142 (42000): SELECT command denied")
+                return FakeDb.__call__(self, sql)
+
+        report = pf.run_checks(Refusing(tables=base_tables()),
+                               clean_props())
+        self.assertEqual(report["verdict"], "no-go")
+        errors = [f for f in report["findings"] if f["id"] == "query-errors"]
+        self.assertTrue(errors, report["findings"])
+        self.assertIn("information_schema.VIEWS", errors[0]["data"])
 
 
 if __name__ == "__main__":

@@ -931,6 +931,12 @@ EXIT_TOOL_ERROR = 3
 #: that recipe otherwise reads as a green light for the whole import.
 UNMEASURED_FINDING_IDS = ("column-checks-deferred", "charset-b8-unmeasured")
 
+#: the finding whose data are view names the bundling recipe must
+#: exclude. render_text appends its --ignore-table flags to the
+#: mysqldump line, so the recipe an operator copies is one that works on
+#: THIS schema rather than the generic one that would fail at P1.
+VIEWS_FINDING = "views-block-the-restore"
+
 # Core-table inventory reported as sanity anchors for later row-parity.
 INVENTORY_TABLES = [
     "demographic", "provider", "security", "appointment", "casemgmt_note",
@@ -1994,6 +2000,67 @@ def check_identifier_class(c):
             data=odd))
 
 
+def check_views(c):
+    """A view anywhere in the clinic schema aborts the staging restore.
+
+    mysqldump writes every view with a `/*!50013 DEFINER=... */` clause,
+    and P1 restores as a throwaway account scoped to the staging schema
+    with deliberately no SUPER (see grant_staging_account: there is no
+    fallback on purpose). Creating a view with a foreign DEFINER needs
+    SUPER or SET USER, so the restore dies with ERROR 1227 -- measured
+    on MariaDB 10.11 against a dump taken with the documented command.
+
+    The tool had anticipated this for TRIGGERS only, so P1's own remedy
+    named `--skip-triggers`, `--set-gtid-purged=OFF` and "no
+    --databases" -- all three already true of the documented recipe, and
+    none of which strips a view's DEFINER. There is no mysqldump flag
+    that does.
+
+    The remedy is to leave the views out, which costs the import
+    nothing: it migrates base tables only (`base_table_names` and the
+    ETL's introspection both filter TABLE_TYPE='BASE TABLE'), so a view
+    would be ignored even if it restored. `--ignore-table` accepts a
+    view, and the check names the exact flags because it knows the
+    names."""
+    query = c.query
+    schema_expr = c.schema_expr
+    try:
+        rows = query(
+            "SELECT TABLE_NAME FROM information_schema.VIEWS "
+            "WHERE TABLE_SCHEMA = {0} ORDER BY TABLE_NAME"
+            .format(schema_expr))
+    except Exception as exc:                               # noqa: BLE001
+        # a failure must not read as "no views": it is a check that could
+        # not run, which report_query_diagnostics turns into a no-go
+        text = str(exc).strip()
+        c.query_errors["information_schema.VIEWS"] = (
+            text.splitlines()[-1] if text else "")
+        return
+    names = [r[0] for r in rows if r and r[0]]
+    if not names:
+        return
+    c.findings.append(finding(
+        VIEWS_FINDING, BLOCKER,
+        "{0} view(s) in the schema; a dump carrying one fails the "
+        "staging restore".format(len(names)),
+        "mysqldump writes each view with a DEFINER clause, and the "
+        "import restores as an account scoped to the staging schema "
+        "with no SUPER: the restore stops at ERROR 1227, after the "
+        "pre-import snapshot has been taken. No --accept clears it and "
+        "no mysqldump flag strips a DEFINER. Leave the views out of the "
+        "dump -- the import migrates base tables only, so nothing is "
+        "lost: " + " ".join(ignore_table_flags(names)),
+        data=names))
+
+
+def ignore_table_flags(names):
+    """The mysqldump flags that leave `names` out of the dump.
+
+    `<db>` rather than the real schema name: it is the same placeholder
+    the bundling recipe uses on the line these flags are appended to."""
+    return ["--ignore-table=<db>.{0}".format(n) for n in names]
+
+
 def check_facility_and_clinic(c):
     """The two rows CARLOS cannot log anyone in without.
 
@@ -2699,6 +2766,7 @@ def run_checks(query, properties=None, province="on", accepted=(),
     check_dropped_column_data(c)
     check_required_tables(c)
     check_identifier_class(c)
+    check_views(c)
     check_facility_and_clinic(c)
     check_roles_and_assignments(c)
     check_expired_logins(c)
@@ -2780,10 +2848,24 @@ def render_text(report):
                  "MyISAM, for which")
     lines.append("  # --single-transaction gives no consistency at all "
                  "against a live database")
+    # the flags are built from THIS schema's views, so the operator
+    # copies a command that works here rather than the generic one,
+    # which would die at P1 on the first view's DEFINER clause
+    views = [f for f in report["findings"] if f["id"] == VIEWS_FINDING]
+    view_flags = ""
+    if views:
+        view_flags = " " + " ".join(ignore_table_flags(views[0]["data"]))
     lines.append("  mysqldump --single-transaction --quick --skip-triggers "
-                 "<db> | gzip > o19.sql.gz")
+                 "{0}<db> | gzip > o19.sql.gz".format(
+                     view_flags.strip() + " " if view_flags else ""))
     lines.append("    (MySQL 5.6+: add --set-gtid-purged=OFF; the import "
                  "refuses a dump that sets GTID_PURGED)")
+    if views:
+        lines.append("    (the --ignore-table flags leave this schema's "
+                     "view(s) out: mysqldump writes each")
+        lines.append("     with a DEFINER the import's restore account "
+                     "cannot set, and the import needs")
+        lines.append("     none of them — it migrates base tables only)")
     lines.append("  tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz "
                  "<context-dir>")
     lines.append("  # run this check again with --digests "
