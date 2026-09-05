@@ -803,6 +803,28 @@ class TestVerifyRoleChecks(unittest.TestCase):
         self.assertTrue(any("retired" in a and "fid 5" in a for a in adv),
                         adv)
 
+    def test_a_modern_retired_row_does_not_vouch_for_an_old_live_one(self):
+        """The status split has to reach the CURRENTNESS check too.
+
+        A clinic that modernised its Rich Text Letter, then retired that
+        template and left an OLD one enabled, holds one canonical row
+        carrying the 2026.3.0 marker and one that does not. Judged over
+        every row, the retired one satisfies the check and P7 reports
+        "at 2026.3.0" — a green line about a template nobody can open,
+        while the form the clinic actually uses still calls the dead
+        attachment route."""
+        old_live = list(self.RTL_LIVE)
+        old_live[4] = "0"          # no 2026.3.0 marker
+        old_live[5] = "1"          # and still on the dead route
+        ok, bad, adv, private = o19roles.verify_role_checks(
+            self.make_query(rtl=[list(self.RTL_RETIRED), old_live]),
+            "carlos", "100001", 513)
+        self.assertEqual(bad, [])
+        self.assertFalse(any("Rich Text Letter at 2026.3.0" in line
+                             for line in ok), ok)
+        self.assertTrue(any("no Rich Text Letter eForm at 2026.3.0" in a
+                            for a in adv), adv)
+
     def test_two_enabled_rtl_rows_still_fail_and_name_the_fids(self):
         live_dupe = list(self.RTL_RETIRED)
         live_dupe[2] = "1"

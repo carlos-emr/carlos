@@ -126,12 +126,16 @@ def sql_escape(value: str) -> str:
     * newline and Ctrl-Z are legal inside a literal and survive this
       tool's transport intact (measured); only the Windows client treats
       Ctrl-Z specially, and this runs on Debian.
-    * CR is escaped, and NOT because the server minds it. Every statement
-      here is fed to the mariadb CLI on stdin, and the client strips the
-      CR of a CRLF as a line terminator BEFORE the server parses the
-      statement -- inside a quoted literal too. Measured on 10.11:
-      `'a\r\nb'` stored as `a\nb`, while a bare CR and a lone LF both
-      survived. The clinic values that reach a hand-built literal are
+    * CR is escaped, and NOT because the server minds it. Statements
+      reach the mariadb CLI two ways here: on stdin (the ETL's batches)
+      and as `-e` argv (dbops, and the smaller queries). The stdin path
+      strips the CR of a CRLF as a line terminator BEFORE the server
+      parses the statement -- inside a quoted literal too. Measured on
+      10.11: `'a\r\nb'` stored as `a\nb` through stdin, while a bare CR
+      and a lone LF both survived, and the same value through `-e`
+      arrived intact either way. So the escape is what the stdin path
+      needs and a no-op for `-e`, which is why one escape can serve
+      both. The clinic values that reach a hand-built literal are
       role names and secObjPrivilege.objectName, and a role name silently
       losing a byte is written into secObjPrivilege under a spelling that
       no longer matches secUserRole.role_name -- grants that exist and

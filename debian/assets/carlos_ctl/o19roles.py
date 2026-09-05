@@ -1072,7 +1072,10 @@ def verify_role_checks(query: Callable, dst_schema: str,
                           "address is retired (disabled) in this clinic — "
                           "left retired; enable one in Administration > "
                           "eForms if the clinic wants the form")
-    elif rtl_current(rtl_rows):
+    elif rtl_current(enabled):
+        # `enabled`, not every row: a clinic that retired an already
+        # modernised template and kept an OLD one live would otherwise be
+        # told "at 2026.3.0" on the strength of the row nobody can use
         ok.append("Rich Text Letter at 2026.3.0 with live attachment routes")
     else:
         advisories.append("no Rich Text Letter eForm at 2026.3.0 with live "

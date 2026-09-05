@@ -1186,10 +1186,15 @@ class TestRowSizeCeiling(unittest.TestCase):
         self.assertIn("past MySQL's 65535-byte row limit", msg)
         self.assertIn("import_archived_src0", msg)
         # the refusal must not promise an archive capture: its lines go
-        # to the die() that ends P4 BEFORE the first write, so nothing
-        # has reached o19_archive and nothing will on this run
-        self.assertIn("refuses here, before writing anything", msg)
+        # to the die() that ends P4 before any table is copied, so
+        # nothing has reached o19_archive and nothing will on this run
+        self.assertIn("refuses before adding the column", msg)
         self.assertNotIn("captured to the archive", msg)
+        # ... and it must not claim "nothing was written" either: only
+        # precheck_scope can tell a fresh run from a --resume standing on
+        # earlier writes, and from the RENAMEs normalize_table_case has
+        # already made against staging by this point
+        self.assertNotIn("writing anything", msg)
 
     def test_a_table_with_no_plan_is_never_refused(self):
         self.assertIsNone(o19etl.oversized_rows("t", self.dst(60), []))

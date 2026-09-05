@@ -1141,18 +1141,25 @@ def oversized_rows(table: str, dst_cols: Dict[str, dict],
         return None
     plan = pending
     # NOT "their values are still captured": this is a pre-check, and
-    # its lines go to the die() that ends P4 before the first write.
-    # Nothing is copied, nothing reaches o19_archive, and an operator
-    # told their data was safely archived would have been told something
-    # that had not happened and now never will on this run.
+    # its lines go to the die() that ends P4 before any table is copied.
+    # Nothing reaches o19_archive, and an operator told their data was
+    # safely archived would have been told something that had not
+    # happened and now never will on this run.
+    #
+    # It does not claim "nothing was written" either. That sentence
+    # belongs to `precheck_scope`, which the die() header already
+    # carries, and only it can tell the two cases apart: a fresh run is
+    # untouched, but `normalize_table_case` has already RENAMEd staging
+    # tables by here, and a --resume whose ledger records work stands on
+    # the earlier phases' writes.
     return ("{0}: preserving {1} column(s) on it would take the row from "
             "roughly {2} to {3} bytes of declared width, past MySQL's "
-            "{4}-byte row limit ({5}). The import refuses here, before "
-            "writing anything, because the live column cannot be added "
-            "and a table whose fork columns have no home is not a "
-            "migration this tool will half-perform: narrow or remove "
-            "these columns in the source and re-export, or migrate this "
-            "table's fork columns by hand and re-run."
+            "{4}-byte row limit ({5}). The import refuses before adding "
+            "the column, because it cannot be added and a table whose "
+            "fork columns have no home is not a migration this tool will "
+            "half-perform: narrow or remove these columns in the source "
+            "and re-export, or migrate this table's fork columns by hand "
+            "and re-run."
             .format(table, len(plan), current, current + added,
                     MAX_ROW_BYTES,
                     ", ".join(t for _s, t, _c in plan)))
