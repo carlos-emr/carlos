@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletConfig;
@@ -50,6 +52,7 @@ import javax.imageio.ImageIO;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.GregorianCalendar;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,6 +84,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
     private DrugDao drugDao;
     private ProviderExtDao providerExtDao;
+    private DemographicManager demographicManager;
 
     @BeforeEach
     void setUp() {
@@ -97,6 +101,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         registerMock(ClinicDAO.class, mock(ClinicDAO.class));
         registerMock(ProviderDao.class, mock(ProviderDao.class));
         registerMock(DemographicDao.class, mock(DemographicDao.class));
+        demographicManager = mock(DemographicManager.class);
+        registerMock(DemographicManager.class, demographicManager);
         registerMock(PrescriptionDao.class, prescriptionDao);
         drugDao = mock(DrugDao.class);
         registerMock(DrugDao.class, drugDao);
@@ -512,6 +518,113 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(blocks.get(0)).contains("Amoxicillin 500 mg").contains(nl + "1" + nl).contains("cap PO TID");
         assertThat(blocks.get(1)).contains("Ibuprofen 400 mg").doesNotContain("1 tab PRN");
         assertThat(blocks.get(2)).contains("1 tab PRN");
+    }
+
+    /**
+     * The demographic row of patient {@value #DEMOGRAPHIC_NO}, as the record holds it. Every value
+     * here is deliberately different from what {@link #createFaxRequest()} posts, so an assertion
+     * that finds the record's value proves the binding rather than a coincidence.
+     */
+    private void stubRecordDemographic() {
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(DEMOGRAPHIC_NO);
+        demographic.setFirstName("Real");
+        demographic.setLastName("Patient");
+        demographic.setAddress("1 Record Lane");
+        demographic.setCity("Hamilton");
+        demographic.setProvince("ON");
+        demographic.setPostal("L8S 4L8");
+        demographic.setPhone("9055550101");
+        demographic.setHin("1234567890");
+        demographic.setBirthDay(new GregorianCalendar(1980, 2, 4));
+        when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenReturn(demographic);
+    }
+
+    @Test
+    @DisplayName("should fax the patient identity of the prescription record, not the request")
+    void shouldBindPatientIdentity_toPrescriptionDemographic() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        // A caller who legitimately holds _rx write on this patient posts someone else's identity
+        // alongside the signed script's id. The verified drugs and stored signature must never go
+        // out under it.
+        request.setParameter("patientName", "Someone Else");
+        request.setParameter("patientDOB", "Jan 1, 1900");
+        request.setParameter("patientHIN", "9999999999");
+        request.setParameter("patientAddress", "999 Attacker Ave");
+        request.setParameter("patientCityPostal", "Nowhere ZZ");
+        request.setParameter("patientPhone", "Tel: 4165559999");
+        request.setParameter("patientChartNo", "INJECTED");
+        stubStoredSignature();
+        stubRecordDemographic();
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound).isNotNull();
+        assertThat(bound.getParameter("patientName")).isEqualTo("Real Patient");
+        assertThat(bound.getParameter("patientDOB")).isEqualTo("Mar 4, 1980");
+        assertThat(bound.getParameter("patientHIN")).isEqualTo("1234567890");
+        assertThat(bound.getParameter("patientAddress")).isEqualTo("1 Record Lane");
+        assertThat(bound.getParameter("patientCityPostal")).isEqualTo("Hamilton, ON L8S 4L8");
+        assertThat(bound.getParameter("patientPhone")).endsWith("9055550101").doesNotContain("4165559999");
+        // Never populated by the Rx preview, so the only thing it could carry is chosen text.
+        assertThat(bound.getParameter("patientChartNo")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should blank the patient heading when the prescription's demographic row is missing")
+    void shouldBlankPatientIdentity_whenDemographicRowMissing() throws Exception {
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("patientName", "Someone Else");
+        request.setParameter("patientHIN", "9999999999");
+        stubStoredSignature();
+        when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenReturn(null);
+
+        HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+        assertThat(bound).isNotNull();
+        // Absent data prints as absent. Falling back to the request would be the very bypass.
+        assertThat(bound.getParameter("patientName")).isEmpty();
+        assertThat(bound.getParameter("patientHIN")).isEmpty();
+        assertThat(bound.getParameter("patientAddress")).isEmpty();
+        assertThat(bound.getParameter("patientCityPostal")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should compose the city line the way the Rx preview does, by which parts are present")
+    void shouldComposeCityPostal_byWhichPartsArePresent() {
+        assertThat(FrmCustomedPDFServlet.formatCityPostal("Hamilton", "ON", "L8S 4L8")).isEqualTo("Hamilton, ON L8S 4L8");
+        assertThat(FrmCustomedPDFServlet.formatCityPostal("", "ON", "L8S 4L8")).isEqualTo("ON L8S 4L8");
+        assertThat(FrmCustomedPDFServlet.formatCityPostal("Hamilton", "", "L8S 4L8")).isEqualTo("Hamilton  L8S 4L8");
+    }
+
+    @Test
+    @DisplayName("should keep a one-character prescription line in the rendered fax body")
+    void shouldKeepOneCharacterLine_whenSplittingRenderedBlocks() {
+        String nl = System.lineSeparator();
+        // The record-bound fax body is written server-side with plain platform newlines, so a
+        // standalone dose line is a real line, not the CRLF remnant the separator test looks for.
+        String body = "Amoxicillin 500 mg" + nl + "1" + nl + "cap PO TID" + nl + nl + "Ibuprofen 400 mg" + nl + nl;
+
+        List<String> blocks = FrmCustomedPDFServlet.splitRenderedRxBlocks(body, nl);
+
+        assertThat(blocks).hasSize(2);
+        assertThat(blocks.get(0)).contains("Amoxicillin 500 mg").contains("1").contains("cap PO TID");
+        assertThat(blocks.get(1)).contains("Ibuprofen 400 mg");
+    }
+
+    @Test
+    @DisplayName("should still break blocks on the lone carriage return left by a browser-submitted body")
+    void shouldSplitRenderedBlocks_onLoneCarriageReturn() {
+        String nl = "\n";
+        // A CRLF body split on "\n": every line keeps a trailing "\r", and a blank line is "\r"
+        // alone. That remnant is the only one-character separator, and it must keep working.
+        String body = "Amoxicillin 500 mg\r" + nl + "\r" + nl + "Ibuprofen 400 mg\r" + nl;
+
+        List<String> blocks = FrmCustomedPDFServlet.splitRenderedRxBlocks(body, nl);
+
+        assertThat(blocks).hasSize(2);
+        assertThat(blocks.get(0)).contains("Amoxicillin 500 mg").doesNotContain("Ibuprofen");
+        assertThat(blocks.get(1)).contains("Ibuprofen 400 mg");
     }
 
     @Test

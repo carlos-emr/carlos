@@ -347,6 +347,17 @@
             }
 
 
+            /*
+             * The most recent Additional Notes save, so a fax can wait for it. A fax renders
+             * additNotes from the STORED prescription row (FrmCustomedPDFServlet.bindFaxContentToRecord
+             * replaces the posted value, deliberately, so a caller cannot print arbitrary text above
+             * another prescriber's signature). addNotes() saves that row with a fire-and-forget
+             * fetch, and the textarea's own onchange fires as focus leaves it for the Fax button --
+             * so without this the fax POST races the save, and a note the clinician just typed, and
+             * can still see in the preview, is silently absent from the outgoing fax.
+             */
+            var pendingNotesSave = Promise.resolve();
+
             function onPrint2(method, scriptId) {
                 var useSC = false;
                 var scAddress = "";
@@ -366,7 +377,18 @@
                 if (method !== "oscarRxFax") {
                     document.getElementById("preview").contentWindow.document.getElementById("preview2Form").target = "_blank";
                 }
-                document.getElementById("preview").contentWindow.document.getElementById("preview2Form").submit();
+                var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
+                if (method === "oscarRxFax") {
+                    // Only the fax waits. A print renders additNotes from the request, which
+                    // addNotes() already updated synchronously, so there is nothing to wait for --
+                    // and deferring a target="_blank" submit out of the click's user-gesture context
+                    // would hand it to the popup blocker.
+                    pendingNotesSave.then(function () {
+                        previewForm.submit();
+                    });
+                } else {
+                    previewForm.submit();
+                }
 
                 return true;
             }
@@ -397,11 +419,17 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
-                fetch(url, {
+                // Keep the promise so onPrint2 can await it before faxing. The catch keeps a failed
+                // save from leaving a permanently rejected promise that would block every later fax;
+                // a fax that then goes out carries the previously stored note, which is the same
+                // outcome as before this call was made awaitable.
+                pendingNotesSave = fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
                     body: params
+                }).catch(function (e) {
+                    console.warn('Additional notes save failed; faxing the stored note', e);
                 });
                 var additNotesEl = frames['preview'].document.getElementById('additNotes');
                 additNotesEl.style.whiteSpace = 'pre-wrap';

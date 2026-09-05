@@ -61,8 +61,11 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -118,6 +121,12 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+
+    /** Every request parameter that names or locates the patient on the rendered page. */
+    private static final List<String> IDENTITY_PARAMETERS = List.of(
+            "patientName", "patientDOB", "patientAddress", "patientCityPostal",
+            "patientHIN", "patientPhone", "patientChartNo");
 
     /** Parses a positive script number (prescription.script_no is a signed int); -1 when invalid. */
     private static int parsePositiveInt(String value) {
@@ -862,8 +871,81 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         bound.put("additNotes", prescription.getComments() == null ? "" : prescription.getComments());
         bound.put("pracNo", collegeId);
         bound.put("billingNumber", billingNo);
+        bindPatientIdentity(req, prescription.getDemographicId(), bound);
         return new RecordBoundRequest(req, bound);
     }
+
+    /**
+     * Binds the patient block of the fax to the prescription's own demographic.
+     *
+     * <p>The drugs, the signing name and the prescriber's numbers are already taken from the
+     * record, and {@link #resolveSignatureImage} has established that the caller holds {@code _rx}
+     * write for the prescription's patient and that {@code demographic_no} names that same patient.
+     * The identity PRINTED on the page was still whatever the request said: {@code patientName},
+     * {@code patientDOB}, {@code patientHIN}, {@code patientAddress}, {@code patientCityPostal} and
+     * {@code patientPhone} were read straight from parameters. A stale preview, or a tampered post
+     * from a caller who legitimately holds {@code _rx} write on the patient, could therefore send
+     * the verified drugs under the prescriber's stored signature while heading the page with a
+     * different person's name, date of birth and health number — a correctly signed prescription
+     * for the wrong patient. Bind them the same way as everything else.</p>
+     *
+     * <p>The formats reproduce what {@code rx/Preview2.jsp} posts for a legitimate render, so a
+     * bound fax is byte-identical to an untampered one: the city/province/postal line uses the
+     * page's own spacing rules, and the phone carries the localized {@code RxPreview.msgTel} label
+     * the page prefixes. {@code showPatientDOB} is deliberately NOT bound — it selects whether the
+     * clinic prints dates of birth at all, which is a display preference rather than identity, and
+     * the value it gates is now the record's either way.</p>
+     *
+     * <p>{@code patientChartNo} is bound to empty because the Rx preview never populates it: the
+     * faxed script has never shown a chart number, so the only thing the parameter could carry is
+     * text an attacker chose. Leaving it caller-controlled would reopen the same hole in the one
+     * identity slot that has no record source here.</p>
+     */
+    private void bindPatientIdentity(HttpServletRequest req, Integer demographicId, Map<String, String> bound) {
+        // Every identity slot is overridden, including the ones that come back empty. A field left
+        // unbound is a field the request still controls, so the blanks are part of the control:
+        // absent demographic data must print as absent, never as whatever the caller supplied.
+        for (String field : IDENTITY_PARAMETERS) {
+            bound.put(field, "");
+        }
+        // rx/Preview2.jsp reaches the same row through RxPatientData, which is a pass-through over
+        // DemographicManager; going straight to the manager keeps the consent and audit behaviour
+        // of the preview without RxPatientData's static bean plumbing.
+        Demographic demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(req),
+                demographicId);
+        if (demographic == null) {
+            logger.warn("Faxing prescription for demographic {} with a blank patient heading: its demographic row is missing",
+                    LogSafe.sanitize(String.valueOf(demographicId)));
+            return;
+        }
+        String first = demographic.getFirstName() == null ? "" : demographic.getFirstName();
+        String surname = demographic.getLastName() == null ? "" : demographic.getLastName();
+        String city = demographic.getCity() == null ? "" : demographic.getCity();
+        String province = demographic.getProvince() == null ? "" : demographic.getProvince();
+        String postal = demographic.getPostal() == null ? "" : demographic.getPostal();
+        String phone = demographic.getPhone() == null ? "" : demographic.getPhone();
+        Date dob = demographic.getBirthDay() == null ? null : demographic.getBirthDay().getTime();
+
+        bound.put("patientName", (first + " " + surname).trim());
+        bound.put("patientDOB", RxUtil.DateToString(dob, "MMM d, yyyy"));
+        bound.put("patientAddress", demographic.getAddress() == null ? "" : demographic.getAddress());
+        bound.put("patientCityPostal", formatCityPostal(city, province, postal));
+        bound.put("patientHIN", demographic.getHin() == null ? "" : demographic.getHin());
+        bound.put("patientPhone", LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel") + ": " + phone);
+    }
+
+    /**
+     * The city/province/postal line exactly as {@code rx/Preview2.jsp} composes it: ", " between a
+     * city and a province when both are present, a single space when only the province is, and
+     * nothing between when only the city is. Reproduced rather than simplified so that binding the
+     * field does not visibly change a legitimate fax.
+     */
+    static String formatCityPostal(String city, String province, String postal) {
+        int check = (city.trim().isEmpty() ? 0 : 1) | (province.trim().isEmpty() ? 0 : 2);
+        String separator = check == 3 ? ", " : check == 2 ? "" : " ";
+        return String.format("%s%s%s %s", city, separator, province, postal);
+    }
+
 
     /**
      * One drug's fax block, with the record's own line breaks restored.
@@ -1032,7 +1114,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
         String listElem = "";
         for (String s : rx.split(newline)) {
-            if (s.equals("") || s.equals(newline) || s.length() == 1) {
+            // ONLY the lone carriage return is a separator, never any one-character line. The
+            // sentinel this looks for is the "\r" left behind when a browser-submitted CRLF body is
+            // split on a "\n" platform separator; a bare one-character line cannot occur that way,
+            // because every line of such a body still carries its own trailing "\r". The
+            // record-bound fax body (bindFaxContentToRecord) is built server-side with plain
+            // newlines and has no sentinel at all, so under the old "s.length() == 1" test a
+            // genuine one-character prescription line -- a standalone dose such as "1" -- was
+            // treated as a block break and silently dropped from the faxed script.
+            if (s.equals("") || s.equals(newline) || s.equals("\r")) {
                 listRx.add(listElem);
                 listElem = "";
             } else {
