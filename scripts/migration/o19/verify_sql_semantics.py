@@ -1906,6 +1906,21 @@ def main(argv: Optional[List[str]] = None) -> int:
         same_statement_visibility(client, dst, src)))
 
     failures: Dict[str, List[str]] = {}
+    try:
+        return _run_checks(client, args, failures, dst, src, arch)
+    finally:
+        # the shared scratch schemas, dropped whatever happened: each
+        # check below owns its OWN schemas in a finally, but a fixture
+        # that raises SystemExit (Client.setup's "could not run") used to
+        # exit main() before this line and leave three databases behind
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`; DROP DATABASE IF EXISTS `{2}`;".format(
+                       dst, src, arch))
+
+
+def _run_checks(client: Client, args, failures: Dict[str, List[str]],
+                dst: str, src: str, arch: str) -> int:
+    """Every check in turn; `main` owns the shared-schema teardown."""
     for sc in SCENARIOS:
         found = check(client, sc, dst, src, arch)
         if found:
@@ -1945,8 +1960,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     if archived:
         failures["archived charset"] = archived
 
-    client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS `{1}`; "
-               "DROP DATABASE IF EXISTS `{2}`;".format(dst, src, arch))
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
         for name, found in sorted(failures.items()):

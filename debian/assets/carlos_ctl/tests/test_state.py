@@ -1777,6 +1777,24 @@ class TestTheImportReport(unittest.TestCase):
         tail = text.split("WHAT WAS NOT CHECKED, AND WHY", 1)[1]
         self.assertIn("content transfer (P2): no record of the check", tail)
 
+    def test_a_disagreement_does_not_hide_what_was_never_compared(self):
+        """A run can BOTH have a disagreement the operator signed off and
+        tables nobody could measure. Chained as one elif, the second
+        vanished behind the first: the reviewer read "some tables
+        disagreed" and never learned others were never compared."""
+        content = dict(self.COMPARED,
+                       failed=[["drugs", "row digest differs"]],
+                       unverified=[["formLabReq07", "type unknown"]],
+                       summary="578 verified, 1 disagreed, 1 not compared")
+        text = o19report.render_text(self.build(content=content))
+        self.assertIn("accepted with --accept content-transfer", text)
+        tail = text.split("WHAT WAS NOT CHECKED, AND WHY", 1)[1]
+        self.assertIn("content transfer (P2): 578 verified, 1 disagreed, "
+                      "1 not compared", tail)
+        # and it is not ALSO claimed as something that arrived
+        head = text.split("WHAT DID NOT ARRIVE", 1)[0]
+        self.assertNotIn("content transfer (P2)", head)
+
     def test_the_documents_and_properties_phases_are_reported(self):
         state = self.phases(
             documents={"status": "done", "tar_sha256": "deadbeefcafe0123",

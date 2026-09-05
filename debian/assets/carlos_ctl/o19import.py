@@ -1958,10 +1958,15 @@ def phase_report_rows(state: Dict, content: Optional[Dict]
             findings.append(o19report.finding(
                 "advisory", "content transfer disagreement accepted with "
                             "--accept content-transfer", lines))
-        elif content.get("status") != "compared" \
+        # independently of the sign-off above: a run can BOTH have a
+        # disagreement the operator accepted AND tables nobody could
+        # compare, and chaining these as one elif hid the second behind
+        # the first -- the reviewer then read "some tables disagreed" and
+        # never learned that others were never measured at all
+        if content.get("status") != "compared" \
                 or content.get("unverified"):
             unchecked.append("content transfer (P2): {0}".format(summary))
-        else:
+        elif not content.get("failed"):
             arrived.append("content transfer (P2): {0}".format(summary))
 
     docs = phases.get("documents") or {}
