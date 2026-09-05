@@ -2779,8 +2779,7 @@ def _resolve_inputs(args, state_dir: str, accepted=None,
     return {"dump": args.dump, "documents": docs,
             "properties": args.properties,
             "digests": supplied_digests,
-            "bundle_sha256": None,
-            "members": {}}
+            "bundle_sha256": None}
 
 
 def bundle_acknowledgements(cli_accept, merged, recorded_digest: Optional[str],

@@ -440,9 +440,14 @@ def open_bundle(bundle: str, workdir: str, pass_spec: Optional[str] = None,
 
     Members land directly in workdir (0700, created if needed). Returns
     {"dump": path, "documents": path-or-None, "properties": path,
-     "digests": path-or-None, "bundle_sha256": hex,
-     "members": {name: sha256}} — a heterogeneous dict (str / None /
-     nested dict), hence the `object` value type.
+     "digests": path-or-None, "bundle_sha256": hex} — a heterogeneous
+    dict (str / None), hence the `object` value type.
+
+    Only the bundle itself is hashed here. The extracted members are
+    not: nothing consumed a per-member digest (not the ledger, not the
+    report, not --resume), and computing them re-read the dump and the
+    documents tar -- the run's largest inputs -- on every invocation,
+    every --resume included. P1 and P5 hash the member each consumes.
     """
     validate_bundle_args(bundle, pass_spec)
     encrypted, gzipped = bundle_kind(bundle)
@@ -583,10 +588,7 @@ def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
     if cp.returncode != 0:
         die("bundle extraction failed")
 
-    result: Dict[str, object] = {
-        "bundle_sha256": actual,
-        "members": {},
-    }
+    result: Dict[str, object] = {"bundle_sha256": actual}
     for role in ("dump", "documents", "properties", "digests"):
         name = members[role]
         if name is None:
@@ -599,5 +601,4 @@ def _open_bundle(bundle: str, tar_path: str, workdir: str, encrypted: bool,
                 .format(name))
         os.chmod(path, 0o600)
         result[role] = path
-        result["members"][name] = sha256_file(path)
     return result

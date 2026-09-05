@@ -976,8 +976,7 @@ class TestBundleDigest(unittest.TestCase):
         real_open = o19import.o19bundle.open_bundle
         o19import.o19bundle.open_bundle = lambda *a, **kw: (
             opened.append(a) or {"dump": None, "documents": None,
-                                 "properties": None, "bundle_sha256": "x",
-                                 "members": {}})
+                                 "properties": None, "bundle_sha256": "x"})
         self.addCleanup(setattr, o19import.o19bundle, "open_bundle",
                         real_open)
         args = argparse.Namespace(

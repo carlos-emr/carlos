@@ -537,6 +537,28 @@ class TestOpenBundleEndToEnd(unittest.TestCase):
             st = os.stat(res[role])
             self.assertEqual(st.st_mode & 0o777, 0o600)
 
+    def test_only_the_bundle_is_hashed_never_its_members(self):
+        """The bundle's digest is load-bearing (the ledger binds it, a
+        resume compares it). A digest of each extracted member was not:
+        nothing read it, and computing it re-read the dump and the
+        documents tar -- the run's largest inputs -- on every invocation
+        and every --resume."""
+        plain = os.path.join(self.work, "b.tar")
+        self._tar(plain, gz=False)
+        dest = tempfile.mkdtemp(dir=self.work)
+        hashed = []
+        real = o19bundle.sha256_file
+
+        def counting(path):
+            hashed.append(os.path.basename(path))
+            return real(path)
+
+        with mock.patch.object(o19bundle, "sha256_file", counting):
+            res = o19bundle.open_bundle(plain, dest)
+        self.assertEqual(hashed, [".bundle.in"])
+        self.assertNotIn("members", res)
+        self.assertEqual(res["bundle_sha256"], real(plain))
+
 
 if __name__ == "__main__":
     unittest.main()
