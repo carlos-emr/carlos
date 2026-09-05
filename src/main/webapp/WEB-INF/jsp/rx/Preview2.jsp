@@ -373,8 +373,15 @@
 
                                             request.setAttribute("phone", finalPhone);
                                         %>
+                                        <%-- clinicTitle joins its lines with <br>; the PDF wants real line breaks. This is a
+                                             tag ATTRIBUTE, and the JSP spec unescapes "\\" to "\" inside attribute values, so the
+                                             former replaceAll("(<br>)", "\\\n") reached Java as "\\n": a replacement string of
+                                             backslash + n, which regex replacement reads as an escaped literal 'n'. Every <br>
+                                             became the letter n and the faxed clinic header rendered as one glued line
+                                             ("ClinicnAddressnCity"). A literal replace with a plain "\n" has no escaping layer
+                                             to fall through. --%>
                                         <input type="hidden" name="clinicName"
-                                               value="<carlos:encode value='<%= clinicTitle.replaceAll("(<br>)","\\\n") %>' context="htmlAttribute"/>"/>
+                                               value="<carlos:encode value='<%= clinicTitle.replace("<br>", "\n") %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="clinicPhone"
                                                value="<carlos:encode value='<%= finalPhone %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>

@@ -24,8 +24,13 @@
  *      in the faxed PDF. The save is deliberately DELAYED here (route
  *      interception) so the race is deterministic: without the fix the fax POST
  *      won and rendered the stored (old) note; with it, the fax waits.
+ *   D. clinic header — the clinic name must render on its own line. Preview2.jsp
+ *      joined the header's lines with <br> and converted them for the PDF with a
+ *      replaceAll whose replacement, after JSP attribute unescaping, was an
+ *      escaped literal 'n': every line break became the letter n and the header
+ *      rendered glued ("ClinicnAddressnCity") on every faxed prescription.
  *
- * B and C are observed on one UI-driven fax; A is a second, direct POST for the
+ * B, C and D are observed on one UI-driven fax; A is a second, direct POST for the
  * same signed script, made from inside the page so it carries the session and a
  * real CSRFGuard token exactly as the browser's own submit does.
  *
@@ -242,9 +247,19 @@ function pdfTextRuns(buf) {
       const strRe = /\(((?:\\.|[^\\)])*)\)/g;
       let s;
       while ((s = strRe.exec(op[0]))) {
-        parts.push(s[1]
-          .replace(/\\([()\\])/g, '$1')
-          .replace(/\\(\d{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8))));
+        // PDF literal-string escapes (ISO 32000 7.3.4.2): \n \r \t \b \f, the three delimiters,
+        // and \ddd octal. Decoding them here keeps a run's text equal to what was rendered.
+        parts.push(s[1].replace(/\\(\d{1,3}|[nrtbf()\\])/g, (_, esc) => {
+          switch (esc) {
+            case 'n': return '\n';
+            case 'r': return '\r';
+            case 't': return '\t';
+            case 'b': return '\b';
+            case 'f': return '\f';
+            case '(': case ')': case '\\': return esc;
+            default: return String.fromCharCode(parseInt(esc, 8));
+          }
+        }));
       }
       runs.push(parts.join(''));
     }
@@ -588,6 +603,37 @@ function assertProbeLine(runs) {
   }
 }
 
+/**
+ * The clinic name exactly as rx/Preview2.jsp puts it at the top of the prescriber header: the
+ * single clinic row's name with a trailing "(nnnnnn)" site code removed. Empty when the install has
+ * no clinic row, in which case the header assertion is skipped and says so.
+ */
+function expectedClinicName() {
+  const raw = sql('SELECT IFNULL(clinic_name, \'\') FROM clinic ORDER BY clinic_no LIMIT 1;').trim();
+  return raw.replace(/\(\d{6}\)/g, '').trim();
+}
+
+function assertClinicHeader(runs) {
+  const clinicName = expectedClinicName();
+  if (!clinicName) {
+    visited.push({ label: 'clinic-header', skipped: 'no clinic row' });
+    return;
+  }
+  const trimmed = runs.map((r) => r.trim());
+  const ownLine = trimmed.includes(clinicName);
+  // The defect's signature: the name is there but the address is glued onto the same rendered line.
+  const glued = trimmed.some((r) => r.startsWith(clinicName) && r.length > clinicName.length);
+  visited.push({ label: 'clinic-header', ownLine, glued });
+  if (ownLine) return;
+  if (glued) {
+    findings.push({ label: 'clinic-header', type: 'lines-glued', text: 'the faxed clinic header renders the clinic name and its address on one glued line (the <br> to line-break conversion lost the break)' });
+  } else {
+    // Not this defect. A specialist-address (useSC) fax composes the header server-side; on the
+    // demo install the header is the clinic's, so its absence is still worth a look.
+    findings.push({ label: 'clinic-header', type: 'absent', text: 'the faxed PDF has no line carrying the clinic name at all' });
+  }
+}
+
 function assertNoteRendered(runs) {
   const present = runs.some((r) => r.includes(noteText));
   visited.push({ label: 'notes-race', notePresent: present });
@@ -614,6 +660,7 @@ async function runChecks(context) {
       if (!runs.length) findings.push({ label: 'ui-fax', type: 'no-text', text: 'the faxed PDF has no text runs' });
       assertProbeLine(runs);
       assertNoteRendered(runs);
+      assertClinicHeader(runs);
     }
 
     // A: the same signed script, posted with a forged identity.
@@ -660,7 +707,7 @@ async function runChecks(context) {
     console.error(`FAIL: ${findings.length} finding(s)`);
     for (const f of findings) console.error(` - [${f.label}] ${f.type}: ${f.text || ''}`);
   } else {
-    console.log('PASS: identity, one-character line and notes are all bound to the prescription record');
+    console.log('PASS: identity, one-character line and notes are bound to the prescription record; the clinic header renders on its own lines');
   }
   process.exit(exitCode);
 })();
