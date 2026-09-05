@@ -157,11 +157,22 @@ def hrm_rewrite_sql(dst_schema: str,
 
 
 def classify_hrm_files(rows: List[Tuple[str, str]],
-                       doc_dir: str) -> List[str]:
+                       doc_dir: str,
+                       claimed: Optional[Set[str]] = None) -> List[str]:
     """rows = (hrm id, reportFile after the rewrite). Every report must be
-    a real, non-empty, non-symlink file inside DOCUMENT_DIR."""
+    a real, non-empty, non-symlink file inside DOCUMENT_DIR.
+
+    `claimed` is every docfilename the `document` rows answer to. An HRM
+    basename in it is a MISSING report whatever sits at that path: the
+    file there is the document row's. relocate_hrm_reports refuses to
+    move a report whose name a document row claims, so a report of that
+    name reaching this check can only mean its file was never in the
+    tar -- and asking "is there a file of that name" would then answer
+    yes for another patient's scanned chart, and CARLOS would serve it
+    as this patient's hospital report."""
     problems = []
     doc_real = os.path.realpath(doc_dir)
+    taken = claimed or set()
     for hrm_id, report in rows:
         name = report.rsplit("/", 1)[-1]
         path = os.path.join(doc_dir, name)
@@ -174,6 +185,10 @@ def classify_hrm_files(rows: List[Tuple[str, str]],
         if not name or not inside:
             problems.append("HRMDocument {0}: {1} (path escapes the "
                             "document directory)".format(hrm_id, report))
+        elif name in taken:
+            problems.append("HRMDocument {0}: {1} (the file of that name "
+                            "belongs to a document row; the report itself "
+                            "was not delivered)".format(hrm_id, name))
         elif os.path.islink(path) or not os.path.isfile(path):
             problems.append("HRMDocument {0}: {1}".format(hrm_id, name))
         elif os.path.getsize(path) == 0:
@@ -909,8 +924,12 @@ def reconcile(query, dst_schema: str, ctx_root: str
                        "(edit eform.form_html for each):")
         private.extend(unroutable)
 
+    # the document rows' names are handed over so a document file can
+    # never stand in for an HRM report of the same basename
     problems.extend("missing HRM report for " + p
-                    for p in classify_hrm_files(hrm_rows, doc_dir))
+                    for p in classify_hrm_files(hrm_rows, doc_dir,
+                                                claimed={f for _, f in rows
+                                                         if f}))
     lines.append("{0} HRM report row(s) reconciled against {1}".format(
         len(hrm_rows), doc_dir))
     return problems, lines, private

@@ -585,7 +585,11 @@ clinic's sign-off.
   `document/` and every `HRMDocument.reportFile` is rewritten to its
   basename there; identical copies of one name are folded, differing
   copies of one name (or one name reached through two paths) are refused
-  with the names listed privately.
+  with the names listed privately. A `document` row's file never stands
+  in for an HRM report: a report whose basename a `document` row also
+  claims is refused when its file is under `hrm/`, and reported as a
+  missing HRM report when it is not (the file of that name in
+  `document/` is the other patient's).
 - *the previous restore of the documents tar was interrupted* — a crash
   mid-merge; the same tar re-extracts and files already in place are
   verified rather than replaced, so a plain `--resume` completes it. Only

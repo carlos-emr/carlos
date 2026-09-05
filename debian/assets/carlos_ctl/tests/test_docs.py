@@ -254,6 +254,41 @@ class TestHrmRewrite(unittest.TestCase):
         self.assertTrue(any("HRMDocument 5" in p and "escapes" in p
                             for p in problems))
 
+    def test_a_document_file_never_satisfies_a_missing_hrm_report(self):
+        # the HRM report was NOT in the tar (deleted, or the export
+        # missed sftp_downloads); a document row's file carries the same
+        # basename and WAS. relocate_hrm_reports cannot refuse (nothing
+        # under hrm/ has that name) and the rewrite points the HRM row at
+        # document/report.pdf -- which exists, so an existence check
+        # passed and CARLOS served one patient's chart as another's
+        # hospital report
+        root = tempfile.mkdtemp(prefix="o19docs-hrmghost-")
+        self.addCleanup(shutil.rmtree, root)
+        doc_dir = os.path.join(root, "document")
+        os.makedirs(doc_dir)
+        os.makedirs(os.path.join(root, "eform", "images"))
+        with open(os.path.join(doc_dir, "report.pdf"), "w") as fh:
+            fh.write("PATIENT CHART SCAN")
+        self.assertEqual(o19docs.relocate_hrm_reports(
+            root, reserved={"report.pdf"}), [])
+
+        def query(sql):
+            if sql.startswith("SELECT document_no, docfilename"):
+                return [("5", "report.pdf")]
+            if "HRMDocument" in sql:
+                return [("1", os.path.join(doc_dir, "report.pdf"))]
+            return []
+
+        problems, lines, _private = o19docs.reconcile(query, "carlos",
+                                                      root)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("missing HRM report for HRMDocument 1", problems[0])
+        self.assertIn("belongs to a document row", problems[0])
+        # the document row itself is fine: its file is its own
+        self.assertFalse(any("document 5" in p for p in problems))
+        self.assertIn("1 HRM report row(s) reconciled against " + doc_dir,
+                      lines)
+
 
 class TestContainment(unittest.TestCase):
 
