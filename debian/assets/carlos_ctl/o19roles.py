@@ -218,14 +218,37 @@ def oscar_program_statement(dst_schema: str) -> str:
     (name OSCAR, type Service, active, maxAllowed 99999, first enabled
     facility). HAVING keeps the aggregate from inserting a NULL-facility
     row when the program already exists or no facility is enabled."""
-    # every NOT NULL column without a default is supplied explicitly
-    # (Program.java's field defaults), so the statement does not depend
-    # on the executor's sql_mode
+    # Two rules, not one. Every NOT NULL column without a default is
+    # supplied explicitly (Program.java's field defaults) so the
+    # statement does not depend on the executor's sql_mode -- and so is
+    # every column `Program.java` maps as a JAVA PRIMITIVE, whatever the
+    # schema's nullability, because Hibernate cannot hydrate NULL into
+    # one.
+    #
+    # The second rule was missing, and it is not cosmetic: measured by
+    # deploying the application against a migrated database, the row
+    # this statement wrote made CARLOS FAIL TO START --
+    #
+    #   SEVERE ... Exception sending context initialized event to
+    #   listener instance of class ContextStartupListener
+    #   java.lang.NullPointerException: Cannot invoke
+    #   "java.lang.Boolean.booleanValue()" because "<parameter2>" is null
+    #     at ...PMmodule.model.Program$HibernateAccessOptimizer...
+    #
+    # -- so the whole webapp was undeployable (HTTP 404 on every route)
+    # on a clinic whose import had otherwise passed every gate. The five
+    # columns below are `private boolean` fields in Program.java over
+    # columns the CARLOS schema leaves nullable; `userDefined` defaults
+    # to true there, the rest to false. Re-derive the set by crossing
+    # Program.java's primitive fields with the nullable columns of
+    # `program` -- which is exactly what the contract test does.
     return ("INSERT INTO `{0}`.program (facilityId, name, description, "
             "type, programStatus, maxAllowed, transgender, firstNation, "
             "alcohol, physicalHealth, mentalHealth, housing, exclusiveView, "
-            "ageMin, ageMax) SELECT MIN(f.id), '{1}', '{1}', 'Service', "
-            "'active', 99999, 0, 0, 0, 0, 0, 0, 'no', 0, 0 FROM "
+            "ageMin, ageMax, holdingTank, allowBatchAdmission, "
+            "allowBatchDischarge, hic, userDefined) SELECT MIN(f.id), "
+            "'{1}', '{1}', 'Service', 'active', 99999, 0, 0, 0, 0, 0, 0, "
+            "'no', 0, 0, 0, 0, 0, 0, 1 FROM "
             "`{0}`.Facility f WHERE f.disabled = 0 HAVING MIN(f.id) IS NOT "
             "NULL AND NOT EXISTS (SELECT 1 FROM `{0}`.program WHERE name = "
             "'{1}')".format(dst_schema, OSCAR_PROGRAM))

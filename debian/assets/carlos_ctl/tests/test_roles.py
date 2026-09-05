@@ -119,9 +119,27 @@ class TestStatementShapes(unittest.TestCase):
         # every NOT NULL column without a default is supplied, so the
         # insert does not lean on the executor's sql_mode
         self.assertIn("transgender, firstNation, alcohol, physicalHealth, "
-                      "mentalHealth, housing, exclusiveView, ageMin, ageMax)",
+                      "mentalHealth, housing, exclusiveView, ageMin, ageMax, ",
                       sql)
         self.assertIn("0, 0, 0, 0, 0, 0, 'no', 0, 0", sql)
+
+    def test_the_program_row_can_be_read_back_by_hibernate(self):
+        """The row this writes must be LOADABLE, not merely insertable.
+
+        `Program.java` maps five columns the CARLOS schema leaves
+        nullable as `private boolean`, and Hibernate cannot hydrate NULL
+        into a primitive. Measured by deploying the application against a
+        migrated database: the row left them NULL,
+        `ContextStartupListener` died with `NullPointerException ...
+        Program$HibernateAccessOptimizer`, and the whole webapp failed to
+        deploy — HTTP 404 on every route, on an import that had passed
+        every gate it has."""
+        sql = o19roles.oscar_program_statement("carlos")
+        for column in ("holdingTank", "allowBatchAdmission",
+                       "allowBatchDischarge", "hic", "userDefined"):
+            self.assertIn(column, sql, column)
+        # Program.java's own defaults: userDefined true, the rest false
+        self.assertIn("0, 0, 0, 0, 1 FROM", sql)
 
     def test_membership_uses_the_clinics_role_no_and_skips_members(self):
         stmts = o19roles.membership_statements("carlos")

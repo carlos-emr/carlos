@@ -14,9 +14,10 @@ import types
 import unittest
 from pathlib import Path
 
-from carlos_ctl import o19etl, o19map_schema
+from carlos_ctl import o19etl, o19map_schema, o19roles
 
-GEN = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \
+ROOT = Path(__file__).resolve().parents[4]
+GEN = ROOT / "scripts" / "migration" / \
     "o19" / "generate_manifests.py"
 
 
@@ -1179,6 +1180,54 @@ class TestRenameRefusals(unittest.TestCase):
             {"old_t": ["id", "a", "b", "c"]},
             {"new_t": ["id", "a", "b", "c", "d", "e", "f", "g"]}))
         self.assertEqual(tables["old_t"]["class"], "archive")
+
+
+class TestEveryPrimitiveMappedColumnIsSupplied(unittest.TestCase):
+
+    """A row the import writes must be one Hibernate can READ BACK.
+
+    `Program.java` maps several columns as Java primitives that the
+    CARLOS schema leaves nullable. Hibernate cannot hydrate NULL into a
+    primitive, so a row the import inserts without them is not a row the
+    application can load — measured by deploying CARLOS against a
+    migrated database, where `ContextStartupListener` died with
+    `NullPointerException ... Program$HibernateAccessOptimizer` and the
+    whole webapp failed to deploy.
+
+    Insertability is not readability, and only the entity and the schema
+    together say which columns matter. This crosses them, so a future
+    field added to `Program.java` — or a migration that makes another
+    column nullable — fails here instead of at a clinic's cutover."""
+
+    ENTITY = (ROOT / "src" / "main" / "java" / "io" / "github"
+              / "carlos_emr" / "carlos" / "PMmodule" / "model"
+              / "Program.java")
+
+    @unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+    def test_the_oscar_program_insert_names_every_primitive(self):
+        gen = load_generator()
+        carlos = carlos_schema(gen)
+        columns = carlos.tables.get("program") or {}
+        self.assertTrue(columns, "no `program` table in the CARLOS schema")
+        primitives = set(re.findall(
+            r"private\s+(?:boolean|int|long|double|float|short|byte)\s+"
+            r"(\w+)", self.ENTITY.read_text(encoding="utf-8")))
+        self.assertTrue(primitives, self.ENTITY)
+        nullable = {c for c, definition in columns.items()
+                    if "NOT NULL" not in definition.upper()}
+        must_supply = sorted(primitives & nullable)
+        # the cross-reference is only meaningful if it selects something
+        self.assertTrue(must_supply, "no primitive field over a nullable "
+                                     "column — has Program.java changed?")
+        sql = o19roles.oscar_program_statement("carlos")
+        insert_columns = sql.split("(", 1)[1].split(")", 1)[0]
+        for column in must_supply:
+            self.assertIn(
+                column, insert_columns,
+                "Program.{0} is a Java primitive over a nullable column, "
+                "so the row this insert writes cannot be loaded: "
+                "Hibernate throws NullPointerException hydrating it and "
+                "the webapp fails to deploy".format(column))
 
 
 if __name__ == "__main__":
