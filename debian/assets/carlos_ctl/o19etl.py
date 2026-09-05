@@ -597,12 +597,90 @@ def archived_backfill_statement(table: str, entry: dict, src_schema: str,
     sets = ", ".join(
         "d.`{0}` = s.`{1}`".format(target, source)
         for target, source in sorted(archived.items()))
-    sql = ("UPDATE `{0}`.`{1}` d JOIN `{2}`.`{1}` s ON {3} SET {4}"
-           .format(dst_schema, table, src_schema,
+    sql = ("UPDATE `{0}`.`{1}` d JOIN {2} s ON {3} SET {4}"
+           .format(dst_schema, table,
+                   backfill_source(table, entry, src_schema),
                    merge_join(entry, archive_schema, dst_cols), sets))
+    where = []
     if entry.get("merge_exclude"):
-        sql += " WHERE NOT ({0})".format(entry["merge_exclude"])
+        where.append("NOT ({0})".format(entry["merge_exclude"]))
+    seeded = preseed_exists(table, entry, archive_schema)
+    if seeded:
+        # ONLY the rows the merge did not insert. An appended row already
+        # carries its own source row's values from the INSERT, and a
+        # clinic holding twins on a key CARLOS does NOT seed gets both of
+        # them appended -- so an unrestricted UPDATE joined the surviving
+        # source row to BOTH target rows and overwrote the second one's
+        # value with the first's. The pre-merge snapshot is taken before
+        # the insert, so it names exactly the seed rows this backfill is
+        # for.
+        where.append(seeded)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     return sql
+
+
+def preseed_exists(table: str, entry: dict,
+                   archive_schema: Optional[str] = None,
+                   dst_alias: str = "d") -> Optional[str]:
+    """`EXISTS (...)` matching a target row that was there BEFORE the
+    merge, or None when no archive schema is available.
+
+    `preseed_table` is the target as it stood before the insert, so a row
+    it holds on the natural key is a CARLOS seed row and a row it does
+    not is one the merge appended. Nothing else can tell them apart
+    afterwards: both are simply live rows."""
+    keys = entry.get("merge_keys") or ()
+    if not archive_schema or not keys:
+        return None
+    match = " AND ".join(
+        "p.`{0}` <=> {1}.`{0}`".format(k, dst_alias) for k in keys)
+    return ("EXISTS (SELECT 1 FROM `{0}`.{1} p WHERE {2})".format(
+        archive_schema, ident(preseed_table(table)), match))
+
+
+def merge_twin_partition(entry: dict) -> List[str]:
+    """The SOURCE columns a merge table's natural key is spelled with.
+
+    The raw columns, not the key EXPRESSIONS: this groups staging rows
+    that are twins of each other, which is a question about the staging
+    table alone. `archived_backfill_statement` and
+    `archived_column_parity` must group identically or the check and the
+    write disagree about how many values can land."""
+    renames = entry.get("renames") or {}
+    return [renames.get(k, k) for k in entry.get("merge_keys") or ()]
+
+
+def backfill_source(table: str, entry: dict, src_schema: str) -> str:
+    """The backfill's source: ONE staging row per natural-key twin group,
+    preferring a row that actually carries a value.
+
+    A clinic table can hold two rows on the same natural key -- neither
+    OSCAR 19 nor CARLOS puts a UNIQUE index on `property(name,
+    provider_no)`, and the seed holds many of those keys. When CARLOS's
+    seed wins the key, both clinic rows lose it, and ONE live
+    `import_archived_` column on ONE seed row cannot hold both values;
+    the surplus keeps its `o19_archive` copy alone, which is the
+    documented policy for a seed-overridden merge row.
+
+    What was wrong was not that: it was that the UPDATE joined every
+    twin and MySQL assigned from an arbitrary one, so a blank twin could
+    win over one carrying data, and `archived_column_parity` -- counting
+    rows on one side and rows on the other -- then failed a correct
+    import with a mismatch no flag can clear. Ordering NULLs last makes
+    the winner both deterministic and the one worth keeping."""
+    partition = merge_twin_partition(entry)
+    archived = entry.get("archived_cols") or {}
+    if not partition or not archived:
+        return "`{0}`.`{1}`".format(src_schema, table)
+    order = ", ".join(
+        "({0} IS NULL), {0}".format(ident(source))
+        for _target, source in sorted(archived.items()))
+    return ("(SELECT * FROM (SELECT t.*, ROW_NUMBER() OVER (PARTITION BY "
+            "{0} ORDER BY {1}) AS o19_twin_rank FROM `{2}`.`{3}` t) r "
+            "WHERE r.o19_twin_rank = 1)".format(
+                ", ".join(ident(c) for c in partition), order,
+                src_schema, table))
 
 
 def merge_overridden_count_sql(table: str, entry: dict, src_schema: str,
@@ -3904,7 +3982,8 @@ def archived_column_exclusions(table: str,
 
 def archived_column_parity(plain_query, src_schema: str, dst_schema: str,
                            pruned_property_prefixes: Sequence[str] = (),
-                           pruned_property_keys: Sequence[str] = ()
+                           pruned_property_keys: Sequence[str] = (),
+                           archive_schema: Optional[str] = None
                            ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) for the `import_archived_` COLUMNS.
 
@@ -3960,11 +4039,21 @@ def archived_column_parity(plain_query, src_schema: str, dst_schema: str,
                     table, pruned_property_prefixes, pruned_property_keys):
                 src_sql += " AND NOT ({0})".format(predicate)
             src_n = int(plain_query(src_sql)[0][0])
+            surplus = twin_surplus(plain_query, table, source, src_sql,
+                                   src_schema, archive_schema)
+            src_n -= surplus
             dst_n = int(plain_query(
                 "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `{2}` IS NOT NULL"
                 .format(dst_schema, table, target))[0][0])
             line = ("{0}.{1}: {2} value(s) preserved as {3}".format(
                 table, source, src_n, target))
+            if surplus:
+                # named, never subtracted quietly: these rows ARE
+                # migrated, to `o19_archive` alone, and requirement B is
+                # that nothing leaves without being counted somewhere
+                line += ("; {0} twin value(s) on a key CARLOS's seed won "
+                         "kept in {1}.{2} only (one live column, one "
+                         "seed row)".format(surplus, src_schema, table))
             if src_n == dst_n:
                 ok.append(line)
             else:
@@ -3972,6 +4061,45 @@ def archived_column_parity(plain_query, src_schema: str, dst_schema: str,
                            "in {4}.{5}".format(table, source, src_n, dst_n,
                                                dst_schema, target))
     return ok, bad
+
+
+def twin_surplus(plain_query, table: str, source: str, src_sql: str,
+                 src_schema: str, archive_schema: Optional[str] = None
+                 ) -> int:
+    """How many of a merge table's non-null `source` values cannot reach
+    the live column because a twin already claimed it.
+
+    A clinic table can hold two rows on the same natural key -- neither
+    side puts a UNIQUE index on `property(name, provider_no)` -- and one
+    live `import_archived_` column on one row cannot hold both. The
+    surplus keeps its `o19_archive` copy alone, which is the same policy
+    a seed-overridden merge row already has.
+
+    Counted as (rows) minus (twin groups) over the SAME predicate the
+    staging count uses, and grouped by the same columns
+    `backfill_source` partitions on, so the check and the write agree by
+    construction. Before this the two disagreed: the check counted rows
+    and the write could land only one per group, so an ordinary clinic
+    failed P4 row parity -- which no flag clears -- on a correct
+    import."""
+    entry = o19map_schema.TABLES.get(table) or {}
+    if entry.get("class") != "merge":
+        return 0
+    partition = merge_twin_partition(entry)
+    if not partition:
+        return 0
+    # only where CARLOS's seed won the key: twins on a key the seed does
+    # NOT hold are BOTH appended by the merge, each with its own values,
+    # so nothing is surplus there
+    seeded = preseed_exists(table, entry, archive_schema, dst_alias="s")
+    if not seeded:
+        return 0
+    body = src_sql.split(" FROM ", 1)[1] + " AND " + seeded
+    groups = int(plain_query(
+        "SELECT COUNT(*) FROM (SELECT 1 FROM {0} GROUP BY {1}) g".format(
+            body, ", ".join("s." + ident(c) for c in partition)))[0][0])
+    rows = int(plain_query("SELECT COUNT(*) FROM " + body)[0][0])
+    return max(0, rows - groups)
 
 
 def row_parity(plain_query, src_schema: str, dst_schema: str,

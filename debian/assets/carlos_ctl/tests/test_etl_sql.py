@@ -1046,10 +1046,57 @@ class TestArchivedColumns(unittest.TestCase):
                         "has_default": False, "auto_increment": False}}
         sql = o19etl.archived_backfill_statement("HL7Map", entry, "stage",
                                                  "carlos", dst)
-        self.assertIn("UPDATE `carlos`.`HL7Map` d JOIN `stage`.`HL7Map` s "
-                      "ON d.`site` <=> s.`site`", sql)
+        self.assertIn("UPDATE `carlos`.`HL7Map` d JOIN ", sql)
+        self.assertIn("ON d.`site` <=> s.`site`", sql)
         self.assertIn("SET d.`import_archived_vendorNote` = "
                       "s.`vendorNote`", sql)
+
+    def test_the_back_fill_takes_one_twin_and_prefers_one_with_a_value(self):
+        """Neither OSCAR 19 nor CARLOS puts a UNIQUE index on
+        `property(name, provider_no)`, and the CARLOS seed holds many of
+        those keys — so a clinic can hold two rows the seed both beats.
+        One live `import_archived_` column on one seed row cannot hold
+        both values, and the UPDATE used to join every twin and let
+        MySQL assign from an arbitrary one: a blank twin could win over
+        one carrying data. Ranking NULLs last makes the winner both
+        deterministic and the one worth keeping."""
+        entry = o19etl.with_archived_columns(
+            {"class": "merge", "cols": ["site"], "merge_keys": ["site"]},
+            [("vendorNote", "import_archived_vendorNote", "text")])
+        dst = {"site": {"type": "varchar", "column_type": "varchar(60)",
+                        "nullable": True, "char_len": 60,
+                        "has_default": False, "auto_increment": False}}
+        sql = o19etl.archived_backfill_statement("HL7Map", entry, "stage",
+                                                 "carlos", dst)
+        self.assertIn("ROW_NUMBER() OVER (PARTITION BY `site` "
+                      "ORDER BY (`vendorNote` IS NULL), `vendorNote`)", sql)
+        self.assertIn("WHERE r.o19_twin_rank = 1", sql)
+
+    def test_the_back_fill_leaves_the_rows_the_merge_appended_alone(self):
+        """An appended row already carries its own source row's values
+        from the INSERT. A clinic holding twins on a key CARLOS does NOT
+        seed gets BOTH appended, so an unrestricted UPDATE joined the one
+        surviving source row to both target rows and overwrote the
+        second one's value with the first's — silent corruption of a
+        preserved clinical value. The pre-merge snapshot is taken before
+        the insert, so it names exactly the seed rows this is for."""
+        entry = o19etl.with_archived_columns(
+            {"class": "merge", "cols": ["site"], "merge_keys": ["site"]},
+            [("vendorNote", "import_archived_vendorNote", "text")])
+        dst = {"site": {"type": "varchar", "column_type": "varchar(60)",
+                        "nullable": True, "char_len": 60,
+                        "has_default": False, "auto_increment": False}}
+        sql = o19etl.archived_backfill_statement(
+            "HL7Map", entry, "stage", "carlos", dst, "arch")
+        self.assertIn("EXISTS (SELECT 1 FROM `arch`.`HL7Map__preseed` p "
+                      "WHERE p.`site` <=> d.`site`)", sql)
+
+    def test_the_twin_partition_is_the_source_spelling(self):
+        # `renames` is target -> source, and the partition groups STAGING
+        # rows, so it must use the name the dump carries
+        entry = {"class": "merge", "merge_keys": ["siteName"],
+                 "renames": {"siteName": "site_name"}}
+        self.assertEqual(o19etl.merge_twin_partition(entry), ["site_name"])
 
     def test_a_merge_with_no_archived_columns_has_no_back_fill(self):
         self.assertIsNone(o19etl.archived_backfill_statement(
@@ -1421,6 +1468,13 @@ class TestRowSizeCeiling(unittest.TestCase):
 
 
 class TestArchivedColumnParity(unittest.TestCase):
+
+    #: a real merge table from the shipped manifest: `twin_surplus` reads
+    #: the class and the merge keys from there, so a synthetic name would
+    #: make the tolerance untestable
+    MERGE_TABLE = next(t for t, e in sorted(o19map_schema.TABLES.items())
+                       if e["class"] == "merge")
+
     """A row count cannot see a column: a copy that named the prefixed
     column but fed it nothing passes `row_parity` unchanged."""
 
@@ -1429,11 +1483,28 @@ class TestArchivedColumnParity(unittest.TestCase):
         #: staging-side exclusions rather than only on the verdict
         self.seen = []
 
-    def query(self, src_cols, dst_cols, nonnull):
+    def query(self, src_cols, dst_cols, nonnull, groups=None):
         """information_schema for both schemas plus IS NOT NULL counts.
 
-        `nonnull` is {(schema, table, column): rows}."""
+        `nonnull` is {(schema, table, column): rows}. `groups` is the
+        same key -> how many natural-key TWIN GROUPS those rows fall
+        into among seed-overridden keys; the difference is the surplus
+        that cannot reach a live column."""
+        groups = dict(groups or {})
+
         def q(sql):
+            if "GROUP BY" in sql:
+                m = re.search(
+                    r"FROM `([^`]+)`\.`([^`]+)` s WHERE s\.`([^`]+)`", sql)
+                self.seen.append(sql)
+                return [[str(groups.get(m.groups(), 0))]]
+            if "__preseed" in sql and "COUNT(*) FROM `" in sql:
+                # the overridden-rows count: everything the fixture says
+                # is in a twin group is overridden
+                m = re.search(
+                    r"FROM `([^`]+)`\.`([^`]+)` s WHERE s\.`([^`]+)`", sql)
+                self.seen.append(sql)
+                return [[str(nonnull.get(m.groups(), 0))]]
             if sql.startswith("SELECT TABLE_NAME, COLUMN_NAME"):
                 schema = re.search(r"TABLE_SCHEMA = '([^']+)'",
                                    sql).group(1)
@@ -1475,6 +1546,52 @@ class TestArchivedColumnParity(unittest.TestCase):
         self.assertEqual(len(bad), 1)
         self.assertIn("40 non-null value(s) in staging, 0 in "
                       "carlos.import_archived_legacyFlag", bad[0])
+
+    def test_a_twin_the_seed_beat_is_not_counted_as_a_loss(self):
+        """A clinic can hold two `property` rows on one (name,
+        provider_no) — neither side puts a UNIQUE index there, and the
+        CARLOS seed holds many of those keys. One live
+        `import_archived_` column on one seed row cannot hold both
+        values; the surplus keeps its `o19_archive` copy alone, which is
+        the documented policy for a seed-overridden merge row.
+
+        Counting rows on one side and rows on the other failed a CORRECT
+        import at P4 row parity — which no flag clears. Reproduced
+        against MariaDB 10.11 before the fix: `property.lastUpdateDate:
+        2 non-null value(s) in staging, 1 in carlos.
+        import_archived_lastUpdateDate`."""
+        merge = self.MERGE_TABLE
+        src = {merge: ["id", "legacyFlag"]}
+        dst = {merge: ["id", "import_archived_legacyFlag"]}
+        key = ("stage", merge, "legacyFlag")
+        ok, bad = o19etl.archived_column_parity(
+            self.query(src, dst,
+                       {key: 2,
+                        ("carlos", merge, "import_archived_legacyFlag"): 1},
+                       groups={key: 1}),
+            "stage", "carlos", archive_schema="arch")
+        self.assertEqual(bad, [], bad)
+        self.assertEqual(len(ok), 1)
+        self.assertIn("1 value(s) preserved", ok[0])
+        # named, never subtracted quietly
+        self.assertIn("1 twin value(s)", ok[0])
+        self.assertIn("kept in stage.{0} only".format(merge), ok[0])
+
+    def test_a_real_shortfall_is_still_a_mismatch_with_twins_present(self):
+        # the tolerance must not swallow a genuine loss: three rows in
+        # two groups can land two values, and only one did
+        merge = self.MERGE_TABLE
+        key = ("stage", merge, "legacyFlag")
+        ok, bad = o19etl.archived_column_parity(
+            self.query({merge: ["id", "legacyFlag"]},
+                       {merge: ["id", "import_archived_legacyFlag"]},
+                       {key: 3,
+                        ("carlos", merge, "import_archived_legacyFlag"): 1},
+                       groups={key: 2}),
+            "stage", "carlos", archive_schema="arch")
+        self.assertEqual(ok, [])
+        self.assertEqual(len(bad), 1, bad)
+        self.assertIn("2 non-null value(s) in staging, 1", bad[0])
 
     def test_a_target_holding_more_values_than_staging_fails(self):
         """The over-count direction, which no test covered: mutating the
