@@ -71,7 +71,7 @@ class TestTheSeedStatement(unittest.TestCase):
         a seed row, which is the loudest way the merge could be wrong."""
         sql = self.sql()
         self.assertIn("LEFT JOIN", sql)
-        self.assertIn("WHERE d.`id` IS NULL OR NOT (", sql)
+        self.assertIn("WHERE (d.`id` IS NULL OR NOT (", sql)
 
     def test_it_pairs_on_every_primary_key_column(self):
         sql = self.sql(cols=("a", "b", "v"), key=("a", "b"))
@@ -96,6 +96,35 @@ class TestTheSeedStatement(unittest.TestCase):
     def test_a_projection_replaces_the_count(self):
         self.assertTrue(self.sql(select="p.`id`").startswith(
             "SELECT p.`id` FROM"))
+
+    def test_a_declared_later_deletion_is_not_read_as_seed_loss(self):
+        """P6 prunes the removed modules' `property` rows, and the
+        prune matches on NAME — so it can take a CARLOS seed row as
+        readily as a clinic one. Without the exclusion the import's own
+        declared deletion reads as the seed having been destroyed."""
+        sql = self.sql(exclude=o19etl.pruned_property_predicate(
+            ["caisi."], ["oldkey"], alias="p"))
+        self.assertIn("AND NOT (p.`name` LIKE 'caisi.%' OR "
+                      "p.`name` = 'oldkey')", sql)
+        # and the exclusion narrows the finding, never the pairing
+        self.assertIn("LEFT JOIN", sql)
+
+    def test_the_exclusion_asks_about_the_snapshot_not_staging(self):
+        """The seed claim's subject is the pre-merge row. A predicate
+        addressed to `s` would name no column of this statement."""
+        self.assertNotIn(
+            "s.`name`", o19etl.pruned_property_predicate(
+                ["caisi."], (), alias="p"))
+
+    def test_only_property_has_a_declared_later_deletion(self):
+        """A blanket exclusion would quietly stop the seed claim
+        working on every other merge table."""
+        self.assertIsNone(o19etl.seed_exclusion(
+            "appointment_status", ["caisi."], ["oldkey"]))
+        self.assertIsNotNone(o19etl.seed_exclusion(
+            "property", ["caisi."], ()))
+        # ... and nothing is excluded when nothing is pruned
+        self.assertIsNone(o19etl.seed_exclusion("property", (), ()))
 
 
 class TestTheAppendedStatement(unittest.TestCase):
@@ -342,6 +371,33 @@ class TestTheDriver(unittest.TestCase):
         finally:
             o19map_schema.TABLES[table] = saved
         self.assertTrue(any("3 seed row(s)" in x for x in bad), bad)
+
+    def test_the_archived_backfill_is_not_read_as_seed_corruption(self):
+        """P4 folds the `import_archived_` columns into the entry before
+        it writes; P7 must fold the same way. Without it the backfill --
+        which writes those columns onto SEED rows, after the snapshot,
+        by design -- reads as the seed having been corrupted, on every
+        clinic whose dump carries an unmapped column."""
+        table = self.TABLE
+        entry = entry_for(table)
+        # a column the manifest has no home for: P4 preserves it as
+        # `import_archived_clinicextra`, filling it on seed rows too
+        src = dict(dst_cols(list(entry["cols"]) + ["clinicextra"]))
+        dst = dict(dst_cols(list(entry["cols"])
+                            + ["import_archived_clinicextra"]))
+        arch = {o19etl.preseed_table(table):
+                list(entry["cols"]) + ["import_archived_clinicextra"],
+                o19etl.idmap_table(table): ["old_id", "new_id"]}
+        db = Db([table], arch, {table: ["id"]})
+        ok, bad = o19etl.merge_content_parity(
+            db, "o19_import", "carlos", "o19_archive",
+            {table: src}, {table: dst})
+        self.assertEqual(bad, [])
+        seed = [q for q in db.sql if "__preseed` p LEFT JOIN" in q][0]
+        self.assertNotIn("import_archived_clinicextra", seed)
+        # ... and the column is not merely ignored: it gets its own claim
+        self.assertTrue(any("carries its archived values" in line
+                            for line in ok), ok)
 
     def test_each_failing_claim_contributes_its_own_keys(self):
         """Three claims, three different rows to name — and the seed

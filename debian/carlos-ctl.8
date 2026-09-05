@@ -285,7 +285,8 @@ Flyway, whose history and checksums the import never touches, so
 and the application's boot gate behave exactly as before; a data
 migration written afterwards must name its columns, since a column-less
 .B INSERT
-binds by position and a preserved column widens the row. The pre-import backup is taken
+binds by position and a preserved column widens the row. The pre-import
+backup is taken
 before the staged restore, which runs as a throwaway account limited to the
 staging schema; a dump carrying USE or CREATE DATABASE statements is
 refused.
@@ -462,6 +463,7 @@ binds its sha256, so a resumed run cannot substitute another) and
 schema),
 the root\-only
 .IR verify-details.txt ,
+the root\-only
 .I content-details.txt
 (the primary keys of the rows P7's value checks disagreed about \(em
 PHI\-correlating, so the report carries the counts and this file the

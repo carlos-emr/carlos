@@ -256,11 +256,13 @@ class TestTheDriver(unittest.TestCase):
         self.assertNotIn("banner", bad[0])
 
     def test_a_post_step_rewrite_is_named_rather_than_reported_wrong(self):
-        """Four copy-class tables are deliberately rewritten AFTER the
-        copy — the forced password reset, the role-name and activeyn
-        rewrites, the disabled eForms, the folded prevention types. Their
-        rows no longer hold what the copy wrote BY DESIGN, so comparing
-        them would report a mismatch on every clinic."""
+        """Several copy-class tables are deliberately rewritten AFTER
+        the copy — the forced password reset, the role-name and activeyn
+        rewrites, the disabled eForms, the folded prevention types, the
+        repointed HRM report paths. Their rows no longer hold what the
+        copy wrote BY DESIGN, so comparing them would report a mismatch
+        on every clinic. `test_post_etl_rewrites` owns the list itself;
+        this asserts what the check DOES with it."""
         entry = o19map_schema.TABLES["security"]
         cols = [c for c in entry["cols"][:2]]
         db = Db(["security"], {"security": [cols[0]]},
@@ -274,6 +276,33 @@ class TestTheDriver(unittest.TestCase):
         # and it never ASKED: no comparison statement was issued for it
         self.assertEqual(
             [q for q in db.sql if "`o19_import`.`security`" in q], [])
+
+    def test_a_preserved_column_is_verified_like_any_other(self):
+        """Requirement B's column half is only a promise until something
+        reads it. P4 folds the `import_archived_` columns into the entry
+        before it writes; unfolded here, the check would quietly not
+        look at the one population the manifest has no home for."""
+        table = self.TABLE
+        cols = o19map_schema.TABLES[table]["cols"][:2]
+        # a DATE, so "not sanitized" is visible: a mapped nullable date
+        # would carry NULLIF(..., '0000-00-00'); a preserved one must
+        # not, because the copy wrote it verbatim
+        date = {"type": "date", "column_type": "date"}
+        src = dst_cols(**dict((c, date if c == "clinicextra" else {})
+                              for c in cols + ["clinicextra"]))
+        dst = dst_cols(**dict(
+            (c, date if c.startswith("import_archived_") else {})
+            for c in cols + ["import_archived_clinicextra"]))
+        db = Db([table], {table: [cols[0]]})
+        o19etl.copy_content_parity(db, "o19_import", "carlos",
+                                   {table: src}, {table: dst})
+        compare = [q for q in db.sql
+                   if "information_schema" not in q][0]
+        # read from its SOURCE name, and never sanitized: the copy puts
+        # it into a column of the source's own type
+        self.assertIn("d.`import_archived_clinicextra` <=> "
+                      "s.`clinicextra`", compare)
+        self.assertNotIn("NULLIF", compare)
 
     def test_a_table_absent_from_the_dump_is_left_to_row_parity(self):
         entry = o19map_schema.TABLES[self.TABLE]

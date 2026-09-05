@@ -579,15 +579,22 @@ def merge_missing_count_sql(table: str, entry: dict, src_schema: str,
 
 
 def pruned_property_predicate(prefixes: Sequence[str],
-                              keys: Sequence[str] = ()) -> str:
-    """Staging-side (alias `s`) predicate for the removed-module
-    `property` rows the roles post-step prunes from the target after the
-    merge (o19roles.property_prune_statements, same LIKE and equality
-    shapes): the reverse parity must not expect their twins."""
-    parts = ["s.`name` LIKE '{0}%'".format(
-        _sql_str(p).replace("_", "\\_").replace("%", "\\%"))
+                              keys: Sequence[str] = (),
+                              alias: str = "s") -> str:
+    """Predicate for the removed-module `property` rows the roles
+    post-step prunes from the target after the merge
+    (o19roles.property_prune_statements, same LIKE and equality shapes):
+    the reverse parity must not expect their twins.
+
+    `alias` is the side being asked about -- staging (`s`) for the row
+    and column parities, the PRE-MERGE SNAPSHOT (`p`) for the merge seed
+    claim, where the same prune can remove a CARLOS SEED row and would
+    otherwise read as the import having deleted it."""
+    parts = ["{1}.`name` LIKE '{0}%'".format(
+        _sql_str(p).replace("_", "\\_").replace("%", "\\%"), alias)
         for p in prefixes]
-    parts += ["s.`name` = '{0}'".format(_sql_str(k)) for k in keys]
+    parts += ["{1}.`name` = '{0}'".format(_sql_str(k), alias)
+              for k in keys]
     return " OR ".join(parts) if parts else "FALSE"
 
 
@@ -3071,6 +3078,15 @@ def copy_content_parity(plain_query, src_schema: str, dst_schema: str,
             continue        # absent at this patch level: row_parity's
         entry, _notes = effective_entry(table, entry, src_info[table],
                                         src_tables)
+        # the same fold P4 applies before it writes (etl_archived_columns).
+        # Without it the `import_archived_` columns are invisible here:
+        # the copy check would silently not verify requirement B's column
+        # half at all, and the merge check would read the archived
+        # BACKFILL -- which writes those columns onto seed rows AFTER the
+        # pre-merge snapshot, by design -- as the seed having been
+        # corrupted, on every clinic that has one.
+        entry = with_archived_columns(
+            entry, archived_column_plan(entry, src_info[table]))
         if entry.get("fk_remap"):
             # the copy dropped remaps whose parent this dump lacks, so no
             # id map exists for them; the check has to drop them too
@@ -3150,7 +3166,8 @@ def _key_match(key: Sequence[str], left: str, right: str) -> str:
 def merge_seed_change_sql(table: str, dst_schema: str, archive_schema: str,
                           dst_cols: Dict[str, dict], key: Sequence[str],
                           cols: Sequence[str],
-                          select: Optional[str] = None) -> str:
+                          select: Optional[str] = None,
+                          exclude: Optional[str] = None) -> str:
     """Pre-merge target rows that are gone, or no longer hold what they
     held.
 
@@ -3170,11 +3187,18 @@ def merge_seed_change_sql(table: str, dst_schema: str, archive_schema: str,
         for c in cols)
     # LEFT JOIN, not a semi-join: a seed row the import DELETED is as
     # much a violation as one it edited, and only the outer join sees it
+    where = "(d.{0} IS NULL OR NOT ({1}))".format(ident(key[0]), same)
+    if exclude:
+        # rows a LATER phase deliberately removed from the target: the
+        # `property` prune can match a CARLOS seed row too, and without
+        # this the import's own declared deletion reads as the seed
+        # having been destroyed
+        where += " AND NOT ({0})".format(exclude)
     return ("SELECT {0} FROM `{1}`.{2} p LEFT JOIN `{3}`.{4} d ON {5} "
-            "WHERE d.{6} IS NULL OR NOT ({7})".format(
+            "WHERE {6}".format(
                 select or "COUNT(*)", archive_schema,
                 ident(preseed_table(table)), dst_schema, ident(table),
-                _key_match(key, "d", "p"), ident(key[0]), same))
+                _key_match(key, "d", "p"), where))
 
 
 def merge_appended_mismatch_sql(table: str, entry: dict, src_schema: str,
@@ -3281,12 +3305,31 @@ def ordered_columns(plain_query, schema: str
     return out
 
 
+def seed_exclusion(table: str, prefixes: Sequence[str],
+                   keys: Sequence[str]) -> Optional[str]:
+    """The predicate naming the pre-merge rows a LATER phase deliberately
+    removes from the target, or None.
+
+    Only `property` has one: P6 prunes the removed modules' rows, and
+    the prune's LIKE matches on NAME, so it can take a CARLOS seed row
+    as readily as a clinic one. The seed claim has to know that, or the
+    import's own declared deletion reads as the seed having been
+    destroyed. Addressed to `p`, the snapshot -- that is the side the
+    seed claim asks about."""
+    if table != "property" or not (prefixes or keys):
+        return None
+    return pruned_property_predicate(prefixes or (), keys or (),
+                                     alias="p")
+
+
 def merge_content_parity(plain_query, src_schema: str, dst_schema: str,
                          archive_schema: str,
                          src_info: Dict[str, Dict[str, dict]],
                          dst_info: Dict[str, Dict[str, dict]],
                          repairs: Optional[Dict[str, Sequence[str]]] = None,
-                         details: Optional[List[str]] = None
+                         details: Optional[List[str]] = None,
+                         pruned_property_prefixes: Sequence[str] = (),
+                         pruned_property_keys: Sequence[str] = ()
                          ) -> Tuple[List[str], List[str]]:
     """(ok_lines, mismatch_lines) for the merge class, which `row_parity`
     can only count.
@@ -3331,6 +3374,15 @@ def merge_content_parity(plain_query, src_schema: str, dst_schema: str,
             continue        # absent at this patch level: row_parity's
         entry, _notes = effective_entry(table, entry, src_info[table],
                                         src_tables)
+        # the same fold P4 applies before it writes (etl_archived_columns).
+        # Without it the `import_archived_` columns are invisible here:
+        # the copy check would silently not verify requirement B's column
+        # half at all, and the merge check would read the archived
+        # BACKFILL -- which writes those columns onto seed rows AFTER the
+        # pre-merge snapshot, by design -- as the seed having been
+        # corrupted, on every clinic that has one.
+        entry = with_archived_columns(
+            entry, archived_column_plan(entry, src_info[table]))
         if entry.get("fk_remap"):
             entry = dict(entry, fk_remap={
                 c: parent for c, parent in entry["fk_remap"].items()
@@ -3361,7 +3413,9 @@ def merge_content_parity(plain_query, src_schema: str, dst_schema: str,
                             key, [c for c, _t in preseed],
                             set(repairs.get(table) or ()),
                             arch_columns, ok, bad, unchecked, count,
-                            details)
+                            details, seed_exclusion(
+                                table, pruned_property_prefixes,
+                                pruned_property_keys))
     return ok, bad
 
 
@@ -3373,7 +3427,8 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
                         arch_columns: Dict[str, List[Tuple[str, str]]],
                         ok: List[str], bad: List[str],
                         unchecked, count,
-                        details: Optional[List[str]] = None) -> None:
+                        details: Optional[List[str]] = None,
+                        exclude: Optional[str] = None) -> None:
     """The three merge claims for one table. Separate from the loop so
     each claim reads as one paragraph rather than one more nesting
     level."""
@@ -3389,7 +3444,8 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
                          "column with the live table")
     else:
         n = count(table, merge_seed_change_sql(
-            table, dst_schema, archive_schema, dst_cols, key, seed_cols))
+            table, dst_schema, archive_schema, dst_cols, key, seed_cols,
+            exclude=exclude))
         if n:
             bad.append("{0}: {1} pre-merge CARLOS row(s) were removed or "
                        "changed by the import; the merge must leave the "
@@ -3400,7 +3456,8 @@ def _merge_table_parity(plain_query, table: str, entry: dict,
                     plain_query, table, "merge/seed",
                     merge_seed_change_sql(
                         table, dst_schema, archive_schema, dst_cols, key,
-                        seed_cols, select=key_projection(key, "p")), key))
+                        seed_cols, select=key_projection(key, "p"),
+                        exclude=exclude), key))
         elif n == 0:
             ok.append("{0} (merge): the CARLOS seed rows are unchanged"
                       .format(table))

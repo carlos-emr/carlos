@@ -90,6 +90,15 @@ CONTENT_DETAILS = "content-details.txt"
 #: waved through before go-live -- not a line among the passes.
 ACKNOWLEDGED_PREFIX = "ACKNOWLEDGED (--accept content-migration): "
 
+#: How the report points at the private keys without carrying
+#: them. Both the failure finding and the accepted-mismatch
+#: advisory use it: an accepted mismatch is the case a reviewer
+#: is most likely to want the rows for.
+CONTENT_DETAILS_NOTE = (
+    "the rows behind the value mismatches are named by primary "
+    "key in {0} (0600) — they are PHI-correlating and are not "
+    "repeated here")
+
 DUMP_COMPLETED_MARKER = b"-- Dump completed"
 # statements a `mysqldump --databases/--all-databases` emits that would
 # redirect the restore out of the staging schema, and a MySQL-only GTID
@@ -1710,6 +1719,16 @@ def _row_parity(ctx):
     # primary key joins straight back to a patient, an appointment or a
     # bill, so the report gets the count and this file gets the keys.
     details: List[str] = []
+    if content_bad:
+        # the preserved copies are compared by WHOLE-TABLE digest, which
+        # has no per-row key to name. An operator who reads "N tables
+        # differ" and finds no keys should be told why, not left to
+        # wonder whether the file failed to write.
+        details.append(
+            "preserved copies ({0}): compared by whole-table content "
+            "digest, which yields no per-row key — re-run the digest "
+            "against o19_archive.<table> to narrow it".format(
+                len(content_bad)))
     copy_ok, copy_bad = o19etl.copy_content_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"],
         src_info, dst_info,
@@ -1722,7 +1741,9 @@ def _row_parity(ctx):
     merge_ok, merge_bad = o19etl.merge_content_parity(
         ctx["query"], STAGING_SCHEMA, ctx["target_db"], archive,
         src_info, dst_info, repairs=progress.get("repairs"),
-        details=details)
+        details=details,
+        pruned_property_prefixes=o19_preflight.DROPPED_PROP_PREFIXES,
+        pruned_property_keys=o19_preflight.DROPPED_PROP_KEYS)
     content_ok = content_ok + copy_ok + merge_ok
     content_bad = content_bad + copy_bad + merge_bad
     if details:
@@ -1906,10 +1927,8 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
     if problems:
         body = list(problems)[:40]
         if ctx.get("content_details"):
-            body.append("the rows behind the value mismatches are named "
-                        "by primary key in {0} (0600) — they are "
-                        "PHI-correlating and are not repeated here"
-                        .format(ctx["content_details"]))
+            body.append(CONTENT_DETAILS_NOTE.format(
+                ctx["content_details"]))
         findings.append(o19report.finding(
             "failure", "{0} verification problem(s)".format(len(problems)),
             body))
@@ -1917,9 +1936,16 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
         # the operator was shown these and chose to proceed; a reviewer
         # has to see them before go-live, so they are a finding rather
         # than a line among the passes
+        body = list(acknowledged)
+        if ctx.get("content_details"):
+            # an ACCEPTED mismatch is the one a reviewer is most likely
+            # to want the rows for, and it is the case where nothing
+            # else in the report is red enough to carry the pointer
+            body.append(CONTENT_DETAILS_NOTE.format(
+                ctx["content_details"]))
         findings.append(o19report.finding(
             "advisory", "content mismatch(es) accepted with --accept "
-                        "content-migration", acknowledged))
+                        "content-migration", body))
     for title, key in (("surrogate ids reassigned on merge", "idmap"),
                        ("dangling foreign keys in the source", "fk"),
                        ("dropped-column capture notes", "shadow")):

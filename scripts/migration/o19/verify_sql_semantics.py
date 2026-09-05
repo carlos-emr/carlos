@@ -4,13 +4,17 @@
 """verify_sql_semantics.py — settle the ETL SQL behaviours that only a real
 engine can answer.
 
-Four of them: the merge anti-join's visibility of its own inserts and the
+Five of them: the merge anti-join's visibility of its own inserts and the
 per-row charset repair, both in the P4 copy path; the M22 content digest,
 whose whole point is that a check nobody has broken on purpose is not a
-check; and P7's value-level comparison of the copy class, where the
-question is not only "does it catch a change" but "does it agree with
-the copy on a FAITHFUL run" -- a check that false-alarms on every
-clinic is worse than no check. One section runs the P2 chain end to end
+check; and P7's value-level comparison of the copy class and of the merge
+class, where the question is not only "does it catch a change" but "does
+it agree with the ETL on a FAITHFUL run" -- a check that false-alarms on
+every clinic is worse than no check. The merge sections run BOTH shapes
+the manifest produces, because they take different code paths: appended
+rows paired through the id map when a surrogate id moved, and through the
+natural key (with a `merge_exclude` clause) when there is none.
+One section runs the P2 chain end to end
 with the real tools -- a latin1 clinic schema measured by `o19_preflight.py`,
 dumped by mysqldump exactly as the operator guide says to, restored, and
 compared by `o19digest` -- because the unit tests drive each half against
@@ -954,30 +958,34 @@ COPY_ENTRY = {
     "renames": {"isactive": "isActive"},
 }
 
-#: (label, SQL applied to the TARGET, why it must be caught)
+#: (label, SQL applied to the TARGET, the id(s) it changed, why it must
+#: be caught). The ids are what makes the key projection checkable: the
+#: private details file is only useful if it names the rows that
+#: actually differ, and a projection that named a DIFFERENT set would be
+#: worse than one that named none.
 COPY_SABOTAGE = [
     # accents lost, which is what a latin1 -> utf8mb4 migration produces
     # when it goes wrong -- and what MariaDB's DEFAULT utf8mb4_general_ci
     # collation calls equal ('Santé' = 'Sante' is 1 under it, as is
     # 'SMITH' = 'smith'). A plain `<=>` here reported a faithful copy.
     ("a copied value lost its accent",
-     "UPDATE c SET note = 'Sante' WHERE id = 1",
+     "UPDATE c SET note = 'Sante' WHERE id = 1", {"1"},
      "the row count is unchanged, every parity check still passes, and a "
      "case/accent-insensitive comparison calls the two equal"),
     ("a copied value changed case",
-     "UPDATE c SET isactive = 'y' WHERE id = 1",
+     "UPDATE c SET isactive = 'y' WHERE id = 1", {"1"},
      "the same collation blindness, in the other direction"),
     ("a NULL where a value was copied",
-     "UPDATE c SET isactive = NULL WHERE id = 1",
+     "UPDATE c SET isactive = NULL WHERE id = 1", {"1"},
      "`=` would miss this on the NULL rows; `<=>` does not"),
     ("a value where a NULL was copied",
-     "UPDATE c SET note = 'x' WHERE id = 3",
+     "UPDATE c SET note = 'x' WHERE id = 3", {"3"},
      "the all-NULL row is the one a careless comparison skips"),
     ("the sanitized zero date un-sanitized",
-     "UPDATE c SET d = '2001-01-01' WHERE id = 2",
+     "UPDATE c SET d = '2001-01-01' WHERE id = 2", {"2"},
      "the copy wrote NULL there; anything else is not what it wrote"),
     ("the enum fallback overridden",
-     "UPDATE c SET e = 'b' WHERE id = 2",
+     "UPDATE c SET e = 'b' WHERE id = 2", {"2"},
      "the copy folded an out-of-set value to the column's fallback"),
 ]
 
@@ -1041,28 +1049,33 @@ def _copy_values_body(client: Client, src: str, dst: str) -> List[str]:
         return failures
 
     # the private details file names rows by running the SAME statement
-    # with the key columns in place of COUNT(*). That it selects the same
-    # rows is an engine claim, not a reading claim: a projection that
-    # quietly widened or narrowed the result would point the operator at
-    # the wrong rows, which is worse than pointing at none.
+    # with the key columns in place of COUNT(*). The claim below is not
+    # that it returns the same NUMBER of rows -- with an identical
+    # FROM/JOIN/WHERE it could hardly do otherwise -- but that the keys
+    # it returns are the keys of the rows the sabotage actually touched.
+    # An operator sent to the wrong rows is worse off than one sent to
+    # none, so this is checked against the engine rather than reasoned
+    # about.
     named = o19etl.copy_value_mismatch_sql(
         "c", COPY_ENTRY, src, dst, dst_cols, ("id",),
         select=o19etl.key_projection(("id",), "d"))
 
-    for label, sql, why in COPY_SABOTAGE:
+    for label, sql, ids, why in COPY_SABOTAGE:
         client.setup("SET SESSION sql_mode='';{0};".format(sql), dst)
-        found = mismatches()
-        caught = found > 0
+        caught = mismatches() > 0
         print("    {0:<44} {1}".format(
             label, "caught" if caught else "MISSED"))
         if not caught:
             failures.append("{0} was NOT caught ({1})".format(label, why))
-        elif len(client.rows(named, dst)) != found:
-            failures.append(
-                "'{0}': the check counted {1} row(s) but the key "
-                "projection named {2} -- the details file would point at "
-                "the wrong rows".format(
-                    label, found, len(client.rows(named, dst))))
+        else:
+            keys = {r[0] for r in client.rows(named, dst)}
+            if keys != ids:
+                failures.append(
+                    "'{0}': the sabotage changed id(s) {1} but the key "
+                    "projection named {2} -- the details file would "
+                    "point an operator at the wrong rows".format(
+                        label, ", ".join(sorted(ids)),
+                        ", ".join(sorted(keys)) or "nothing"))
         client.setup("SET SESSION sql_mode='';TRUNCATE TABLE c;", dst)
         client.setup("SET SESSION sql_mode='';"
                      + o19etl.copy_statement("c", COPY_ENTRY, src, dst,
@@ -1138,9 +1151,102 @@ MERGE_SABOTAGE = [
 ]
 
 
+#: The second merge SHAPE the manifest produces: no surrogate id, so
+#: the natural key IS the primary key (the generator refuses any other
+#: shape), and a `merge_exclude` predicate naming rows the insert must
+#: not carry. It exercises a different pairing branch of
+#: `merge_appended_mismatch_sql` -- the natural-key join instead of the
+#: id map -- and the exclusion clause both it and the backfill check
+#: append. The surrogate fixture above cannot reach either.
+NATURAL_SRC_DDL = (
+    "CREATE TABLE n ("
+    " objectName varchar(64) NOT NULL,"
+    " privilege varchar(16),"
+    " note varchar(64),"          # unmapped -> archived
+    " PRIMARY KEY (objectName))")
+
+NATURAL_DST_DDL = (
+    "CREATE TABLE n ("
+    " objectName varchar(64) NOT NULL,"
+    " privilege varchar(16),"
+    " import_archived_note varchar(64),"
+    " PRIMARY KEY (objectName))")
+
+NATURAL_SEED_ROWS = "('_demographic', 'rw', NULL)"
+
+NATURAL_STAGE_ROWS = [
+    # loses to the seed; its note must reach the seed row's archived col
+    "('_demographic', 'r', 'clinic note')",
+    # appends, with an accent the target's collation would fold away
+    "('_résumé', 'rw', 'n2')",
+    # excluded by merge_exclude: the insert never carried it, so no
+    # claim may be made about it
+    "('_caisi_gone', 'rw', 'n3')",
+]
+
+NATURAL_ENTRY = {
+    "class": "merge",
+    "merge_keys": ["objectName"],
+    "cols": ["objectName", "privilege", "import_archived_note"],
+    "archived_cols": {"import_archived_note": "note"},
+    "renames": {"import_archived_note": "note"},
+    "merge_exclude": "s.`objectName` LIKE '\\_caisi\\_%'",
+}
+
+#: (label, SQL applied to the TARGET, which claim must catch it, why)
+NATURAL_SABOTAGE = [
+    ("a seed row was edited by the import",
+     "UPDATE n SET privilege = 'r' WHERE objectName = '_demographic'",
+     "seed", "the seed wins on a shared natural key, by policy"),
+    ("an appended row lost its accent",
+     "UPDATE n SET objectName = '_resume' WHERE objectName = '_résumé'",
+     "appended",
+     "the natural key IS the pairing here, so a folded accent breaks "
+     "the join rather than a comparison -- and must still be reported"),
+    ("the archived backfill was lost",
+     "UPDATE n SET import_archived_note = NULL WHERE objectName = "
+     "'_demographic'", "backfill",
+     "requirement B for a natural-key merge table"),
+]
+
+
+class MergeShape:
+    """One merge fixture: the manifest shape, its tables, and the
+    sabotages each of the three claims must catch on it."""
+
+    def __init__(self, name, table, src_ddl, dst_ddl, seed, stage,
+                 entry, key, seed_cols, live, sabotage):
+        self.name = name
+        self.table = table
+        self.src_ddl = src_ddl
+        self.dst_ddl = dst_ddl
+        self.seed = seed
+        self.stage = stage
+        self.entry = entry
+        self.key = key
+        self.seed_cols = seed_cols
+        self.live = live            # live rows a correct merge leaves
+        self.sabotage = sabotage
+
+
+MERGE_SHAPES = [
+    MergeShape(
+        "surrogate id, one natural key", "m",
+        MERGE_SRC_DDL, MERGE_DST_DDL, MERGE_SEED_ROWS, MERGE_STAGE_ROWS,
+        MERGE_ENTRY, ("id",), ["id", "status", "descr"], 3,
+        MERGE_SABOTAGE),
+    MergeShape(
+        "natural primary key, merge_exclude", "n",
+        NATURAL_SRC_DDL, NATURAL_DST_DDL, NATURAL_SEED_ROWS,
+        NATURAL_STAGE_ROWS, NATURAL_ENTRY, ("objectName",),
+        ["objectName", "privilege"], 2, NATURAL_SABOTAGE),
+]
+
+
 def check_merge_values(client: Client, src: str, dst: str,
                        arch: str) -> List[str]:
-    """`merge_content_parity`'s three claims, against the engine.
+    """`merge_content_parity`'s three claims, against the engine, on
+    every merge SHAPE the manifest produces.
 
     The unit tests assert on generated SQL against a fake. They cannot
     answer the question this check exists for: after the REAL merge --
@@ -1148,79 +1254,89 @@ def check_merge_values(client: Client, src: str, dst: str,
     the order `etl_merge_table` runs them -- do the three checks agree
     that a faithful merge is faithful? A check that false-alarms on
     every clinic is worse than no check, and the ways to get one are all
-    in the fixture: a seed row whose archived column the backfill writes
-    AFTER the snapshot, an appended row whose id AUTO_INCREMENT chose,
-    and a payload that is entirely NULL.
+    in the fixtures: a seed row whose archived column the backfill
+    writes AFTER the snapshot, an appended row whose id AUTO_INCREMENT
+    chose, a payload that is entirely NULL, and a `merge_exclude` row
+    the insert never carried.
+
+    Two shapes, because they take different code paths: the surrogate
+    fixture pairs appended rows through the ID MAP, the natural-key one
+    through the key itself, and only the second exercises the exclusion
+    clause.
     """
     try:
-        return _merge_values_body(client, src, dst, arch)
+        failures = []
+        for shape in MERGE_SHAPES:
+            failures.extend(_merge_shape_body(client, src, dst, arch,
+                                              shape))
+        return failures
     finally:
         client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
                    "`{1}`; DROP DATABASE IF EXISTS `{2}`;".format(
                        src, dst, arch))
 
 
-def _merge_values_body(client: Client, src: str, dst: str,
-                       arch: str) -> List[str]:
-    """The checks themselves; the caller owns the teardown."""
+def _merge_shape_body(client: Client, src: str, dst: str, arch: str,
+                      shape: MergeShape) -> List[str]:
+    """One shape's three claims; the caller owns the teardown."""
     failures: List[str] = []
+    t = shape.table
     client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
                  "DEFAULT CHARSET=latin1;".format(src))
     client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
                  "DEFAULT CHARSET=utf8mb4;".format(dst))
     client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
                  "DEFAULT CHARSET=utf8mb4;".format(arch))
-    client.setup(MERGE_SRC_DDL + ";", src)
-    client.setup("INSERT INTO m VALUES {0};"
-                 .format(", ".join(MERGE_STAGE_ROWS)), src)
-    client.setup(MERGE_DST_DDL + ";", dst)
+    client.setup(shape.src_ddl + ";", src)
+    client.setup("INSERT INTO {0} VALUES {1};".format(
+        t, ", ".join(shape.stage)), src)
+    client.setup(shape.dst_ddl + ";", dst)
 
     def query(sql):
         return client.rows(sql, dst)
 
-    dst_cols = o19etl.introspect_columns(query, dst)["m"]
+    dst_cols = o19etl.introspect_columns(query, dst)[t]
 
     def rebuild() -> None:
         """The target as the ETL leaves it: seeded, snapshotted, merged,
         backfilled, mapped -- in that order, because the snapshot must
         predate the insert and the backfill must follow it."""
-        client.setup("TRUNCATE TABLE m; INSERT INTO m VALUES {0};"
-                     .format(MERGE_SEED_ROWS), dst)
+        client.setup("TRUNCATE TABLE {0}; INSERT INTO {0} VALUES {1};"
+                     .format(t, shape.seed), dst)
         for sql in o19etl.archive_statements(
-                "m", dst, arch, o19etl.preseed_table("m")):
+                t, dst, arch, o19etl.preseed_table(t)):
             client.setup(sql + ";", dst)
-        client.setup(o19etl.merge_statement("m", MERGE_ENTRY, src, dst,
+        client.setup(o19etl.merge_statement(t, shape.entry, src, dst,
                                             dst_cols) + ";", dst)
         client.setup(o19etl.archived_backfill_statement(
-            "m", MERGE_ENTRY, src, dst, dst_cols) + ";", dst)
-        for sql in o19etl.idmap_statements("m", MERGE_ENTRY, src, dst,
+            t, shape.entry, src, dst, dst_cols) + ";", dst)
+        for sql in o19etl.idmap_statements(t, shape.entry, src, dst,
                                            arch, dst_cols):
             client.setup(sql + ";", dst)
 
     rebuild()
     claims = {
         "seed": o19etl.merge_seed_change_sql(
-            "m", dst, arch, dst_cols, ("id",),
-            ["id", "status", "descr"]),
+            t, dst, arch, dst_cols, shape.key, shape.seed_cols),
         "appended": o19etl.merge_appended_mismatch_sql(
-            "m", MERGE_ENTRY, src, dst, arch, dst_cols, ("id",)),
+            t, shape.entry, src, dst, arch, dst_cols, shape.key),
         "backfill": o19etl.merge_backfill_mismatch_sql(
-            "m", MERGE_ENTRY, src, dst, arch, ("id",)),
+            t, shape.entry, src, dst, arch, shape.key),
     }
 
     def findings(claim: str) -> int:
         return int(client.rows(claims[claim], dst)[0][0])
 
-    print("\n  merge values (merge_content_parity)")
-    # the merge must have actually done something, or every "no mismatch"
-    # below is a statement about an empty result set
-    live = client.rows("SELECT COUNT(*) FROM m", dst)[0][0]
+    print("\n  merge values ({0})".format(shape.name))
+    # the merge must have actually done something, or every "no
+    # mismatch" below is a statement about an empty result set
+    live = client.rows("SELECT COUNT(*) FROM {0}".format(t), dst)[0][0]
     print("    {0:<44} {1}".format("the fixture merged", "{0} live row(s)"
                                    .format(live)))
-    if int(live) != 3:
-        return ["the fixture did not merge as expected ({0} live rows, "
-                "expected 3) -- every line below is meaningless"
-                .format(live)]
+    if int(live) != shape.live:
+        return ["{0}: the fixture did not merge as expected ({1} live "
+                "rows, expected {2}) -- every line below is meaningless"
+                .format(shape.name, live, shape.live)]
     for claim in ("seed", "appended", "backfill"):
         n = findings(claim)
         print("    {0:<44} {1}".format(
@@ -1228,25 +1344,25 @@ def _merge_values_body(client: Client, src: str, dst: str,
             "ok" if n == 0 else "{0} FALSE ALARM(S)".format(n)))
         if n:
             failures.append(
-                "the {0} check disagreed with the merge on a faithful run "
-                "({1} row(s)) -- it would fail every clinic".format(
-                    claim, n))
+                "{0}: the {1} check disagreed with the merge on a "
+                "faithful run ({2} row(s)) -- it would fail every "
+                "clinic".format(shape.name, claim, n))
     if failures:
         return failures
 
-    for label, sql, claim, why in MERGE_SABOTAGE:
+    for label, sql, claim, why in shape.sabotage:
         client.setup(sql + ";", dst)
         caught = findings(claim) > 0
         print("    {0:<44} {1}".format(
             label, "caught" if caught else "MISSED"))
         if not caught:
-            failures.append("{0} was NOT caught by the {1} check ({2})"
-                            .format(label, claim, why))
+            failures.append("{0}: {1} was NOT caught by the {2} check "
+                            "({3})".format(shape.name, label, claim, why))
         rebuild()
         if any(findings(c) for c in claims):
             failures.append(
-                "the merge did not come back after '{0}'; every later line "
-                "is meaningless".format(label))
+                "{0}: the merge did not come back after '{1}'; every "
+                "later line is meaningless".format(shape.name, label))
             break
     return failures
 
@@ -1344,7 +1460,9 @@ def main(argv: Optional[List[str]] = None) -> int:
           "copy on a faithful run while catching every change put to it, "
           "and the merge class's three claims -- the seed is untouched, "
           "the appended rows hold what the merge wrote, the dropped "
-          "columns are backfilled -- do the same")
+          "columns are backfilled -- do the same on both merge shapes "
+          "(surrogate id paired through the map, and natural key with "
+          "merge_exclude)")
     return 0
 
 

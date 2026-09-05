@@ -1386,6 +1386,19 @@ class TestRowParityComposition(unittest.TestCase):
         self.assertFalse(any(cols[0] + "=" in ln for ln in ok + bad),
                          ok + bad)
 
+    def test_a_preserved_digest_mismatch_says_why_it_has_no_keys(self):
+        """A preserved copy is compared by WHOLE-TABLE digest, which has
+        no per-row key. An operator who reads "N tables differ" and
+        finds no keys must be told why, not left wondering whether the
+        file failed to write."""
+        query = self.sound(content={
+            ("o19_archive", self.ARCHIVE_TABLE): 99})
+        ctx = self.ctx(query)
+        _ok, bad = o19import._row_parity(ctx)
+        self.assertTrue(bad)
+        body = open(ctx["content_details"], encoding="utf-8").read()
+        self.assertIn("no per-row key", body)
+
     def test_a_clean_import_leaves_no_details_file_behind(self):
         """An empty "here are the rows that disagreed" file is a
         question an operator should never have to ask."""
@@ -1646,6 +1659,19 @@ class TestTheImportReport(unittest.TestCase):
             content_details="/var/lib/x/content-details.txt"))
         self.assertIn("/var/lib/x/content-details.txt", text)
         self.assertIn("PHI-correlating", text)
+
+    def test_an_accepted_mismatch_points_at_the_keys_too(self):
+        """The accepted case is the one a reviewer is most likely to
+        want the rows for — and the one where nothing else in the report
+        is red enough to carry the pointer."""
+        line = (o19import.ACKNOWLEDGED_PREFIX
+                + "drugs: 4 copied row(s) whose target twin differs")
+        text = o19report.render_text(self.build(
+            ok=["demographic: staging 10 -> target 10", line],
+            content_details="/var/lib/x/content-details.txt"))
+        acknowledged = text.split(
+            "accepted with --accept content-migration", 1)[1]
+        self.assertIn("/var/lib/x/content-details.txt", acknowledged)
 
     def test_no_pointer_is_offered_when_no_keys_were_written(self):
         text = o19report.render_text(self.build(
