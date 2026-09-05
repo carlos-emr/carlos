@@ -96,6 +96,10 @@ const notesSaveDelayMs = Number(process.env.RX_FAX_NOTES_SAVE_DELAY_MS || '2500'
 // default is generous for a warm server; a freshly restarted Tomcat compiling the Rx JSPs on
 // first hit can need more, so the deb-install runbook raises it rather than lowering the bar.
 const faxRoundTripTimeoutMs = Number(process.env.RX_FAX_ROUND_TRIP_TIMEOUT_MS || '45000');
+// Playwright reads NaN and 0 as "no timeout", so a malformed value would make the fax waits unbounded.
+if (!Number.isInteger(faxRoundTripTimeoutMs) || faxRoundTripTimeoutMs < 1000 || faxRoundTripTimeoutMs > 600000) {
+  throw new Error('RX_FAX_ROUND_TRIP_TIMEOUT_MS must be an integer between 1000 and 600000');
+}
 const artifactDir = process.env.ARTIFACT_DIR || '/tmp/carlos-playwright-artifacts';
 const documentDir = validateDocumentDir(process.env.RX_FAX_DOCUMENT_DIR);
 
@@ -655,15 +659,18 @@ function assertHeaderBound(runs) {
       findings.push({ label: 'header', type: 'forged-value-rendered', field, text: `the faxed PDF rendered the request's ${field}, not the record's` });
     }
   }
-  // The record's date is the fixture prescription's rx_date, written today, in the page's own
-  // "MMMM d, yyyy" shape; the date cell is one PDF phrase, so it is one text run.
-  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const dateBound = runs.some((r) => r.trim() === today);
+  // The record's date is the fixture drug's stored rx_date in the page's own "MMMM d, yyyy" shape,
+  // read back from the database (not this process's clock, which may sit in another time zone or
+  // on the other side of midnight from Tomcat); the date cell is one PDF phrase, so one text run.
+  const recordDate = sql(`SELECT DATE_FORMAT(MAX(rx_date), '%M %e, %Y') FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`).trim();
+  const dateBound = recordDate.length > 0 && runs.some((r) => r.trim() === recordDate);
   // The record's clinic header is whatever the page itself posted for the UI fax (the page composes
   // it from the same record), so its first line must be a rendered line of the forged-request fax.
-  const recordClinicLine = ((submittedClinicHeader || '').split(/\r?\n/)[0] || '').trim();
+  // Not when the UI fax used a satellite clinic: that header was the satellite block, while the
+  // forged request's unoffered block correctly falls back to the main clinic.
+  const recordClinicLine = headerComposedByServlet ? '' : ((submittedClinicHeader || '').split(/\r?\n/)[0] || '').trim();
   const clinicBound = recordClinicLine.length > 0 && runs.map((r) => r.trim()).includes(recordClinicLine);
-  visited.push({ label: 'header', dateBound, clinicBound, recordClinicKnown: recordClinicLine.length > 0 });
+  visited.push({ label: 'header', dateBound, clinicBound, recordClinicKnown: recordClinicLine.length > 0, satelliteHeader: headerComposedByServlet });
   if (!dateBound) findings.push({ label: 'header', type: 'record-date-absent', text: 'the forged-request fax does not carry the prescription record\'s own date' });
   if (recordClinicLine.length > 0 && !clinicBound) findings.push({ label: 'header', type: 'record-clinic-absent', text: 'the forged-request fax does not carry the clinic header the page itself posted for the same prescription' });
 }

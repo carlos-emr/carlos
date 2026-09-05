@@ -248,8 +248,12 @@
 
                 for (int i = 0; i < temp0.length; i++) {
                     vecAddressName.add(temp0[i]);
-                    String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, temp0[i], temp1[i], temp2[i],
-                            temp3[i], temp4[i], temp5[i], temp6[i], encodedTelLabel, encodedFaxLabel);
+                    // Every list is indexed by the name list; a shorter one reads as blank (RxSatelliteClinicAddress.at).
+                    String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, temp0[i],
+                            RxSatelliteClinicAddress.at(temp1, i), RxSatelliteClinicAddress.at(temp2, i),
+                            RxSatelliteClinicAddress.at(temp3, i), RxSatelliteClinicAddress.at(temp4, i),
+                            RxSatelliteClinicAddress.at(temp5, i), RxSatelliteClinicAddress.at(temp6, i),
+                            encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                 }
             }

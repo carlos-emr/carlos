@@ -105,6 +105,8 @@ function initMysqlDefaults() {
   try {
     // Option-file values are quoted: an unquoted password ending at a '#' or containing a space
     // is silently truncated by the mysql client and the check fails as an access denial.
+    // A line break would end the option and start another; quoting cannot neutralize it.
+    if (/[\r\n]/.test(mysqlPassword)) throw new Error('MYSQL_PASSWORD must not contain a newline');
     const quoted = `"${mysqlPassword.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
     fs.writeFileSync(file, `[client]\npassword=${quoted}\n`, { mode: 0o600 });
   } catch (error) {

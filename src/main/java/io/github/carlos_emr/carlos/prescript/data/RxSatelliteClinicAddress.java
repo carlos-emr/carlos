@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.prescript.data;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.text.StringEscapeUtils;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
@@ -86,6 +88,29 @@ public final class RxSatelliteClinicAddress {
     }
 
     /**
+     * Whether {@code requestedBlock} is one of {@code offeredBlocks}, judged on the clinic part with
+     * HTML entities decoded on both sides. The page unescapes the chosen block before it puts it on
+     * the wire ({@code StringEscapeUtils.unescapeHtml4} in {@code ViewScript2.jsp}), so a clinic
+     * named "Smith &amp; Jones" arrives with a bare ampersand while the composed block still carries
+     * {@code &amp;amp;}; comparing the encoded text would reject every legitimately chosen clinic
+     * whose name or address needed encoding.
+     */
+    public static boolean offers(List<String> offeredBlocks, String requestedBlock) {
+        String requested = clinicPart(requestedBlock);
+        if (requested == null || offeredBlocks == null) {
+            return false;
+        }
+        String wanted = StringEscapeUtils.unescapeHtml4(requested);
+        for (String block : offeredBlocks) {
+            String part = clinicPart(block);
+            if (part != null && StringEscapeUtils.unescapeHtml4(part).equals(wanted)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * The blocks {@code rx/ViewScript2.jsp} offers the given provider, from the same two sources and
      * in the same order it reads them: the provider's active {@link Site}s when multisites is on,
      * otherwise the {@code clinicSatellite*} properties. Empty when neither is configured, in which
@@ -129,9 +154,14 @@ public final class RxSatelliteClinicAddress {
         return (value == null ? "" : value).split("\\|");
     }
 
-    /** The page indexes every property list by the name list's index; a shorter list reads as blank. */
-    private static String at(String[] values, int i) {
-        return i < values.length ? values[i] : "";
+    /**
+     * The {@code i}-th entry of one split {@code clinicSatellite*} property, or {@code ""} when that
+     * list is shorter than the name list it is indexed by. The page and {@link #blocksFor} both index
+     * every property list by the name list's index, so a list with fewer entries must read as blank
+     * rather than throw and take the prescription page down with it.
+     */
+    public static String at(String[] values, int i) {
+        return values != null && i < values.length ? values[i] : "";
     }
 
     private static String nz(String value) {

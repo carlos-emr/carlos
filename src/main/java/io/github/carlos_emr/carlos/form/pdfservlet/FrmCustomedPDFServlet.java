@@ -183,7 +183,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // __method=oscarRxFax would be a token-free, cross-site-triggerable fax of a real patient's
         // prescription to an attacker's number. Refuse anything but POST before any of that runs.
         // The page's own Fax button submits a POST form, so nothing legitimate is turned away.
-        if (isFax && !"POST".equalsIgnoreCase(req.getMethod())) {
+        // Method tokens are case-sensitive (RFC 9110) and every browser sends "POST"; no case fold.
+        if (isFax && !"POST".equals(req.getMethod())) {
             res.setHeader("Allow", "POST");
             res.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Faxing a prescription requires POST");
             return;
@@ -761,16 +762,17 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @param s String the HTML-formatted satellite clinic address
      * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
      */
-    private HashMap<String, String> parseSCAddress(String s) {
+    static HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
         String[] ar = s.split("</b>");
         String[] ar2 = ar[1].split("<br>");
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
         lst.remove(0);
-        String tel = lst.get(3);
-        tel = tel.replace("Tel: ", "");
-        String fax = lst.get(4);
-        fax = fax.replace("Fax: ", "");
+        // The block carries the page's LOCALIZED labels ("Tel", "Tél", "Telefone"...) and the header
+        // adds its own localized label when it prints these, so strip whatever label precedes the
+        // first colon rather than the English ones only -- the French page used to fax "Tél: Tél: ...".
+        String tel = lst.get(3).replaceFirst("^[^:]*:\\s*", "");
+        String fax = lst.get(4).replaceFirst("^[^:]*:\\s*", "");
         String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
         logger.debug("tel: {}", LogSafe.sanitize(tel));
         logger.debug("fax: {}", LogSafe.sanitize(fax));
@@ -947,30 +949,40 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 + nz(clinic.getClinicCity()) + "   " + nz(clinic.getClinicPostal());
         bound.put("clinicName", clinicName);
         bound.put("clinicPhone", clinic == null ? "" : nz(clinic.getClinicPhone()));
+        // clinicFax is the sending line the prescriber picked from the fax_config lines the page
+        // lists, and the header prints it as the pharmacy's call-back number. The fax itself only
+        // goes out when that value matches a configured line (the dispatch loop in service()), but
+        // the PDF is rendered and spooled before that match, so render the line only when it IS a
+        // configured one; anything else prints no fax number rather than a number the caller typed.
+        // Not the clinic's own fax on purpose: the page deliberately shows the line the fax left from.
+        bound.put("clinicFax", configuredFaxLine(req.getParameter("clinicFax")));
 
         // useSC/scAddress select a satellite clinic block that generatePDFDocumentBytes parses INSTEAD
-        // of clinicName/clinicPhone/clinicFax. Accept it only if it is a block this provider's page
-        // could have sent; otherwise switch the request to the main clinic bound above.
-        if ("true".equalsIgnoreCase(req.getParameter("useSC"))) {
-            String requested = RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress"));
+        // of clinicName/clinicPhone/clinicFax. The flag is ALWAYS rebound, never read: it is true
+        // exactly when scAddress is a block this provider's page could have sent, so neither a
+        // differently-cased flag nor a made-up block can reach parseSCAddress. Anything else renders
+        // the main clinic bound above.
+        boolean offered = false;
+        if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
             String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
             String tel = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel"));
             String fax = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgFax"));
-            boolean offered = requested != null && RxSatelliteClinicAddress.blocksFor(user, tel, fax).stream()
-                    .map(RxSatelliteClinicAddress::clinicPart)
-                    .anyMatch(requested::equals);
+            offered = RxSatelliteClinicAddress.offers(RxSatelliteClinicAddress.blocksFor(user, tel, fax), req.getParameter("scAddress"));
             if (!offered) {
                 logger.warn("Fax for prescription {} named a satellite clinic block this provider is not offered; using the main clinic header",
                         LogSafe.sanitize(String.valueOf(prescription.getId())));
-                bound.put("useSC", "false");
-                bound.put("scAddress", "");
             }
+        }
+        bound.put("useSC", offered ? "true" : "false");
+        if (!offered) {
+            bound.put("scAddress", "");
         }
 
         // Reprint annotation. The preview decides "is this a reprint" from the session flag the
         // reprint action sets, and prints the first drug's stored print date and count.
-        boolean reprinting = session != null && "true".equalsIgnoreCase(String.valueOf(session.getAttribute("rePrint")));
+        // RxRePrescribe2Action stores the literal "true"; an exact compare needs no case fold.
+        boolean reprinting = session != null && "true".equals(session.getAttribute("rePrint"));
         RxPrescriptionData.Prescription first = recordDrugs.isEmpty() ? null : recordDrugs.get(0);
         if (reprinting && first != null && first.getPrintDate() != null) {
             bound.put("rxReprint", "true");
@@ -981,6 +993,30 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             bound.put("origPrintDate", "");
             bound.put("numPrints", "");
         }
+    }
+
+    /**
+     * The digits of {@code requested} when they name a configured fax line ({@code fax_config.faxNumber},
+     * the same match the dispatch loop in {@link #service} applies), otherwise {@code ""}.
+     */
+    private String configuredFaxLine(String requested) {
+        if (requested == null) {
+            return "";
+        }
+        String digits = requested.trim().replaceAll("\\D", "");
+        if (digits.isEmpty()) {
+            return "";
+        }
+        List<FaxConfig> lines = faxConfigDao.findAll(null, null);
+        if (lines == null) {
+            return "";
+        }
+        for (FaxConfig line : lines) {
+            if (digits.equals(line.getFaxNumber())) {
+                return digits;
+            }
+        }
+        return "";
     }
 
     private static String nz(String value) {
@@ -1216,14 +1252,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, patient)
                     && (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient)
                         || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, patient));
-        } catch (RuntimeException e) {
+        } catch (PatientDirectiveException e) {
             // hasPrivilege rethrows PatientDirectiveException (SecurityInfoManagerImpl); unguarded it
             // would crash the servlet instead of refusing the fax. Answer "not denied HERE" so the
             // request falls through to resolveSignatureImage, whose own guard withholds the signature
             // and produces the generic "not signed" reply. Nothing is authorized by this answer — it
             // only declines to emit the specific permission wording, which is right under a directive:
-            // that wording would confirm the script exists.
-            logger.warn("Privilege check failed for the fax permission gate; deferring to the signature gate", e);
+            // that wording would confirm the script exists. ONLY the directive is absorbed: a database
+            // or wiring failure in the privilege lookup must abort the request, not let it proceed to
+            // the later gates as if the caller had simply lacked a privilege.
+            logger.warn("A directive refused the fax permission check; deferring to the signature gate", e);
             return false;
         }
     }

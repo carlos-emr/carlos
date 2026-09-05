@@ -83,6 +83,19 @@ class RxSatelliteClinicAddressUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should recognise an offered block after the page has unescaped its HTML entities")
+    void shouldRecogniseOfferedBlock_afterPageUnescapedIt() {
+        String offered = RxSatelliteClinicAddress.html("Dr A", "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1",
+                "7055551111", "7055552222", "Tel", "Fax");
+        String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(offered);
+
+        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), posted)).isTrue();
+        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), posted.replace("Barrie", "Elsewhere"))).isFalse();
+        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), null)).isFalse();
+        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), "no bold name")).isFalse();
+    }
+
+    @Test
     @DisplayName("should return null for a value that is not a block")
     void shouldReturnNull_forTextWithoutPrescriberName() {
         assertThat(RxSatelliteClinicAddress.clinicPart(null)).isNull();

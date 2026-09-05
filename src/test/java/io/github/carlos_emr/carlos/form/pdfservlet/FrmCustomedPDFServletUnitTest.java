@@ -19,6 +19,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
@@ -69,6 +70,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -245,7 +247,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             assertThat(response.getContentAsString()).contains("Unable to generate fax");
-            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxJobDao, never()).persist(any()); // binding reads fax lines; dispatch never ran
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
         }
@@ -283,7 +285,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxConfigDao).findAll(any(), any());
+            verify(faxConfigDao, atLeastOnce()).findAll(any(), any());
             verify(faxJobDao, never()).persist(any());
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
@@ -325,7 +327,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(existingPdf).hasContent("existing pdf");
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).hasContent("existing pdf");
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxConfigDao).findAll(any(), any());
+            verify(faxConfigDao, atLeastOnce()).findAll(any(), any());
             verify(faxJobDao, never()).persist(any());
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
@@ -364,7 +366,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             assertThat(response.getContentAsString()).contains("Unable to generate fax");
             assertThat(faxDir.resolve("prescription_rx-123.txt")).isDirectory();
-            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxJobDao, never()).persist(any()); // binding reads fax lines; dispatch never ran
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
@@ -1281,7 +1283,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // The page strips the "(nnnnnn)" clinic number and joins name, address, "city   postal".
         assertThat(bound.getParameter("clinicName")).isEqualTo("Record Clinic \n10 Record Rd\nHamilton   L8S 4L8");
         assertThat(bound.getParameter("clinicPhone")).isEqualTo("9055550000");
-        assertThat(bound.getParameter("useSC")).isNull();
+        assertThat(bound.getParameter("useSC")).isEqualTo("false"); // always rebound from the block, never read
     }
 
     @Test
@@ -1325,6 +1327,109 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
             assertThat(bound.getParameter("scAddress")).isEqualTo(offered);
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
+    }
+
+    @Test
+    @DisplayName("should print the sending fax line only when it is a configured fax_config line")
+    void shouldBindClinicFax_toConfiguredLineOnly() throws Exception {
+        MockHttpServletRequest request = createFaxRequest(); // clinicFax 4165553434
+        stubStoredSignature();
+        FaxConfig line = new FaxConfig();
+        line.setFaxNumber("4165553434");
+        when(faxConfigDao.findAll(any(), any())).thenReturn(List.of(line));
+
+        assertThat(new FrmCustomedPDFServlet().bindFaxContentToRecord(request).getParameter("clinicFax")).isEqualTo("4165553434");
+
+        request.setParameter("clinicFax", "(416) 555-9999");
+        assertThat(new FrmCustomedPDFServlet().bindFaxContentToRecord(request).getParameter("clinicFax")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should keep a satellite block whose clinic text needed HTML encoding")
+    void shouldKeepSatelliteClinic_whenBlockTextWasHtmlEncoded() throws Exception {
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        Site site = northSite();
+        site.setName("Smith & Jones");
+        // The page unescapes the block before it goes on the wire, so the request carries "&", not "&amp;".
+        String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(RxSatelliteClinicAddress.html("Dr A",
+                "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1", "7055551111", "7055552222", telLabel(request), faxLabel(request)));
+        request.setParameter("useSC", "true");
+        request.setParameter("scAddress", posted);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
+
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+            assertThat(bound.getParameter("useSC")).isEqualTo("true");
+            assertThat(bound.getParameter("scAddress")).isEqualTo(posted);
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
+    }
+
+    @Test
+    @DisplayName("should strip whichever localized label precedes the satellite telephone and fax")
+    void shouldStripLocalizedLabels_whenParsingSatelliteBlock() {
+        String block = RxSatelliteClinicAddress.html("Dr A", "Site Nord", "2 rue Nord", "Gatineau", "QC", "J8X 1A1",
+                "8195551111", "8195552222", "T&eacute;l", "T&eacute;l&eacute;copieur");
+
+        java.util.HashMap<String, String> parsed = FrmCustomedPDFServlet.parseSCAddress(block);
+
+        assertThat(parsed.get("clinicTel")).isEqualTo("8195551111");
+        assertThat(parsed.get("clinicFax")).isEqualTo("8195552222");
+        assertThat(parsed.get("clinicName")).isEqualTo("Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
+    }
+
+    @Test
+    @DisplayName("should let an unexpected privilege-lookup failure abort the fax instead of deferring it")
+    void shouldPropagateFailure_whenPrivilegeLookupFailsUnexpectedly() throws Exception {
+        stubStoredSignature();
+        Prescription prescription = prescriptionDao.find(SCRIPT_ID);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenThrow(new IllegalStateException("datasource down"));
+
+        assertThatThrownBy(() -> new FrmCustomedPDFServlet().isFaxDeniedByPrivilege(prescription, mock(LoggedInInfo.class)))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("should decide the satellite flag from the block alone, whatever case the request spelled it in")
+    void shouldRebindSatelliteFlag_fromOfferedBlockNotRequestCase() throws Exception {
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        // generatePDFDocumentBytes reads useSC case-insensitively, so "TrUe" with a forged block would
+        // reach parseSCAddress if the flag were only rewritten when spelled "true".
+        String forged = RxSatelliteClinicAddress.html("Dr A", "Forged Site", "2 Forged Rd", "Forgedville", "ZZ", "Z0Z 0Z0",
+                "4165550002", "4165550003", telLabel(request), faxLabel(request));
+        request.setParameter("useSC", "TrUe");
+        request.setParameter("scAddress", forged);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(northSite()));
+
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+            assertThat(bound.getParameter("useSC")).isEqualTo("false");
+            assertThat(bound.getParameter("scAddress")).isEmpty();
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
