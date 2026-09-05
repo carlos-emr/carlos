@@ -12,6 +12,8 @@ import ast
 import inspect
 import os
 import re
+import shutil
+import tempfile
 import textwrap
 import unittest
 
@@ -1195,6 +1197,71 @@ class TestAnUnrunnableClassIsRefused(unittest.TestCase):
             dict(("t{0}".format(i), {"class": "x"}) for i in range(15)))
         self.assertEqual(len(lines), 11)
         self.assertIn("... and 5 more", lines[-1])
+
+
+class TestTableCaseNormalisationIsRecorded(unittest.TestCase):
+
+    r"""A RENAME is the one thing in the ETL that is not re-derivable.
+
+    Once `demographic` is `Demographic`, nothing in the schema says it
+    was ever spelled otherwise, so a crash between the RENAME and the
+    report line lost the record of a staged table having been renamed
+    under the operator. The lines are written to the ledger BEFORE each
+    rename, so the worst case is a line the resume then makes true."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="o19rename-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.ran = []
+
+    def plain(self, sql, db=None):
+        self.ran.append(sql)
+        return []
+
+    def a_manifest_table(self):
+        return sorted(o19map_schema.TABLES)[0]
+
+    def test_a_rename_is_in_the_ledger_before_it_runs(self):
+        table = self.a_manifest_table()
+        lower = table.lower()
+        if lower == table:
+            self.skipTest("no mixed-case table in the manifest")
+
+        def failing(sql, db=None):
+            raise o19etl.QueryError("planted", "boom")
+
+        with self.assertRaises(o19etl.QueryError):
+            o19etl.normalize_table_case(failing, "stage", [lower], self.dir)
+        progress = o19etl.load_progress(self.dir)
+        self.assertEqual(progress["renamed_tables"],
+                         ["{0} -> {1}".format(lower, table)])
+
+    def test_the_resumed_run_reports_the_rename_it_cannot_see(self):
+        table = self.a_manifest_table()
+        lower = table.lower()
+        if lower == table:
+            self.skipTest("no mixed-case table in the manifest")
+        first = o19etl.normalize_table_case(
+            self.plain, "stage", [lower], self.dir)
+        self.assertEqual(first, ["{0} -> {1}".format(lower, table)])
+        # the resume sees the table already at its manifest spelling and
+        # can derive nothing; the line must come back all the same
+        again = o19etl.normalize_table_case(
+            self.plain, "stage", [table], self.dir)
+        self.assertEqual(again, first)
+        self.assertEqual(len(self.ran), 1, "the rename must not run twice")
+
+    def test_a_case_twin_is_reported_and_not_persisted(self):
+        table = self.a_manifest_table()
+        lower = table.lower()
+        if lower == table:
+            self.skipTest("no mixed-case table in the manifest")
+        lines = o19etl.normalize_table_case(
+            self.plain, "stage", [lower, table], self.dir)
+        self.assertEqual(lines, ["{0} left as is: {1} also exists"
+                                 .format(lower, table)])
+        self.assertEqual(self.ran, [], "a twin must not be renamed")
+        self.assertNotIn("renamed_tables", o19etl.load_progress(self.dir))
 
 
 class TestIntrospectColumns(unittest.TestCase):

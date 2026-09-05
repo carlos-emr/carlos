@@ -410,6 +410,135 @@ class TestCrashAndResume(RunRolesBase):
         self.assertEqual(progress["roles"]["appended"]["program_provider"], 5)
         self.assertEqual(self.private("roles-details.txt").count("999903"), 1)
 
+    class MovingDb(FakeDb):
+        """A fake whose reads MOVE when the writes run, and whose writes
+        are idempotent the second time.
+
+        The base fake answers a static count and a static drift, so the
+        report's deltas were 0 either way and no test could tell a
+        persisted reading from a recomputed one -- which is why the
+        resume defect below shipped."""
+
+        def __init__(self, **over):
+            self.fail_on_read = over.pop("fail_on_read", None)
+            FakeDb.__init__(self, **over)
+            self.inserts = {}          # statement -> rows it adds
+            self.applied = set()
+
+        def plain(self, sql, db=None):
+            # a step's writes commit and the process dies on the very
+            # next READ -- the window between a write and its report
+            # line, which a fake that can only fail on writes cannot
+            # reach
+            if self.fail_on_read and self.fail_on_read in sql:
+                self.fail_on_read = None
+                raise o19etl.QueryError("planted read failure", "boom")
+            return FakeDb.plain(self, sql, db)
+
+        def query(self, sql, db=None):
+            out = FakeDb.query(self, sql, db)   # raises before any bump
+            if sql in self.inserts and sql not in self.applied:
+                self.applied.add(sql)
+                self.answers["counts"][getattr(self, "counted",
+                                               "program_provider")] += \
+                    self.inserts[sql]
+            if sql in o19roles.role_spelling_statements(DST):
+                # what the alignment UPDATEs do: the drift is gone, and
+                # so is the only evidence it was ever there
+                self.answers["spelling_drift"] = 0
+            return out
+
+    def test_the_resumed_run_reports_what_the_crashed_one_did(self):
+        """The ledger's counts were checked; the REPORT was not, and it
+        is the operator's record. Every "this run created N" figure here
+        is a delta or a pre-state measured on one side of a write that
+        destroys it: on a resume the INSERTs match nothing, so without a
+        persisted reading the line reads "5 active provider(s) had no
+        program membership — this run created 0 ... and 0", over five
+        providers whose chart access depends on rows that DO exist.
+
+        `missing` already came from the ledger, which is what made the
+        line self-contradictory rather than merely quiet."""
+        with_role, least = o19roles.membership_statements(DST)
+        db = self.MovingDb(fail_on=least)
+        db.inserts = {with_role: 3, least: 2}
+        progress = {"tables": {}}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db, progress)
+        # the readings either side of the first write survive the crash
+        self.assertEqual(progress["roles"]["program_before_plan"], 40)
+        self.assertEqual(progress["roles"]["program_after_role_plan"], 43)
+        self.reports = []
+        self.run_roles(db, progress)
+        line = [ln for ln in self.reports if "program membership" in ln]
+        self.assertEqual(len(line), 1, self.reports)
+        self.assertIn("5 active provider(s) had no program membership",
+                      line[0])
+        self.assertNotIn("created 0 membership row(s) carrying the "
+                         "provider's active role and 0", line[0])
+        self.assertIn("created 3 membership row(s)", line[0])
+        self.assertIn("and 2 with the least-privileged", line[0])
+
+    def test_the_spelling_drift_line_survives_its_own_repair(self):
+        """`role_spelling_drift_sql` answers 0 once the alignment
+        UPDATEs have run, and the report line is the only place that
+        fact ever reaches the operator. A crash after the UPDATEs commit
+        and before the mark used to lose it for good."""
+        # the crash must land INSIDE the alignment: the first UPDATE
+        # commits (and takes the drift with it), the second fails, so
+        # the step is unmarked and the resume re-enters it
+        db = self.MovingDb(
+            spelling_drift=4,
+            fail_on=o19roles.role_spelling_statements(DST)[-1])
+        progress = {"tables": {}}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db, progress)
+        self.assertEqual(progress["roles"]["role_spelling_drift_plan"], 4)
+        # the repair has run, so the database can no longer be asked
+        self.assertEqual(db.answers["spelling_drift"], 0)
+        drift = 4
+        self.reports = []
+        self.run_roles(db, progress)
+        line = [ln for ln in self.reports if "different spelling" in ln]
+        self.assertEqual(len(line), 1, self.reports)
+        self.assertIn("{0} active assignment(s)".format(drift), line[0])
+
+    def test_the_appended_role_count_survives_a_crash_after_the_write(self):
+        """"(N this run)" is a delta across a write that is idempotent on
+        the resume, so without a persisted pre-write reading the resumed
+        report says 0 roles were appended while three exist."""
+        db = self.MovingDb(
+            fail_on_read=o19etl.appended_row_count_sql("secRole", SRC, DST))
+        db.inserts = {o19roles.carlos_role_append_statement(DST, ARCH): 3}
+        db.counted = "secRole"
+        progress = {"tables": {}}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db, progress)
+        self.assertEqual(progress["roles"]["secRole_before_plan"], 36)
+        self.reports = []
+        self.run_roles(db, progress)
+        line = [ln for ln in self.reports
+                if "CARLOS role(s) added" in ln]
+        self.assertEqual(len(line), 1, self.reports)
+        self.assertIn("3 this run", line[0])
+
+    def test_the_facility_link_count_survives_a_crash_after_the_write(self):
+        db = self.MovingDb(
+            fail_on_read=o19etl.appended_row_count_sql(
+                "provider_facility", SRC, DST))
+        db.inserts = {o19roles.provider_facility_statement(DST): 2}
+        db.counted = "provider_facility"
+        progress = {"tables": {}}
+        with self.assertRaises(o19etl.QueryError):
+            self.run_roles(db, progress)
+        self.assertEqual(progress["roles"]["provider_facility_before_plan"],
+                         8)
+        self.reports = []
+        self.run_roles(db, progress)
+        line = [ln for ln in self.reports if "enabled facility" in ln]
+        self.assertEqual(len(line), 1, self.reports)
+        self.assertIn("2 this run", line[0])
+
     def test_facility_refusal_fires_before_that_steps_writes(self):
         db = FakeDb(facility=0)
         progress = {"tables": {}}

@@ -1230,10 +1230,14 @@ def roles_append_carlos_roles(run: 'RolesRun') -> None:
     count = run.count
     mark = run.mark
     record_appended = run.record_appended
+    plan = run.plan
     append_private = run.append_private
     # 1. hard-coded role names, CARLOS-only roles
     if not ledger.get("roles_appended"):
-        before = count("secRole")
+        # persisted BEFORE the write: on a resume the appends are
+        # idempotent no-ops, so the count read afterwards is the
+        # post-write one and the delta stays this run's real figure
+        before = plan("secRole_before", lambda: count("secRole"))
         for sql in guaranteed_role_statements(dst):
             query(sql)
         query(carlos_role_append_statement(dst, arch))
@@ -1277,12 +1281,19 @@ def roles_align_role_spelling(run: 'RolesRun') -> None:
     ledger = run.ledger
     n = run.n
     mark = run.mark
+    plan = run.plan
     append_private = run.append_private
     # 1b. one spelling per role, everywhere (see role_spelling_drift_sql:
     #     the app matches role names exactly, the database matches them
     #     case-insensitively, and the privilege merge creates the gap)
     if not ledger.get("role_spelling"):
-        drift = n(role_spelling_drift_sql(dst))
+        # PLANNED, not just measured: the UPDATEs below are what make
+        # `role_spelling_drift_sql` answer 0, so a crash after they
+        # commit and before the report line loses the only record that
+        # N assignments carried an unresolvable spelling. This step's
+        # own mark is five statements further down.
+        drift = plan("role_spelling_drift",
+                     lambda: n(role_spelling_drift_sql(dst)))
         for sql in role_spelling_statements(dst):
             query(sql)
         if drift:
@@ -1323,6 +1334,7 @@ def roles_facility_links(run: 'RolesRun') -> None:
     n = run.n
     count = run.count
     mark = run.mark
+    plan = run.plan
     record_appended = run.record_appended
     # 2. facility / clinic guarantees, facility links (run_etl pre-checks
     #    the same conditions against staging before the first write; this
@@ -1348,7 +1360,8 @@ def roles_facility_links(run: 'RolesRun') -> None:
                 "consultations dereference it. This is an import defect, "
                 "not a clinic condition. Roll back and send "
                 "{1}/report.txt.".format(dst, state_dir))
-        before = count("provider_facility")
+        before = plan("provider_facility_before",
+                      lambda: count("provider_facility"))
         query(provider_facility_statement(dst))
         added = count("provider_facility") - before
         record_appended("provider_facility")
@@ -1455,11 +1468,22 @@ def roles_program_memberships(run: 'RolesRun') -> None:
                             "row): " + ", ".join(fallback)])
             mark("program_listed")
         with_role, least = membership_statements(dst)
-        before = count("program_provider")
+        # Two writes, so two persisted readings rather than one: the
+        # counts either side of a write are what the report's "this run
+        # created N" lines are, and on a resume both INSERTs match
+        # nothing. `missing` already comes from the ledger, so without
+        # these the line reads "5 providers had none — this run created
+        # 0 and 0", which is the opposite of what happened. Each reading
+        # is taken from the database immediately AFTER its write and
+        # persisted there, which is the rule the rest of this module
+        # follows.
+        before = plan("program_before", lambda: count("program_provider"))
         query(with_role)
-        added_role = count("program_provider") - before
+        after_role = plan("program_after_role",
+                          lambda: count("program_provider"))
         query(least)
-        added_least = count("program_provider") - before - added_role
+        added_role = after_role - before
+        added_least = count("program_provider") - after_role
         record_appended("program_provider")
         still = n(providers_without_membership_sql(dst))
         report("roles: program '{0}' {1}; {2} active provider(s) had no "

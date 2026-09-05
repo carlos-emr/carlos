@@ -1811,27 +1811,50 @@ def missing_merge_keys(entry: dict, src_cols: Dict[str, dict]) -> List[str]:
 
 
 def normalize_table_case(plain, src_schema: str,
-                         src_tables: List[str]) -> List[str]:
+                         src_tables: List[str],
+                         state_dir: Optional[str] = None) -> List[str]:
     """Rename staged tables whose name differs from the manifest only by
     case (a source server with lower_case_table_names=1 dumps everything
     lower-cased) to the manifest spelling, so every later lookup matches.
-    Returns report lines."""
+    Returns report lines.
+
+    Each rename is written to the ETL ledger BEFORE it runs, and the
+    lines returned are the ledger's plus this run's. A rename is the one
+    thing here that is not re-derivable: once `foo` is `Foo`, nothing in
+    the schema says it was ever spelled otherwise, so a crash between
+    the RENAME and the report line used to lose the record of a staged
+    table having been renamed under the operator. Recorded first rather
+    than after, so the worst case is a line the resume then makes true.
+
+    `state_dir` is optional only for the pure tests: without it the
+    lines are this run's alone, which is what the old behaviour was."""
     by_lower = {t.lower(): t for t in o19map_schema.TABLES}
     present = set(src_tables)
-    lines = []
+    progress = load_progress(state_dir) if state_dir else {}
+    recorded = list(progress.get("renamed_tables") or [])
+    lines = list(recorded)
     for live in sorted(src_tables):
         want = by_lower.get(live.lower())
         if want and want != live:
             if want in present:
                 # both spellings exist (an old CAISI twin next to the
                 # current table): the preflight blocks case twins; here
-                # it is left alone rather than failing with error 1050
+                # it is left alone rather than failing with error 1050.
+                # Re-derivable every run -- both names are still there --
+                # so it is reported, not persisted.
                 lines.append("{0} left as is: {1} also exists".format(
                     live, want))
                 continue
+            line = "{0} -> {1}".format(live, want)
+            if state_dir and line not in recorded:
+                recorded.append(line)
+                progress["renamed_tables"] = recorded
+                save_progress(state_dir, progress)
+                lines.append(line)
+            elif not state_dir:
+                lines.append(line)
             plain("RENAME TABLE `{0}`.{1} TO `{0}`.{2}".format(
                 src_schema, ident(live), ident(want)))
-            lines.append("{0} -> {1}".format(live, want))
     return lines
 
 
@@ -2713,7 +2736,7 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
               "dump as shipped; rename them in the source and re-export: "
               "{1}".format(len(odd),
                            ", ".join(repr(x) for x in odd[:10])))
-    renamed = normalize_table_case(plain, src, list(src_info))
+    renamed = normalize_table_case(plain, src, list(src_info), state_dir)
     if renamed:
         report("staged table names normalised to the manifest spelling "
                "(source server ran lower_case_table_names=1):\n  "
