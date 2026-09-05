@@ -213,6 +213,32 @@ class TestDispositions(unittest.TestCase):
             self.assertEqual(self.by_key.get(key), "dropped-flag", key)
             self.assertNotIn(key, self.fragment)
 
+    def test_only_the_a04_directory_carlos_reads_is_translated(self):
+        # of the three ADT directories only hl7_a04_build_dir has a
+        # reader (CarlosProperties.getHL7A04BuildDirectory -> HL7A04Data).
+        # A rewritten path for the other two under the `translate` heading
+        # reads as ADT failure handling having been migrated, when nothing
+        # in CARLOS consults them — the same reason HL7_A04_TRANSPORT_ADDR
+        # is dropped
+        moved = [("hl7_a04_build_dir",
+                  "/var/lib/OscarDocument/oscar_mcmaster/adt/"),
+                 ("hl7_a04_fail_dir",
+                  "/var/lib/OscarDocument/oscar_mcmaster/adt/failed/"),
+                 ("l7_a04_sent_dir",
+                  "/var/lib/OscarDocument/oscar_mcmaster/adt/sent/"),
+                 ("HL7_A04_TRANSPORT_ADDR", "10.0.0.9")]
+        result = o19props.translate_all(moved, documents_root=ROOT)
+        fragment = dict(result["fragment"])
+        by_key = {k: d for k, d, _ in result["rows"]}
+        self.assertEqual(by_key["hl7_a04_build_dir"], "translate")
+        self.assertEqual(fragment["hl7_a04_build_dir"],
+                         ROOT + "/carlos/adt/")
+        for key in ("hl7_a04_fail_dir", "l7_a04_sent_dir",
+                    "HL7_A04_TRANSPORT_ADDR"):
+            self.assertEqual(by_key[key], "dropped-flag", key)
+            self.assertNotIn(key, fragment, key)
+            self.assertIn(key, result["advisories"]["misc"], key)
+
     def test_drugref_keeps_the_deployment_endpoint(self):
         self.assertEqual(self.by_key.get("drugref_url"), "translate")
         self.assertNotIn("drugref_url", self.fragment)

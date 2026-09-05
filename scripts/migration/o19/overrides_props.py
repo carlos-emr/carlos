@@ -146,9 +146,16 @@ KEYS = {
     "ONEDT_SENT": {"d": "translate", "t": "docpath"},
     "ONEDT_ARCHIVE": {"d": "translate", "t": "docpath"},
     "INVOICE_DIR": {"d": "translate", "t": "docpath"},
+    # HL7 A04 (ADT) directories: only the build directory has a CARLOS
+    # reader (CarlosProperties.getHL7A04BuildDirectory -> HL7A04Data), so
+    # the failed and sent directories are told rather than shown as
+    # carried — the same rule the transport address and port get below.
+    # Translating them put two inert paths under the `translate` heading
+    # of the reviewed fragment, which reads as ADT failure handling having
+    # been migrated when nothing in CARLOS consults them.
     "hl7_a04_build_dir": {"d": "translate", "t": "docpath"},
-    "hl7_a04_fail_dir": {"d": "translate", "t": "docpath"},
-    "l7_a04_sent_dir": {"d": "translate", "t": "docpath"},
+    "hl7_a04_fail_dir": {"d": "dropped-flag", "advisory": "misc"},
+    "l7_a04_sent_dir": {"d": "dropped-flag", "advisory": "misc"},
     "INCOMINGDOCUMENT_DIR": {"d": "translate", "t": "docpath"},
     # a boolean (recycle bin on/off), not a path — CARLOS reads it the same
     "INCOMINGDOCUMENT_RECYCLEBIN": {"d": "carry"},

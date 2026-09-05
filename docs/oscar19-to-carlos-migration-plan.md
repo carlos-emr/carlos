@@ -1101,7 +1101,10 @@ MariaDB); the reverse merge parity no longer expects target twins for the
 removed-module `property` rows the roles step prunes after the merge (the
 rehearsal's `INTEGRATOR_` row read as a false mismatch);
 `HL7_A04_TRANSPORT_ADDR` and `_PORT` have no CARLOS reader and are reported
-rather than shown as carried; and the carried-credentials blocker is B9,
+rather than shown as carried, and `hl7_a04_fail_dir`/`l7_a04_sent_dir` join
+them — only `hl7_a04_build_dir` is read, so translating the other two put
+inert paths in the fragment under the `translate` heading; and the
+carried-credentials blocker is B9,
 since B6-B8 were already taken by the table in §6.1.
 
 **Documentation audit round (done):** four read-only audits compared the

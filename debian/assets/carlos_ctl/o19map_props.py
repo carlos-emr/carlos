@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS properties manifest."""
 
-PROPS_MAP_VERSION = 'o19map-2+65c6b9ea'
+PROPS_MAP_VERSION = 'o19map-2+e78c6f17'
 
 # active keys of the stock O19 oscar_mcmaster.properties — the baseline-diff
 # reference: clinic keys equal to these defaults are ignored (CARLOS defaults win)
@@ -1009,8 +1009,8 @@ KEYS = {
         't': 'docpath',
     },
     'hl7_a04_fail_dir': {
-        'd': 'translate',
-        't': 'docpath',
+        'd': 'dropped-flag',
+        'advisory': 'misc',
     },
     'host': {
         'd': 'deploy-owned',
@@ -1025,8 +1025,8 @@ KEYS = {
         'd': 'carry',
     },
     'l7_a04_sent_dir': {
-        'd': 'translate',
-        't': 'docpath',
+        'd': 'dropped-flag',
+        'advisory': 'misc',
     },
     'lab_req_include_chartno': {
         'd': 'carry',

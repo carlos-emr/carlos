@@ -820,6 +820,8 @@ DROPPED_PROP_KEYS = [
     'faxLogo',
     'faxURI',
     'groupModuleEnabled',
+    'hl7_a04_fail_dir',
+    'l7_a04_sent_dir',
     'labreq_CKD',
     'ontariomd_cds_diabetes_link',
     'oscarMeasurement_css',
