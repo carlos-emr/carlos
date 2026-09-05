@@ -2034,6 +2034,42 @@ class TestTheImportReport(unittest.TestCase):
                 "summary": "580 table(s) verified against the clinic's "
                            "digests, 0 disagreed, 0 not compared"}
 
+    def test_the_header_names_the_package_that_executed_the_run(self):
+        """`o19report.HEADER_ORDER` reserved a "carlos-ctl" row from the
+        start and nothing ever filled it, so two builds shipping the
+        same manifest produced reports a reviewer could not tell apart
+        -- and diffing two imports is what the JSON twin is for."""
+        report = self.build(tool_version="2026.08.0-alpha10")
+        text = o19report.render_text(report)
+        self.assertIn("carlos-ctl:", text)
+        self.assertIn("2026.08.0-alpha10", text)
+        self.assertEqual(report["header"]["tool_version"],
+                         "2026.08.0-alpha10")
+        self.assertIn("2026.08.0-alpha10",
+                      o19report.render_json(report))
+
+    def test_an_unpackaged_host_prints_the_gap_rather_than_nothing(self):
+        # _header_pairs renders only keys with a value, so None would
+        # drop the row entirely -- indistinguishable from a report
+        # format that never had the field
+        text = o19report.render_text(self.build())
+        self.assertIn("carlos-ctl:", text)
+        self.assertIn("unknown", text)
+
+    def test_the_version_comes_from_the_installed_package(self):
+        with mock.patch("carlos_ctl.util.out",
+                        lambda cmd: "2026.08.0-alpha10"):
+            self.assertEqual(o19import.package_version(),
+                             "2026.08.0-alpha10")
+        # dpkg-query fails (or is absent) on a development host
+        with mock.patch("carlos_ctl.util.out", lambda cmd: ""):
+            self.assertEqual(o19import.package_version(), "unknown")
+        # ... and the run context the CLI builds carries it, or every
+        # real report would render the "unknown" fallback instead
+        import inspect
+        self.assertIn('"tool_version": package_version()',
+                      inspect.getsource(o19import._make_ctx))
+
     def test_a_verified_content_transfer_is_something_that_arrived(self):
         """P2's verdict is the one claim about the BYTES the row counts
         cannot make; a report that never carried it left requirement A

@@ -2146,6 +2146,24 @@ def split_parity_lines(parity_ok: Sequence[str]
     return passed, unchecked, acknowledged
 
 
+def package_version() -> str:
+    """The carlos-emr package version executing this run, for the report
+    header.
+
+    Provenance the manifest cannot give. `o19report.HEADER_ORDER`
+    reserved the row from the start but nothing ever filled it, so two
+    package builds shipping the SAME manifest produced reports a
+    reviewer could not tell apart -- and diffing two imports is the
+    stated purpose of the JSON twin. Read the way config.py reads it for
+    the build stamp; "unknown" rather than None on an unpackaged
+    development host, so the row prints the gap instead of silently
+    vanishing (an absent header row reads as a report format without the
+    field, not as a version nobody recorded)."""
+    from .util import out
+    return out(["dpkg-query", "-f", "${Version}", "-W",
+                "carlos-emr"]) or "unknown"
+
+
 def truncated_problems_note(total: int, path: Optional[str]) -> str:
     """The line that keeps a capped failure list honest.
 
@@ -2183,6 +2201,9 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
         "dump_sha256": phases.get("stage", {}).get("dump_sha256"),
         "manifest_props": getattr(o19map_props, "PROPS_MAP_VERSION",
                                   None),
+        # recorded by _make_ctx so this stays derivable from its
+        # arguments; never None, or the row would not render at all
+        "tool_version": ctx.get("tool_version") or "unknown",
         "started": phases.get("stage", {}).get("at"),
         "finished": finished,
     }
@@ -3358,6 +3379,7 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
             args.mariadb_arg, getattr(args, "statement_timeout", 0)),
         "statement_timeout": getattr(args, "statement_timeout", 0),
         "province": _province(args),
+        "tool_version": package_version(),
         "accepted": accepted,
         "dev_target": dev_target,
         "dump": inputs["dump"],
