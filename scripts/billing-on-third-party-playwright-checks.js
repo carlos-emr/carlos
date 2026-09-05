@@ -144,11 +144,47 @@ function billEntryPath() {
   return `/billing?${params.toString()}`;
 }
 
+/*
+ * Identifiers that correlate back to a patient or a provider stay out of console
+ * output and the results file. A routing failure needs billRegion, xml_billtype
+ * and curBillForm; appointment_no, demographic_no/name, providerview and user_no
+ * add nothing to the diagnosis, so the query string is filtered to the former.
+ */
+const DIAGNOSTIC_PARAMS = new Set(['billRegion', 'xml_billtype', 'curBillForm', 'billForm', 'reportAction']);
+
+function queryParam(rawUrl, name) {
+  try {
+    return new URL(rawUrl, baseUrl).searchParams.get(name);
+  } catch (error) {
+    return null;
+  }
+}
+
+function redactUrl(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(rawUrl, baseUrl);
+  } catch (error) {
+    return '(unparseable url)';
+  }
+  const kept = new URLSearchParams();
+  for (const [key, value] of parsed.searchParams) {
+    if (DIAGNOSTIC_PARAMS.has(key)) kept.set(key, value);
+  }
+  const query = kept.toString();
+  const dropped = [...parsed.searchParams.keys()].some((key) => !DIAGNOSTIC_PARAMS.has(key));
+  return `${parsed.pathname}${query ? `?${query}` : ''}${dropped ? ' (identifiers redacted)' : ''}`;
+}
+
 async function login(page) {
   await gotoApp(page, baseUrl, '/');
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
+  // login/index.jsp renders #pin only when MfaManager.isOscarLegacyPinEnabled().
+  // Filling it unconditionally throws on an install with legacy PIN disabled,
+  // and the check would never run there.
+  const pin = page.locator('#pin');
+  if ((await pin.count()) > 0) await pin.fill(testPin);
   await page.locator('input[type="submit"], button[type="submit"]').first().click();
   await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
 }
@@ -201,7 +237,9 @@ async function switchBillType(page, optionValue, expectedCode) {
   return {
     documentStatus,
     navigated: navigated && described.url !== entryUrl,
-    carriesSelectedType: new RegExp(`[?&]xml_billtype=${expectedCode}(&|$)`).test(described.url),
+    // Parsed, not pattern-matched: building a RegExp from the code would be a
+    // dynamic expression for no gain (and Semgrep flags it as a ReDoS shape).
+    carriesSelectedType: queryParam(described.url, 'xml_billtype') === expectedCode,
     ...described,
   };
 }
@@ -256,7 +294,7 @@ async function run() {
     await gotoApp(page, baseUrl, billEntryPath());
     const entry = await describeBillPage(page);
     check('the Ontario bill form opens for the configured appointment', entry.isOntarioForm,
-      `codes=${JSON.stringify(entry.codes)} at ${entry.url}; set BILLING_APPOINTMENT_NO/BILLING_DEMOGRAPHIC_NO to a billable appointment`);
+      `codes=${JSON.stringify(entry.codes)} at ${redactUrl(entry.url)}; set BILLING_APPOINTMENT_NO/BILLING_DEMOGRAPHIC_NO to a billable appointment`);
     if (!entry.isOntarioForm) return;
 
     const options = await page.locator('select[name="xml_billtype"] option')
@@ -265,9 +303,14 @@ async function run() {
       .map((prefix) => ({ prefix, value: options.find((value) => value.startsWith(prefix)) }))
       .filter((option) => Boolean(option.value));
 
-    check('the bill-type control offers 3rd-party and bonus-code types',
-      wanted.some((o) => THIRD_PARTY_PREFIXES.includes(o.prefix)) && wanted.some((o) => o.prefix === BONUS_PREFIX),
-      `offered: ${JSON.stringify(options)}`);
+    // Every expected code must be present. A `some()` here would let a code
+    // disappear (OCF, STD...) while the check still passed and the loop below
+    // silently stopped covering that branch.
+    const expected = [...THIRD_PARTY_PREFIXES, BONUS_PREFIX];
+    const missing = expected.filter((prefix) => !wanted.some((o) => o.prefix === prefix));
+    check('the bill-type control offers every 3rd-party and bonus-code type',
+      missing.length === 0,
+      `missing: ${JSON.stringify(missing)}; offered: ${JSON.stringify(options)}`);
 
     for (const { prefix, value } of wanted) {
       const outcome = await switchBillType(page, value, prefix);
@@ -275,13 +318,13 @@ async function run() {
 
       check(`${label} actually navigates on selection`,
         outcome.navigated && outcome.carriesSelectedType,
-        `navigated=${outcome.navigated} carriesType=${outcome.carriesSelectedType} url=${outcome.url}`);
+        `navigated=${outcome.navigated} carriesType=${outcome.carriesSelectedType} url=${redactUrl(outcome.url)}`);
       // The fix itself: the self-navigation must carry the region forward.
       check(`${label} keeps billRegion=ON on its navigation`,
-        /[?&]billRegion=ON(&|$)/.test(outcome.url), `url was ${outcome.url}`);
+        queryParam(outcome.url, 'billRegion') === 'ON', `url was ${redactUrl(outcome.url)}`);
       // What the user saw when it did not: a 500, or the BC form.
       check(`${label} stays on the Ontario bill form`, outcome.isOntarioForm,
-        `codes=${JSON.stringify(outcome.codes)} url=${outcome.url}`);
+        `codes=${JSON.stringify(outcome.codes)} url=${redactUrl(outcome.url)}`);
       check(`${label} does not render an error page`,
         !outcome.hasErrorPage && (outcome.documentStatus === null || outcome.documentStatus < 400),
         `status=${outcome.documentStatus} errorPage=${outcome.hasErrorPage}`);
@@ -294,26 +337,31 @@ async function run() {
     const reportParams = new URLSearchParams({ reportAction: 'unbilled', providerview: providerNo });
     for (const report of ['/billing/CA/ON/ViewBillingONNewReport', '/billing/CA/ON/ViewBillingReportControl']) {
       const path = `${report}?${reportParams.toString()}`;
-      let loaded = true;
+      // An unreachable route or an error page must fail, not fall through to
+      // the empty-list branch and be reported as a dataset skip.
+      let status = null;
       try {
-        await gotoApp(page, baseUrl, path);
+        const response = await gotoApp(page, baseUrl, path);
+        status = response ? response.status() : null;
       } catch (error) {
-        loaded = false;
+        status = null;
       }
-      check(`${report} loads its unbilled report`, loaded, 'navigation failed');
+      const loaded = status !== null && status < 400;
+      check(`${report} loads its unbilled report`, loaded, `status=${status === null ? 'no response' : status}`);
       if (!loaded) continue;
 
       const links = await unbilledBillLinks(page);
       if (links.length === 0) {
-        console.log(`SKIP ${report} produced no unbilled "Bill" link for provider ${providerNo}`);
+        console.log(`SKIP ${report} produced no unbilled "Bill" link on this dataset`);
         continue;
       }
+      const redacted = links.slice(0, 3).map(redactUrl);
       check(`${report} "Bill" links are context-path prefixed`,
         links.every((href) => href.startsWith(`${contextPath}/billing?`)),
-        `hrefs: ${JSON.stringify(links.slice(0, 3))}`);
+        `hrefs: ${JSON.stringify(redacted)}`);
       check(`${report} "Bill" links carry billRegion=ON`,
-        links.every((href) => /[?&]billRegion=ON(&|$)/.test(href)),
-        `hrefs: ${JSON.stringify(links.slice(0, 3))}`);
+        links.every((href) => queryParam(href, 'billRegion') === 'ON'),
+        `hrefs: ${JSON.stringify(redacted)}`);
     }
   } finally {
     await browser.close();
