@@ -89,10 +89,12 @@ class RxSatelliteClinicAddressUnitTest extends CarlosUnitTestBase {
                 "7055551111", "7055552222", "Tel", "Fax");
         String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(offered);
 
-        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), posted)).isTrue();
-        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), posted.replace("Barrie", "Elsewhere"))).isFalse();
-        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), null)).isFalse();
-        assertThat(RxSatelliteClinicAddress.offers(List.of(offered), "no bold name")).isFalse();
+        // The match answers with the offered block in wire form, so callers render that, never the request.
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted)).isEqualTo(posted);
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted.replace("Smith & Jones", "Smith &#38; Jones"))).isEqualTo(posted);
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted.replace("Barrie", "Elsewhere"))).isNull();
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), null)).isNull();
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), "no bold name")).isNull();
     }
 
     @Test

@@ -963,22 +963,23 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // exactly when scAddress is a block this provider's page could have sent, so neither a
         // differently-cased flag nor a made-up block can reach parseSCAddress. Anything else renders
         // the main clinic bound above.
-        boolean offered = false;
+        String offeredBlock = null;
         if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
             String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
             String tel = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel"));
             String fax = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgFax"));
-            offered = RxSatelliteClinicAddress.offers(RxSatelliteClinicAddress.blocksFor(user, tel, fax), req.getParameter("scAddress"));
-            if (!offered) {
+            offeredBlock = RxSatelliteClinicAddress.offeredBlock(RxSatelliteClinicAddress.blocksFor(user, tel, fax), req.getParameter("scAddress"));
+            if (offeredBlock == null) {
                 logger.warn("Fax for prescription {} named a satellite clinic block this provider is not offered; using the main clinic header",
                         LogSafe.sanitize(String.valueOf(prescription.getId())));
             }
         }
-        bound.put("useSC", offered ? "true" : "false");
-        if (!offered) {
-            bound.put("scAddress", "");
-        }
+        // Render the OFFERED block, not the request's copy of it: the match decodes entities on both
+        // sides, so the request may spell the same clinic with entity text that parseSCAddress would
+        // otherwise print verbatim.
+        bound.put("useSC", offeredBlock != null ? "true" : "false");
+        bound.put("scAddress", offeredBlock != null ? offeredBlock : "");
 
         // Reprint annotation. The preview decides "is this a reprint" from the session flag the
         // reprint action sets, and prints the first drug's stored print date and count.

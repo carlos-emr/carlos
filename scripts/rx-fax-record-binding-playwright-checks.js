@@ -665,7 +665,13 @@ function assertHeaderBound(runs) {
   // The record's date is the fixture drug's stored rx_date in the page's own "MMMM d, yyyy" shape,
   // read back from the database (not this process's clock, which may sit in another time zone or
   // on the other side of midnight from Tomcat); the date cell is one PDF phrase, so one text run.
-  const recordDate = sql(`SELECT DATE_FORMAT(MAX(rx_date), '%M %e, %Y') FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`).trim();
+  // Numeric parts from SQL, English month name from the runner: DATE_FORMAT('%M') follows the
+  // server's lc_time_names, while the servlet's "MMMM d, yyyy" is always English.
+  const ymd = sql(`SELECT DATE_FORMAT(MAX(rx_date), '%Y-%m-%d') FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`).trim();
+  const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  const recordDate = ymdMatch
+    ? new Date(Number(ymdMatch[1]), Number(ymdMatch[2]) - 1, Number(ymdMatch[3])).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : '';
   const dateBound = recordDate.length > 0 && runs.some((r) => r.trim() === recordDate);
   // The record's clinic header is whatever the page itself posted for the UI fax (the page composes
   // it from the same record), so its first line must be a rendered line of the forged-request fax.

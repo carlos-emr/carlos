@@ -1325,7 +1325,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(bound.getParameter("scAddress")).isEqualTo(offered);
+            // The bound block is the OFFERED one (the prescriber-name prefix is not part of the match
+            // and not rendered); its clinic part is what parseSCAddress reads.
+            assertThat(RxSatelliteClinicAddress.clinicPart(bound.getParameter("scAddress")))
+                    .isEqualTo(RxSatelliteClinicAddress.clinicPart(offered));
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -1375,7 +1378,42 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(bound.getParameter("scAddress")).isEqualTo(posted);
+            assertThat(RxSatelliteClinicAddress.clinicPart(bound.getParameter("scAddress")))
+                    .isEqualTo(RxSatelliteClinicAddress.clinicPart(posted));
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
+    }
+
+    @Test
+    @DisplayName("should render the offered block, not the request's entity-spelled copy of it")
+    void shouldRenderOfferedBlock_whenRequestSpellsItWithEntities() throws Exception {
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        Site site = northSite();
+        site.setName("Smith & Jones");
+        String wire = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(RxSatelliteClinicAddress.html("Dr A",
+                "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1", "7055551111", "7055552222", telLabel(request), faxLabel(request)));
+        // Same clinic, but the ampersand spelled as a numeric entity: it matches after decoding, yet
+        // this spelling must never reach the parser and print as "&#38;".
+        request.setParameter("useSC", "true");
+        request.setParameter("scAddress", wire.replace("Smith & Jones", "Smith &#38; Jones"));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
+
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+
+            assertThat(bound.getParameter("useSC")).isEqualTo("true");
+            assertThat(RxSatelliteClinicAddress.clinicPart(bound.getParameter("scAddress")))
+                    .isEqualTo(RxSatelliteClinicAddress.clinicPart(wire)).contains("Smith & Jones").doesNotContain("&#38;");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }

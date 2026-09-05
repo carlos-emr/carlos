@@ -324,7 +324,7 @@ for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
   # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
   # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
-  t=300; case "$s" in *rx-fax-record-binding*) t=900 ;; esac
+  t=300; case "$s" in *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;; esac
   timeout "$t" node "$s" && echo "PASS $s" || echo "FAIL $s"
 done
 ```

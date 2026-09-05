@@ -576,7 +576,9 @@ async function runChecks(context) {
       // Path only: the query carries scriptId and the satellite-clinic block, and this goes to the artifact file.
       visited.push({ label: 'fax-request', url: new URL(faxRequest.url()).pathname + ' (query redacted)', status: faxStatus });
     } catch (error) {
-      findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
+      // A captured request whose response never came is a different failure from no request at all.
+      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: `the Fax click's createcustomedpdf request got no response: ${error.message}` });
+      else findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
     }
 
     if (faxRequest) {
