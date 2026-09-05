@@ -74,17 +74,25 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
         self.dropped = []
         self.commands = []
 
-    def _patched(self, schemas, workspace=True):
+    def _patched(self, schemas, workspace=True, rmtree_fails=False):
         """Every external effect replaced, EXCEPT the verb's own logic.
 
         rmtree really removes paths inside the test's temp dir and
         records anything else, so the workspace is genuinely destroyed
-        while the host's /var paths are not touched."""
+        while the host's /var paths are not touched. With
+        `rmtree_fails`, it reports the failure the way shutil does --
+        through `onerror` -- and leaves the directory standing, which is
+        what a busy mount or a permission wall looks like here."""
         real_rmtree = shutil.rmtree
         removed = self.removed = []
 
         def fake_rmtree(path, **kw):
             removed.append(path)
+            if rmtree_fails and path == self.workspace:
+                kw["onerror"](os.rmdir, path,
+                              (OSError, OSError("Device or resource busy"),
+                               None))
+                return
             if path.startswith(self.dir):
                 real_rmtree(path, ignore_errors=True)
 
@@ -120,8 +128,8 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
         ]
 
     def _destroy(self, schemas, argv=("--confirm", "clinic-1"),
-                 workspace=True):
-        stack, patches = self._patched(schemas, workspace)
+                 workspace=True, rmtree_fails=False):
+        stack, patches = self._patched(schemas, workspace, rmtree_fails)
         out, err = io.StringIO(), io.StringIO()
         with stack:
             for p in patches:
@@ -181,6 +189,20 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
         code, out, err = self._destroy({"o19_archive": 3})
         self.assertIn("archive CSV export", err)
         self.assertIn("import_archived_", err)
+
+    def test_a_workspace_that_cannot_be_removed_fails_the_whole_verb(self):
+        """The estate summary is the last line the operator reads, so it
+        must never stand over a credential store still on disk. It
+        cannot: rmtree reports through `onerror`, the collected errors
+        reach the existing INCOMPLETE gate, and the verb exits 1 before
+        any "destroyed" line is printed. Pinned because the gate lives
+        several statements away from the workspace removal that now
+        feeds it, and a later reordering would make the claim reachable
+        again."""
+        with self.assertRaises(SystemExit) as caught:
+            self._destroy({"o19_archive": 3}, rmtree_fails=True)
+        self.assertEqual(caught.exception.code, 1)
+        self.assertTrue(os.path.isdir(self.workspace))
 
     def test_a_host_that_never_imported_says_nothing_about_o19(self):
         code, out, err = self._destroy({}, workspace=False)
