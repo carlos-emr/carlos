@@ -51,10 +51,22 @@
 <fmt:setBundle basename="oscarResources"/>
 <%
     // Locks this page to its own origin. There is no third-party script here, so a strict
-    // policy costs nothing and blocks injected script outright. The eForm render servlets
-    // set a per-page policy the same way.
+    // policy costs nothing and blocks injected script outright.
+    //
+    // script-src carries a per-response nonce rather than 'unsafe-inline'. The page has two
+    // inline blocks it cannot do without — the server-resolved configuration below and the
+    // CSRF bootstrap in csrf-token.jspf — and a nonce admits exactly those two while still
+    // rejecting anything an attacker manages to inject, which 'unsafe-inline' would not.
+    // Both blocks carry the nonce attribute; an inline block added without one will simply
+    // not execute.
+    byte[] nonceBytes = new byte[16];
+    new java.security.SecureRandom().nextBytes(nonceBytes);
+    String cspNonce = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(nonceBytes);
+    // Read by csrf-token.jspf, which emits a nonce only when the including page sets this.
+    request.setAttribute("cspNonce", cspNonce);
     response.setHeader("Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
+            "default-src 'self'; img-src 'self' data:; script-src 'self' 'nonce-" + cspNonce
+                    + "'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
     String ctx = request.getContextPath();
 %>
 <!DOCTYPE html>
@@ -136,7 +148,7 @@
 
 <main id="pages" class="pages" data-tool="select"></main>
 
-<script>
+<script nonce="<%=cspNonce%>">
     // Server-resolved configuration for documentAnnotate.js. Every value here is either a
     // number the action parsed or a localized string; nothing is interpolated into markup.
     window.CARLOS_ANNOTATE = {

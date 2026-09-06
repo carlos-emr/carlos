@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.FaxManager;
@@ -44,39 +43,45 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 
 /**
- * GET-only view gate that prepares an inbox document for faxing.
+ * GET-only gate that sends an inbox document into the shared fax pipeline.
  *
  * <p>Validates that:
  * <ul>
- *   <li>The caller has {@code _edoc r} and {@code _fax r} privileges.</li>
+ *   <li>The caller has {@code _edoc r} and {@code _fax r} privileges, and access to the
+ *       linked patient record when the document is patient-linked.</li>
  *   <li>At least one active fax account is configured.</li>
- *   <li>The document exists on disk as a regular file.</li>
- *   <li>The document is a PDF (only PDFs can be sent directly; non-PDFs
- *       produce a user-visible error result).</li>
+ *   <li>The document exists on disk as a regular file inside the document store.</li>
+ *   <li>The document is a PDF; only PDFs can be sent directly.</li>
  * </ul>
  *
- * <p>On success, forwards to {@code CoverPage.jsp} via the {@code "preview"} result,
- * with the following request attributes set:
- * <ul>
- *   <li>{@code faxFilePath} – absolute path to the document PDF</li>
- *   <li>{@code transactionType} – {@code "DOCUMENT"}</li>
- *   <li>{@code transactionId} – the document number (int)</li>
- *   <li>{@code demographicNo} – the linked demographic number, or 0 if unlinked</li>
- *   <li>{@code accounts} – list of active {@link FaxConfig} accounts</li>
- * </ul>
+ * <p>On success it redirects to {@code /fax/faxAction?method=prepareFax} rather than
+ * forwarding to the cover page itself. That matters for security, not tidiness:
+ * {@code prepareFax} stages its own copy of the file under the application temp root and
+ * records a session claim which {@code queue()} consumes, so the path that is eventually
+ * faxed is one the server chose. Forwarding to the cover page with a document-store path in
+ * a form field would let a client substitute a path of its own.
+ *
+ * <p>Every refusal resolves to the {@code noFax} result with a user-visible reason in the
+ * {@code message} request attribute.
  *
  * @since 2026-06
  */
 public class FaxDocument2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final String CONTENT_TYPE_PDF = "application/pdf";
 
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
+    /** Request attribute the {@code noFax} view renders. */
+    private static final String MESSAGE_ATTRIBUTE = "message";
+
+    /** Result name for every user-visible refusal on this gate. */
+    private static final String NO_FAX = "noFax";
+
+    private static final String INVALID_PATH_MESSAGE = "Invalid document path.";
+
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
     @Override
     public String execute() {
@@ -97,46 +102,64 @@ public class FaxDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_fax)");
         }
 
-        String docIdStr = StringUtils.trimToNull(request.getParameter("docId"));
-        if (docIdStr == null) {
-            request.setAttribute("message", "Document ID is required.");
-            return "noFax";
+        Integer docId = parseDocId(request.getParameter("docId"));
+        if (docId == null) {
+            return refuse(request, "A valid document ID is required.");
         }
 
-        int docId;
-        try {
-            docId = Integer.parseInt(docIdStr);
-        } catch (NumberFormatException e) {
-            request.setAttribute("message", "Invalid document ID.");
-            return "noFax";
-        }
-
-        // Check fax accounts before loading the document
-        List<FaxConfig> accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
-        if (accounts.isEmpty()) {
-            request.setAttribute("message", "No active fax accounts are configured. Contact your system administrator.");
-            return "noFax";
+        // Checked before the document is loaded: with no account configured there is nothing
+        // this screen could do with it.
+        if (faxManager.getFaxGatewayAccounts(loggedInInfo).isEmpty()) {
+            return refuse(request,
+                    "No active fax accounts are configured. Contact your system administrator.");
         }
 
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
         if (doc == null) {
-            request.setAttribute("message", "Document not found.");
-            return "noFax";
+            return refuse(request, "Document not found.");
         }
 
-        // Only PDF documents can be faxed directly
+        String problem = faxabilityProblem(doc, docId);
+        if (problem != null) {
+            return refuse(request, problem);
+        }
+
+        int demographicNo = resolveDemographicNo(doc, docId);
+        if (demographicNo > 0
+                && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Unauthorized access to patient record");
+        }
+
+        return redirectToPreparedFax(request, response, docId, demographicNo);
+    }
+
+    private static Integer parseDocId(String raw) {
+        String trimmed = StringUtils.trimToNull(raw);
+        if (trimmed == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(trimmed);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * @return a user-visible reason this document cannot be faxed, or {@code null} when it can.
+     *         Reasons are deliberately generic: the caller is authorised for {@code _edoc}, but a
+     *         stored path is still infrastructure detail that does not belong in the browser.
+     */
+    private static String faxabilityProblem(EDoc doc, int docId) {
         String contentType = StringUtils.defaultString(doc.getContentType());
         if (!contentType.toLowerCase().contains("pdf")) {
-            request.setAttribute("message",
-                "Only PDF documents can be faxed directly. This document is a " + contentType + " file. " +
-                "Please convert it to PDF before faxing.");
-            return "noFax";
+            return "Only PDF documents can be faxed directly. This document is a " + contentType
+                    + " file. Please convert it to PDF before faxing.";
         }
 
         String filePath = doc.getFilePath();
         if (StringUtils.isBlank(filePath)) {
-            request.setAttribute("message", "Document file path is not available.");
-            return "noFax";
+            return "Document file path is not available.";
         }
 
         java.io.File documentDir = new java.io.File(
@@ -144,61 +167,62 @@ public class FaxDocument2Action extends ActionSupport {
         Path docPath;
         try {
             docPath = Paths.get(filePath);
-        } catch (java.nio.file.InvalidPathException e) {
-            logger.error("Invalid document path for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
-            request.setAttribute("message", "Invalid document path.");
-            return "noFax";
-        }
-        try {
             PathValidationUtils.validateExistingPath(docPath.toFile(), documentDir);
-        } catch (SecurityException e) {
-            logger.error("Path validation failed for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
-            request.setAttribute("message", "Invalid document path.");
-            return "noFax";
+        } catch (java.nio.file.InvalidPathException | SecurityException e) {
+            logger.error("Document path rejected for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
+            return INVALID_PATH_MESSAGE;
         }
 
         if (!Files.exists(docPath) || !Files.isRegularFile(docPath)) {
             logger.error("Document file not found on disk for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
-            request.setAttribute("message", "Document file is not available on the server.");
-            return "noFax";
+            return "Document file is not available on the server.";
         }
 
-        // Determine the linked demographic number (0 = unlinked)
+        return null;
+    }
+
+    /** @return the linked demographic number, or 0 when the document is not patient-linked. */
+    private static int resolveDemographicNo(EDoc doc, int docId) {
         String moduleId = StringUtils.defaultString(doc.getModuleId());
-        int demographicNo = 0;
-        if (!moduleId.isEmpty() && !"-1".equals(moduleId) && !"null".equalsIgnoreCase(moduleId)) {
-            try {
-                demographicNo = Integer.parseInt(moduleId);
-            } catch (NumberFormatException e) {
-                logger.debug("Non-numeric moduleId for docId={}, treating as unlinked", docId);
-            }
+        if (moduleId.isEmpty() || "-1".equals(moduleId) || "null".equalsIgnoreCase(moduleId)) {
+            return 0;
         }
-
-        if (demographicNo > 0
-                && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-            throw new SecurityException("Unauthorized access to patient record");
-        }
-
-        // Hand off to the shared fax pipeline rather than forwarding to the cover page with
-        // this document's stored path. prepareFax stages its own copy under the application
-        // temp root and records a session claim that queue() must consume, so a client can
-        // never name a document-store path of its own choosing on the cover-page form.
-        // Mirrors AddEForm2Action.redirectToPreparedFax.
-        StringBuilder target = new StringBuilder(request.getContextPath())
-                .append("/fax/faxAction?method=prepareFax")
-                .append("&transactionType=")
-                .append(URLEncoder.encode(FaxManager.TransactionType.DOCUMENT.name(), StandardCharsets.UTF_8))
-                .append("&transactionId=")
-                .append(URLEncoder.encode(String.valueOf(docId), StandardCharsets.UTF_8))
-                .append("&demographicNo=")
-                .append(URLEncoder.encode(String.valueOf(demographicNo), StandardCharsets.UTF_8));
         try {
-            response.sendRedirect(target.toString());
+            return Integer.parseInt(moduleId);
+        } catch (NumberFormatException e) {
+            logger.debug("Non-numeric moduleId for docId={}, treating as unlinked", docId);
+            return 0;
+        }
+    }
+
+    /**
+     * Hands off to the shared fax pipeline rather than forwarding to the cover page with this
+     * document's stored path. {@code prepareFax} stages its own copy under the application temp
+     * root and records a session claim that {@code queue()} must consume, so a client can never
+     * name a document-store path of its own choosing on the cover-page form. Mirrors
+     * {@code AddEForm2Action.redirectToPreparedFax}.
+     */
+    private String redirectToPreparedFax(HttpServletRequest request, HttpServletResponse response,
+                                         int docId, int demographicNo) {
+        String target = request.getContextPath()
+                + "/fax/faxAction?method=prepareFax"
+                + "&transactionType="
+                + URLEncoder.encode(FaxManager.TransactionType.DOCUMENT.name(), StandardCharsets.UTF_8)
+                + "&transactionId="
+                + URLEncoder.encode(String.valueOf(docId), StandardCharsets.UTF_8)
+                + "&demographicNo="
+                + URLEncoder.encode(String.valueOf(demographicNo), StandardCharsets.UTF_8);
+        try {
+            response.sendRedirect(target);
         } catch (java.io.IOException e) {
             logger.error("Could not redirect document {} into the fax pipeline", docId, e);
-            request.setAttribute("message", "The fax screen could not be opened.");
-            return "noFax";
+            return refuse(request, "The fax screen could not be opened.");
         }
         return NONE;
+    }
+
+    private String refuse(HttpServletRequest request, String reason) {
+        request.setAttribute(MESSAGE_ATTRIBUTE, reason);
+        return NO_FAX;
     }
 }

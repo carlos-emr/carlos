@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.documentManager.annotation;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.IOUtils;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -36,7 +37,6 @@ import org.apache.pdfbox.util.Matrix;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -305,7 +305,8 @@ public class AnnotatedDocumentComposer {
      */
     private static String sanitize(String text, PDType0Font font) {
         StringBuilder safe = new StringBuilder(text.length());
-        for (int i = 0; i < text.length(); ) {
+        int i = 0;
+        while (i < text.length()) {
             int codePoint = text.codePointAt(i);
             String piece = new String(Character.toChars(codePoint));
             i += Character.charCount(codePoint);
@@ -372,16 +373,15 @@ public class AnnotatedDocumentComposer {
                 || composed[0] != '%' || composed[1] != 'P' || composed[2] != 'D' || composed[3] != 'F') {
             throw new IllegalStateException("The composed document is not a valid PDF.");
         }
-        File probe = Files.createTempFile("carlos-compose-verify-", ".pdf").toFile();
-        try {
-            Files.write(probe.toPath(), composed);
-            try (PDDocument check = Loader.loadPDF(probe, IOUtils.createTempFileOnlyStreamCache())) {
-                if (check.getNumberOfPages() != expectedPages) {
-                    throw new IllegalStateException("The composed document changed the page count.");
-                }
+        // Re-parsed from memory on purpose. Staging it through a temp file would put a
+        // patient's document into a world-readable directory for the length of the check,
+        // and the byte array is already bounded by the size ceiling the service enforces
+        // before composition starts.
+        try (RandomAccessReadBuffer buffer = new RandomAccessReadBuffer(composed);
+             PDDocument check = Loader.loadPDF(buffer, IOUtils.createTempFileOnlyStreamCache())) {
+            if (check.getNumberOfPages() != expectedPages) {
+                throw new IllegalStateException("The composed document changed the page count.");
             }
-        } finally {
-            Files.deleteIfExists(probe.toPath());
         }
     }
 }

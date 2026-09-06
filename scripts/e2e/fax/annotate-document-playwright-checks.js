@@ -25,7 +25,11 @@
  *      request appears, which is what a PDF.js regression would look like.
  *   2. Word boxes are OPTIONAL. The endpoint answers 200 with hasTextLayer
  *      either way, and highlighting works on a page with no text layer.
- *   3. The save endpoint refuses GET.
+ *   3. The page's Content-Security-Policy is BOTH present and satisfied. A strict
+ *      script-src silently disables the inline configuration block and the CSRF
+ *      bootstrap, which leaves the viewer blank and every save rejected; the browser
+ *      reports that only on the console, so the console is asserted here.
+ *   4. The save endpoint refuses GET.
  *   4. A real save round-trips: the composed copy is filed as a NEW document,
  *      reported by number, and is independently renderable. Each run therefore
  *      ADDS a document to the chart, which is why this belongs only on a
@@ -122,6 +126,9 @@ async function main() {
 
   const forbiddenRequests = [];
   const imageRequests = [];
+  // A CSP that blocks the page's own inline scripts fails silently in the DOM: the
+  // console is the only place it is reported.
+  const cspViolations = [];
   context.on('request', (request) => {
     const url = request.url();
     if (FORBIDDEN_ASSET.test(url)) {
@@ -134,6 +141,12 @@ async function main() {
 
   try {
     const page = await context.newPage();
+    page.on('console', (message) => {
+      if (message.type() === 'error' && /Content Security Policy/i.test(message.text())) {
+        cspViolations.push(message.text());
+      }
+    });
+    page.on('pageerror', (error) => cspViolations.push(`pageerror: ${error.message}`));
     await login(page);
 
     const docId = process.env.DOC_ID || '1';
@@ -175,9 +188,25 @@ async function main() {
     check('save endpoint refuses GET with 405', getSave === 405, `status ${getSave}`);
 
     // ---- the viewer renders ----
-    await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`,
+    const viewerResponse = await page.goto(
+      `${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`,
       { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2500);
+
+    const csp = viewerResponse.headers()['content-security-policy'] || '';
+    check('viewer sends a Content-Security-Policy', csp.length > 0, '(no header)');
+    check('the policy admits the page\'s own inline scripts by nonce',
+      /script-src[^;]*'nonce-/.test(csp), csp || '(no header)');
+
+    // These two prove the policy is actually satisfied rather than merely well-formed.
+    // Without the nonce both blocks are dropped, the viewer renders nothing, and the
+    // save path fails with an empty CSRF token.
+    const configLoaded = await page.evaluate(() => typeof window.CARLOS_ANNOTATE === 'object');
+    check('the inline configuration block executed', configLoaded,
+      'window.CARLOS_ANNOTATE is not an object — script-src is blocking it');
+    const csrfBootstrapped = await page.evaluate(() => 'csrfTokenReady' in window);
+    check('the CSRF bootstrap executed', csrfBootstrapped,
+      'window.csrfTokenReady is absent — script-src is blocking csrf-token.jspf');
 
     const toolCount = await page.locator('.tool').count();
     check('viewer renders its toolbar', toolCount >= 6, `${toolCount} tools`);
@@ -197,6 +226,9 @@ async function main() {
 
     const csrf = await page.locator('input[name="CSRF-TOKEN"]').count();
     check('viewer bootstraps a CSRF token', csrf >= 1, `${csrf} token inputs`);
+
+    check('the page reported no CSP violation or script error',
+      cspViolations.length === 0, cspViolations.slice(0, 3).join(' | '));
 
     // ---- highlighting works regardless of the text layer ----
     await page.locator('.tool[data-tool="highlight"]').click();

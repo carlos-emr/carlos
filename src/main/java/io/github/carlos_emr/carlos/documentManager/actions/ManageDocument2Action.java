@@ -850,6 +850,22 @@ public class ManageDocument2Action extends ActionSupport {
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    /** Returned by the renderer when a page cannot be produced; never written to the response. */
+    private static final byte[] EMPTY_IMAGE = new byte[0];
+
+    /**
+     * Answers a failed page render with a real status. A direct-response action owns its own
+     * error response: returning a Struts result here would let an HTML error page be written
+     * where an image was requested.
+     */
+    private void sendRenderFailure() {
+        try {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        } catch (IOException e) {
+            log.error("Could not send the page-render failure status", e);
+        }
+    }
+
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
         return createCacheVersion2(d, pageNum, DEFAULT_RENDER_DPI);
     }
@@ -860,7 +876,9 @@ public class ManageDocument2Action extends ActionSupport {
      *
      * @param dpi one of {@link #ALLOWED_RENDER_DPI}; callers must resolve it through
      *            {@link #resolveRequestedDpi()} rather than passing request data
-     * @return the PNG bytes, or null if rendering fails or the page is out of bounds
+     * @return the PNG bytes, or an empty array if rendering fails or the page is out of
+     *         bounds. Callers must treat an empty array as a failure and send an error
+     *         status; writing it would serve a zero-byte image under a 200.
      */
     public byte[] createCacheVersion2(Document d, Integer pageNum, int dpi) {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
@@ -873,14 +891,14 @@ public class ManageDocument2Action extends ActionSupport {
                 // Validate page number is within bounds
                 if (pageNum == null) {
                     log.error("Page number is null for document {}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                    return null;
+                    return EMPTY_IMAGE;
                 }
 
                 int pageIndex = pageNum - 1;
                 int totalPages = pdf.getNumberOfPages();
                 if (pageIndex < 0 || pageIndex >= totalPages) {
                     log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSafe.sanitize(d.getDocfilename()), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                    return null;
+                    return EMPTY_IMAGE;
                 }
 
                 org.apache.pdfbox.pdmodel.common.PDRectangle mediaBox =
@@ -890,7 +908,7 @@ public class ManageDocument2Action extends ActionSupport {
                 if (megapixels > MAX_RENDER_MEGAPIXELS) {
                     log.error("Refusing to render page {} of document {}: {} megapixels exceeds the limit",
                             pageNum, LogSafe.sanitize(d.getDocfilename()), megapixels); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                    return null;
+                    return EMPTY_IMAGE;
                 }
 
                 PDFRenderer rend = new PDFRenderer(pdf);
@@ -905,7 +923,7 @@ public class ManageDocument2Action extends ActionSupport {
             return baos.toByteArray();
         } catch (Exception e) {
             log.error("Error decoding pdf file {}", LogSafe.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            return null;
+            return EMPTY_IMAGE;
         }
     }
 
@@ -947,6 +965,18 @@ public class ManageDocument2Action extends ActionSupport {
         int dpi = resolveRequestedDpi();
         File outfile = hasCacheVersion2(d, pageNum, dpi);
 
+        byte[] pdfBytes = null;
+        if (outfile == null) {
+            pdfBytes = createCacheVersion2(d, pageNum, dpi);
+            if (pdfBytes.length == 0) {
+                // Rendering failed or the page is out of range. Writing the empty array would
+                // serve a zero-byte PNG under a 200, which reaches an <img> tag as a broken
+                // image with nothing in the network log to explain it.
+                sendRenderFailure();
+                return;
+            }
+        }
+
         // Content type must be set BEFORE the body: setResponse writes the bytes and closes
         // the output stream, so a header set afterwards is silently dropped and the image was
         // served with no Content-Type at all. Browsers sniffed the PNG magic bytes, which is
@@ -956,7 +986,6 @@ public class ManageDocument2Action extends ActionSupport {
         if (outfile != null) {
             setResponse(response, outfile);
         } else {
-            byte[] pdfBytes = createCacheVersion2(d, pageNum, dpi);
             setResponse(response, pdfBytes);
         }
 
@@ -1021,6 +1050,10 @@ public class ManageDocument2Action extends ActionSupport {
             setResponse(response, outfile);
         } else {
             byte[] pdfBytes = createCacheVersion2(d, pn);
+            if (pdfBytes.length == 0) {
+                sendRenderFailure();
+                return;
+            }
             setResponse(response, pdfBytes);
         }
 

@@ -54,7 +54,7 @@ import org.apache.struts2.ServletActionContext;
  */
 public class AnnotateDocument2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
     private int docId;
     private int pageCount;

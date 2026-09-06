@@ -37,6 +37,10 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.UUID;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -80,6 +84,9 @@ public class AnnotatedDocumentService {
 
     /** Matches the multipart ceiling used elsewhere in the document module. */
     public static final long MAX_ANNOTATABLE_BYTES = 50L * 1024 * 1024;
+
+    /** Retries before giving up on a unique destination name; a collision is already rare. */
+    private static final int MAX_FILENAME_ATTEMPTS = 5;
 
     private static final String SOURCE_PREFIX = "annotated-copy-of:";
     private static final String ANNOTATED_SUFFIX = " (annotated)";
@@ -152,7 +159,7 @@ public class AnnotatedDocumentService {
 
         assertAnnotatable(source, sourceFile);
 
-        Path readOnlyCopy = Files.createTempFile("carlos-annotate-src-", ".pdf");
+        Path readOnlyCopy = createPrivateWorkingCopy();
         byte[] composed;
         try {
             Files.copy(sourceFile.toPath(), readOnlyCopy,
@@ -163,10 +170,8 @@ public class AnnotatedDocumentService {
             Files.deleteIfExists(readOnlyCopy);
         }
 
-        String newFileName = PathValidationUtils.validateGeneratedFileName(
-                "document_" + System.currentTimeMillis() + "_annotated.pdf");
-        File target = PathValidationUtils.validateGeneratedChildPath(newFileName, documentDir);
-        Files.write(target.toPath(), composed);
+        File target = createUniqueTarget(documentDir, composed);
+        String newFileName = target.getName();
 
         int newDocNo;
         try {
@@ -194,12 +199,11 @@ public class AnnotatedDocumentService {
      */
     private byte[] composeBounded(Path source, List<DocumentAnnotationDto> annotations,
                                   Path signature, Path font) throws IOException {
-        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+        try (ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread t = new Thread(runnable, "annotated-document-composer");
             t.setDaemon(true);
             return t;
-        });
-        try {
+        })) {
             Callable<byte[]> task = () -> composer.compose(source, annotations, signature, font);
             Future<byte[]> future = executor.submit(task);
             try {
@@ -220,8 +224,55 @@ public class AnnotatedDocumentService {
                 }
                 throw new IOException("The annotated document could not be composed.");
             }
-        } finally {
-            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * Writes the composed bytes to a destination no other request can be holding.
+     *
+     * <p>A timestamp alone is not unique: two saves completing in the same millisecond would
+     * pick the same name, and because a plain write truncates an existing file both document
+     * rows would end up pointing at whichever request finished last. On a shared chart that
+     * silently replaces one patient's document with another's. {@link StandardOpenOption#CREATE_NEW}
+     * makes creation atomic, so a collision fails rather than overwrites, and the loop then
+     * takes a fresh name.
+     */
+    private File createUniqueTarget(File documentDir, byte[] composed) throws IOException {
+        for (int attempt = 0; attempt < MAX_FILENAME_ATTEMPTS; attempt++) {
+            String candidate = PathValidationUtils.validateGeneratedFileName(
+                    "document_" + System.currentTimeMillis() + "_"
+                            + UUID.randomUUID().toString().replace("-", "") + "_annotated.pdf");
+            File target = PathValidationUtils.validateGeneratedChildPath(candidate, documentDir);
+            try {
+                Files.write(target.toPath(), composed, StandardOpenOption.CREATE_NEW,
+                        StandardOpenOption.WRITE);
+                return target;
+            } catch (FileAlreadyExistsException collision) {
+                logger.warn("Annotated copy filename collided; retrying with a new name");
+            }
+        }
+        throw new IOException("Could not allocate a filename for the annotated document.");
+    }
+
+    /**
+     * Creates the working copy inside CARLOS' own temp root with owner-only permissions.
+     *
+     * <p>The default temp directory is shared, and this file holds a patient's document for the
+     * duration of composition. Creating it with {@code rw-------} under the application temp
+     * root keeps it out of reach of other accounts on the host, and the caller deletes it in a
+     * finally block regardless of outcome.
+     */
+    private static Path createPrivateWorkingCopy() throws IOException {
+        Path root = Path.of(System.getProperty("java.io.tmpdir"),
+                PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+        Files.createDirectories(root);
+        try {
+            return Files.createTempFile(root, "carlos-annotate-src-", ".pdf",
+                    PosixFilePermissions.asFileAttribute(
+                            PosixFilePermissions.fromString("rw-------")));
+        } catch (UnsupportedOperationException notPosix) {
+            // Non-POSIX filesystem: fall back to a plain create inside the same private root.
+            return Files.createTempFile(root, "carlos-annotate-src-", ".pdf");
         }
     }
 

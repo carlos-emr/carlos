@@ -74,10 +74,10 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
     /** Generous for a coordinate model, far below anything that could carry a document. */
     private static final int MAX_BODY_BYTES = 256 * 1024;
 
-    private final SecurityInfoManager securityInfoManager;
-    private final DocumentAnnotationParser parser;
-    private final AnnotatedDocumentService injectedService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient DocumentAnnotationParser parser;
+    private final transient AnnotatedDocumentService injectedService;
+    private final transient ObjectMapper objectMapper = new ObjectMapper();
 
     public SaveAnnotatedDocument2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class), new DocumentAnnotationParser(), null);

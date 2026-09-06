@@ -73,8 +73,8 @@ public class DocumentTextBoxes2Action extends ActionSupport {
     /** Beyond this a highlight snap is not useful and the payload becomes the bottleneck. */
     private static final int MAX_WORDS_PER_PAGE = 5_000;
 
-    private final SecurityInfoManager securityInfoManager;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient ObjectMapper objectMapper = new ObjectMapper();
 
     public DocumentTextBoxes2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class));

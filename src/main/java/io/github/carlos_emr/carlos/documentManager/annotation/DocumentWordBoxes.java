@@ -55,6 +55,9 @@ import java.util.List;
  */
 public final class DocumentWordBoxes {
 
+    /** Sentinel for a run of glyphs that encloses no area, so has no snap geometry. */
+    private static final double[] NO_BOX = new double[0];
+
     private DocumentWordBoxes() {
     }
 
@@ -92,7 +95,7 @@ public final class DocumentWordBoxes {
                             return;
                         }
                         double[] wordBox = boundingBox(word, displayW, displayH);
-                        if (wordBox != null) {
+                        if (wordBox.length == 4) {
                             boxes.add(wordBox);
                         }
                     }
@@ -143,7 +146,8 @@ public final class DocumentWordBoxes {
             maxY = Math.max(maxY, y + position.getHeightDir());
         }
         if (maxX <= minX || maxY <= minY) {
-            return null;
+            // A zero-area run (a stray control glyph, say) is not a snap target.
+            return NO_BOX;
         }
         return new double[]{
                 clamp(minX / displayW),
@@ -157,6 +161,6 @@ public final class DocumentWordBoxes {
         if (!Double.isFinite(value)) {
             return 0d;
         }
-        return Math.max(0d, Math.min(1d, value));
+        return Math.clamp(value, 0d, 1d);
     }
 }
