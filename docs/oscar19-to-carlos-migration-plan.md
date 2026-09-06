@@ -1158,6 +1158,18 @@ billing totals matching, then `--cleanup`) is what promoted `bc` into
 its one open item is a LIVE rehearsal, which needs a host with a rootless
 podman engine.
 
+## 9b. The review ledger
+
+The multi-agent review of the importer's end state (M24) raised **89
+findings**: 48 survived adversarial verification, 17 were refuted, and 24
+never received two verdicts. All 89 are fixed — nothing was deferred or closed
+as "won't fix", and the 17 refutations turned out to mean "already fixed by
+one of the four commits between the reviewed tree and the branch tip the
+refuters checked", so M25 re-opened every one of them regardless.
+
+Each finding, its severity, its dimension, the verifier's verdict and the
+commit that fixed it: **`docs/o19-review-ledger.md`**.
+
 ## 9c. The second deployment: carlos-podman
 
 `carlos-emr/carlos-podman` now ships the same two verbs. The engine is not
