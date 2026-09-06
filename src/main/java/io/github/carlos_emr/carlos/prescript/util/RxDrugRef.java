@@ -459,6 +459,22 @@ public class RxDrugRef {
         return normalizeStatusStruct(struct);
     }
 
+    /**
+     * The status a caller should report when DrugRef cannot be reached at all: {@code state} of
+     * {@code UNAVAILABLE}, and every other documented key present and empty.
+     *
+     * <p>Exists so the outage payload is built from the same contract as a real answer instead of
+     * being hand-assembled at the call site. A client that meets the full set of keys on the
+     * success path and a bare {@code state} on the outage path has to cope with a shape change on
+     * exactly the path where it has least information to work with.</p>
+     *
+     * @return a mutable map carrying every key of {@link #getUpdateStatus()}
+     * @since 2026-09-06
+     */
+    public static Map<String, String> unavailableStatus() {
+        return normalizeStatusStruct(Map.of("state", "UNAVAILABLE"));
+    }
+
     /** The keys {@link #getUpdateStatus()} guarantees, whatever the DrugRef build answers with. */
     static final String[] STATUS_KEYS =
             {"state", "step", "message", "startedAt", "finishedAt", "lastUpdate"};

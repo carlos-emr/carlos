@@ -124,10 +124,15 @@ public class RxUpdateDrugref2Action extends ActionSupport {
      * a DrugRef build older than the method returns (an XML-RPC fault). The page then degrades
      * to the {@code verify} probe, whose {@code lastUpdate} still flips away from
      * {@code "updating"} when the run ends.</p>
+     *
+     * <p>The fallback comes from {@link RxDrugRef#unavailableStatus()} rather than being
+     * hand-assembled, so it carries every key a successful answer carries and the two shapes
+     * cannot drift apart. A client would otherwise see the documented keys on the success path
+     * and {@code undefined} for the same keys on the outage path — the one path where it is
+     * least able to cope with a surprise.</p>
      */
     private String status() throws IOException, ServletException {
-        Map<String, String> fallback = new HashMap<>();
-        fallback.put("state", "UNAVAILABLE");
+        Map<String, String> fallback = RxDrugRef.unavailableStatus();
         writeJson(runOrFallback("getUpdateStatus", () -> new RxDrugRef().getUpdateStatus(), fallback));
         return NONE;
     }

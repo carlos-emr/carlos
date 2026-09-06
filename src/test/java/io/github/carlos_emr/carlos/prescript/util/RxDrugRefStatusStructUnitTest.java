@@ -90,6 +90,16 @@ class RxDrugRefStatusStructUnitTest {
     }
 
     @Test
+    @DisplayName("should shape the unavailable fallback exactly like a real answer")
+    void shouldShapeTheUnavailableFallback_likeARealAnswer() {
+        Map<String, String> status = RxDrugRef.unavailableStatus();
+
+        assertThat(status).containsOnlyKeys(RxDrugRef.STATUS_KEYS);
+        assertThat(status.get("state")).isEqualTo("UNAVAILABLE");
+        assertThat(status.values()).doesNotContainNull();
+    }
+
+    @Test
     @DisplayName("should pass through a key the documented set does not name")
     void shouldPassThroughAnExtraKey_fromANewerServer() {
         Map<String, String> status = RxDrugRef.normalizeStatusStruct(

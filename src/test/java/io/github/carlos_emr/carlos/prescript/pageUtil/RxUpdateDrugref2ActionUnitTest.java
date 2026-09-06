@@ -213,7 +213,16 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
         assertThat(mockResponse.getContentType()).startsWith("application/json");
-        assertThat(mockResponse.getContentAsString()).contains("\"state\":\"UNAVAILABLE\"");
+        String body = mockResponse.getContentAsString();
+        assertThat(body).contains("\"state\":\"UNAVAILABLE\"");
+        // The outage payload must carry the SAME keys as a successful answer. A client meeting
+        // the documented set on the success path and a bare state here would have to cope with a
+        // shape change on exactly the path where it knows least.
+        assertThat(body).contains("\"step\":\"\"")
+                .contains("\"message\":\"\"")
+                .contains("\"startedAt\":\"\"")
+                .contains("\"finishedAt\":\"\"")
+                .contains("\"lastUpdate\":\"\"");
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
         verifyNoMoreInteractions(mockSecurityInfoManager);
     }
