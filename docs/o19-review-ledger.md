@@ -25,7 +25,11 @@ default to "refuted" when uncertain.
 
 ## What "refuted" turned out to mean
 
-Almost every refutation was correct *and* uninformative: the refuters checked
+Two different things, and the split is the most useful number in this file:
+**9 of the 17 were already fixed; the other 8 were still live and the
+refuters were simply wrong.**
+
+The 9 are an artefact of how the verification was run. The refuters checked
 the branch **tip** (`40e1b75d`) rather than the reviewed tree (`008acdc4`),
 and four commits landed in between —
 
@@ -36,11 +40,29 @@ and four commits landed in between —
 | `d5e82c8a` | an `import_archived_` column took the target's charset and silently truncated a full latin1 TEXT (F02, F10) |
 | `40e1b75d` | the validation report said nothing about the transfer, the documents or the properties (F08, F53, F58) |
 
-So a "refuted" verdict there means *already fixed*, not *not a defect* — which
-is why **M25 re-opened all 17 regardless** and fixed the ones that were still
-live (`382e7ec1`, "five findings two refuters dismissed, and the evidence did
-not"). The 24 findings that never received two verdicts were triaged by hand
-in M24-c on the same rule: valid unless demonstrated otherwise.
+For those 9, "refuted" means *already fixed*, not *not a defect*.
+
+The remaining **8 were live defects the adversarial pass dismissed** — it was
+wrong on nearly half of what it was given:
+
+| finding | sev | what it was | fixed in |
+|---|---|---|---|
+| **F28** | medium | the decrypted clinic bundle — the whole source EMR in plaintext — written at **0644** | `b5d34685` |
+| F57 | medium | the report's verdict was a bare `PASSED` when content mismatches had been acknowledged | `3f49af6f` |
+| F60 | low | the oversized-row refusal told the operator their values had been archived, from a pre-check that refuses before any write | `b17c7274` |
+| F67 | low | the staging account's defaults file was the one credential write with no `fchmod` after `open` | `382e7ec1` |
+| F69 | low | the break-glass-admin resume witness compared a VARCHAR column to an unquoted number | `382e7ec1` |
+| F71 | low | `sql_escape`'s documented CR invariant was wrong over this tool's own transport | `b5d34685` |
+| F78 | low | the dump collation pre-check scanned only the first 64 KiB | `f191afde` |
+| F83 | low | `escape_property_key` double-escaped a leading space | `382e7ec1` |
+
+F28 is why this matters. A world-readable plaintext copy of a clinic's entire
+EMR is the worst thing in the 89, and the pass whose job was to catch
+overclaims waved it through. **M25's re-open of all 17 was therefore not
+caution — it was the step that caught it**, and `382e7ec1` ("five findings two
+refuters dismissed, and the evidence did not") is its record. The 24 findings
+that never received two verdicts were triaged by hand in M24-c on the same
+rule: valid unless demonstrated otherwise.
 
 **Every one of the 89 is fixed.** Nothing was deferred, downgraded, or closed
 as "won't fix" — the triage rule for this feature was that a valid finding is
@@ -49,8 +71,9 @@ work, with no top-N cut.
 ## Reading the table
 
 - **Verifier** is what the verification pass returned, not a judgement about
-  the finding: `refuted` almost always means "already fixed by one of the four
-  commits above" (see the disposition column).
+  the finding: 9 of the 17 `refuted` rows were already fixed and 8 were live
+  defects the pass got wrong. The **disposition** column is what separates
+  them.
 - **Disposition** — `fixed before review base` marks the findings whose fix
   had already landed between `008acdc4` and `40e1b75d`; everything else was
   fixed after the review.

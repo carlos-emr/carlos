@@ -1163,9 +1163,15 @@ podman engine.
 The multi-agent review of the importer's end state (M24) raised **89
 findings**: 48 survived adversarial verification, 17 were refuted, and 24
 never received two verdicts. All 89 are fixed — nothing was deferred or closed
-as "won't fix", and the 17 refutations turned out to mean "already fixed by
-one of the four commits between the reviewed tree and the branch tip the
-refuters checked", so M25 re-opened every one of them regardless.
+as "won't fix".
+
+The 17 refutations split two ways, and the split is the point: **9 were
+already fixed** by one of the four commits between the reviewed tree
+(`008acdc4`) and the branch tip the refuters actually checked (`40e1b75d`),
+but the other **8 were live defects the adversarial pass got wrong** — F28
+among them, "the decrypted clinic bundle, the whole source EMR in plaintext,
+is written at 0644". So M25's re-open of all 17 was not caution; it is what
+caught a PHI-at-rest defect the verification had dismissed.
 
 Each finding, its severity, its dimension, the verifier's verdict and the
 commit that fixed it: **`docs/o19-review-ledger.md`**.
