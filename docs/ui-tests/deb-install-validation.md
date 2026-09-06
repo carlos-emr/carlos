@@ -371,6 +371,18 @@ Notes on the contract:
   is not HTTPS. It creates its own timestamped probe eForm and deletes only
   that one; a failing run leaves the probe behind on purpose, so clear strays
   with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
+- **`echart-print-playwright-checks.js` must be run through `:443`.** It is the
+  guard for package exclusion 1010, and like 1045/1050 the defect it pins exists
+  *only* behind the WAF: the chart print POSTs the whole encounter form, so CRS
+  scored the clinician's own note prose in `ARGS:caseNote_note` and answered
+  every print with a 403 — "the chart print button gives a 403 no matter what
+  you choose to print" on 2026.08.0-alpha11. Each of its seven note bodies is a
+  phrase measured to trip a different CRS family; against bare Tomcat they are
+  just ordinary notes and the check degrades to covering the print path itself.
+  It types into the open encounter note but never saves it, so it seeds nothing
+  and cleans nothing up. Driving fourteen prints through one open encounter
+  outlives the note lock, so the eChart's own autosave answering 409 partway
+  through is expected and tolerated; a 403 from any of them is not.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
