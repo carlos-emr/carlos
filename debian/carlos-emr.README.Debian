@@ -236,6 +236,63 @@ request or response bodies (SecAuditLogParts ABFHZ). That is the PHI decision
 described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
 
+Reaching the server by IP address, and when you must not
+
+Most clinics run this on their own LAN and reach it at its address on the
+practice subnet. That is supported, and the package makes it work: CRS rule
+920350 ("Host header is a numeric IP address") would otherwise score 3 of the
+5-point inbound threshold on EVERY request from such a client, leaving 2 points
+of headroom in which a single further rule match blocks ordinary clinical work
+with a bare 403 and no application log line. Packaged rule 1090 removes 920350
+for a request that BOTH arrives from a SOURCE address in a private, loopback or
+link-local range (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1,
+fc00::/7, fe80::/10) AND carries no forwarding header, so a LAN-local
+deployment starts each request with the full 5 points. The source address is
+the peer nginx accepted the connection from, not a header, so an off-network
+client cannot claim it.
+
+Carrier-grade NAT space (100.64/10) is deliberately NOT in that list: RFC 6598
+shared address space belongs to the ISP and unrelated subscribers can sit in
+it, so it is not a private-network trust boundary. A site that deliberately
+runs a mesh VPN in that range and wants the exemption should add it in its own
+local-exclusions-before-crs.conf, as its own decision.
+
+A request arriving from a PUBLIC source address is deliberately NOT exempt:
+that is the case 920350 exists for (an internet scanner sweeping a range by
+IP), and the exemption would be worthless if it could be claimed from outside.
+
+  So: if this server is reachable from outside the practice network and people
+  reach it BY IP ADDRESS, give it a DNS name and have them use the name.
+
+An internet-exposed install used by public IP keeps the standing 3 points and
+the 2-point headroom, and its users will see occasional unexplained 403s on
+ordinary clinical work — a saved form or a refreshed panel failing with no
+error in the application log. A DNS name removes the whole class of problem,
+and you need one anyway for a real (non-self-signed) TLS certificate: see
+section 4.
+
+IF YOU FRONT THIS DEPLOYMENT WITH ANOTHER PROXY, CDN OR LOAD BALANCER, read
+this. That hop connects from its own address, which in the usual layout is
+RFC1918 — so REMOTE_ADDR stops being the client and becomes the proxy. Rule
+1090 requires the absence of any forwarding header precisely so the standard
+case cannot launder internet clients into the exemption. It matches header
+NAMES by prefix — ANY X-Forwarded-* header, plus X-Real-IP, Forwarded and Via
+— rather than a fixed list, because the family is open-ended in practice
+(X-Forwarded-Prefix, -Scheme, -Ssl, -Uri and vendor variants are all in live
+use) and a proxy falling outside a list would be read as a direct connection.
+A front end that sets NONE of those headers is the case this does NOT catch:
+its public clients would still reach the exemption, and closing that is your
+job, below. The same test means a clinic running its own internal proxy that
+stamps those headers on LAN traffic loses the exemption; that errs toward more
+inspection, and such a site can restore it deliberately in its own
+local-exclusions file. This is the same premise the packaged rate limits
+already depend on — they key on the TCP peer and collapse into one shared
+bucket behind an unconfigured front end (see conf.d/carlos-emr-limits.conf).
+Either way the answer is the same: configure set_real_ip_from/real_ip_header
+for the front end, confirm with "carlos-ctl waf tail" that 920350 behaves as
+you expect, and if in doubt disable this exemption in your own
+local-exclusions file.
+
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The package already ships
 clinical-workflow exclusions for the known free-text and base64 routes (see
@@ -661,7 +718,12 @@ The application will not start
   migration state; `systemctl status mariadb` shows the database.
 
 A page returns 403 and the application log shows nothing
-  That is the WAF, not the application. `carlos-ctl waf tail` shows why.
+  That is the WAF, not the application. `carlos-ctl waf tail` shows why. If it
+  happens intermittently on ordinary clinical work, check how clinicians reach
+  this server: rule 920350 spends 3 of the 5-point budget on every request that
+  arrives by IP from off the practice network, leaving little room before an
+  unrelated signature blocks. See "Reaching the server by IP address, and when
+  you must not" under section 5.
 
 Login redirects to http:// or the session is lost
   Tomcat's RemoteIpValve has stopped trusting nginx, so the application no
