@@ -844,6 +844,10 @@ class TestEncounterFormsPointingAtRemovedForms(RunRolesBase):
         1054 and the resumed import stops mid-roles."""
         db = FakeDb(archive_columns=["form_table", "form_name"])
         self.run_roles(db)
+        # and the backfill runs after them, before the guard reads
+        # form_value
+        backfill = o19roles.encounter_form_backfill_statement(DST, ARCH)
+        self.assertIn(backfill, db.writes)
         alters = [w for w in db.writes if w.startswith("ALTER TABLE")]
         self.assertEqual(len(alters), 2, db.writes)
         self.assertIn("ADD COLUMN `form_value`", alters[0])

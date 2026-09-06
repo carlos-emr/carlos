@@ -1952,23 +1952,29 @@ def encounter_form_prune_statements(dst_schema: str, archive_schema: str
     EXISTS on the archive and the DELETE's own predicate is false once
     the rows are gone.
 
-    The guard has a SECOND arm for rows an older carlos-ctl archived.
-    Those rows were written before `form_value` existed as a column, so
-    `encounter_form_archive_upgrades` leaves them holding NULL there --
-    and `NULL = 'anything'` is NULL, never true, so a form_value-only
-    guard would not recognise them and a resume that crashed between
-    the archive and the delete would insert every one a second time.
-    A legacy row records exactly its (form_table, form_name) pair, so
-    that is what it is matched on."""
+    The guard is form_value equality and NOTHING ELSE, deliberately.
+    Rows an older carlos-ctl archived hold NULL there, and matching them
+    on their (form_table, form_name) pair instead -- which an earlier
+    version of this function did -- suppresses EVERY live entry sharing
+    that pair, not the one row the legacy row stood for. The DELETE that
+    follows is not similarly narrowed, so those entries left with no
+    archive row at all: requirement B inverted, and worse than the
+    duplicate the pair-match was added to avoid.
+
+    `encounter_form_backfill_statement` is what makes the narrow guard
+    safe: it gives a legacy row its form_value back wherever that is
+    UNAMBIGUOUS. Where it is not, the legacy row keeps its NULL, every
+    live entry archives in full, and the archive carries one harmless
+    duplicate. Duplicates are recoverable; a deleted row with no archive
+    row is not, so the ambiguity resolves toward the archive every
+    time."""
     missing = _encounter_form_missing(dst_schema)
     archive = ("INSERT INTO `{1}`.encounterForm__pruned (form_table, "
                "form_name, form_value, hidden) SELECT e.form_table, "
                "e.form_name, e.form_value, e.hidden FROM "
                "`{0}`.encounterForm e WHERE {2} AND NOT EXISTS (SELECT 1 "
-               "FROM `{1}`.encounterForm__pruned a WHERE "
-               "a.form_value = e.form_value OR (a.form_value IS NULL "
-               "AND a.form_table = e.form_table AND a.form_name = "
-               "e.form_name))"
+               "FROM `{1}`.encounterForm__pruned a WHERE a.form_value = "
+               "e.form_value)"
                .format(dst_schema, archive_schema, missing))
     delete = ("DELETE FROM `{0}`.`encounterForm` WHERE {1}"
               .format(dst_schema,
@@ -2028,6 +2034,32 @@ def encounter_form_archive_upgrades(plain, archive_schema: str) -> List[str]:
             if col.lower() not in have]
 
 
+def encounter_form_backfill_statement(dst_schema: str,
+                                      archive_schema: str) -> str:
+    """Give a legacy archive row its `form_value` back, where exactly one
+    live menu entry carries its (form_table, form_name) pair.
+
+    Rows written before `form_value` was a column hold NULL in it after
+    `encounter_form_archive_upgrades` widens the table, and the archive
+    guard matches on form_value alone. Restoring the value where it is
+    unambiguous is what keeps a resumed run from archiving those rows a
+    second time -- without the pair-matching that would suppress, and
+    then silently delete, sibling entries sharing the pair.
+
+    Deliberately does nothing when the pair is ambiguous (two live
+    entries, same table and name, different URLs). There is no way to
+    tell which one the legacy row recorded, and guessing would put a
+    wrong URL in the clinic's archive. Idempotent: once a row has a
+    form_value the WHERE no longer selects it."""
+    return ("UPDATE `{1}`.encounterForm__pruned a SET a.form_value = "
+            "(SELECT MIN(e.form_value) FROM `{0}`.encounterForm e WHERE "
+            "e.form_table = a.form_table AND e.form_name = a.form_name) "
+            "WHERE a.form_value IS NULL AND (SELECT COUNT(*) FROM "
+            "`{0}`.encounterForm e WHERE e.form_table = a.form_table "
+            "AND e.form_name = a.form_name) = 1"
+            .format(dst_schema, archive_schema))
+
+
 def roles_prune_encounter_forms(run: 'RolesRun') -> None:
     """Remove encounter-form menu entries pointing at removed forms.
 
@@ -2050,6 +2082,8 @@ def roles_prune_encounter_forms(run: 'RolesRun') -> None:
         query(encounter_form_archive_ddl(arch))
         for upgrade in encounter_form_archive_upgrades(plain, arch):
             query(upgrade)
+        # after the widening and BEFORE the guard reads form_value
+        query(encounter_form_backfill_statement(dst, arch))
         archive, delete = encounter_form_prune_statements(dst, arch)
         query(archive)
         query(delete)

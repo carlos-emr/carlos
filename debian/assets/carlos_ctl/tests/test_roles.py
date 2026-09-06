@@ -309,24 +309,39 @@ class TestStatementShapes(unittest.TestCase):
             "carlos", "o19_archive")
         self.assertIn("a.form_value = e.form_value", archive)
 
-    def test_a_legacy_archive_row_is_recognised_by_its_pair(self):
-        """Rows an older carlos-ctl wrote hold NULL in `form_value`, and
-        `NULL = 'x'` is NULL -- never true.
+    def test_the_guard_never_matches_on_the_pair(self):
+        """Matching a legacy row on (form_table, form_name) suppressed
+        EVERY live entry sharing that pair, and the DELETE then removed
+        the ones that had not been archived.
 
-        A guard on form_value alone would not see them, so a resume that
-        crashed between the archive and the delete would archive every
-        one of them again. The pair is what such a row actually
-        recorded, so the pair is what it is matched on."""
+        MEASURED on MariaDB 10.11: one legacy row against three live
+        entries archived NONE of them and deleted all three. The guard
+        is form_value equality only; `encounter_form_backfill_statement`
+        is what makes that safe."""
         archive, _delete = o19roles.encounter_form_prune_statements(
             "carlos", "o19_archive")
-        self.assertIn("a.form_value IS NULL", archive)
-        self.assertIn("a.form_table = e.form_table AND a.form_name = "
-                      "e.form_name", archive)
-        # the pair arm applies ONLY to a legacy row: a current row is
-        # matched on form_value, so two entries sharing a table and a
-        # name still archive separately
-        self.assertIn("a.form_value = e.form_value OR (a.form_value IS "
-                      "NULL", archive)
+        self.assertIn("a.form_value = e.form_value", archive)
+        self.assertNotIn("a.form_table = e.form_table", archive)
+        self.assertNotIn("a.form_value IS NULL", archive)
+
+    def test_a_legacy_row_is_backfilled_only_when_unambiguous(self):
+        """One live entry with that pair: the value is knowable, so the
+        legacy row gets it back and the guard then recognises it.
+
+        Two or more: there is no way to tell which the legacy row
+        recorded, so it keeps NULL and every live entry archives in
+        full. One duplicate archive row is recoverable; a deleted menu
+        entry with no archive row is not."""
+        sql = o19roles.encounter_form_backfill_statement(
+            "carlos", "o19_archive")
+        self.assertIn("SET a.form_value = (SELECT MIN(e.form_value)", sql)
+        self.assertIn("WHERE a.form_value IS NULL", sql)
+        # EXACTLY one, and the spelling matters: `>= 1` would backfill
+        # an ambiguous pair with an arbitrary sibling's URL, which is a
+        # wrong value in the clinic's archive rather than a missing one
+        self.assertIn("a.form_name) = 1", sql)
+        self.assertNotIn(">= 1", sql)
+        self.assertTrue(idempotent(sql), sql)
 
     def test_facility_link_targets_the_first_enabled_facility(self):
         sql = o19roles.provider_facility_statement("carlos")
