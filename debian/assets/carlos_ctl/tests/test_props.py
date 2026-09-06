@@ -285,6 +285,22 @@ class TestDispositions(unittest.TestCase):
             self.assertEqual(self.by_key.get(key), "deploy-owned", key)
             self.assertNotIn(key, self.fragment)
 
+    def test_the_clinics_billregion_never_overrides_the_hosts(self):
+        """The province is the host's, decided at install by debconf.
+
+        The fragment is applied AFTER carlos.properties, so a carried
+        billregion would win over the value config.py wrote from the
+        configured province -- putting the billing UI on one province
+        while the schema, the Flyway migration set and the asserted
+        manifest profile were all on the other. Driven with a value that
+        DIFFERS from the O19 default, because a value equal to the
+        default is skipped before any disposition is consulted."""
+        result = o19props.translate_all([("billregion", "BC")])
+        by_key = {k: d for k, d, _n in result["rows"]}
+        self.assertEqual(by_key.get("billregion"), "deploy-owned")
+        self.assertNotIn("billregion",
+                         dict(result["fragment"]))
+
     def test_removed_modules_group_into_advisories(self):
         adv = self.result["advisories"]
         self.assertIn("born_sftp_password",

@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS properties manifest."""
 
-PROPS_MAP_VERSION = 'o19map-2+e78c6f17'
+PROPS_MAP_VERSION = 'o19map-2+5c666fbb'
 
 # active keys of the stock O19 oscar_mcmaster.properties — the baseline-diff
 # reference: clinic keys equal to these defaults are ignored (CARLOS defaults win)
@@ -605,6 +605,9 @@ KEYS = {
     'ENCOUNTER_TIME_MANDATORY': {
         'd': 'carry',
     },
+    'FAX_INCOMING_DIR': {
+        'd': 'deploy-owned',
+    },
     'FILTER_ON_FACILITY': {
         'd': 'carry',
     },
@@ -838,12 +841,18 @@ KEYS = {
         'd': 'carry',
     },
     'billregion': {
-        'd': 'carry',
+        'd': 'deploy-owned',
     },
     'buildDateTime': {
         'd': 'deploy-owned',
     },
     'buildtag': {
+        'd': 'deploy-owned',
+    },
+    'carlos.flyway.locations': {
+        'd': 'deploy-owned',
+    },
+    'carlos.flyway.onBoot': {
         'd': 'deploy-owned',
     },
     'casemgmt.note.password.enabled': {
@@ -963,6 +972,9 @@ KEYS = {
         't': 'docpath',
         'as': 'EFORM_IMAGES_DIR',
     },
+    'eform_pdf_browser_startup_check': {
+        'd': 'deploy-owned',
+    },
     'eform_signature_enabled': {
         'd': 'carry',
     },
@@ -977,6 +989,9 @@ KEYS = {
     },
     'enable_wait_list_email_notifications': {
         'd': 'dropped-flag',
+    },
+    'encryption.util.secret.key': {
+        'd': 'deploy-owned',
     },
     'faxEnable': {
         'd': 'carry',
@@ -1038,6 +1053,9 @@ KEYS = {
         'd': 'deploy-owned',
     },
     'log.purge.mysqldump': {
+        'd': 'deploy-owned',
+    },
+    'log.purge.outputdir': {
         'd': 'deploy-owned',
     },
     'login_local_ip': {

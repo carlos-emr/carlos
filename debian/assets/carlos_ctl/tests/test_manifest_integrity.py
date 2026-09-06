@@ -13,6 +13,7 @@ Run (from debian/assets):
 """
 
 import importlib.util
+import re
 import unittest
 from pathlib import Path
 
@@ -457,6 +458,57 @@ class TestPropsManifest(unittest.TestCase):
     def test_defaults_baseline_is_populated(self):
         self.assertGreater(len(o19map_props.O19_DEFAULTS), 300)
         self.assertIn("billregion", o19map_props.O19_DEFAULTS)
+
+    #: Keys config.py writes where the deployment's value is only a
+    #: DEFAULT and the clinic's own (translated) value legitimately wins.
+    #: Every one is a document path: `translate_docpath` keeps the
+    #: clinic's own subdirectory names under the CARLOS document root,
+    #: and that is where the documents phase actually restored the files
+    #: -- the deb's generic default would point at an empty directory.
+    #: Anything NOT listed here that config.py writes must be
+    #: deploy-owned.
+    DEPLOY_DEFAULTS_THE_CLINIC_REFINES = {
+        "INCOMINGDOCUMENT_DIR", "INVOICE_DIR", "drugref_url",
+        "ONEDT_INBOX", "ONEDT_OUTBOX", "ONEDT_SENT", "ONEDT_ARCHIVE",
+    }
+
+    def test_every_key_the_deployment_writes_is_ruled(self):
+        """config.py and the props overlay must agree on who owns a key.
+
+        A key the deb provisions and the overlay also carries is a
+        contradiction the fragment resolves the wrong way round: the
+        fragment is applied AFTER carlos.properties, so the clinic's old
+        value silently overrides the deployment's. `billregion` was
+        exactly that -- invisible while only Ontario shipped, and on a BC
+        host a clinic file still saying ON would have put the entire
+        billing UI on the wrong province while the schema, the Flyway
+        set and the manifest profile all stayed on BC."""
+        config = (Path(__file__).resolve().parents[1]
+                  / "config.py").read_text(encoding="utf-8")
+        written = sorted(set(re.findall(
+            r'prop_set\(PROPERTIES,\s*"([^"]+)"', config)))
+        self.assertGreater(len(written), 15, "config.py parse found "
+                                             "almost nothing")
+        wrong = sorted(
+            "{0}: {1}".format(key, o19map_props.KEYS.get(key, {}).get("d"))
+            for key in written
+            if key not in self.DEPLOY_DEFAULTS_THE_CLINIC_REFINES
+            and o19map_props.KEYS.get(key, {}).get("d") != "deploy-owned")
+        self.assertEqual(
+            wrong, [],
+            "config.py provisions these but the props overlay does not "
+            "rule them deploy-owned (or list them as a default the "
+            "clinic's value refines)")
+
+    def test_the_refinement_list_names_only_translated_keys(self):
+        # the exemption is "the clinic's translated value is the right
+        # one", so an entry that is not translated has no business here
+        for key in self.DEPLOY_DEFAULTS_THE_CLINIC_REFINES:
+            self.assertEqual(o19map_props.KEYS[key]["d"], "translate", key)
+
+    def test_the_province_is_the_hosts_to_decide(self):
+        self.assertEqual(o19map_props.KEYS["billregion"]["d"],
+                         "deploy-owned")
 
 
 OVERRIDES = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \

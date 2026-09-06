@@ -32,7 +32,14 @@ PROPS_MAP_VERSION = "o19map-2"
 
 KEYS = {
     # --- clinic identity / billing (carry) --------------------------------
-    "billregion": {"d": "carry"},
+    # billregion is NOT carried: the province is a HOST decision. debconf
+    # asks for it at install, config.py writes it into carlos.properties,
+    # it selects the Flyway migration set the schema was built from, and
+    # the import asserts the manifest profile against it before P0. A
+    # carried value that disagreed would put the whole billing UI on the
+    # other province while every other layer stayed on the host's -- the
+    # one place where the clinic's file must not win.
+    "billregion": {"d": "deploy-owned"},
     "billcenter": {"d": "carry"},
     "default_bill_center": {"d": "carry"},
     "clinic_no": {"d": "carry"},
@@ -160,7 +167,8 @@ KEYS = {
     # a boolean (recycle bin on/off), not a path — CARLOS reads it the same
     "INCOMINGDOCUMENT_RECYCLEBIN": {"d": "carry"},
     # CARLOS reads the eForm image directory under a new key name
-    "eform_image": {"d": "translate", "t": "docpath", "as": "EFORM_IMAGES_DIR"},
+    "eform_image": {"d": "translate", "t": "docpath",
+                    "as": "EFORM_IMAGES_DIR"},
     # no CARLOS reader (legacy fax cover-page logo) — reported, not carried
     # CARLOS takes the cover-page and consultation logos from
     # faxLogoInCoverPage / faxLogoInConsultation / clinicLetterheadLogo,
@@ -198,6 +206,19 @@ KEYS = {
     "DOCUMENT_DIR": {"d": "deploy-owned"},
     "backup_path": {"d": "deploy-owned"},
     "buildtag": {"d": "deploy-owned"},
+    # CARLOS-era keys the deb provisions. No OSCAR 19 install ships them,
+    # so these entries change nothing for a stock clinic -- they exist so
+    # a HAND-ADDED one is refused outright instead of surfacing as an
+    # "unknown, classify this" row that an operator could reasonably
+    # carry, overriding the deployment's own value.
+    "FAX_INCOMING_DIR": {"d": "deploy-owned"},
+    "carlos.flyway.locations": {"d": "deploy-owned"},
+    "carlos.flyway.onBoot": {"d": "deploy-owned"},
+    "eform_pdf_browser_startup_check": {"d": "deploy-owned"},
+    # the AES key for fax credentials, MFA secrets and signature images:
+    # generated once per host by config.py and escrowed with the backup
+    "encryption.util.secret.key": {"d": "deploy-owned"},
+    "log.purge.outputdir": {"d": "deploy-owned"},
     "buildDateTime": {"d": "deploy-owned"},
     "version": {"d": "deploy-owned"},
     "versionDate": {"d": "deploy-owned"},
