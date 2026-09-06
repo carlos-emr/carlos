@@ -371,7 +371,7 @@ jobs:
             # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
             if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
               # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM carlos.provider;" 2>/dev/null || echo 0)
               if [ "$provider_count" -gt 0 ]; then
                 echo "Database initialization complete and provider table populated (count=$provider_count)."
                 initialized=true
@@ -392,8 +392,8 @@ jobs:
 
           # Verify all databases exist
           echo "Verifying databases..."
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos" > /dev/null || { echo "ERROR: carlos database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos_test" > /dev/null || { echo "ERROR: carlos_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           echo "All databases verified!"
 

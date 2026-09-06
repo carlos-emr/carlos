@@ -10,7 +10,7 @@ export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
 # MariaDB 11.x dropped the mysql* client symlinks (mysql/mysqladmin/mysqldump); use mariadb.
 SQL="mariadb -u root"
 
-# Build oscar + oscar_test from the Flyway migration set — the SAME files production applies via
+# Build carlos + carlos_test from the Flyway migration set — the SAME files production applies via
 # `carlos-ctl db migrate` (common + Ontario locations): a complete, dead-pruned schema + reference
 # data. Loaded here with the mariadb CLI (not the Flyway CLI) because the MariaDB initdb temp server
 # is socket-only and Flyway needs TCP; dev databases are disposable, so a flyway_schema_history is
@@ -64,7 +64,7 @@ trap 'rm -f "${LOAD_SQL}"' EXIT
   fi
   echo "SET FOREIGN_KEY_CHECKS=1;"
 } > "${LOAD_SQL}"
-for DB in oscar oscar_test; do
+for DB in carlos carlos_test; do
   echo "Creating ${DB} from the Flyway baseline (common + on)..."
   # Explicit charset so the DATABASE default matches the fully-utf8mb4 schema even if the
   # server default ever changes (all baseline tables also set it per-table).
@@ -72,25 +72,60 @@ for DB in oscar oscar_test; do
   $SQL "${DB}" < "${LOAD_SQL}"
 done
 
-# drugref2 is a separate database (not part of the oscar schema).
+# drugref2 is a separate database (not part of the carlos schema).
 echo 'Creating drugref2 database...'
 $SQL -e "CREATE DATABASE IF NOT EXISTS drugref2;"
 $SQL drugref2 < /database/mysql/development-drugref.sql
 echo 'Applying drugref2 schema patches...'
 $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 
-# --- Development-only demo data (oscar only; never applied to a production database) ---
+# --- Development-only demo data (carlos only; never applied to a production database) ---
 # development.sql is a full demo snapshot (truncate+reload) filtered to the live schema. It replaces
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
-$SQL oscar < /scripts/development.sql
+$SQL carlos < /scripts/development.sql
 echo 'Restoring current Administration privileges...'
-$SQL oscar < /scripts/development_privileges.sql
-echo 'Preparing demographic names for development environment...'
-$SQL oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
+$SQL carlos < /scripts/development_privileges.sql
+echo 'Seeding fake referral specialists and provider links...'
+$SQL carlos < /scripts/demo-provider-links.sql
+# Guarded no-ops here (development.sql truncate-reloads both tables with
+# these rows), kept for parity with the deb's carlos-ctl demo-data flow,
+# where the additive transform excludes the raw statements and these files
+# are the only source of the program-10034 enrolments and the ExternalNote
+# issue row. See scripts/demo-additive-exclude.txt (SPECIAL section).
+$SQL carlos < /scripts/demo-program-links.sql
+$SQL carlos < /scripts/demo-issue-codes.sql
+$SQL carlos < /scripts/demo-specialists.sql
+# Name sanitization v2: FAKE- prefixes across all person-name tables plus
+# replacement of known real names. The -on supplement covers Ontario-only
+# form tables; this devcontainer loads the Ontario schema, so both apply.
+echo 'Preparing demographic and provider names for development environment...'
+$SQL carlos < /scripts/demo-name-sanitization.sql
+$SQL carlos < /scripts/demo-name-sanitization-on.sql
 echo 'Seeding Rich Text Letter eForm...'
-$SQL oscar < /database/mysql/updates/update-2012-07-12.sql
+$SQL carlos < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
-$SQL oscar < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
-$SQL oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+$SQL carlos < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
+$SQL carlos < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+# Must run AFTER the modernize update above: it string-replaces the dead
+# public-JSP attachment paths (attachEform.jsp / displayAttachedFiles.jsp)
+# that 2026.3.0 still carries with the gated Struts routes, and switches
+# fid/demographic_no lookup to the hidden inputs the saved-instance render
+# provides. Without it the seeded RTL's Attach flow 404s on every install -
+# the eform-rtl-attachment-* Playwright checks pin this.
+echo 'Rewiring Rich Text Letter attachment routes...'
+$SQL carlos < /database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+# The snapshot's HRM rows name report files that never shipped, so every HRM
+# list is empty. Point one demographic-1 report at the fixture that
+# seed_data.sh copies into the document store (deb parity: carlos-ctl demo-data
+# applies the same file and copies the same fixture).
+echo 'Pointing a demo HRM report at the shipped fixture...'
+$SQL carlos < /scripts/demo-hrm-report.sql
+# development.sql truncate-reloads Facility with the old snapshot's
+# enableDigitalSignatures=0, undoing the V1.0.17 migration applied above.
+# Re-assert the product default so the demo environment exercises the
+# signature workflows (consultation stamps, signature pad) like a stock
+# install does.
+echo 'Enabling digital signatures on the demo facility...'
+$SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
 echo 'Database initialization complete!'

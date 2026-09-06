@@ -83,18 +83,28 @@
         <c:if test="${param.scheduleNav eq '1'}">
             <input type="hidden" name="scheduleNav" value="1"/>
         </c:if>
-        <div class="alert alert-danger" style="display:none"><% 
+<%--
+    Upload rejections land here through this action's "input" result, and this
+    is the only place they can be seen. The alert used to carry a hardcoded
+    style="display:none" wrapped around the whole block, so the message was
+    built and then hidden -- a rejected eForm upload looked like nothing had
+    happened. Render the alert only when there is something to say, and let it
+    be visible when there is.
+
+    The messages come from the multipart layer and can embed the submitted
+    filename, so they are encoded rather than written raw.
+--%><%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %></div>
+        <div class="alert alert-danger" role="alert">
+            <ul class="action-errors mb-0">
+                <% for (String error : actionErrors) { %>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
+                <% } %>
+            </ul>
+        </div>
+<% } %>
 
         <div class='uploadEformTitle'>
             <fmt:message key="eform.uploadhtml.formName"/> <span class="text-danger textExists" style='display:none;'>Name already exists</span><br>

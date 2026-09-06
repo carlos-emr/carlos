@@ -1,3 +1,257 @@
+carlos-emr (2026.09.0~snapshot19) resolute; urgency=medium
+
+  * The install wizard's billing-province question offers a third answer,
+    "other", below Ontario and British Columbia, for a clinic in a province
+    CARLOS does not implement billing for. It is an alias for the Ontario
+    answer: the same common+on migrations and the same billregion=ON, so the
+    deployment is an Ontario one in every respect and nothing downstream
+    distinguishes the two. It exists so the installer no longer requires such
+    a clinic to claim a province it is not in. CARLOS_PROVINCE records the
+    answer verbatim and remains fixed at first install.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Thu, 03 Sep 2026 03:12:17 +0000
+
+carlos-emr (2026.09.0~snapshot18) resolute; urgency=medium
+
+  * Document upload name collisions retain their recoverable JSON response but
+    never attach the path-bearing exception to a log event. The packaged UI
+    validation also waits for tickler deletion to commit before asserting it.
+  * Enforce the hermetic Struts DTD validation in CI and clean up the snapshot
+    changelog metadata used by Debian package linting.
+  * Exclude transient eChart note locks from the optional demonstration dataset
+    and reject them at package-build time.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 31 Aug 2026 17:56:11 +0000
+
+carlos-emr (2026.09.0~snapshot17) resolute; urgency=medium
+
+  * A tainted error body that cannot be replaced is now discarded instead of
+    turning into a second, manufactured 500. When something commits the
+    response behind the sanitisation filter, the two post-chain replacement
+    sites had no guard -- unlike their mid-chain siblings, which sit under a
+    catch -- so the "already committed" failure escaped the outermost filter
+    as a container 500. The captured body is dropped instead: nothing unsafe
+    reaches the client, and the client keeps the response it was already sent.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 21:15:00 +0000
+
+carlos-emr (2026.09.0~snapshot16) resolute; urgency=medium
+
+  * The response-sanitisation filter's pass-through stream no longer flushes
+    when something inside the chain closes it. Flushing commits the response
+    without assigning a Content-Length, which turned forwarded pages and
+    streamed downloads chunked and, more importantly, permanently disabled the
+    filter's own late-error branch for them -- the branch that still replaces
+    a stack trace that escaped capture. Closing is now a no-op; the container
+    sets Content-Length and closes the buffer when the request ends.
+  * Upgrades warn when the Tomcat context descriptor, a conffile, was kept
+    from a local edit and so lacks suspendWrappedResponseAfterForward="false".
+    Without that attribute forwarded pages come back empty and forwarded error
+    pages come back as 500s, with nothing logged.
+  * Upload-name collisions no longer log the exception. Its message is the
+    destination path, which ends in the uploader's filename, and scanned
+    clinical documents are routinely named after the patient.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 19:30:00 +0000
+
+carlos-emr (2026.09.0~snapshot15) resolute; urgency=medium
+
+  * JSP-to-JSP forwards deliver their body again, and an error page that sets
+    a 4xx and then forwards answers that 4xx with its body instead of a raw
+    500. Tomcat 11 defaults suspendWrappedResponseAfterForward to true, which
+    finishes the response when a forward returns and strands the forwarded
+    page's output in javamelody's writer buffer — silently: 200 with an empty
+    body, or a manufactured 500, and nothing logged for either. The context
+    descriptor now pins the attribute to false.
+  * ResponseSanitizationFilter no longer converts an already-rendered page
+    into a 500 when something inside the chain commits the response before
+    its replay: it appends the safe captured body and logs the premature
+    commit at ERROR. Its capture now also honours resetBuffer()/reset() (a
+    forward clears uncommitted output; stale captured prefixes went with it),
+    and its passthrough streams shield the real response from a mid-chain
+    close.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 16:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot14) resolute; urgency=medium
+
+  * Upload rejections are reported instead of vanishing. The "input" result
+    added in ~snapshot5 forwarded the eDocs add-document form to the documents
+    page without an error, so a rejected upload rendered a clean document list
+    and looked like a page refresh; it now carries the error, and three more
+    upload pages that built a message and then hid or skipped it (the eForm
+    upload and import partials, and the BC lab upload) report it too.
+  * Upload rejection messages say what actually happened. They were hardcoded
+    to "Empty files not accepted." for every multipart rejection, including a
+    file refused for its size; they now carry the multipart layer's own wording.
+  * Empty-file uploads no longer 500 on mcedt/autoUpload, mcedt/upload,
+    lab/newLabUpload or lab/CMLlabUpload, which the ~snapshot5 sweep missed.
+    Four mappings it added could never fire and are removed.
+  * The deleted-eForms list no longer throws on every draw. Giving the table a
+    thead made DataTables initialise, which reached a drawCallback calling a
+    function that does not exist anywhere in the codebase.
+  * Restore on the deleted-eForms list works. It built its POST after page load
+    so CSRFGuard never injected a token and every attempt was rejected with 403.
+  * Drug search failures no longer delete the DrugRef status panel. The error
+    handler wrote into the container holding the database name, version and
+    date, and only a page reload brought them back.
+  * The admin shell no longer paints "Sorry but there was an error: 0 error"
+    over controls whose href is javascript:void(0), matching the eForm fix.
+  * A document stored successfully is no longer reported as failed when a
+    later step (audit log, inbox routing, queue link) fails, which sent users
+    to re-upload and put a second copy of the scan in the chart.
+  * The standalone eForm editor and the deleted-eForms list no longer throw
+    "ReferenceError: $ is not defined". Neither page loads jQuery; both worked
+    only because the Administration shell that injects them provides one.
+  * The DrugRef rebuild (updateDrugrefDB, method=updateDB) rejects GET. It is a
+    mutation and CSRFGuard does not validate tokens on GET, so a link or an
+    <img src> could trigger a full database rebuild.
+  * The legacy uploader treats XHR status 0 as a failure. Status 0 means no HTTP
+    response was produced at all, so an aborted or dropped upload was being
+    reported to the user as "Upload complete".
+  * A rejected eDocs upload no longer answers a raw 500. The rejection page set
+    a 4xx status and wrote a body, and the response-sanitisation filter cannot
+    replay that combination — it fails to reset the buffer and the request comes
+    back as 500. The browser page now renders at 200 and the XHR branch uses
+    sendError, which the filter does not disturb.
+  * A rejected eDocs upload renders the rejection page instead of a blank page.
+    The previous forward rebuilt the documents page from request parameters
+    that no longer exist, because the multipart parse that failed is what put
+    the request on this path in the first place.
+  * Restoring an eForm no longer answers 405 after succeeding. The success
+    result was a forward, which keeps the POST method, and the deleted-list gate
+    permits POST only for the editor — the same defect delete was fixed for.
+  * Add Link and Add HTML no longer answer 500 when a required field is blank.
+    Each validation branch put the empty string under the request attribute the
+    documents JSP casts to a form bean, so a missing description, type or URL
+    produced a ClassCastException instead of the field message.
+  * Restoring an eForm rejects GET. The action performed the restore on any
+    request method, so an <img src=".../eform/restoreEForm?fid=N"> on a page an
+    eForm administrator loaded restored that form with no CSRF token — giving
+    the page its token protected the intended path but not the bypass.
+  * Authorization failures answer 403 instead of 200. securityError.jsp set no
+    status, so the legacy uploader (which treats anything under 400 as done)
+    reported "Upload complete" for an upload the privilege check had refused.
+  * A rejected replacement file on the eDocs EDIT form no longer dumps the whole
+    documents page into the 350x500 edit popup with the ADD panel open — which
+    invited the clinician to upload again and put a second copy in the chart.
+  * Upload rejections are classified by the multipart layer's own marker rather
+    than by searching its message for the word "empty" — that message embeds the
+    submitted filename, so a file named "empty-form.pdf" rejected for its size
+    was reported as zero-length.
+  * Eight more upload pages report multipart rejections instead of re-rendering
+    their form with no explanation.
+  * The eForm footer no longer throws on the five eForm pages that load no
+    jQuery of their own, which previously pre-empted each page's own scripts.
+  * WAF: the attack-rfi exclusions are withdrawn. Those CRS rules are anchored
+    at the start of the argument and cannot match an eForm document, so the
+    exclusion only widened the rule surface. attack-lfi, which does fire, stays.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 30 Aug 2026 03:30:00 +0000
+
+carlos-emr (2026.09.0~snapshot5) resolute; urgency=medium
+
+  * eForm HTML editor saves work from the Administration panel. The panel's
+    shared registerFormSubmit() helper posted the save with $(form).serialize(),
+    which both re-encoded the multipart form as application/x-www-form-urlencoded
+    AND silently dropped any file input; it now posts multipart forms as
+    FormData, so the save arrives multipart like the standalone editor (and file
+    uploads through the panel, e.g. eForm import, now carry their file).
+  * eForm authoring exclusions (1050, 1060, 1070) unhook attack-lfi and
+    attack-rfi on their own argument. Rule 930110 is CRITICAL at paranoia
+    level 1 and matches a bare "../" in ARGS, which any eForm carrying a
+    parent-relative image or stylesheet path contains by construction.
+  * eForm administration no longer reports "Sorry but there was an error:
+    0 error" after a delete that in fact succeeded. The delete and restore
+    controls carry href="javascript:void(0);" alongside the contentLink class,
+    and the shared footer's delegated handler AJAX-loaded that literal href;
+    the request cannot succeed, so jQuery reported status 0 and the false
+    banner replaced the page content while the real delete completed.
+  * The deleted-eForms list initialises without "DataTables warning: table
+    id=tblDeletedEforms - Incorrect column count". The table shipped its header
+    and body rows with no thead/tbody, so DataTables registered zero columns
+    against six-cell rows and aborted its init.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 29 Aug 2026 21:30:00 +0000
+
+carlos-emr (2026.09.0~snapshot4) resolute; urgency=medium
+
+  * Default rename: the database is now `carlos` (was the inherited `oscar`)
+    and the document store is now CarlosDocument (was OscarDocument), with a
+    `carlos` instance segment: /var/lib/carlos-emr/CarlosDocument/carlos.
+  * One-time migrations, applied only when upgrading from before this version
+    and only where the OLD STOCK DEFAULT is still in effect — an explicitly
+    configured CARLOS_DB_NAME or a post-upgrade OscarDocument directory is
+    never touched:
+    - the `oscar` schema is renamed to `carlos` in place via the new
+      idempotent `carlos-ctl db-rename-schema` (atomic multi-pair RENAME
+      TABLE; flyway_schema_history and its checksums move unchanged), then
+      CARLOS_DB_NAME / CARLOS_BACKUP_DB_NAME are updated. If MariaDB is down
+      the rename defers to the next configure (dpkg-reconfigure carlos-emr).
+    - the document store is moved to CarlosDocument with an OscarDocument
+      compat symlink left behind, so absolute paths already stored in the
+      database (faxes, email attachments) keep resolving.
+  * The weekly restore drill accepts both directory spellings: the newest
+    snapshot right after the upgrade still carries pre-rename paths.
+  * Upgrades no longer leave the EMR down behind a 502. carlos-emr,
+    carlos-emr-drugref and carlos-emr-eform-renderer each restart
+    carlos-emr.service, so one apt transaction restarts it three times; against
+    the unit's StartLimitBurst=6/30min an install followed by an upgrade inside
+    the same half hour exhausted the budget and systemd refused the last restart
+    with "start-limit-hit". Package-driven restarts — and `carlos-ctl
+    start`/`restart` — now clear the start counter first, and the two dependent
+    postinsts recover a unit an earlier one in the same transaction left failed.
+    Crash-loop protection is unchanged: Restart=on-failure with RestartSec=15s
+    still trips the same limit in about 90 seconds.
+  * WAF: saving a drawn provider signature works through the front door.
+    Provider preferences posts the pad's canvas.toDataURL() output as
+    ARGS:signatureData to /provider/providerSignatureStamp, and the
+    `data:image/...;base64` prefix scored CRS 941130/941170 over the anomaly
+    threshold, 403-ing the save with the page's own "Save failed" banner — the
+    same data-URI false positive already excluded for the consultation signature
+    pad and eForm image saves, on the one signature route they missed. New
+    per-argument exclusion 1080 unhooks only that argument, only on POST to that
+    route; the action still requires write access and strictly validates and
+    size-caps the base64 image server-side.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 16:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot3) resolute; urgency=medium
+
+  * Install wizard: recommend a Java heap sized from the machine's memory
+    instead of a static 2g — half of physical RAM, rounded to the nearest GB,
+    clamped to 2g..8g — as the pre-filled answer to the java-heap question on
+    first install (successor to the OSCAR-19 packaging's 60%-of-RAM sizing).
+    Preseeded, reconfigured and upgraded installs keep their existing answer.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 14:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot2) resolute; urgency=medium
+
+  * Fix nine clinician-facing bugs reported by alpha testers on the .deb
+    deployment (only reproducible through the nginx + ModSecurity front door):
+    Rx staging (Hibernate 7 HQL "order by drugid" regression), pharmacy
+    "Return to RX", messenger group admin (missing jQuery core + selectors),
+    eChart history 403 and document-upload 400 (WAF clinical-workflow
+    exclusions), X-ray incoming-doc blank iframe, consultation signatures, and
+    the Consultations tab dropping provider-orphaned rows.
+  * WAF: ship package-managed per-route clinical exclusions (ids 1000-1999) and
+    operator-owned local-exclusions-{before,after}-crs.conf (ids 5000-5999);
+    document the carlos-ctl waf tail -> exclude -> reload -> check workflow.
+  * Enable consultation signatures by default, with a one-time upgrade migration
+    that flips the old stock consultation_signature_enabled=false to true while
+    preserving an operator's explicit choice.
+  * Packaging: reload systemd on upgrade before restarting carlos-emr so a
+    changed unit file takes effect without a manual daemon-reload; on purge,
+    remove the generated carlos-emr.env and the consultation-signature migration
+    sentinel so a later reinstall is genuinely fresh (province/timezone answers
+    are honoured again); guard the debconf db_get calls against set -e; stop
+    resetting an operator-diverged CARLOS_JAVA_XMS back to Xmx on upgrade;
+    document the deb pre-release version ladder in README.source (a ~rc after
+    a shipped ~snapshot would sort as a downgrade).
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Fri, 28 Aug 2026 12:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot1) resolute; urgency=medium
 
   * Initial Debian/Ubuntu packaging for a single-VM CARLOS EMR deployment,

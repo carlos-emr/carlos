@@ -100,8 +100,8 @@
                     setfocus('user_name');
                     return false;
                 }
-                if (document.updatearecord.user_name.value.length > 10) {
-                    alert('<fmt:message key="admin.securityrecord.formUserName"/>: <fmt:message key="admin.securityrecord.msgAtMost"/> 10 <fmt:message key="admin.securityrecord.msgAlphaNumeric"/>');
+                if (document.updatearecord.user_name.value.length > 30) {
+                    alert('<fmt:message key="admin.securityrecord.formUserName"/>: <fmt:message key="admin.securityrecord.msgAtMost"/> 30 <fmt:message key="admin.securityrecord.msgAlphaNumeric"/>');
                     setfocus('user_name');
                     return false;
                 }
@@ -245,7 +245,7 @@
                 <tr>
                     <td width="50%" align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
                     </td>
-                    <td><input type="text" name="user_name" maxlength="10"
+                    <td><input type="text" name="user_name" maxlength="30"
                                value="<carlos:encode value='<%= security.getUserName() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <tr>

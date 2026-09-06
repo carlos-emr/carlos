@@ -20,6 +20,14 @@ ENV_FILE="${CONF_DIR}/carlos-emr.env"
 PROPERTIES="${CONF_DIR}/carlos.properties"
 BACKUP_ENV="${CONF_DIR}/backup.env"
 STATE=/var/lib/carlos-emr
+# Durable marker that the seeded (source-published) administrator credential is
+# still live because `carlos-ctl bootstrap-admin` could not replace it. While it
+# exists the service unit is kept disabled, and no path in this package may start
+# the EMR: a shell variable would not survive the run, and the exposure has to
+# outlast it (a reboot, or an aborted apt transaction, would otherwise bring the
+# internet-facing EMR up with a password published in the source repository).
+# Cleared automatically by the next successful bootstrap-admin.
+SEED_SENTINEL="${STATE}/.seed-credential-live"
 
 # deb-systemd-invoke rather than systemctl: it honours /usr/sbin/policy-rc.d,
 # which is how an image build or a chroot says "configure this package but do
@@ -32,6 +40,26 @@ sd_invoke() {
         return 0
     fi
     deb-systemd-invoke "$@"
+}
+
+# Clear carlos-emr.service's start rate-limit counter before a package-driven
+# lifecycle action. The unit carries StartLimitBurst=6/StartLimitIntervalSec=30min
+# to catch a genuine crash loop, but THREE packages (carlos-emr, -drugref,
+# -eform-renderer) each restart this one unit in a single apt transaction. An
+# install followed by an upgrade inside the same 30-minute window — the ordinary
+# way an operator applies a hotfix — therefore spends the whole budget, systemd
+# refuses the last restart with "start-limit-hit", and the EMR is left DOWN
+# behind a 502 with no automatic recovery.
+#
+# reset-failed clears both the failed state and the start counter, so a restart
+# we asked for on purpose is never mistaken for a crash loop. Crash-loop
+# protection is unaffected: Restart=on-failure/RestartSec=15s still burns the
+# budget in about 90 seconds when the JVM genuinely will not stay up.
+sd_reset_start_limit() {
+    if [ ! -d /run/systemd/system ]; then
+        return 0
+    fi
+    systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
 }
 
 # Install a generated file ONCE. These carry credentials and site decisions, so
@@ -82,6 +110,72 @@ case "$1" in
             adduser --quiet carlos-backup carlos
         fi
 
+        # One-time migration (2026.09.0~snapshot4): the document store default
+        # was renamed OscarDocument -> CarlosDocument. Runs BEFORE the tmpfiles
+        # call below, which would otherwise create a fresh empty CarlosDocument
+        # and turn this mv into the refused both-exist case. Eligible on an
+        # upgrade from before the boundary AND on a configure with no prior
+        # version: purge deliberately RETAINS the document store while
+        # removing the env file and sentinels, so a purge-then-reinstall
+        # arrives here exactly like a fresh install but with the patient
+        # documents still sitting under the old name (review finding). A
+        # post-boundary upgrade never migrates — a directory an operator
+        # creates under the old name after the boundary is their choice.
+        # The compat symlink keeps absolute paths already stored in the
+        # database (faxes.filename, emailAttachment.filePath) resolving.
+        if [ -z "${2:-}" ] || dpkg --compare-versions "$2" lt "2026.09.0~snapshot4"; then
+            if [ -d "${STATE}/OscarDocument" ] && [ ! -L "${STATE}/OscarDocument" ]; then
+                if [ -e "${STATE}/CarlosDocument" ] \
+                    && [ -n "$(find "${STATE}/CarlosDocument" -mindepth 1 \( -type f -o -type l \) -print -quit 2>/dev/null)" ]; then
+                    # Two REAL document stores that BOTH hold files is the one
+                    # state that risks silently splitting patient documents:
+                    # continuing would configure the application and the
+                    # backups onto CarlosDocument while records still sitting
+                    # only in OscarDocument fall out of both. Fail the configure
+                    # loudly (a review finding); dpkg leaves the package
+                    # unconfigured and the operator resolves, then re-runs.
+                    echo "carlos-emr: ERROR: both ${STATE}/OscarDocument and ${STATE}/CarlosDocument exist" >&2
+                    echo "carlos-emr: ERROR: as real directories holding files. Refusing to merge or pick a" >&2
+                    echo "carlos-emr: ERROR: patient document store. Consolidate the two trees by hand (typically:" >&2
+                    echo "carlos-emr: ERROR: move the contents of the one that is stale, remove the emptied dir)," >&2
+                    echo "carlos-emr: ERROR: then re-run: sudo dpkg --configure carlos-emr" >&2
+                    exit 1
+                fi
+                # CarlosDocument is absent, or an empty boot-time skeleton:
+                # systemd-tmpfiles can lay down an empty CarlosDocument/carlos
+                # between an interrupted upgrade's unpack and its configure, and
+                # refusing on that empty tree would wedge the apt transaction
+                # (review finding). Clear the empty skeleton, then adopt — this
+                # mirrors the DB side, which merges into an object-empty
+                # `carlos` rather than refusing.
+                if [ -e "${STATE}/CarlosDocument" ]; then
+                    find "${STATE}/CarlosDocument" -depth -type d -empty -delete 2>/dev/null || true
+                fi
+                if [ ! -e "${STATE}/CarlosDocument" ]; then
+                    mv "${STATE}/OscarDocument" "${STATE}/CarlosDocument"
+                    ln -sfn CarlosDocument "${STATE}/OscarDocument"
+                    echo "carlos-emr: renamed the document store OscarDocument -> CarlosDocument (a compat symlink keeps stored paths valid)"
+                else
+                    echo "carlos-emr: ERROR: ${STATE}/CarlosDocument still present after clearing its empty" >&2
+                    echo "carlos-emr: ERROR: skeleton; refusing to merge document stores. Consolidate by hand," >&2
+                    echo "carlos-emr: ERROR: then re-run: sudo dpkg --configure carlos-emr" >&2
+                    exit 1
+                fi
+            elif [ -d "${STATE}/CarlosDocument" ] && [ ! -e "${STATE}/OscarDocument" ]; then
+                # Convergence heal (review finding): a prior migration was
+                # interrupted between the mv (an atomic rename) and the compat
+                # symlink, so CarlosDocument holds the data but the
+                # OscarDocument -> CarlosDocument symlink was never created and
+                # DB-stored absolute paths under .../OscarDocument stopped
+                # resolving. Recreate it. Idempotent, and gated to the
+                # pre-boundary / no-prior-version window so a genuinely fresh
+                # install (CarlosDocument not yet created by tmpfiles at this
+                # point) never gains a spurious symlink.
+                ln -sfn CarlosDocument "${STATE}/OscarDocument"
+                echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
+            fi
+        fi
+
         # --- directories ----------------------------------------------------
         # systemd-tmpfiles owns this on a systemd host; run it explicitly so a
         # fresh install has its directories before anything below writes into
@@ -101,7 +195,7 @@ case "$1" in
                 "${STATE}/catalina/lib" "${STATE}/catalina/prefs" \
                 "${STATE}/heapdumps"
             install -d -m 2750 -o carlos -g carlos \
-                "${STATE}/OscarDocument" "${STATE}/OscarDocument/carlos"
+                "${STATE}/CarlosDocument" "${STATE}/CarlosDocument/carlos"
             install -d -m 0750 -o www-data -g www-data "${STATE}/modsecurity"
             install -d -m 0700 -o www-data -g www-data \
                 "${STATE}/modsecurity/tmp" "${STATE}/modsecurity/data"
@@ -131,17 +225,17 @@ case "$1" in
         ( cd "${SHARE}/document-skeleton/carlos" && find . -type d -printf '%P\n' ) | \
         while IFS= read -r d; do
             [ -n "${d}" ] || continue
-            if [ ! -d "${STATE}/OscarDocument/carlos/${d}" ]; then
-                install -d -m 2750 -o carlos -g carlos "${STATE}/OscarDocument/carlos/${d}"
+            if [ ! -d "${STATE}/CarlosDocument/carlos/${d}" ]; then
+                install -d -m 2750 -o carlos -g carlos "${STATE}/CarlosDocument/carlos/${d}"
             fi
         done
         ( cd "${SHARE}/document-skeleton/carlos" && find . -type f -printf '%P\n' ) | \
         while IFS= read -r f; do
             [ -n "${f}" ] || continue
-            if [ ! -e "${STATE}/OscarDocument/carlos/${f}" ]; then
+            if [ ! -e "${STATE}/CarlosDocument/carlos/${f}" ]; then
                 install -m 0640 -o carlos -g carlos \
                     "${SHARE}/document-skeleton/carlos/${f}" \
-                    "${STATE}/OscarDocument/carlos/${f}"
+                    "${STATE}/CarlosDocument/carlos/${f}"
             fi
         done
 
@@ -155,6 +249,27 @@ case "$1" in
         # own Log4j2 appenders resolve through the same symlink, so csrf.log and
         # waf.log land beside the container's.
         ln -sfn /var/log/carlos-emr/tomcat "${STATE}/catalina/logs"
+
+        # The context descriptor is a conffile, so on a host where the operator
+        # edited it dpkg keeps THEIR copy and any attribute we add later never
+        # arrives. suspendWrappedResponseAfterForward="false" is not a tuning
+        # knob: with Tomcat 11's "true" default, finish() suspends the response
+        # when a forward returns and the forwarded body is discarded, so every
+        # JSP-to-JSP <jsp:forward> answers 200 with an EMPTY body and a forward
+        # on a 4xx answers a raw 500. Both fail silently -- nothing is logged --
+        # which is exactly why this has to be checked out loud here rather than
+        # left to be rediscovered from a bug report.
+        CARLOS_CTX="${CONF_DIR}/tomcat/Catalina/localhost/carlos.xml"
+        if [ -f "${CARLOS_CTX}" ] \
+            && ! grep -q 'suspendWrappedResponseAfterForward="false"' "${CARLOS_CTX}"; then
+            echo "carlos-emr: WARNING: ${CARLOS_CTX} does not set" >&2
+            echo "carlos-emr: WARNING: suspendWrappedResponseAfterForward=\"false\". This is usually a kept" >&2
+            echo "carlos-emr: WARNING: local edit of the conffile from before that attribute shipped." >&2
+            echo "carlos-emr: WARNING: Without it, pages that forward come back EMPTY and error pages that" >&2
+            echo "carlos-emr: WARNING: forward come back as HTTP 500, with nothing in the logs. Add the" >&2
+            echo "carlos-emr: WARNING: attribute to the <Context> element (compare against" >&2
+            echo "carlos-emr: WARNING: ${CARLOS_CTX}.dpkg-dist) and restart: sudo carlos-ctl restart" >&2
+        fi
 
         # --- configuration files --------------------------------------------
         # Recorded BEFORE install_once lays down the skeleton: the province
@@ -180,14 +295,58 @@ case "$1" in
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
 
+        # One-time migration (2026.08): earlier packages shipped
+        # consultation_signature_enabled=false. install_once copied that into the
+        # persistent /etc override, and carlos-emr-tomcat loads that file as the
+        # final override source, so the new stock default of true does NOT take
+        # effect on an upgraded install — the affected population for this fix.
+        # Flip ONLY the exact old stock line, ONLY on upgrade, and ONLY once
+        # (guarded by a sentinel): an operator who has set true, or re-applies
+        # false after this runs, keeps their choice because the sentinel stops the
+        # migration re-running, and the exact whole-line match ignores any value
+        # that is not the old stock false.
+        # The sentinel is written on FRESH installs too, not just upgrades: a
+        # fresh install of this release never shipped the old false default, so
+        # any false the operator sets afterwards is an explicit choice - without
+        # the sentinel, the next upgrade would see a non-empty "$2", match the
+        # exact old-stock line, and silently flip that choice back to true.
+        # Only the value REWRITE stays upgrade-only.
+        CONSULT_SIG_SENTINEL="${STATE}/.consult-signature-default-migrated"
+        if [ ! -e "${CONSULT_SIG_SENTINEL}" ]; then
+            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
+                && grep -qx 'consultation_signature_enabled=false' "${PROPERTIES}"; then
+                sed -i 's/^consultation_signature_enabled=false$/consultation_signature_enabled=true/' "${PROPERTIES}"
+                echo "carlos-emr: enabled consultation signatures (migrated the old stock default off -> on)"
+            fi
+            mkdir -p "${STATE}"
+            : > "${CONSULT_SIG_SENTINEL}"
+        fi
+
         # Fold the debconf answers into the operator-owned settings file.
-        db_get carlos-emr/server-name; SERVER_NAME="${RET:-localhost}"
-        db_get carlos-emr/bind-ip;     BIND_IP="${RET:-0.0.0.0}"
-        db_get carlos-emr/province;    PROVINCE="${RET:-on}"
-        db_get carlos-emr/java-heap;   HEAP="${RET:-2g}"
-        db_get carlos-emr/tls-mode;    TLS_MODE="${RET:-selfsigned}"
-        db_get carlos-emr/acme-email;  ACME_EMAIL="${RET:-}"
-        db_get carlos-emr/reset-seed-admin; RESET_ADMIN="${RET:-true}"
+        # db_get returns 10 for an unregistered item; under set -e that would
+        # abort configure. All these keys are registered (templates + config),
+        # but guard anyway so a debconf DB that ever falls out of sync degrades
+        # to the defaults instead of failing the install. The guard must be
+        # `|| RET=""`, not `|| true`: confmodule's _db_cmd sets RET to the
+        # frontend's ERROR TEXT on failure ("<question> doesn't exist"), so with
+        # a bare `|| true` the ${RET:-...} fallback would never trigger and the
+        # error text would be written into carlos-emr.env as the value. (The
+        # db_get calls further down get away with `|| true` because they only
+        # compare RET against exact literals.)
+        db_get carlos-emr/server-name || RET=""; SERVER_NAME="${RET:-localhost}"
+        db_get carlos-emr/bind-ip     || RET=""; BIND_IP="${RET:-0.0.0.0}"
+        db_get carlos-emr/province    || RET=""; PROVINCE="${RET:-on}"
+        db_get carlos-emr/java-heap   || RET=""; HEAP="${RET:-2g}"
+        db_get carlos-emr/tls-mode    || RET=""; TLS_MODE="${RET:-selfsigned}"
+        db_get carlos-emr/acme-email  || RET=""; ACME_EMAIL="${RET:-}"
+        db_get carlos-emr/reset-seed-admin || RET=""; RESET_ADMIN="${RET:-true}"
+        # `|| RET=""` here too, though DEMO_DATA is only compared against the
+        # literal `true` below: on a failed lookup a bare `|| true` would leave
+        # RET holding the previous key's value (or the error text), and
+        # ${RET:-false} would then read that stale value — loading demo data on
+        # a system that never asked for it. Empty RET falls back to the safe
+        # default of false.
+        db_get carlos-emr/install-demo-data || RET=""; DEMO_DATA="${RET:-false}"
 
         # Three sources in order of authority: /etc/timezone (Debian
         # tradition), timedatectl, the /etc/localtime symlink target. Modern
@@ -204,10 +363,54 @@ case "$1" in
         # sed replacement: sed treats |, & and \ specially there, so a host
         # name or heap value containing one would be corrupted — or abort
         # configure under set -e. Appends when the key is missing.
+        #
+        # The value is trimmed, backslash-escaped and double-quoted before it
+        # is written. carlos-emr.env has two consumers — systemd's
+        # EnvironmentFile= parser and the `.`-source in carlos-emr-tomcat that
+        # mirrors it so a manual run behaves like the service — and both strip
+        # surrounding double quotes and honour C-style backslash escapes, so
+        # the treatment is transparent to a clean value (a hostname, an IP,
+        # `2g`, a timezone — none of which contain any escaped character) yet
+        # load-bearing for a dirty one:
+        #   * a stray interior space (`2 g`) written bare as
+        #     `CARLOS_JAVA_XMX=2 g` makes the shell source read "run g with
+        #     CARLOS_JAVA_XMX=2" — exit 127, or the heap silently dropped;
+        #   * a `"`, `\`, `$` or backtick in the value would, once merely
+        #     quoted, still break the quoting or — worse — be expanded/executed
+        #     by the shell source (`$(...)`, backticks, `$VAR`) as the carlos
+        #     service user on every start. Escaping `\ " $ \`` in a single
+        #     order-safe pass (backslash first is automatic — the character
+        #     class prepends exactly one backslash to each match, itself
+        #     included) neutralises all four for both consumers.
+        # Leading/trailing whitespace is stripped outright; it is never
+        # meaningful in these keys and is the commonest way a fat-fingered
+        # answer sneaks a space in. env_get() and the round-trip reads below
+        # strip the surrounding quotes, so this stays consistent with every
+        # reader of the file.
+        #
+        # INVARIANT — escaped characters are write-only, they do NOT round-trip.
+        # The readers below (the CARLOS_JAVA_XMS/XMX equality check and the
+        # deploy-probe's CARLOS_SERVER_NAME/CARLOS_BIND_IP reads) strip the
+        # surrounding quotes but do NOT un-escape, so a value that was escaped
+        # here reads back with its backslashes intact. That is deliberate and
+        # safe: set_env_key only ever writes a fixed, constrained set of keys —
+        # a hostname, an IP, on/bc, a timezone, a heap size — none of whose
+        # legitimate values contain `\`, `"`, `$` or a backtick, so the escape
+        # pass is a no-op for every value these keys can actually hold. The
+        # escaping exists purely to neutralise a garbage/hostile debconf answer
+        # for the shell that sources this file; such a value is already invalid
+        # for its key (a "hostname" with a backtick will not resolve), so a
+        # non-identical read-back of it changes nothing. Do NOT widen these
+        # writes to free-form keys without teaching the readers to un-escape.
         set_env_key() {
             key="$1" value="$2"
             SEK_KEY="${key}" SEK_VALUE="${value}" awk '
-                BEGIN { k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"] }
+                BEGIN {
+                    k = ENVIRON["SEK_KEY"]; v = ENVIRON["SEK_VALUE"]
+                    gsub(/^[ \t]+/, "", v); gsub(/[ \t]+$/, "", v)
+                    gsub(/["$`\\]/, "\\\\&", v)
+                    v = "\042" v "\042"
+                }
                 index($0, k "=") == 1 { print k "=" v; done = 1; next }
                 { print }
                 END { if (!done) print k "=" v }
@@ -219,7 +422,18 @@ case "$1" in
         }
         set_env_key CARLOS_SERVER_NAME "${SERVER_NAME}"
         set_env_key CARLOS_BIND_IP "${BIND_IP}"
-        set_env_key CARLOS_JAVA_XMS "${HEAP}"
+        # The single debconf heap answer round-trips through CARLOS_JAVA_XMX
+        # only (the config script seeds the question from Xmx), so Xms has no
+        # debconf voice of its own. Follow the answer with Xms ONLY while the
+        # operator has kept Xms == Xmx (the skel default and the common case):
+        # an operator who deliberately diverged them — a legitimate tuning the
+        # skel itself documents — must not have Xms silently reset to Xmx on
+        # the next upgrade. Read both BEFORE either write lands.
+        CUR_XMS="$(sed -n 's/^CARLOS_JAVA_XMS=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        CUR_XMX="$(sed -n 's/^CARLOS_JAVA_XMX=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
+        if [ -z "${CUR_XMS}" ] || [ "${CUR_XMS}" = "${CUR_XMX}" ]; then
+            set_env_key CARLOS_JAVA_XMS "${HEAP}"
+        fi
         set_env_key CARLOS_JAVA_XMX "${HEAP}"
         # Fresh install only: CARLOS_TZ is not round-tripped through debconf
         # like the keys above, so re-deriving it from /etc/timezone on every
@@ -271,6 +485,175 @@ case "$1" in
             echo "carlos-emr: COPY IT OFF THIS HOST. Without it the backups cannot be read."
         fi
 
+        # One-time migration (2026.09.0~snapshot4): the default database name
+        # changed from the inherited `oscar` to `carlos`. Same discipline as
+        # the consult-signature migration above: sentinel + upgrade-only +
+        # exact old-stock-value match, so an operator's explicit choice is
+        # never overridden — CARLOS_DB_NAME set to anything but the old stock
+        # `oscar` (an absent key IS the old stock default: config.py fell back
+        # to `oscar`) never matches, now or later. The schema itself is moved
+        # (carlos-ctl db-rename-schema: atomic multi-pair RENAME TABLE, carries
+        # flyway_schema_history), because `oscar` on an alpha install is the
+        # old default, not a choice. Placed BEFORE init-config so the rewritten
+        # env value is what init-config renders into carlos.properties.
+        # Failure paths write NO sentinel so the next configure retries;
+        # the env keeps naming the schema the data actually lives in, so the
+        # system stays consistent while deferred.
+        # The mariadb wait is hoisted ABOVE the migration check (it used to
+        # sit between init-config and provisioning): the check must probe the
+        # server, and probing before the wait raced a still-starting MariaDB
+        # into the deferred path while the provisioning below then ran
+        # against a server that came up moments later — creating the empty
+        # new-name schema the deferred rename would refuse to merge with.
+        # One wait, one outcome, shared by the migration and provisioning.
+        if command -v mariadb >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+            # A fresh mariadb-server install may not have finished starting.
+            sd_invoke start mariadb.service >/dev/null 2>&1 || true
+            i=0
+            while [ "${i}" -lt 30 ] && ! mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; do
+                sleep 2; i=$((i + 1))
+            done
+        fi
+
+        DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
+        if [ ! -e "${DB_NAME_SENTINEL}" ]; then
+            CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"
+            # Eligible when the old stock default may still be in effect. Two
+            # shapes (review finding): an upgrade from before the boundary
+            # (env carries the old stock `oscar`, or no key — the old
+            # fallback), and a configure with NO prior version whose env is
+            # the untouched new skeleton — purge deliberately RETAINS the
+            # clinical database while removing the env file and sentinels,
+            # so a purge-then-reinstall arrives like a fresh install with
+            # the patient data still sitting in `oscar`. A custom name never
+            # qualifies on either path, and a post-boundary upgrade never
+            # re-enters.
+            ELIGIBLE=0
+            if [ -n "${2:-}" ]; then
+                if dpkg --compare-versions "$2" lt "2026.09.0~snapshot4" \
+                    && { [ "${CUR_DB_NAME}" = "oscar" ] || [ -z "${CUR_DB_NAME}" ]; }; then
+                    ELIGIBLE=1
+                fi
+            else
+                case "${CUR_DB_NAME}" in
+                    oscar|carlos|"") ELIGIBLE=1 ;;
+                esac
+            fi
+            if [ "${ELIGIBLE}" = 1 ]; then
+                if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
+                    OSCAR_SCHEMA="$(mariadb --protocol=socket --user=root -N -B \
+                        -e "SHOW DATABASES LIKE 'oscar'" 2>/dev/null || true)"
+                    if [ -z "${OSCAR_SCHEMA}" ]; then
+                        # `oscar` is gone, so `carlos` is the correct target in
+                        # every sub-case here (review finding):
+                        #  (a) A completed-but-unbookkept rename. db-rename-schema
+                        #      DROPs `oscar` after moving its tables to `carlos`;
+                        #      the env rewrite + sentinel happen after it, in a
+                        #      small non-atomic window. A prior configure killed
+                        #      in that window leaves the data in `carlos` while
+                        #      the env still says `oscar`.
+                        #  (b) Genuinely fresh: nothing anywhere, and `carlos` is
+                        #      the new stock default.
+                        # Repoint the env UNCONDITIONALLY rather than gate it on a
+                        # `carlos` table count: a transient failure of that COUNT
+                        # would mask (a) as 0, skip the rewrite, yet still write
+                        # the sentinel below — permanently stranding the app on
+                        # the dropped `oscar`. The count now only picks the log
+                        # line.
+                        CARLOS_ROWS="$(mariadb --protocol=socket --user=root -N -B \
+                            -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos'" \
+                            2>/dev/null || echo 0)"
+                        sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
+                        if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                            sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                        fi
+                        if [ "${CARLOS_ROWS:-0}" -gt 0 ] 2>/dev/null; then
+                            echo "carlos-emr: completed a prior interrupted oscar -> carlos rename (the schema was already moved to carlos)"
+                        fi
+                        mkdir -p "${STATE}"
+                        : > "${DB_NAME_SENTINEL}"
+                    elif carlos-ctl db-rename-schema oscar carlos; then
+                        sed -i 's/^CARLOS_DB_NAME=oscar$/CARLOS_DB_NAME=carlos/' "${ENV_FILE}"
+                        if grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                            sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                        fi
+                        mkdir -p "${STATE}"
+                        : > "${DB_NAME_SENTINEL}"
+                        echo "carlos-emr: renamed the database oscar -> carlos (one-time default migration)"
+                    else
+                        # The rename failed. Distinguish two causes, because
+                        # they need opposite handling (review finding):
+                        #
+                        #  (a) A conflicting NON-EMPTY `carlos` already holds
+                        #      data — the verb refuses to merge. This happens
+                        #      on the no-prior-version path when the reinstall
+                        #      skel already wrote CARLOS_DB_NAME=carlos and the
+                        #      live data is in `carlos`, with a stale leftover
+                        #      `oscar` beside it. Repointing the env to `oscar`
+                        #      here would send the app at the WRONG (stale)
+                        #      schema and, with no sentinel, loop forever. So:
+                        #      leave the env untouched, WRITE the sentinel (a
+                        #      two-populated-schemas conflict is a human call,
+                        #      never an automatic retry), and say so.
+                        #  (b) A transient failure with `carlos` absent/empty —
+                        #      the data is still in `oscar`. Pin the env at
+                        #      `oscar` (the schema the data lives in) and write
+                        #      NO sentinel so the next configure retries.
+                        CARLOS_ROWS="$(mariadb --protocol=socket --user=root -N -B \
+                            -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='carlos'" \
+                            2>/dev/null || echo 0)"
+                        if [ "${CARLOS_ROWS:-0}" -gt 0 ] 2>/dev/null; then
+                            mkdir -p "${STATE}"
+                            : > "${DB_NAME_SENTINEL}"
+                            echo "carlos-emr: WARNING: both an \`oscar\` and a non-empty \`carlos\` schema exist." >&2
+                            echo "carlos-emr: WARNING: NOT renaming or repointing — the application stays on the" >&2
+                            echo "carlos-emr: WARNING: configured schema. Consolidate the two by hand (the live data" >&2
+                            echo "carlos-emr: WARNING: is in whichever you have been running), drop the stale one, then" >&2
+                            echo "carlos-emr: WARNING: 'sudo dpkg-reconfigure carlos-emr' if the name needs correcting." >&2
+                        else
+                            if [ -z "${CUR_DB_NAME}" ]; then
+                                printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                            else
+                                sed -i 's/^CARLOS_DB_NAME=carlos$/CARLOS_DB_NAME=oscar/' "${ENV_FILE}"
+                            fi
+                            echo "carlos-emr: WARNING: could not rename the database oscar -> carlos." >&2
+                            echo "carlos-emr: WARNING: the install continues on the existing name; inspect the" >&2
+                            echo "carlos-emr: WARNING: messages above, then run: sudo carlos-ctl db-rename-schema oscar carlos" >&2
+                            echo "carlos-emr: WARNING: followed by: sudo dpkg-reconfigure carlos-emr" >&2
+                        fi
+                    fi
+                else
+                    # Cannot probe. On the upgrade path the data is known to
+                    # live in `oscar` — pin the env so provisioning below (if
+                    # the server surfaces later) stays on it. On the
+                    # no-prior-version path nothing is known and nothing is
+                    # pinned; provisioning shares this wait's outcome, so no
+                    # empty new-name schema is created behind the deferral.
+                    if [ -n "${2:-}" ] && [ -z "${CUR_DB_NAME}" ]; then
+                        printf 'CARLOS_DB_NAME=oscar\n' >> "${ENV_FILE}"
+                    fi
+                    echo "carlos-emr: WARNING: MariaDB is not reachable; the oscar -> carlos database" >&2
+                    echo "carlos-emr: WARNING: rename check is deferred to the next configure (dpkg-reconfigure carlos-emr)." >&2
+                fi
+            else
+                # Custom name, or post-boundary upgrade: the default-rename
+                # can never apply again. One catch-up first (review finding): a
+                # prior successful rename interrupted between rewriting
+                # carlos-emr.env (-> carlos) and backup.env leaves backup.env
+                # pinned at the now-dropped `oscar`, so the nightly backup would
+                # dump a missing schema forever. The sentinel written just below
+                # closes this block for good, so reconcile it here — the last
+                # chance to catch that split.
+                if [ "${CUR_DB_NAME}" = "carlos" ] \
+                    && grep -qx 'CARLOS_BACKUP_DB_NAME=oscar' "${BACKUP_ENV}" 2>/dev/null; then
+                    sed -i 's/^CARLOS_BACKUP_DB_NAME=oscar$/CARLOS_BACKUP_DB_NAME=carlos/' "${BACKUP_ENV}"
+                    echo "carlos-emr: reconciled backup.env to the carlos schema after a prior interrupted rename"
+                fi
+                mkdir -p "${STATE}"
+                : > "${DB_NAME_SENTINEL}"
+            fi
+        fi
+
         # --- render, provision, migrate -------------------------------------
         # Guarded: init-config exits non-zero when nginx cannot be tested or
         # reloaded — including for reasons OUTSIDE this package (another
@@ -283,14 +666,8 @@ case "$1" in
             echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2
         }
 
-        if command -v mariadb >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
-            # A fresh mariadb-server install may not have finished starting.
-            sd_invoke start mariadb.service >/dev/null 2>&1 || true
-            i=0
-            while [ "${i}" -lt 30 ] && ! mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; do
-                sleep 2; i=$((i + 1))
-            done
-        fi
+        # (The mariadb start + wait that used to sit here is hoisted above
+        # the db-name migration check — see the comment there.)
 
         # Tracks whether the schema is in a state the application can start
         # against. Consulted before the service start at the end of postinst:
@@ -298,6 +675,11 @@ case "$1" in
         # failed deployments (the app's boot-time validate gate refuses a
         # schema behind the WAR — by design).
         MIGRATION_OK=1
+        # Initialised for the same reason MIGRATION_OK is: dpkg passes the
+        # invoking environment straight through to maintainer scripts, so an
+        # inherited variable of this name would otherwise disable the unit on a
+        # perfectly healthy install.
+        SEED_CREDENTIAL_LIVE=0
         if mariadb --protocol=socket --user=root -e 'SELECT 1' >/dev/null 2>&1; then
             # mariadb-server was already running when this package's drop-in
             # was unpacked, so it is still on distribution defaults — STRICT
@@ -338,16 +720,69 @@ case "$1" in
                 echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo systemctl start carlos-emr" >&2
             fi
             if [ "${RESET_ADMIN}" = true ]; then
-                carlos-ctl bootstrap-admin || {
-                    echo "carlos-emr: WARNING: could not replace the seeded 'carlosdoc' password —" >&2
-                    echo "carlos-emr: the account still has the credential PUBLISHED in the CARLOS" >&2
-                    echo "carlos-emr: source repository. Run 'carlos-ctl bootstrap-admin' before" >&2
-                    echo "carlos-emr: putting patient data on this system." >&2
-                }
+                # Fail CLOSED. If the seeded 'carlosdoc' credential cannot be
+                # replaced we must NOT start the service: the account still
+                # carries the password PUBLISHED in the CARLOS source
+                # repository, and bringing up an internet-facing EMR with a
+                # known administrator login (the force-reset flag does not help
+                # — an attacker who knows the old password completes the reset)
+                # is exactly the exposure this step exists to prevent. Unlike a
+                # failed migration — which the application's own schema gate
+                # refuses on every boot — a live seed credential sits over a
+                # VALID schema, so merely declining to start THIS run would still
+                # let a reboot bring the internet-facing EMR up with the
+                # published credential. SEED_CREDENTIAL_LIVE makes the trailing
+                # block DISABLE the unit so it cannot auto-start until an
+                # operator replaces the credential and re-enables it.
+                if carlos-ctl bootstrap-admin; then
+                    # Self-heal: if an earlier run disabled the unit because the
+                    # seeded credential was live, that condition is now cleared,
+                    # so undo it here. Without this the operator is permanently
+                    # on the hook for a manual `systemctl enable` — and the very
+                    # next configure would happily START the service while it
+                    # stayed disabled, so the EMR would silently fail to come
+                    # back at the following reboot.
+                    if [ -e "${SEED_SENTINEL}" ]; then
+                        rm -f "${SEED_SENTINEL}"
+                        deb-systemd-helper enable carlos-emr.service >/dev/null 2>&1 || true
+                        echo "carlos-emr: the seeded administrator credential has been replaced; the" >&2
+                        echo "carlos-emr: service unit has been re-enabled." >&2
+                    fi
+                elif [ "${MIGRATION_OK}" = 1 ]; then
+                    # Only treat this as "the published credential is live" when
+                    # the database and schema steps above SUCCEEDED. bootstrap-admin
+                    # also exits non-zero for environmental reasons (MariaDB
+                    # unreachable, schema not migrated); disabling the unit on
+                    # those would take a healthy production clinic offline over a
+                    # transient database problem, on a site that replaced the
+                    # seeded credential years ago.
+                    MIGRATION_OK=0
+                    SEED_CREDENTIAL_LIVE=1
+                    echo "carlos-emr: the seeded 'carlosdoc' password could NOT be replaced — the" >&2
+                    echo "carlos-emr: account still carries the credential PUBLISHED in the CARLOS" >&2
+                    echo "carlos-emr: source repository (see the notice at the end of setup)." >&2
+                else
+                    echo "carlos-emr: 'carlos-ctl bootstrap-admin' also failed, but the database or" >&2
+                    echo "carlos-emr: schema step above failed first — fix that, then re-run:" >&2
+                    echo "carlos-emr:   sudo carlos-ctl db-migrate && sudo carlos-ctl bootstrap-admin" >&2
+                fi
             else
                 echo "carlos-emr: WARNING: the seeded 'carlosdoc' account keeps the password" >&2
                 echo "carlos-emr: published in the CARLOS source repository. Do not put patient" >&2
                 echo "carlos-emr: data on this system until you have changed it." >&2
+            fi
+            # Optional fictitious demonstration dataset. The answer is
+            # consumed transiently each configure — every destructive-looking
+            # path is re-guarded inside the verb (empty-demographic check +
+            # completion marker), so an upgrade or dpkg-reconfigure re-asking
+            # the question is harmless by construction. Non-fatal on failure,
+            # like the other provisioning steps above: a demo problem must
+            # never block the apt transaction.
+            if [ "${DEMO_DATA}" = true ] && [ "${MIGRATION_OK}" = 1 ]; then
+                carlos-ctl demo-data || {
+                    echo "carlos-emr: WARNING: the demonstration dataset was NOT loaded (see" >&2
+                    echo "carlos-emr: above). Fix the cause, then run 'sudo carlos-ctl demo-data'." >&2
+                }
             fi
         else
             MIGRATION_OK=0
@@ -439,8 +874,21 @@ case "$1" in
         # branch, nothing would ever start them again — a failed upgrade of
         # an unrelated package in the same transaction left the EMR down.
         # Best-effort, never failing the abort path itself.
+        #
+        # The APPLICATION start is skipped while the seed-credential sentinel
+        # exists: `systemctl start` works perfectly well on a disabled unit, so
+        # without this guard any later aborted apt transaction — including one
+        # caused by an unrelated package — would undo the fail-closed and bring
+        # the EMR up with the source-published administrator password live. The
+        # timers carry no such exposure and are always restored.
         if [ -d /run/systemd/system ]; then
-            deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
+            if [ -e "${SEED_SENTINEL}" ]; then
+                echo "carlos-emr: not restarting the application — the seeded administrator" >&2
+                echo "carlos-emr: credential is still live (run 'carlos-ctl bootstrap-admin')." >&2
+            else
+                sd_reset_start_limit
+                deb-systemd-invoke start carlos-emr.service >/dev/null 2>&1 || true
+            fi
             deb-systemd-invoke start carlos-emr-backup.timer carlos-emr-backup-verify.timer \
                 carlos-emr-cert-renew.timer >/dev/null 2>&1 || true
         fi
@@ -453,14 +901,60 @@ esac
 
 #DEBHELPER#
 
+# Durable fail-closed for a live seeded credential. Deliberately NOT gated on
+# /run/systemd/system: the enable/disable state is symlinks under /etc, which
+# deb-systemd-helper maintains with or without a running systemd, and the golden
+# -image / chroot build path is exactly where an undisabled unit would ship an
+# internet-facing EMR carrying the source-published administrator password.
+if [ "$1" = configure ] && [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
+    mkdir -p "${STATE}" 2>/dev/null || true
+    : > "${SEED_SENTINEL}" 2>/dev/null || true
+    chmod 0600 "${SEED_SENTINEL}" 2>/dev/null || true
+    deb-systemd-helper disable carlos-emr.service >/dev/null 2>&1 || true
+    # disable does not touch runtime state and has no --now, so stop separately.
+    # Through sd_invoke, which honours policy-rc.d (a stop is a runtime action;
+    # the disable above deliberately is not). Without this a dpkg-reconfigure
+    # leaves the JVM serving with the credential live while the notice claims
+    # the service is not running.
+    sd_invoke stop carlos-emr.service >/dev/null 2>&1 || true
+    # VERIFY rather than assert: this is the one invariant the whole branch
+    # exists to establish, and a silent failure here means the operator believes
+    # a reboot is safe when it is not.
+    if [ -d /run/systemd/system ] && systemctl is-enabled --quiet carlos-emr.service 2>/dev/null; then
+        echo "carlos-emr: *** COULD NOT DISABLE carlos-emr.service ***" >&2
+        echo "carlos-emr: the seeded 'carlosdoc' credential (published in the CARLOS source" >&2
+        echo "carlos-emr: repository) is still live AND the unit will start at the next boot." >&2
+        echo "carlos-emr: run this NOW:  sudo systemctl disable --now carlos-emr" >&2
+    else
+        echo "carlos-emr: the service has been STOPPED and DISABLED: the seeded 'carlosdoc'" >&2
+        echo "carlos-emr: credential (published in the CARLOS source repository) could not be" >&2
+        echo "carlos-emr: replaced, so the EMR must not come up with it live — including on a" >&2
+        echo "carlos-emr: reboot. Replace the credential and the unit is re-enabled for you:" >&2
+        echo "carlos-emr:   sudo carlos-ctl bootstrap-admin && sudo systemctl start carlos-emr" >&2
+    fi
+fi
+
 # Everything below runs AFTER the debhelper snippets, so the units exist and
 # are enabled by the time we start them.
 if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
-    if [ "${MIGRATION_OK:-1}" = 0 ]; then
+    # dh_installsystemd runs with --no-start (the service cannot come up before
+    # this script has provisioned the DB and rendered carlos.properties), and
+    # --no-start suppresses debhelper's own daemon-reload along with the start.
+    # So on an UPGRADE that ships a changed unit, systemd still holds the old
+    # fragment: without an explicit reload here the start below launches the
+    # stale unit and prints "unit file ... changed on disk. Run daemon-reload".
+    # deb-systemd-invoke has no reload verb, so call systemctl directly (as the
+    # renderer's postinst already does). Best-effort; never fail configure.
+    systemctl --system daemon-reload >/dev/null 2>&1 || true
+    if [ "${SEED_CREDENTIAL_LIVE:-0}" = 1 ]; then
+        # Already stopped, disabled and reported by the block above; the only
+        # thing left to do here is NOT start the service.
+        :
+    elif [ "${MIGRATION_OK:-1}" = 0 ]; then
         echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
         echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
         echo "carlos-emr: start it after completing the migration." >&2
-    elif sd_invoke start carlos-emr.service; then
+    elif sd_reset_start_limit; sd_invoke start carlos-emr.service; then
         # Deploying this webapp takes around two minutes on a small VM
         # (measured: 119 s), and postinst returning before it answers makes a
         # perfectly good install look broken — the operator runs
@@ -472,13 +966,17 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # bare IP: a numeric Host header trips CRS rule 920350 on every poll
         # and fills the brand-new audit log with noise the installer itself
         # generated.
-        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | head -1)"
+        # tr -d '\042' strips the surrounding double quotes set_env_key now
+        # writes: a raw read would hand curl --resolve a quoted host/addr and
+        # every healthy install would sit out the whole loop before wrongly
+        # reporting the front door dead. Same idiom as the XMS/XMX reads above.
+        PROBE_NAME="$(sed -n 's/^CARLOS_SERVER_NAME=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
         PROBE_NAME="${PROBE_NAME:-localhost}"
         # Probe the address nginx actually listens on: with a non-default
         # CARLOS_BIND_IP (a LAN address) nothing answers on loopback, and a
         # healthy install used to sit through the whole five-minute loop and
         # then blame the application.
-        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | head -1)"
+        PROBE_IP="$(sed -n 's/^CARLOS_BIND_IP=//p' "${ENV_FILE}" | tr -d '\042' | head -1)"
         case "${PROBE_IP}" in ""|0.0.0.0|::) PROBE_IP=127.0.0.1 ;; esac
         i=0
         while [ "${i}" -lt 60 ]; do

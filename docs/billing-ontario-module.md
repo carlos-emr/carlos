@@ -228,12 +228,35 @@ through its own `ViewBillingOn2Action`.
 Region resolution rules (`Billing2Action.execute`):
 
 1. If `billRegion` request parameter is present and non-empty, use it.
-2. Otherwise, fall back to `CarlosProperties.getProperty("billregion")`.
+2. Otherwise, fall back to the `billregion` value stored in
+   `CarlosProperties`, read raw rather than through `getProperty()`. The
+   override logs a WARN on every miss, and `billregion` is legitimately
+   absent on an install that never set it. The value it hands back on a
+   miss is the same either way — the substitution it attempts comes from
+   `PROPERTY_DEFAULTS`, which registers only `hibernate.dialect` and
+   `ColourClass`, so an unregistered key like `billregion` still resolves
+   to null. The reason to read raw is the log noise, not a wrong value.
 3. Anything not equal to `"ON"` (including null) routes to BC. Historical
    behaviour: BC was the original deployment.
 
-The router gracefully handles `CarlosProperties.getProperties()` returning
-null (which can happen pre-config), defaulting to BC.
+The router still null-checks `CarlosProperties.getInstance()` before reading
+the property, but that is a defensive guard rather than a state production
+reaches: the singleton is eagerly initialized (`private static CarlosProperties
+carlosProperties = new CarlosProperties();`), so the instance itself is never
+null. What is genuinely absent is the `billregion` *value*, which reads back
+null on an install that never set it — rule 3 then routes to BC.
+
+**Every Ontario link into `/billing` must carry `billRegion=ON`.** Rule 3 above
+means an omitted region routes to BC, and on an Ontario install `billingBC.jsp`
+queries BC-only tables (`billingvisit`, …) that the Ontario schema does not
+have — the operator sees "CARLOS Error: 500" with a `Table … doesn't exist`
+trace. The fall-back to the `billregion` property is the safety net, not the
+contract: it was dead for one release because the action read a same-named
+properties holder in `carlos.util.plugin` whose static field nothing ever
+populated, and the only surfaces that broke were the ones that had also dropped
+the parameter — the bill-type dropdown on `billingON.jsp` (3rd Party / Bonus
+Codes re-open the form through the router) and the "Bill" links on the unbilled
+reports. Keep the parameter on both sides.
 
 Privilege check: `_billing r`. Province-specific gates also enforce
 `_billing r` or `_billing w` as appropriate; the router doesn't grant; it

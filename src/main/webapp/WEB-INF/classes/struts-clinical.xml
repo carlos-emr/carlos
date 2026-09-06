@@ -183,6 +183,10 @@
         </action>
         <action name="OscarChartPrint" class="io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action"/>
         <action name="ClientImage" class="io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action" method="execute">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/casemgmt/uploadimage.jsp</result>
             <interceptor-ref name="defaultStack">
                 <param name="actionFileUpload.allowedTypes">image/jpeg,image/gif</param>
             </interceptor-ref>

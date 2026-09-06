@@ -202,14 +202,15 @@ function remoteSave() {
 			return false;
 		}
 
-		// A legacy string timer that never ran can leave fields unpopulated. The compat shim's own
-		// capture-phase submit listener cannot help here: every save path below reaches the server
-		// through HTMLFormElement.submit(), which fires no submit event by design.
+		// A legacy string timer that never ran can leave fields unpopulated. That is ADVISORY, not a
+		// hard stop: the server render delivers the document with its own advisory banner rather than
+		// withholding it, so blocking here would trap the clinician on the client for a document the
+		// server would have produced. Surface the shim's warning banner and proceed. The shim's own
+		// capture-phase submit listener never fires for these paths, which submit via
+		// HTMLFormElement.submit() (no submit event), so consult it directly for the notice.
 		const timerCompat = window.__carlosEformTimerCompat;
-		if (timerCompat && typeof timerCompat.shouldBlockSubmission === "function"
-				&& timerCompat.shouldBlockSubmission()) {
-			HideSpin();
-			return false;
+		if (timerCompat && typeof timerCompat.warnBeforeSubmission === "function") {
+			timerCompat.warnBeforeSubmission();
 		}
 
 		// Must run before appendImageInputs()/moveSubject() below mutate the form, and before the

@@ -44,6 +44,11 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would ride every navigation and surface in failure diagnostics; the
+  // checks log in through the form with TEST_USER/TEST_PASSWORD instead.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
 
   const host = parsed.hostname.toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
@@ -363,9 +368,41 @@ function buildFailureDetails(recorder) {
   };
 }
 
+/**
+ * Fail if the browser reported an uncaught JS error on any of the given pages.
+ *
+ * The recorder has always collected pageErrors, but several scripts only ever
+ * PRINTED them, and only on a run that had already failed for another reason.
+ * That is how a live ReferenceError on the deleted-eForms list shipped green:
+ * the assertions all completed before the DataTables draw callback threw, so
+ * nothing looked at the error the browser had raised. A check that drives a
+ * page should fail when that page is broken, whether or not the specific thing
+ * it asserted still worked.
+ *
+ * @param recorder  recorder from createRecorder()
+ * @param labels    page labels to consider; omit for all pages
+ * @param allow     regexes for known-benign errors; keep this list short and
+ *                  justified, since every entry is a class of regression the
+ *                  check can no longer see
+ */
+function assertNoPageErrors(recorder, labels = null, allow = []) {
+  const relevant = recorder.pageErrors.filter((entry) => {
+    if (labels && !labels.includes(entry.label)) {
+      return false;
+    }
+    return !allow.some((pattern) => pattern.test(entry.text));
+  });
+  assert(
+    relevant.length === 0,
+    `The browser raised ${relevant.length} uncaught JavaScript error(s): `
+      + relevant.map((entry) => `[${entry.label}] ${entry.text.split('\n')[0]}`).join(' | '),
+  );
+}
+
 module.exports = {
   appUrl,
   assert,
+  assertNoPageErrors,
   assertNotErrorPage,
   buildArtifactPath,
   buildFailureDetails,

@@ -59,7 +59,8 @@ class AddEFormDownloadApprovalRegressionTest {
         // specific catch entirely, which compiles cleanly and restores the dead end. So assert it is
         // present on each of the two download branches, next to the render call it guards.
         for (String fdidVariable : new String[] {"fdid", "prev_fdid"}) {
-            String branch = "offerDownloadApproval(loggedInInfo, e, " + fdidVariable + ", demographic_no)";
+            // The trailing flag carries the "Submit & PDF" auto-close intent through the approval page.
+            String branch = "offerDownloadApproval(loggedInInfo, e, " + fdidVariable + ", demographic_no, submitAndPdf)";
             assertThat(source)
                     .as("download branch keyed on %s must offer the approval", fdidVariable)
                     .contains(branch);

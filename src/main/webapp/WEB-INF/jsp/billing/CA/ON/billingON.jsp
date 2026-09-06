@@ -468,7 +468,15 @@
             <c:set var="__statusUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
             <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
             <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/></c:set>
-            <c:set var="__commonQs">&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
+            <%-- billRegion MUST stay on every self-navigation out of this page.
+                 Billing2Action routes on it and only falls back to the
+                 deployment-wide `billregion` property when it is absent; an
+                 install that never set that property (or a future regression in
+                 the fall-back) sends the request to billingBC.jsp, which queries
+                 BC-only tables the Ontario schema does not have and answers
+                 "CARLOS Error: 500". This page is the Ontario bill-entry form,
+                 so the region is unconditionally ON. --%>
+            <c:set var="__commonQs">&billRegion=ON&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
             <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&providerview=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
                 self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
@@ -663,8 +671,12 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             return li;
         }
 
-        // Attach code autocomplete with custom rendering to a jQuery set
-        function initCodeAutocomplete($inputs, ajaxUrl) {
+        // Attach code autocomplete with custom rendering to a jQuery set.
+        // maxCodeLength (optional): the field doubles as the submitted claim value, whose
+        // maxlength is widened so description searches (e.g. "hypertension") fit; a term
+        // left behind without picking a suggestion must never be submitted as a code, so
+        // anything longer than a real code is cleared on blur.
+        function initCodeAutocomplete($inputs, ajaxUrl, maxCodeLength) {
             $inputs.each(function () {
                 var $input = jQuery(this);
                 $input.attr("placeholder", searchLabel);
@@ -678,14 +690,20 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                         this.value = ui.item.code;
                         if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
                         return false;
+                    },
+                    change: function (event, ui) {
+                        if (maxCodeLength && !ui.item && this.value.length > maxCodeLength) {
+                            this.value = "";
+                            if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
+                        }
                     }
                 }).data("ui-autocomplete");
                 if (inst) inst._renderItem = renderCodeItem;
             });
         }
 
-        // Dx diagnosis code fields
-        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax");
+        // Dx diagnosis code fields (diagnostic codes are at most 5 characters)
+        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax", 5);
 
         // Billing service code fields
         initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/ViewBillingCodeSearchAjax");
@@ -900,7 +918,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                 <td style="width: 15%"><fmt:message key="oscar.billing.ca.on.billingON.dx"/>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            onchange="changeCodeDesc();"
                                                            value="<carlos:encode value='${formModel.visit.dxCodeDefault}' context='htmlAttribute'/>"/>
                                                 </td>
@@ -908,14 +926,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode1\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode2\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>

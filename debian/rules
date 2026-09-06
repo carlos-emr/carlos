@@ -15,12 +15,22 @@
 #   DRUGREF_REF=<branch|tag|sha>       ref to fetch when DRUGREF_SRC is unset
 #                                      (default: the pin in debian/drugref.pin).
 #   SKIP_DRUGREF=1                     do not build carlos-emr-drugref at all.
+#   CHROMIUM_DIST=/path/to/unpacked    use an already-unpacked Chromium
+#                                      (chrome-linux/ plus chromedriver) instead
+#                                      of downloading the revision pinned in
+#                                      debian/chromium.pin. This is the offline
+#                                      path for carlos-emr-eform-renderer.
+#   SKIP_EFORM_RENDERER=1              do not build carlos-emr-eform-renderer at
+#                                      all. Note that saved-eForm print, fax and
+#                                      archive have NO non-browser fallback, so a
+#                                      release build must not set this.
 #
 # NETWORK: like every Maven-built package, the build resolves dependencies
-# from Maven Central, and the DrugRef source is fetched from GitHub unless
-# DRUGREF_SRC/DRUGREF_WAR is supplied. This is not a buildd-clean package; it
-# is built by the project's own release job. Pass the three variables above
-# for a fully offline build.
+# from Maven Central, the DrugRef source is fetched from GitHub unless
+# DRUGREF_SRC/DRUGREF_WAR is supplied, and the pinned Chromium is fetched from
+# the upstream snapshot archive unless CHROMIUM_DIST is supplied. This is not a
+# buildd-clean package; it is built by the project's own release job. Pass the
+# variables above for a fully offline build.
 
 export DH_VERBOSE = 1
 export JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk-$(shell dpkg --print-architecture)
@@ -40,6 +50,7 @@ MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true
 
 PKG        := carlos-emr
 DPKG       := carlos-emr-drugref
+RPKG       := carlos-emr-eform-renderer
 BUILDDIR   := $(CURDIR)/debian/build
 # Note the ordering: STAGE expands PKG immediately (:=), so PKG has to be
 # defined above it. The other way round, STAGE silently becomes debian/ and the
@@ -59,6 +70,10 @@ TOMCAT_ETC ?= /usr/share/tomcat11/etc
 
 DRUGREF_REF ?= $(shell sed -n 's/^ref=//p' debian/drugref.pin)
 
+CHROMIUM_REV        ?= $(shell sed -n 's/^rev=//p' debian/chromium.pin)
+CHROMIUM_CHROME_SHA ?= $(shell sed -n 's/^chrome_sha256=//p' debian/chromium.pin)
+CHROMIUM_DRIVER_SHA ?= $(shell sed -n 's/^chromedriver_sha256=//p' debian/chromium.pin)
+
 # --with installsysusers: the sysusers.d helper is not in debhelper's default
 # sequence, and without this the two system accounts would simply never be
 # declared — the package would install and then fail at the first chown.
@@ -67,6 +82,13 @@ DRUGREF_REF ?= $(shell sed -n 's/^ref=//p' debian/drugref.pin)
 # that looked shippable. Dev/CI knob only — release builds always ship both.
 ifneq ($(SKIP_DRUGREF),)
 DH_EXTRA := --no-package=carlos-emr-drugref
+endif
+# SKIP_EFORM_RENDERER drops carlos-emr-eform-renderer the same way, for a build
+# that must not reach the network for the ~250 MB Chromium archive. Dev/CI knob
+# only — release builds always ship it, because without a browser saved-eForm
+# print/fax/archive has no fallback path at all.
+ifneq ($(SKIP_EFORM_RENDERER),)
+DH_EXTRA += --no-package=carlos-emr-eform-renderer
 endif
 
 %:
@@ -107,6 +129,22 @@ ifeq ($(SKIP_DRUGREF),)
 	  cp -f "$$src"/target/drugref2*.war $(BUILDDIR)/drugref2.war; \
 	fi
 endif
+ifeq ($(SKIP_EFORM_RENDERER),)
+	# Chromium is fetched, never built: compiling it here would dwarf the rest
+	# of this package by orders of magnitude. CHROMIUM_DIST points at an
+	# already-unpacked tree (chrome-linux/ + chromedriver) for an offline or
+	# air-gapped build; otherwise the pinned revision is downloaded and its
+	# sha256 verified before anything is unpacked.
+	set -e; \
+	if [ -n "$$CHROMIUM_DIST" ]; then \
+	  echo "using prebuilt Chromium: $$CHROMIUM_DIST"; \
+	  rm -rf $(BUILDDIR)/chromium; \
+	  mkdir -p $(BUILDDIR)/chromium; \
+	  cp -a "$$CHROMIUM_DIST"/. $(BUILDDIR)/chromium/; \
+	else \
+	  $(CURDIR)/debian/fetch-chromium.sh "$(CHROMIUM_REV)" "$(CHROMIUM_CHROME_SHA)" "$(CHROMIUM_DRIVER_SHA)" $(BUILDDIR)/chromium; \
+	fi
+endif
 
 # dh_clean deletes every *.bak, *.orig, *.rej and *~ it finds ANYWHERE in the
 # source tree, on the assumption that they are editor and patch droppings. This
@@ -135,6 +173,43 @@ override_dh_auto_install:
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
 	install -d $(STAGE)/$(SHAREDIR)/lib
 	install -m 0644 $(BUILDDIR)/carlos-flyway-runner.jar $(STAGE)/$(SHAREDIR)/lib/
+	# Optional fictitious demonstration dataset (loaded only when the operator
+	# opts in via the carlos-emr/install-demo-data debconf question; see
+	# carlos-ctl demo-data). Generated per province from the dev snapshot at
+	# build time, gated by the additive-contract check (INSERT IGNORE only, no
+	# real names, no tables outside the province's Flyway schema), and shipped
+	# compressed. gzip -n keeps the artifact reproducible.
+	install -d $(STAGE)/$(SHAREDIR)/demo
+	set -e; for prov in on bc; do \
+	  scripts/build-demo-additive.sh .devcontainer/db/scripts/development.sql \
+	      $$prov $(BUILDDIR)/demo-additive-$$prov.sql; \
+	  scripts/check-demo-additive.sh $(BUILDDIR)/demo-additive-$$prov.sql \
+	      $$prov .devcontainer/db/scripts/development.sql; \
+	  gzip -9n < $(BUILDDIR)/demo-additive-$$prov.sql \
+	      > $(STAGE)/$(SHAREDIR)/demo/demo-additive-$$prov.sql.gz; \
+	done
+	install -m 0644 \
+	    .devcontainer/db/scripts/demo-name-sanitization.sql \
+	    .devcontainer/db/scripts/demo-name-sanitization-on.sql \
+	    .devcontainer/db/scripts/demo-specialists.sql \
+	    .devcontainer/db/scripts/demo-provider-links.sql \
+	    .devcontainer/db/scripts/demo-program-links.sql \
+	    .devcontainer/db/scripts/demo-issue-codes.sql \
+	    database/mysql/updates/update-2012-07-12.sql \
+	    database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
+	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
+	    database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	    .devcontainer/db/scripts/demo-hrm-report.sql \
+	    $(STAGE)/$(SHAREDIR)/demo/
+	# Demo document FILES. The snapshot's document rows reference these PDFs and
+	# its HRM rows are retargeted (demo-hrm-report.sql) at the fictitious HRM
+	# report; without the files every attachment render fails "could not be
+	# converted into a PDF" and the HRM lists stay empty. carlos-ctl demo-data
+	# copies them into the document store after the SQL load.
+	install -d $(STAGE)/$(SHAREDIR)/demo/documents
+	install -m 0644 .devcontainer/db/db_data/documents/*.pdf \
+	    .devcontainer/db/db_data/hrm/*.xml \
+	    $(STAGE)/$(SHAREDIR)/demo/documents/
 	# Tomcat's global web.xml and catalina.properties come from the
 	# distribution's own tomcat11 package (a build dependency) rather than
 	# being vendored into this repo: they then track the Tomcat the runtime
@@ -165,6 +240,13 @@ override_dh_auto_install:
 	    $(STAGE)/etc/carlos-emr/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
 	install -m 0644 debian/assets/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf \
 	    $(STAGE)/etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+	# Operator-owned exclusion files (shipped empty, never changed by the package
+	# so site edits never hit a dpkg conffile merge prompt). Under /etc, so
+	# debhelper auto-registers them as conffiles like the files above.
+	install -m 0644 debian/assets/modsecurity/local-exclusions-before-crs.conf \
+	    $(STAGE)/etc/carlos-emr/modsecurity/local-exclusions-before-crs.conf
+	install -m 0644 debian/assets/modsecurity/local-exclusions-after-crs.conf \
+	    $(STAGE)/etc/carlos-emr/modsecurity/local-exclusions-after-crs.conf
 	# MariaDB tuning drop-in
 	install -d $(STAGE)/etc/mysql/mariadb.conf.d
 	install -m 0644 debian/assets/mariadb/60-carlos-emr.cnf $(STAGE)/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf
@@ -186,22 +268,22 @@ override_dh_auto_install:
 	# Config skeletons the maintainer scripts instantiate (never conffiles:
 	# they carry generated credentials).
 	install -d $(STAGE)/$(SHAREDIR)/skel
-	# The skeleton comes from the BUILT WAR, not from src/main/resources.
-	# Those two files are not the same: the pom's antrun step substitutes the
-	# build stamp into target/classes/carlos.properties
-	# (buildDate=$${build.dateTime}, buildVersion=$${build.JOB_NAME}
-	# $${build.BUILD_NUMBER}) and only the WAR's copy has the real values.
-	# Since /etc/carlos-emr/carlos.properties is loaded as an OVERRIDE on top
-	# of the in-WAR file, shipping the unsubstituted source copy put the raw
-	# placeholder text back — and the application prints it in the corner of
-	# the LOGIN page, to every unauthenticated visitor. Verified live.
+	# The skeleton comes from the BUILT WAR, not from src/main/resources, so
+	# the file an operator edits is byte-for-byte the one the deployed WAR
+	# would otherwise fall back to (Maven resource filtering runs on it).
+	# The build stamp is deliberately NOT in this file any more: it lives in
+	# WEB-INF/classes/carlos-build.properties and is read by BuildInfo. Since
+	# /etc/carlos-emr/carlos.properties is loaded as an OVERRIDE on top of the
+	# in-WAR file, a stamp carried here was frozen at first install and never
+	# followed a package upgrade (verified live on the alpha line); carlos-ctl
+	# init-config comments out the legacy buildDate/buildVersion keys.
 	install -m 0644 \
 	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/carlos.properties \
 	    $(STAGE)/$(SHAREDIR)/skel/carlos.properties
 	install -m 0644 debian/assets/skel/carlos-emr.env $(STAGE)/$(SHAREDIR)/skel/carlos-emr.env
 	install -m 0644 debian/assets/skel/backup.env $(STAGE)/$(SHAREDIR)/skel/backup.env
 	install -m 0644 debian/assets/nginx/proxy-params.conf $(STAGE)/$(SHAREDIR)/skel/proxy-params.conf
-	# OscarDocument skeleton. Every directory that a property SET by carlos-ctl
+	# CarlosDocument skeleton. Every directory that a property SET by carlos-ctl
 	# names must be here: Startup.checkAndSetProperty only auto-creates
 	# directories for properties it derives itself (i.e. UNSET ones), so a
 	# configured INVOICE_DIR or ONEDT_INBOX pointing at a missing directory is
@@ -250,6 +332,37 @@ ifeq ($(SKIP_DRUGREF),)
 	install -m 0644 debian/assets/tomcat/Catalina/localhost/drugref2.xml \
 	    debian/$(DPKG)/$(SHAREDIR)/tomcat/Catalina/localhost/drugref2.xml
 endif
+ifeq ($(SKIP_EFORM_RENDERER),)
+	# cp -a, not install: the Chromium tree carries nested resource
+	# directories and its own helper binaries, and their modes matter
+	# (chrome_crashpad_handler and the sandbox helper must stay executable).
+	install -d debian/$(RPKG)/$(LIBDIR)/chromium
+	cp -a $(BUILDDIR)/chromium/chrome-linux/. debian/$(RPKG)/$(LIBDIR)/chromium/
+	install -m 0755 $(BUILDDIR)/chromium/chromedriver debian/$(RPKG)/$(LIBDIR)/chromium/chromedriver
+	# The setuid sandbox helper ships non-setuid on purpose. The browser IS
+	# sandboxed (EFORM_RENDER_SANDBOX=true is set unconditionally by the shipped
+	# drop-in), but via unprivileged user namespaces — the AppArmor profile
+	# grants userns and the browser unit permits namespaces — so the setuid
+	# fallback path is never used, and a setuid root binary inside a clinical
+	# package is not something to install for a path that never runs.
+	chmod 0755 debian/$(RPKG)/$(LIBDIR)/chromium/chrome_sandbox || true
+	# AppArmor profile that hands back the `userns` permission Ubuntu 23.10+
+	# removes system-wide. Without it Chromium aborts with "No usable sandbox!"
+	# and the only alternative would be --no-sandbox.
+	install -d debian/$(RPKG)/etc/apparmor.d
+	install -m 0644 debian/assets/apparmor/carlos-emr-chromium \
+	    debian/$(RPKG)/etc/apparmor.d/carlos-emr-chromium
+	# Drop-in shipped by THIS package, not by carlos-emr: installing the optional
+	# renderer is what adds the ordering and turns the sandbox on, and removing it
+	# takes both away. carlos-emr.service stays free of renderer specifics.
+	install -d debian/$(RPKG)/usr/lib/systemd/system/carlos-emr.service.d
+	install -m 0644 debian/assets/systemd/carlos-emr.service.d/10-eform-renderer.conf \
+	    debian/$(RPKG)/usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf
+	# Skeleton only: the postinst generates the url-base secret into the real file.
+	install -d debian/$(RPKG)/$(SHAREDIR)/skel
+	install -m 0644 debian/assets/skel/render-browser.env \
+	    debian/$(RPKG)/$(SHAREDIR)/skel/render-browser.env
+endif
 
 # The webapp is thousands of small files that Tomcat serves directly; gzipping
 # any of them (the README/txt/xml dh_compress would otherwise pick up under
@@ -261,8 +374,12 @@ override_dh_compress:
 	# references (found by the documentation audit).
 	dh_compress -X/usr/share/carlos-emr -XREADME.Debian
 
-# The package ships no ELF objects; skip the toolchain helpers entirely so the
-# build does not spend minutes walking a 400 MB exploded webapp.
+# carlos-emr itself ships no ELF objects, and the ELF that carlos-emr-eform-renderer
+# does ship is a VENDORED Chromium: stripping it, rewriting its build-ids or
+# computing shlibdeps from it are all wrong (its dependencies are declared by
+# hand in debian/control, read off the binary's own dynamic section). Skipping
+# these also keeps the build from spending minutes walking a 400 MB exploded
+# webapp.
 override_dh_strip:
 override_dh_strip_nondeterminism:
 override_dh_dwz:
@@ -277,3 +394,6 @@ override_dh_installsystemd:
 	dh_installsystemd --no-start --name=carlos-emr-backup
 	dh_installsystemd --no-start --name=carlos-emr-backup-verify
 	dh_installsystemd --no-start --name=carlos-emr-cert-renew
+	# -p explicitly: override_dh_installsystemd otherwise runs each --name across
+	# every binary package, and this unit belongs only to the renderer.
+	dh_installsystemd --no-start -p carlos-emr-eform-renderer --name=carlos-emr-chromedriver

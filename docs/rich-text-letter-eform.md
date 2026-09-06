@@ -64,12 +64,77 @@ overwriting clinic-customized versions.
 
 | Endpoint | Class/File | Purpose |
 |----------|-----------|---------|
-| `eform/rtlPreventions.do` | `RtlPreventions2Action` | Returns OWASP-encoded prevention data (replaces SQL injection vulnerability) |
+| `eform/rtlPreventions` (+ `.do` alias) | `RtlPreventions2Action` | Returns OWASP-encoded prevention data (replaces SQL injection vulnerability) |
 | `eform/efmformrtl_templates.jsp` | JSP | Returns `<option>` elements for the template dropdown |
 | `eform/attachEform.jsp` | JSP | Popup UI for attaching documents to the letter |
 | `eform/displayAttachedFiles.jsp` | JSP | AJAX endpoint returning attached file list HTML |
 | `eform/attachDoc.do` | `EFormAttachDocs2Action` | Handles attachment form submission |
 | `eform/displayImage.do` | `DisplayImage2Action` | Serves `editControl2.js` and other assets from the eForm images directory |
+| `eform/addEForm` | `AddEForm2Action` | Save; also the PDF/print workflows below |
+
+---
+
+## Print and PDF
+
+The RTL page exposes three print/PDF entry points. The server-rendered Download and PDF-button
+flows work from the **saved** record: every server render
+(`DocumentAttachmentManager.renderEFormPacketWithCompleteness`) needs an `fdid`, so there is no
+"PDF without saving" path. Toolbar Print is the exception: it prints the editor iframe as it
+stands and only then saves, when the letter is dirty.
+
+| Control | Path |
+|---------|------|
+| Toolbar **Print** (`remotePrint()` in `eform_floating_toolbar.js`) | Clicks the form's hidden `PrintButton`, which calls `print()` on the **editor iframe** (so only the letter prints, not the sidebar), then saves through `remoteSave()` when the letter is dirty (`needToConfirm`). |
+| Toolbar **Download** (`remoteDownload()`) | Posts `saveAndDownloadEForm=true`; `AddEForm2Action` saves, renders the PDF, and hands it back base64-encoded on `efmshowform_data.jsp`, which triggers the browser download. |
+| Form **PDF** / **Submit & PDF** buttons (injected by `library/eforms/printControl.js`) | Post `print=true`. `AddEForm2Action` treats that flag as the legacy alias of `saveAndDownloadEForm=true`. Before 2026.09 these buttons were a plain Save with no PDF: `printControl.js` guarded its hidden inputs on a jQuery object's truthiness (never false), so the flag was never posted — and had it been, the action returned a `print` result that `struts-eform.xml` never mapped. `skipSave` is advisory only, but it still tells the two buttons apart: **Submit & PDF** is a submission, so the result page starts the download, shows the saved alert and then closes the window (the action sets `isSuccess_Autoclose`, exactly as a plain Submit does; if the completeness gate refuses the render first, the approval page carries the intent as a hidden `autoClose` input so the approved download still closes), while **PDF** leaves the window open. The eForm Generator and Visual Editor emit `printControl.js` into generated clinic eForms too, so the alias covers them as well. |
+
+Two invariants keep these working:
+
+- `printControl.js` serializes the letter through `saveRTL()` when it is defined, so the stored
+  `Letter` value carries the same entity escaping as a plain Save. Both readers of that value
+  (`editControl2.js` on reopen and `EFormRenderPdfHtmlComposer.decodeStoredLetter()` for PDF)
+  decode unconditionally, so a raw write would come back mangled.
+- `editControl2.js` re-registers its dirty-flag listener (`attachDirtyFlagListener()`) after every
+  template load. Loading `blank.rtl` navigates the editor iframe, which replaces its `Window` and
+  drops listeners registered on the old one; before this, typing into a new letter never set
+  `needToConfirm`, so toolbar Print printed without saving and closing never warned.
+
+Three related invariants were fixed at the same time:
+
+- `eform/rtlPreventions.do` is a compatibility alias of `eform/rtlPreventions` in
+  `struts-eform.xml`, because the shipped form_html calls the `.do` spelling from the
+  Preventions sidebar button (it rendered "Error loading preventions." without it).
+- Every `*.rtl` file in the eForm image directory is served by `DisplayImage2Action` without
+  the stored-asset `sandbox` CSP, like `blank.rtl`: the template dropdown offers exactly those
+  files and the editor navigates its iframe to the chosen one, so a sandboxed template made the
+  frame cross-origin and broke editing.
+- `editControl2.js` turns `designMode` on in the editor frame before every template parse
+  (`enableEditorDesignMode()`): the parent's `iframe.onload` runs before the template's own
+  `<body onload>` does, so `seteditControlContents()` used to refuse the write, log
+  "cannot set editor contents" on every new letter, and drop clinic templates' content.
+
+Regression coverage: `AddEForm2ActionPrintAliasUnitTest` (server alias, mapped results),
+`RichTextLetterPrintAssetRegressionTest` (browser assets), `DisplayImage2ActionUnitTest`
+(template serving), `EFormJspMigrationRegressionTest` (the `.do` alias), and the live browser
+check `scripts/eform-rtl-print-pdf-playwright-checks.js`
+(`npm run test:eform-rtl-print-pdf-playwright`), which drives Preventions, Download, the form's
+PDF button, toolbar Print, "Submit & Print" and (with `RTL_TEMPLATE_NAME`) a clinic template
+against a running CARLOS and verifies real PDF bytes come back.
+
+Attachments ride the same download: both paths save the letter first and then render the packet
+(`DocumentAttachmentManager.renderEFormPacketWithCompleteness`), which appends everything attached
+to that `fdid` after the letter: other eForms first, then eDocs, labs, HRM reports and PDF-ready
+encounter forms. The
+letter offers two ways to attach: the floating toolbar's Attach dialog (selections travel as
+hidden `docNo`/`labNo`/`hrmNo`/`eFormNo`/`formNo` inputs and are persisted on save) and the
+editor's own paperclip, which posts to `eform/attachDoc` against the saved `fdid` and is what the
+"Attached Files" panel (`eform/displayAttachedFiles`) reflects. A save re-submits the hidden
+inputs as the complete set, so the saved view embeds every current attachment before any
+download. `scripts/eform-rtl-attachment-pdf-playwright-checks.js`
+(`npm run test:eform-rtl-attachment-pdf-playwright`) attaches one item of each family to its own
+letter and proves it shows on the saved letter and adds pages to the PDF from both paths; HRM
+needs the report fixture in `.devcontainer/db/db_data/hrm/`, and
+`HRMReportParserFixtureUnitTest` pins the JAXB enum mappings that fixture depends on.
 
 ---
 
@@ -81,27 +146,27 @@ is resolved by `CarlosProperties.getEformImageDirectory()` using a two-tier look
 1. **Explicit property**: `EFORM_IMAGES_DIR` in `carlos.properties` (if set)
 2. **Fallback**: `Paths.get(BASE_DOCUMENT_DIR, "eform", "images")` — i.e., `BASE_DOCUMENT_DIR/eform/images/`
 
-The devcontainer explicitly sets `EFORM_IMAGES_DIR=/var/lib/OscarDocument/oscar/eform/images/`
+The devcontainer explicitly sets `EFORM_IMAGES_DIR=/var/lib/CarlosDocument/carlos/eform/images/`
 in its `carlos.properties`. On a fresh install where only `BASE_DOCUMENT_DIR` is configured,
 the path would be `BASE_DOCUMENT_DIR/eform/images/` (no context segment).
 
 For the default devcontainer:
 
 ```bash
-/var/lib/OscarDocument/oscar/eform/images/
+/var/lib/CarlosDocument/carlos/eform/images/
 ```
 
 ### Creating the Directory
 
 **DevContainer setup** (add to `populate_db.sh` or container init):
 ```bash
-mkdir -p /var/lib/OscarDocument/oscar/eform/images/
+mkdir -p /var/lib/CarlosDocument/carlos/eform/images/
 ```
 
 **Production setup**: The directory should be created as part of the initial CARLOS deployment.
 The `EFormAssetDeployer` logs a warning and skips deployment if the directory doesn't exist:
 ```
-WARN EFormAssetDeployer - eForm image directory does not exist: /var/lib/OscarDocument/oscar/eform/images/; skipping asset deployment
+WARN EFormAssetDeployer - eForm image directory does not exist: /var/lib/CarlosDocument/carlos/eform/images/; skipping asset deployment
 ```
 
 If you see this warning in the Tomcat logs after a fresh install, create the directory and
@@ -259,7 +324,7 @@ src/main/webapp/eform/displayAttachedFiles.jsp
 ### Configuration
 ```
 src/main/resources/applicationContext.xml          (bean: eFormAssetDeployer)
-src/main/webapp/WEB-INF/classes/struts.xml          (action: eform/rtlPreventions)
+src/main/webapp/WEB-INF/classes/struts-eform.xml    (actions: eform/rtlPreventions, eform/addEForm)
 ```
 
 ### Database

@@ -16,24 +16,24 @@ All directory properties are configured in `carlos.properties`. Many have **fall
 
 | Property | Default Path | Purpose | Fallback |
 |----------|--------------|---------|----------|
-| `BASE_DOCUMENT_DIR` | `/var/lib/OscarDocument` | Base path for all document storage | None (required) |
-| `DOCUMENT_DIR` | `{BASE}/oscar/document/` | Primary document storage | `BASE_DOCUMENT_DIR + "/document"` |
-| `EFORM_IMAGES_DIR` | `{BASE}/oscar/eform/images/` | Uploaded eForm images | `BASE_DOCUMENT_DIR + "/eform/images"` |
+| `BASE_DOCUMENT_DIR` | `/var/lib/CarlosDocument` | Base path for all document storage | None (required) |
+| `DOCUMENT_DIR` | `{BASE}/carlos/document/` | Primary document storage | `BASE_DOCUMENT_DIR + "/document"` |
+| `EFORM_IMAGES_DIR` | `{BASE}/carlos/eform/images/` | Uploaded eForm images | `BASE_DOCUMENT_DIR + "/eform/images"` |
 | `DOCUMENT_CACHE_DIR` | - | Document cache directory | None |
 
 ### Billing Directories
 
 | Property | Default Path | Purpose |
 |----------|--------------|---------|
-| `HOME_DIR` | `{BASE}/oscar/billing/download/` | Billing file downloads |
-| `INVOICE_DIR` | `{BASE}/oscar/billing/invoices` | Invoice storage |
+| `HOME_DIR` | `{BASE}/carlos/billing/download/` | Billing file downloads |
+| `INVOICE_DIR` | `{BASE}/carlos/billing/invoices` | Invoice storage |
 
 ### Import/Export Directories
 
 | Property | Default Path | Purpose |
 |----------|--------------|---------|
-| `INCOMINGDOCUMENT_DIR` | `{BASE}/oscar/incomingdocs` | Incoming document imports |
-| `TMP_DIR` | `{BASE}/oscar/export/` | Temporary export files |
+| `INCOMINGDOCUMENT_DIR` | `{BASE}/carlos/incomingdocs` | Incoming document imports |
+| `TMP_DIR` | `{BASE}/carlos/export/` | Temporary export files |
 | `INTEGRATOR_OUTPUT_DIR` | `/var/lib/bc-integrator/export` | BC Integrator export files |
 
 ### HL7 Directories (Optional)
@@ -55,13 +55,13 @@ All runtime directories require:
 
 ```bash
 # Create base directory structure
-sudo mkdir -p /var/lib/OscarDocument/oscar/{document,eform/images,billing/{download,invoices},incomingdocs,export}
+sudo mkdir -p /var/lib/CarlosDocument/carlos/{document,eform/images,billing/{download,invoices},incomingdocs,export}
 
 # Set ownership to tomcat user
-sudo chown -R tomcat:tomcat /var/lib/OscarDocument
+sudo chown -R tomcat:tomcat /var/lib/CarlosDocument
 
 # Set permissions
-sudo chmod -R 755 /var/lib/OscarDocument
+sudo chmod -R 755 /var/lib/CarlosDocument
 ```
 
 ## Fallback Logic
@@ -107,7 +107,7 @@ This means you can often just set `BASE_DOCUMENT_DIR` and the application will c
 **Permission Denied**
 - Tomcat user doesn't own the directory
 - Directory permissions are too restrictive
-- Run: `sudo chown -R tomcat:tomcat /var/lib/OscarDocument`
+- Run: `sudo chown -R tomcat:tomcat /var/lib/CarlosDocument`
 
 ### Verification
 
@@ -117,10 +117,10 @@ Check directory configuration:
 grep -E "_DIR|_PATH" /path/to/carlos.properties
 
 # Verify directories exist
-ls -la /var/lib/OscarDocument/
+ls -la /var/lib/CarlosDocument/
 
 # Check Tomcat user can write
-sudo -u tomcat touch /var/lib/OscarDocument/test && rm /var/lib/OscarDocument/test
+sudo -u tomcat touch /var/lib/CarlosDocument/test && rm /var/lib/CarlosDocument/test
 ```
 
 ## DevContainer Configuration
@@ -129,12 +129,12 @@ In the development environment, directories are pre-configured in:
 `.devcontainer/development/config/shared/volumes/carlos.properties`
 
 ```properties
-BASE_DOCUMENT_DIR=/var/lib/OscarDocument
-DOCUMENT_DIR=/var/lib/OscarDocument/oscar/document/
-EFORM_IMAGES_DIR=/var/lib/OscarDocument/oscar/eform/images/
-HOME_DIR=/var/lib/OscarDocument/oscar/billing/download/
-INVOICE_DIR=/var/lib/OscarDocument/oscar/billing/invoices
-INCOMINGDOCUMENT_DIR=/var/lib/OscarDocument/oscar/incomingdocs
+BASE_DOCUMENT_DIR=/var/lib/CarlosDocument
+DOCUMENT_DIR=/var/lib/CarlosDocument/carlos/document/
+EFORM_IMAGES_DIR=/var/lib/CarlosDocument/carlos/eform/images/
+HOME_DIR=/var/lib/CarlosDocument/carlos/billing/download/
+INVOICE_DIR=/var/lib/CarlosDocument/carlos/billing/invoices
+INCOMINGDOCUMENT_DIR=/var/lib/CarlosDocument/carlos/incomingdocs
 ```
 
 The DevContainer automatically creates these directories with appropriate permissions.

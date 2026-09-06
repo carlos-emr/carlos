@@ -47,6 +47,11 @@
   `MIDDLEWARE` is hidden from the UI but its transport code/enum are retained and remain
   selectable only via direct configuration/DB for legacy relay deployments.
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+  `FaxConfig.faxUser` is the numeric SRFax **account number** (`access_id`; UI label "SRFax
+  Account Number", never the login email); `senderEmail` is the notification address only. The
+  page's **Test SRFax connection** button posts `method=testConnection` (POST-only, read-only
+  `Get_Fax_Inbox` probe via `FaxProviderClient.verifyConnection`) so bad credentials are
+  reported before saving. Browser check: `scripts/fax-configure-playwright-checks.js`.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
@@ -924,6 +929,11 @@ build-demo.sh           # filters the dev demo dataset to the live (pruned) sche
                         #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
 
+**Demo/dev data companions** (all outside `database/`):
+- `.devcontainer/db/scripts/demo-name-sanitization.sql` (+ `-on.sql`) — FAKE- name sanitization v2 across all person-name tables; idempotent, exempts functional accounts (`-1`, `999998` carlosdoc)
+- `.devcontainer/db/scripts/demo-specialists.sql` — 60 clearly-fake referral specialists (specIds 9001–9060) for both ON and BC demo sets; never load a real provincial specialist directory into demo/dev
+- `scripts/build-demo-additive.sh` + `demo-additive-exclude.txt` + `check-demo-additive.sh` — build-time transform of development.sql into the ADDITIVE per-province artifact the deb's optional `carlos-ctl demo-data` load uses (INSERT IGNORE only; Flyway data always wins)
+
 **Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
 - Port 3306 with health checks, 2G memory limit
@@ -1352,6 +1362,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
 docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
+docs/build-identity.md                            # Build stamp (About page, REST headers, HL7 SFT; never the login page): carlos-build.properties + BuildInfo, not carlos.properties
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```

@@ -125,11 +125,20 @@
 
     <%@ include file="efmTopNav.jspf" %>
 
-    <%if (request.getParameter("fid") != null) {%>
-    <h3><fmt:message key="eform.edithtml.msgEditEform"/></h3>
-    <%} else {%>
-    <h3>Create New eForm</h3>
-    <%}%>
+    <%-- The editor's HTML textarea is 40 rows, so the "Back to eForm Library"
+         control at the foot of the form sits well below the fold on a normal
+         screen — an operator who scrolled into the markup had no way back
+         without scrolling to the bottom. Mirror it here beside the heading. --%>
+    <div class="d-flex align-items-center gap-3 mb-2">
+        <%if (request.getParameter("fid") != null) {%>
+        <h3 class="mb-0"><fmt:message key="eform.edithtml.msgEditEform"/></h3>
+        <%} else {%>
+        <h3 class="mb-0">Create New eForm</h3>
+        <%}%>
+        <a href="<%=request.getContextPath()%>/eform/efmformmanager" class="btn contentLink" id="backToLibraryTop">
+            <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
+        </a>
+    </div>
 
     <form action="<%=request.getContextPath()%>/eform/editForm" method="POST" enctype="multipart/form-data"
           id="editform" name="eFormEdit">
@@ -253,14 +262,39 @@
     <%@ include file="efmFooter.jspf" %>
 
     <script>
-        registerFormSubmit('editform', 'dynamic-content');
+        // registerFormSubmit is defined on the administration/index.jsp shell,
+        // so it exists only when this editor is loaded into that panel's
+        // #dynamic-content. Opened standalone the bare call threw a
+        // ReferenceError that also aborted the rest of this script block.
+        //
+        // Both the panel and standalone paths post this form multipart:
+        // registerFormSubmit sends multipart forms as FormData (a plain
+        // serialize() dropped file inputs), and standalone the browser sends
+        // the multipart body the form declares. WAF exclusion 1050 covers that
+        // shape via its ARGS:formHtml removal -- see that rule's comment in
+        // REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.
+        if (typeof registerFormSubmit === 'function') {
+            registerFormSubmit('editform', 'dynamic-content');
+        }
 
-        $(document).ready(function () {
-
-            $("html, body").animate({scrollTop: 0}, "slow");
-            return false;
-
-        });
+        // Scroll to top, without jQuery. This page is served standalone as well
+        // as injected into the Administration panel, and only the panel's shell
+        // loads jQuery -- so $(document).ready here threw "ReferenceError: $ is
+        // not defined" on every standalone open, aborting the rest of this
+        // block. The behaviour is cosmetic, so it does not justify pulling
+        // jQuery onto the page (which would then load twice inside the panel).
+        // Registering for DOMContentLoaded alone would be a no-op on the
+        // panel-injected path: .load()ed content always runs after that event
+        // has already fired, and a listener added afterwards never fires.
+        // jQuery's .ready() handled that for us; vanilla needs the readyState
+        // check.
+        (function scrollToTop() {
+            if (document.readyState === 'loading') {
+                window.addEventListener('DOMContentLoaded', scrollToTop);
+                return;
+            }
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        })();
     </script>
 
 
