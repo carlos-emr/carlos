@@ -250,6 +250,33 @@ class TestStatementShapes(unittest.TestCase):
                     archive, delete):
             self.assertTrue(idempotent(sql), sql)
 
+    def test_the_archive_keeps_the_whole_row_not_the_reported_pair(self):
+        """Requirement B: what the import removes stays recoverable.
+
+        `encounterForm` is (form_name, form_value, form_table, hidden).
+        The report prints the table and the name, and an archive that
+        kept only those would record THAT a menu entry existed while
+        losing the URL it pointed at and whether the clinic had hidden
+        it -- a row nobody could put back."""
+        archive, _delete = o19roles.encounter_form_prune_statements(
+            "carlos", "o19_archive")
+        ddl = o19roles.encounter_form_archive_ddl("o19_archive")
+        for column in ("form_table", "form_name", "form_value", "hidden"):
+            self.assertIn(column, ddl)
+            self.assertIn("e.{0}".format(column), archive)
+
+    def test_two_entries_sharing_a_table_and_name_both_archive(self):
+        """The guard is on `form_value`, `encounterForm`'s PRIMARY KEY.
+
+        A clinic can carry two menu entries for one removed form -- same
+        table, same label, different URL. Guarding on the (table, name)
+        pair would archive the first and let the DELETE take the second
+        with no record of it."""
+        archive, _delete = o19roles.encounter_form_prune_statements(
+            "carlos", "o19_archive")
+        self.assertIn("a.form_value = e.form_value", archive)
+        self.assertNotIn("a.form_name = e.form_name", archive)
+
     def test_facility_link_targets_the_first_enabled_facility(self):
         sql = o19roles.provider_facility_statement("carlos")
         self.assertIn("MIN(f.id) FROM `carlos`.Facility f WHERE "

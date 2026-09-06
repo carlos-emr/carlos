@@ -363,14 +363,25 @@ class TestSchemaManifest(unittest.TestCase):
         self.assertEqual(v.split("+")[0], p.split("+")[0])
 
     def test_the_version_suffix_tracks_the_classification(self):
+        """The token digests the tables AND the province they were
+        curated for.
+
+        The province is inside the digest, not merely alongside it:
+        `--resume` and `--cleanup` compare this string, and two profiles
+        whose table classifications happened to coincide would otherwise
+        share a version while differing in everything else a profile
+        carries -- primitive columns, seed floors, CARLOS column lists.
+        A workspace staged under one set of rulings could then be
+        resumed under the other."""
         import hashlib
         digest = hashlib.sha256(
-            repr(sorted(self.tables.items()))
+            repr([("__province__", self.province)]
+                 + sorted(self.tables.items()))
             .encode("utf-8")).hexdigest()[:8]
         self.assertEqual(
             self.schema_map_version.split("+", 1)[1], digest,
             "regenerate the manifests: the shipped token does not "
-            "describe the shipped TABLES")
+            "describe the shipped TABLES and province")
 
 
 class TestDroppedPrefixesTrackTheFileRules(unittest.TestCase):

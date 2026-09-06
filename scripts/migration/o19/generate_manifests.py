@@ -737,6 +737,61 @@ _COLUMN_NAME_RE = re.compile(
     r"@(?:jakarta\.persistence\.)?Column\s*\([^)]*\bname\s*=\s*"
     r"\"([^\"]+)\"")
 _TRANSIENT_RE = re.compile(r"@(?:jakarta\.persistence\.)?Transient\b")
+_ID_RE = re.compile(r"@(?:jakarta\.persistence\.)?Id\b")
+#: any member declaration at class-body depth -- used only to see which
+#: KIND of member the entity's `@Id` sits on.
+_ANY_FIELD_RE = re.compile(
+    r"(?:private|protected|public)\s+(?:final\s+)?"
+    r"[\w.$]+(?:\s*<[^;=()]*>)?(?:\s*\[\s*\])*\s+\w+\s*[;=]")
+_ANY_GETTER_RE = re.compile(
+    r"public\s+(?:final\s+)?[\w.$]+(?:\s*<[^;()]*>)?(?:\s*\[\s*\])*"
+    r"\s+(?:get|is)\w+\s*\(\s*\)")
+
+
+def _column_name(annotations: str) -> Optional[str]:
+    """The `@Column(name = ...)` of one member, with JPA's quoting
+    removed.
+
+    CARLOS spells a column whose name is a MySQL reserved word with
+    backticks INSIDE the annotation -- `@Column(name = "`repeat`")` on
+    `Favorite.repeat` -- which is JPA's way of asking the provider to
+    quote the identifier, not part of the identifier. Passing the
+    backticks through would produce a manifest column no CARLOS schema
+    carries, and the caller would silently drop a genuinely primitive
+    column."""
+    named = _COLUMN_NAME_RE.search(annotations)
+    if not named:
+        return None
+    return named.group(1).strip().strip("`\"")
+
+
+def jpa_access_is_property(text: str, depths: List[int]) -> bool:
+    """True when this entity is mapped through its GETTERS.
+
+    JPA decides an entity's access type by where its `@Id` sits: on a
+    field, the provider reads fields and every annotation on a getter is
+    IGNORED; on a getter, it reads properties. The distinction matters
+    here because the two disagree about nullability. `BillingONPayment`
+    holds `private Integer paymentTypeId` (field access) and exposes
+    `public int getPaymentTypeId()`; Hibernate hydrates the FIELD, which
+    takes NULL happily, so reading the getter would have the import
+    write 0 over a value the clinic left empty. `ConsentType.active` is
+    the same shape.
+
+    No `@Id` at all (a `@MappedSuperclass` fragment, an `@Embeddable`)
+    is treated as field access: the conservative answer, since it only
+    ever drops columns from the manifest."""
+    found = _ID_RE.search(text)
+    while found is not None and depths[found.start()] != 1:
+        found = _ID_RE.search(text, found.end())
+    if found is None:
+        return False
+    rest = text[found.end():]
+    field = _ANY_FIELD_RE.search(rest)
+    getter = _ANY_GETTER_RE.search(rest)
+    if getter is None:
+        return False
+    return field is None or getter.start() < field.start()
 
 
 def _blank_literals(text: str) -> str:
@@ -820,6 +875,10 @@ def scan_primitive_columns(java_root: Path) -> Dict[str, List[str]]:
       inside a method cannot be mistaken for a field (`boolean matches
       = ...` in an `equals` override is the shape that would);
     * `static` and `@Transient` fields are skipped;
+    * GETTERS are read only on an entity JPA maps through its getters
+      (`jpa_access_is_property`) -- on a field-access entity a primitive
+      getter over a boxed field says nothing about what the column may
+      hold;
     * a column name the CARLOS schema does not carry is dropped by the
       caller.
 
@@ -849,21 +908,27 @@ def scan_primitive_columns(java_root: Path) -> Dict[str, List[str]]:
             annotations = annotations_before(m.start())
             if _TRANSIENT_RE.search(annotations) or " static " in m.group(0):
                 continue
-            named = _COLUMN_NAME_RE.search(annotations)
-            columns.append(named.group(1) if named else m.group(1))
-        for m in _PRIMITIVE_GETTER_RE.finditer(text):
-            if depths[m.start()] != 1:
-                continue
-            annotations = annotations_before(m.start())
-            if _TRANSIENT_RE.search(annotations):
-                continue
-            named = _COLUMN_NAME_RE.search(annotations)
-            if named:
-                columns.append(named.group(1))
-            else:
-                # JPA's default: the property name, first letter lowered
-                prop = m.group(1)
-                columns.append(prop[:1].lower() + prop[1:])
+            named = _column_name(annotations)
+            columns.append(named if named else m.group(1))
+        # ...and the getters, but ONLY where JPA reads them. On a
+        # field-access entity the getter's type is the API's, not the
+        # persisted state's, and a primitive getter over a boxed field
+        # would have the import write a zero the clinic never had.
+        if jpa_access_is_property(text, depths):
+            for m in _PRIMITIVE_GETTER_RE.finditer(text):
+                if depths[m.start()] != 1:
+                    continue
+                annotations = annotations_before(m.start())
+                if _TRANSIENT_RE.search(annotations):
+                    continue
+                named = _column_name(annotations)
+                if named:
+                    columns.append(named)
+                else:
+                    # JPA's default: the property name, first letter
+                    # lowered
+                    prop = m.group(1)
+                    columns.append(prop[:1].lower() + prop[1:])
         if columns:
             out.setdefault(tables[0], []).extend(columns)
     return {t: sorted(set(cols)) for t, cols in out.items()}
@@ -1732,11 +1797,22 @@ def content_version(base: str, content) -> str:
     return "{0}+{1}".format(base, digest)
 
 
-def schema_map_version(tables, ov) -> str:
+def schema_map_version(tables, ov, province: str) -> str:
     """The manifest's version string: the curated `SCHEMA_MAP_VERSION`
-    plus a digest of the generated tables, so any drift in the output
-    changes the version the ledger binds a run to."""
-    return content_version(ov.SCHEMA_MAP_VERSION, sorted(tables.items()))
+    plus a digest of the generated tables AND the province they were
+    curated for, so any drift in the output changes the version the
+    ledger binds a run to.
+
+    The province is in the digest and not merely alongside it because
+    the version is what `--resume` and `--cleanup` compare: two profiles
+    whose table classifications happened to coincide would otherwise
+    share a version, and a workspace staged under one set of rulings
+    could be resumed under the other. The rest of a profile -- its
+    primitive columns, its seed floors, its CARLOS column lists --
+    differs even when `TABLES` does not."""
+    return content_version(ov.SCHEMA_MAP_VERSION,
+                           [("__province__", province)]
+                           + sorted(tables.items()))
 
 
 def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
@@ -1756,9 +1832,10 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
               if t in copy_tables and seed_counts[t] > 0}
     out = [GENERATED_HEADER]
     out.append('"""OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""\n')
+    province = extras.get("province", "on")
     out.append("SCHEMA_MAP_VERSION = {!r}".format(
-        schema_map_version(tables, ov)))
-    out.append("O19_PROFILE = {!r}".format(extras.get("province", "on")))
+        schema_map_version(tables, ov, province)))
+    out.append("O19_PROFILE = {!r}".format(province))
     # provenance is the O19 commit only — no wall-clock stamp, so --check
     # compares content, not the day it was generated
     out.append("O19_SOURCE_COMMIT = {!r}\n".format(o19_commit))
@@ -1910,7 +1987,8 @@ def _profiles_block(ov, extras, profiles) -> str:
                   for t in sorted(data["seed_counts"])
                   if t in copy_tables and data["seed_counts"][t] > 0}
         body = {
-            "SCHEMA_MAP_VERSION": schema_map_version(p_tables, ov),
+            "SCHEMA_MAP_VERSION": schema_map_version(p_tables, ov,
+                                                     province),
             "O19_PROFILE": province,
             "TABLES": p_tables,
             "CARLOS_COLUMNS": {t: list(data["carlos"].tables[t])
@@ -2154,7 +2232,7 @@ def _preflight_profile(tables, province: str, stock_role_names, ov) -> Dict:
     charset = {t: e["charset_scan"] for t, e in sorted(tables.items())
                if e.get("charset_scan")}
     return {
-        "SCHEMA_MAP_VERSION": schema_map_version(tables, ov),
+        "SCHEMA_MAP_VERSION": schema_map_version(tables, ov, province),
         "O19_PROFILE": province,
         "PATIENT_DATA_TABLES": patient,
         "KNOWN_TABLES": known,

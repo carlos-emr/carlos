@@ -303,6 +303,25 @@ class TestSurrogateIdRemap(unittest.TestCase):
         self.assertIn("NOT EXISTS", counts[0][2])
         self.assertIn("`arch`.`LookupList__idmap`", counts[0][2])
 
+    def test_the_dangling_fk_report_names_what_the_row_actually_holds(self):
+        """Three dispositions, read off the same helpers the write uses.
+
+        The third is the one a report built from nullability alone got
+        wrong: a nullable column CARLOS maps to a Java primitive has the
+        lookup's NULL replaced by `sanitize_expr`'s fallback, so the
+        column holds the type's zero and an operator told "set to NULL"
+        would go looking for NULLs that are not there."""
+        self.assertEqual(
+            o19etl.dangling_fk_disposition(col("int", nullable=False)),
+            "raw id kept — column is NOT NULL")
+        self.assertEqual(
+            o19etl.dangling_fk_disposition(col("int", nullable=True)),
+            "set to NULL")
+        primitive = o19etl.dangling_fk_disposition(
+            col("int", nullable=True, primitive=True))
+        self.assertIn("stored as 0", primitive)
+        self.assertNotIn("NULL", primitive)
+
     def test_child_merge_anti_join_uses_the_remapped_key(self):
         sql = o19etl.merge_statement("LookupListItem", self.CHILD, "src",
                                      "dst", self.DST, archive_schema="arch")

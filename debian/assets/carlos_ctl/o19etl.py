@@ -1140,8 +1140,10 @@ def fk_unmapped_count_sql(table: str, entry: dict, src_schema: str,
                           archive_schema: str) -> List[Tuple[str, str, str]]:
     """(column, parent, COUNT-sql): source rows whose foreign key names an
     id the parent's map does not know — an already-dangling O19
-    reference, reported because it becomes NULL (nullable) or is kept
-    raw (NOT NULL)."""
+    reference, reported because the copy cannot preserve it.
+
+    What the row ends up holding is `dangling_fk_disposition`, which the
+    report prints: this function only counts."""
     out = []
     for col, parent in sorted(entry.get("fk_remap", {}).items()):
         source_name = entry.get("renames", {}).get(col, col)
@@ -1152,6 +1154,31 @@ def fk_unmapped_count_sql(table: str, entry: dict, src_schema: str,
                         src_schema, table, source_name, archive_schema,
                         idmap_table(parent))))
     return out
+
+
+def dangling_fk_disposition(dst_info: dict) -> str:
+    """What a row whose foreign key the id map could not resolve actually
+    holds afterwards, for the operator's report.
+
+    Three outcomes, and reading them off the same helpers the WRITE uses
+    is the point -- a report that described the write from the column's
+    nullability alone was wrong for the third:
+
+      * NOT NULL target -- `source_expr` wraps the lookup in
+        `IFNULL(lookup, raw)`, so the raw id stays;
+      * nullable target -- the lookup's NULL is stored as NULL;
+      * nullable target CARLOS maps to a Java primitive -- the NULL then
+        meets `sanitize_expr`'s `required_fallback` wrap and the column
+        holds the type's zero, not NULL. Saying "set to NULL" here would
+        send the operator looking for NULLs that are not there.
+    """
+    if not dst_info.get("nullable"):
+        return "raw id kept — column is NOT NULL"
+    fallback = required_fallback(dst_info)
+    if fallback is not None:
+        return ("stored as {0} — the column is nullable, but CARLOS maps "
+                "it to a Java primitive".format(fallback))
+    return "set to NULL"
 
 
 def idmap_changed_count_sql(table: str, archive_schema: str) -> str:
@@ -3005,8 +3032,7 @@ def etl_post_copy(run: 'EtlRun', table: str, entry: dict, base_entry: dict,
                     "{0}.{1}: {2} row(s) referenced a {3} id that does "
                     "not exist in the source ({4})".format(
                         table, col, n, parent,
-                        "set to NULL" if dcols[col]["nullable"]
-                        else "raw id kept — column is NOT NULL"))
+                        dangling_fk_disposition(dcols[col])))
         tstate["fk_reported"] = True
         save_progress(state_dir, progress)
 

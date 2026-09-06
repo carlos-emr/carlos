@@ -1385,31 +1385,89 @@ class TestPrimitiveFieldScan(unittest.TestCase):
         """CARLOS mixes field access and PROPERTY access. Under property
         access the FIELD carries no annotation and its name is not the
         column name -- `CaseManagementNote.includeissue` is
-        `include_issue_innote` -- so the getters have to be read."""
+        `include_issue_innote` -- so the getters have to be read.
+
+        The `@Id` on a getter is what says so: JPA reads access type
+        from where the identifier is mapped."""
         self.assertEqual(
             self.scan('@jakarta.persistence.Table(name = "thing")\n'
                       'public class Thing {\n'
+                      '    private int id;\n'
                       '    private boolean includeissue = true;\n'
+                      '    @jakarta.persistence.Id\n'
+                      '    public int getId() { return id; }\n'
                       '    @jakarta.persistence.Column('
                       'name = "include_issue_innote")\n'
                       '    public boolean isIncludeissue() {\n'
                       '        return includeissue;\n'
                       '    }\n'
                       '}\n'),
-            {"thing": ["include_issue_innote", "includeissue"]})
+            {"thing": ["id", "include_issue_innote", "includeissue"]})
+
+    def test_a_primitive_getter_over_a_boxed_field_is_not_a_column(self):
+        """The finding this rule exists for.
+
+        `BillingONPayment` holds `private Integer paymentTypeId` and
+        exposes `public int getPaymentTypeId()`; its `@Id` is on a
+        field, so Hibernate hydrates the FIELD, which takes NULL. Read
+        as a primitive, the import would write 0 over a value the clinic
+        left empty. `ConsentType.active` is the same shape."""
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    @Id\n'
+                      '    private Integer id;\n'
+                      '    @Column(name = "payment_type_id")\n'
+                      '    private Integer paymentTypeId;\n'
+                      '    public int getPaymentTypeId() {\n'
+                      '        return paymentTypeId;\n'
+                      '    }\n'
+                      '}\n'),
+            {})
 
     def test_an_unannotated_primitive_getter_uses_the_property_name(self):
         self.assertEqual(
             self.scan('@Table(name = "thing")\n'
                       'public class Thing {\n'
+                      '    @Id\n'
+                      '    public String getCode() { return ""; }\n'
                       '    public int getPosition() { return 0; }\n'
                       '}\n'),
             {"thing": ["position"]})
+
+    def test_an_entity_with_no_id_at_all_reads_fields_only(self):
+        """A `@MappedSuperclass` fragment or an `@Embeddable` names no
+        identifier. Field access is the conservative answer: it can only
+        ever drop a column from the manifest, and a column missed is a
+        NULL left alone."""
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    private int kept;\n'
+                      '    public int getDropped() { return 0; }\n'
+                      '}\n'),
+            {"thing": ["kept"]})
+
+    def test_a_backtick_quoted_column_name_loses_its_quoting(self):
+        """`Favorite.repeat` is spelled `@Column(name = "`repeat`")`:
+        the backticks ask the provider to quote a reserved word, they
+        are not part of the identifier. Passing them through produced a
+        column name no CARLOS schema carries, and the caller then
+        dropped a genuinely primitive column."""
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    @Column(name = "`repeat`")\n'
+                      '    private int repeat;\n'
+                      '}\n'),
+            {"thing": ["repeat"]})
 
     def test_a_transient_getter_is_not_a_column(self):
         self.assertEqual(
             self.scan('@Table(name = "thing")\n'
                       'public class Thing {\n'
+                      '    @jakarta.persistence.Id\n'
+                      '    public String getCode() { return ""; }\n'
                       '    @jakarta.persistence.Transient\n'
                       '    public int getCached() { return 0; }\n'
                       '}\n'),
@@ -1423,6 +1481,45 @@ class TestPrimitiveFieldScan(unittest.TestCase):
                       '    private int facilityId;\n'
                       '}\n'),
             {"thing": ["facilityId"]})
+
+
+class TestTheManifestVersionBindsAProfile(unittest.TestCase):
+
+    """`SCHEMA_MAP_VERSION` is what `--resume` and `--cleanup` compare a
+    workspace against, so it has to change whenever the rulings do.
+
+    Two profiles differ in more than `TABLES` -- primitive columns, seed
+    floors, CARLOS column lists -- and a digest taken over the tables
+    alone would let two provinces whose classifications happened to
+    coincide share a version. A workspace staged under one set of
+    rulings could then be resumed under the other."""
+
+    TABLES = {"t": {"class": "copy", "cols": ["a"]}}
+
+    def versions(self):
+        import sys
+        gen = load_generator()
+        sys.path.insert(0, str(GEN.parent))
+        try:
+            import overrides_schema as ov
+        finally:
+            sys.path.pop(0)
+        return (gen.schema_map_version(self.TABLES, ov, "on"),
+                gen.schema_map_version(self.TABLES, ov, "bc"))
+
+    def test_the_same_tables_under_two_provinces_differ(self):
+        on, bc = self.versions()
+        self.assertNotEqual(on, bc)
+
+    def test_the_version_is_stable_for_one_province(self):
+        self.assertEqual(self.versions()[0], self.versions()[0])
+
+    def test_the_shipped_profiles_carry_distinct_versions(self):
+        # the property that matters at run time, read off the manifest
+        # the package actually ships
+        default = o19map_schema.SCHEMA_MAP_VERSION
+        for name, profile in o19map_schema.PROFILES.items():
+            self.assertNotEqual(profile["SCHEMA_MAP_VERSION"], default, name)
 
 
 class TestOnePackageCarriesEveryProvince(unittest.TestCase):

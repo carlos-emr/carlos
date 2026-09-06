@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""
 
-SCHEMA_MAP_VERSION = 'o19map-2+d6061d0a'
+SCHEMA_MAP_VERSION = 'o19map-2+6ea61c42'
 O19_PROFILE = 'on'
 O19_SOURCE_COMMIT = 'a7900d569d3faf741993e5e1da8c14021bbefede'
 
@@ -21284,7 +21284,6 @@ PRIMITIVE_COLUMNS = {
     'billing_on_filename': ['disk_id'],
     'billing_on_header': ['disk_id'],
     'billing_on_item_payment': ['billing_on_item_id', 'billing_on_payment_id', 'ch1_id', 'id'],
-    'billing_on_payment': ['paymentTypeId'],
     'billing_on_repo': ['h_id'],
     'billing_on_transaction': [
         'billing_on_item_payment_id',
@@ -21301,7 +21300,6 @@ PRIMITIVE_COLUMNS = {
     'client_image': ['demographic_no'],
     'client_referral': ['temporary_admission_flag'],
     'clinic_location': ['clinic_no'],
-    'consentType': ['active'],
     'consultResponseDoc': ['documentNo', 'responseId'],
     'consultationRequestExt': ['requestId'],
     'consultationRequests': ['patientWillBook'],
@@ -22506,7 +22504,7 @@ PRIMITIVE_COLUMNS = {
 # differs between provinces is repeated here.
 PROFILES = {
     'bc': {
-        'SCHEMA_MAP_VERSION': 'o19map-2+4a2a8ab1',
+        'SCHEMA_MAP_VERSION': 'o19map-2+f2e0d233',
         'O19_PROFILE': 'bc',
         'TABLES': {
             'AppDefinition': {
@@ -53044,7 +53042,6 @@ PROFILES = {
             'billing': ['appointment_no', 'clinic_no', 'demographic_no'],
             'billing_history': ['billingmaster_no', 'payee_practitioner_no', 'payment_type_id'],
             'billing_on_item_payment': ['billing_on_item_id', 'billing_on_payment_id', 'ch1_id', 'id'],
-            'billing_on_payment': ['paymentTypeId'],
             'billing_on_transaction': [
                 'billing_on_item_payment_id',
                 'ch1_id',
@@ -53065,7 +53062,6 @@ PROFILES = {
             'client_image': ['demographic_no'],
             'client_referral': ['temporary_admission_flag'],
             'clinic_location': ['clinic_no'],
-            'consentType': ['active'],
             'consultResponseDoc': ['documentNo', 'responseId'],
             'consultationRequestExt': ['requestId'],
             'consultationRequests': ['patientWillBook'],

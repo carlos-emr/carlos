@@ -1936,15 +1936,28 @@ def encounter_form_prune_statements(dst_schema: str, archive_schema: str
     Archived before deletion, not just deleted: the row is the clinic's
     own menu entry and the form's DATA is preserved as
     `import_archived_<form table>`, so the pointer to it is kept too and
-    nothing about the removed form is orphaned. Both statements are
-    idempotent -- the INSERT is guarded by NOT EXISTS on the archive and
-    the DELETE's own predicate is false once the rows are gone."""
+    nothing about the removed form is orphaned.
+
+    The WHOLE row is archived, not the pair the report happens to print.
+    `encounterForm` is (form_name, form_value, form_table, hidden) with
+    `form_value` -- the URL the menu entry points at -- as its PRIMARY
+    KEY, so archiving only (form_table, form_name) would keep a record
+    that the entry existed while losing what it did, and requirement B
+    is that nothing the import removes is left unrecoverable. Keying the
+    NOT EXISTS guard on `form_value` for the same reason: two entries
+    can share a table and a name and differ only in the URL, and a guard
+    on the pair would archive the first and silently drop the second.
+
+    Both statements are idempotent -- the INSERT is guarded by NOT
+    EXISTS on the archive and the DELETE's own predicate is false once
+    the rows are gone."""
     missing = _encounter_form_missing(dst_schema)
     archive = ("INSERT INTO `{1}`.encounterForm__pruned (form_table, "
-               "form_name) SELECT e.form_table, e.form_name FROM "
+               "form_name, form_value, hidden) SELECT e.form_table, "
+               "e.form_name, e.form_value, e.hidden FROM "
                "`{0}`.encounterForm e WHERE {2} AND NOT EXISTS (SELECT 1 "
-               "FROM `{1}`.encounterForm__pruned a WHERE a.form_table = "
-               "e.form_table AND a.form_name = e.form_name)"
+               "FROM `{1}`.encounterForm__pruned a WHERE a.form_value = "
+               "e.form_value)"
                .format(dst_schema, archive_schema, missing))
     delete = ("DELETE FROM `{0}`.`encounterForm` WHERE {1}"
               .format(dst_schema,
@@ -1954,9 +1967,16 @@ def encounter_form_prune_statements(dst_schema: str, archive_schema: str
 
 
 def encounter_form_archive_ddl(archive_schema: str) -> str:
-    """The archive table the prune writes into."""
+    """The archive table the prune writes into.
+
+    One column per column of `encounterForm`, widened rather than copied
+    exactly (the source is varchar(30)/varchar(255)/varchar(50)/int(5)):
+    an archive that truncated a clinic's own value would defeat its own
+    purpose, and a vendor fork with a wider column is not a reason to
+    lose the row."""
     return ("CREATE TABLE IF NOT EXISTS `{0}`.encounterForm__pruned ("
-            "form_table VARCHAR(255), form_name VARCHAR(255)) "
+            "form_table VARCHAR(255), form_name VARCHAR(255), "
+            "form_value VARCHAR(255), hidden INT) "
             "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4".format(archive_schema))
 
 
