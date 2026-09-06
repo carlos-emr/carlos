@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -122,16 +123,19 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should demand write privilege when method is updateDB")
-    void shouldDemandWrite_whenMethodIsUpdateDb() {
+    @DisplayName("should demand administration rights when method is updateDB")
+    void shouldDemandAdministrationRights_whenMethodIsUpdateDb() {
+        // A rebuild is an administrative act, so it is gated like the page that offers it and
+        // NOT on _rx. Requiring both locked out an administrator who is not a prescriber.
         denyAllPrivileges();
         mockRequest.setParameter("method", "updateDB");
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_rx)");
+                .hasMessage("missing required sec object (_admin or _admin.misc)");
 
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "w", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), any(), isNull());
     }
 
     @Test
@@ -188,6 +192,253 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should demand administration rights when method is status")
+    void shouldDemandAdministrationRights_whenMethodIsStatus() {
+        denyAllPrivileges();
+        mockRequest.setParameter("method", "status");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin or _admin.misc)");
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
+    }
+
+    @Test
+    @DisplayName("should refuse status to a prescriber without administration rights")
+    void shouldRefuseStatus_whenTheCallerHasNoAdminRights() throws Exception {
+        // `status` relays DrugRef's root-cause failure text -- a JDBC URL, a database host and
+        // user, a filesystem path. `_rx` read is every prescriber in the clinic; the page that
+        // consumes this is gated on _admin / _admin.misc read by ViewUpdateDrugref2Action.
+        // Reporting is not automatically public just because it does not write.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("r"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "status");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin or _admin.misc");
+        assertThat(mockResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should allow status on the misc administration right alone")
+    void shouldAllowStatus_whenTheCallerHasOnlyAdminMisc() throws Exception {
+        // ViewUpdateDrugref2Action accepts either right, so this must too -- gating on _admin
+        // alone would lock the relay away from operators who can open the page.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "status");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentAsString()).contains("\"state\":\"UNAVAILABLE\"");
+    }
+
+    @Test
+    @DisplayName("should still allow verify at prescriber read rights")
+    void shouldStillAllowVerify_atPrescriberReadRights() throws Exception {
+        // The counterpart to the two above: TopLinks2.jspf fires verify on every Rx page load,
+        // and it carries only a date, a version and a database name. Tightening status must not
+        // drag verify along with it, or every prescriber gets the "unavailable" banner again.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "verify");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+        // No administration rights needed: prescriber read alone is enough.
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+    }
+
+    @Test
+    @DisplayName("should refuse updateDB to a view-only administrator")
+    void shouldRefuseUpdateDb_forAViewOnlyAdministrator() throws Exception {
+        // Read on an administration object opens the page and answers status; it must not start
+        // a rebuild. That runs for half an hour, degrades drug lookups clinic-wide while it does,
+        // and can end with the dataset replaced -- a mutation, and CARLOS gates mutating
+        // administration on write (ManageFlowsheets2Action, LookupListManager2Action, the admin
+        // gate actions). Accepting read here let a view-only administrator trigger it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "updateDB");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin or _admin.misc)");
+
+        // Refused before anything was written to the response, so no partial JSON escapes.
+        assertThat(mockResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should still answer status to a view-only administrator")
+    void shouldStillAnswerStatus_forAViewOnlyAdministrator() throws Exception {
+        // The counterpart: tightening the trigger must not take the read-only view with it, or
+        // an administrator who can open the page cannot see what the update is doing.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "status");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+    }
+
+    @Test
+    @DisplayName("should not query administration rights when prescriber rights already allow verify")
+    void shouldNotQueryAdministrationRights_whenRxRightsAlreadyAllowVerify() throws Exception {
+        // Ordering, not just outcome. Every hasPrivilege call re-runs
+        // secUserRoleDao.findActiveByProviderNo -- there is no role cache -- and TopLinks2.jspf
+        // fires verify on every Rx page load. Evaluating the administration rights first cost
+        // ordinary prescribers two extra role queries per page load to answer a question `_rx`
+        // alone settles, so the short-circuit is the point and this pins it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "verify");
+
+        action.execute();
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_admin"), any(), isNull());
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_admin.misc"), any(), isNull());
+    }
+
+    @Test
+    @DisplayName("should allow verify to an administrator who is not a prescriber")
+    void shouldAllowVerify_forAnAdministratorWithoutRxRights() throws Exception {
+        // The admin page fires verify too. Gating it on _rx alone would leave an administrator
+        // who does not prescribe able to open the page and see nothing but an outage banner.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), any(), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "verify");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+    }
+
+    @Test
+    @DisplayName("should let an administrator without Rx rights start a rebuild")
+    void shouldAllowUpdateDb_forAnAdministratorWithoutRxRights() throws Exception {
+        // The defect this replaces: _rx was required on top of _admin, so a non-prescribing
+        // administrator could open the page and every call from it failed with an HTML 500.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), any(), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("method", "updateDB");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentAsString()).contains("result");
+    }
+
+    @Test
+    @DisplayName("should answer status JSON with state UNAVAILABLE when DrugRef cannot be reached")
+    void shouldAnswerUnavailableState_whenDrugRefUnreachable() throws Exception {
+        // No DrugRef is listening in a unit test, so the relay must degrade to a well-formed
+        // JSON payload the page can act on, not an HTTP 500. UNAVAILABLE is also what a DrugRef
+        // build without getUpdateStatus produces (an XML-RPC fault), and the page falls back to
+        // the verify probe on it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        // status also demands administration rights: it relays DrugRef's root-cause text.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "status");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+        String body = mockResponse.getContentAsString();
+        assertThat(body).contains("\"state\":\"UNAVAILABLE\"");
+        // The outage payload must carry the SAME keys as a successful answer. A client meeting
+        // the documented set on the success path and a bare state here would have to cope with a
+        // shape change on exactly the path where it knows least.
+        assertThat(body).contains("\"step\":\"\"")
+                .contains("\"message\":\"\"")
+                .contains("\"startedAt\":\"\"")
+                .contains("\"finishedAt\":\"\"")
+                .contains("\"lastUpdate\":\"\"");
+        // status is gated on administration rights alone; _rx is not consulted for it.
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), any(), isNull());
+        verifyNoMoreInteractions(mockSecurityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should answer a null result as JSON when updateDB cannot reach DrugRef")
+    void shouldAnswerNullResultAsJson_whenUpdateDbUnreachable() throws Exception {
+        // The page renders {"result":null} as "could not be started"; it used to render nothing.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(true);
+        // A rebuild is an administrative act: it also needs the page's right.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "updateDB");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentAsString()).isEqualTo("{\"result\":null}");
+    }
+
+    @Test
+    @DisplayName("should refuse to start a rebuild for a prescriber without administration rights")
+    void shouldRefuseUpdateDb_whenTheCallerHasOnlyRxWrite() throws Exception {
+        // `_rx` write is every prescriber in the clinic. A rebuild degrades prescribing for
+        // half an hour and is an administrative act; the page that offers it is gated on
+        // _admin / _admin.misc, and the direct POST must be gated the same way or the page's
+        // gate is decorative.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("r"), isNull()))
+                .thenReturn(false);
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("method", "updateDB");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin or _admin.misc");
+        assertThat(mockResponse.getContentAsString()).as("nothing reached the response").isEmpty();
+    }
+
+    @Test
     @DisplayName("should gate a case variant of updateDB at read, not write")
     void shouldGateCaseVariant_atReadPrivilege() {
         denyAllPrivileges();
@@ -196,8 +447,13 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
         // "UPDATEDB" routes to -- shouldRouteCaseVariant_toAReadOnlyBranch covers that half.
         mockRequest.setParameter("method", "UPDATEDB");
 
-        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
 
+        // The read branch consults administration rights first (they also satisfy it), then _rx.
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin.misc", "r", null);
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
         verifyNoMoreInteractions(mockSecurityInfoManager);
     }

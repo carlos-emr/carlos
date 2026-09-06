@@ -92,8 +92,45 @@ public class RxUpdateDrugref2Action extends ActionSupport {
             return NONE;
         }
 
-        String requiredPrivilege = mutating ? "w" : "r";
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", requiredPrivilege, null)) {
+
+        // The gate follows the AUDIENCE of each method, not whether it mutates.
+        //
+        //  - `updateDB` and `status` belong to Administration > Update Drugref, which
+        //    ViewUpdateDrugref2Action gates on `_admin` / `_admin.misc` read. A rebuild degrades
+        //    prescribing for the thirty-odd minutes it takes, and `status` relays DrugRef's
+        //    root-cause failure text -- a JDBC URL, a database host and user, a filesystem path.
+        //    Both are administrative acts, so administration rights are what they require.
+        //  - `verify` and `getLastUpdate` belong to prescribing: TopLinks2.jspf fires verify on
+        //    every Rx page load. They carry only a date, a version and a database name.
+        //
+        // Requiring `_rx` on top of `_admin` for the first pair looked harmless and was not: an
+        // administrator who is not a prescriber could open the page and then every call from it
+        // failed with an HTML 500, which is the state this action exists to stop the page being
+        // in. The admin page also fires `verify`, so administration rights satisfy that too.
+        //
+        // Evaluated lazily and cheapest-first, which matters here specifically: every
+        // hasPrivilege call re-runs secUserRoleDao.findActiveByProviderNo (there is no role
+        // cache), and TopLinks2.jspf fires `verify` on every Rx page load. Computing the
+        // administration rights up front cost ordinary prescribers two extra role queries per
+        // page load to answer a question `_rx` alone settles. The `||` order carries the
+        // authorization, not just the performance: it is the same predicate either way, so
+        // this stays a pure short-circuit and never widens who is allowed through.
+        // Read is not enough to START one, though. updateDB rebuilds the drug database: it runs
+        // for half an hour, degrades drug lookups clinic-wide while it does, and can end with
+        // the dataset replaced. That is a mutation, and CARLOS gates mutating administration on
+        // WRITE -- ManageFlowsheets2Action, LookupListManager2Action and the admin gate actions
+        // all take "w" on _admin / _admin.misc. Accepting read here let a view-only
+        // administrator trigger the rebuild. `status` stays at read: it only reports.
+        if (mutating) {
+            if (!canTriggerUpdate(loggedInInfo)) {
+                throw new SecurityException("missing required sec object (_admin or _admin.misc)");
+            }
+        } else if ("status".equals(method)) {
+            if (!hasAdministrationRights(loggedInInfo)) {
+                throw new SecurityException("missing required sec object (_admin or _admin.misc)");
+            }
+        } else if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)
+                && !hasAdministrationRights(loggedInInfo)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
@@ -101,15 +138,67 @@ public class RxUpdateDrugref2Action extends ActionSupport {
             return updateDB();
         } else if ("verify".equals(method)) {
             return verify();
+        } else if ("status".equals(method)) {
+            return status();
         }
         return getLastUpdate();
     }
 
+    /**
+     * @return whether the caller may perform the administrative operations of this action, which
+     *         either administration security object grants. Not cached: each call re-reads the
+     *         caller's active roles, so call it only on the branch that needs it.
+     */
+    private boolean hasAdministrationRights(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null);
+    }
+
+    /**
+     * @return whether the caller may START a database rebuild, which needs write on either
+     *         administration object. Kept public and static-free so
+     *         {@link io.github.carlos_emr.carlos.admin.gate.ViewUpdateDrugref2Action} can ask the
+     *         same question when deciding whether to render the trigger: a page that offers a
+     *         button this action then refuses is the failure this split exists to avoid.
+     */
+    public static boolean canTriggerUpdate(SecurityInfoManager securityInfoManager,
+            LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null);
+    }
+
+    private boolean canTriggerUpdate(LoggedInInfo loggedInInfo) {
+        return canTriggerUpdate(securityInfoManager, loggedInInfo);
+    }
+
     public String updateDB() throws IOException, ServletException {
         Map<String, Object> d = new HashMap<>();
+        // A null result means the call itself failed (DrugRef down, unreachable, or a fault):
+        // the page shows that as an error rather than the silent nothing it used to render.
         d.put("result", runOrFallback("updateDB", () -> new RxDrugRef().updateDB(), null));
         writeJson(d);
-        return null;
+        return NONE;
+    }
+
+    /**
+     * Relays DrugRef's {@code getUpdateStatus}: whether the last update attempt is running,
+     * succeeded or failed, and why. The admin page polls this after starting an update.
+     *
+     * <p>Falls back to {@code state=UNAVAILABLE} when DrugRef cannot answer, which is also what
+     * a DrugRef build older than the method returns (an XML-RPC fault). The page then degrades
+     * to the {@code verify} probe, whose {@code lastUpdate} still flips away from
+     * {@code "updating"} when the run ends.</p>
+     *
+     * <p>The fallback comes from {@link RxDrugRef#unavailableStatus()} rather than being
+     * hand-assembled, so it carries every key a successful answer carries and the two shapes
+     * cannot drift apart. A client would otherwise see the documented keys on the success path
+     * and {@code undefined} for the same keys on the outage path — the one path where it is
+     * least able to cope with a surprise.</p>
+     */
+    private String status() throws IOException, ServletException {
+        Map<String, String> fallback = RxDrugRef.unavailableStatus();
+        writeJson(runOrFallback("getUpdateStatus", () -> new RxDrugRef().getUpdateStatus(), fallback));
+        return NONE;
     }
 
     private String verify() throws IOException, ServletException {
@@ -122,14 +211,14 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         fallback.put("drugDatabase", null);
         fallback.put("version", null);
         writeJson(runOrFallback("verify", () -> new RxDrugRef().verify(), fallback));
-        return null;
+        return NONE;
     }
 
     private String getLastUpdate() throws IOException, ServletException {
         Map<String, String> d = new HashMap<>();
         d.put("lastUpdate", runOrFallback("getLastUpdateTime", () -> new RxDrugRef().getLastUpdateTime(), null));
         writeJson(d);
-        return null;
+        return NONE;
     }
 
     /**

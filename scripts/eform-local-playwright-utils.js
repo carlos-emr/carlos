@@ -173,10 +173,35 @@ async function login(context, config, recorder) {
     await page.locator('#pin').fill(config.testPin);
   }
   await Promise.all([
-    page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+    // forcepasswordreset is a legitimate destination, not a failure: the carlos-emr package
+    // generates its first-login credential already flagged for a reset, so on a freshly
+    // installed deb -- the case the deb-install runbook is written for -- this is where the
+    // login lands. Waiting only for the schedule made every check here fail before it tested
+    // anything, and the devcontainer defaults hid it because that account is not flagged.
+    page.waitForURL(/providercontrol|appointment|forcepasswordreset/i, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  if (/forcepasswordreset/i.test(page.url())) {
+    assert(
+      config.resetPassword,
+      `${config.testUser} must change its password before it can be used: a fresh carlos-emr`
+      + ' install flags its generated admin credential for a forced reset. Complete it ONCE, in an'
+      + ' isolated run outside any suite loop, with RESET_PASSWORD set to a new password meeting'
+      + ' the policy, then export TEST_PASSWORD as that new password for every later run. Doing'
+      + ' it inside a loop leaves the scripts that ran before it unreset and the ones after it'
+      + ' authenticating with the old password.',
+    );
+    await page.locator('input[name="oldPassword"]').fill(config.testPassword);
+    await page.locator('input[name="newPassword"]').fill(config.resetPassword);
+    await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
+    await Promise.all([
+      page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+      page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    ]);
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  }
   return page;
 }
 
