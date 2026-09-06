@@ -42,6 +42,19 @@ class CaseManagementCppSaveRegressionTest {
     private static final Path NOTE_ISSUE_LIST_JSP =
             resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp"));
 
+    /**
+     * Every clinician-authored free-text argument the note route accepts: the CPP editor body,
+     * the encounter note under the two names it travels as, and the editor's
+     * {@code <input type="text">} extension fields. Its {@code <select>} pickers are
+     * deliberately absent — see the picker assertion below.
+     */
+    private static final String[] CLINICIAN_FREE_TEXT_ARGUMENTS = {
+            "value", "caseNote_note", "note", "problemdescription", "problemstatus",
+            "treatment", "exposuredetail", "relationship", "procedure"};
+    private static final String[] CONTENT_ATTACK_TAGS = {
+            "attack-sqli", "attack-xss", "attack-rce",
+            "attack-injection-php", "attack-protocol", "attack-lfi"};
+
     @Test
     @DisplayName("CPP saves should refresh Unresolved Issues without relying on a missing form element (#3422)")
     void shouldRefreshUnresolvedIssues_afterCppSave() throws IOException {
@@ -107,6 +120,88 @@ class CaseManagementCppSaveRegressionTest {
                 .doesNotContain("<%=noteIndex%>")
                 .contains("\"bgColour\" + \"${carlos:forJavaScriptBlock(noteIndex)}\"")
                 .contains("\"summary\" + \"${carlos:forJavaScriptBlock(noteIndex)}\"");
+    }
+
+    @Test
+    @DisplayName("Clinician free text on the note route should be exempt from WAF content scoring (#3611)")
+    void shouldExemptClinicianFreeText_fromPackagedWafScoring() throws IOException {
+        // Verified on a packaged Ubuntu 26.04 install: ordinary clinical prose in the
+        // encounter note — a pasted PACS link whose own query string contains "&cmd" —
+        // scored CRS 932110 and answered POST /carlos/CaseManagementEntry with 403. That
+        // one note text broke three workflows, because the same body travels under three
+        // parameter names on this route: ARGS:caseNote_note on the serialized
+        // caseManagementEntryForm, ARGS:note on the 5s draft autosave, and ARGS:value in
+        // the CPP editor. The CPP item itself still saved (its own POST carries ARGS:value,
+        // already exempt for SQLi/XSS), so the clinician saw only a spurious
+        // "403 ... your session has expired" alert on a Social History entry that was in
+        // fact on disk. Miss any one name and the workflow only half works.
+        String rule = readExclusionRule("1010");
+
+        assertThat(rule)
+                .contains("^/carlos/CaseManagementEntry(?:[;?]|$)")
+                .contains("@streq POST");
+        for (String argument : CLINICIAN_FREE_TEXT_ARGUMENTS) {
+            for (String tag : CONTENT_ATTACK_TAGS) {
+                assertThat(rule)
+                        .as("clinician free text %s is exempt from %s", argument, tag)
+                        .contains("ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:" + argument + ",");
+            }
+        }
+        // The editor's two <select> pickers carry no prose, so they have nothing to
+        // false-positive on and stay fully inspected; exempting one would only hand a forged
+        // POST a rule-free parameter to smuggle a payload in.
+        for (String picker : new String[] {"lifestage", "hidecpp"}) {
+            assertThat(rule)
+                    .as("picker %s is not exempted", picker)
+                    .doesNotContain(";ARGS:" + picker + ",")
+                    .doesNotContain(";ARGS:" + picker + "\"");
+        }
+        assertThat(rule)
+                // reloadUrl is an app-generated URL, not prose, and keeps its narrower
+                // treatment: the keyword tags plus only rule 932110, never the whole
+                // attack-rce family.
+                .contains("ctl:ruleRemoveTargetById=932110;ARGS:reloadUrl")
+                .doesNotContain("ctl:ruleRemoveTargetByTag=attack-rce;ARGS:reloadUrl")
+                // Per-argument only: nothing in this rule may drop a signature request-wide.
+                .doesNotContain("ruleRemoveById=932110,");
+    }
+
+    /**
+     * Returns the whole chained SecRule carrying {@code id:<ruleId>}, from its
+     * {@code SecRule REQUEST_URI} line to the blank line that separates it from the next rule.
+     *
+     * <p>Bounding the slice on the rule's own structure rather than on the text of whichever
+     * clause happens to sit last keeps the assertions about what the rule <em>says</em>.
+     * Anchoring on a particular argument name meant that reordering the clauses, or adding one
+     * after it, silently truncated the slice and turned real assertions into vacuous ones. A
+     * closing quote is no good either: the {@code chain} action's own line ends in one while
+     * the chained rule continues below it.</p>
+     */
+    private String readExclusionRule(String ruleId) throws IOException {
+        String exclusions = read(Path.of("debian", "assets", "modsecurity",
+                "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"))
+                .replace("\r\n", "\n");
+
+        int idPosition = exclusions.indexOf("id:" + ruleId + ",");
+        assertThat(idPosition).as("exclusion %s is present", ruleId).isGreaterThanOrEqualTo(0);
+
+        int ruleStart = exclusions.lastIndexOf("SecRule REQUEST_URI", idPosition);
+        assertThat(ruleStart).as("exclusion %s opens with a REQUEST_URI match", ruleId).isGreaterThanOrEqualTo(0);
+
+        int ruleEnd = exclusions.indexOf("\n\n", idPosition);
+        if (ruleEnd < 0) {
+            ruleEnd = exclusions.length();
+        }
+        String rule = exclusions.substring(ruleStart, ruleEnd);
+
+        // A rule that lost its body would satisfy every doesNotContain() below for the wrong
+        // reason, so require the slice to actually span the chained rule.
+        assertThat(rule).as("exclusion %s slice spans its chained rule", ruleId).contains("SecRule REQUEST_METHOD");
+        return rule;
+    }
+
+    private static String read(Path relativePath) throws IOException {
+        return Files.readString(resolveProjectPath(relativePath), StandardCharsets.UTF_8);
     }
 
     private static Path resolveProjectPath(Path relativePath) {

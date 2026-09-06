@@ -14,6 +14,17 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     a site that had disabled faxing with "no" keeps it disabled as "false".
     Faxing only becomes VISIBLE; sending still needs an active account under
     Administration > Faxes > Configure Fax and the _fax security object.
+  * Clinical prose in an encounter note no longer trips the web application
+    firewall. The note body travels under three parameter names on the note
+    route -- the serialized chart form, the draft autosave, and the CPP editor
+    -- and only the last was exempt from the rule groups that read prose as an
+    attack, so a note containing something as ordinary as a pasted link with
+    "&cmd" in its query string was answered 403 at the front door. That broke
+    the note save, silently stopped its autosave, and made saving a Social
+    History or other CPP item report "403 ... your session has expired" on an
+    item that had in fact already saved. Exclusion 1010 now covers every
+    clinician free-text argument on that route, each one individually and only
+    on POST; the WAF still blocks a probe injection.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
 

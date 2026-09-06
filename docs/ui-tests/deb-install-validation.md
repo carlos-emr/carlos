@@ -26,6 +26,19 @@ adding a check here, reach the page by clicking the links an operator clicks:
 the eForm editor 403 existed **only** on the panel path, and navigating straight
 to the JSP exercised the one shape that already worked.
 
+The same lesson has a second half: **what a check types matters as much as where
+it clicks.** A later tester hit a 403 saving eChart CPP items that the green
+`echart-playwright-checks.js` could not have caught, because the text the script
+typed was clean and the text in the tester's chart was not — a pasted link whose
+query string contained `&cmd` scored CRS 932110 on the encounter note body, and
+that body rides on the CPP save's issue-refresh POST and the draft autosave as
+well as on the note save itself. A WAF check that submits only inoffensive prose
+measures nothing. Scripts driving a free-text clinical field through the front
+door should carry text the rule set actually scores (see
+`CLINICAL_TEXT_THE_WAF_SCORES` in `scripts/echart-playwright-checks.js`) and
+should be confirmed to fail against the previous exclusion file, not merely to
+pass against the new one.
+
 ## Scope
 
 This validation answers one question:
