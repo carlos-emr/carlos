@@ -122,6 +122,11 @@
                 document.getElementById(id).style.display = visible ? 'block' : 'none';
             }
 
+            // Keep the strings this page builds ASCII. The JSP declares no page encoding and
+            // web.xml sets none, so Jasper reads the source as ISO-8859-1: a UTF-8 em dash in
+            // a JS literal reaches the operator as three mojibake characters. Seen live on
+            // the packaged install; the bundle strings are unaffected (properties files are
+            // decoded separately).
             function setResult(text, kind) {
                 var el = document.getElementById('updateResult');
                 el.textContent = text;
@@ -249,7 +254,7 @@
                                         + 'whether it succeeded, and this page did not see the previous '
                                         + 'timestamp to compare against. DrugRef reports last updated '
                                         + (v.lastUpdate || 'never')
-                                        + ' — confirm drug search before prescribing.', 'warning');
+                                        + ' - confirm drug search before prescribing.', 'warning');
                                     show('updateButton', true);
                                 } else if (v.lastUpdate != null && v.lastUpdate !== lastUpdateBeforeRun) {
                                     // The history timestamp MOVED. On a DrugRef too old to
@@ -266,7 +271,7 @@
                                     setResult('The update has ended, but DrugRef reports no new update'
                                         + (v.lastUpdate ? ' (still ' + v.lastUpdate + ')' : '')
                                         + ', so it most likely FAILED. This DrugRef build is too old to '
-                                        + 'report why — check the service log (journalctl -u carlos-emr) '
+                                        + 'report why - check the service log (journalctl -u carlos-emr) '
                                         + 'and confirm drug search before prescribing.', 'danger');
                                     show('updateButton', true);
                                 }
