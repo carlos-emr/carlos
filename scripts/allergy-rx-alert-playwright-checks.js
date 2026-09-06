@@ -207,7 +207,12 @@ function escapeRegExp(literal) {
     // 75,113 names in the seeded reference throw when interpolated raw ("SPF 30 PA+++" is
     // "Nothing to repeat"), and many more silently mis-match because "." matches any character.
     let chosen = results.filter({ hasText: new RegExp(`^\\s*${escapeRegExp(allergenName)}\\s*$`) }).first();
-    if (!(await chosen.count())) {
+    // Part 4 asserts a warning for this allergen from a drug in ITS class, so that pairing has to
+    // be the one the operator configured. The fallback keeps parts 1-3 working on a dataset that
+    // does not carry the requested name, but it breaks the pairing, so part 4 stands down rather
+    // than asserting against whatever the search happened to return first.
+    const matchedRequestedAllergen = (await chosen.count()) > 0;
+    if (!matchedRequestedAllergen) {
       chosen = results.first();
     }
     const chosenName = ((await chosen.textContent()) || '').trim();
@@ -357,50 +362,59 @@ function escapeRegExp(literal) {
     // ---------------------------------------------------------------- part 4
     // The literally reported scenario: a penicillin prescribed to a patient carrying
     // the penicillin allergy recorded in part 1.
-    const typedRxPage = await context.newPage();
-    wirePage(typedRxPage, 'rx-alert-typed', recorder);
-    await gotoApp(typedRxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
-    await typedRxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await assertNotErrorPage(typedRxPage, 'rx module (typed allergen)');
+    if (!matchedRequestedAllergen) {
+      console.log(
+        `[skip] part 4: the search for "${allergySearchTerm}" did not return "${allergenName}", so `
+        + `part 1 recorded "${chosenName}" instead. ALLERGY_TYPED_DRUG_TERM ("${typedDrugTerm}") is `
+        + `paired with "${allergenName}", not with that, so asserting a warning here would be `
+        + 'checking a pairing nobody configured. Parts 1-3 still ran.',
+      );
+    } else {
+      const typedRxPage = await context.newPage();
+      wirePage(typedRxPage, 'rx-alert-typed', recorder);
+      await gotoApp(typedRxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
+      await typedRxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+      await assertNotErrorPage(typedRxPage, 'rx module (typed allergen)');
 
-    const typedSearchBox = typedRxPage.locator('#searchString');
-    await typedSearchBox.waitFor({ state: 'visible', timeout: 20000 });
-    await Promise.all([
-      typedRxPage.waitForResponse(
-        (r) => r.url().includes('/rx/searchDrug') && r.request().method() === 'POST',
-        { timeout: 60000 },
-      ),
-      typedSearchBox.pressSequentially(typedDrugTerm, { delay: 120 }),
-    ]);
+      const typedSearchBox = typedRxPage.locator('#searchString');
+      await typedSearchBox.waitFor({ state: 'visible', timeout: 20000 });
+      await Promise.all([
+        typedRxPage.waitForResponse(
+          (r) => r.url().includes('/rx/searchDrug') && r.request().method() === 'POST',
+          { timeout: 60000 },
+        ),
+        typedSearchBox.pressSequentially(typedDrugTerm, { delay: 120 }),
+      ]);
 
-    const typedDrugItems = typedRxPage.locator('ul.ui-autocomplete li');
-    await typedDrugItems.first().waitFor({ state: 'visible', timeout: 20000 });
+      const typedDrugItems = typedRxPage.locator('ul.ui-autocomplete li');
+      await typedDrugItems.first().waitFor({ state: 'visible', timeout: 20000 });
 
-    const [typedAllergyResponse] = await Promise.all([
-      typedRxPage.waitForResponse(
-        (r) => r.url().includes('/rx/showAllergy') && r.request().method() === 'POST',
-        { timeout: 60000 },
-      ),
-      typedDrugItems.first().click(),
-    ]);
-    assert(
-      typedAllergyResponse.status() < 400,
-      `The allergy probe returned HTTP ${typedAllergyResponse.status()} for the typed allergen`,
-    );
+      const [typedAllergyResponse] = await Promise.all([
+        typedRxPage.waitForResponse(
+          (r) => r.url().includes('/rx/showAllergy') && r.request().method() === 'POST',
+          { timeout: 60000 },
+        ),
+        typedDrugItems.first().click(),
+      ]);
+      assert(
+        typedAllergyResponse.status() < 400,
+        `The allergy probe returned HTTP ${typedAllergyResponse.status()} for the typed allergen`,
+      );
 
-    const typedPayload = await typedAllergyResponse.json();
-    assert(Array.isArray(typedPayload.results), 'The typed allergy probe JSON has no results array');
-    assert(
-      typedPayload.results.some((r) => String(r.reaction || '').includes(typedReaction)),
-      `Prescribing "${typedDrugTerm}" to a patient allergic to ${chosenName} did not warn about the `
-        + `allergy recorded from the search results (${typedPayload.results.length} warning(s) `
-        + 'returned; contents withheld because they carry the patient\'s own reactions).',
-    );
+      const typedPayload = await typedAllergyResponse.json();
+      assert(Array.isArray(typedPayload.results), 'The typed allergy probe JSON has no results array');
+      assert(
+        typedPayload.results.some((r) => String(r.reaction || '').includes(typedReaction)),
+        `Prescribing "${typedDrugTerm}" to a patient allergic to ${chosenName} did not warn about the `
+          + `allergy recorded from the search results (${typedPayload.results.length} warning(s) `
+          + 'returned; contents withheld because they carry the patient\'s own reactions).',
+      );
 
-    const typedAlertTable = typedRxPage.locator("table[id^='alleg_tbl_']").first();
-    await typedAlertTable.waitFor({ state: 'visible', timeout: 20000 });
-    await screenshot(typedRxPage, config.screenshotDir, 'allergy-rx-alert-typed');
-    await typedRxPage.close();
+      const typedAlertTable = typedRxPage.locator("table[id^='alleg_tbl_']").first();
+      await typedAlertTable.waitFor({ state: 'visible', timeout: 20000 });
+      await screenshot(typedRxPage, config.screenshotDir, 'allergy-rx-alert-typed');
+      await typedRxPage.close();
+    }
 
     assertNoPageErrors(recorder);
     await context.close();
@@ -409,7 +423,9 @@ function escapeRegExp(literal) {
     console.log(`  recorded from search: ${chosenName}`);
     console.log(`  recorded as free text: ${customAllergen}`);
     console.log(`  ${drugTerm} warned on the free-text allergen`);
-    console.log(`  ${typedDrugTerm} warned on the allergen recorded from the search results`);
+    if (matchedRequestedAllergen) {
+      console.log(`  ${typedDrugTerm} warned on the allergen recorded from the search results`);
+    }
   } catch (error) {
     console.error('allergy-rx-alert checks FAILED:', error.message);
     // Deliberately narrower than buildFailureDetails(): this check drives a real patient's
