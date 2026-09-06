@@ -844,18 +844,22 @@ class TestEncounterFormsPointingAtRemovedForms(RunRolesBase):
         1054 and the resumed import stops mid-roles."""
         db = FakeDb(archive_columns=["form_table", "form_name"])
         self.run_roles(db)
-        # and the backfill runs after them, before the guard reads
-        # form_value
         backfill = o19roles.encounter_form_backfill_statement(DST, ARCH)
         self.assertIn(backfill, db.writes)
         alters = [w for w in db.writes if w.startswith("ALTER TABLE")]
         self.assertEqual(len(alters), 2, db.writes)
         self.assertIn("ADD COLUMN `form_value`", alters[0])
         self.assertIn("ADD COLUMN `hidden`", alters[1])
-        # and they land BEFORE the INSERT that needs the columns
         archive, _delete = o19roles.encounter_form_prune_statements(
             DST, ARCH)
+        # POSITION, not just membership. The backfill has to land after
+        # the widening (or it writes a column that does not exist yet)
+        # and before the guard reads form_value (or the guard misses the
+        # legacy rows the backfill exists to identify). A membership
+        # assertion passes under either reordering.
         self.assertLess(db.writes.index(alters[1]),
+                        db.writes.index(backfill))
+        self.assertLess(db.writes.index(backfill),
                         db.writes.index(archive))
 
     def test_a_current_workspace_issues_no_alter(self):

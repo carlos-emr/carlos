@@ -1737,6 +1737,41 @@ class TestStagingRestore(unittest.TestCase):
             b"CREATE TABLE `t` (a int) COLLATE=utf8mb4_0900_ai_ci;\n"),
             ["utf8mb4_0900_ai_ci"])
 
+    def test_a_collation_named_in_a_comment_is_not_a_declaration(self):
+        """Skipping data LINES is not enough on its own.
+
+        A collation name can reach a non-INSERT line three other ways --
+        a `--` or `#` comment, one of the `/*!40101 ... */` blocks
+        mysqldump writes into every dump, and the text of a table's own
+        `COMMENT='...'`. Each read as a declaration, and each would have
+        refused a perfectly good clinic dump mid-cutover with no flag to
+        clear it. The real OSCAR 19 fixture carries none of them (521
+        COLLATE occurrences, every one genuine DDL), so this is a
+        refusal waiting for a dump with a table comment."""
+        for line in (b"-- dump note: COLLATE=comment_bogus",
+                     b"# legacy note COLLATE=hash_bogus",
+                     b"/*!40101 SET x COLLATE=cstyle_bogus */;"):
+            self.assertEqual(o19import.ddl_collations(line), set(), line)
+        # ...and a COMMENT= that mentions one still declares its OWN
+        self.assertEqual(
+            o19import.ddl_collations(
+                b"CREATE TABLE t (a int) COMMENT='use COLLATE=bogus' "
+                b"COLLATE=utf8mb4_real;"),
+            {"utf8mb4_real"})
+
+    def test_genuine_declarations_still_read(self):
+        # the negative control: scrubbing comments and string literals
+        # must not cost the scanner the names it exists to find
+        self.assertEqual(
+            o19import.ddl_collations(
+                b"CREATE TABLE t (a int) DEFAULT CHARSET=utf8mb4 "
+                b"COLLATE=utf8mb4_real;"),
+            {"utf8mb4_real"})
+        self.assertEqual(
+            o19import.ddl_collations(
+                b"  `c` varchar(10) COLLATE latin1_swedish_ci DEFAULT NULL,"),
+            {"latin1_swedish_ci"})
+
     def test_an_empty_available_set_never_refuses(self):
         # the tests' fakes and any caller that could not read SHOW
         # COLLATION must not turn "not known" into "not available"

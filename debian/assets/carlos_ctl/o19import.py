@@ -1179,6 +1179,34 @@ COLLATION_RE = re.compile(rb"COLLATE[= ]([A-Za-z0-9_]+)")
 #: boundary.
 DATA_LINE_RE = re.compile(rb"\s*(?:INSERT|REPLACE)\b", re.I)
 
+#: Everything on a DDL line that is TEXT rather than syntax: quoted
+#: string literals, block comments (`/*! ... */` among them, which
+#: mysqldump writes into every dump) and line comments.
+#:
+#: Skipping data LINES is not enough on its own. MEASURED against this
+#: scanner: `-- note: COLLATE=x`, `# note: COLLATE=x`,
+#: `/*!40101 ... COLLATE=x */` and
+#: `CREATE TABLE t (...) COMMENT='use COLLATE=x' COLLATE=utf8mb4_real`
+#: all yielded `x` as though the clinic's schema declared it. The real
+#: OSCAR 19 fixture happens to carry none of those (521 COLLATE
+#: occurrences, every one genuine DDL), so this is a refusal waiting for
+#: a dump with a table comment rather than one seen in the wild -- but
+#: the refusal it would cause lands mid-cutover with no flag to clear
+#: it, which is the same reason data lines are skipped at all.
+#:
+#: A quoted collation name (`COLLATE 'utf8mb4_bin'`) is legal SQL and is
+#: scrubbed here, but COLLATION_RE never matched it anyway: the quote is
+#: not in its character class. So nothing that used to be found is lost.
+#: Per LINE, like the rest of this scanner -- a block comment split
+#: across lines is not tracked.
+SQL_NOISE_RE = re.compile(
+    rb"'(?:[^'\\]|\\.|'')*'"          # single-quoted literal
+    rb"|\"(?:[^\"\\]|\\.|\"\")*\""      # double-quoted literal
+    rb"|/\*.*?\*/"                      # block comment, `/*!...*/` too
+    rb"|--[ \t][^\n]*|--$"              # MySQL line comment needs a space
+    rb"|#[^\n]*",                       # ...`#` does not
+    re.S)
+
 #: enough to hold a collation name split across a chunk boundary
 COLLATION_CARRY = 64
 
@@ -1199,7 +1227,9 @@ def ddl_collations(data: bytes) -> Set[str]:
     for line in data.split(b"\n"):
         if DATA_LINE_RE.match(line):
             continue
-        for m in COLLATION_RE.finditer(line):
+        # a SPACE, not an empty string: scrubbing must not weld two
+        # tokens into a third that matches
+        for m in COLLATION_RE.finditer(SQL_NOISE_RE.sub(b" ", line)):
             names.add(m.group(1).decode("ascii", "replace"))
     return names
 

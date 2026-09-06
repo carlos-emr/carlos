@@ -303,6 +303,24 @@ class TestSurrogateIdRemap(unittest.TestCase):
         self.assertIn("NOT EXISTS", counts[0][2])
         self.assertIn("`arch`.`LookupList__idmap`", counts[0][2])
 
+    def test_the_numeric_like_types_report_the_zero_the_server_stores(self):
+        """`bit` and `year` are stored numerically however the fallback
+        is spelled, so a string default is invisible in the write and
+        wrong in the REPORT.
+
+        MEASURED on MariaDB 10.11: for a NOT NULL `year`, both
+        `IFNULL(s.y, '')` and `IFNULL(s.y, 0)` store 0000 and both
+        satisfy the value check -- but the literal is what
+        `not_null_coercion_lines` prints, and '' is not what the column
+        holds."""
+        for dtype in ("bit", "year"):
+            self.assertEqual(
+                o19etl.not_null_fallback(col(dtype, nullable=False)), "0",
+                dtype)
+        # the string types are unaffected: '' is genuinely what they hold
+        self.assertEqual(
+            o19etl.not_null_fallback(col("varchar", nullable=False)), "''")
+
     def test_the_dangling_fk_report_names_what_the_row_actually_holds(self):
         """Three dispositions, read off the same helpers the write uses.
 

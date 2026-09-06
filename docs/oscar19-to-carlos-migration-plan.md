@@ -424,7 +424,7 @@ with the same severity.
 | B5 | **LDAP authentication in use** | `ldap.enabled=true` in properties → blocker: staff cannot log in to CARLOS via LDAP; local credentials must be provisioned first |
 | B6 | **Target not pristine** (import mode only) | CARLOS schema contains clinic data beyond the known seed rows → refuse |
 | B7 | **Capacity/compatibility** | Insufficient disk for staging + archive + documents; dump collations unavailable on the target MariaDB; dump truncated/incomplete (missing `-- Dump completed`) |
-| B8a | **Province not Ontario** | Only the Ontario manifest is curated; no `--accept` flag |
+| B8a | **Province the build cannot serve** | Two distinct refusals: the host's province does not match the manifest profile this package carries, or it matches one the package carries but that has not completed an end-to-end rehearsal. Ontario and British Columbia are both curated and rehearsed; no `--accept` flag for either |
 | B8b | **Case-colliding table names** | A case-sensitive server holds a vendor table differing from a manifest table only by case; no `--accept` flag |
 | B8c | **OLIS was configured** | Rows in any `OLIS*` table: lab querying through OLIS stops at cutover. Cleared by `--accept olis-gone` once the clinic is told |
 | B8d | **No enabled `Facility`, or no `clinic` row** | CARLOS cannot log anyone in without an enabled facility, and letterheads and requisitions dereference the clinic row; refused before the first write; no `--accept` flag |

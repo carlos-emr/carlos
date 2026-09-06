@@ -1225,7 +1225,16 @@ class TestEveryPrimitiveMappedColumnIsSupplied(unittest.TestCase):
         self.assertTrue(must_supply, "no primitive field over a nullable "
                                      "column — has Program.java changed?")
         sql = o19roles.oscar_program_statement("carlos")
-        insert_columns = sql.split("(", 1)[1].split(")", 1)[0]
+        # WHOLE column names, not a substring search of the column list.
+        # This guard exists to fail when a NEW primitive field appears
+        # over a nullable column, and a substring test lets exactly that
+        # case through: `age` is inside `ageMin`, `fac` inside
+        # `facilityId`, `ic` inside `hic`. None of the 22 columns is
+        # currently a substring of another, so nothing passes spuriously
+        # today -- the hazard is the field nobody has added yet, which
+        # is the only kind this test is for.
+        insert_columns = [c.strip().strip("`") for c
+                          in sql.split("(", 1)[1].split(")", 1)[0].split(",")]
         for column in must_supply:
             self.assertIn(
                 column, insert_columns,

@@ -433,6 +433,15 @@ _NOT_NULL_ZERO = {
     # never needed a substitution at all. `0` keeps the comparison
     # numeric and both rows agree.
     "bit": "0",
+    # `year` is the other numeric-like type the string default gets
+    # wrong, and unlike `bit` it gets it wrong only in the REPORT.
+    # MEASURED on MariaDB 10.11: `IFNULL(s.y, '')` and `IFNULL(s.y, 0)`
+    # both STORE 0000 and both satisfy the value check, so the copy was
+    # never at risk -- but `required_fallback` also supplies the literal
+    # `not_null_coercion_lines` prints, and telling an operator a column
+    # now holds '' when the server stored 0000 sends them looking for
+    # the wrong thing in their own data.
+    "year": "0",
 }
 
 

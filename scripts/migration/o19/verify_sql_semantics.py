@@ -2164,6 +2164,11 @@ PRIMITIVE_TYPE_FIXTURES = [
     ("c_date", "date", "'2014-03-04'"),
     ("c_datetime", "datetime", "'2014-03-04 09:00:00'"),
     ("c_time", "time", "'09:00:00'"),
+    # `year` joined `_NOT_NULL_ZERO` when the report was corrected to
+    # name the 0000 the server stores rather than the '' it used to
+    # claim; the coverage check above is what noticed it had to be
+    # exercised here too.
+    ("c_year", "year", "1998"),
 ]
 
 
@@ -2297,6 +2302,39 @@ def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
                     "{2} row(s); the substituted literal changes the "
                     "expression's type".format(
                         name, dst_cols[name]["column_type"], n))
+
+    # ...and the REPORT, which nothing above touches. Everything so far
+    # asks what the server stored and whether P7 agrees with it; none of
+    # it runs the path that tells the OPERATOR a value was substituted.
+    # That path can stop working -- or name the wrong literal, as it did
+    # for `year` -- with every check above still green, and it is what
+    # requirement A actually puts in front of a clinic.
+    lines = o19etl.not_null_coercion_lines(
+        query, src, dst, {"t": dst_cols}, {"t": entry}, {})
+    reported = set()
+    for line in lines:
+        reported.add(line.split(":", 1)[0].split(".", 1)[1])
+    missing = sorted(set(names) - reported)
+    print("    {0:<44} {1}".format(
+        "the operator report names every coercion",
+        "ok" if not missing else "MISSING: " + ", ".join(missing)))
+    if missing:
+        failures.append(
+            "row 2 holds NULL in every primitive column, but the report "
+            "names {0} of {1}; silent on: {2}".format(
+                len(reported), len(names), ", ".join(missing)))
+    # and the literal it PRINTS is the one the column now holds
+    for line in lines:
+        col_name = line.split(":", 1)[0].split(".", 1)[1]
+        stored = client.rows(
+            "SELECT `{0}` FROM `t` WHERE id = 2".format(col_name), dst)
+        shown = line.rsplit("stored as ", 1)[-1].strip().strip("'")
+        actual = "" if not stored else str(stored[0][0])
+        if shown.lstrip("0") not in (actual.lstrip("0"), "") \
+                and shown != actual:
+            failures.append(
+                "{0}: the report says the column now holds {1!r}, the "
+                "server stored {2!r}".format(col_name, shown, actual))
     return failures
 
 

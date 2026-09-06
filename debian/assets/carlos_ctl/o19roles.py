@@ -2046,18 +2046,30 @@ def encounter_form_backfill_statement(dst_schema: str,
     second time -- without the pair-matching that would suppress, and
     then silently delete, sibling entries sharing the pair.
 
+    BOTH missing columns are restored, not just the one the guard reads.
+    Filling `form_value` alone makes the live row look archived -- the
+    guard skips it, the DELETE removes it -- while the archive row still
+    holds NULL in `hidden`, so the clinic's visibility flag is gone with
+    no row carrying it. Requirement B is about the whole row, and the
+    guard is not the only thing the archive is for.
+
     Deliberately does nothing when the pair is ambiguous (two live
     entries, same table and name, different URLs). There is no way to
     tell which one the legacy row recorded, and guessing would put a
-    wrong URL in the clinic's archive. Idempotent: once a row has a
-    form_value the WHERE no longer selects it."""
-    return ("UPDATE `{1}`.encounterForm__pruned a SET a.form_value = "
-            "(SELECT MIN(e.form_value) FROM `{0}`.encounterForm e WHERE "
-            "e.form_table = a.form_table AND e.form_name = a.form_name) "
-            "WHERE a.form_value IS NULL AND (SELECT COUNT(*) FROM "
-            "`{0}`.encounterForm e WHERE e.form_table = a.form_table "
-            "AND e.form_name = a.form_name) = 1"
-            .format(dst_schema, archive_schema))
+    wrong URL in the clinic's archive. Both subqueries sit under the
+    same `COUNT(*) = 1` condition, so the two values always come from
+    the SAME live row rather than from two independent MINs. Idempotent:
+    once a row has a form_value the WHERE no longer selects it."""
+    one_row = ("(SELECT COUNT(*) FROM `{0}`.encounterForm e WHERE "
+               "e.form_table = a.form_table AND e.form_name = "
+               "a.form_name) = 1".format(dst_schema))
+    pick = ("(SELECT MIN(e.{{0}}) FROM `{0}`.encounterForm e WHERE "
+            "e.form_table = a.form_table AND e.form_name = a.form_name)"
+            .format(dst_schema))
+    return ("UPDATE `{0}`.encounterForm__pruned a SET a.form_value = {1}, "
+            "a.hidden = {2} WHERE a.form_value IS NULL AND {3}"
+            .format(archive_schema, pick.format("form_value"),
+                    pick.format("hidden"), one_row))
 
 
 def roles_prune_encounter_forms(run: 'RolesRun') -> None:

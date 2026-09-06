@@ -335,6 +335,12 @@ class TestStatementShapes(unittest.TestCase):
         sql = o19roles.encounter_form_backfill_statement(
             "carlos", "o19_archive")
         self.assertIn("SET a.form_value = (SELECT MIN(e.form_value)", sql)
+        # BOTH columns, from the same row. Filling form_value alone makes
+        # the live row look archived -- the guard skips it, the DELETE
+        # removes it -- while the archive row still holds NULL in
+        # `hidden`, so the clinic's visibility flag is gone with nothing
+        # carrying it. MEASURED on MariaDB 10.11.
+        self.assertIn("a.hidden = (SELECT MIN(e.hidden)", sql)
         self.assertIn("WHERE a.form_value IS NULL", sql)
         # EXACTLY one, and the spelling matters: `>= 1` would backfill
         # an ambiguous pair with an arbitrary sibling's URL, which is a
