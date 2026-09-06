@@ -146,6 +146,13 @@ async function login(context) {
   return page;
 }
 
+/** Decodes the \xNN and \uNNNN escapes SafeEncode.forJavaScriptAttribute emits. */
+function decodeJsEscapes(value) {
+  return value
+    .replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
 /**
  * Reads the eDoc destination out of the schedule menu's own link rather than
  * guessing the provider number, so the check follows whatever URL the deployment
@@ -157,7 +164,10 @@ async function readEdocPath(schedulePage) {
   const onclick = await link.getAttribute('onclick');
   const match = /['"](\S*?\/documentManager\/ViewDocumentReport\?[^'"]*)['"]/.exec(onclick || '');
   assert(match, `Could not read the eDoc menu link target from: ${onclick}`);
-  const url = new URL(match[1], schedulePage.url());
+  // The href is built with SafeEncode.forJavaScriptAttribute, so '&' arrives as the JS escape
+  // \x26 (and non-ASCII as \uXXXX). Decode before parsing or the whole query string collapses
+  // into one parameter named "function".
+  const url = new URL(decodeJsEscapes(match[1]), schedulePage.url());
   return `${url.pathname.replace(config.baseUrl.pathname, '')}${url.search}`;
 }
 

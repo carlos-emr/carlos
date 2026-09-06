@@ -231,6 +231,29 @@
                 }
             }
 
+            /**
+             * Copies the CSRFGuard token the client script injected into this page's own
+             * (combine-PDF) form into a dynamically built one.
+             *
+             * CSRFGuard injects into forms that exist when its script runs; a form created and
+             * submitted in the same tick misses that (its injectIntoDynamicNodes observer has not
+             * fired yet), so the POST arrives with no token and CSRFGuard answers 403 -- which is
+             * what deleting a document from this page did. Same helper as
+             * MultiPageDocDisplay.jsp.
+             */
+            function appendCsrfToken(form) {
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (csrfEl) {
+                    var csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'CSRF-TOKEN';
+                    csrfInput.value = csrfEl.value;
+                    form.appendChild(csrfInput);
+                } else {
+                    console.warn('CSRF token not found on page; form submission may be rejected by server.');
+                }
+            }
+
             /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate action route. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
@@ -259,6 +282,7 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                appendCsrfToken(form);
                 document.body.appendChild(form);
                 form.submit();
             }
