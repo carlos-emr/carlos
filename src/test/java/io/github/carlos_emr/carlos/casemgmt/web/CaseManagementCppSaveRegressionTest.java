@@ -137,8 +137,9 @@ class CaseManagementCppSaveRegressionTest {
         // fact on disk. Miss any one name and the workflow only half works.
         String rule = readExclusionRule("1010");
 
-        assertThat(rule).contains("^/carlos/CaseManagementEntry(?:[;?]|$)");
-        assertThat(rule).contains("@streq POST");
+        assertThat(rule)
+                .contains("^/carlos/CaseManagementEntry(?:[;?]|$)")
+                .contains("@streq POST");
         for (String argument : CLINICIAN_FREE_TEXT_ARGUMENTS) {
             for (String tag : CONTENT_ATTACK_TAGS) {
                 assertThat(rule)
@@ -155,12 +156,14 @@ class CaseManagementCppSaveRegressionTest {
                     .doesNotContain(";ARGS:" + picker + ",")
                     .doesNotContain(";ARGS:" + picker + "\"");
         }
-        // reloadUrl is an app-generated URL, not prose, and keeps its narrower treatment:
-        // the keyword tags plus only rule 932110, never the whole attack-rce family.
-        assertThat(rule).contains("ctl:ruleRemoveTargetById=932110;ARGS:reloadUrl");
-        assertThat(rule).doesNotContain("ctl:ruleRemoveTargetByTag=attack-rce;ARGS:reloadUrl");
-        // Per-argument only: nothing in this rule may drop a signature request-wide.
-        assertThat(rule).doesNotContain("ruleRemoveById=932110,");
+        assertThat(rule)
+                // reloadUrl is an app-generated URL, not prose, and keeps its narrower
+                // treatment: the keyword tags plus only rule 932110, never the whole
+                // attack-rce family.
+                .contains("ctl:ruleRemoveTargetById=932110;ARGS:reloadUrl")
+                .doesNotContain("ctl:ruleRemoveTargetByTag=attack-rce;ARGS:reloadUrl")
+                // Per-argument only: nothing in this rule may drop a signature request-wide.
+                .doesNotContain("ruleRemoveById=932110,");
     }
 
     /**

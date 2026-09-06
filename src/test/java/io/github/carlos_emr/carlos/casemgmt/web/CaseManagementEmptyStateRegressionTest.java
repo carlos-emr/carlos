@@ -117,8 +117,8 @@ class CaseManagementEmptyStateRegressionTest {
     @Test
     @DisplayName("empty states should be translated, not English copied into every bundle")
     void shouldTranslateEmptyStates_forNonEnglishLocales() throws IOException {
-        // The keys shipped present-but-English in all five bundles behind a "# TODO:
-        // translate" marker, so a French or Spanish CPP panel rendered the English
+        // The keys shipped present-but-English in all five bundles, each behind a
+        // translate-me marker, so a French or Spanish CPP panel rendered the English
         // sentence. Key presence alone cannot catch that — assert the English string is
         // absent from every non-English bundle.
         for (String locale : LOCALES) {
