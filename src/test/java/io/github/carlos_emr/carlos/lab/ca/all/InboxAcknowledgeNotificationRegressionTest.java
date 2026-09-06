@@ -79,7 +79,7 @@ class InboxAcknowledgeNotificationRegressionTest {
     void shouldNotifyInbox_whenLabMacroDoesNotCloseWindow() throws IOException {
         String labDisplay = read(LAB_DISPLAY_JSP);
 
-        int notifyCall = labDisplay.indexOf("notifyInboxhubAfterMacro(formid, json.clearedCount);");
+        int notifyCall = labDisplay.indexOf("inboxNotified = notifyInboxhubAfterMacro(formid, json.clearedCount);");
         int closeCall = labDisplay.indexOf("if (closeOnSuccess) {");
         assertThat(notifyCall)
                 .as("lab macro success handler must notify the Inboxhub")
@@ -99,7 +99,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(labDisplay).contains("if (json.acknowledged) {");
         assertThat(labDisplay)
                 .as("closing the window must not take an unacknowledged lab out of the inbox")
-                .contains("closeLabAfterMacro(formid, json.acknowledged);")
+                .contains("closeLabAfterMacro(formid, json.acknowledged, inboxNotified, json.clearedCount);")
                 .contains("if (acknowledged && self.opener && segmentId.length > 0) {");
         assertThat(read(SHOW_DOCUMENT_JSP)).contains("if (json.acknowledged) {");
         assertThat(read(REPORT_MACRO_ACTION))
@@ -297,6 +297,25 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .as("a chain token the server would skip must not be counted as a cleared row")
                 .contains(".filter(function (id) { return /^\\d+$/.test(id); });");
+    }
+
+    @Test
+    @DisplayName("should move the counters through the opener when the broadcast did not go")
+    void shouldCountThroughOpener_whenBroadcastChannelIsUnavailable() throws IOException {
+        // BroadcastChannel is the channel that survives COOP, but it is not universal. When the
+        // post throws there is nothing else to tell the inbox, so the opener call has to carry
+        // the count as well as remove the row — and with the server's number, which the
+        // row-only call has no way to pass.
+        String labDisplay = read(LAB_DISPLAY_JSP);
+
+        assertThat(labDisplay)
+                .as("the sender must say whether the message actually went")
+                .contains("return true;")
+                .contains("return false;");
+        assertThat(labDisplay)
+                .contains("if (!inboxNotified "
+                        + "&& typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {")
+                .contains("self.opener.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);");
     }
 
     @Test

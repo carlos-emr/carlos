@@ -1145,11 +1145,15 @@ input[id^='acklabel_']{
                 // not acknowledge anything — one that only files a tickler succeeds and leaves
                 // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
                 // dealt with.
+                // Whether the inbox was actually told. The broadcast is the only channel
+                // that survives COOP, but it is not universal, and when it does not go the
+                // opener call below has to move the counters instead of just the row.
+                var inboxNotified = false;
                 if (json.acknowledged) {
-                    notifyInboxhubAfterMacro(formid, json.clearedCount);
+                    inboxNotified = notifyInboxhubAfterMacro(formid, json.clearedCount);
                 }
                 if (closeOnSuccess) {
-                    closeLabAfterMacro(formid, json.acknowledged);
+                    closeLabAfterMacro(formid, json.acknowledged, inboxNotified, json.clearedCount);
                 }
             } else {
                 var message = json && json.error ? json.error : 'Macro execution failed. Please try again.';
@@ -1172,8 +1176,11 @@ input[id^='acklabel_']{
      *
      * @param {string} formid id of the acknowledge form the macro was run against
      * @param {boolean} acknowledged whether the macro actually acknowledged the lab
+     * @param {boolean} inboxNotified whether the broadcast reached the inbox; when it did not,
+     *                  the opener call below is the only thing that can move the counters
+     * @param {number} clearedCount routing rows the server reported clearing
      */
-    function closeLabAfterMacro(formid, acknowledged) {
+    function closeLabAfterMacro(formid, acknowledged, inboxNotified, clearedCount) {
         var formEl = document.getElementById(formid);
         var elements = (formEl && formEl.elements) ? formEl.elements : null;
         var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
@@ -1190,15 +1197,20 @@ input[id^='acklabel_']{
         }
 
         if (typeof _in_window !== 'undefined' && _in_window) {
-            // Row only, where the opener offers a row-only call. The counters are the
-            // broadcast's job here, because it is the only party carrying clearedCount — a
-            // macro form has no multiID to walk, so this window cannot tell how many routing
-            // rows the acknowledgement cleared, and removeReport would assume one and
-            // undercount a multi-version lab. removeReport stays the fallback so an opener
-            // without the newer API is not left showing an acknowledged row; over-counting a
-            // badge by one is the lesser fault, and the next page load corrects it.
+            // Normally the row only: the counters are the broadcast's job, because it is the
+            // party carrying clearedCount — a macro form has no multiID to walk, so this
+            // window cannot work out how many routing rows the acknowledgement cleared, and a
+            // counting call would assume one and undercount a multi-version lab.
+            //
+            // When the broadcast did NOT go, this is the only channel left, so it has to move
+            // the counters too — with the server's count, which the row-only call cannot pass.
+            // removeReport is the last resort for an opener with neither newer function: an
+            // acknowledged row left on screen reads as "the acknowledgement did nothing",
+            // which is worse than a badge one out that the next page load corrects.
             if (acknowledged && self.opener && segmentId.length > 0) {
-                if (typeof self.opener.removeInboxhubRow === 'function') {
+                if (!inboxNotified && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
+                    self.opener.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+                } else if (typeof self.opener.removeInboxhubRow === 'function') {
                     self.opener.removeInboxhubRow(segmentId, labType);
                 } else if (typeof self.opener.removeReport !== 'undefined') {
                     self.opener.removeReport(segmentId, labType);
@@ -1235,6 +1247,8 @@ input[id^='acklabel_']{
      *
      * @param {string} formid id of the acknowledge form the macro was run against
      * @param {number} clearedCount routing rows the server reported clearing
+     * @return {boolean} whether the message was actually posted; false means the inbox has not
+     *         been told anything and something else has to tell it
      */
     function notifyInboxhubAfterMacro(formid, clearedCount) {
         var segmentId = '';
@@ -1258,8 +1272,11 @@ input[id^='acklabel_']{
                 clearedCount: clearedCount
             });
             bc.close();
+            return true;
         } catch (e) {
-            // BroadcastChannel unsupported — the acknowledged item is still hidden locally.
+            // BroadcastChannel unsupported. The caller falls back to window.opener; the item
+            // is hidden locally either way.
+            return false;
         }
     }
 

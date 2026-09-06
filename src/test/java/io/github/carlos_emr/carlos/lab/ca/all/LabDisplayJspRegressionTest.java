@@ -96,7 +96,7 @@ class LabDisplayJspRegressionTest {
         assertThat(jsp)
                 .contains("return response.json();")
                 .contains("if (json && json.success)")
-                .contains("closeLabAfterMacro(formid, json.acknowledged);")
+                .contains("closeLabAfterMacro(formid, json.acknowledged, inboxNotified, json.clearedCount);")
                 .contains("if (window.frameElement)")
                 .contains("window.frameElement.closest('.document-card.card')")
                 .contains("new BroadcastChannel('inboxhub-refresh')");
