@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentC
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationDto;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationParser;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -224,6 +225,9 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         return node;
     }
 
+    // FindSecBugs XSS_SERVLET: the body is an application/json document serialised by Jackson,
+    // never HTML, and every value is a number or an application-authored message.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "application/json body serialised by Jackson; no HTML context and no caller-supplied content")
     private String json(HttpServletResponse response, int status, ObjectNode payload) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");

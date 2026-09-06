@@ -124,6 +124,23 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         DocumentDao dao = mock(DocumentDao.class);
         when(dao.findCtlDocsAndDocsByDocNo(documentNo))
                 .thenReturn(List.<Object[]>of(new Object[]{document, ctl}));
+
+        // A SECOND document, filed against the SAME patient. Its presence matters: without it a
+        // promotion naming it would be refused merely for being unresolvable, and the test would
+        // pass without exercising the claim binding at all.
+        Document sibling = new Document();
+        sibling.setDocumentNo(documentNo + 1);
+        sibling.setDocfilename("sibling.pdf");
+        sibling.setContenttype("application/pdf");
+        sibling.setNumberofpages(1);
+        CtlDocument siblingCtl = new CtlDocument();
+        CtlDocumentPK siblingPk = new CtlDocumentPK();
+        siblingPk.setModule("demographic");
+        siblingPk.setModuleId(demographicNo);
+        siblingPk.setDocumentNo(documentNo + 1);
+        siblingCtl.setId(siblingPk);
+        when(dao.findCtlDocsAndDocsByDocNo(documentNo + 1))
+                .thenReturn(List.<Object[]>of(new Object[]{sibling, siblingCtl}));
         return dao;
     }
 
@@ -175,7 +192,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
         // A claim exists, but the form carries a different file: the substitution case.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(staged.toString())));
+                new HashSet<>(List.of(
+                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -202,7 +220,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         Path staged = Files.createTempFile(Paths.get(APP_TEMP_ROOT), "staged-match-", ".pdf");
 
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(staged.toString())));
+                new HashSet<>(List.of(
+                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -235,7 +254,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         // the patient the cover-page form submits with it. Without re-deriving the binding from
         // the document row, the fax would be filed against a chart it does not belong to.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(staged.toString())));
+                new HashSet<>(List.of(
+                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -265,7 +285,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         // "unlinked document, no binding to contradict" branch and pass. That let a genuine path
         // claim be promoted against an arbitrary demographicNo.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(staged.toString())));
+                new HashSet<>(List.of(
+                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -296,7 +317,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         // prepareFax requires transactionId; queue() is a separate request whose parameters the
         // client re-supplies. Simply dropping the hidden field skipped the re-binding check.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new HashSet<>(List.of(staged.toString())));
+                new HashSet<>(List.of(
+                        Fax2Action.claimKey("DOCUMENT", DOCUMENT_NO, staged.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -311,6 +333,76 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class);
         } finally {
             Files.deleteIfExists(staged);
+        }
+
+        verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject queue when a genuine claim is promoted under a different document")
+    void shouldRejectQueue_whenClaimedPathIsPromotedUnderAnotherDocument() throws Exception {
+        setUpCommonMocks();
+        Files.createDirectories(Paths.get(APP_TEMP_ROOT));
+        Path staged = Files.createTempFile(Paths.get(APP_TEMP_ROOT), "staged-swap-", ".pdf");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            // Seed through the PRODUCTION recorder, so the stored form is whatever the code
+            // actually writes. Hand-building it would make this test agree with itself.
+            Fax2Action staging = new Fax2Action();
+            staging.setTransactionType("DOCUMENT");
+            staging.setTransactionId(DOCUMENT_NO);
+            staging.recordClaimedFaxFilePathInSession(staged);
+
+            // The claim is real: this session staged this file for DOCUMENT_NO. What is forged is
+            // the transaction it is promoted under. DOCUMENT_NO + 1 is a real document filed
+            // against the SAME patient, so every downstream check agrees — keyed on the path
+            // alone the promotion succeeded, faxing DOCUMENT_NO's bytes while the FaxJob and the
+            // FaxClientLog recorded DOCUMENT_NO + 1.
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("DOCUMENT");
+            action.setTransactionId(DOCUMENT_NO + 1);
+            action.setDemographicNo(DEMOGRAPHIC_NO);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(staged.toString());
+
+            assertThatThrownBy(action::queue)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Unclaimed fax file path");
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+
+        verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject queue when a document-store path is submitted under an unguarded type")
+    void shouldRejectQueue_whenDocumentStorePathIsSubmittedUnderAnotherType() throws Exception {
+        setUpCommonMocks();
+        Path documentDir = Files.createTempDirectory("carlos-docstore-");
+        Path stored = Files.createTempFile(documentDir, "another-patient-", ".pdf");
+
+        // CONSULTATION, FORM and RX reached queue() with no claim check at all, while
+        // FaxManagerImpl.validateFilePath still accepted any existing file under DOCUMENT_DIR.
+        // Naming another patient's stored document under one of those types faxed it.
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("CONSULTATION");
+            action.setTransactionId(1);
+            action.setDemographicNo(DEMOGRAPHIC_NO);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(stored.toString());
+
+            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class);
+        } finally {
+            Files.deleteIfExists(stored);
+            Files.deleteIfExists(documentDir);
         }
 
         verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());

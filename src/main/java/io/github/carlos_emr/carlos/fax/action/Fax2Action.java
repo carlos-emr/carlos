@@ -433,6 +433,13 @@ public class Fax2Action extends ActionSupport {
      *         claimed staged PDF is deleted and a user-facing action error is recorded first
      */
     private void revalidateEformBindingBeforePromotion(TransactionType transactionType) {
+        // Applies to EVERY type, before the per-type binding checks below. Those checks are
+        // selected by transactionType, which the client supplies on this request — so branching
+        // on it alone left CONSULTATION, FORM and RX with no check at all, while
+        // FaxManagerImpl.validateFilePath still accepts any existing file under DOCUMENT_DIR.
+        // Naming another patient's stored document under one of those types therefore faxed it.
+        rejectUnstagedDocumentStorePath();
+
         if (transactionType == TransactionType.DOCUMENT) {
             revalidateDocumentClaimBeforePromotion();
             return;
@@ -1013,6 +1020,40 @@ public class Fax2Action extends ActionSupport {
     }
 
     /**
+     * Refuses to promote a file that lives in the document store rather than in this session's
+     * staging area.
+     *
+     * <p>Every path {@code prepareFax} hands to the cover page is a temp copy it created:
+     * {@code stageDocumentForFax} for DOCUMENT and the render/approval pipeline for EFORM. No
+     * branch produces a {@code DOCUMENT_DIR} path, and the types that produce no path at all
+     * (CONSULTATION, FORM, RX) cannot reach the cover page through this action. So a stored
+     * document path arriving here was typed by the client, and the only thing it can accomplish
+     * is faxing a file the pipeline never staged.
+     *
+     * <p>Deliberately not a claim check: the types above never record claims, and demanding one
+     * would refuse them for the wrong reason. Containment is the invariant that actually holds.
+     */
+    private void rejectUnstagedDocumentStorePath() {
+        String submitted = StringUtils.trimToNull(faxFilePath);
+        if (submitted == null) {
+            return;
+        }
+        java.io.File candidate;
+        try {
+            candidate = Path.of(submitted).toFile();
+        } catch (InvalidPathException e) {
+            throw new SecurityException("Invalid fax file path");
+        }
+        if (PathValidationUtils.isInApplicationTempDirectory(candidate)) {
+            return;
+        }
+        logger.warn("Rejected fax promotion: the submitted file was not staged by this session");
+        addActionError("This fax is no longer available to send. Open the item and try again.");
+        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        throw new SecurityException("Fax file path outside the application staging area");
+    }
+
+    /**
      * Requires the {@code faxFilePath} submitted with a DOCUMENT fax to be one this session
      * staged in {@link #stageDocumentForFax}, AND the submitted {@code demographicNo} to still
      * match the document's own patient binding.
@@ -1088,14 +1129,43 @@ public class Fax2Action extends ActionSupport {
         return null;
     }
 
-    private void recordClaimedFaxFilePathInSession(Path claimedPath) {
+    /**
+     * Records the staged file as claimable ONLY for the transaction it was staged from.
+     *
+     * <p>The claim used to be the bare path. That proved the file came from this session but said
+     * nothing about which document or eForm it came from, and {@code queue()} re-reads
+     * {@code transactionType}/{@code transactionId} from the client on a later request. A caller
+     * could therefore stage their own patient's document legitimately and then promote that
+     * genuine claimed path while naming a different {@code transactionId} and
+     * {@code demographicNo}: the bytes faxed were the staged document, but the FaxJob, the chart
+     * association and the FaxClientLog all recorded the substituted patient and document.
+     *
+     * <p>Binding the claim to {@code type|id|path} closes that: the promotion must name the same
+     * transaction the file was staged for, or no claim matches.
+     */
+    // Package-private so a claim test can seed the session through the PRODUCTION recorder
+    // rather than hand-building the stored form, which would make the test agree with itself
+    // instead of with the code.
+    void recordClaimedFaxFilePathInSession(Path claimedPath) {
         HttpSession session = request.getSession(false);
         if (session == null || claimedPath == null) {
             return;
         }
-        // claimedPath is a server-generated renderer/staging temp file path (createSecureTempFile
-        // or the staged-approval's own claimed path), never derived from request parameters.
-        claimedFaxFilePathsInSession(session).add(claimedPath.toString()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- claimedPath is a server-generated renderer temp file path, never derived from request parameters
+        // Every component is server-side: the transaction type and id were validated by the
+        // staging branch that produced claimedPath, which is itself a renderer/staging temp path.
+        claimedFaxFilePathsInSession(session).add(claimKey(transactionType, transactionId, claimedPath.toString())); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- every component is server-derived: the staging branch validated the transaction and generated the path
+    }
+
+    /**
+     * Composite claim key. {@code transactionId} is nullable on legacy paths, so it is rendered as
+     * an empty segment rather than omitted, keeping the arity fixed. Paths cannot contain a
+     * newline on any supported filesystem, so the separator cannot be forged from the path.
+     */
+    // Package-private so the claim tests seed the session through the SAME key construction
+    // the production path uses, rather than hand-building a string that could drift from it.
+    static String claimKey(String type, Integer id, String path) {
+        return StringUtils.upperCase(StringUtils.trimToEmpty(type)) + "\n"
+                + (id == null ? "" : id.toString()) + "\n" + path;
     }
 
     /**
@@ -1118,16 +1188,21 @@ public class Fax2Action extends ActionSupport {
             return null;
         }
         java.util.Set<String> claimedPaths = claimedFaxFilePathsInSession(session);
+        // Matched on the composite key, so a claim staged for one transaction cannot be spent on
+        // another even though the path is identical.
+        String wanted = claimKey(transactionType, transactionId, faxFilePath);
         // Collections.synchronizedSet requires the caller to hold the set's own monitor while
         // iterating; per-call methods like remove() are internally synchronized, but this find-
         // and-remove needs the exact stored String back, which no Set method returns directly.
         synchronized (claimedPaths) {
             java.util.Iterator<String> iterator = claimedPaths.iterator();
             while (iterator.hasNext()) {
-                String claimedPath = iterator.next();
-                if (claimedPath.equals(faxFilePath)) {
+                String claimed = iterator.next();
+                if (claimed.equals(wanted)) {
                     iterator.remove();
-                    return claimedPath;
+                    // Hand back the PATH component, which is what callers delete. It originates
+                    // from the trusted store, not from the client-supplied request field.
+                    return claimed.substring(claimed.lastIndexOf('\n') + 1);
                 }
             }
         }

@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -126,6 +127,8 @@ public class AnnotatedDocumentService {
      *                                  the annotatable limits
      * @throws IOException              if composition or the file write fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public int save(LoggedInInfo loggedInInfo, int sourceDocNo,
                     List<DocumentAnnotationDto> annotations) throws IOException {
 
@@ -219,6 +222,8 @@ public class AnnotatedDocumentService {
      * @return the page count, or 0 when the row names no file
      * @throws IOException if the document cannot be opened within the deadline
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static int pageCountOf(EDoc doc) throws IOException {
         if (doc == null || StringUtils.isBlank(doc.getFileName())) {
             return 0;
@@ -375,6 +380,8 @@ public class AnnotatedDocumentService {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path fontPath() {
         if (StringUtils.isBlank(webappRoot)) {
             return null;

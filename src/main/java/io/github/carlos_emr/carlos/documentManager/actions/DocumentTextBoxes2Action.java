@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentS
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentWordBoxes;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -95,6 +96,9 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    // FindSecBugs XSS_SERVLET: the body is an application/json document serialised by Jackson,
+    // never HTML, and every value is a number or an application-authored message.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "application/json body serialised by Jackson; no HTML context and no caller-supplied content")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

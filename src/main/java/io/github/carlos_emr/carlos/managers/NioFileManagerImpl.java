@@ -822,6 +822,8 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     /** {@inheritDoc} */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public Path createTempFileFrom(final String fileName, Path source) throws IOException {
         String sanitizedName = new File(fileName).getName();

@@ -106,9 +106,16 @@
 
         var abortCtrl = null;
         var SEARCH_DEBOUNCE_MS = 250;
+        var pendingSearch = null;
         var activeIdx = -1;
 
         function hideDropdown() {
+            // Also cancel any pending search. Without this, selecting a recipient left the
+            // debounce timer running: it fired afterwards and re-opened a list for the
+            // PREVIOUS term over the chosen recipient, and because the row handler calls
+            // preventDefault the field never blurs, so the stale list stayed open and a
+            // click on it silently rewrote the recipient and fax number.
+            if (pendingSearch) { clearTimeout(pendingSearch); pendingSearch = null; }
             dropEl.style.display = 'none';
             dropEl.innerHTML = '';
             activeIdx = -1;
@@ -179,8 +186,6 @@
         // abort() only stops the browser reading the reply — the server still runs every one of
         // them, each a three-table join over the specialist directory. Waiting for a pause in
         // typing collapses that to one.
-        var pendingSearch = null;
-
         nameEl.addEventListener('input', function () {
             var term = nameEl.value.trim();
             if (pendingSearch) { clearTimeout(pendingSearch); pendingSearch = null; }

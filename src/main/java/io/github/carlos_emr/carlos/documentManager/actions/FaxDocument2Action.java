@@ -116,7 +116,11 @@ public class FaxDocument2Action extends ActionSupport {
         }
 
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
-        if (doc == null) {
+        // EDocUtil.getDoc never returns null — it allocates an EDoc and returns it whether or not
+        // the query matched — so testing for null alone left "Document not found." unreachable and
+        // sent an unknown docId into the content-type test instead, which reported it as a
+        // non-PDF. Resolvability is tested on the filename, as Fax2Action does.
+        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
             return refuse(request, "Document not found.");
         }
 
