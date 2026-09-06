@@ -362,6 +362,9 @@ Notes on the contract:
   repeat runs accumulate; that is harmless for the check but clear the strays on
   a demo box with
   `UPDATE allergies SET archived=1 WHERE reaction LIKE '%allergen check%';`
+  Run it on a **loopback** `BASE_URL`: like `billing-on-third-party`, it relaxes
+  certificate verification only for loopback, so a host opted in with
+  `ALLOW_NON_LOCAL_BASE_URL` must present a certificate the browser trusts.
   It is also the one script whose failure can mean the OTHER package is stale:
   the alert half runs through DrugRef, so a build whose `debian/drugref.pin`
   predates the free-text (typeCode 0) allergy branch fails part 3 with an empty

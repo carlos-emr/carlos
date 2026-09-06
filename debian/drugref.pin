@@ -11,7 +11,10 @@
 # PENICILLINS returned an empty warnings array: no alert, no error, and a
 # response indistinguishable from "no allergy". A build pinned below this
 # revision fails part 3 of scripts/allergy-rx-alert-playwright-checks.js while
-# CARLOS itself is correct.
+# CARLOS itself is correct. The same revision also fixes ATC class allergens,
+# which only ever matched a drug's leaf description, so an allergy to a class
+# name such as "BETA-LACTAMASE RESISTANT PENICILLINS" never warned on a drug
+# filed under it.
 #
 # NOTE FOR THE MAINTAINER: this is a commit on the fix branch
 # (carlos-emr/drugref2026 claude/allergy-search-alert-bugs-q7pcu2), not a
@@ -30,4 +33,4 @@
 # EntityManager-leak fix (carlos-emr/drugref2026#8), without which drug searches
 # exhaust the JDBC pool after one or two calls and permanently return
 # "None found".
-ref=077788d10d0e7c536325713f8f0600d6701ac471
+ref=5b5ff3acb9748f767ea45cd587ec270898d1bfde

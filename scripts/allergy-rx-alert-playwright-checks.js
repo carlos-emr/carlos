@@ -47,6 +47,13 @@
  *          typeCode 0 allergy) with its own reaction text as a marker.
  *   Part 3 prescribes a drug in the free-text allergen's class and requires both
  *          the probe JSON to carry that marker and the alert table to be visible.
+ *   Part 4 prescribes a drug in the TYPED allergen's class -- the scenario as the
+ *          tester reported it -- and requires that marker to come back too.
+ *
+ * Each recording writes its own reaction text and every assertion keys on that
+ * marker rather than the allergen name: the demonstration dataset already seeds
+ * PENICILLINS allergies, so a name match would be satisfied by a pre-existing row
+ * even when nothing this run did actually saved or alerted.
  *
  * The two allergens are deliberately unrelated classes -- penicillins for part 1,
  * macrolides for part 2 -- so the part 3 drug cannot be matched by the typed
@@ -58,11 +65,19 @@
  * Tomcat. A failure here can therefore mean the DrugRef pin is older than the
  * free-text allergy fix (debian/drugref.pin), not that CARLOS regressed.
  *
+ * RUN THROUGH :443, on a loopback BASE_URL. Certificate verification is relaxed
+ * only for loopback, where the packaged install serves its own self-signed cert;
+ * a non-local target opted in with ALLOW_NON_LOCAL_BASE_URL must present a
+ * trusted certificate, because this check submits credentials to it.
+ *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN
  * Optional: ALLERGY_DEMOGRAPHIC_NO (default 2), ALLERGY_SEARCH_TERM (default
- *   "penicillin"), ALLERGY_DRUG_TERM (default "amoxil"), CHROME_PATH,
- *   ALLERGY_SCREENSHOT_DIR (default /tmp).
+ *   "penicillin"), ALLERGY_ALLERGEN (default "PENICILLINS"),
+ *   ALLERGY_CUSTOM_ALLERGEN (default "MACROLIDES"), ALLERGY_DRUG_TERM (default
+ *   "biaxin", a macrolide -- the free-text allergen's class),
+ *   ALLERGY_TYPED_DRUG_TERM (default "amoxil", a penicillin -- the typed
+ *   allergen's class), CHROME_PATH, ALLERGY_SCREENSHOT_DIR (default /tmp).
  */
 
 const { chromium } = require('playwright');
@@ -103,6 +118,10 @@ const allergenName = process.env.ALLERGY_ALLERGEN || 'PENICILLINS';
 // the typed allergy part 1 just added.
 const customAllergen = process.env.ALLERGY_CUSTOM_ALLERGEN || 'MACROLIDES';
 const drugTerm = process.env.ALLERGY_DRUG_TERM || 'biaxin';
+// The originally reported scenario: a penicillin prescribed to a penicillin-allergic
+// patient. Part 4 drives it against the TYPED allergy so both recording paths are
+// shown to alert, not just the free-text one.
+const typedDrugTerm = process.env.ALLERGY_TYPED_DRUG_TERM || 'amoxil';
 const typedReaction = 'Rash (typed allergen check)';
 const freeTextReaction = 'Rash (free-text allergen check)';
 
@@ -110,6 +129,7 @@ assert(/^\d+$/.test(demographicNo), `ALLERGY_DEMOGRAPHIC_NO must be numeric, got
 // The drug picker debounces and only fires at minLength 3; a shorter term never
 // reaches the server and every assertion below would be vacuous.
 assert(drugTerm.length >= 3, `ALLERGY_DRUG_TERM must be at least 3 characters, got "${drugTerm}"`);
+assert(typedDrugTerm.length >= 3, `ALLERGY_TYPED_DRUG_TERM must be at least 3 characters, got "${typedDrugTerm}"`);
 // The custom-allergy box is maxlength 16, and the name has to be one the drug
 // reference knows for the free-text branch to have anything to resolve.
 assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 characters, got "${customAllergen}"`);
@@ -118,7 +138,16 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    // Certificate verification is only relaxed for loopback, where the packaged
+    // install serves its own self-signed cert. A non-local target opted in via
+    // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
+    // script submits clinician credentials to it.
+    const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+    const host = config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: loopback.has(host),
+      viewport: { width: 1440, height: 1000 },
+    });
     const landing = await login(context, config, recorder);
     await landing.close();
 
@@ -139,7 +168,11 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     ]);
     assert(searchResponse.status() < 400, `Allergy search POST returned HTTP ${searchResponse.status()}`);
 
-    const results = allergyPage.locator("#searchResultsContainer div[id$='_content'] a");
+    // Both layouts ChooseAllergy2.jsp can render put the drugref id/type/description on
+    // the result anchor itself; only the hierarchical one wraps them in a _content div.
+    // Selecting on data-id covers allergies.flat_results=true as well, and skips the
+    // section toggles, which carry no data-id.
+    const results = allergyPage.locator('#searchResultsContainer a[data-id]');
     await results.first().waitFor({ state: 'visible', timeout: 20000 });
     assert(
       (await results.count()) > 0,
@@ -180,11 +213,14 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     await allergyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(allergyPage, 'allergy profile after add');
 
-    const listText = (await allergyPage.locator('body').innerText()).toUpperCase();
+    // Assert on the reaction text this run wrote, not the allergen name: the demonstration
+    // dataset already seeds PENICILLINS allergies, so a name match would be satisfied by a
+    // pre-existing row even if this recording never saved.
+    const listText = (await allergyPage.locator('body').innerText());
     assert(
-      listText.includes(chosenName.toUpperCase()),
-      `"${chosenName}" was not in the allergy list after adding it. The reaction dialogue rendered `
-        + 'but the allergy did not persist.',
+      listText.includes(typedReaction),
+      `The allergy recorded from the search results did not persist: the list does not carry this `
+        + `run's reaction marker. The reaction dialogue rendered, but "Add Allergy" did not save.`,
     );
     await screenshot(allergyPage, config.screenshotDir, 'allergy-recorded');
 
@@ -218,10 +254,11 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     await allergyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(allergyPage, 'allergy profile after custom add');
 
-    const listWithCustom = (await allergyPage.locator('body').innerText()).toUpperCase();
+    const listWithCustom = (await allergyPage.locator('body').innerText());
     assert(
-      listWithCustom.includes(customAllergen.toUpperCase()),
-      `Custom allergy "${customAllergen}" was not in the allergy list after adding it.`,
+      listWithCustom.includes(freeTextReaction),
+      `The custom allergy "${customAllergen}" did not persist: the list does not carry this run's `
+        + 'free-text reaction marker.',
     );
     await allergyPage.close();
 
@@ -277,7 +314,8 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     assert(
       payload.results.some((r) => String(r.reaction || '').includes(freeTextReaction)),
       `The warnings for "${drugTerm}" do not include the free-text ${customAllergen} allergy this `
-        + `check recorded. Got: ${JSON.stringify(payload.results)}`,
+        + `check recorded (${payload.results.length} warning(s) returned). The returned warnings `
+        + 'carry the patient\'s own recorded reactions, so they are counted here rather than printed.',
     );
 
     const alertTable = rxPage.locator("table[id^='alleg_tbl_']").first();
@@ -285,11 +323,60 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     const alertText = (await alertTable.innerText()).trim();
     assert(
       /allergy/i.test(alertText) && alertText.toUpperCase().includes(customAllergen.toUpperCase()),
-      `The allergy alert is visible but reads "${alertText}" instead of naming ${customAllergen}.`,
+      `The allergy alert row is visible but does not name ${customAllergen}. Its text is the `
+        + "patient's own recorded reaction, so it is not reproduced here; see the screenshot.",
     );
 
     await screenshot(rxPage, config.screenshotDir, 'allergy-rx-alert');
     await rxPage.close();
+
+    // ---------------------------------------------------------------- part 4
+    // The literally reported scenario: a penicillin prescribed to a patient carrying
+    // the penicillin allergy recorded in part 1.
+    const typedRxPage = await context.newPage();
+    wirePage(typedRxPage, 'rx-alert-typed', recorder);
+    await gotoApp(typedRxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
+    await typedRxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await assertNotErrorPage(typedRxPage, 'rx module (typed allergen)');
+
+    const typedSearchBox = typedRxPage.locator('#searchString');
+    await typedSearchBox.waitFor({ state: 'visible', timeout: 20000 });
+    await Promise.all([
+      typedRxPage.waitForResponse(
+        (r) => r.url().includes('/rx/searchDrug') && r.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      typedSearchBox.pressSequentially(typedDrugTerm, { delay: 120 }),
+    ]);
+
+    const typedDrugItems = typedRxPage.locator('ul.ui-autocomplete li');
+    await typedDrugItems.first().waitFor({ state: 'visible', timeout: 20000 });
+
+    const [typedAllergyResponse] = await Promise.all([
+      typedRxPage.waitForResponse(
+        (r) => r.url().includes('/rx/showAllergy') && r.request().method() === 'POST',
+        { timeout: 60000 },
+      ),
+      typedDrugItems.first().click(),
+    ]);
+    assert(
+      typedAllergyResponse.status() < 400,
+      `The allergy probe returned HTTP ${typedAllergyResponse.status()} for the typed allergen`,
+    );
+
+    const typedPayload = await typedAllergyResponse.json();
+    assert(Array.isArray(typedPayload.results), 'The typed allergy probe JSON has no results array');
+    assert(
+      typedPayload.results.some((r) => String(r.reaction || '').includes(typedReaction)),
+      `Prescribing "${typedDrugTerm}" to a patient allergic to ${chosenName} did not warn about the `
+        + `allergy recorded from the search results (${typedPayload.results.length} warning(s) `
+        + 'returned; contents withheld because they carry the patient\'s own reactions).',
+    );
+
+    const typedAlertTable = typedRxPage.locator("table[id^='alleg_tbl_']").first();
+    await typedAlertTable.waitFor({ state: 'visible', timeout: 20000 });
+    await screenshot(typedRxPage, config.screenshotDir, 'allergy-rx-alert-typed');
+    await typedRxPage.close();
 
     assertNoPageErrors(recorder);
     await context.close();
@@ -297,9 +384,14 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     console.log('allergy-rx-alert checks passed');
     console.log(`  recorded from search: ${chosenName}`);
     console.log(`  recorded as free text: ${customAllergen}`);
-    console.log(`  alert on ${drugTerm}: ${alertText.replace(/\s+/g, ' ')}`);
+    console.log(`  ${drugTerm} warned on the free-text allergen`);
+    console.log(`  ${typedDrugTerm} warned on the allergen recorded from the search results`);
   } catch (error) {
     console.error('allergy-rx-alert checks FAILED:', error.message);
+    // Deliberately narrower than buildFailureDetails(): this check drives a real patient's
+    // allergy list, and the recorded reactions that come back in the probe JSON are the
+    // patient's own clinical text. Report the diagnostics that identify the defect --
+    // failed requests, console errors, dialogs -- and leave response bodies out.
     console.error(JSON.stringify({
       badResponses: recorder.badResponses,
       consoleIssues: recorder.consoleIssues,
