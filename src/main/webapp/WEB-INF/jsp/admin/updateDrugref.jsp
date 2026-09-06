@@ -122,7 +122,16 @@
             }
 
             function renderVerify(json) {
-                if (!json || json.lastUpdate == null) {
+                // An all-null payload is RxUpdateDrugref2Action's unavailable fallback, not a
+                // database that has never been updated. Telling the operator to press Update
+                // when DrugRef cannot be reached invites a second run on top of one that may
+                // still be going, so the trigger is hidden until the status is definite.
+                if (!json || (json.lastUpdate == null && json.drugDatabase == null && json.version == null)) {
+                    document.getElementById('dbInfo').textContent = 'Drugref database is unavailable. Contact support.';
+                    show('dbInfo', true);
+                    show('statusDisplay', false);
+                    show('updateButton', false);
+                } else if (json.lastUpdate == null) {
                     document.getElementById('dbInfo').textContent = 'Drugref database has not been updated, please update.';
                     show('dbInfo', true);
                     show('statusDisplay', false);
@@ -182,6 +191,15 @@
                 return running;
             }
 
+            function schedulePoll() {
+                // Exactly one timer chain. Repeat clicks used to each start their own, and
+                // overwriting pollTimer orphaned the earlier ones rather than stopping them.
+                if (pollTimer) {
+                    clearTimeout(pollTimer);
+                }
+                pollTimer = setTimeout(pollStatus, POLL_MS);
+            }
+
             function pollStatus() {
                 callDrugref('status')
                     .then(function (status) {
@@ -192,7 +210,7 @@
                             return callDrugref('verify').then(function (v) {
                                 renderVerify(v);
                                 if (v && v.lastUpdate === 'updating') {
-                                    pollTimer = setTimeout(pollStatus, POLL_MS);
+                                    schedulePoll();
                                 } else if (!v || v.lastUpdate == null) {
                                     // DrugRef stopped answering mid-run. A null lastUpdate is
                                     // "cannot tell", NOT "finished": reporting success here
@@ -201,22 +219,32 @@
                                     setResult('DrugRef stopped responding, so the outcome of this update is '
                                         + 'unknown. Still checking. If this persists, check the DrugRef service '
                                         + '(journalctl -u carlos-emr) before prescribing.', 'danger');
-                                    pollTimer = setTimeout(pollStatus, POLL_MS);
+                                    show('updateButton', false);
+                                    schedulePoll();
                                 } else {
                                     setResult('Update finished at ' + v.lastUpdate + '.', 'success');
                                 }
                             });
                         }
                         if (running) {
-                            pollTimer = setTimeout(pollStatus, POLL_MS);
+                            schedulePoll();
                         } else {
-                            // Run ended: refresh the date/version panel to show the outcome.
-                            getUpdateTime();
+                            // Not RUNNING. That is usually the end of the run -- but it is also
+                            // what a status of IDLE looks like in the moment before a just-started
+                            // worker publishes RUNNING. Refresh the panel, and if the verify probe
+                            // still says "updating" keep following instead of stopping here, which
+                            // used to strand the page on "database is updating" until a reload.
+                            return getUpdateTime().then(function (v) {
+                                if (v && v.lastUpdate === 'updating') {
+                                    show('updateButton', false);
+                                    schedulePoll();
+                                }
+                            });
                         }
                     })
                     .catch(function (error) {
                         console.error('Error reading update status:', error);
-                        pollTimer = setTimeout(pollStatus, POLL_MS);
+                        schedulePoll();
                     });
             }
 
@@ -232,6 +260,7 @@
                             pollStatus();
                         } else if (json.result === 'updating') {
                             setResult('An update is already running.', 'info');
+                            show('updateButton', false);
                             pollStatus();
                         } else {
                             setResult('The update could not be started: DrugRef did not answer. Check that the '
@@ -254,7 +283,7 @@
                         // the outcome of the last one, and keep following a running one.
                         return callDrugref('status').then(function (status) {
                             if (renderStatus(status)) {
-                                pollTimer = setTimeout(pollStatus, POLL_MS);
+                                schedulePoll();
                                 return;
                             }
                             if (status && status.state === 'UNAVAILABLE'
@@ -265,7 +294,7 @@
                                 // was only ever armed off a RUNNING status.
                                 setResult('An update is already running. This page is following it.', 'info');
                                 show('updateButton', false);
-                                pollTimer = setTimeout(pollStatus, POLL_MS);
+                                schedulePoll();
                             }
                         }).catch(function (error) {
                             console.warn('Update status not available:', error);

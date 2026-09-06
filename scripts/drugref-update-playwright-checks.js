@@ -70,6 +70,17 @@ const config = {
   screenshotDir: process.env.DRUGREF_UPDATE_SCREENSHOT_DIR || '/tmp',
 };
 const trigger = process.env.DRUGREF_UPDATE_TRIGGER === 'true';
+// The trigger REBUILDS the target's drug database, so it is refused against anything but a
+// loopback target. DRUGREF_UPDATE_TRIGGER=true alone is an easy thing to leave exported in
+// a shell that is later pointed at a real installation with ALLOW_NON_LOCAL_BASE_URL.
+if (trigger) {
+  const host = config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  assert(
+    new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']).has(host),
+    `DRUGREF_UPDATE_TRIGGER=true rebuilds the DrugRef database and is refused against the `
+      + `non-loopback target ${host}. Run it against a disposable local install.`,
+  );
+}
 const requireStatus = process.env.DRUGREF_UPDATE_REQUIRE_STATUS === 'true';
 const timeoutSec = Number(process.env.DRUGREF_UPDATE_TIMEOUT_SEC || '3600');
 const searchTerm = process.env.DRUG_SEARCH_TERM || 'amox';
@@ -110,7 +121,13 @@ async function callStatus(page) {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1280, height: 900 } });
+    // Certificate validation is bypassed for loopback only. BASE_URL can be pointed at a
+    // remote deployment with ALLOW_NON_LOCAL_BASE_URL=true, and this check logs in as an
+    // administrator and carries CSRF tokens, so an unvalidated certificate there would be
+    // a real exposure rather than the self-signed localhost cert the runbook expects.
+    const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+    const isLoopback = loopback.has(config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase());
+    const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback, viewport: { width: 1280, height: 900 } });
     const landing = await login(context, config, recorder);
     await landing.close();
 
@@ -123,6 +140,13 @@ async function callStatus(page) {
     await assertNotErrorPage(admin, 'administration panel');
     const link = admin.locator('a', { hasText: /^\s*Update Drugref\s*$/i }).first();
     await link.waitFor({ state: 'attached', timeout: 20000 });
+    // Registered BEFORE the click: the popup fetches its CSRF token and fires the verify
+    // probe from its own DOMContentLoaded, which can complete before a waiter attached to
+    // the popup afterwards exists — a 30s timeout on a page that worked.
+    const verifyResponsePromise = context.waitForEvent('response', {
+      predicate: (r) => r.url().includes(ENDPOINT) && postedMethod(r) === 'verify',
+      timeout: 30000,
+    });
     const [popup] = await Promise.all([
       context.waitForEvent('page', { timeout: 20000 }),
       link.evaluate((a) => a.click()),
@@ -133,10 +157,7 @@ async function callStatus(page) {
     assert(/\/admin\/ViewUpdateDrugref/.test(popup.url()), `popup opened ${popup.url()}, expected /admin/ViewUpdateDrugref`);
 
     // Step 1: the verify probe answered and the panel shows a real dataset.
-    const verifyResponse = await popup.waitForResponse(
-      (r) => r.url().includes(ENDPOINT) && postedMethod(r) === 'verify',
-      { timeout: 30000 },
-    );
+    const verifyResponse = await verifyResponsePromise;
     assert(verifyResponse.status() === 200, `verify probe answered HTTP ${verifyResponse.status()}`);
     const verify = await verifyResponse.json();
     assert(

@@ -329,6 +329,15 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 # unless you point it at a mirror -- and takes 15-60 minutes, so run it last and only on a
 # throwaway VM. DRUGREF_UPDATE_REQUIRE_STATUS=true rejects a DrugRef build without
 # getUpdateStatus (the packaged one must have it).
+# TRIGGER stays false in this exported block: the suite loop below runs every script under
+# `timeout 300`, and a triggered rebuild takes 15-60 minutes, so the loop would SIGTERM it
+# mid-rebuild -- skipping the script's cleanup and leaving the remaining drug-dependent
+# checks running against a half-rebuilt database. Run the triggered mode on its own, after
+# the loop finishes, with a timeout longer than DRUGREF_UPDATE_TIMEOUT_SEC:
+#
+#   DRUGREF_UPDATE_TRIGGER=true DRUGREF_UPDATE_REQUIRE_STATUS=true \
+#     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
+#     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
