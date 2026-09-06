@@ -440,9 +440,12 @@ public class RxDrugRef {
      * cannot say that an update failed, or why. DrugRef's {@code getUpdateStatus} can. The map
      * carries {@code state} ({@code IDLE}, {@code RUNNING}, {@code SUCCEEDED}, {@code FAILED}),
      * {@code step}, {@code message}, {@code startedAt}, {@code finishedAt} and {@code lastUpdate},
-     * every value a String (empty when absent).</p>
+     * every value a String, empty when the server did not supply one. Those keys are always
+     * present: this method seeds them before overlaying the struct, so a caller never has to
+     * tell "the server sent nothing" apart from "the server sent an empty value". Any further
+     * key the server sends is passed through.</p>
      *
-     * @return Map&lt;String, String&gt; of the status struct
+     * @return Map&lt;String, String&gt; of the status struct, never missing a documented key
      * @throws Exception if the DrugRef service is unavailable, predates {@code getUpdateStatus}
      *                   (an XML-RPC fault), or answers with something other than a struct
      * @since 2026-09-05
@@ -453,7 +456,31 @@ public class RxDrugRef {
         if (!(result instanceof Map<?, ?> struct)) {
             throw new Exception("DrugRef: 'getUpdateStatus' returned no struct for server " + server_url);
         }
+        return normalizeStatusStruct(struct);
+    }
+
+    /** The keys {@link #getUpdateStatus()} guarantees, whatever the DrugRef build answers with. */
+    static final String[] STATUS_KEYS =
+            {"state", "step", "message", "startedAt", "finishedAt", "lastUpdate"};
+
+    /**
+     * Applies {@link #getUpdateStatus()}'s contract to a raw XML-RPC struct: the documented keys
+     * are seeded to empty first, so an answer that omits one still yields a String rather than a
+     * gap, and any extra key the server sends is carried through.
+     *
+     * <p>Seeded, not merely null-normalized. The current DrugRef sends all six, but this is a
+     * relay across a version boundary — the pin can move — and an omitted key left the relayed
+     * JSON without it, reaching the admin page as {@code undefined} instead of the empty string
+     * the contract promises.
+     *
+     * <p>Package-private and separated from the call itself so the contract is testable without
+     * a DrugRef server and without widening the network method.
+     */
+    static Map<String, String> normalizeStatusStruct(Map<?, ?> struct) {
         Map<String, String> status = new HashMap<>();
+        for (String key : STATUS_KEYS) {
+            status.put(key, "");
+        }
         for (Map.Entry<?, ?> entry : struct.entrySet()) {
             status.put(String.valueOf(entry.getKey()),
                     entry.getValue() == null ? "" : String.valueOf(entry.getValue()));

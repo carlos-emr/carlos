@@ -8,8 +8,20 @@
 # download-before-drop, rollback to the previous dataset on failure, the
 # Hibernate 7 HQL fix without which every update died with the tables
 # already dropped, the column widths the 2026 extract needs, and the
-# getUpdateStatus() method Administration > Update Drugref polls. Advance it
-# to that branch's merge commit once it lands on master.
+# getUpdateStatus() method Administration > Update Drugref polls.
+#
+# It also carries the crash-safety fixes found in review of that branch: the
+# startup repair registers its JDBC driver explicitly (without which it did
+# nothing on every boot), the swap marker moves in one atomic statement and is
+# the commit point, the rollback reads that marker rather than a local flag
+# (so a commit that lands and then reports an error no longer restores the
+# previous dataset over the accepted one), and an empty marker left by a crash
+# between the marker's CREATE and INSERT is cleared rather than failing every
+# subsequent update.
+#
+# This is still a BRANCH HEAD. Advance it to that branch's merge commit once
+# carlos-emr/drugref2026#11 lands on master, before the CARLOS PR merges: a
+# release build must not fetch a ref that can move.
 #
 # It must not be moved back below the #10 merge (566a46eec559a0ba02f40afbc37ff14440bbc098):
 # earlier DrugRef builds ship the bundled `root` superuser credential
