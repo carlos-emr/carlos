@@ -99,7 +99,7 @@ public class ReportMacro2Action extends ActionSupport {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty up = upDao.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), UserProperty.LAB_MACRO_JSON);
 
-        boolean success = false;
+        MacroOutcome outcome = MacroOutcome.notRun();
 
         //find and run specific macro
         if (up != null && !StringUtils.isEmpty(up.getValue())) {
@@ -108,7 +108,7 @@ public class ReportMacro2Action extends ActionSupport {
                 for (int x = 0; x < macros.size(); x++) {
                     ObjectNode macro = (ObjectNode) macros.get(x);
                     if (name.equals(macro.get("name").asText())) {
-                        success = runMacro(macro, request);
+                        outcome = runMacroOutcome(macro, request);
                     }
                 }
             }
@@ -120,12 +120,47 @@ public class ReportMacro2Action extends ActionSupport {
         }
 
 
-        result.put("success", success);
+        result.put("success", outcome.success());
+        // Reported separately from success because a macro need not acknowledge anything: one
+        // that only files a tickler runs perfectly and leaves the lab NEW. The inbox uses this
+        // flag, not success, to decide whether to drop the item from its list and counters.
+        result.put("acknowledged", outcome.acknowledged());
         response.getWriter().write(result.toString());
         return null;
     }
 
+    /**
+     * What running one macro did.
+     *
+     * @param success      the macro ran to completion
+     * @param acknowledged it contained an acknowledge action AND that action was applied
+     */
+    protected record MacroOutcome(boolean success, boolean acknowledged) {
+        static MacroOutcome notRun() {
+            return new MacroOutcome(false, false);
+        }
+
+        static MacroOutcome failed() {
+            return new MacroOutcome(false, false);
+        }
+
+        static MacroOutcome ran(boolean acknowledged) {
+            return new MacroOutcome(true, acknowledged);
+        }
+    }
+
+    /**
+     * Retained for callers that only care whether the macro ran.
+     *
+     * @deprecated use {@link #runMacroOutcome(ObjectNode, HttpServletRequest)}; the inbox needs
+     *             to know whether the macro ACKNOWLEDGED, which a bare success cannot say.
+     */
+    @Deprecated
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
+        return runMacroOutcome(macro, request).success();
+    }
+
+    protected MacroOutcome runMacroOutcome(ObjectNode macro, HttpServletRequest request) {
         logger.info("running macro {}", LogSafe.sanitize(macro.get("name").asText("")));
         String segmentID = request.getParameter("segmentID");
         String labType = request.getParameter("labType");
@@ -135,20 +170,22 @@ public class ReportMacro2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        boolean acknowledged = false;
+
         if (macro.has("acknowledge")) {
             logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
             if (StringUtils.isBlank(segmentID)) {
                 logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                return false;
+                return MacroOutcome.failed();
             }
             final int segmentInt;
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
                 logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
-                return false;
+                return MacroOutcome.failed();
             }
             // Acknowledge the reviewed version AND file the older versions of the same lab.
             // Filing the older versions is what removes the collapsed row from the inbox: the
@@ -162,6 +199,7 @@ public class ReportMacro2Action extends ActionSupport {
             LogAction.addLogSynchronous(providerNo, LogConst.ACK,
                 "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
                 LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            acknowledged = true;
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
             ObjectNode jTickler = (ObjectNode) macro.get("tickler");
@@ -240,7 +278,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         }
 
-        return true;
+        return MacroOutcome.ran(acknowledged);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

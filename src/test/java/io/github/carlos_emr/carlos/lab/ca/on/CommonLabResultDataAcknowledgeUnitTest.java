@@ -22,8 +22,16 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyChar;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -84,12 +92,65 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should mark the reviewed version acknowledged and file each earlier one")
+    void shouldWriteEachVersionStatus_whenAcknowledgingReport() {
+        registerStaticInitializerMocks();
+
+        // The routine under test runs for real; only the per-row write is stubbed, so this
+        // pins the statuses and the ids actually written — a reversed, truncated or wrongly
+        // lettered filing loop fails here rather than reaching a clinician's inbox.
+        try (MockedStatic<CommonLabResultData> commonLabResultData =
+                     mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("171")).thenReturn("169,170,171");
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
+
+            CommonLabResultData.acknowledgeReport(171, "999998", "Reviewed", "HL7", false, "169,170,171");
+
+            commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
+                    171, "999998", 'A', "Reviewed", "HL7", false));
+            commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
+                    169, "999998", 'F', "", "HL7"));
+            commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
+                    170, "999998", 'F', "", "HL7"));
+        }
+    }
+
+    @Test
+    @DisplayName("should file nothing beyond the acknowledged version when it is the only one")
+    void shouldWriteOnlyTheAcknowledgedVersion_forSingleVersionReport() {
+        registerStaticInitializerMocks();
+
+        try (MockedStatic<CommonLabResultData> commonLabResultData =
+                     mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+
+            CommonLabResultData.acknowledgeReport(170, "999998", "", "HL7", true, "170");
+
+            commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
+                    170, "999998", 'A', "", "HL7", true));
+            commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), eq('F'), any(), any()), never());
+        }
+    }
+
+    @Test
     @DisplayName("should file the earlier versions when the newest version of a lab is acknowledged")
     void shouldSelectEarlierVersions_whenAcknowledgingNewestVersion() {
         registerStaticInitializerMocks();
 
-        assertThat(CommonLabResultData.olderVersionsOf(171, "HL7", "169,170,171"))
-                .containsExactly(169, 170);
+        try (MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("171")).thenReturn("169,170,171");
+
+            assertThat(CommonLabResultData.olderVersionsOf(171, "HL7", "169,170,171"))
+                    .containsExactly(169, 170);
+        }
     }
 
     @Test
@@ -97,22 +158,31 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     void shouldExcludeLaterVersions_whenAcknowledgingEarlierVersion() {
         registerStaticInitializerMocks();
 
-        assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "169,170,171"))
-                .containsExactly(169);
+        try (MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("169,170,171");
+
+            assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "169,170,171"))
+                    .containsExactly(169);
+        }
     }
 
     @Test
-    @DisplayName("should re-derive the HL7 version chain when the posted chain does not describe the lab")
-    void shouldDeriveChainServerSide_whenPostedChainIsUnusable() {
+    @DisplayName("should derive the HL7 version chain server side and ignore the posted one")
+    void shouldIgnorePostedChain_forHl7Labs() {
         registerStaticInitializerMocks();
 
         try (MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
             hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("169,170");
 
-            // A macro posted from a view that never rendered multiID, and a chain belonging to a
-            // different lab, must both still file this lab's own older versions.
+            // Every id in the chain becomes a write to another lab's routing row, so for HL7 it
+            // comes from the accession number, never from the browser. A macro that posted no
+            // chain, and a forged one naming unrelated labs, both file this lab's own versions
+            // and nothing else.
             assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", null)).containsExactly(169);
             assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "900,901")).containsExactly(169);
+            assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "900,901,170"))
+                    .as("a forged chain must not get unrelated labs filed")
+                    .containsExactly(169);
         }
     }
 
@@ -121,8 +191,9 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     void shouldFileNothing_forNonHl7ReportWithoutUsableChain() {
         registerStaticInitializerMocks();
 
-        // Documents have no accession-number chain to re-derive, so an unusable chain must file
-        // nothing rather than guess — and must not throw the way the old index walk did.
+        // Documents have no accession-number chain to derive, so they fall back to the posted
+        // value; one that does not describe this document files nothing rather than guess —
+        // and must not throw the way the old index walk did.
         assertThat(CommonLabResultData.olderVersionsOf(42, "DOC", null)).isEmpty();
         assertThat(CommonLabResultData.olderVersionsOf(42, "DOC", "900,901")).isEmpty();
     }
@@ -132,6 +203,10 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     void shouldFileNothing_forSingleVersionLab() {
         registerStaticInitializerMocks();
 
-        assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "170")).isEmpty();
+        try (MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
+
+            assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "170")).isEmpty();
+        }
     }
 }

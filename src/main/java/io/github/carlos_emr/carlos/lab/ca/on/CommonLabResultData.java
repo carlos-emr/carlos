@@ -411,7 +411,30 @@ public class CommonLabResultData {
      */
     public static void acknowledgeReport(int labNo, String providerNo, String comment, String labType,
                                          boolean skipCommentOnUpdate, String multiId) {
-        updateReportStatus(labNo, providerNo, 'A', comment, labType, skipCommentOnUpdate);
+        updateReportStatusWithOlderVersions(labNo, providerNo, 'A', comment, labType, skipCommentOnUpdate, multiId);
+    }
+
+    /**
+     * Applies {@code status} to one lab report and files every OLDER version of the same lab.
+     *
+     * <p>Splitting this out from {@link #acknowledgeReport} keeps the status-update endpoint's
+     * long-standing behaviour intact: it filed the preceding versions for whatever status it
+     * was given, not only for an acknowledgement, and a filing that dropped that step would
+     * leave the older versions NEW and put the collapsed row straight back in the inbox — the
+     * same defect this routine exists to prevent.
+     *
+     * @param labNo the version the clinician acted on
+     * @param providerNo acting provider (session-derived, never client-supplied)
+     * @param status status to apply to {@code labNo}; older versions are always filed as {@code F}
+     * @param comment comment for {@code labNo}, may be null or empty
+     * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
+     * @param skipCommentOnUpdate true to leave an existing comment untouched
+     * @param multiId the client's version chain; only consulted for types with no server-side chain
+     */
+    public static void updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
+                                                           String comment, String labType,
+                                                           boolean skipCommentOnUpdate, String multiId) {
+        updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
         for (Integer olderLabNo : olderVersionsOf(labNo, labType, multiId)) {
             updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
         }
@@ -420,19 +443,23 @@ public class CommonLabResultData {
     /**
      * Resolves the versions of {@code labNo} that are OLDER than it, oldest first.
      *
-     * <p>The client posts the chain it rendered ({@code multiID}) and that is used when it
-     * actually describes this lab. When it does not — a macro POST from a page that never
-     * rendered the chain, a truncated value, a lab opened by a direct link — the chain is
-     * re-derived server side for HL7 labs from the accession number, which is the same source
-     * the view used to build {@code multiID} in the first place.
+     * <p>For HL7 labs the chain is ALWAYS derived server side from the accession number and the
+     * posted {@code multiID} is ignored. That is the same source the view used to build
+     * {@code multiID}, so the result is identical for an honest client — but a forged or stale
+     * chain can no longer name unrelated labs and have them filed. A chain is not a hint here;
+     * every id in it becomes a write to another lab's routing row.
+     *
+     * <p>Other report types have no accession chain to derive, so they fall back to the posted
+     * value (a BC lab display posts one). Those types are read no more trustingly than before
+     * this method existed, and a chain that does not contain {@code labNo} files nothing.
+     *
+     * <p>Exact type match, not a case-insensitive one: the routing rows are looked up by this
+     * same lab_type string, so accepting a spelling the lookup would miss buys nothing.
      */
     static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
-        String chain = multiId;
-        // Exact match, not a case-insensitive one: the routing rows are looked up by this same
-        // lab_type string, so accepting a spelling here that the lookup would miss buys nothing.
-        if (!LabVersionChain.describes(labNo, chain) && LabResultData.HL7TEXT.equals(labType)) {
-            chain = Hl7textResultsData.getMatchingLabs(String.valueOf(labNo));
-        }
+        String chain = LabResultData.HL7TEXT.equals(labType)
+                ? Hl7textResultsData.getMatchingLabs(String.valueOf(labNo))
+                : multiId;
         return LabVersionChain.olderThan(labNo, chain);
     }
 

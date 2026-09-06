@@ -1165,10 +1165,16 @@
                 alert(json.error ? json.error : 'Macro execution failed. Please try again.');
                 return;
             }
-            // Tell the Inboxhub on every successful macro, whether or not the macro closes
-            // the window: without it the acknowledged document stays in the inbox list and
-            // its counters until the clinician reloads the page.
-            notifyInboxhubAfterDocMacro(formEl);
+            // Tell the Inboxhub whenever the macro ACKNOWLEDGED, whether or not the macro
+            // closes the window: without it the acknowledged document stays in the inbox list
+            // and its counters until the clinician reloads the page.
+            //
+            // Gated on json.acknowledged rather than json.success, because a macro need not
+            // acknowledge anything — one that only files a tickler succeeds and leaves the
+            // document NEW, and dropping it from the inbox would hide unfinished work.
+            if (json.acknowledged) {
+                notifyInboxhubAfterDocMacro(formEl);
+            }
             if (closeOnSuccess) {
                 window.close();
             }

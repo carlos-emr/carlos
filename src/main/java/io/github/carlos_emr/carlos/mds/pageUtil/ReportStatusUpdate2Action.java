@@ -87,7 +87,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
         int labNo = Integer.parseInt(request.getParameter("segmentID"));
         String multiID = request.getParameter("multiID");
-        String providerNo = request.getParameter("providerNo");
+        // Session-derived, NOT the posted providerNo: this writes the acknowledgement into the
+        // clinical audit trail, and a posted value let any user with _lab write record it
+        // against a colleague. Every real caller already posts the logged-in provider (the
+        // inbox builds its links from the session), so nothing legitimate changes; the macro
+        // path in ReportMacro2Action has always done it this way.
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         char status = request.getParameter("status").charAt(0);
         String comment = request.getParameter("comment");
         String lab_type = request.getParameter("labType");
@@ -102,14 +107,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             // A real acknowledgement failure throws (handled below); updateReportStatus otherwise
             // persists the status. Its boolean is not an ack-success signal — do not gate the
             // response on it.
-            if (status == 'A') {
-                // Acknowledging also files the older versions of the same lab, which is what
-                // actually clears the collapsed inbox row. Shared with the macro path so the
-                // two ways of acknowledging a lab cannot drift apart again.
-                CommonLabResultData.acknowledgeReport(labNo, providerNo, comment, lab_type, false, multiID);
-            } else {
-                CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
-            }
+            // Whatever the status, the older versions of the same lab are filed with it: that
+            // is what actually clears the collapsed inbox row, and it is what this endpoint has
+            // always done. Shared with the macro path so the two ways of acknowledging a lab
+            // cannot drift apart again.
+            CommonLabResultData.updateReportStatusWithOlderVersions(
+                    labNo, providerNo, status, comment, lab_type, false, multiID);
             if (ajaxcall != null && ajaxcall.equals("yes"))
                 return null;
             else
@@ -127,7 +130,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
         int labNo = Integer.parseInt(request.getParameter("segmentID"));
-        String providerNo = request.getParameter("providerNo");
+        // Session-derived for the same reason as executemain(): a comment on a lab is signed
+        // by the provider it is recorded against.
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         char status = request.getParameter("status").charAt(0);
         String comment = request.getParameter("comment");
         String lab_type = request.getParameter("labType");

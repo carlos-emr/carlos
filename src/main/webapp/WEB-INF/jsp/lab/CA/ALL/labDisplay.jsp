@@ -1136,13 +1136,20 @@ input[id^='acklabel_']{
         })
         .then(function(json) {
             if (json && json.success) {
-                // Tell the Inboxhub on EVERY successful macro, not only when the macro is
-                // configured to close the window. A macro that acknowledges without
+                // Tell the Inboxhub on EVERY macro that ACKNOWLEDGED, not only when the macro
+                // is configured to close the window: a macro that acknowledges without
                 // closeOnSuccess used to leave the inbox untouched, so the lab it had just
                 // acknowledged sat in the list until the clinician reloaded the page.
-                notifyInboxhubAfterMacro(formid);
+                //
+                // Gated on json.acknowledged rather than json.success, because a macro need
+                // not acknowledge anything — one that only files a tickler succeeds and leaves
+                // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
+                // dealt with.
+                if (json.acknowledged) {
+                    notifyInboxhubAfterMacro(formid);
+                }
                 if (closeOnSuccess) {
-                    closeLabAfterMacro(formid);
+                    closeLabAfterMacro(formid, json.acknowledged);
                 }
             } else {
                 var message = json && json.error ? json.error : 'Macro execution failed. Please try again.';
@@ -1155,27 +1162,43 @@ input[id^='acklabel_']{
         });
     }
 
-    function closeLabAfterMacro(formid) {
+    /**
+     * Closes or hides the lab window a macro was run from.
+     *
+     * closeOnSuccess is about this window, not about the inbox: taking the lab out of the
+     * inbox is gated on the macro having ACKNOWLEDGED it. A macro that only files a tickler
+     * closes its window and leaves the lab in the inbox, where it still belongs — hiding it
+     * there would make an unacknowledged result look dealt with.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {boolean} acknowledged whether the macro actually acknowledged the lab
+     */
+    function closeLabAfterMacro(formid, acknowledged) {
         var formEl = document.getElementById(formid);
-        var segmentId = formEl && formEl.elements && formEl.elements.segmentID ? formEl.elements.segmentID.value : '';
+        var elements = (formEl && formEl.elements) ? formEl.elements : null;
+        var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
+        var labType = (elements && elements.labType) ? elements.labType.value : 'HL7';
 
         if (window.frameElement) {
-            var card = window.frameElement.closest('.document-card.card');
-            if (card) {
-                card.style.display = 'none';
+            if (acknowledged) {
+                var card = window.frameElement.closest('.document-card.card');
+                if (card) {
+                    card.style.display = 'none';
+                }
             }
             return;
         }
 
         if (typeof _in_window !== 'undefined' && _in_window) {
-            if (self.opener && typeof self.opener.removeReport !== 'undefined' && segmentId.length > 0) {
-                self.opener.removeReport(segmentId);
+            if (acknowledged && self.opener && typeof self.opener.removeReport !== 'undefined'
+                    && segmentId.length > 0) {
+                self.opener.removeReport(segmentId, labType);
             }
             window.close();
             return;
         }
 
-        if (segmentId.length > 0) {
+        if (acknowledged && segmentId.length > 0) {
             var inlineCard = document.getElementById('labdoc_' + segmentId);
             if (inlineCard) {
                 inlineCard.style.display = 'none';

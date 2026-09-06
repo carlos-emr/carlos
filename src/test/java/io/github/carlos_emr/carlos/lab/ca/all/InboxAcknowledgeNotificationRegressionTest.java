@@ -58,6 +58,9 @@ class InboxAcknowledgeNotificationRegressionTest {
             "src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "InboxhubListMode.jsp");
     private static final Path OSCAR_MDS_INDEX_JS = Path.of(
             "src", "main", "webapp", "share", "javascript", "oscarMDSIndex.js");
+    private static final Path REPORT_MACRO_ACTION = Path.of(
+            "src", "main", "java", "io", "github", "carlos_emr", "carlos", "mds", "pageUtil",
+            "ReportMacro2Action.java");
     private static final Path HRM_ACTIONS_JS = Path.of(
             "src", "main", "webapp", "hospitalReportManager", "hrmActions.js");
 
@@ -78,6 +81,25 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(notifyCall)
                 .as("the notification must not sit inside the closeOnSuccess branch")
                 .isLessThan(closeCall);
+    }
+
+    @Test
+    @DisplayName("should tell the inbox only when the macro actually acknowledged something")
+    void shouldNotNotifyInbox_whenMacroDidNotAcknowledge() throws IOException {
+        // A macro need not acknowledge: one that only files a tickler runs to completion and
+        // leaves the lab NEW. Dropping it from the inbox on success alone hides work nobody
+        // has done, so both macro handlers gate on the server's acknowledged flag.
+        String labDisplay = read(LAB_DISPLAY_JSP);
+        assertThat(labDisplay).contains("if (json.acknowledged) {");
+        assertThat(labDisplay)
+                .as("closing the window must not take an unacknowledged lab out of the inbox")
+                .contains("closeLabAfterMacro(formid, json.acknowledged);")
+                .contains("if (acknowledged && self.opener && typeof self.opener.removeReport !== 'undefined'");
+        assertThat(read(SHOW_DOCUMENT_JSP)).contains("if (json.acknowledged) {");
+        assertThat(read(REPORT_MACRO_ACTION))
+                .as("the server must report acknowledgement separately from success")
+                .contains("result.put(\"acknowledged\", outcome.acknowledged());")
+                .contains("return MacroOutcome.ran(acknowledged);");
     }
 
     @Test
