@@ -3596,6 +3596,14 @@
     "optional" : false,
     "integrity" : "sha512:poOszeMfWQAq75sNdx6O532lyzJCfTCA7eGsH1s4nxHugfxzUr2ELyb6TtCVTQm3YLmnlRRYkawHxaJ1hZGFdg=="
   }, {
+    "groupId" : "org.webjars.npm",
+    "artifactId" : "pdfjs-dist",
+    "version" : "6.0.227",
+    "scope" : "runtime",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:63/fk06dmx3ahPtoUZqwZd/E5QlY7+H1ZduvjAPRqvBr+WKaV9AjktqXjKzjn24SW1l8vJUj/GZ5gvr0P+h8dw=="
+  }, {
     "groupId" : "org.wildfly.client",
     "artifactId" : "wildfly-client-config",
     "version" : "1.0.1.Final",

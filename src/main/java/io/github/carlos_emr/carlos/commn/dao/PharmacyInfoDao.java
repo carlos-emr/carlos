@@ -56,6 +56,8 @@ public interface PharmacyInfoDao extends AbstractDao<PharmacyInfo> {
 
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city);
 
+    public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city, int maxResults);
+
     public List<String> searchPharmacyByCity(String city);
 
     // public PharmacyInfo find(Integer id);

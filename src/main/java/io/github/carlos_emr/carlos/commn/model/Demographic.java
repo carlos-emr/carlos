@@ -1815,7 +1815,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         sb.append("' target='_blank'>");
 
         if (getTitle() != null && getTitle().length() > 0) {
-            sb.append(SafeEncode.forHtmlContent(getTitle())).append(" ");
+            sb.append(SafeEncode.forHtmlContent(getTitle()));
+            sb.append(" ");
         }
 
         sb.append(SafeEncode.forHtmlContent(getFormattedName()));
@@ -1829,7 +1830,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String pronouns = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPronouns", "Pronouns");
             sb.append(pronouns);
             sb.append("</div>");
-            sb.append(SafeEncode.forHtml(getPronoun()));
+            sb.append(SafeEncode.forHtmlContent(getPronoun()));
             sb.append("</div>");
         }
 
@@ -1880,11 +1881,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
             sb.append(hinLabel);
 			sb.append(" (");
-            sb.append(SafeEncode.forHtml(getHcType()));
+            sb.append(SafeEncode.forHtmlContent(getHcType()));
 			sb.append(")</div>");
-			sb.append(SafeEncode.forHtml(getHin()));
+			sb.append(SafeEncode.forHtmlContent(getHin()));
 			sb.append("&nbsp;");
-			sb.append(SafeEncode.forHtml(getVer()));
+			sb.append(SafeEncode.forHtmlContent(getVer()));
             sb.append("</div>");
         }
 

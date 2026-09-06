@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
@@ -72,9 +73,9 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
  * Default {@link FaxManager} implementation.
  *
  * <p><strong>Stubbed render paths:</strong> the deprecated {@code renderFaxDocument} dispatch only
- * has live implementations for EFORM and FORM. The CONSULTATION/DOCUMENT/RX branches
- * ({@code renderConsultationRequest}, {@code renderDocument}, {@code renderPrescription}) are
- * unreachable stubs that return {@code null} — live rendering for those flows goes through
+ * has live implementations for EFORM, FORM and DOCUMENT. The CONSULTATION/RX branches
+ * ({@code renderConsultationRequest}, {@code renderPrescription}) are unreachable stubs that
+ * return {@code null} — live rendering for those flows goes through
  * {@code DocumentAttachmentManager} (and the consultation fax action renders its own PDF). Do not
  * call {@code renderFaxDocument} for those transaction types.</p>
  */
@@ -174,7 +175,48 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         logger.info("Rendering document number {} for fax preview.", documentNo);
-        return null;
+
+        EDoc doc = EDocUtil.getDoc(String.valueOf(documentNo));
+        if (doc == null) {
+            logger.error("renderDocument: document not found for documentNo={}", documentNo);
+            return null;
+        }
+
+        String filePath = doc.getFilePath();
+        if (filePath == null) {
+            logger.error("renderDocument: no file path for documentNo={}", documentNo);
+            return null;
+        }
+
+        Path path;
+        try {
+            path = Paths.get(filePath);
+        } catch (java.nio.file.InvalidPathException e) {
+            logger.error("renderDocument: malformed file path for documentNo={}: {}", documentNo,
+                    LogSafe.sanitize(filePath, 1024));
+            return null;
+        }
+        if (!Files.exists(path) || !Files.isRegularFile(path)) {
+            logger.error("renderDocument: file not found on disk for documentNo={}: {}", documentNo,
+                    LogSafe.sanitize(filePath, 1024));
+            return null;
+        }
+
+        // Validate path is within allowed directories
+        java.io.File documentDir = new java.io.File(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+        try {
+            PathValidationUtils.validateExistingPath(path.toFile(), documentDir);
+        } catch (SecurityException e) {
+            // File not in document dir, check if it's in allowed temp directories
+            if (!PathValidationUtils.isInAllowedTempDirectory(path.toFile())) {
+                logger.error("renderDocument: path validation failed for documentNo={}: {}", documentNo,
+                        LogSafe.sanitize(filePath, 1024));
+                return null;
+            }
+        }
+
+        return path;
     }
 
     @Override
@@ -870,6 +912,12 @@ public class FaxManagerImpl implements FaxManager {
 
     /**
      * Clear the preview cache and temp directory.
+     *
+     * <p>When {@code filePath} is the original document path (e.g. a direct-to-cover-page
+     * flow where no annotation temp file was created), it will not be in an approved temp
+     * directory. In that case the temp-deletion step is skipped — only the preview cache
+     * is cleared. This avoids a SecurityException from {@code NioFileManagerImpl.deleteTempFile}
+     * when cancel is triggered on an unannotated fax-ready document.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: the File is only used to test the application-temp boundary via
     // PathValidationUtils.isInApplicationTempDirectory before deletion; nioFileManager.deleteTempFile
