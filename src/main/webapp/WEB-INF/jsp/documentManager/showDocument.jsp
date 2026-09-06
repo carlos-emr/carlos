@@ -500,6 +500,12 @@
                <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.faxPdfOnlyTooltip"/>" disabled<%}%>
                <%if (docIsPdf) {%>onClick="popup(800,850,'${pageContext.servletContext.contextPath}/documentManager/FaxDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','faxDoc')"<%}%>>
         <%}%>
+        <%-- Annotate opens the markup viewer. Saving there files a NEW document rather than
+             editing this one, so the received record is never altered. PDF only. --%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="annotateBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnAnnotate"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.annotatePdfOnlyTooltip"/>" disabled<%}%>
+               <%if (docIsPdf) {%>onClick="popup(900,1000,'${pageContext.servletContext.contextPath}/documentManager/AnnotateDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','annotateDoc')"<%}%>>
         <%
             String btnDisabled = "disabled";
             if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {

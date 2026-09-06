@@ -39,6 +39,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -168,25 +170,35 @@ public class FaxDocument2Action extends ActionSupport {
             try {
                 demographicNo = Integer.parseInt(moduleId);
             } catch (NumberFormatException e) {
-                logger.debug("Non-numeric moduleId '{}' for docId={}, treating as unlinked", moduleId, docId);
+                logger.debug("Non-numeric moduleId for docId={}, treating as unlinked", docId);
             }
         }
 
-        // faxReady=true means annotations have already been saved; go directly to fax composition.
-        // Otherwise, open the annotation viewer so the provider can review and annotate first.
-        boolean faxReady = "true".equalsIgnoreCase(request.getParameter("faxReady"));
-
-        request.setAttribute("transactionType", FaxManager.TransactionType.DOCUMENT.name());
-        request.setAttribute("transactionId", docId);
-        request.setAttribute("demographicNo", demographicNo);
-        request.setAttribute("accounts", accounts);
-
-        if (faxReady) {
-            request.setAttribute("faxFilePath", filePath);
-            return "preview";
+        if (demographicNo > 0
+                && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Unauthorized access to patient record");
         }
 
-        request.setAttribute("docId", docId);
-        return "annotate";
+        // Hand off to the shared fax pipeline rather than forwarding to the cover page with
+        // this document's stored path. prepareFax stages its own copy under the application
+        // temp root and records a session claim that queue() must consume, so a client can
+        // never name a document-store path of its own choosing on the cover-page form.
+        // Mirrors AddEForm2Action.redirectToPreparedFax.
+        StringBuilder target = new StringBuilder(request.getContextPath())
+                .append("/fax/faxAction?method=prepareFax")
+                .append("&transactionType=")
+                .append(URLEncoder.encode(FaxManager.TransactionType.DOCUMENT.name(), StandardCharsets.UTF_8))
+                .append("&transactionId=")
+                .append(URLEncoder.encode(String.valueOf(docId), StandardCharsets.UTF_8))
+                .append("&demographicNo=")
+                .append(URLEncoder.encode(String.valueOf(demographicNo), StandardCharsets.UTF_8));
+        try {
+            response.sendRedirect(target.toString());
+        } catch (java.io.IOException e) {
+            logger.error("Could not redirect document {} into the fax pipeline", docId, e);
+            request.setAttribute("message", "The fax screen could not be opened.");
+            return "noFax";
+        }
+        return NONE;
     }
 }

@@ -131,6 +131,23 @@ public class ManageDocument2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
+
+    /** Historic render resolution. Cache entries at this DPI keep their original names. */
+    private static final int DEFAULT_RENDER_DPI = 96;
+
+    /**
+     * Resolutions the annotation viewer may request. An allowlist rather than a range:
+     * the rendered pixel count grows with the square of DPI, so an unbounded parameter is
+     * a denial-of-service lever on a shared server.
+     */
+    private static final java.util.Set<Integer> ALLOWED_RENDER_DPI = java.util.Set.of(96, 144, 192);
+
+    /**
+     * Ceiling on one rendered page. A crafted PDF can declare a page box of arbitrary size;
+     * at 144 dpi a 200-by-200-inch page would ask for over 800 megapixels and exhaust the heap
+     * before any limit downstream applied.
+     */
+    private static final long MAX_RENDER_MEGAPIXELS = 30L;
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
     // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
@@ -749,8 +766,16 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cached PNG file if it exists, or null
      */
     private File hasCacheVersion2(Document d, Integer pageNum) {
+        return hasCacheVersion2(d, pageNum, DEFAULT_RENDER_DPI);
+    }
+
+    /**
+     * Cache lookup at a specific resolution. The DPI is part of the key, or a zoomed
+     * request would be served the 96 dpi image it happens to find.
+     */
+    private File hasCacheVersion2(Document d, Integer pageNum, int dpi) {
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
-        Path outFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
+        Path outFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
         if (!Files.exists(outFile)) {
             return null;
         }
@@ -788,6 +813,34 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
+     * Cache file name for a page at a resolution. The default DPI keeps the historic
+     * {@code <file>_<page>.png} name so existing cached pages stay valid after this change.
+     */
+    private static String cacheName(Document d, Integer pageNum, int dpi) {
+        return dpi == DEFAULT_RENDER_DPI
+                ? d.getDocfilename() + "_" + pageNum + ".png"
+                : d.getDocfilename() + "_" + pageNum + "_" + dpi + "dpi.png";
+    }
+
+    /**
+     * Reads the optional {@code dpi} request parameter against {@link #ALLOWED_RENDER_DPI}.
+     * Anything absent, unparseable or outside the allowlist falls back to the default rather
+     * than failing, so an old link without the parameter still works.
+     */
+    private int resolveRequestedDpi() {
+        String raw = request.getParameter("dpi");
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_RENDER_DPI;
+        }
+        try {
+            int requested = Integer.parseInt(raw.trim());
+            return ALLOWED_RENDER_DPI.contains(requested) ? requested : DEFAULT_RENDER_DPI;
+        } catch (NumberFormatException e) {
+            return DEFAULT_RENDER_DPI;
+        }
+    }
+
+    /**
      * Renders a specific page of a PDF document as a PNG image using Apache PDFBox,
      * saves it to the document cache directory, and returns the image bytes.
      *
@@ -798,10 +851,22 @@ public class ManageDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
+        return createCacheVersion2(d, pageNum, DEFAULT_RENDER_DPI);
+    }
+
+    /**
+     * Renders at a specific resolution, refusing pages whose pixel count would exceed
+     * {@link #MAX_RENDER_MEGAPIXELS}.
+     *
+     * @param dpi one of {@link #ALLOWED_RENDER_DPI}; callers must resolve it through
+     *            {@link #resolveRequestedDpi()} rather than passing request data
+     * @return the PNG bytes, or null if rendering fails or the page is out of bounds
+     */
+    public byte[] createCacheVersion2(Document d, Integer pageNum, int dpi) {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
         Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
-        Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
+        Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
@@ -818,8 +883,18 @@ public class ManageDocument2Action extends ActionSupport {
                     return null;
                 }
 
+                org.apache.pdfbox.pdmodel.common.PDRectangle mediaBox =
+                        pdf.getPage(pageIndex).getCropBox();
+                long megapixels = (long) Math.ceil(
+                        (mediaBox.getWidth() / 72d * dpi) * (mediaBox.getHeight() / 72d * dpi) / 1_000_000d);
+                if (megapixels > MAX_RENDER_MEGAPIXELS) {
+                    log.error("Refusing to render page {} of document {}: {} megapixels exceeds the limit",
+                            pageNum, LogSafe.sanitize(d.getDocfilename()), megapixels); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    return null;
+                }
+
                 PDFRenderer rend = new PDFRenderer(pdf);
-                BufferedImage image = rend.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
+                BufferedImage image = rend.renderImageWithDPI(pageIndex, dpi, ImageType.RGB);
 
                 ImageIO.write(image, "png", pngFile.toFile());
                 ImageIO.write(image, "png", baos);
@@ -869,12 +944,13 @@ public class ManageDocument2Action extends ActionSupport {
 
         log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
-        File outfile = hasCacheVersion(d, pageNum);
+        int dpi = resolveRequestedDpi();
+        File outfile = hasCacheVersion2(d, pageNum, dpi);
 
         if (outfile != null) {
             setResponse(response, outfile);
         } else {
-            byte[] pdfBytes = createCacheVersion2(d, pageNum);
+            byte[] pdfBytes = createCacheVersion2(d, pageNum, dpi);
             setResponse(response, pdfBytes);
         }
 

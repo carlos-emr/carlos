@@ -29,6 +29,13 @@
 
 package io.github.carlos_emr.carlos.fax.action;
 
+import io.github.carlos_emr.CarlosProperties;
+import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import java.io.ByteArrayOutputStream;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+
 import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -108,6 +115,7 @@ public class Fax2Action extends ActionSupport {
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient NioFileManager nioFileManager;
     private transient EFormRenderApprovalService renderApprovalService;
     private transient EFormDataDao eFormDataDao;
 
@@ -421,6 +429,10 @@ public class Fax2Action extends ActionSupport {
      *         claimed staged PDF is deleted and a user-facing action error is recorded first
      */
     private void revalidateEformBindingBeforePromotion(TransactionType transactionType) {
+        if (transactionType == TransactionType.DOCUMENT) {
+            revalidateDocumentClaimBeforePromotion();
+            return;
+        }
         if (transactionType != TransactionType.EFORM || transactionId == null) {
             return;
         }
@@ -765,6 +777,28 @@ public class Fax2Action extends ActionSupport {
                     request.setAttribute("errorMessage", errorMessage);
                     return "eFormError";
                 }
+            } else if (transactionType.equals(TransactionType.DOCUMENT)) {
+                if (transactionId == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid document fax request");
+                    return NONE;
+                }
+                try {
+                    pdfPath = stageDocumentForFax(loggedInInfo, transactionId.intValue());
+                } catch (SecurityException e) {
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return NONE;
+                } catch (IllegalArgumentException e) {
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "The document is no longer available");
+                    return NONE;
+                } catch (IOException e) {
+                    logger.error("Could not stage document {} for fax", transactionId, e);
+                    sendErrorQuietly(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "The document could not be prepared for faxing.");
+                    return NONE;
+                }
+                // Claim the staged copy for THIS session, exactly as the eForm path does, so
+                // queue() can prove the faxFilePath it is handed is one this flow produced.
+                recordClaimedFaxFilePathInSession(pdfPath);
             }
         } else {
             // No configured/active fax accounts: nothing can be sent. Fail with an honest HTTP status
@@ -804,6 +838,18 @@ public class Fax2Action extends ActionSupport {
         logger.debug("prepareFax end: transactionId={} actionForward={} responseCommitted={}",
                 transactionId, actionForward, response.isCommitted());
         return actionForward;
+    }
+
+    /**
+     * Resolved on first use rather than in a field initialiser. Only the DOCUMENT fax path
+     * needs it, and eagerly pulling the bean would force every test that constructs this
+     * action to register a mock it has no interest in.
+     */
+    private NioFileManager nioFileManager() {
+        if (nioFileManager == null) {
+            nioFileManager = SpringUtils.getBean(NioFileManager.class);
+        }
+        return nioFileManager;
     }
 
     private EFormDataDao eFormDataDao() {
@@ -905,6 +951,80 @@ public class Fax2Action extends ActionSupport {
             logger.warn("Unable to delete staged fax preview after approval issuance failed: {}",
                     path, e);
         }
+    }
+
+    /**
+     * Stages a stored document as an application-temp copy for the fax preview.
+     *
+     * <p>The copy, not the document-store file, is what enters the fax pipeline. That keeps
+     * the permanent record out of reach of the promotion and cancel paths, and it gives
+     * {@link #revalidateDocumentClaimBeforePromotion()} something session-scoped to claim.
+     *
+     * <p>The patient is derived from the document's own module link and checked against the
+     * caller, never taken from the request. Before this branch existed, a DOCUMENT fax
+     * submitted whatever {@code faxFilePath} the client sent with whatever
+     * {@code demographicNo} the client sent, and nothing tied the two together.
+     *
+     * @throws SecurityException        if the caller may not see the document's patient
+     * @throws IllegalArgumentException if the document or its file is missing
+     */
+    private Path stageDocumentForFax(LoggedInInfo loggedInInfo, int documentNo) throws IOException {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
+        EDoc doc = EDocUtil.getDoc(String.valueOf(documentNo));
+        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
+            throw new IllegalArgumentException("Document not found");
+        }
+
+        String moduleId = StringUtils.trimToNull(doc.getModuleId());
+        if (moduleId != null && !"0".equals(moduleId) && !"-1".equals(moduleId)) {
+            try {
+                int documentDemographicNo = Integer.parseInt(moduleId);
+                if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, documentDemographicNo)) {
+                    throw new SecurityException("Unauthorized access to patient record");
+                }
+                // The cover-page form carries a demographic too; it must agree with the
+                // document's own binding or the two identify different patients.
+                if (demographicNo != null && demographicNo != documentDemographicNo) {
+                    throw new SecurityException("Document does not belong to the submitted patient");
+                }
+            } catch (NumberFormatException ignored) {
+                // Non-numeric module id: the document is not patient-linked.
+            }
+        }
+
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getDocumentDirectory(), "DOCUMENT_DIR");
+        File stored = PathValidationUtils.validateExistingPath(
+                new File(documentDir, doc.getFileName()), documentDir);
+
+        try (java.io.InputStream in = Files.newInputStream(stored.toPath());
+             ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+            in.transferTo(buffer);
+            return nioFileManager().createTempFile(doc.getFileName(), buffer);
+        }
+    }
+
+    /**
+     * Requires the {@code faxFilePath} submitted with a DOCUMENT fax to be one this session
+     * staged in {@link #stageDocumentForFax}. Without this, {@code queue()} accepted any
+     * readable path inside the document store, so a caller with fax rights could name
+     * another patient's document.
+     */
+    private void revalidateDocumentClaimBeforePromotion() {
+        String claimed = consumeClaimedFaxFilePathFromSession();
+        if (claimed != null && claimed.equals(faxFilePath)) {
+            return;
+        }
+        logger.warn("Rejected fax promotion: document fax path was not staged by this session");
+        if (claimed != null) {
+            deleteRejectedClaimedFaxFile(claimed);
+        }
+        addActionError("This fax is no longer available to send. Open the document and try again.");
+        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        throw new SecurityException("Unclaimed fax file path for document promotion");
     }
 
     private void recordClaimedFaxFilePathInSession(Path claimedPath) {

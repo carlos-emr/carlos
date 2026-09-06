@@ -21,273 +21,193 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
-import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentComposer;
+import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationDto;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentAnnotationParser;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.Part;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-import io.github.carlos_emr.CarlosProperties;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * Receives an annotated PDF from PDF.js (sent as a multipart file upload),
- * overwrites the original document file on disk with the annotated version,
- * and writes an audit log entry that itemises which annotation tool types
- * were used — without recording any content that could constitute PHI.
+ * Receives an annotation model as JSON and files the composed result as a new document.
  *
- * <p>File upload is read via {@code request.getPart("pdfFile")} rather than
- * Struts2's FileUploadInterceptor setter injection. The interceptor approach
- * fails because {@link io.github.carlos_emr.carlos.app.MultiReadHttpServletRequest}
- * caches the body for CSRF token extraction, and the Struts2 stream-based
- * multipart parser ({@code jakarta-stream}) cannot reliably re-read from the
- * cached stream. {@code MultiReadHttpServletRequest.getParts()} parses directly
- * from the same cached bytes and is the correct entry point here.</p>
+ * <p>This action deliberately does <em>not</em> accept a PDF. The browser sends a small
+ * description of what the provider drew — types, pages and normalised coordinates — and
+ * the server composes the document with PDFBox. Two properties follow from that. The
+ * browser never authors a clinical artifact, and a compromised page cannot substitute
+ * arbitrary content for a patient's record.
  *
- * <p>Security requirements:
- * <ul>
- *   <li>Requires {@code _edoc w} privilege (enforced in this action). The upstream
- *       {@link FaxDocument2Action} gate also requires {@code _edoc r} and
- *       {@code _fax r} before the annotation viewer is reached.</li>
- *   <li>The uploaded bytes must start with the {@code %PDF} magic header.</li>
- *   <li>The resolved file path must lie within the document's own directory
- *       (validated via {@link PathValidationUtils#validateExistingPath}).</li>
- * </ul>
+ * <p>The original document is untouched. A successful save creates a second document for
+ * the same patient; see {@link AnnotatedDocumentService}.
  *
- * <p>The {@code annotationTypes} form field is a comma-separated subset of:
- * {@code signed}, {@code text}, {@code drawn}, {@code highlighted}.
- * The log entry records only these labels — never annotation content.
+ * <p><strong>Mutator.</strong> GET and HEAD are refused with 405 before any dependency is
+ * touched, so the aggregated contract test can drive this class directly. Registered in
+ * {@code MutatorActionGetRejectionContractUnitTest.unconditionalMutators()}.
  *
- * @since 2026-06
+ * <p>Responses are JSON. Errors carry a message written by this application, never the
+ * offending input, because annotation text is PHI.
+ *
+ * @since 2026-09
  */
 public class SaveAnnotatedDocument2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final byte[] PDF_MAGIC = new byte[]{'%', 'P', 'D', 'F'};
-    private static final List<String> ALLOWED_ANNOTATION_TYPES =
-            List.of("signed", "text", "drawn", "highlighted");
 
-    /** 50 MB — matches struts.multipart.maxSize and MultiReadHttpServletRequest.MAX_BODY_SIZE. */
-    private static final long MAX_UPLOAD_BYTES = 50L * 1024 * 1024;
+    /** Generous for a coordinate model, far below anything that could carry a document. */
+    private static final int MAX_BODY_BYTES = 256 * 1024;
 
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final DocumentAnnotationParser parser;
+    private final AnnotatedDocumentService injectedService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public SaveAnnotatedDocument2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), new DocumentAnnotationParser(), null);
+    }
+
+    /**
+     * @param injectedService when {@code null}, a service is built per request from the
+     *                        servlet context so it can locate the bundled font. Tests pass
+     *                        one in to keep composition and the filesystem out of the way.
+     */
+    SaveAnnotatedDocument2Action(SecurityInfoManager securityInfoManager,
+                                 DocumentAnnotationParser parser,
+                                 AnnotatedDocumentService injectedService) {
+        this.securityInfoManager = securityInfoManager;
+        this.parser = parser;
+        this.injectedService = injectedService;
+    }
 
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // Verb gate first: nothing below may run on a GET, including the privilege lookup.
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        String docIdStr = StringUtils.trimToNull(request.getParameter("docId"));
-        if (docIdStr == null) {
-            sendJsonError(response, "docId is required");
-            return NONE;
-        }
-
         int docId;
+        String raw = StringUtils.trimToNull(request.getParameter("docId"));
         try {
-            docId = Integer.parseInt(docIdStr);
+            docId = Integer.parseInt(StringUtils.defaultString(raw));
         } catch (NumberFormatException e) {
-            sendJsonError(response, "Invalid docId");
-            return NONE;
+            return json(response, HttpServletResponse.SC_BAD_REQUEST,
+                    error("A document must be selected."));
         }
 
-        // Read the uploaded file via the Part API. MultiReadHttpServletRequest.getParts()
-        // parses from its cached body bytes, so this works regardless of whether the CSRF
-        // filter already consumed the original input stream.
-        Part filePart;
+        EDoc source = EDocUtil.getDoc(String.valueOf(docId));
+        if (source == null) {
+            return json(response, HttpServletResponse.SC_NOT_FOUND,
+                    error("The document could not be found."));
+        }
+        int pageCount = Math.max(source.getNumberOfPages(), 1);
+
+        String body;
         try {
-            filePart = request.getPart("pdfFile");
-        } catch (ServletException | IOException e) {
-            logger.error("Failed to parse multipart parts for docId={}", docId, e);
-            sendJsonError(response, "Failed to read uploaded file");
-            return NONE;
+            body = readBody(request);
+        } catch (IllegalStateException e) {
+            return json(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                    error("The annotation data was too large."));
         }
 
-        if (filePart == null || filePart.getSize() == 0L) {
-            sendJsonError(response, "No PDF data received");
-            return NONE;
-        }
-
-        if (filePart.getSize() > MAX_UPLOAD_BYTES) {
-            logger.warn("Rejecting oversized annotated PDF for docId={}: {} bytes", docId, filePart.getSize());
-            sendJsonError(response, "Uploaded file exceeds maximum allowed size");
-            return NONE;
-        }
-
-        // Check %PDF magic header using a separate stream open so the main copy
-        // still reads from byte 0. Part.getInputStream() can be opened multiple times
-        // (DiskFileItem opens a fresh FileInputStream; in-memory returns ByteArrayInputStream).
-        byte[] header = new byte[4];
-        try (InputStream is = filePart.getInputStream()) {
-            int totalRead = 0;
-            while (totalRead < 4) {
-                int r = is.read(header, totalRead, 4 - totalRead);
-                if (r < 0) break;
-                totalRead += r;
-            }
-            if (totalRead < 4 || !Arrays.equals(header, PDF_MAGIC)) {
-                logger.warn("SaveAnnotatedDocument: upload for docId={} failed PDF magic check", docId);
-                sendJsonError(response, "Uploaded file is not a valid PDF");
-                return NONE;
-            }
-        }
-
-        EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
-        if (doc == null || StringUtils.isBlank(doc.getFilePath())) {
-            sendJsonError(response, "Document not found");
-            return NONE;
-        }
-
-        Path targetPath;
+        List<DocumentAnnotationDto> annotations;
         try {
-            targetPath = Paths.get(doc.getFilePath());
-        } catch (java.nio.file.InvalidPathException e) {
-            logger.error("Invalid document path for docId={}", docId, e);
-            sendJsonError(response, "Invalid document path");
-            return NONE;
+            annotations = parser.parse(body, pageCount);
+        } catch (IllegalArgumentException e) {
+            // Parser messages name the rule that failed and contain no annotation content.
+            return json(response, HttpServletResponse.SC_BAD_REQUEST, error(e.getMessage()));
         }
+        if (annotations.isEmpty()) {
+            return json(response, HttpServletResponse.SC_BAD_REQUEST,
+                    error("There are no annotations to save."));
+        }
+
+        AnnotatedDocumentService service = injectedService != null ? injectedService
+                : new AnnotatedDocumentService(securityInfoManager, new AnnotatedDocumentComposer(),
+                        request.getServletContext().getRealPath("/"));
+
         try {
-            // Validate against the configured document root, not just the file's own parent.
-            // Using the parent as the trust boundary would allow a corrupted DB row with an
-            // out-of-tree path to overwrite arbitrary files on the filesystem.
-            java.io.File documentDir = new java.io.File(
-                    CarlosProperties.getInstance().getProperty(
-                            "DOCUMENT_DIR", "/var/lib/OscarDocument/"));
-            PathValidationUtils.validateExistingPath(targetPath.toFile(), documentDir);
+            int newDocNo = service.save(loggedInInfo, docId, annotations);
+            ObjectNode ok = objectMapper.createObjectNode();
+            ok.put("success", true);
+            ok.put("documentNo", newDocNo);
+            ok.put("demographicNo", StringUtils.defaultString(source.getModuleId(), "0"));
+            return json(response, HttpServletResponse.SC_OK, ok);
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt for docId={}", docId);
-            sendJsonError(response, "Invalid document path");
-            return NONE;
+            return json(response, HttpServletResponse.SC_FORBIDDEN,
+                    error("You do not have access to this patient's records."));
+        } catch (IllegalArgumentException e) {
+            return json(response, HttpServletResponse.SC_CONFLICT, error(e.getMessage()));
+        } catch (IOException | IllegalStateException e) {
+            // The cause can quote document internals; log it, do not return it.
+            logger.error("Failed to compose annotated copy of document {}", docId, e);
+            return json(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    error("The annotated document could not be saved."));
         }
-
-        Path targetDir = targetPath.getParent();
-        if (targetDir == null) {
-            logger.error("SaveAnnotatedDocument: no parent directory for docId={}", docId);
-            sendJsonError(response, "Invalid document path");
-            return NONE;
-        }
-
-        // Overwrite the document file with the annotated version atomically.
-        // Write to a temporary file first, then move atomically to avoid corruption on failure.
-        Path tempFile = null;
-        try (InputStream is = filePart.getInputStream()) {
-            tempFile = Files.createTempFile(targetDir, ".annotated-", ".pdf.tmp");
-            Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
-
-            // Atomic move with fallback if ATOMIC_MOVE is not supported on this filesystem
-            try {
-                Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (UnsupportedOperationException e) {
-                logger.warn("ATOMIC_MOVE not supported for docId={}, falling back to standard move", docId);
-                Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-            tempFile = null; // Successfully moved, no cleanup needed
-        } catch (IOException e) {
-            logger.error("Failed to write annotated document for docId={}", docId, e);
-            sendJsonError(response, "Unable to save annotated document");
-            return NONE;
-        } finally {
-            // Clean up temp file if move failed
-            if (tempFile != null) {
-                try {
-                    Files.deleteIfExists(tempFile);
-                } catch (IOException e) {
-                    logger.warn("Failed to delete temp file after error: {}", tempFile, e);
-                }
-            }
-        }
-
-        // Parse and sanitise annotation type labels before logging
-        String annotationTypesCsv = StringUtils.trimToEmpty(request.getParameter("annotationTypes"));
-        List<String> usedTypes = buildSafeAnnotationList(annotationTypesCsv);
-
-        String demographicNoStr = StringUtils.defaultString(doc.getModuleId(), "0");
-
-        if (!usedTypes.isEmpty()) {
-            String summary = String.join(", ", usedTypes);
-            LogAction.addLog(
-                    loggedInInfo,
-                    "DOCUMENT_ANNOTATED",
-                    "document",
-                    String.valueOf(docId),
-                    demographicNoStr,
-                    "Provider added annotations before fax. Annotation types used: " + summary
-            );
-            logger.info("Document {} annotated by provider {} — types: {}",
-                    docId, loggedInInfo.getLoggedInProviderNo(), summary);
-        } else {
-            LogAction.addLog(
-                    loggedInInfo,
-                    "DOCUMENT_SAVED_FAX_PREP",
-                    "document",
-                    String.valueOf(docId),
-                    demographicNoStr,
-                    "Provider saved document from fax annotation viewer (no annotations added)"
-            );
-        }
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-        try (PrintWriter w = response.getWriter()) {
-            // docId was already parsed as an int above, so it is inherently safe to embed
-            w.write("{\"success\":true,\"docId\":" + docId + "}");
-        }
-        return NONE;
     }
 
     /**
-     * Filters the client-supplied annotation type list against the known-safe allowlist,
-     * preventing injection of arbitrary strings into log entries.
+     * Reads the request body with a hard ceiling. A {@code Content-Length} header is not
+     * trusted on its own, so the read itself stops at the limit.
      */
-    private static List<String> buildSafeAnnotationList(String csv) {
-        if (StringUtils.isBlank(csv)) return List.of();
-        List<String> result = new ArrayList<>();
-        for (String token : csv.split(",")) {
-            String trimmed = token.trim().toLowerCase();
-            if (ALLOWED_ANNOTATION_TYPES.contains(trimmed)) {
-                result.add(trimmed);
+    private static String readBody(HttpServletRequest request) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        char[] buffer = new char[8192];
+        int total = 0;
+        try (BufferedReader reader = request.getReader()) {
+            int read;
+            while ((read = reader.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_BODY_BYTES) {
+                    throw new IllegalStateException("Request body exceeds the permitted size");
+                }
+                sb.append(buffer, 0, read);
             }
         }
-        return result;
+        return sb.toString();
     }
 
-    private static void sendJsonError(HttpServletResponse response, String message) throws IOException {
-        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+    private ObjectNode error(String message) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("success", false);
+        node.put("error", StringUtils.defaultIfBlank(message, "The request could not be completed."));
+        return node;
+    }
+
+    private String json(HttpServletResponse response, int status, ObjectNode payload) throws IOException {
+        response.setStatus(status);
         response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-        try (PrintWriter w = response.getWriter()) {
-            // message is a hard-coded string from this class, never user input
-            w.write("{\"success\":false,\"error\":\"" + message + "\"}");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        try (PrintWriter writer = response.getWriter()) {
+            writer.write(objectMapper.writeValueAsString(payload));
         }
+        return NONE;
     }
 }

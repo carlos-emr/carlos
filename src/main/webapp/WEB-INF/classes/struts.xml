@@ -59,10 +59,8 @@
             /form/createcustomedpdf is the extensionless prescription PDF servlet
             (FrmCustomedPDFServlet, web.xml); the Rx print and fax flows POST to it,
             and without this exclusion Struts claims the request and 404s before the
-            servlet runs, breaking prescription faxing.
-            .mjs and /webjars/ are excluded so PDF.js ES modules served from WebJars
-            reach the container's static-resource handling instead of Struts. -->
-    <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/(eform/efmformrtl_templates|library/eforms/signatureControl)\.jsp$).*\.(css|js|mjs|json|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^(/[^/]+)?/(patientlistbyappt|form/createcustomedpdf|imageRenderingServlet|contentRenderingServlet(?:/.*)?|EFormSignatureViewForPdfGenerationServlet|EFormImageViewForPdfGenerationServlet|EFormApCacheForPdfGenerationServlet|EFormViewForPdfGenerationServlet|eformViewForPdfGenerationServlet)$|^/csrfguard$|^/webjars/.*" />
+            servlet runs, breaking prescription faxing. -->
+    <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/(eform/efmformrtl_templates|library/eforms/signatureControl)\.jsp$).*\.(css|js|json|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^(/[^/]+)?/(patientlistbyappt|form/createcustomedpdf|imageRenderingServlet|contentRenderingServlet(?:/.*)?|EFormSignatureViewForPdfGenerationServlet|EFormImageViewForPdfGenerationServlet|EFormApCacheForPdfGenerationServlet|EFormViewForPdfGenerationServlet|eformViewForPdfGenerationServlet)$|^/csrfguard$" />
     <constant name="struts.custom.i18n.resources" value="oscarResources,MessageResources_mcedt"/>
     <constant name="struts.multipart.maxSize" value="52428800" />
     <!-- Use stream-based multipart parser (reads from getInputStream()) instead of the default
