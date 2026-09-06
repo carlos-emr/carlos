@@ -829,8 +829,9 @@ class TestVerifyRoleChecks(unittest.TestCase):
     #: (knob, failing value, a phrase from the problem it must report).
     #: `test_clean_target_passes_every_hard_check` asserts only that
     #: `bad` is empty, so deleting a check shortens `ok` and is
-    #: invisible there -- these four had no other test and each was
-    #: deletable with a green suite.
+    #: invisible there -- every check listed here had no other test and
+    #: each was deletable with a green suite. No count in this comment:
+    #: the last one said "four" while the tuple held five.
     HARD_CHECKS = (
         ("spelling_drift", "3", "different spelling"),
         ("facility", "0", "no enabled Facility"),

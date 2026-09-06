@@ -517,7 +517,8 @@ charset analysis only. Rollback = restore the pre-import snapshot (already a
 - **App-level smoke**: `scripts/o19-migrated-smoke-playwright-checks.js`
   (`npm run test:o19-migrated-smoke`), run against the migrated database under a
   full app deploy — the strongest "the clinic can work tomorrow" signal, and the
-  only check here that opens the application at all. Unlike the `ui-tests`
+  only check here that RENDERS the application (the Login item below opens it
+  too, but stops at the first screen). Unlike the `ui-tests`
   skills and the other `scripts/*-playwright-checks.js`, it hardcodes no
   fixtures: a migrated database has none of the CARLOS dev seed (P0 refuses a
   target holding extra logins and the seed script then deletes the seeded
@@ -525,10 +526,13 @@ charset analysis only. Rollback = restore the pre-import snapshot (already a
   the most notes, that patient's newest note and its signing provider, and their
   appointment, prescription and lab from the schema itself.
   `scripts/migration/o19/rehearsal/ui-smoke.sh` drives it end to end.
-  It found three defects every SQL gate passed: a NULL in a column CARLOS maps
+  It found four defects every SQL gate passed: a NULL in a column CARLOS maps
   as a Java primitive (HTTP 500 on the schedule and on every chart's notes
   pane), the program row the import writes leaving two boxed `Boolean` columns
-  NULL, and encounter-form menu entries naming forms CARLOS removed.
+  NULL, encounter-form menu entries naming forms CARLOS removed, and the
+  program-domain membership `isClientInProgramDomain` reads, without which no
+  chart opened at all. Each is a faithful copy that CARLOS then cannot read,
+  which is exactly the class no SQL gate can see.
 - **Login**: sample migrated provider logs in with O19 credentials, hash upgrades
   to `{bcrypt}`, forced reset flow completes.
 

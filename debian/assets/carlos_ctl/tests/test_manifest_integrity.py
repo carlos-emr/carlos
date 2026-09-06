@@ -471,11 +471,19 @@ class TestPropsManifest(unittest.TestCase):
         self.assertIn("billregion", o19map_props.O19_DEFAULTS)
 
     #: Keys config.py writes where the deployment's value is only a
-    #: DEFAULT and the clinic's own (translated) value legitimately wins.
-    #: Every one is a document path: `translate_docpath` keeps the
-    #: clinic's own subdirectory names under the CARLOS document root,
-    #: and that is where the documents phase actually restored the files
-    #: -- the deb's generic default would point at an empty directory.
+    #: DEFAULT and the clinic's own TRANSLATED value legitimately wins.
+    #: Every entry is a `translate` key -- that is the invariant, not
+    #: "document path", and the two are not the same set:
+    #:
+    #:   * the directories go through `translate_docpath`, which keeps
+    #:     the clinic's own subdirectory names under the CARLOS document
+    #:     root. That is where the documents phase actually restored the
+    #:     files; the deb's generic default points at an empty one.
+    #:   * `drugref_url` goes through the `drugref` translator instead.
+    #:     It is not a path at all: a clinic pointing at its own DrugRef
+    #:     service keeps that endpoint, and the deb's default is only
+    #:     what a clinic without one gets.
+    #:
     #: Anything NOT listed here that config.py writes must be
     #: deploy-owned.
     DEPLOY_DEFAULTS_THE_CLINIC_REFINES = {

@@ -70,6 +70,10 @@ const mysqlHost = process.env.MYSQL_HOST || '';
 const mysqlSocket = process.env.MYSQL_SOCKET || '';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const archiveSchema = process.env.O19_ARCHIVE_SCHEMA || 'o19_archive';
+// A scratch Tomcat on localhost serves a self-signed certificate and
+// there is nothing to validate against; anywhere else, skipping
+// validation would mean typing migrated passwords into whatever answered.
+const allowSelfSignedCert = isLoopbackHost(baseUrl.hostname.toLowerCase());
 
 // The reset password the script drives the forced-reset form with. It has to
 // satisfy the CARLOS password policy (length, mixed case, digit, symbol); the
@@ -118,14 +122,36 @@ function validateBaseUrl(rawBaseUrl) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
+  // Playwright sends a URL's userinfo as Basic Auth and repeats the whole
+  // URL in navigation diagnostics, so a credential embedded here would be
+  // both transmitted and logged.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not carry embedded credentials');
+  }
+
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!isLoopbackHost(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  // Cleartext only to loopback. This script types the MIGRATED passwords
+  // of a real clinic's administrator and clinician into a login form; on
+  // anything but the local host that is a credential on the wire, and
+  // opting into a non-local target is not opting into that.
+  if (parsed.protocol === 'http:' && !isLoopbackHost(host)) {
+    throw new Error(`BASE_URL ${host} is not loopback, so it must use https: this smoke sends migrated account passwords`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+// Loopback in the strict sense -- the only place a password may travel in
+// cleartext, and the only place a self-signed certificate is acceptable.
+// `host.docker.internal` and a container alias are NOT loopback: they
+// resolve to another host on a shared network.
+function isLoopbackHost(host) {
+  return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)
+    || /^127\./.test(host);
 }
 
 function appUrl(appPath, query = null) {
@@ -167,7 +193,14 @@ function createMysqlDefaultsFile() {
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-o19-smoke-mysql-'));
   const file = path.join(dir, 'my.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+  try {
+    fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+  } catch (error) {
+    // Run-level cleanup is not installed until this returns, so a partial
+    // password-bearing file would otherwise be left in the temp directory.
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
   return { dir, file };
 }
 
@@ -181,6 +214,30 @@ function cleanupMysqlDefaultsFile() {
     console.error(`Failed to remove temporary MariaDB option file: ${error.message}`);
   }
   mysqlDefaults = null;
+}
+
+// The HTTP target is guarded in `validateBaseUrl`; this is the same
+// question asked of the DATABASE connection, which is where the damage
+// would actually be done. This script REWRITES the password and
+// forced-reset flag of two real accounts, so pointing MYSQL_HOST at a
+// shared or production server rewrites credentials there. A socket or an
+// unset host is local by construction; a named host is not, and opting
+// into one has to be deliberate. `assertMigratedTarget` then asks the
+// second question -- whether this schema is a migration at all.
+function assertLocalDatabaseTarget() {
+  if (!mysqlHost || mysqlSocket) {
+    return;
+  }
+  const host = mysqlHost.toLowerCase().replace(/^\[|\]$/g, '');
+  if (isLoopbackHost(host)) {
+    return;
+  }
+  if (process.env.ALLOW_NON_LOCAL_MYSQL_HOST === 'true') {
+    console.log(`WARNING: rewriting security rows on non-local database host ${host} (ALLOW_NON_LOCAL_MYSQL_HOST=true)`);
+    return;
+  }
+  throw new Error(`Refusing to rewrite security rows on non-local database host ${host}; `
+    + 'set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a rehearsal copy you own');
 }
 
 function mysqlArgs() {
@@ -246,9 +303,18 @@ function readAdminCredentials() {
     `No break-glass credentials at ${credentialsPath}: this script only runs against a database `
     + 'produced by carlos-ctl import-o19. Set O19_STATE_DIR or O19_ADMIN_CREDENTIALS.');
   const text = fs.readFileSync(credentialsPath, 'utf8');
+  // A line scan rather than a built regex. The three field names are
+  // literals in this file, so the RegExp was never attacker-shaped -- but
+  // it read as one to the scanners, and scanning the lines is both
+  // clearer and exactly as strict.
   const field = (name) => {
-    const match = text.match(new RegExp(`^${name}:\\s*(.+)$`, 'm'));
-    return match ? match[1].trim() : '';
+    const prefix = `${name}:`;
+    for (const line of text.split(/\r?\n/)) {
+      if (line.startsWith(prefix)) {
+        return line.slice(prefix.length).trim();
+      }
+    }
+    return '';
   };
   const credentials = { user: field('user'), password: field('password'), pin: field('pin') };
   assert(credentials.user && credentials.password && credentials.pin,
@@ -411,6 +477,31 @@ function rememberForRestore(userName) {
   restorePoints.push(securityRow(userName));
 }
 
+// Ctrl-C and SIGTERM run neither `finally` nor the top-level catch, so
+// without these the accounts stay on the smoke password and the clinician
+// stays forced onto the copied hash -- on a database holding a copy of a
+// clinic's records. `restoreSecurityRows` and `cleanupMysqlDefaultsFile`
+// are both SYNCHRONOUS (execFileSync, fs.rmSync), so a handler can finish
+// the work before exiting; both are idempotent, so the `finally` path
+// running afterwards is harmless.
+function installSignalHandlers() {
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(signal, () => {
+      console.log(`\nReceived ${signal}: restoring the security rows before exiting`);
+      try {
+        restoreSecurityRows();
+      } catch (error) {
+        console.error(`Restore failed: ${error.stack || error}`);
+      } finally {
+        cleanupMysqlDefaultsFile();
+      }
+      // 128 + signal number, the convention a shell reports for a
+      // signalled child
+      process.exit(signal === 'SIGINT' ? 130 : 143);
+    });
+  }
+}
+
 function restoreSecurityRows() {
   for (const point of restorePoints) {
     const passwordUpdateDate = point.passwordUpdateDate === 'NULL'
@@ -538,15 +629,23 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 // --- checks ----------------------------------------------------------------
 
 (async () => {
+  assertLocalDatabaseTarget();
   mysqlDefaults = createMysqlDefaultsFile();
   const credentials = readAdminCredentials();
   assertMigratedTarget(credentials.user);
   const fixtures = discoverFixtures(credentials.user);
 
+  // `demographic_no` is a PHI-CORRELATING operational identifier, not
+  // clinical content: it is here because a failed smoke is unreproducible
+  // without knowing which row it picked, and it is not paired with a
+  // name, a diagnosis or a note.
   console.log(`Migrated schema ${mysqlDatabase}: break-glass ${credentials.user}, `
     + `patient ${fixtures.patient.demographicNo} with ${fixtures.patient.noteCount} note(s), `
     + `clinician ${fixtures.clinician ? fixtures.clinician.userName : 'none'}`);
 
+  // Installed BEFORE the first row is remembered, so there is no window in
+  // which a rewrite has happened and an interrupt would not undo it.
+  installSignalHandlers();
   rememberForRestore(credentials.user);
   if (fixtures.clinician) {
     rememberForRestore(fixtures.clinician.userName);
@@ -561,7 +660,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 
   try {
     await record('the break-glass administrator can log in through the forced password reset', async () => {
-      const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+      const context = await browser.newContext({ ignoreHTTPSErrors: allowSelfSignedCert, viewport: { width: 1440, height: 1100 } });
       adminPage = await loginThroughForcedReset(
         context, credentials.user, credentials.password, credentials.pin, 'admin schedule');
       const row = securityRow(credentials.user);
@@ -588,7 +687,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
           `UPDATE security SET password = ${sqlString(adminRow.password)}, forcePasswordReset = 1`
           + ` WHERE user_name = ${sqlString(fixtures.clinician.userName)}`);
 
-        const context = await browser.newContext({ ignoreHTTPSErrors: true });
+        const context = await browser.newContext({ ignoreHTTPSErrors: allowSelfSignedCert });
         const page = await loginThroughForcedReset(
           context, fixtures.clinician.userName, smokePassword, fixtures.clinician.pin,
           'clinician schedule', smokePasswordSecond);
@@ -617,7 +716,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       assert(!/CARLOS Error/i.test(body), 'demographic search returned an error page');
       const text = await bodyText(page);
       assert(text.toUpperCase().includes(fixtures.patient.lastName.toUpperCase()),
-        `search for ${fixtures.patient.lastName} did not list the migrated patient`);
+        'demographic search did not list the migrated patient (surname withheld: PHI)');
       await screenshot(page, 'o19-smoke-search');
       await page.close();
     });
@@ -648,10 +747,11 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         .catch(() => {});
       await scanBody(page, 'echart');
       const text = await bodyText(page);
-      assert(text.includes(excerpt), `the e-chart did not render the newest migrated note ("${excerpt}")`);
+      assert(text.includes(excerpt),
+        'the e-chart did not render the newest migrated note (text withheld: PHI)');
       if (fixtures.provider && fixtures.provider.lastName) {
         assert(text.toUpperCase().includes(fixtures.provider.lastName.toUpperCase()),
-          `the e-chart did not name the note's signing provider (${fixtures.provider.lastName})`);
+          "the e-chart did not name the note's signing provider (name withheld)");
       }
       await screenshot(page, 'o19-smoke-echart');
       await page.close();
@@ -683,8 +783,8 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         await scanBody(page, 'appointment history');
         const text = await bodyText(page);
         assert(text.includes(fixtures.appointment.date),
-          `the appointment history did not show the migrated appointment of `
-          + `${fixtures.appointment.date}`);
+          'the appointment history did not show the migrated appointment '
+          + '(date withheld: PHI)');
         await screenshot(page, 'o19-smoke-appointment-history');
         await page.close();
       });
@@ -705,7 +805,8 @@ async function loginThroughForcedReset(context, user, password, pin, label,
           await scanBody(page, 'schedule day');
           const text = await bodyText(page);
           assert(text.toUpperCase().includes(fixtures.patient.lastName.toUpperCase()),
-            `the schedule for ${fixtures.appointment.date} did not show the migrated appointment`);
+            'the day schedule did not show the migrated appointment '
+            + '(patient and date withheld: PHI)');
           await screenshot(page, 'o19-smoke-schedule-day');
           await page.close();
         });
@@ -728,7 +829,8 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         const drugName = (fixtures.drug.brandName || fixtures.drug.genericName).split(/[\s(]/)[0];
         assert(drugName.length > 0, 'the migrated prescription has neither a brand nor a generic name');
         assert(text.toUpperCase().includes(drugName.toUpperCase()),
-          `the Rx module did not list the migrated prescription (${drugName})`);
+          'the Rx module did not list the migrated prescription '
+          + '(drug withheld: PHI)');
         await screenshot(page, 'o19-smoke-rx');
         await page.close();
       });
@@ -751,9 +853,10 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         const marker = fixtures.lab.discipline || fixtures.lab.accession;
         assert(marker.length > 0, 'the migrated lab carries neither a discipline nor an accession number');
         assert(text.includes(marker),
-          `the patient's lab list did not show the migrated lab (${marker})`);
+          "the patient's lab list did not show the migrated lab "
+          + '(discipline withheld: PHI)');
         assert(Number(fixtures.lab.routed) > 0, 'no lab is routed to this patient');
-        console.log(`  ${fixtures.lab.routed} lab(s) routed to the patient, list shows ${marker}`);
+        console.log(`  ${fixtures.lab.routed} lab(s) routed to the patient, and the list shows the expected marker`);
         await screenshot(page, 'o19-smoke-labs');
         await page.close();
       });

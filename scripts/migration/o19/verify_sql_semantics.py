@@ -2167,6 +2167,35 @@ PRIMITIVE_TYPE_FIXTURES = [
 ]
 
 
+def _uncovered_primitive_types() -> List[str]:
+    """Types `primitive_fallback` answers for that the fixture list does
+    not exercise.
+
+    The scenario below drives a synthetic table, so nothing about it
+    tracks the manifest on its own. This is the tracking: the function
+    under test decides by SQL TYPE, and every type it names a literal
+    for has to appear here, or the "the substituted literal is right for
+    every type" heading is claiming more than it measured."""
+    covered = {decl.split("(")[0].strip().lower()
+               for _n, decl, _v in PRIMITIVE_TYPE_FIXTURES}
+    # `timestamp` and `enum` are deliberate returns of None -- the
+    # timestamp relaxation and the enum CASE own those -- so they are
+    # not part of this contract.
+    #
+    # `integer`, `numeric` and `real` are SQL-standard synonyms that
+    # NUMERIC_TYPES lists for completeness but that no introspected
+    # column can ever carry: `introspect_columns` reads
+    # information_schema.DATA_TYPE, which normalises them. MEASURED on
+    # MariaDB 10.11 -- INTEGER reports `int`, NUMERIC(10,2) reports
+    # `decimal`, REAL reports `double` -- so a fixture column declared
+    # with one would introspect as the type already covered and prove
+    # nothing.
+    unreachable = {"timestamp", "enum", "integer", "numeric", "real"}
+    known = (set(o19etl._NOT_NULL_ZERO)
+             | set(o19etl.NUMERIC_TYPES)) - unreachable
+    return sorted(known - covered)
+
+
 def check_primitive_fallback_types(client: Client, src: str,
                                    dst: str) -> List[str]:
     """The substituted literal must be right for EVERY type, on the rows
@@ -2193,6 +2222,15 @@ def check_primitive_fallback_types(client: Client, src: str,
 
 def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
     failures: List[str] = []
+    uncovered = _uncovered_primitive_types()
+    print("    {0:<44} {1}".format(
+        "every type primitive_fallback answers for",
+        "ok" if not uncovered else "UNCOVERED: " + ", ".join(uncovered)))
+    if uncovered:
+        failures.append(
+            "primitive_fallback names a literal for {0}, which "
+            "PRIMITIVE_TYPE_FIXTURES does not exercise".format(
+                ", ".join(uncovered)))
     columns = ", ".join("`{0}` {1} NULL".format(name, decl)
                         for name, decl, _v in PRIMITIVE_TYPE_FIXTURES)
     names = [name for name, _d, _v in PRIMITIVE_TYPE_FIXTURES]
@@ -2212,8 +2250,14 @@ def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
         return client.rows(sql, dst)
 
     dst_cols = o19etl.introspect_columns(query, dst)["t"]
-    # every column is primitive-mapped for this fixture: that is the
-    # population the wrapper is added for
+    # Every column is primitive-mapped for this fixture, set here rather
+    # than read from a manifest. That is deliberate and it bounds what
+    # this scenario proves: it covers the TYPE SPACE of
+    # `primitive_fallback`, not the set of columns any shipped profile
+    # marks primitive. A type absent from PRIMITIVE_TYPE_FIXTURES is
+    # UNCOVERED here however many manifest columns use it -- which is
+    # why `_uncovered_primitive_types` fails the run rather than
+    # leaving the gap to be noticed later.
     for name in names:
         dst_cols[name]["primitive"] = True
     entry = {"class": "copy", "cols": ["id"] + names}

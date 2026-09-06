@@ -1437,12 +1437,23 @@ class TestTheManifestProfileMatchesTheHost(unittest.TestCase):
                                   ("bc",)):
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
-                # it stops later, on the next gate this stub cannot
-                # satisfy; what matters is that it is not one of THESE
-                with self.assertRaises(BaseException):
+                # It stops later, on the next gate this stub cannot
+                # satisfy; what matters is that it is not one of THESE.
+                # The exception is CAPTURED rather than merely allowed:
+                # `assertRaises(BaseException)` alone would also pass if
+                # run_p0 died before reaching the province gates at all,
+                # and then the two assertNotIns below would be vacuous.
+                with self.assertRaises(BaseException) as caught:
                     o19import.run_p0(self._ctx("bc"))
             self.assertNotIn("curated", err.getvalue())
             self.assertNotIn("rehearsal", err.getvalue())
+            # run_p0_capacity is the next gate, and this stub context
+            # carries no staged dump for it to size: a KeyError on
+            # ctx["dump"] is what reaching it looks like. Pinning the
+            # gate we stop AT is what makes "past both province gates"
+            # a measurement rather than an absence.
+            self.assertIsInstance(caught.exception, KeyError)
+            self.assertEqual(caught.exception.args, ("dump",))
 
     def test_a_carried_but_unrehearsed_profile_still_refuses(self):
         """Carrying a province's rulings is not the same as supporting

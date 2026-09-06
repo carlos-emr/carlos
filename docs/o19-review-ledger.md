@@ -57,9 +57,11 @@ wrong on nearly half of what it was given:
 | F83 | low | `escape_property_key` double-escaped a leading space | `382e7ec1` |
 
 F28 is why this matters. A world-readable plaintext copy of a clinic's entire
-EMR is the worst thing in the 89, and the pass whose job was to catch
-overclaims waved it through. **M25's re-open of all 17 was therefore not
-caution — it was the step that caught it**, and `382e7ec1` ("five findings two
+EMR is the most serious of the eight the adversarial pass dismissed — not of
+the 89, whose severity column puts one finding at critical and eighteen at
+high — and the pass whose job was to catch overclaims waved it through.
+**M25's re-open of all 17 was therefore not caution — it was the step that
+caught it**, and `382e7ec1` ("five findings two
 refuters dismissed, and the evidence did not") is its record. The 24 findings
 that never received two verdicts were triaged by hand in M24-c on the same
 rule: valid unless demonstrated otherwise.
