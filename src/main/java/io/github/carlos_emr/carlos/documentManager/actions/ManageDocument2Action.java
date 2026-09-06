@@ -947,6 +947,12 @@ public class ManageDocument2Action extends ActionSupport {
         int dpi = resolveRequestedDpi();
         File outfile = hasCacheVersion2(d, pageNum, dpi);
 
+        // Content type must be set BEFORE the body: setResponse writes the bytes and closes
+        // the output stream, so a header set afterwards is silently dropped and the image was
+        // served with no Content-Type at all. Browsers sniffed the PNG magic bytes, which is
+        // why this went unnoticed, but a stricter client or proxy has nothing to go on.
+        response.setContentType("image/png");
+
         if (outfile != null) {
             setResponse(response, outfile);
         } else {
@@ -954,7 +960,9 @@ public class ManageDocument2Action extends ActionSupport {
             setResponse(response, pdfBytes);
         }
 
-        response.setContentType("image/png");
+        // Deliberately left after the write, where it has no effect. These bytes are consumed
+        // by <img> tags in showDocument and the annotation viewer; newly activating an
+        // "attachment" disposition would turn an inline page image into a download prompt.
         response.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizeHeaderValue(d.getDocfilename()) + "\"");
     }
 

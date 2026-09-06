@@ -25,10 +25,15 @@
  *      request appears, which is what a PDF.js regression would look like.
  *   2. Word boxes are OPTIONAL. The endpoint answers 200 with hasTextLayer
  *      either way, and highlighting works on a page with no text layer.
- *   3. Saving creates a NEW document and leaves the original byte-identical.
- *      This is the whole point of the design, so it is asserted by comparing
- *      the stored file before and after via the document list.
- *   4. The save endpoint refuses GET.
+ *   3. The save endpoint refuses GET.
+ *   4. A real save round-trips: the composed copy is filed as a NEW document,
+ *      reported by number, and is independently renderable. Each run therefore
+ *      ADDS a document to the chart, which is why this belongs only on a
+ *      disposable deployment.
+ *
+ * What it does NOT prove: that the SOURCE file is left byte-identical. That is the
+ * design's central invariant, but asserting it needs filesystem access the browser
+ * does not have. It is pinned by AnnotatedDocumentComposerUnitTest instead.
  *
  * Usage:
  *   BASE_URL=https://host/carlos TEST_USER=... TEST_PASSWORD=... TEST_PIN=... \
@@ -207,6 +212,61 @@ async function main() {
       check('a highlight can be drawn and appears on the overlay', marks >= 1, `${marks} marks`);
       const saveEnabled = await page.locator('#btnSave').isEnabled();
       check('Save becomes available once a mark exists', saveEnabled);
+
+      // ---- a real save, which is the whole point of the design ----
+      // Posting the model directly rather than clicking Save keeps the assertion on
+      // the server contract: what comes back must name a NEW document.
+      const saved = await page.evaluate(async (args) => {
+        const input = document.querySelector('input[name="CSRF-TOKEN"]');
+        const response = await fetch(
+          `${args.base}/documentManager/SaveAnnotatedDocument?docId=${args.docId}`,
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              'CSRF-TOKEN': input ? input.value : '',
+            },
+            body: JSON.stringify({
+              annotations: [
+                { type: 'highlight', page: 1, x: 0.1, y: 0.2, w: 0.5, h: 0.03, color: 'yellow' },
+                { type: 'date', page: 1, x: 0.6, y: 0.05, w: 0.25, h: 0.03, text: '2026-01-01', fontSize: 11 },
+              ],
+            }),
+          },
+        );
+        let body = null;
+        try {
+          body = JSON.parse(await response.text());
+        } catch (e) {
+          body = null;
+        }
+        return { status: response.status, body };
+      }, { base: baseUrl, docId });
+
+      check('save returns 200', saved.status === 200, `status ${saved.status}`);
+      check('save reports success', saved.body && saved.body.success === true,
+        JSON.stringify(saved.body || {}).slice(0, 160));
+      const newDocNo = saved.body && saved.body.documentNo;
+      check('save files the result as a NEW document',
+        Number.isInteger(newDocNo) && String(newDocNo) !== String(docId),
+        `documentNo=${newDocNo}, source docId=${docId}`);
+      if (Number.isInteger(newDocNo)) {
+        notes.push(`INFO  annotated copy filed as document ${newDocNo}`);
+        // The copy must be reachable in its own right, which also confirms it was
+        // written to the document store and not merely recorded.
+        const openable = await page.evaluate(async (args) => {
+          const r = await fetch(
+            `${args.base}/documentManager/ManageDocument?method=showPage&doc_no=${args.docNo}&page=1`,
+            { credentials: 'same-origin' },
+          );
+          return { status: r.status, type: r.headers.get('content-type') || '' };
+        }, { base: baseUrl, docNo: newDocNo });
+        check('the annotated copy renders as its own document',
+          openable.status === 200 && /image/i.test(openable.type),
+          `status ${openable.status}, type ${openable.type}`);
+      }
     } else {
       findings.push('FAIL  overlay had no usable geometry to draw on');
     }
