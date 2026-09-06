@@ -504,7 +504,12 @@ class TestVerdicts(unittest.TestCase):
         one. Written as an assertion rather than a string test so it is
         the same check when a second profile ships, and so a profile
         that does not match the host cannot be dropped in unnoticed."""
-        other = "bc" if pf.O19_PROFILE != "bc" else "on"
+        # a province this build carries NO profile for: 'bc' is a
+        # shipped profile now, so using it here would test bind(), not
+        # the gate
+        other = "ab"
+        self.assertNotIn(other, pf.PROFILES)
+        self.assertNotEqual(other, pf.O19_PROFILE)
         report = pf.run_checks(FakeDb(base_tables()),
                                properties=clean_props(), province=other)
         self.assertEqual(report["verdict"], "no-go")
@@ -521,25 +526,109 @@ class TestVerdicts(unittest.TestCase):
                          {f["id"] for f in report["findings"]})
 
     def test_the_gate_follows_the_profile_not_a_hardcoded_province(self):
-        """With a second profile shipped, the gate has to accept THAT
-        province and refuse the one it was written against. Patched
-        rather than waited for: a gate that only ever sees 'on' cannot
-        be told apart from `province != "on"`."""
-        original = pf.O19_PROFILE
-        pf.O19_PROFILE = "bc"
+        """EVERY shipped profile passes its own gate, and a province with
+        no profile is refused.
+
+        Two failures hide behind one another here. A gate written as
+        `province != "on"` refuses a BC host outright. A run_checks that
+        binds but does not gate assesses an UNCARRIED province against
+        whichever profile happened to be loaded -- silently, since each
+        ruling is still a ruling. Both directions are checked against
+        the profiles the package actually ships, not a patched
+        constant."""
+        default = pf._DEFAULT_PROFILE["O19_PROFILE"]
+        carried = sorted({default} | set(pf.PROFILES))
+        self.assertGreater(len(carried), 1, "only one profile shipped")
+        original_supported = pf.SUPPORTED_PROVINCES
         try:
-            accepted = pf.run_checks(FakeDb(base_tables()),
-                                     properties=clean_props(),
-                                     province="bc")
+            # every carried province is treated as supported here: this
+            # test is about the PROFILE gate. The support gate, which
+            # refuses a carried-but-unrehearsed province, has its own.
+            pf.SUPPORTED_PROVINCES = tuple(carried)
+            for province in carried:
+                report = pf.run_checks(FakeDb(base_tables()),
+                                       properties=clean_props(),
+                                       province=province)
+                self.assertNotIn(
+                    "province", {f["id"] for f in report["findings"]},
+                    province)
+                # the gate passed because the DATA moved, not because
+                # the comparison was skipped
+                self.assertEqual(pf.O19_PROFILE, province)
             refused = pf.run_checks(FakeDb(base_tables()),
                                     properties=clean_props(),
-                                    province="on")
+                                    province="ab")
         finally:
-            pf.O19_PROFILE = original
-        self.assertNotIn("province",
-                         {f["id"] for f in accepted["findings"]})
+            pf.SUPPORTED_PROVINCES = original_supported
+            pf.bind(default)
         self.assertIn("province", {f["id"] for f in refused["findings"]})
         self.assertEqual(refused["verdict"], "no-go")
+
+    def test_a_carried_but_unrehearsed_province_is_a_no_go(self):
+        """A shipped profile is not a supported migration.
+
+        The profile gate above passes for every province the package
+        carries, which is correct -- the rulings really are that
+        province's. It says nothing about whether they have ever moved a
+        clinic database, and an assessment that answered `go` on that
+        basis would send an operator into an unrehearsed import. The two
+        refusals are deliberately distinguishable: one says the wrong
+        manifest is installed, this one says the right manifest has not
+        been rehearsed."""
+        unsupported = [p for p in sorted(pf.PROFILES)
+                       if p not in pf.SUPPORTED_PROVINCES]
+        if not unsupported:
+            self.skipTest("every carried profile is supported")
+        default = pf._DEFAULT_PROFILE["O19_PROFILE"]
+        try:
+            report = pf.run_checks(FakeDb(base_tables()),
+                                   properties=clean_props(),
+                                   province=unsupported[0])
+        finally:
+            pf.bind(default)
+        self.assertEqual(report["verdict"], "no-go")
+        blocker = next(f for f in report["findings"]
+                       if f["id"] == "province")
+        self.assertIn("rehearsal", blocker["title"])
+        self.assertIn(unsupported[0], blocker["title"])
+        # and it is NOT the mismatched-manifest refusal
+        self.assertNotIn("curated", blocker["title"])
+
+    def test_binding_a_second_profile_changes_the_rulings(self):
+        """bind() has to move the data, not just the profile name.
+
+        Everything above would still pass if PROFILES carried a copy of
+        the default profile under another province's key -- the gate
+        would agree, and every ruling would be Ontario's. This is the
+        check that the second profile is a second CURATION."""
+        default = pf._DEFAULT_PROFILE["O19_PROFILE"]
+        self.assertTrue(pf.PROFILES, "no second profile shipped")
+        for province in sorted(pf.PROFILES):
+            try:
+                pf.bind(province)
+                self.assertEqual(pf.O19_PROFILE, province)
+                self.assertNotEqual(
+                    pf.KNOWN_TABLES, pf._DEFAULT_PROFILE["KNOWN_TABLES"],
+                    "the {0!r} profile classifies exactly as {1!r} does"
+                    .format(province, default))
+                self.assertNotEqual(
+                    pf.SCHEMA_MAP_VERSION,
+                    pf._DEFAULT_PROFILE["SCHEMA_MAP_VERSION"])
+            finally:
+                pf.bind(default)
+        # and back: bind() is not a one-way switch, or a process that
+        # assesses two hosts would carry the first one's rulings
+        self.assertEqual(pf.O19_PROFILE, default)
+        self.assertEqual(pf.KNOWN_TABLES,
+                         pf._DEFAULT_PROFILE["KNOWN_TABLES"])
+
+    def test_a_province_with_no_profile_leaves_the_data_alone(self):
+        """bind() of an uncarried province must not half-apply anything:
+        the gate that refuses the host reads these same names."""
+        default = pf._DEFAULT_PROFILE["O19_PROFILE"]
+        before = dict(pf.KNOWN_TABLES)
+        self.assertEqual(pf.bind("ab"), default)
+        self.assertEqual(pf.KNOWN_TABLES, before)
 
 
 class TestAdvisories(unittest.TestCase):

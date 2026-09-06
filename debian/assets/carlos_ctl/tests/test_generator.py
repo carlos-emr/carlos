@@ -1425,5 +1425,97 @@ class TestPrimitiveFieldScan(unittest.TestCase):
             {"thing": ["facilityId"]})
 
 
+class TestOnePackageCarriesEveryProvince(unittest.TestCase):
+
+    """Emission of the second (and further) provincial profiles.
+
+    debconf picks the province at install time from ONE .deb, so the
+    manifest has to carry every profile and the caller selects with
+    bind(). These tests pin the emitted shape: a profile per carried
+    province, the default NOT duplicated inside PROFILES, a snapshot
+    naming exactly the names bind() rebinds, and -- because
+    o19_preflight.py is a 79-column file the lint gate covers -- a
+    refusal rather than an overflowing line."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gen = load_generator()
+        here = GEN.parent
+        cls.ov = cls.gen.load_module(here / "overrides_schema.py")
+        cls.props_ov = cls.gen.load_module(here / "overrides_props.py")
+
+    def tables(self, predicate="`x` IS NOT NULL"):
+        return {"thing": {"class": "copy", "cols": ["x"],
+                          "patient_data": True,
+                          "dropped": {"x": {"b3": True,
+                                            "nondefault": predicate}}}}
+
+    def emit(self, profiles=None, predicate="`x` IS NOT NULL"):
+        return self.gen.emit_preflight_data(
+            self.tables(), self.ov, self.props_ov,
+            {"province": "on", "stock_role_names": ["doctor"]},
+            profiles)
+
+    def test_a_second_province_is_emitted_and_the_default_is_not(self):
+        block = self.emit({
+            "on": {"tables": self.tables(), "stock_role_names": ["doctor"]},
+            "bc": {"tables": self.tables(), "stock_role_names": ["nurse"]},
+        })
+        self.assertIn("PROFILE_BC = {", block)
+        self.assertNotIn("PROFILE_ON = {", block)
+        self.assertIn("PROFILES = {'bc': PROFILE_BC}", block)
+
+    def test_with_no_second_province_profiles_is_empty(self):
+        # bind() still exists and still returns the default, so the
+        # callers need no province-count special case
+        block = self.emit({"on": {"tables": self.tables(),
+                                  "stock_role_names": ["doctor"]}})
+        self.assertIn("PROFILES = {}", block)
+        self.assertIn("def bind(province):", block)
+
+    def test_the_snapshot_names_exactly_what_bind_rebinds(self):
+        """`_DEFAULT_PROFILE` is built from `_PROFILE_NAMES`. A name in
+        PROFILES but missing from that tuple would be bound on the way
+        out and never restored -- the one-way switch the snapshot
+        exists to prevent."""
+        block = self.emit({
+            "on": {"tables": self.tables(), "stock_role_names": ["doctor"]},
+            "bc": {"tables": self.tables(), "stock_role_names": ["nurse"]},
+        })
+        emitted = _names_in_list(block, "_PROFILE_NAMES")
+        self.assertEqual(emitted,
+                         list(self.gen.PREFLIGHT_PROFILE_NAMES))
+        # and every one of them really is written per province
+        for name in emitted:
+            self.assertIn("    {0!r}: ".format(name), block)
+
+    def test_a_line_that_will_not_fit_79_columns_is_refused(self):
+        """The preflight is hand-written at 79 columns and lint covers
+        it, but its data is generated -- so an overflow has to fail
+        HERE, naming the line, not as an E501 on a DO-NOT-EDIT file
+        whose author is the generator."""
+        long_predicate = "`" + "x" * 90 + "` IS NOT NULL"
+        with self.assertRaises(SystemExit) as caught:
+            self.gen.emit_preflight_data(
+                self.tables(long_predicate), self.ov, self.props_ov,
+                {"province": "on", "stock_role_names": []}, None)
+        self.assertIn("79 columns", str(caught.exception))
+
+    def test_the_shipped_schema_manifest_snapshot_matches_too(self):
+        # the same contract on the other generated module, read from
+        # what actually shipped rather than re-emitted
+        emitted = _names_in_list(
+            (ROOT / "debian" / "assets" / "carlos_ctl"
+             / "o19map_schema.py").read_text(encoding="utf-8"),
+            "_PROFILE_NAMES")
+        self.assertEqual(emitted, list(self.gen.PROFILE_NAMES))
+
+
+def _names_in_list(text, name):
+    """The string entries of a generated `NAME = [...]` literal."""
+    body = text.split("\n{0} = [".format(name), 1)[1].split("]", 1)[0]
+    return re.findall(r"'([^']+)'", body)
+
+
 if __name__ == "__main__":
     unittest.main()

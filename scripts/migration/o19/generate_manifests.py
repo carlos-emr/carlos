@@ -1088,15 +1088,46 @@ class TableRules(object):
     a transcription of this class, which is how a helper ends up reading a
     bucket it was never meant to see."""
 
-    def __init__(self, ov):
+    def __init__(self, ov, province: str = "on"):
         self.ov = ov
-        self.merge_keys = dict(ov.CLASS_MERGE)
-        self.reference = set(ov.CLASS_REFERENCE)
-        self.archive_shared = set(getattr(ov, "ARCHIVE_SHARED", ()))
-        self.replace_seed = set(getattr(ov, "REPLACE_SEED", ()))
-        self.archive_patient = set(ov.ARCHIVE_PATIENT)
-        self.archive_other = set(ov.ARCHIVE_OTHER)
-        self.drop = set(ov.DROP)
+        self.province = province
+        # Rulings scoped to ONE province, dropped when generating any
+        # other. A table CARLOS ships only in Ontario is O19-only there
+        # and shared in BC, so the same overlay entry means opposite
+        # things in the two profiles: `formBCAR2007` is archived patient
+        # data against an Ontario schema and an ordinary copy against a
+        # BC one. Without the scope the generator refuses the BC run
+        # (correctly -- an inverted bucket) and there is nowhere to put
+        # the answer.
+        scope = dict(getattr(ov, "PROVINCE_SCOPED", {}))
+        added = dict(getattr(ov, "BY_PROVINCE", {}).get(province, {}))
+        self._scope = scope
+        self._added = added
+
+        def keep(names, bucket=None):
+            """`names` minus the entries scoped to another province, plus
+            the ones BY_PROVINCE adds for this one."""
+            extra = added.get(bucket) or ({} if isinstance(names, dict)
+                                          else set())
+            if isinstance(names, dict):
+                out = {k: v for k, v in names.items()
+                       if scope.get(k, province) == province}
+                out.update(extra)
+                return out
+            return {n for n in names
+                    if scope.get(n, province) == province} | set(extra)
+
+        self._keep = keep
+        self.merge_keys = keep(dict(ov.CLASS_MERGE), "CLASS_MERGE")
+        self.reference = keep(set(ov.CLASS_REFERENCE), "CLASS_REFERENCE")
+        self.archive_shared = keep(
+            set(getattr(ov, "ARCHIVE_SHARED", ())), "ARCHIVE_SHARED")
+        self.replace_seed = keep(
+            set(getattr(ov, "REPLACE_SEED", ())), "REPLACE_SEED")
+        self.archive_patient = keep(set(ov.ARCHIVE_PATIENT),
+                                    "ARCHIVE_PATIENT")
+        self.archive_other = keep(set(ov.ARCHIVE_OTHER), "ARCHIVE_OTHER")
+        self.drop = keep(set(ov.DROP), "DROP")
         # table -> {target: source}
         self.renames = dict(getattr(ov, "RENAMES", {}))
         # table -> {target: expr}
@@ -1105,15 +1136,21 @@ class TableRules(object):
         self.fk_remap = dict(getattr(ov, "FK_REMAP", {}))
         self.b3 = set(ov.B3_COLUMNS)                     # {(table, col)}
         self.b3_exprs = dict(getattr(ov, "B3_NONDEFAULT_EXPRS", {}))
-        self.chunk_tables = set(ov.CHUNK_TABLES)
+        self.chunk_tables = keep(set(ov.CHUNK_TABLES), "CHUNK_TABLES")
         self.charset_scan = dict(ov.CHARSET_SCAN)
         self.merge_exclude = dict(getattr(ov, "MERGE_EXCLUDE", {}))
         self.startup_rows = list(getattr(ov, "STARTUP_CREATED_ROWS", []))
         self.not_renames = dict(getattr(ov, "NOT_RENAMES", {}))
         self.not_renamed_tables = dict(
             getattr(ov, "NOT_RENAMED_TABLES", {}))
-        # (child, col) -> why it is NOT a key into a renumbered parent
-        self.not_fk = dict(getattr(ov, "NOT_FK", {}))
+        # (child, col) -> why it is NOT a key into a renumbered parent.
+        # Keyed by a PAIR, so the province scope is read off the table
+        # half: a ruling about a table only one province has is stale in
+        # the other, and the generator refuses stale entries.
+        self.not_fk = {pair: why
+                       for pair, why in getattr(ov, "NOT_FK", {}).items()
+                       if scope.get(pair[0], province) == province}
+        self.not_fk.update(added.get("NOT_FK") or {})
 
 
 def _shared_table_class(t, carlos, r):
@@ -1579,7 +1616,8 @@ def _classify_o19_only(tables, o19_only, r):
             tables[t] = {"class": "unknown"}
 
 
-def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
+def build_tables(o19: Schema, carlos: Schema, ov,
+                 province: str = "on") -> Dict[str, dict]:
     """Classify every table into the manifest: `copy`, `merge`, `archive`,
     `reference` or `seed`, with its column mapping, chunk key, dropped
     columns and renames.
@@ -1592,7 +1630,7 @@ def build_tables(o19: Schema, carlos: Schema, ov) -> Dict[str, dict]:
     no dropped column, and an unruled rename is a dropped column facing
     an unwritten one. They are ordered cheapest-refusal-first only so the
     maintainer sees the simplest problem first."""
-    r = TableRules(ov)
+    r = TableRules(ov, province)
     shared = sorted(set(o19.tables) & set(carlos.tables))
     o19_only = sorted(set(o19.tables) - set(carlos.tables))
 
@@ -1684,7 +1722,8 @@ def schema_map_version(tables, ov) -> str:
 
 
 def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
-                       o19_commit: str, extras: Optional[Dict] = None) -> str:
+                       o19_commit: str, extras: Optional[Dict] = None,
+                       profiles: Optional[Dict] = None) -> str:
     """Render `o19map_schema.py` in full.
 
     Output is deterministic -- sorted throughout and carrying the O19
@@ -1719,6 +1758,13 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                "in (all REPLACE_SEED)")
     out.append("PRISTINE_TOLERATED_TABLES = "
                + _fmt(list(ov.PRISTINE_TOLERATED_TABLES)) + "\n")
+    out.append("# provinces this build will RUN, not merely carry a"
+               " profile for. A profile becomes\n# supported once a full"
+               " rehearsal of that province has passed P0-P7; until then"
+               "\n# the import and preflight gates refuse the host and say"
+               " why.")
+    out.append("SUPPORTED_PROVINCES = "
+               + _fmt(list(ov.SUPPORTED_PROVINCES)) + "\n")
     out.append("# tables the import cannot run without (o19etl "
                "pre-checks and the roles step)")
     out.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)) + "\n")
@@ -1765,7 +1811,89 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " says (see o19etl.primitive_fallback).")
     out.append("PRIMITIVE_COLUMNS = "
                + _fmt(primitive_columns(copy_tables, carlos, extras)) + "\n")
+    out.append(_profiles_block(ov, extras, profiles))
+    out.append(BIND_SOURCE.replace(
+        "{names}", _fmt(list(PROFILE_NAMES))))
     return "\n".join(out).rstrip("\n") + "\n"
+
+
+#: The names above that are PER-PROVINCE. Everything else in the module
+#: is a curated overlay list that holds for every profile.
+PROFILE_NAMES = ("SCHEMA_MAP_VERSION", "O19_PROFILE", "TABLES",
+                 "CARLOS_COLUMNS", "SEED_ROW_COUNTS", "STOCK_ROLE_NAMES",
+                 "PRIMITIVE_COLUMNS")
+
+#: `bind()`, appended verbatim to the generated module. One package
+#: serves both provinces (debconf picks one at install time from the same
+#: .deb), so the manifest carries both profiles and the caller selects.
+#: Forgetting to call it is SAFE: the module-level names stay the default
+#: profile, and both province gates assert `O19_PROFILE` against the
+#: host's configured province before any work happens, so a BC host
+#: running an unbound manifest is refused rather than mis-migrated.
+BIND_SOURCE = '''
+#: the names above bind() rebinds, and their module-level values captured
+#: BEFORE any bind can run. Without this snapshot bind() would be one-way
+#: -- there would be no way back to the default profile once another was
+#: selected -- and a process that binds twice (the test suite does) would
+#: carry the first selection into the second.
+_PROFILE_NAMES = {names}
+_DEFAULT_PROFILE = dict((n, globals()[n]) for n in _PROFILE_NAMES)
+
+
+def bind(province):
+    """Point this module's per-province names at `province`'s profile.
+
+    Returns the profile name now bound. A province this manifest does not
+    carry leaves the module unchanged -- the caller's own gate refuses
+    it, and refusing is what should happen.
+    """
+    data = PROFILES.get(province)
+    if data is None and province == _DEFAULT_PROFILE['O19_PROFILE']:
+        data = _DEFAULT_PROFILE
+    if data is not None:
+        globals().update(data)
+    return O19_PROFILE
+'''
+
+
+def _profiles_block(ov, extras, profiles) -> str:
+    """`PROFILES`: every province beyond the module-level default."""
+    extras = extras or {}
+    if not profiles:
+        return "PROFILES = {}\n"
+    default = extras.get("province", "on")
+    out = ["# Every province beyond the module-level default, selected by",
+           "# bind(). Same shape as the names above; only what actually",
+           "# differs between provinces is repeated here.",
+           "PROFILES = {"]
+    for province, data in sorted(profiles.items()):
+        if province == default:
+            continue
+        p_tables = data["tables"]
+        copy_tables = sorted(t for t, e in p_tables.items()
+                             if e["class"] in ("copy", "merge"))
+        p_extras = dict(extras, province=province)
+        seeded = {t: data["seed_counts"][t]
+                  for t in sorted(data["seed_counts"])
+                  if t in copy_tables and data["seed_counts"][t] > 0}
+        body = {
+            "SCHEMA_MAP_VERSION": schema_map_version(p_tables, ov),
+            "O19_PROFILE": province,
+            "TABLES": p_tables,
+            "CARLOS_COLUMNS": {t: list(data["carlos"].tables[t])
+                               for t in copy_tables},
+            "SEED_ROW_COUNTS": seeded,
+            "STOCK_ROLE_NAMES": data["stock_role_names"],
+            "PRIMITIVE_COLUMNS": primitive_columns(
+                copy_tables, data["carlos"], p_extras),
+        }
+        out.append("    {0!r}: {{".format(province))
+        for name in PROFILE_NAMES:
+            out.append("        {0!r}: {1},".format(
+                name, _fmt(body[name]).replace("\n", "\n        ")))
+        out.append("    },")
+    out.append("}\n")
+    return "\n".join(out)
 
 
 def primitive_columns(copy_tables: List[str], carlos: Schema,
@@ -1928,15 +2056,56 @@ def emit_props_module(o19_defaults, ov, carlos_defaults=None,
     return "\n".join(out).rstrip("\n") + "\n"
 
 
-def emit_preflight_data(tables, ov, props_ov,
-                        extras: Optional[Dict] = None) -> str:
-    """Render the generated block of `o19_preflight.py` (table classes,
-    patient tables, dropped columns and their emptiness predicates).
+#: The names in the preflight's generated block that are PER-PROVINCE.
+#: Everything else there is a curated overlay list (REQUIRED_TABLES, the
+#: dropped property keys) or derived from a province-neutral source, and
+#: holds for every profile.
+PREFLIGHT_PROFILE_NAMES = ("SCHEMA_MAP_VERSION", "O19_PROFILE",
+                           "PATIENT_DATA_TABLES", "KNOWN_TABLES",
+                           "B3_FLAGGED_COLUMNS", "CHARSET_SCAN",
+                           "STOCK_ROLE_NAMES")
 
-    The preflight ships as one standalone file for the clinic's server,
-    so its manifest data is inlined between markers rather than
-    imported."""
-    extras = extras or {}
+#: `bind()` for the preflight. Emitted INSIDE the generated block because
+#: the preflight ships as ONE standalone file for the clinic's server --
+#: there is no hand-written module beside it to put this in -- and
+#: because the names it rebinds are generated in the same block. Same
+#: contract as the schema manifest's: an unknown province leaves the
+#: module on its default profile and `run_checks`' province gate refuses
+#: the host, which is the safe direction.
+PREFLIGHT_BIND_SOURCE = '''
+
+#: the names above bind() rebinds, and their module-level values captured
+#: BEFORE any bind can run -- so bind() can always return to the default
+#: profile instead of being a one-way switch.
+_PROFILE_NAMES = {names}
+_DEFAULT_PROFILE = dict((n, globals()[n]) for n in _PROFILE_NAMES)
+
+
+def bind(province):
+    """Point this file's per-province names at `province`'s profile.
+
+    Returns the profile name now bound. A province this build does not
+    carry leaves the data unchanged, and the province gate in
+    run_checks() then refuses the host rather than assessing it against
+    another province's rulings.
+    """
+    data = PROFILES.get(province)
+    if data is None and province == _DEFAULT_PROFILE['O19_PROFILE']:
+        data = _DEFAULT_PROFILE
+    if data is not None:
+        globals().update(data)
+    return O19_PROFILE
+
+'''
+
+
+def _preflight_profile(tables, province: str, stock_role_names, ov) -> Dict:
+    """The preflight's per-province data for one profile.
+
+    ONE definition, used for the module-level default and for every
+    `PROFILES` entry alike: a second province derived by a second code
+    path would be a second set of rulings, and the drift would be
+    invisible from the generated file."""
     known = {t: e["class"] for t, e in sorted(tables.items())}
     patient = sorted(t for t, e in tables.items() if e.get("patient_data"))
     b3_cols: Dict[str, Dict[str, str]] = {}
@@ -1949,20 +2118,82 @@ def emit_preflight_data(tables, ov, props_ov,
                     d["nondefault"].replace("s.`", "`")
     charset = {t: e["charset_scan"] for t, e in sorted(tables.items())
                if e.get("charset_scan")}
+    return {
+        "SCHEMA_MAP_VERSION": schema_map_version(tables, ov),
+        "O19_PROFILE": province,
+        "PATIENT_DATA_TABLES": patient,
+        "KNOWN_TABLES": known,
+        "B3_FLAGGED_COLUMNS": b3_cols,
+        "CHARSET_SCAN": charset,
+        "STOCK_ROLE_NAMES": sorted(set(stock_role_names)),
+    }
+
+
+def _preflight_profiles_block(ov, extras, profiles) -> str:
+    """`PROFILES`: every province beyond the module-level default.
+
+    Each profile is a SEPARATE module-level dict rather than one nested
+    literal, because this file is 79 columns wide and a fourth level of
+    indentation pushes the longest B3 predicate past it. The names are
+    generated data like everything else in the block."""
+    extras = extras or {}
+    default = extras.get("province", "on")
+    others = [p for p in sorted(profiles or {}) if p != default]
+    if not others:
+        return "PROFILES = {}"
+    out = ["# Every province beyond the module-level default, selected by",
+           "# bind(). Same names as above; only what differs is repeated."]
+    for province in others:
+        data = profiles[province]
+        body = _preflight_profile(data["tables"], province,
+                                  data["stock_role_names"], ov)
+        out.append("PROFILE_{0} = {{".format(province.upper()))
+        for name in PREFLIGHT_PROFILE_NAMES:
+            width = 75 if name == "B3_FLAGGED_COLUMNS" else None
+            rendered = _fmt(body[name], indent=1, pair_width=width)
+            out.append("    {0!r}: {1},".format(name, rendered))
+        out.append("}")
+        out.append("")
+    out.append("PROFILES = {"
+               + ", ".join("{0!r}: PROFILE_{1}".format(p, p.upper())
+                           for p in others)
+               + "}")
+    return "\n".join(out)
+
+
+def emit_preflight_data(tables, ov, props_ov,
+                        extras: Optional[Dict] = None,
+                        profiles: Optional[Dict] = None) -> str:
+    """Render the generated block of `o19_preflight.py` (table classes,
+    patient tables, dropped columns and their emptiness predicates).
+
+    The preflight ships as one standalone file for the clinic's server,
+    so its manifest data is inlined between markers rather than
+    imported."""
+    extras = extras or {}
+    default = _preflight_profile(tables, extras.get("province", "on"),
+                                 extras.get("stock_role_names", []), ov)
     lines = [MARKER_BEGIN]
     lines.append("SCHEMA_MAP_VERSION = {!r}".format(
-        schema_map_version(tables, ov)))
+        default["SCHEMA_MAP_VERSION"]))
     # the province this data was curated FOR. The check refuses a host
     # configured for another one: every ruling below -- which table is
     # copied, which column is dropped, which row counts as patient data
     # -- was decided against one province's schema, and running it
     # against another would classify silently and wrongly.
-    lines.append("O19_PROFILE = {!r}".format(extras.get("province", "on")))
+    lines.append("O19_PROFILE = {!r}".format(default["O19_PROFILE"]))
+    # provinces this build will RUN, not merely carry a profile for:
+    # a curated profile is reviewable and testable from the day it is
+    # written, but only a full P0-P7 rehearsal makes it supported.
+    lines.append("SUPPORTED_PROVINCES = "
+                 + _fmt(list(ov.SUPPORTED_PROVINCES)))
     lines.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)))
-    lines.append("PATIENT_DATA_TABLES = " + _fmt(patient))
-    lines.append("KNOWN_TABLES = " + _fmt(known))
-    lines.append("B3_FLAGGED_COLUMNS = " + _fmt(b3_cols, pair_width=79))
-    lines.append("CHARSET_SCAN = " + _fmt(charset))
+    lines.append("PATIENT_DATA_TABLES = "
+                 + _fmt(default["PATIENT_DATA_TABLES"]))
+    lines.append("KNOWN_TABLES = " + _fmt(default["KNOWN_TABLES"]))
+    lines.append("B3_FLAGGED_COLUMNS = "
+                 + _fmt(default["B3_FLAGGED_COLUMNS"], pair_width=79))
+    lines.append("CHARSET_SCAN = " + _fmt(default["CHARSET_SCAN"]))
     # DERIVED from the properties overlay, never maintained beside it:
     # the same list prunes the clinic's `property` TABLE, and the
     # hand-written copy had drifted six prefixes behind the file rules —
@@ -1979,12 +2210,24 @@ def emit_preflight_data(tables, ov, props_ov,
     lines.append("DROPPED_PROP_KEYS = " + _fmt(
         sorted(k for k, spec in props_ov.KEYS.items()
                if spec.get("d") == "dropped-flag")))
-    lines.append("STOCK_ROLE_NAMES = "
-                 + _fmt(list(extras.get("stock_role_names", []))))
+    lines.append("STOCK_ROLE_NAMES = " + _fmt(default["STOCK_ROLE_NAMES"]))
     lines.append("LEGACY_PREVENTION_TYPES = "
                  + _fmt(sorted(extras.get("prevention_type_map", {}))))
+    lines.append(_preflight_profiles_block(ov, extras, profiles))
+    lines.append(PREFLIGHT_BIND_SOURCE.replace(
+        "{names}", _fmt(list(PREFLIGHT_PROFILE_NAMES))))
     lines.append(MARKER_END)
-    return "\n".join(lines)
+    block = "\n".join(lines)
+    # o19_preflight.py is a hand-written 79-column file and the lint gate
+    # covers it. A generated line that overflows is caught HERE, naming
+    # the line, rather than as an E501 on a DO-NOT-EDIT file whose author
+    # is this function.
+    for line in block.split("\n"):
+        if len(line) > 79:
+            raise SystemExit(
+                "generated preflight line exceeds 79 columns ({0}): "
+                "{1}".format(len(line), line))
+    return block
 
 
 def rewrite_markers(path: Path, block: str) -> bool:
@@ -2005,6 +2248,97 @@ def rewrite_markers(path: Path, block: str) -> bool:
 
 
 # --------------------------------------------------------------------------
+
+#: Every province this manifest is generated for, in emission order. The
+#: FIRST is the module-level profile (the names `o19map_schema` binds by
+#: default); the rest go into `PROFILES` and are selected at run time by
+#: `bind()`. One package serves both, because debconf picks the province
+#: at install time from the same .deb -- and the profile the import
+#: actually uses is asserted against the host's province before any work
+#: (o19import.run_p0, o19_preflight).
+PROVINCES = ("on", "bc")
+
+
+def o19_sql_sources(province: str) -> List[str]:
+    """The SQL an OSCAR 19 install of `province` loads, in load order.
+
+    From OSCAR 19's own `createdatabase_generic.sh`: the common init and
+    data, then the province's, then ICD, CAISI and the measurement map.
+    `olis/olisinit.sql` is Ontario-only (OLIS is the Ontario lab
+    network); BC additionally loads `rourke2009_from_oscarinit_bc.sql`,
+    which is where a BC install's `formRourke2009` comes from."""
+    out = []
+    for entry in O19_SQL_SOURCES:
+        if entry.endswith("_on.sql"):
+            out.append(entry.replace("_on.sql", "_{0}.sql".format(province)))
+        elif "olis/" in entry:
+            if province == "on":
+                out.append(entry)
+        else:
+            out.append(entry)
+    if province == "bc":
+        out.append("database/mysql/rourke2009_from_oscarinit_bc.sql")
+    return out
+
+
+def carlos_schema_files(province: str) -> List[Path]:
+    """The Flyway migrations a CARLOS install of `province` applies."""
+    return carlos_migration_files(
+        [MIGRATION_DIR / "common", MIGRATION_DIR / province])
+
+
+def build_profile(oscar: Path, province: str, ov_schema) -> Dict:
+    """Everything that differs between provinces: the classified tables,
+    the CARLOS columns behind them, the seed floors P0 sweeps against and
+    the stock role names."""
+    o19 = load_schema(expand_sources(oscar, o19_sql_sources(province)),
+                      if_not_exists_mode="union")
+    carlos_files = carlos_schema_files(province)
+    carlos = load_schema(carlos_files)
+
+    # comments are stripped first: a `-- note` between VALUES tuples would
+    # otherwise end the tuple walk early and under-count the seed
+    seed_counts: Dict[str, int] = {}
+    stock_role_names: List[str] = []
+    for f in carlos_files:
+        text = strip_line_comments(read_sql(f))
+        for t, n in count_insert_rows(text).items():
+            seed_counts[t] = seed_counts.get(t, 0) + n
+        # secRole VALUES (role_no, role_name, description)
+        stock_role_names.extend(seed_string_column(text, "secRole", 1))
+    # rows a later migration DELETEs again are not part of the floor
+    for t, n in sorted(getattr(ov_schema, "SEED_COUNT_DELETIONS",
+                               {}).items()):
+        if t not in seed_counts:
+            # a deletion for a table this province does not seed at all
+            continue
+        if seed_counts.get(t, 0) < n:
+            raise SystemExit(
+                "SEED_COUNT_DELETIONS: {} subtracts {} from a seed of {} "
+                "rows in the {} profile (stale entry)".format(
+                    t, n, seed_counts.get(t, 0), province))
+        seed_counts[t] -= n
+
+    tables = build_tables(o19, carlos, ov_schema, province)
+    unknown = sorted(t for t, e in tables.items() if e["class"] == "unknown")
+    if unknown:
+        print("NOTE: {0} O19-only tables are UNCLASSIFIED (class 'unknown') "
+              "in the {1} profile:".format(len(unknown), province),
+              file=sys.stderr)
+        for t in unknown:
+            print("  " + t, file=sys.stderr)
+        print("classify them in overrides_schema.py — the integrity test "
+              "fails while any remain.", file=sys.stderr)
+    for t, e in tables.items():
+        for col, parent in e.get("fk_remap", {}).items():
+            if not tables.get(parent, {}).get("surrogate_pk"):
+                raise SystemExit(
+                    "fk_remap {}.{} -> {}: the parent has no surrogate PK "
+                    "to remap ({} profile)".format(t, col, parent, province))
+    return {"province": province, "o19": o19, "carlos": carlos,
+            "tables": tables, "seed_counts": seed_counts,
+            "stock_role_names": sorted(set(stock_role_names))}
+
 
 def main() -> int:
     """Generate (or, with `--check`, verify) the manifest modules from an
@@ -2028,35 +2362,16 @@ def main() -> int:
     ov_schema = load_module(here / "overrides_schema.py")
     ov_props = load_module(here / "overrides_props.py")
 
-    o19 = load_schema(expand_sources(oscar, O19_SQL_SOURCES),
-                      if_not_exists_mode="union")
-    carlos_files = carlos_migration_files(
-        [MIGRATION_DIR / "common", MIGRATION_DIR / "on"])
-    carlos = load_schema(carlos_files)
-
-    # comments are stripped first: a `-- note` between VALUES tuples would
-    # otherwise end the tuple walk early and under-count the seed
-    seed_counts: Dict[str, int] = {}
-    stock_role_names: List[str] = []
-    for f in carlos_files:
-        text = strip_line_comments(read_sql(f))
-        for t, n in count_insert_rows(text).items():
-            seed_counts[t] = seed_counts.get(t, 0) + n
-        # secRole VALUES (role_no, role_name, description)
-        stock_role_names.extend(seed_string_column(text, "secRole", 1))
-    # rows a later migration DELETEs again are not part of the floor
-    for t, n in sorted(getattr(ov_schema, "SEED_COUNT_DELETIONS",
-                               {}).items()):
-        if seed_counts.get(t, 0) < n:
-            raise SystemExit(
-                "SEED_COUNT_DELETIONS: {} subtracts {} from a seed of {} "
-                "rows (stale entry)".format(t, n, seed_counts.get(t, 0)))
-        seed_counts[t] -= n
+    profiles = {p: build_profile(oscar, p, ov_schema) for p in PROVINCES}
+    default = profiles[PROVINCES[0]]
+    carlos = default["carlos"]
+    tables, seed_counts = default["tables"], default["seed_counts"]
+    stock_role_names = default["stock_role_names"]
     extras = {
         # the province every ruling below was curated against; both
         # emitters stamp it so the import can refuse a host configured
         # for a different one (o19import.run_p0, o19_preflight)
-        "province": "on",
+        "province": PROVINCES[0],
         "primitive_columns": scan_primitive_columns(JAVA_ROOT),
         "stock_role_names": sorted(set(stock_role_names)),
         "prevention_type_map": parse_prevention_type_map(
@@ -2085,16 +2400,6 @@ def main() -> int:
         if cp.returncode == 0:
             commit = cp.stdout.strip()
 
-    tables = build_tables(o19, carlos, ov_schema)
-    unknown = sorted(t for t, e in tables.items() if e["class"] == "unknown")
-    if unknown:
-        print("NOTE: {} O19-only tables are UNCLASSIFIED (class 'unknown'):"
-              .format(len(unknown)), file=sys.stderr)
-        for t in unknown:
-            print("  " + t, file=sys.stderr)
-        print("classify them in overrides_schema.py — the integrity test "
-              "fails while any remain.", file=sys.stderr)
-
     o19_defaults = parse_properties(oscar / O19_PROPERTIES)
     # the file the deb installs as /etc/carlos-emr/carlos.properties: what
     # actually wins for any key the import leaves out of the fragment
@@ -2104,18 +2409,11 @@ def main() -> int:
         parse_properties(CARLOS_RESOURCE_BUNDLE), ov_props)
 
     schema_out = emit_schema_module(tables, carlos, seed_counts, ov_schema,
-                                    commit, extras)
+                                    commit, extras, profiles)
     props_out = emit_props_module(o19_defaults, ov_props, carlos_defaults,
                                   bundle_renames)
     preflight_block = emit_preflight_data(tables, ov_schema, ov_props,
-                                          extras)
-
-    for t, e in tables.items():
-        for col, parent in e.get("fk_remap", {}).items():
-            if not tables.get(parent, {}).get("surrogate_pk"):
-                raise SystemExit(
-                    "fk_remap {}.{} -> {}: the parent has no surrogate PK "
-                    "to remap".format(t, col, parent))
+                                          extras, profiles)
 
     targets = [
         (CTL_DIR / "o19map_schema.py", schema_out),

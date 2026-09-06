@@ -1013,6 +1013,20 @@ def run_p0(ctx) -> None:
             "whose manifest profile matches, or correct the host's "
             "province."
             .format(profile, ctx.get("province")))
+    # A profile can be CARRIED before it is supported. Curating a
+    # province's rulings is what makes them reviewable and testable, but
+    # only a full rehearsal -- a clinic database of that province taken
+    # from P0 to a passing P7 -- earns a run against a real clinic. The
+    # gap is deliberate and named, so an operator meets a refusal that
+    # explains itself rather than an import that quietly assumes its
+    # unrehearsed rulings hold.
+    supported = getattr(o19map_schema, "SUPPORTED_PROVINCES", ("on",))
+    if ctx.get("province") not in supported:
+        die("this package carries a {0!r} schema manifest but the {0!r} "
+            "profile has not completed an end-to-end migration rehearsal, "
+            "so the import will not run against a clinic database. "
+            "Supported provinces in this build: {1}."
+            .format(ctx.get("province"), ", ".join(supported)))
     run_p0_capacity(ctx)
 
     if not dev:
@@ -3472,6 +3486,15 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     does not rewrite the ledger's recorded inputs -- an assessment must
     never disturb a run in progress."""
     dev_target = _dev_mode(args)
+    # BEFORE anything reads the manifest. One package serves every
+    # province (debconf picks one at install time from the same .deb),
+    # so the module-level names carry one profile's rulings until they
+    # are pointed at the host's -- and the first thing recorded below is
+    # `schema_map_version`, which differs per profile. A province the
+    # package does not carry rebinds nothing and is then refused by
+    # run_p0's assertion, so binding here does not weaken that gate.
+    province = _province(args)
+    o19map_schema.bind(province)
     take_workspace_lock(state_dir)
     state = load_state(state_dir)
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
@@ -3578,7 +3601,7 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         "row_stream": make_row_stream(
             args.mariadb_arg, getattr(args, "statement_timeout", 0)),
         "statement_timeout": getattr(args, "statement_timeout", 0),
-        "province": _province(args),
+        "province": province,
         "tool_version": package_version(),
         "accepted": accepted,
         "dev_target": dev_target,
@@ -3824,6 +3847,10 @@ def _make_ctx_for_cleanup(args) -> Dict:
     into."""
     state_dir = STATE_DIR
     dev_target = _dev_mode(args)
+    # cleanup counts staging rows against the homes the manifest says
+    # they were preserved into, so it reads the same per-province rulings
+    # the import ran under and has to bind them the same way
+    o19map_schema.bind(_province(args))
     take_workspace_lock(state_dir)
     return {
         "state_dir": state_dir,

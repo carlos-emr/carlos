@@ -3379,7 +3379,11 @@ APPENDED_ROW_KEYS = {
 #: staging tables the roles post-step reads or appends to; refused by the
 #: ETL pre-checks when absent from the dump
 # generated from the overlay and shared with the standalone preflight,
-# so the assessment refuses the same dump this pre-check does
+# so the assessment refuses the same dump this pre-check does.
+# Snapshotting at IMPORT time is safe only because REQUIRED_TABLES is
+# province-neutral -- it is one curated overlay list, not part of
+# generate_manifests.PROFILE_NAMES -- so o19map_schema.bind() never
+# changes it. Read a per-province name through the module instead.
 ROLES_STEP_TABLES = tuple(o19map_schema.REQUIRED_TABLES)
 
 

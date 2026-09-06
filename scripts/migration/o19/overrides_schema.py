@@ -42,6 +42,19 @@ archive-by-default).
 
 SCHEMA_MAP_VERSION = "o19map-2"
 
+#: Provinces the import verb will actually RUN, as opposed to provinces
+#: the package carries a profile for (generate_manifests.PROVINCES).
+#:
+#: The two are deliberately separate. A profile becomes present the
+#: moment its rulings are curated, which is what makes it reviewable and
+#: testable; it becomes SUPPORTED only after a full rehearsal has taken
+#: a clinic database of that province from P0 to a passing P7. Between
+#: those two points the manifest is real and the gates still refuse the
+#: host -- and the refusal names the reason rather than pretending the
+#: province is unknown. Promoting one is a one-line change here, made
+#: with the rehearsal that earns it.
+SUPPORTED_PROVINCES = ("on",)
+
 # A tickler with neither a usable update_date nor a service_date (both are
 # nullable/sentinel in O19) gets this fixed creation_date rather than the
 # import time: reproducible across re-imports and visibly "unknown" in the
@@ -261,6 +274,137 @@ ARCHIVE_SHARED = {"SecurityToken", "ServiceAccessToken", "ServiceRequestToken"}
 CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
 
 # --- O19-only table dispositions ------------------------------------------
+
+# Rulings that hold in ONE province only. Everything else in this file
+# applies to every profile.
+#
+# Two mechanisms, and both are needed, because a table can need them in
+# opposite directions:
+#
+# * PROVINCE_SCOPED REMOVES a base entry for every other province. It is
+#   for a ruling that INVERTS -- `formBCAR2007` is archived patient data
+#   against the Ontario schema (CARLOS removed the form there) and an
+#   ordinary copy against BC, where it is a live table. Left unscoped the
+#   generator refuses the BC run, correctly, as an inverted bucket.
+#   The Ontario-only entries name tables no BC install has at all
+#   (`billing_on_*`, the OLIS stack, the ONAR forms); scoping them keeps a
+#   BC generation from warning about nine tables that were never its
+#   business.
+#
+# * BY_PROVINCE ADDS rulings where the base has nothing to say.
+#   `frm_labreq_preset` is the case that needs both readings: shared in
+#   Ontario (it is CLASS_MERGE below, and stays there) and O19-only in BC,
+#   where the CARLOS schema has no such table and the clinic's rows must
+#   be preserved.
+PROVINCE_SCOPED = {
+    # live in the CARLOS BC schema; removed from the Ontario one
+    "formBCAR2007": "on",
+    # Ontario billing and lab stacks: no BC install carries them
+    "billing_on_errorCode": "on",
+    "billing_on_cheader1": "on",
+    "billing_on_item": "on",
+    "OLISProviderPreferences": "on",
+    "OLISSystemPreferences": "on",
+    "OLISRequestNomenclature": "on",
+    "OLISResultNomenclature": "on",
+    # Ontario-only encounter forms
+    "formONAR": "on",
+    "formovulation": "on",
+    # The CLASS_MERGE ruling below is Ontario's: CARLOS ships this table
+    # only in the Ontario migration set, so in BC it is O19-only and
+    # BY_PROVINCE archives it instead. Scoped explicitly rather than
+    # left to the classifier's precedence -- a merge ruling that quietly
+    # does not apply is the kind of thing the integrity suite is for.
+    "frm_labreq_preset": "on",
+}
+
+BY_PROVINCE = {
+    "bc": {
+        # The BC MSP locality list: 244 rows in the CARLOS BC seed, the
+        # same 243 rows in OSCAR 19's oscardata_bc.sql plus
+        # 'VICTORIA/GREATER VICTORIA'. Ministry reference data, and
+        # neither product can author it -- the only code touching the
+        # table in OSCAR 19 or CARLOS is one SELECT that fills the
+        # billing form's location dropdown (BillingBCDao.findBillingLo-
+        # cations), with no INSERT or UPDATE anywhere. So there is no
+        # clinic authorship to preserve, and CARLOS's superset wins.
+        #
+        # It cannot be merged: `billinglocation` is '00' on every row,
+        # `region` is 'BC' on every row and 26 descriptions repeat, so
+        # the table has no natural key for an anti-join (and no PRIMARY
+        # KEY either). Left as the default `copy` it would APPEND the
+        # clinic's 243 rows to the seeded 244 and double every entry in
+        # the dropdown -- which is what the BC twin of the manifest
+        # integrity suite caught.
+        "CLASS_REFERENCE": {"billinglocation"},
+        # The MSP visit-type list. Unlike billinglocation this one HAS a
+        # natural key -- (visittype, region) is unique across all 21
+        # CARLOS-seeded rows -- and CARLOS's list is OSCAR 19's twelve
+        # plus the nine MSP has added since (B, J, K, L, N, Q, U, V, W).
+        # So it is the textbook union: CARLOS's codes win, anything the
+        # clinic added appends.
+        "CLASS_MERGE": {"billingvisit": ["visittype", "region"]},
+        # Three directories CARLOS seeds ONLY in the BC migration set
+        # (V1.0.6, INSERT IGNORE without the surrogate column, so the
+        # seeded rows take auto_increment ids 1..N):
+        #
+        #   billingreferral         10676 referring practitioners
+        #   pharmacyInfo              677 pharmacies
+        #   professionalSpecialists 14285 specialists
+        #
+        # All three are copy-class with an AUTO_INCREMENT surrogate PK
+        # that CLINIC data points at -- consultationRequests.specId,
+        # the prescription pharmacy links, the billing referral rows --
+        # so the clinic's ids have to survive the import intact. An
+        # id-intact copy on top of the seed collides twice over: on the
+        # PK, and on the unique index V1.0.6 adds to
+        # billingreferral.referral_no. Deleting the seed first is the
+        # only ruling that keeps both the rows and the references; the
+        # clinic's own directory is the one its records were built
+        # against.
+        "REPLACE_SEED": {
+            "billingreferral", "pharmacyInfo", "professionalSpecialists",
+        },
+        # CARLOS ships these only in the Ontario migration set while
+        # OSCAR 19 defines them in its COMMON schema, so a BC clinic's
+        # dump carries them and the CARLOS BC schema has no home for
+        # them. Each carries `demographic_no`, so the preflight names
+        # them as patient data the clinic signs off before they become
+        # archive-only.
+        "ARCHIVE_PATIENT": {
+            "batch_billing", "formLabReq07", "formLabReq10",
+            "formPositionHazard",
+        },
+        # same origin, no `demographic_no`: `billing_on_premium` is
+        # provider RA payment rows, the other two are configuration.
+        # Preserved, never dropped -- a BC clinic that once ran Ontario
+        # billing still has the rows.
+        "ARCHIVE_OTHER": {
+            "billing_on_premium", "ctl_billingtype", "frm_labreq_preset",
+        },
+        "NOT_FK": {
+            # `billingservice_no` in `billingservice` is an int
+            # auto_increment surrogate; this column is VARCHAR(10) (OSCAR
+            # 19 ALTERed it in oscarinit_bc.sql, keeping the old name)
+            # and holds the MSP SERVICE CODE. oscardata_bc.sql shows it:
+            # `VALUES (1,'00112',0)`, `(2,'01200',0)` -- five-digit MSP
+            # codes matching `billingservice.service_code`, not any row's
+            # billingservice_no. Remapping it through the id map would
+            # rewrite a service code into an unrelated row id.
+            ("billing_msp_servicecode_times", "billingservice_no"):
+                "the MSP service code (VARCHAR(10), e.g. '00112'), "
+                "matching billingservice.service_code, not the surrogate "
+                "billingservice_no",
+            # same shape: VARCHAR(10) beside `billingServiceTrayNo
+            # VARCHAR(10)`, a code pair rather than a key into a
+            # renumbered parent
+            ("billing_trayfees", "billingServiceNo"):
+                "the MSP service code (VARCHAR(10)) paired with "
+                "billingServiceTrayNo, not the surrogate "
+                "billingservice_no",
+        },
+    },
+}
 
 ARCHIVE_PATIENT = {
     # deprecated encounter forms (patient-entered)
@@ -532,7 +676,9 @@ NOT_RENAMED_TABLES = {}
 # EVERY id; state which seeds were compared.
 #
 # Empty against oscaremr/oscar a7900d56 -- every flagged column is ruled
-# in FK_REMAP. That is the intended steady state.
+# in FK_REMAP. That is the intended steady state for the base rulings;
+# the two BC entries live in BY_PROVINCE["bc"], because a ruling naming a
+# table the profile being generated does not have is refused as stale.
 NOT_FK = {}
 
 # Big tables copied in PK windows (single-column integer PK verified by the

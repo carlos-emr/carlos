@@ -1428,16 +1428,130 @@ class TestTheManifestProfileMatchesTheHost(unittest.TestCase):
         self.assertIn("curated", message)
 
     def test_the_gate_reads_the_manifest_not_a_hardcoded_province(self):
-        # with the manifest claiming the host's province, the run gets
-        # past this gate (and on to the next one, whatever it is)
-        with mock.patch.object(o19map_schema, "O19_PROFILE", "bc"):
+        # with the manifest claiming the host's province, and that
+        # province supported, the run gets past both province gates (and
+        # on to the next one, whatever it is)
+        with mock.patch.object(o19map_schema, "O19_PROFILE", "bc"), \
+                mock.patch.object(o19map_schema, "SUPPORTED_PROVINCES",
+                                  ("bc",)):
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
                 # it stops later, on the next gate this stub cannot
-                # satisfy; what matters is that it is not THIS one
-                with self.assertRaises(Exception):
+                # satisfy; what matters is that it is not one of THESE
+                with self.assertRaises(BaseException):
                     o19import.run_p0(self._ctx("bc"))
             self.assertNotIn("curated", err.getvalue())
+            self.assertNotIn("rehearsal", err.getvalue())
+
+    def test_a_carried_but_unrehearsed_profile_still_refuses(self):
+        """Carrying a province's rulings is not the same as supporting
+        them.
+
+        The profile assertion above passes the moment a second profile
+        ships, because the manifest then genuinely does describe the
+        host's province. What it cannot attest is that those rulings
+        have ever moved a clinic database end to end. Until a rehearsal
+        has, the import refuses -- and the refusal says which of the two
+        things is missing, because 'wrong manifest' and 'unrehearsed
+        province' need different answers from the operator."""
+        with mock.patch.object(o19map_schema, "O19_PROFILE", "bc"), \
+                mock.patch.object(o19map_schema, "SUPPORTED_PROVINCES",
+                                  ("on",)):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                with self.assertRaises(SystemExit):
+                    o19import.run_p0(self._ctx("bc"))
+        message = err.getvalue()
+        self.assertIn("rehearsal", message)
+        self.assertIn("bc", message)
+        # names what IS supported, so the operator can tell a
+        # not-yet-supported province from a broken install
+        self.assertIn("on", message)
+        self.assertNotIn("curated", message)
+
+    def test_every_shipped_profile_passes_the_profile_assertion(self):
+        """bind() plus the assertion, on the profiles actually shipped.
+
+        A profile the package carries but that no code path can select
+        would be dead weight that reads as coverage."""
+        default = o19map_schema._DEFAULT_PROFILE["O19_PROFILE"]
+        carried = sorted({default} | set(o19map_schema.PROFILES))
+        self.assertGreater(len(carried), 1, "only one profile shipped")
+        try:
+            for province in carried:
+                o19map_schema.bind(province)
+                self.assertEqual(o19map_schema.O19_PROFILE, province)
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err):
+                    with self.assertRaises(BaseException):
+                        o19import.run_p0(self._ctx(province))
+                self.assertNotIn("curated", err.getvalue(), province)
+        finally:
+            o19map_schema.bind(default)
+
+
+class TestTheHostsProvinceIsBoundBeforeTheManifestIsRead(unittest.TestCase):
+
+    """One package serves every province, so the manifest starts on one
+    profile and has to be pointed at the host's.
+
+    The ordering is the whole point. `_make_ctx` records
+    `schema_map_version` into the ledger and every later phase reads
+    TABLES, CARLOS_COLUMNS and the seed floors -- all per-province. A
+    bind that happened after any of that would leave a BC host running
+    Ontario rulings under an Ontario version token, with nothing to see
+    afterwards: each ruling would still be a ruling. So these tests
+    assert the manifest is already bound at the FIRST side effect
+    (`take_workspace_lock`), not merely bound somewhere."""
+
+    class _Stop(Exception):
+        pass
+
+    def setUp(self):
+        self.default = o19map_schema._DEFAULT_PROFILE["O19_PROFILE"]
+        self.addCleanup(o19map_schema.bind, self.default)
+        self.other = next((p for p in sorted(o19map_schema.PROFILES)
+                           if p != self.default), None)
+        if self.other is None:
+            self.skipTest("only one profile shipped")
+
+    def _bound_at_the_lock(self, build):
+        seen = {}
+
+        def stop(_state_dir):
+            seen["profile"] = o19map_schema.O19_PROFILE
+            seen["version"] = o19map_schema.SCHEMA_MAP_VERSION
+            raise self._Stop()
+
+        with mock.patch.object(o19import, "_default_province",
+                               lambda: self.other), \
+                mock.patch.object(o19import, "take_workspace_lock", stop):
+            with self.assertRaises(self._Stop):
+                build()
+        return seen
+
+    def test_the_import_context_binds_the_hosts_province(self):
+        args = argparse.Namespace(mariadb_arg=["--x"], dev_target=True,
+                                  dry_run=False, fixups_dir=None,
+                                  province=None)
+        seen = self._bound_at_the_lock(
+            lambda: o19import._make_ctx(args, True, "/nonexistent"))
+        self.assertEqual(seen["profile"], self.other)
+        # the version token the ledger records is the BOUND profile's,
+        # which is what makes a resume across a province change refuse
+        self.assertEqual(
+            seen["version"],
+            o19map_schema.PROFILES[self.other]["SCHEMA_MAP_VERSION"])
+
+    def test_the_cleanup_context_binds_the_hosts_province(self):
+        # cleanup counts staging rows against the homes the manifest
+        # says they were preserved into: the same rulings, so the same
+        # binding
+        args = argparse.Namespace(mariadb_arg=["--x"], dev_target=True,
+                                  dry_run=False, province=None)
+        seen = self._bound_at_the_lock(
+            lambda: o19import._make_ctx_for_cleanup(args))
+        self.assertEqual(seen["profile"], self.other)
 
 
 class TestStateArchiving(unittest.TestCase):
