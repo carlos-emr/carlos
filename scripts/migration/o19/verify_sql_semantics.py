@@ -2226,21 +2226,34 @@ def check_primitive_fallback_types(client: Client, src: str,
                    "EXISTS `{1}`;".format(src, dst))
 
 
-def same_reported_value(shown: str, actual: str) -> bool:
+#: The types whose STORED rendering may differ from the literal the ETL
+#: supplies -- and the only ones `same_reported_value` will compare
+#: numerically. `bit` is read back as `col + 0`, so it needs no tolerance.
+NUMERIC_REPORT_TYPES = frozenset(o19etl.NUMERIC_TYPES) | {"year"}
+
+
+def same_reported_value(shown: str, actual: str,
+                        dtype: str) -> bool:
     """Does the report's literal name the value the server actually holds?
 
-    Exact, with ONE tolerance: the server RENDERS a numeric value in the
-    column's own width and scale, so the literal `0` the ETL supplies
-    comes back as `0000` from a `year` and `0.00` from a `decimal(6,2)`.
-    Those are the same value. Everything else must match character for
-    character, and in particular `''` and `0000` are NOT the same value:
-    telling a clinic a column holds the empty string when the server
-    stored a zero year is the exact defect this check exists to catch,
+    Exact, with ONE tolerance, and only for a NUMERIC column: the server
+    renders such a value in the column's own width and scale, so the
+    literal `0` the ETL supplies comes back as `0000` from a `year` and
+    `0.00` from a `decimal(6,2)`. Those are the same value. Everything
+    else must match character for character, and in particular `''` and
+    `0000` are NOT the same value: telling a clinic a column holds the
+    empty string when the server stored a zero year is the exact defect
+    this check exists to catch,
     and an earlier form of it -- which excused any shown value that was
     empty once its zeros were stripped -- could not.
     """
     if shown == actual:
         return True
+    if dtype not in NUMERIC_REPORT_TYPES:
+        # a textual or temporal column has no such rendering difference,
+        # so `1` and `01` there are two different values and the report
+        # naming the wrong one is exactly what this check is for
+        return False
     try:
         return decimal.Decimal(shown) == decimal.Decimal(actual)
     except (decimal.InvalidOperation, ValueError):
@@ -2359,7 +2372,8 @@ def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
             "SELECT {0} FROM `t` WHERE id = 2".format(expr), dst)
         shown = line.rsplit("stored as ", 1)[-1].strip().strip("'")
         actual = "" if not stored else str(stored[0][0])
-        if not same_reported_value(shown, actual):
+        if not same_reported_value(
+                shown, actual, dst_cols[col_name]["type"]):
             failures.append(
                 "{0}: the report says the column now holds {1!r}, the "
                 "server stored {2!r}".format(col_name, shown, actual))
