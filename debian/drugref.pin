@@ -3,14 +3,34 @@
 # release build: a branch name makes two builds weeks apart ship different
 # code under one package version.
 #
-# The current pin is the master merge commit of the pre-release security
-# hardening (carlos-emr/drugref2026#10). It must not be moved back below this
-# revision: earlier DrugRef builds ship the bundled `root` superuser credential
-# with a password published in that source tree, browser JSPs that run a
-# destructive database re-import on an unauthenticated GET and reflect a request
-# parameter unencoded, and JPQL built by string concatenation — including an
-# unquoted numeric-context injection reachable from the unauthenticated XML-RPC
-# surface. It also carries the earlier EntityManager-leak fix
-# (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
-# after one or two calls and permanently return "None found".
-ref=566a46eec559a0ba02f40afbc37ff14440bbc098
+# The current pin carries the free-text allergy fix. Before it,
+# get_allergy_warnings dispatched only on the allergy's category type and
+# skipped type 0 -- the category CARLOS writes for every allergy added through
+# "Custom Allergy", and the one its demonstration dataset seeds PENICILLINS
+# allergies with. Prescribing amoxicillin to a patient recorded as allergic to
+# PENICILLINS returned an empty warnings array: no alert, no error, and a
+# response indistinguishable from "no allergy". A build pinned below this
+# revision fails part 3 of scripts/allergy-rx-alert-playwright-checks.js while
+# CARLOS itself is correct. The same revision also fixes ATC class allergens,
+# which only ever matched a drug's leaf description, so an allergy to a class
+# name such as "BETA-LACTAMASE RESISTANT PENICILLINS" never warned on a drug
+# filed under it.
+#
+# NOTE FOR THE MAINTAINER: this is a commit on the fix branch
+# (carlos-emr/drugref2026 claude/allergy-search-alert-bugs-q7pcu2), not a
+# master merge commit, because the DrugRef change and the CARLOS change ship
+# together. Re-point it at the master merge commit once that branch is merged.
+#
+# It must not be moved back below the previous pin
+# (566a46eec559a0ba02f40afbc37ff14440bbc098), the master merge commit of the
+# pre-release security hardening (carlos-emr/drugref2026#10), which this commit
+# descends from: earlier DrugRef builds ship the bundled `root` superuser
+# credential with a password published in that source tree, browser JSPs that
+# run a destructive database re-import on an unauthenticated GET and reflect a
+# request parameter unencoded, and JPQL built by string concatenation —
+# including an unquoted numeric-context injection reachable from the
+# unauthenticated XML-RPC surface. It also carries the earlier
+# EntityManager-leak fix (carlos-emr/drugref2026#8), without which drug searches
+# exhaust the JDBC pool after one or two calls and permanently return
+# "None found".
+ref=97663b3415cb15a9e7ba0dd3c2be84762e6baa88
