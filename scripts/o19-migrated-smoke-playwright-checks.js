@@ -74,6 +74,15 @@ const archiveSchema = process.env.O19_ARCHIVE_SCHEMA || 'o19_archive';
 // there is nothing to validate against; anywhere else, skipping
 // validation would mean typing migrated passwords into whatever answered.
 const allowSelfSignedCert = isLoopbackHost(baseUrl.hostname.toLowerCase());
+//: Compose service names that ARE the local database on this repo's own
+//: devcontainer, kept in step with `LOCAL_MYSQL_HOSTS` in
+//: `scripts/flowsheet-admin-playwright-checks.js`. Without `db` the
+//: guard below refuses the rehearsal environment the smoke is meant to
+//: run in. They are names on a private compose network, not routable
+//: hosts, so this widens the DATABASE guard only -- `isLoopbackHost`,
+//: which also governs cleartext and certificate validation, does not
+//: accept them.
+const LOCAL_MYSQL_SERVICES = new Set(['db', 'carlos']);
 
 // The reset password the script drives the forced-reset form with. It has to
 // satisfy the CARLOS password policy (length, mixed case, digit, symbol); the
@@ -149,9 +158,20 @@ function validateBaseUrl(rawBaseUrl) {
 // cleartext, and the only place a self-signed certificate is acceptable.
 // `host.docker.internal` and a container alias are NOT loopback: they
 // resolve to another host on a shared network.
+//
+// The 127/8 test parses the address rather than matching a prefix. A bare
+// `/^127\./` also accepts the DNS name `127.evil.example`, which an
+// attacker can point anywhere -- and being called loopback is exactly
+// what would let this script send migrated passwords to it in cleartext
+// with certificate validation off.
 function isLoopbackHost(host) {
-  return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)
-    || /^127\./.test(host);
+  if (['localhost', '::1', '[::1]', '0:0:0:0:0:0:0:1'].includes(host)) {
+    return true;
+  }
+  const octets = host.split('.');
+  return octets.length === 4
+    && octets[0] === '127'
+    && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255);
 }
 
 function appUrl(appPath, query = null) {
@@ -229,7 +249,7 @@ function assertLocalDatabaseTarget() {
     return;
   }
   const host = mysqlHost.toLowerCase().replace(/^\[|\]$/g, '');
-  if (isLoopbackHost(host)) {
+  if (isLoopbackHost(host) || LOCAL_MYSQL_SERVICES.has(host)) {
     return;
   }
   if (process.env.ALLOW_NON_LOCAL_MYSQL_HOST === 'true') {
@@ -495,9 +515,9 @@ function installSignalHandlers() {
       } finally {
         cleanupMysqlDefaultsFile();
       }
-      // 128 + signal number, the convention a shell reports for a
-      // signalled child
-      process.exit(signal === 'SIGINT' ? 130 : 143);
+      // 128 + the signal's number, the convention a shell reports for a
+      // signalled child -- SIGHUP is 129, not SIGTERM's 143
+      process.exit({ SIGHUP: 129, SIGINT: 130, SIGTERM: 143 }[signal]);
     });
   }
 }

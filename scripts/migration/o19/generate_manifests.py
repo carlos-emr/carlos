@@ -737,7 +737,12 @@ _COLUMN_NAME_RE = re.compile(
     r"@(?:jakarta\.persistence\.)?Column\s*\([^)]*\bname\s*=\s*"
     r"\"([^\"]+)\"")
 _TRANSIENT_RE = re.compile(r"@(?:jakarta\.persistence\.)?Transient\b")
-_ID_RE = re.compile(r"@(?:jakarta\.persistence\.)?Id\b")
+_ID_RE = re.compile(r"@(?:jakarta\.persistence\.)?(?:Embedded)?Id\b")
+#: an explicit `@Access(AccessType.X)`. JPA lets an entity DECLARE its
+#: access type, and that declaration outranks where the identifier sits.
+_ACCESS_RE = re.compile(
+    r"@(?:jakarta\.persistence\.)?Access\s*\(\s*"
+    r"(?:jakarta\.persistence\.)?AccessType\.(\w+)")
 #: any member declaration at class-body depth -- used only to see which
 #: KIND of member the entity's `@Id` sits on.
 _ANY_FIELD_RE = re.compile(
@@ -778,9 +783,22 @@ def jpa_access_is_property(text: str, depths: List[int]) -> bool:
     write 0 over a value the clinic left empty. `ConsentType.active` is
     the same shape.
 
-    No `@Id` at all (a `@MappedSuperclass` fragment, an `@Embeddable`)
-    is treated as field access: the conservative answer, since it only
-    ever drops columns from the manifest."""
+    An explicit class-level `@Access(AccessType.X)` is read FIRST,
+    because JPA lets an entity declare its access type and that
+    declaration outranks where its identifier happens to sit. All 34
+    entities in this tree that carry one also carry a local `@Id` that
+    agrees with it today — reading the annotation is what keeps that a
+    fact rather than a coincidence, and what protects an entity that
+    later inherits its `@Id` from a `@MappedSuperclass`.
+
+    No identifier and no `@Access` at all (a mapped-superclass fragment,
+    an `@Embeddable`) is treated as field access: the conservative
+    answer, since it only ever drops columns from the manifest."""
+    declared = _ACCESS_RE.search(text)
+    while declared is not None and depths[declared.start()] != 0:
+        declared = _ACCESS_RE.search(text, declared.end())
+    if declared is not None:
+        return declared.group(1).upper() == "PROPERTY"
     found = _ID_RE.search(text)
     while found is not None and depths[found.start()] != 1:
         found = _ID_RE.search(text, found.end())

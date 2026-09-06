@@ -71,6 +71,10 @@ class FakeDb(object):
             "admin_pn": "999999", "admin_unreachable": [2, 0],
             #: encounterForm rows naming a form table CARLOS removed
             "encounter_forms_missing": [["formAdf", "ADF"]],
+            # what `o19_archive.encounterForm__pruned` already has: the
+            # current set, so a clean run needs no schema upgrade
+            "archive_columns": list(
+                o19roles.ENCOUNTER_FORM_ARCHIVE_COLUMNS),
             #: appointments carrying a program id the day view will not
             #: show (reported, never rewritten)
             "appointments_outside_program_zero": 2,
@@ -181,6 +185,12 @@ class FakeDb(object):
             return [[str(a["appointments_outside_program_zero"])]]
         if sql == o19roles.encounter_forms_missing_tables_sql(DST):
             return a["encounter_forms_missing"]
+        if ("information_schema.COLUMNS" in sql
+                and "encounterForm__pruned" in sql):
+            # the archive table's current columns. Default: the full set,
+            # so a clean run issues no ALTER; `archive_columns` narrows it
+            # to model a workspace an older carlos-ctl created.
+            return [[c] for c in a["archive_columns"]]
         if sql == o19roles.rtl_rows_sql(DST):
             if len(self.rtl_sequence) > 1:
                 return self.rtl_sequence.pop(0)
@@ -824,6 +834,31 @@ class TestEncounterFormsPointingAtRemovedForms(RunRolesBase):
         self.assertIn(delete, db.writes)
         # the archive is written BEFORE the delete, or the rows are gone
         self.assertLess(db.writes.index(archive), db.writes.index(delete))
+
+    def test_an_older_workspaces_archive_table_is_widened_first(self):
+        """A resume against a workspace an earlier carlos-ctl created.
+
+        Its `encounterForm__pruned` has only (form_table, form_name), and
+        `CREATE TABLE IF NOT EXISTS` adds nothing to a table that already
+        exists -- so without the ALTERs the archive INSERT meets ERROR
+        1054 and the resumed import stops mid-roles."""
+        db = FakeDb(archive_columns=["form_table", "form_name"])
+        self.run_roles(db)
+        alters = [w for w in db.writes if w.startswith("ALTER TABLE")]
+        self.assertEqual(len(alters), 2, db.writes)
+        self.assertIn("ADD COLUMN `form_value`", alters[0])
+        self.assertIn("ADD COLUMN `hidden`", alters[1])
+        # and they land BEFORE the INSERT that needs the columns
+        archive, _delete = o19roles.encounter_form_prune_statements(
+            DST, ARCH)
+        self.assertLess(db.writes.index(alters[1]),
+                        db.writes.index(archive))
+
+    def test_a_current_workspace_issues_no_alter(self):
+        db = FakeDb()
+        self.run_roles(db)
+        self.assertEqual(
+            [w for w in db.writes if w.startswith("ALTER TABLE")], [])
 
     def test_the_report_names_the_form_tables(self):
         self.run_roles(FakeDb())

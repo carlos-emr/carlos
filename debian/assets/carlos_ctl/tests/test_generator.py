@@ -1435,6 +1435,50 @@ class TestPrimitiveFieldScan(unittest.TestCase):
                       '}\n'),
             {"thing": ["position"]})
 
+    def test_a_class_level_access_annotation_outranks_the_id(self):
+        """JPA lets an entity DECLARE its access type, and that beats
+        where the identifier sits. Reading the annotation is what keeps
+        `casemgmt_note` correct if it ever inherits its `@Id`."""
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      '@Access(AccessType.PROPERTY)\n'
+                      'public class Thing {\n'
+                      '    @Id\n'
+                      '    private Integer id;\n'
+                      '    private Boolean flag;\n'
+                      '    @Column(name = "flag_col")\n'
+                      '    public boolean isFlag() { return flag; }\n'
+                      '}\n'),
+            {"thing": ["flag_col"]})
+
+    def test_a_class_level_field_access_annotation_is_honoured_too(self):
+        # the other direction: an @Id on a getter does not make a
+        # DECLARED field-access entity property-access
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      '@jakarta.persistence.Access('
+                      'jakarta.persistence.AccessType.FIELD)\n'
+                      'public class Thing {\n'
+                      '    private int kept;\n'
+                      '    @jakarta.persistence.Id\n'
+                      '    public String getCode() { return ""; }\n'
+                      '    public int getDropped() { return 0; }\n'
+                      '}\n'),
+            {"thing": ["kept"]})
+
+    def test_an_embedded_id_getter_is_property_access(self):
+        """A composite key is still an identifier: `@EmbeddedId` on a
+        getter says the entity is mapped through its getters exactly as
+        `@Id` on one does."""
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    @EmbeddedId\n'
+                      '    public ThingPk getPk() { return null; }\n'
+                      '    public int getPosition() { return 0; }\n'
+                      '}\n'),
+            {"thing": ["position"]})
+
     def test_an_entity_with_no_id_at_all_reads_fields_only(self):
         """A `@MappedSuperclass` fragment or an `@Embeddable` names no
         identifier. Field access is the conservative answer: it can only

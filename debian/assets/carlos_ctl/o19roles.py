@@ -1980,6 +1980,43 @@ def encounter_form_archive_ddl(archive_schema: str) -> str:
             "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4".format(archive_schema))
 
 
+#: Columns `encounter_form_prune_statements` writes, in the order the
+#: DDL declares them.
+ENCOUNTER_FORM_ARCHIVE_COLUMNS = ("form_table", "form_name",
+                                  "form_value", "hidden")
+
+
+def encounter_form_archive_upgrades(plain, archive_schema: str) -> List[str]:
+    """`ALTER TABLE` statements bringing an EXISTING archive table up to
+    the current column set, or [] when there is nothing to add.
+
+    `CREATE TABLE IF NOT EXISTS` is a no-op against a table that already
+    exists, columns and all -- so a workspace whose archive table was
+    created by an earlier carlos-ctl (which wrote only form_table and
+    form_name) would meet ERROR 1054 on the INSERT and the resumed import
+    would stop, mid-roles, with no way forward but a restore. Adding the
+    missing columns is safe in both directions: the rows already archived
+    keep their values and gain NULLs, which is honest -- that run did not
+    record them."""
+    # the READ channel: `query` is the driver's write path and every SQL
+    # it issues has to be idempotent (test_roles_driver pins that), while
+    # this is an introspection whose answer decides whether a write is
+    # needed at all
+    rows = plain(
+        "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE "
+        "TABLE_SCHEMA = '{0}' AND TABLE_NAME = 'encounterForm__pruned'"
+        .format(_sql_str(archive_schema)))
+    if not rows:
+        return []          # no table yet: the CREATE builds it in full
+    have = {str(r[0]).lower() for r in rows}
+    types = {"form_table": "VARCHAR(255)", "form_name": "VARCHAR(255)",
+             "form_value": "VARCHAR(255)", "hidden": "INT"}
+    return ["ALTER TABLE `{0}`.encounterForm__pruned ADD COLUMN `{1}` {2}"
+            .format(archive_schema, col, types[col])
+            for col in ENCOUNTER_FORM_ARCHIVE_COLUMNS
+            if col.lower() not in have]
+
+
 def roles_prune_encounter_forms(run: 'RolesRun') -> None:
     """Remove encounter-form menu entries pointing at removed forms.
 
@@ -2000,6 +2037,8 @@ def roles_prune_encounter_forms(run: 'RolesRun') -> None:
         [r[0], r[1]] for r in plain(encounter_forms_missing_tables_sql(dst))])
     if pruned:
         query(encounter_form_archive_ddl(arch))
+        for upgrade in encounter_form_archive_upgrades(plain, arch):
+            query(upgrade)
         archive, delete = encounter_form_prune_statements(dst, arch)
         query(archive)
         query(delete)

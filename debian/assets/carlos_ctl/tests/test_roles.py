@@ -265,6 +265,39 @@ class TestStatementShapes(unittest.TestCase):
             self.assertIn(column, ddl)
             self.assertIn("e.{0}".format(column), archive)
 
+    def test_an_older_narrow_archive_table_is_widened_not_left(self):
+        """`CREATE TABLE IF NOT EXISTS` adds no columns to a table that
+        already exists.
+
+        A workspace whose archive table was written by an earlier
+        carlos-ctl carries only (form_table, form_name), and the INSERT
+        this version builds would then meet ERROR 1054 and stop a
+        resumed import mid-roles."""
+        def plain(sql):
+            self.assertIn("information_schema.COLUMNS", sql)
+            self.assertIn("encounterForm__pruned", sql)
+            return [["form_table"], ["form_name"]]
+        upgrades = o19roles.encounter_form_archive_upgrades(
+            plain, "o19_archive")
+        self.assertEqual(len(upgrades), 2)
+        self.assertIn("ADD COLUMN `form_value` VARCHAR(255)", upgrades[0])
+        self.assertIn("ADD COLUMN `hidden` INT", upgrades[1])
+
+    def test_a_current_archive_table_is_left_alone(self):
+        def plain(_sql):
+            return [["form_table"], ["form_name"], ["form_value"],
+                    ["hidden"]]
+        self.assertEqual(
+            o19roles.encounter_form_archive_upgrades(plain, "o19_archive"),
+            [])
+
+    def test_no_archive_table_yet_needs_no_upgrade(self):
+        # the CREATE builds it in full; an ALTER would be an error
+        self.assertEqual(
+            o19roles.encounter_form_archive_upgrades(
+                lambda _sql: [], "o19_archive"),
+            [])
+
     def test_two_entries_sharing_a_table_and_name_both_archive(self):
         """The guard is on `form_value`, `encounterForm`'s PRIMARY KEY.
 
