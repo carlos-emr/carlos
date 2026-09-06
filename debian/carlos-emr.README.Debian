@@ -236,7 +236,7 @@ request or response bodies (SecAuditLogParts ABFHZ). That is the PHI decision
 described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
 
-REACHING THE SERVER BY IP ADDRESS, AND WHEN YOU MUST NOT.
+Reaching the server by IP address, and when you must not
 
 Most clinics run this on their own LAN and reach it at its address on the
 practice subnet. That is supported, and the package makes it work: CRS rule
@@ -274,10 +274,14 @@ section 4.
 IF YOU FRONT THIS DEPLOYMENT WITH ANOTHER PROXY, CDN OR LOAD BALANCER, read
 this. That hop connects from its own address, which in the usual layout is
 RFC1918 — so REMOTE_ADDR stops being the client and becomes the proxy. Rule
-1090 requires the absence of a forwarding header precisely so the standard case
-(any proxy that sets X-Forwarded-For, X-Real-IP or Forwarded) cannot launder
-internet clients into the exemption. A front end that sets NONE of them still
-would. This is the same premise the packaged rate limits already depend on —
+1090 requires the absence of any forwarding header precisely so the standard
+case cannot launder internet clients into the exemption — the whole
+X-Forwarded-* family, X-Real-IP, Forwarded and Via, not just the
+address-bearing ones, since a front end may set only X-Forwarded-Proto and
+X-Forwarded-Host. A front end that sets NONE of them still would. The same test
+means a clinic running its own internal proxy that stamps those headers on LAN
+traffic loses the exemption; that errs toward more inspection, and such a site
+can restore it deliberately in its own local-exclusions file. This is the same premise the packaged rate limits already depend on —
 they key on the TCP peer and collapse into one shared bucket behind an
 unconfigured front end (see conf.d/carlos-emr-limits.conf). Either way the
 answer is the same: configure set_real_ip_from/real_ip_header for the front
@@ -709,7 +713,12 @@ The application will not start
   migration state; `systemctl status mariadb` shows the database.
 
 A page returns 403 and the application log shows nothing
-  That is the WAF, not the application. `carlos-ctl waf tail` shows why.
+  That is the WAF, not the application. `carlos-ctl waf tail` shows why. If it
+  happens intermittently on ordinary clinical work, check how clinicians reach
+  this server: rule 920350 spends 3 of the 5-point budget on every request that
+  arrives by IP from off the practice network, leaving little room before an
+  unrelated signature blocks. See "Reaching the server by IP address, and when
+  you must not" under section 5.
 
 Login redirects to http:// or the session is lost
   Tomcat's RemoteIpValve has stopped trusting nginx, so the application no
