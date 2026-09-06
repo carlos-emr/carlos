@@ -254,8 +254,12 @@ mental-health assessments): those 52 forms post roughly 900 form-specific
 textarea names through one route, so no per-argument exclusion is maintainable
 and the only WAF-side option is to stop inspecting that route's bodies
 altogether. If your site uses those forms and a save returns 403, that is this
-gap; decide deliberately whether to add a site exclusion for the route below,
-and record why.
+gap. The route is /carlos/form/formname (with /carlos/form/SubmitForm,
+/carlos/form/BCAR2020 and /carlos/form/RHPrevention for the forms that have
+their own action). Decide deliberately whether to trade body inspection on
+those routes for working encounter forms, add the exclusion to your own
+local-exclusions-before-crs.conf if you do, and record why.
+
 For anything else, the supported response is: reproduce it, read
 `carlos-ctl waf tail` for the rule id and the matched variable, and add the
 NARROWEST exclusion that works to one of YOUR OWN exclusion files:

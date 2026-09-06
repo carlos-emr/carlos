@@ -164,6 +164,12 @@ const WORKFLOWS = [
     fields: ['reasonForConsultation', 'clinicalInformation', 'concurrentProblems', 'currentMedications', 'allergies'],
     // checkForm() sets these two before it submits, and refuses without a service.
     overrides: () => ({ service: consultationServiceId, saved: 'true', submission: 'Update Consultation Request' }),
+    // `Update Consultation Request` updates an EXISTING request, so the page must
+    // have rendered in update mode. On a demographic with no consultation the same
+    // URL renders the new-request form, where this submission value is rejected
+    // before the prose is stored — the replay would still reach the WAF, but it
+    // would stop being the save this check reports.
+    requiredNonEmpty: { requestId: 'the page rendered the new-request form, not an existing consultation' },
   },
   {
     name: 'demographic alert and notes',
@@ -247,6 +253,18 @@ async function runWorkflow(context, workflow) {
       `${workflow.name}: form ${workflow.formName} was not on the page, so nothing was measured`);
     assert(entries.some(([key]) => key === 'CSRF-TOKEN'),
       `${workflow.name}: form ${workflow.formName} carried no CSRF token, so a 403 could not be attributed to the WAF`);
+
+    // Fail loudly rather than quietly measuring something else. The consultation
+    // page renders in UPDATE mode only when the demographic already has a request;
+    // on a fixture without one it renders the new-request form, where the
+    // overrides' `submission=Update…` would be rejected by the action before the
+    // prose was ever stored — the replay would still exercise the WAF, but it
+    // would no longer be the save this check claims to make.
+    for (const [key, value] of Object.entries(workflow.requiredNonEmpty || {})) {
+      const found = entries.find(([name]) => name === key);
+      assert(found && found[1].trim() !== '',
+        `${workflow.name}: form field ${key} is empty (${value}), so this run would not measure what the check claims`);
+    }
 
     for (const phrase of PROSE_CORPUS) {
       const status = await replay(page, workflow, entries, phrase);

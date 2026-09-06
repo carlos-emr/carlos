@@ -145,10 +145,11 @@ function wirePage(page, label) {
 
 async function login(context) {
   const page = await context.newPage();
-  // One wiring for the whole session: the eChart runs in this same window, and the
-  // note autosave / save-note AJAX it fires carry the SAME note text under
-  // ARGS:note and ARGS:noteTxt. Those requests are as much part of this
-  // regression as the print POST, so their failures must reach badResponses.
+  // One wiring for the whole session: the eChart runs in this same window, and its
+  // draft autosave timer posts the SAME note text under ARGS:note while these cases
+  // run, so a regression on that argument surfaces here too. ARGS:noteTxt is NOT
+  // covered — that one rides on ajaxSaveNote, which only fires on an explicit
+  // save/sign, and this check deliberately never saves a note.
   wirePage(page, 'echart');
   await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('#username').fill(testUser);
@@ -241,7 +242,10 @@ async function printChart(page, noteText, flags) {
     for (const note of NOTE_BODIES) {
       if (!printsRemainUseful) break;
       const response = await printChart(page, note.text, []);
-      printResults.push({ dimension: 'note body', label: note.label, crs: note.crs, status: response.status() });
+      printResults.push({
+        dimension: 'note body', label: note.label, crs: note.crs,
+        status: response.status(), contentType: response.headers()['content-type'] || '',
+      });
       printsRemainUseful = response.status() === 200;
     }
 
@@ -249,7 +253,10 @@ async function printChart(page, noteText, flags) {
     for (const selection of PRINT_SELECTIONS) {
       if (!printsRemainUseful) break;
       const response = await printChart(page, worstCaseNote, selection.flags);
-      printResults.push({ dimension: 'selection', label: selection.label, crs: 'n/a', status: response.status() });
+      printResults.push({
+        dimension: 'selection', label: selection.label, crs: 'n/a',
+        status: response.status(), contentType: response.headers()['content-type'] || '',
+      });
       printsRemainUseful = response.status() === 200;
     }
 
@@ -261,6 +268,14 @@ async function printChart(page, noteText, flags) {
 
     const failed = printResults.filter((result) => result.status !== 200);
     assert(failed.length === 0, `chart print did not return HTTP 200: ${JSON.stringify(failed, null, 2)}`);
+
+    // A 200 alone is not a print. CaseManagementEntry.print() is a direct-response
+    // action, so a failure inside it can still answer 200 with an HTML error page
+    // (see the Direct Response Actions rules in CLAUDE.md). Require the PDF.
+    const notPdf = printResults.filter((result) => !/application\/pdf/i.test(result.contentType));
+    assert(notPdf.length === 0,
+      `chart print returned HTTP 200 but not a PDF — the action answered with something else, `
+      + `probably an HTML error page: ${JSON.stringify(notPdf, null, 2)}`);
 
     assert(printResults.length === NOTE_BODIES.length + PRINT_SELECTIONS.length,
       `only ${printResults.length} of ${NOTE_BODIES.length + PRINT_SELECTIONS.length} print cases ran`);
