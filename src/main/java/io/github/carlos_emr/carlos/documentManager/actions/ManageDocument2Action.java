@@ -131,6 +131,23 @@ public class ManageDocument2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
+
+    /** Historic render resolution. Cache entries at this DPI keep their original names. */
+    private static final int DEFAULT_RENDER_DPI = 96;
+
+    /**
+     * Resolutions the annotation viewer may request. An allowlist rather than a range:
+     * the rendered pixel count grows with the square of DPI, so an unbounded parameter is
+     * a denial-of-service lever on a shared server.
+     */
+    private static final java.util.Set<Integer> ALLOWED_RENDER_DPI = java.util.Set.of(96, 144, 192);
+
+    /**
+     * Ceiling on one rendered page. A crafted PDF can declare a page box of arbitrary size;
+     * at 144 dpi a 200-by-200-inch page would ask for over 800 megapixels and exhaust the heap
+     * before any limit downstream applied.
+     */
+    private static final long MAX_RENDER_MEGAPIXELS = 30L;
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
     // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
@@ -749,8 +766,16 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cached PNG file if it exists, or null
      */
     private File hasCacheVersion2(Document d, Integer pageNum) {
+        return hasCacheVersion2(d, pageNum, DEFAULT_RENDER_DPI);
+    }
+
+    /**
+     * Cache lookup at a specific resolution. The DPI is part of the key, or a zoomed
+     * request would be served the 96 dpi image it happens to find.
+     */
+    private File hasCacheVersion2(Document d, Integer pageNum, int dpi) {
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
-        Path outFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
+        Path outFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
         if (!Files.exists(outFile)) {
             return null;
         }
@@ -758,19 +783,28 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
-     * Deletes the cached PNG image for a specific page of a document.
+     * Deletes the cached PNG images for a specific page of a document.
      *
-     * @param d Document the document whose cache entry should be deleted
-     * @param pageNum int the 1-based page number of the cache entry to delete
+     * <p>Every DPI variant is removed, not just the default one. Since the annotation viewer
+     * can request 144 and 192 DPI, deleting only the legacy 96-DPI filename would leave a
+     * rotated or deleted page still being served from the higher-resolution cache — the
+     * clinician would see the pre-edit image and, worse, could annotate it.
+     *
+     * @param d Document the document whose cache entries should be deleted
+     * @param pageNum int the 1-based page number of the cache entries to delete
      */
     public static void deleteCacheVersion(Document d, int pageNum) {
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
-        Path documentCacheDir = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
-        if (Files.exists(documentCacheDir)) {
+        for (int dpi : ALLOWED_RENDER_DPI) {
+            Path cached = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
+            if (!Files.exists(cached)) {
+                continue;
+            }
             try {
-                Files.delete(documentCacheDir);
+                Files.delete(cached);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSafe.sanitizeObject(documentCacheDir.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSafe.sanitizeObject(cached.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
     }
@@ -788,38 +822,112 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
-     * Renders a specific page of a PDF document as a PNG image using Apache PDFBox,
-     * saves it to the document cache directory, and returns the image bytes.
+     * Cache file name for a page at a resolution. The default DPI keeps the historic
+     * {@code <file>_<page>.png} name so existing cached pages stay valid after this change.
+     */
+    private static String cacheName(Document d, Integer pageNum, int dpi) {
+        return dpi == DEFAULT_RENDER_DPI
+                ? d.getDocfilename() + "_" + pageNum + ".png"
+                : d.getDocfilename() + "_" + pageNum + "_" + dpi + "dpi.png";
+    }
+
+    /**
+     * Reads the optional {@code dpi} request parameter against {@link #ALLOWED_RENDER_DPI}.
+     * Anything absent, unparseable or outside the allowlist falls back to the default rather
+     * than failing, so an old link without the parameter still works.
+     */
+    private int resolveRequestedDpi() {
+        String raw = request.getParameter("dpi");
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_RENDER_DPI;
+        }
+        try {
+            int requested = Integer.parseInt(raw.trim());
+            return ALLOWED_RENDER_DPI.contains(requested) ? requested : DEFAULT_RENDER_DPI;
+        } catch (NumberFormatException e) {
+            return DEFAULT_RENDER_DPI;
+        }
+    }
+
+    /** Returned by the renderer when a page cannot be produced; never written to the response. */
+    private static final byte[] EMPTY_IMAGE = new byte[0];
+
+    /**
+     * Answers a failed page render with a real status. A direct-response action owns its own
+     * error response: returning a Struts result here would let an HTML error page be written
+     * where an image was requested.
+     */
+    private void sendRenderFailure() {
+        try {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        } catch (IOException e) {
+            log.error("Could not send the page-render failure status", e);
+        }
+    }
+
+    /**
+     * Renders a page at the default resolution. Delegates; holds no path sinks of its own.
      *
      * @param d Document the document to render
      * @param pageNum Integer the 1-based page number to render
-     * @return byte[] the PNG image bytes, or null if rendering fails or page number is invalid
+     * @return byte[] the PNG bytes, or an empty array on failure — see the 3-arg overload
+     */
+    public byte[] createCacheVersion2(Document d, Integer pageNum) {
+        return createCacheVersion2(d, pageNum, DEFAULT_RENDER_DPI);
+    }
+
+    /**
+     * Renders a specific page of a PDF document as a PNG image using Apache PDFBox, saves it to
+     * the document cache directory, and returns the image bytes. Refuses pages whose pixel count
+     * would exceed {@link #MAX_RENDER_MEGAPIXELS}.
+     *
+     * @param d Document the document to render
+     * @param pageNum Integer the 1-based page number to render
+     * @param dpi one of {@link #ALLOWED_RENDER_DPI}; callers must resolve it through
+     *            {@link #resolveRequestedDpi()} rather than passing request data
+     * @return the PNG bytes, or an empty array if rendering fails or the page is out of
+     *         bounds. Callers must treat an empty array as a failure and send an error
+     *         status; writing it would serve a zero-byte image under a 200.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public byte[] createCacheVersion2(Document d, Integer pageNum) {
+    // Sonar S2629: error level is always enabled here, and LogSafe.sanitize is a cheap CRLF/length
+    // guard. Gating it behind isErrorEnabled() adds a branch that is never false and makes a
+    // security control conditional.
+    @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
+    public byte[] createCacheVersion2(Document d, Integer pageNum, int dpi) {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
         Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
-        Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
+        Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
                     log.error("Page number is null for document {}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                    return null;
+                    return EMPTY_IMAGE;
                 }
 
                 int pageIndex = pageNum - 1;
                 int totalPages = pdf.getNumberOfPages();
                 if (pageIndex < 0 || pageIndex >= totalPages) {
                     log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSafe.sanitize(d.getDocfilename()), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                    return null;
+                    return EMPTY_IMAGE;
+                }
+
+                org.apache.pdfbox.pdmodel.common.PDRectangle mediaBox =
+                        pdf.getPage(pageIndex).getCropBox();
+                long megapixels = (long) Math.ceil(
+                        (mediaBox.getWidth() / 72d * dpi) * (mediaBox.getHeight() / 72d * dpi) / 1_000_000d);
+                if (megapixels > MAX_RENDER_MEGAPIXELS) {
+                    log.error("Refusing to render page {} of document {}: {} megapixels exceeds the limit",
+                            pageNum, LogSafe.sanitize(d.getDocfilename()), megapixels); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    return EMPTY_IMAGE;
                 }
 
                 PDFRenderer rend = new PDFRenderer(pdf);
-                BufferedImage image = rend.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
+                BufferedImage image = rend.renderImageWithDPI(pageIndex, dpi, ImageType.RGB);
 
                 ImageIO.write(image, "png", pngFile.toFile());
                 ImageIO.write(image, "png", baos);
@@ -830,7 +938,7 @@ public class ManageDocument2Action extends ActionSupport {
             return baos.toByteArray();
         } catch (Exception e) {
             log.error("Error decoding pdf file {}", LogSafe.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-            return null;
+            return EMPTY_IMAGE;
         }
     }
 
@@ -869,16 +977,36 @@ public class ManageDocument2Action extends ActionSupport {
 
         log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
-        File outfile = hasCacheVersion(d, pageNum);
+        int dpi = resolveRequestedDpi();
+        File outfile = hasCacheVersion2(d, pageNum, dpi);
+
+        byte[] pdfBytes = null;
+        if (outfile == null) {
+            pdfBytes = createCacheVersion2(d, pageNum, dpi);
+            if (pdfBytes.length == 0) {
+                // Rendering failed or the page is out of range. Writing the empty array would
+                // serve a zero-byte PNG under a 200, which reaches an <img> tag as a broken
+                // image with nothing in the network log to explain it.
+                sendRenderFailure();
+                return;
+            }
+        }
+
+        // Content type must be set BEFORE the body: setResponse writes the bytes and closes
+        // the output stream, so a header set afterwards is silently dropped and the image was
+        // served with no Content-Type at all. Browsers sniffed the PNG magic bytes, which is
+        // why this went unnoticed, but a stricter client or proxy has nothing to go on.
+        response.setContentType("image/png");
 
         if (outfile != null) {
             setResponse(response, outfile);
         } else {
-            byte[] pdfBytes = createCacheVersion2(d, pageNum);
             setResponse(response, pdfBytes);
         }
 
-        response.setContentType("image/png");
+        // Deliberately left after the write, where it has no effect. These bytes are consumed
+        // by <img> tags in showDocument and the annotation viewer; newly activating an
+        // "attachment" disposition would turn an inline page image into a download prompt.
         response.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizeHeaderValue(d.getDocfilename()) + "\"");
     }
 
@@ -937,6 +1065,10 @@ public class ManageDocument2Action extends ActionSupport {
             setResponse(response, outfile);
         } else {
             byte[] pdfBytes = createCacheVersion2(d, pn);
+            if (pdfBytes.length == 0) {
+                sendRenderFailure();
+                return;
+            }
             setResponse(response, pdfBytes);
         }
 

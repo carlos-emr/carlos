@@ -130,6 +130,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
@@ -245,6 +246,18 @@
     String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    boolean faxEnabled = FaxManager.isEnabled()
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null);
+    // Exact match, matching AnnotateDocument2Action's own test. contains("pdf") also matched
+    // "application/pdfx", so the button was offered for documents the action then refused.
+    boolean docIsPdf = "application/pdf".equalsIgnoreCase(
+        org.apache.commons.lang3.StringUtils.trimToEmpty(curdoc.getContentType()));
+    // Annotation composes and files a NEW document, so it needs _edoc write. Without this the
+    // button was live for a read-only user and the click ended on the security error page.
+    boolean canAnnotate = docIsPdf
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null);
+
     Set<Integer> docFiledQueues = new HashSet<>();
 
     request.setAttribute("mrpProviderName", mrpProviderName);
@@ -269,7 +282,6 @@
     DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     String strDate = nearFuture.format(dtFormatter);
 
-    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
     if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
@@ -488,6 +500,18 @@
                onClick="window.close()">
         <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
                onClick="popup(700,960,'<%=url2%>','file download')">
+        <%if (faxEnabled) {%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="faxBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnFax"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.faxPdfOnlyTooltip"/>" disabled<%}%>
+               <%if (docIsPdf) {%>onClick="popup(800,850,'${pageContext.servletContext.contextPath}/documentManager/FaxDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','faxDoc')"<%}%>>
+        <%}%>
+        <%-- Annotate opens the markup viewer. Saving there files a NEW document rather than
+             editing this one, so the received record is never altered. PDF only. --%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="annotateBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnAnnotate"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.annotatePdfOnlyTooltip"/>" disabled<%} else if (!canAnnotate) {%>title="<fmt:message key="showDocument.annotateNoRightsTooltip"/>" disabled<%}%>
+               <%if (canAnnotate) {%>onClick="popup(900,1000,'${pageContext.servletContext.contextPath}/documentManager/AnnotateDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','annotateDoc')"<%}%>>
         <%
             String btnDisabled = "disabled";
             if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {

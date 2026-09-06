@@ -1,0 +1,210 @@
+/*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
+ * Styles for the document annotation viewer (annotateDocument.jsp).
+ *
+ * Kept in its own file rather than inline so the page can carry a strict
+ * Content-Security-Policy with style-src 'self' and no 'unsafe-inline'.
+ */
+
+:root {
+    --ink: #1c2530;
+    --muted: #5d6873;
+    --line: #d6dcd8;
+    --bg: #f2f4f3;
+    --surface: #ffffff;
+    --accent: #0e6e67;
+    --danger: #a8241f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 14px;
+}
+
+/* ---- toolbar ---- */
+
+.bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+
+.bar-title {
+    font-weight: 600;
+    max-width: 26ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.spacer { flex: 1 1 auto; }
+
+.bar button {
+    font: inherit;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.bar button:hover { border-color: var(--accent); }
+
+.bar button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.bar button[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.bar button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+}
+
+.bar button.primary:disabled {
+    background: var(--surface);
+    color: var(--muted);
+    border-color: var(--line);
+    cursor: not-allowed;
+    font-weight: 400;
+}
+
+.swatch {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid var(--line);
+    cursor: pointer;
+}
+
+.swatch[aria-pressed="true"] { border-color: var(--ink); }
+
+.s-yellow { background: #fff176; }
+.s-green  { background: #7be8b8; }
+.s-blue   { background: #8fd3f4; }
+.s-pink   { background: #ffc2dd; }
+.s-red    { background: #e03b3b; }
+.s-black  { background: #1a1a1a; }
+
+.count {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    margin-right: 4px;
+}
+
+/* ---- notice strip ---- */
+
+.notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    background: #dceeeb;
+    border-bottom: 1px solid var(--line);
+    color: #14453f;
+}
+
+.status:empty { display: none; }
+.status.busy { color: var(--muted); }
+.status.ok { color: var(--accent); font-weight: 600; }
+.status.error { color: var(--danger); font-weight: 600; }
+
+/* ---- pages ---- */
+
+.pages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 12px 60px;
+}
+
+.page {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+    max-width: 100%;
+}
+
+.page img {
+    display: block;
+    max-width: min(920px, 100%);
+    height: auto;
+    /* A page that has not loaded yet still needs height, or the lazy loader sees every
+       page as on-screen at once and requests the whole document immediately. */
+    min-height: 200px;
+}
+
+.page .overlay {
+    position: absolute;
+    inset: 0;
+    /* Marks are hit-tested for deletion in select mode; every other mode draws. */
+    touch-action: none;
+}
+
+.pages[data-tool="select"] .overlay { cursor: default; }
+.pages[data-tool="highlight"] .overlay,
+.pages[data-tool="draw"] .overlay { cursor: crosshair; }
+.pages[data-tool="text"] .overlay,
+.pages[data-tool="date"] .overlay,
+.pages[data-tool="signature"] .overlay { cursor: copy; }
+
+.pages[data-tool="select"] .mark { cursor: pointer; }
+
+.page-caption {
+    padding: 4px 8px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: right;
+    border-top: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+}

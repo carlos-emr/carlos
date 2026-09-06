@@ -216,8 +216,9 @@ class FaxStatusUpdaterTest extends CarlosUnitTestBase {
 
         // Then - first fax status enum unchanged but statusString replaced, second fax fully updated
         assertThat(failingFax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
-        assertThat(failingFax.getStatusString())
-                .isEqualTo("Status check failed: Provider API timeout");
+        // Generic on purpose: the provider's message is logged server-side, not written into a
+        // status string the fax UI shows.
+        assertThat(failingFax.getStatusString()).isEqualTo("Status check failed");
         assertThat(succeedingFax.getStatus()).isEqualTo(FaxJob.STATUS.COMPLETE);
         assertThat(succeedingFax.getStatusString()).isEqualTo("Sent successfully");
         verify(faxJobDao).merge(failingFax);
@@ -313,8 +314,7 @@ class FaxStatusUpdaterTest extends CarlosUnitTestBase {
 
         // Then - status enum unchanged, statusString replaced (not appended) to prevent unbounded growth
         assertThat(fax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
-        assertThat(fax.getStatusString())
-                .isEqualTo("Status check failed: API rate limit exceeded");
+        assertThat(fax.getStatusString()).isEqualTo("Status check failed");
         verify(faxJobDao).merge(fax);
     }
 

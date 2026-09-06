@@ -307,7 +307,10 @@ class FaxSenderTest extends CarlosUnitTestBase {
 
             // Then
             assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
-            assertThat(waitingJob.getStatusString()).isEqualTo("Invalid credentials");
+            // The provider's own message is deliberately NOT surfaced here. statusString is
+            // displayed in the fax UI, and a provider exception can carry recipient numbers or
+            // account detail; the full exception goes to the server log instead.
+            assertThat(waitingJob.getStatusString()).isEqualTo("Problem communicating with fax service");
             verify(faxJobDao).merge(waitingJob);
             verify(faxClientLogDao).merge(clientLog);
             assertThat(clientLog.getResult()).isEqualTo("ERROR");
@@ -393,7 +396,9 @@ class FaxSenderTest extends CarlosUnitTestBase {
             faxSender.send();
 
             // Then
-            assertThat(waitingJob.getStatusString()).isEqualTo("PROBLEM COMMUNICATING WITH WEB SERVICE");
+            // Same generic string as every other provider failure: a null exception message is
+            // not a distinct case now that the message is never shown.
+            assertThat(waitingJob.getStatusString()).isEqualTo("Problem communicating with fax service");
             assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
         }
     }

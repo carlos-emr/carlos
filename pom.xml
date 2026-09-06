@@ -755,7 +755,7 @@
             </exclusions>
         </dependency>
 
-        <!-- ==================== Rules Engine (Drools) ==================== -->
+                <!-- ==================== Rules Engine (Drools) ==================== -->
 
         <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE). -->
         <dependency>

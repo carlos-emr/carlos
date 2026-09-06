@@ -240,7 +240,8 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
                 java.nio.file.Files.createTempFile(appTempRoot, "queue-reject-test-", ".pdf");
         // Seed the session the same way prepareFax() would have, right after claiming this file.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new java.util.HashSet<>(java.util.List.of(stagedFile.toString())));
+                new java.util.HashSet<>(java.util.List.of(
+                        Fax2Action.claimKey("EFORM", 7, stagedFile.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -292,7 +293,9 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         // re-approved after a blocking-issue resubmission, or refreshed the cover page before
         // queuing the first submission).
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new java.util.HashSet<>(java.util.List.of(firstPreview.toString(), secondPreview.toString())));
+                new java.util.HashSet<>(java.util.List.of(
+                        Fax2Action.claimKey("EFORM", 7, firstPreview.toString()),
+                        Fax2Action.claimKey("EFORM", 7, secondPreview.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -318,7 +321,10 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             @SuppressWarnings("unchecked")
             java.util.Set<String> remainingClaims = (java.util.Set<String>) request.getSession(true)
                     .getAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
-            assertThat(remainingClaims).containsExactly(secondPreview.toString());
+            // Claims are stored keyed by the transaction they were staged for, so the surviving
+            // entry is the composite key, not the bare path.
+            assertThat(remainingClaims)
+                    .containsExactly(Fax2Action.claimKey("EFORM", 7, secondPreview.toString()));
         } finally {
             java.nio.file.Files.deleteIfExists(firstPreview);
             java.nio.file.Files.deleteIfExists(secondPreview);
@@ -344,7 +350,8 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         java.nio.file.Path stagedFile =
                 java.nio.file.Files.createTempFile(appTempRoot, "queue-success-", ".pdf");
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new java.util.HashSet<>(java.util.List.of(stagedFile.toString())));
+                new java.util.HashSet<>(java.util.List.of(
+                        Fax2Action.claimKey("EFORM", 7, stagedFile.toString()))));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
