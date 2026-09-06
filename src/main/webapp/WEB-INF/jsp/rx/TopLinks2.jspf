@@ -74,7 +74,9 @@ function getDrugRefStatus() {
 				// 'updating' is a rebuild in progress (Administration > Update Drugref), not an
 				// outage: say so, because the two call for different reactions from the desk.
 				let statusDisplay = document.getElementById('statusDisplay');
-				statusDisplay.innerHTML = (json && json.lastUpdate === 'updating') ? msgDrugrefUpdating : msgDrugrefUnavailable;
+				// textContent, not innerHTML: these are plain-text bundle strings, and a
+				// translation that ever picked up markup should render as text, not HTML.
+				statusDisplay.textContent = (json && json.lastUpdate === 'updating') ? msgDrugrefUpdating : msgDrugrefUnavailable;
 				statusDisplay.style.color = 'red';
 				statusDisplay.style.fontWeight = 'bold';
 			} else {
@@ -91,7 +93,7 @@ function getDrugRefStatus() {
 		})
 		.catch(error => {
 			let statusDisplay = document.getElementById('statusDisplay');
-			statusDisplay.innerHTML = msgDrugrefUnavailableContact;
+			statusDisplay.textContent = msgDrugrefUnavailableContact;
 			statusDisplay.style.color = 'red';
 			statusDisplay.style.fontWeight = 'bold';
 		});

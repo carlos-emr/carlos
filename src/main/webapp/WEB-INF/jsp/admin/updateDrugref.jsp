@@ -142,14 +142,20 @@
                 }
             }
 
+            // Resolves with the verify payload (null when DrugRef could not be reached),
+            // which the startup path needs to spot a run already going on an older build.
             function getUpdateTime() {
                 return callDrugref('verify')
-                    .then(renderVerify)
+                    .then(function (json) {
+                        renderVerify(json);
+                        return json;
+                    })
                     .catch(function () {
                         document.getElementById('dbInfo').textContent = 'Drugref database is unavailable. Contact support.';
                         show('dbInfo', true);
                         show('statusDisplay', false);
                         show('updateButton', true);
+                        return null;
                     });
             }
 
@@ -187,8 +193,17 @@
                                 renderVerify(v);
                                 if (v && v.lastUpdate === 'updating') {
                                     pollTimer = setTimeout(pollStatus, POLL_MS);
+                                } else if (!v || v.lastUpdate == null) {
+                                    // DrugRef stopped answering mid-run. A null lastUpdate is
+                                    // "cannot tell", NOT "finished": reporting success here
+                                    // would tell the operator the rebuild completed when it
+                                    // may have died with the tables half-built. Keep looking.
+                                    setResult('DrugRef stopped responding, so the outcome of this update is '
+                                        + 'unknown. Still checking. If this persists, check the DrugRef service '
+                                        + '(journalctl -u carlos-emr) before prescribing.', 'danger');
+                                    pollTimer = setTimeout(pollStatus, POLL_MS);
                                 } else {
-                                    setResult('Update finished.', 'success');
+                                    setResult('Update finished at ' + v.lastUpdate + '.', 'success');
                                 }
                             });
                         }
@@ -234,11 +249,22 @@
                     .then(function () {
                         return getUpdateTime();
                     })
-                    .then(function () {
+                    .then(function (verifyJson) {
                         // Report a run already in progress (started from another session) or
                         // the outcome of the last one, and keep following a running one.
                         return callDrugref('status').then(function (status) {
                             if (renderStatus(status)) {
+                                pollTimer = setTimeout(pollStatus, POLL_MS);
+                                return;
+                            }
+                            if (status && status.state === 'UNAVAILABLE'
+                                    && verifyJson && verifyJson.lastUpdate === 'updating') {
+                                // An older DrugRef with a run already going: status cannot see
+                                // it, so follow it through the verify probe. Without this the
+                                // page sat on "database is updating" for good, because polling
+                                // was only ever armed off a RUNNING status.
+                                setResult('An update is already running. This page is following it.', 'info');
+                                show('updateButton', false);
                                 pollTimer = setTimeout(pollStatus, POLL_MS);
                             }
                         }).catch(function (error) {
@@ -247,7 +273,7 @@
                     })
                     .catch(function (err) {
                         console.warn('Skipping getUpdateTime — CSRF token not available:', err);
-                        document.getElementById('dbInfo').innerHTML =
+                        document.getElementById('dbInfo').textContent =
                             'Could not load CSRF token. Refresh the page or contact support.';
                     });
             });
