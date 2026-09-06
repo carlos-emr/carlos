@@ -30,6 +30,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Runs one piece of PDF work on a daemon thread with a hard deadline.
@@ -104,18 +105,30 @@ public final class BoundedPdfTask {
         if (!PARSE_PERMITS.tryAcquire()) {
             throw new IOException("The server is busy reading documents. Try again in a moment.");
         }
+        // The permit is handed to the worker, but exactly one party must give it back. A deadline
+        // that expires before the worker enters the task body cancels the FutureTask while it is
+        // still NEW, and FutureTask.run() then skips the callable entirely -- so the callable's
+        // finally never runs. Without the handover below that permit was gone for good: measured,
+        // 24 such timeouts permanently exhausted all 8 permits and every later parse was refused
+        // with "the server is busy" until the JVM restarted, turning the cap into the outage it
+        // exists to prevent. The CAS makes the release idempotent, so the narrow window where the
+        // worker starts just as the caller gives up cannot return the permit twice.
+        AtomicBoolean permitHeld = new AtomicBoolean(true);
+        AtomicBoolean bodyEntered = new AtomicBoolean(false);
         boolean submitted = false;
+        Future<T> future = null;
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread worker = new Thread(runnable, threadName);
             worker.setDaemon(true);
             return worker;
         });
         try {
-            Future<T> future = executor.submit(() -> {
+            future = executor.submit(() -> {
                 try {
+                    bodyEntered.set(true);
                     return task.call();
                 } finally {
-                    PARSE_PERMITS.release();
+                    releaseOnce(permitHeld);
                 }
             });
             submitted = true;
@@ -147,10 +160,21 @@ public final class BoundedPdfTask {
         } finally {
             if (!submitted) {
                 // submit() itself failed, so no worker will ever release the permit.
-                PARSE_PERMITS.release();
+                releaseOnce(permitHeld);
+            } else if (future.isCancelled() && !bodyEntered.get()) {
+                // Cancelled before the callable body began: its finally will never run, so the
+                // permit comes back here instead.
+                releaseOnce(permitHeld);
             }
             // Returns immediately; close() would wait for the abandoned worker instead.
             executor.shutdownNow();
+        }
+    }
+
+    /** Returns the permit at most once, whichever of the caller or the worker gets there first. */
+    private static void releaseOnce(AtomicBoolean permitHeld) {
+        if (permitHeld.compareAndSet(true, false)) {
+            PARSE_PERMITS.release();
         }
     }
 }

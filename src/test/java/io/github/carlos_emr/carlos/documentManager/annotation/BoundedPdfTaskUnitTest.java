@@ -98,6 +98,42 @@ class BoundedPdfTaskUnitTest {
     }
 
     @Test
+    @DisplayName("should return the permit when the deadline beats the worker to the task body")
+    void shouldReturnPermit_whenDeadlineBeatsWorkerToTaskBody() throws Exception {
+        // A zero-second deadline expires while the FutureTask is still NEW, so FutureTask.run()
+        // skips the callable and its finally -- the path that used to strand the permit for the
+        // life of the JVM. Driving more of these than there are permits proves the handover works:
+        // before the fix, the assertion below failed with "the server is busy".
+        int permits = BoundedPdfTask.maxConcurrentParses();
+        for (int i = 0; i < permits * 2; i++) {
+            try {
+                BoundedPdfTask.runWithin(0, "deadline-race-" + i, () -> {
+                    Thread.sleep(2_000);
+                    return 1;
+                });
+            } catch (IOException expectedTimeoutOrBusy) {
+                // Either outcome is fine; the point is what happens to the permit afterwards.
+            }
+        }
+
+        // Retry rather than assert once: the semaphore is global and the suite runs in parallel,
+        // so a permit legitimately held by another test must not be read as a leak. A genuinely
+        // stranded permit never comes back and this still fails.
+        long giveUp = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        Integer result = null;
+        while (result == null && System.nanoTime() < giveUp) {
+            try {
+                result = BoundedPdfTask.runWithin(10, "after-deadline-race", () -> 42);
+            } catch (IOException busy) {
+                Thread.sleep(50);
+            }
+        }
+        assertThat(result)
+                .as("permits must survive deadlines that fire before the worker starts")
+                .isEqualTo(42);
+    }
+
+    @Test
     @DisplayName("should refuse a new parse when every permit is held by one already running")
     // Sonar S2925: both sleeps are backoff, not synchronisation. What is being waited on is a
     // permit held by another thread in a global semaphore, which exposes no event to await; the

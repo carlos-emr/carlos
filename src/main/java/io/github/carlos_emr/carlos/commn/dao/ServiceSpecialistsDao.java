@@ -57,7 +57,12 @@ public interface ServiceSpecialistsDao extends AbstractDao<ServiceSpecialists> {
      *
      * @param keyword search term matched case-insensitively against last name, first name, or service description
      * @param maxResults maximum number of rows to return
-     * @return List of Object[] tuples [ServiceSpecialists, ProfessionalSpecialist, ConsultationServices]
+     * @return List of Object[] tuples {@code [ProfessionalSpecialist, String serviceDesc]}. Only
+     *         the two values the caller reads are projected: {@code ServiceSpecialists} was never
+     *         referenced, and selecting the {@code ConsultationServices} entity issued an extra
+     *         select per row that hydrated the whole specialist roster of every matched service.
+     *         Callers must index {@code row[0]} as the specialist and {@code row[1]} as the
+     *         service description.
      */
     List<Object[]> searchSpecialistsWithService(String keyword, int maxResults);
 }

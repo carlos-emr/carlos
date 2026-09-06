@@ -129,10 +129,11 @@ public class AnnotatedDocumentService {
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    // Sonar S2629: error level is always enabled here, and LogSafe.sanitize is a cheap CRLF/length
-    // guard. Gating it behind isErrorEnabled() adds a branch that is never false and makes a
-    // security control conditional.
-    @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
+    // Sonar S2629: this one governs a logger.info call, not an error. INFO is enabled in every
+    // CARLOS configuration (the filing of an annotated copy is an audit line that must appear),
+    // and LogSafe.sanitize is a cheap CRLF/length guard that is required rather than optional --
+    // gating it behind isInfoEnabled() would make a security control conditional.
+    @SuppressWarnings("java:S2629") // INFO is enabled here; LogSafe.sanitize is required, not optional
     public int save(LoggedInInfo loggedInInfo, int sourceDocNo,
                     List<DocumentAnnotationDto> annotations) throws IOException {
 
