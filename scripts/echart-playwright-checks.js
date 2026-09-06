@@ -288,13 +288,16 @@ async function screenshot(page, name) {
  * Writes text into the encounter-note textarea that lives inside caseManagementEntryForm
  * and returns whatever was there before.
  *
- * It has to be THAT textarea, not merely a visible one: the encounter layout renders
- * ChartNotes.jsp twice, so the chart has two textareas named caseNote_note, and only the
- * one inside the first form is what the CPP save callback and the autosave actually post.
- * Typing into the other one exercises nothing. The value is set directly rather than
- * through fill() because the field can be off-screen behind the CPP editor overlay.
+ * It has to be the textarea inside THAT form, not merely a visible one: only what the form
+ * serializes travels on the CPP save's issue-refresh POST, and the autosave reads the same
+ * element. The form arrives with the AJAX render of ChartNotes.jsp into #notCPP rather than
+ * with the first paint, so wait for it instead of assuming the chart is already whole. The
+ * value is assigned directly rather than through fill() because the field sits behind the
+ * CPP editor overlay by the time this runs.
  */
 async function seedEncounterNoteText(page, text) {
+  await page.locator('#caseManagementEntryForm textarea[name="caseNote_note"]')
+    .first().waitFor({ state: 'attached', timeout: 15000 });
   return page.evaluate((value) => {
     const form = document.forms['caseManagementEntryForm'];
     const textarea = form && form.querySelector('textarea[name="caseNote_note"]');
