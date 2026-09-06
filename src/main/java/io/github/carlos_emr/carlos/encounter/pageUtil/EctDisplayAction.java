@@ -83,6 +83,14 @@ public class EctDisplayAction extends ActionSupport {
     private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
     private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
 
+    /**
+     * Parameters the navbar reload URL must not carry. The first three are re-added by the
+     * caller on every refresh (see {@code popColumn()} in newEncounterLayout.jsp and
+     * encounter.js); the CSRF token has no business in a URL at all.
+     */
+    private static final Set<String> RELOAD_URL_SUPPRESSED_PARAMS =
+            Set.of("reloadURL", "cmd", "numToDisplay", "CSRF-TOKEN");
+
     private boolean enabled;
 
     protected SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -372,20 +380,59 @@ public class EctDisplayAction extends ActionSupport {
             dao.setHeadingColour(headingColour);
         }
 
-        dao.setReloadUrl(buildReloadUrl());
+        dao.setReloadUrl(buildReloadUrl(request.getRequestURI(), request.getParameterMap()));
         dao.setDivId(cmd);
         return dao;
     }
 
-    private String buildReloadUrl() {
-        String baseUrl = request.getRequestURL().toString();
-        String encodedQuery = buildEncodedQueryString();
-        return encodedQuery.isEmpty() ? baseUrl : baseUrl + "?" + encodedQuery;
+    /**
+     * Builds the URL the left navbar posts back to when a single module is refreshed in
+     * place (the hidden {@code reloadUrl} input rendered by LeftNavBarDisplay.jsp, read by
+     * {@code reloadNav()} after a popup such as Add Tickler saves).
+     *
+     * <p>Two properties of the result are load-bearing:</p>
+     *
+     * <ul>
+     *   <li><strong>Root-relative, never absolute.</strong> This used to return
+     *   {@code request.getRequestURL()}, so the reload posted the server's own
+     *   {@code scheme://host/...} back as the {@code reloadURL} argument. On a packaged
+     *   deployment reached by IP address that value trips OWASP CRS rule 931100 ("URL
+     *   Parameter using IP Address", CRITICAL) on top of the standing 3 points from 920350
+     *   ("Host header is a numeric IP address"), so the WAF answered every navbar refresh
+     *   with 403 and the module box rendered "&lt;module&gt; Error: 403" until the user
+     *   reloaded the whole chart. Only the refresh was affected: the first render posts the
+     *   relative URL from encounterConfig.urls.leftNavbar, which matches nothing.</li>
+     *   <li><strong>The reload plumbing is not carried forward.</strong> The caller appends
+     *   {@code reloadURL}, {@code cmd} and {@code numToDisplay} on every post, so echoing
+     *   the incoming copies back nested the previous URL inside the next one and the value
+     *   grew with each refresh. {@code CSRF-TOKEN} is dropped for its own reason: CarlosAjax
+     *   posts it as a body parameter, and reflecting it into a URL would write the session's
+     *   CSRF token into page markup and into any log or referrer that records the URL.</li>
+     * </ul>
+     *
+     * <p>Every other parameter is preserved (notably {@code hC}, the module's heading
+     * colour), so a refreshed box renders exactly like the first load.</p>
+     *
+     * @param requestUri   the already-encoded request URI of the display action, including
+     *                     the context path (e.g. {@code /carlos/encounter/displayTickler})
+     * @param parameterMap the request's parameter map; query-string and POST-body parameters
+     *                     are merged by the container and both are honoured here
+     * @return a root-relative URL suitable for a same-origin XHR from the encounter page
+     */
+    static String buildReloadUrl(String requestUri, Map<String, String[]> parameterMap) {
+        String encodedQuery = buildEncodedQueryString(parameterMap);
+        return encodedQuery.isEmpty() ? requestUri : requestUri + "?" + encodedQuery;
     }
 
-    private String buildEncodedQueryString() {
+    private static String buildEncodedQueryString(Map<String, String[]> parameterMap) {
+        if (parameterMap == null) {
+            return "";
+        }
         StringJoiner joiner = new StringJoiner("&");
-        for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
+        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+            if (RELOAD_URL_SUPPRESSED_PARAMS.contains(entry.getKey())) {
+                continue;
+            }
             String encodedKey = URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8);
             String[] values = entry.getValue();
             if (values == null || values.length == 0) {
