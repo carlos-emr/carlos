@@ -62,8 +62,9 @@ class EctDisplayActionReloadUrlUnitTest {
     void shouldReturnRootRelativeUrl_withoutSchemeOrHost() {
         String reloadUrl = EctDisplayAction.buildReloadUrl(URI, params("hC", "FF6600"));
 
-        assertThat(reloadUrl).isEqualTo("/carlos/encounter/displayTickler?hC=FF6600");
-        assertThat(reloadUrl).doesNotContain("://");
+        assertThat(reloadUrl)
+                .isEqualTo("/carlos/encounter/displayTickler?hC=FF6600")
+                .doesNotContain("://");
     }
 
     @Test

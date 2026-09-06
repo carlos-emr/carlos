@@ -433,18 +433,26 @@ public class EctDisplayAction extends ActionSupport {
             if (RELOAD_URL_SUPPRESSED_PARAMS.contains(entry.getKey())) {
                 continue;
             }
-            String encodedKey = URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8);
-            String[] values = entry.getValue();
-            if (values == null || values.length == 0) {
-                joiner.add(encodedKey);
-                continue;
-            }
-            for (String value : values) {
-                String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
-                joiner.add(encodedKey + "=" + encodedValue);
-            }
+            appendEncodedParameter(joiner, entry.getKey(), entry.getValue());
         }
         return joiner.toString();
+    }
+
+    /**
+     * Appends one request parameter to the query string, repeating the key once per value so a
+     * multi-valued parameter survives the round trip. A parameter present with no value at all
+     * is emitted as a bare key, which is how it arrived.
+     */
+    private static void appendEncodedParameter(StringJoiner joiner, String name, String[] values) {
+        String encodedKey = URLEncoder.encode(name, StandardCharsets.UTF_8);
+        if (values == null || values.length == 0) {
+            joiner.add(encodedKey);
+            return;
+        }
+        for (String value : values) {
+            String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
+            joiner.add(encodedKey + "=" + encodedValue);
+        }
     }
 
     private String resolveForward(String cmd, String params, NavBarDisplayDAO dao, boolean isJsonRequest) throws IOException {
