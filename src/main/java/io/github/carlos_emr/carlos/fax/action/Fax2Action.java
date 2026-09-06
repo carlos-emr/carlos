@@ -1057,11 +1057,21 @@ public class Fax2Action extends ActionSupport {
      *         document (module id absent, {@code 0} or {@code -1}) has no binding to contradict.
      */
     private String documentPatientRebindingRejection() {
+        // A DOCUMENT promotion with no document number cannot be re-derived, so it must be
+        // refused rather than waved through. prepareFax requires transactionId; queue() is a
+        // separate request whose parameters the client re-supplies, so simply omitting the
+        // hidden field would otherwise skip this check entirely and file the staged file
+        // against whatever demographicNo the form carried.
         if (transactionId == null) {
-            return null;
+            return "This fax is no longer available to send. Open the document and try again.";
         }
         EDoc doc = EDocUtil.getDoc(String.valueOf(transactionId.intValue()));
-        if (doc == null) {
+        // EDocUtil.getDoc never returns null: it allocates an EDoc and returns it whether or not
+        // the query matched, so an unknown document number yields a default instance whose
+        // moduleId is "". Testing for null let that instance fall through to the "unlinked
+        // document, no binding to contradict" branch below — the same fail-open. Resolvability
+        // is tested the way stageDocumentForFax tests it, on the filename.
+        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
             return "This document is no longer available to send.";
         }
         String moduleId = StringUtils.trimToNull(doc.getModuleId());

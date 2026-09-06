@@ -150,9 +150,10 @@
 
         var w = img.clientWidth;
         var h = img.clientHeight;
+        var scale = pxPerPoint(img);
 
         state.annotations.filter(function (a) { return a.page === page; }).forEach(function (a) {
-            var el = renderMark(a, w, h);
+            var el = renderMark(a, w, h, scale);
             if (!el) { return; }
             el.setAttribute('data-id', a.id);
             el.addEventListener('click', function (event) {
@@ -164,7 +165,28 @@
         });
     }
 
-    function renderMark(a, w, h) {
+    /**
+     * Displayed CSS pixels per PDF point for this page image.
+     *
+     * Positions in the model are normalised 0..1, so they need no conversion — but fontSize and
+     * strokeWidth are ABSOLUTE, and the composer draws them in PDF points
+     * (AnnotatedDocumentComposer setLineWidth / setTextMatrix). Drawing the same numbers as SVG
+     * units would size them in displayed pixels instead, which is a different unit and a
+     * different amount at every zoom level and window width: an 11 pt note previewed on a
+     * 96 dpi render appears ~1.33x smaller than it will be filed, so a note a provider fits
+     * into the gap between two printed lab lines overlaps the values in the saved copy.
+     *
+     * naturalHeight is the rendered image in device pixels = pagePoints * dpi / 72, so
+     * pxPerPoint = clientHeight / (naturalHeight * 72 / dpi).
+     */
+    function pxPerPoint(img) {
+        var dpi = DPI_STEPS[state.dpiIndex] || 96;
+        if (!img.naturalHeight || !img.clientHeight) { return 1; }
+        return (img.clientHeight * dpi) / (img.naturalHeight * 72);
+    }
+
+    function renderMark(a, w, h, scale) {
+        var unit = scale || 1;
         if (a.type === 'ink') {
             var poly = document.createElementNS(SVG_NS, 'polyline');
             poly.setAttribute('points', a.points.map(function (p) {
@@ -172,7 +194,7 @@
             }).join(' '));
             poly.setAttribute('fill', 'none');
             poly.setAttribute('stroke', COLORS[a.color] || COLORS.black);
-            poly.setAttribute('stroke-width', a.strokeWidth || 2);
+            poly.setAttribute('stroke-width', (a.strokeWidth || 2) * unit);
             poly.setAttribute('stroke-linecap', 'round');
             poly.setAttribute('stroke-linejoin', 'round');
             poly.setAttribute('class', 'mark');
@@ -197,9 +219,9 @@
             // actually draws, so the preview would show the text below where the saved copy
             // puts it. On a clinical document what the provider positions has to be what is
             // filed and faxed.
-            text.setAttribute('y', (a.y * h) + ((a.fontSize || 11) * TEXT_BASELINE_RATIO));
+            text.setAttribute('y', (a.y * h) + ((a.fontSize || 11) * unit * TEXT_BASELINE_RATIO));
             text.setAttribute('fill', COLORS[a.color] || COLORS.black);
-            text.setAttribute('font-size', (a.fontSize || 11));
+            text.setAttribute('font-size', (a.fontSize || 11) * unit);
             text.setAttribute('font-family', 'sans-serif');
             text.setAttribute('class', 'mark');
             text.textContent = a.text;

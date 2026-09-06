@@ -252,4 +252,67 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
         verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
     }
+
+    @Test
+    @DisplayName("should reject queue when the submitted document number resolves to nothing")
+    void shouldRejectQueue_whenDocumentNumberIsUnknown() throws Exception {
+        setUpCommonMocks();
+        Files.createDirectories(Paths.get(APP_TEMP_ROOT));
+        Path staged = Files.createTempFile(Paths.get(APP_TEMP_ROOT), "staged-unknown-", ".pdf");
+
+        // EDocUtil.getDoc never returns null — it hands back a default-initialised EDoc whose
+        // moduleId is "" — so naming a document number that matches no row used to reach the
+        // "unlinked document, no binding to contradict" branch and pass. That let a genuine path
+        // claim be promoted against an arbitrary demographicNo.
+        request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
+                new HashSet<>(List.of(staged.toString())));
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("DOCUMENT");
+            action.setTransactionId(DOCUMENT_NO + 9999);
+            action.setDemographicNo(DEMOGRAPHIC_NO);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(staged.toString());
+
+            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class);
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+
+        verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject queue when the document number is omitted entirely")
+    void shouldRejectQueue_whenDocumentNumberIsAbsent() throws Exception {
+        setUpCommonMocks();
+        Files.createDirectories(Paths.get(APP_TEMP_ROOT));
+        Path staged = Files.createTempFile(Paths.get(APP_TEMP_ROOT), "staged-absent-", ".pdf");
+
+        // prepareFax requires transactionId; queue() is a separate request whose parameters the
+        // client re-supplies. Simply dropping the hidden field skipped the re-binding check.
+        request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
+                new HashSet<>(List.of(staged.toString())));
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("DOCUMENT");
+            action.setDemographicNo(DEMOGRAPHIC_NO);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(staged.toString());
+
+            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class);
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+
+        verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+    }
 }

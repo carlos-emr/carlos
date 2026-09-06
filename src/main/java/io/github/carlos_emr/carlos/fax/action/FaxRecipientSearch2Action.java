@@ -26,7 +26,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceSpecialistsDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.form.JSONUtil;
@@ -111,21 +110,39 @@ public class FaxRecipientSearch2Action extends ActionSupport {
      * Appends specialist-with-service rows matching the keyword. One entry per (specialist, service)
      * tuple. Specialists without any service enrollment are not included here.
      */
+    /**
+     * Joins a specialist's name parts without rendering the word "null".
+     *
+     * <p>{@code lName} is nullable in the schema and {@code setLastName} trims blanks to null, so
+     * a directory-imported organisation row commonly has only a first name. Concatenating it
+     * unguarded put the literal string "null" in the picker, and because the chosen name is
+     * submitted with the cover page and set verbatim on the FaxJob, it was printed on the sheet
+     * faxed to the external site.
+     */
+    private static String displayName(String lastName, String firstName) {
+        String last = StringUtils.trimToEmpty(lastName);
+        String first = StringUtils.trimToEmpty(firstName);
+        if (last.isEmpty()) {
+            return first;
+        }
+        return first.isEmpty() ? last : last + ", " + first;
+    }
+
     private void addSpecialistResults(String term, ArrayNode results) {
         int remaining = MAX_RESULTS - results.size();
         if (remaining <= 0) return;
         try {
             List<Object[]> rows = serviceSpecialistsDao.searchSpecialistsWithService(term, remaining);
             for (Object[] row : rows) {
-                ProfessionalSpecialist spec = (ProfessionalSpecialist) row[1];
-                ConsultationServices svc = (ConsultationServices) row[2];
+                ProfessionalSpecialist spec = (ProfessionalSpecialist) row[0];
+                String serviceDesc = (String) row[1];
 
                 if (StringUtils.isBlank(spec.getFaxNumber())) continue;
 
                 ObjectNode item = objectMapper.createObjectNode();
-                item.put("name", spec.getLastName() + ", " + StringUtils.defaultString(spec.getFirstName()));
+                item.put("name", displayName(spec.getLastName(), spec.getFirstName()));
                 item.put("fax", spec.getFaxNumber());
-                item.put("badge", StringUtils.defaultIfBlank(svc.getServiceDesc(), "Specialist"));
+                item.put("badge", StringUtils.defaultIfBlank(serviceDesc, "Specialist"));
                 item.put("type", "SPECIALIST");
                 results.add(item);
             }

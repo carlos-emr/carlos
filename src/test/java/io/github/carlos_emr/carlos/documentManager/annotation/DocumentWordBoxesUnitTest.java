@@ -113,15 +113,24 @@ class DocumentWordBoxesUnitTest {
 
         List<double[]> boxes = DocumentWordBoxes.extract(rotated, 1, MAX_WORDS);
 
-        // The boxes are normalised against the DISPLAYED page, which is transposed at 90
-        // degrees. Whatever the rotation, they must stay within the unit square or a snapped
-        // highlight would be composed off the page.
+        assertThat(boxes).as("a rotated page still has extractable text").isNotEmpty();
+
+        // Containment alone proves nothing here: boundingBox clamps every edge into 0..1, so the
+        // assertions below hold for ANY displayW/displayH, including the un-transposed ones a
+        // broken rotation branch would use. Deleting the quarter-turn transposition changes every
+        // coordinate and a containment-only test still passes. So pin the POSITION.
         for (double[] box : boxes) {
-            assertThat(box[0]).isBetween(0d, 1d);
-            assertThat(box[1]).isBetween(0d, 1d);
             assertThat(box[0] + box[2]).isLessThanOrEqualTo(1.0001d);
             assertThat(box[1] + box[3]).isLessThanOrEqualTo(1.0001d);
         }
+
+        // At 90 degrees the displayed page is LETTER transposed: 792pt wide by 612pt tall. The
+        // text is drawn at user-space (72, 600) on the unrotated page, which lands near the top
+        // left of the displayed page once the transposition is applied. Against the un-transposed
+        // 612x792 these normalise to visibly different numbers, so this fails if the branch goes.
+        double[] first = boxes.get(0);
+        assertThat(first[0]).as("x normalised against the transposed width").isBetween(0.05d, 0.15d);
+        assertThat(first[1]).as("y normalised against the transposed height").isBetween(0.25d, 0.36d);
     }
 
     @Test

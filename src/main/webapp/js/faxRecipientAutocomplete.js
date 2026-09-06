@@ -105,6 +105,7 @@
         nameEl.setAttribute('autocomplete', 'off');
 
         var abortCtrl = null;
+        var SEARCH_DEBOUNCE_MS = 250;
         var activeIdx = -1;
 
         function hideDropdown() {
@@ -174,14 +175,24 @@
             dropEl.style.display = 'block';
         }
 
+        // Each keystroke used to dispatch its own request: typing "cardiolo" sent seven, and
+        // abort() only stops the browser reading the reply — the server still runs every one of
+        // them, each a three-table join over the specialist directory. Waiting for a pause in
+        // typing collapses that to one.
+        var pendingSearch = null;
+
         nameEl.addEventListener('input', function () {
             var term = nameEl.value.trim();
+            if (pendingSearch) { clearTimeout(pendingSearch); pendingSearch = null; }
             if (term.length < 2) {
                 if (abortCtrl) { abortCtrl.abort(); abortCtrl = null; }
                 hideDropdown();
                 return;
             }
+            pendingSearch = setTimeout(function () { runSearch(term); }, SEARCH_DEBOUNCE_MS);
+        });
 
+        function runSearch(term) {
             if (abortCtrl) { abortCtrl.abort(); }
             abortCtrl = new AbortController();
 
@@ -207,7 +218,7 @@
                     hideDropdown();
                     console.error('Error searching fax recipients:', err);
                 });
-        });
+        }
 
         nameEl.addEventListener('keydown', function (e) {
             var items = dropEl.querySelectorAll('.fax-ac-item');

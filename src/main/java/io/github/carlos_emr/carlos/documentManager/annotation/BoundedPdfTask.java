@@ -40,10 +40,16 @@ import java.util.concurrent.TimeoutException;
  * routes through here so the ceiling is enforced in one place rather than declared in three
  * and applied in none.
  *
- * <p>A timeout cancels the future and surfaces as {@link IOException}. Cancellation cannot
- * force PDFBox to stop mid-parse — the worker is a daemon thread precisely so a wedged parse
- * cannot keep the JVM alive — but it does free the request thread, which is the resource under
- * contention.
+ * <p>A timeout cancels the future and surfaces as {@link IOException}, releasing the request
+ * thread. The abandoned worker keeps running: {@code cancel(true)} only sets the interrupt flag,
+ * and a PDFBox parse is CPU-bound and never checks it. Java cannot kill a thread, so that is
+ * unavoidable; the worker is a daemon precisely so a wedged parse cannot keep the JVM alive.
+ *
+ * <p>The executor is shut down with {@code shutdownNow()} in a finally block, NOT with
+ * try-with-resources. {@link ExecutorService#close()} is {@code shutdown()} followed by an
+ * unbounded {@code awaitTermination}, so closing here parks the caller until the abandoned parse
+ * finishes — measured at 6.0s for a 6s task under a 1s deadline, which makes the deadline inert
+ * for exactly the case this class exists to handle.
  *
  * @since 2026-09
  */
@@ -62,11 +68,12 @@ public final class BoundedPdfTask {
      *         programming error should not be disguised as an I/O problem.
      */
     public static <T> T runWithin(int seconds, String threadName, Callable<T> task) throws IOException {
-        try (ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread worker = new Thread(runnable, threadName);
             worker.setDaemon(true);
             return worker;
-        })) {
+        });
+        try {
             Future<T> future = executor.submit(task);
             try {
                 return future.get(seconds, TimeUnit.SECONDS);
@@ -86,6 +93,9 @@ public final class BoundedPdfTask {
                 }
                 throw new IOException("The document could not be read.");
             }
+        } finally {
+            // Returns immediately; close() would wait for the abandoned worker instead.
+            executor.shutdownNow();
         }
     }
 }

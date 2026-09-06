@@ -1,5 +1,19 @@
 # Fax from Show-Document — Implementation Plan
 
+> **SUPERSEDED — Phase 2 was never built and must not be used as a specification.**
+>
+> Phase 2 below describes a browser-side PDF.js annotator. That approach was **rejected on
+> security grounds** and replaced by server-side composition; `pdfjs-dist` carried
+> CVE-2026-16633 (GHSA-hq66-cqwq-w95j, CVSS 8.1). Nothing in Phase 2 exists in the codebase:
+> there is no `pdfjs-dist` dependency, no `.mjs` / `webjars` Struts exclude, no
+> `FaxAnnotateViewer.jsp`, and no `ServeDocument2Action`. Phase 2 also says the annotate flow
+> overwrites the original document — it does not; a **new** document is filed and the source is
+> never modified.
+>
+> **The authoritative design is [`annotated-document-copies-design.md`](annotated-document-copies-design.md).**
+> Phase 1 below is accurate and did ship. Phase 2 is retained only as a record of the rejected
+> approach.
+
 ## Goal
 
 Enable providers to fax inbox documents directly from the **showDocument** viewer, with a
@@ -73,7 +87,7 @@ non-blank `fax` field are included. The badge label is always the literal string
 
 ---
 
-## Phase 2 — PDF.js annotation viewer before fax (DONE)
+## Phase 2 — PDF.js annotation viewer before fax — REJECTED, NEVER IMPLEMENTED
 
 Providers can now review and annotate a PDF document inside CARLOS before sending it to fax.
 Annotations are saved back to the original file on disk and are embedded in the faxed copy.

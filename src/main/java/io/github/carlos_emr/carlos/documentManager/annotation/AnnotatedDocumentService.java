@@ -26,10 +26,12 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -153,17 +155,25 @@ public class AnnotatedDocumentService {
 
         assertAnnotatable(source, sourceFile);
 
-        Path readOnlyCopy = createPrivateWorkingCopy();
+        Path readOnlyCopy = createPrivateWorkingCopy(sourceFile.toPath());
         byte[] composed;
         int actualPageCount;
         try {
-            Files.copy(sourceFile.toPath(), readOnlyCopy,
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             actualPageCount = assertPageCountWithinLimit(readOnlyCopy);
             composed = composeBounded(readOnlyCopy, annotations,
                     signatureFor(loggedInInfo.getLoggedInProviderNo()), fontPath());
         } finally {
             Files.deleteIfExists(readOnlyCopy);
+            // createTempFileFrom allocates a directory per staging; without this the temp root
+            // accumulates one empty directory per annotation save until the purge job runs.
+            Path staged = readOnlyCopy.getParent();
+            if (staged != null) {
+                try {
+                    Files.deleteIfExists(staged);
+                } catch (IOException e) {
+                    logger.warn("Could not remove the annotation staging directory");
+                }
+            }
         }
 
         File target = createUniqueTarget(documentDir, composed);
@@ -270,25 +280,38 @@ public class AnnotatedDocumentService {
     }
 
     /**
-     * Creates the working copy inside CARLOS' own temp root with owner-only permissions.
+     * Stages a private working copy of the patient's document for the composition window.
      *
-     * <p>The default temp directory is shared, and this file holds a patient's document for the
-     * duration of composition. Creating it with {@code rw-------} under the application temp
-     * root keeps it out of reach of other accounts on the host, and the caller deletes it in a
-     * finally block regardless of outcome.
+     * <p>Delegates to {@link NioFileManager#createTempFileFrom} rather than creating the temp
+     * root here. Deriving {@code <java.io.tmpdir>/carlos-temp} directly and calling
+     * {@code Files.createDirectories} skipped the three guards
+     * {@code NioFileManagerImpl.applicationTempParent()} applies to that same root: 0700
+     * creation, rejection of a leaf symlink, and a NOFOLLOW ownership check. On a host where
+     * nothing had created the root yet, an annotation save was its first creator — at 0755, and
+     * following a pre-planted symlink silently. The confidentiality of the file itself was not
+     * the exposure; the integrity of the directory was, because whoever owns it can substitute
+     * the PDF between the copy and the parse, and the substituted document is what gets composed
+     * and filed into the patient's chart.
+     *
+     * <p>The mode is then tightened explicitly. {@code Files.copy} recreates the destination
+     * with the SOURCE's permissions, so a 0644 source — which
+     * {@link #createUniqueTarget} and {@code EDoc.getFileOutputStream} both produce, making
+     * re-annotation of an annotated copy the ordinary trigger — would otherwise leave a
+     * world-readable copy of a clinical PDF for the length of the composition.
      */
-    private static Path createPrivateWorkingCopy() throws IOException {
-        Path root = Path.of(System.getProperty("java.io.tmpdir"),
-                PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
-        Files.createDirectories(root);
+    private Path createPrivateWorkingCopy(Path source) throws IOException {
+        Path copy = nioFileManager().createTempFileFrom("carlos-annotate-src.pdf", source);
         try {
-            return Files.createTempFile(root, "carlos-annotate-src-", ".pdf",
-                    PosixFilePermissions.asFileAttribute(
-                            PosixFilePermissions.fromString("rw-------")));
+            Files.setPosixFilePermissions(copy, PosixFilePermissions.fromString("rw-------"));
         } catch (UnsupportedOperationException notPosix) {
-            // Non-POSIX filesystem: fall back to a plain create inside the same private root.
-            return Files.createTempFile(root, "carlos-annotate-src-", ".pdf");
+            // Non-POSIX filesystem: the hardened parent directory is the remaining control.
+            logger.debug("Filesystem does not support POSIX permissions on the staging copy");
         }
+        return copy;
+    }
+
+    private NioFileManager nioFileManager() {
+        return SpringUtils.getBean(NioFileManager.class);
     }
 
     private void assertAnnotatable(EDoc source, File sourceFile) {

@@ -219,9 +219,14 @@ class DocumentAnnotationParserUnitTest {
         @Test
         @DisplayName("should keep annotation content out of the rejection message")
         void shouldOmitContent_whenRejectingText() {
+            // page 1, not 99: naming an out-of-range page makes the parser throw on the page
+            // bound and return before it ever reads text, so the assertion below could not fail
+            // however the text were handled. The rejection has to come from the TEXT rule for
+            // this to pin anything, so the note is driven over MAX_TEXT_LENGTH instead.
             String phi = "PatientNameCarriedInTheNote";
-            String json = "{\"annotations\":[{\"type\":\"text\",\"page\":99,\"x\":0,\"y\":0,\"w\":0.5,\"h\":0.05,"
-                    + "\"text\":\"" + phi + "\"}]}";
+            String note = phi + "x".repeat(2100);
+            String json = "{\"annotations\":[{\"type\":\"text\",\"page\":1,\"x\":0,\"y\":0,\"w\":0.5,\"h\":0.05,"
+                    + "\"text\":\"" + note + "\"}]}";
 
             assertThatThrownBy(() -> parser.parse(json, PAGES))
                     .isInstanceOf(IllegalArgumentException.class)

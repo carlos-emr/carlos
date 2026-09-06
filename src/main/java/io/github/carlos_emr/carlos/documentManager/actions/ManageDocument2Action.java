@@ -849,16 +849,6 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
-    /**
-     * Renders a specific page of a PDF document as a PNG image using Apache PDFBox,
-     * saves it to the document cache directory, and returns the image bytes.
-     *
-     * @param d Document the document to render
-     * @param pageNum Integer the 1-based page number to render
-     * @return byte[] the PNG image bytes, or null if rendering fails or page number is invalid
-     */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     /** Returned by the renderer when a page cannot be produced; never written to the response. */
     private static final byte[] EMPTY_IMAGE = new byte[0];
 
@@ -875,20 +865,32 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Renders a page at the default resolution. Delegates; holds no path sinks of its own.
+     *
+     * @param d Document the document to render
+     * @param pageNum Integer the 1-based page number to render
+     * @return byte[] the PNG bytes, or an empty array on failure — see the 3-arg overload
+     */
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
         return createCacheVersion2(d, pageNum, DEFAULT_RENDER_DPI);
     }
 
     /**
-     * Renders at a specific resolution, refusing pages whose pixel count would exceed
-     * {@link #MAX_RENDER_MEGAPIXELS}.
+     * Renders a specific page of a PDF document as a PNG image using Apache PDFBox, saves it to
+     * the document cache directory, and returns the image bytes. Refuses pages whose pixel count
+     * would exceed {@link #MAX_RENDER_MEGAPIXELS}.
      *
+     * @param d Document the document to render
+     * @param pageNum Integer the 1-based page number to render
      * @param dpi one of {@link #ALLOWED_RENDER_DPI}; callers must resolve it through
      *            {@link #resolveRequestedDpi()} rather than passing request data
      * @return the PNG bytes, or an empty array if rendering fails or the page is out of
      *         bounds. Callers must treat an empty array as a failure and send an error
      *         status; writing it would serve a zero-byte image under a 200.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] createCacheVersion2(Document d, Integer pageNum, int dpi) {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
         Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();

@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentWordBoxes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -153,6 +154,14 @@ public class DocumentTextBoxes2Action extends ActionSupport {
                     CarlosProperties.getInstance().getDocumentDirectory(), "DOCUMENT_DIR");
             File pdf = PathValidationUtils.validateExistingPath(
                     new File(documentDir, doc.getFileName()), documentDir);
+            // The save path enforces this ceiling in assertAnnotatable, but this endpoint is
+            // reachable on its own and the viewer calls it once per visible page. Without the
+            // same bound here, an oversized document turns every scroll into a full parse that
+            // can only end at the deadline, and the deadline leaves the worker running.
+            if (pdf.length() > AnnotatedDocumentService.MAX_ANNOTATABLE_BYTES) {
+                logger.warn("Word boxes refused for document {}: file exceeds the annotation size limit", docId);
+                throw new IOException("Document is too large to extract word boxes from.");
+            }
             List<double[]> extracted = BoundedPdfTask.runWithin(
                     EXTRACT_TIMEOUT_SECONDS, "document-word-boxes",
                     () -> DocumentWordBoxes.extract(pdf, page, MAX_WORDS_PER_PAGE));

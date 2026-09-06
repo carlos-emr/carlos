@@ -16,7 +16,7 @@
 | Persistence | Annotations are **not** stored as data. Saving composes a new PDF and files it as a **new `document` row** for the same patient. The original file is never modified. Nothing is editable after save. | Keeps the received document immutable as a clinical record. Removes the need for an annotation table, DAO, and Flyway migration. Matches the maintainer decision that a saved annotation *is* a new document. |
 | Composition | Server-side with PDFBox 3.0.7 (existing dependency). Appends to page content on a copy. Text uses the shipped DejaVu TrueType fonts. Signatures embed the provider's stored stamp at save time. | The browser sends a small JSON model, never PDF bytes. Embedding the signature at save time snapshots it, so a later signature change cannot rewrite history. |
 | Fax | Faxing always sends a **document row** (original or annotated copy) through `Fax2Action.prepareFax` → `CoverPage.jsp` → `queue`, with a session claim for `DOCUMENT`. | Reuses the eForm staging pattern exactly. Also closes an existing gap: `queue()` currently consumes a claim only for `EFORM` and otherwise accepts any client-supplied path inside the document store. |
-| OCR | Performed upstream before the file reaches CARLOS. Stored files are stable for their whole life. | Word boxes for snap-to-text highlighting can be computed once per document and cached. No fingerprint check is needed on the render path. |
+| OCR | Performed upstream before the file reaches CARLOS. Stored files are stable for their whole life. | Word boxes for snap-to-text highlighting COULD safely be computed once per document and cached, and no fingerprint check would be needed on the render path. They are not cached today — see the endpoint table below; this is a known, available optimisation. |
 
 ## 2. Findings that drove the replacement
 
@@ -39,6 +39,7 @@ sequenceDiagram
     participant B as Browser
     participant A as AnnotateDocument2Action
     participant M as ManageDocument2Action
+    participant T as DocumentTextBoxes2Action
     participant S as SaveAnnotatedDocument2Action
     participant V as AnnotatedDocumentService
     participant C as AnnotatedDocumentComposer
@@ -48,8 +49,8 @@ sequenceDiagram
     A-->>B: annotateDocument.jsp (pages, tools)
     B->>M: GET method=showPage&doc_no=N&page=p&dpi=144
     M-->>B: image/png (cached per page and dpi)
-    B->>M: GET /documentManager/DocumentTextBoxes?docId=N&page=p
-    M-->>B: word boxes JSON (cached per document)
+    B->>T: GET /documentManager/DocumentTextBoxes?docId=N&page=p
+    T-->>B: word boxes JSON (extracted per request, not cached)
     B->>S: POST annotations JSON + CSRF-TOKEN header
     S->>V: save(loggedInInfo, N, annotations)
     V->>C: compose(sourcePdf, annotations, signaturePng)
@@ -70,7 +71,7 @@ Names follow `docs/architecture/layer-names.md`. Package: `io.github.carlos_emr.
 |---|---|---|---|
 | `AnnotateDocument2Action` (`documentManager.actions`) | View gate. Loads document metadata and forwards to `/WEB-INF/jsp/documentManager/annotateDocument.jsp`. Rejects non-PDF. | GET | `_edoc` write, circle-of-care on the document's patient |
 | `ManageDocument2Action.showPage` (existing) | Add a bounded `dpi` parameter (allowlist 96, 144, 192; default 96) and include it in the cache key. Everything else unchanged. | GET | `_edoc` read (existing) |
-| `DocumentTextBoxes2Action` (`documentManager.actions`) | Returns word bounding boxes for one page as JSON, in normalized page coordinates, from `PDFTextStripper` `TextPosition`s. Cached under the document cache directory as `<file>_<page>.words.json`. Empty list when the page has no text layer. | GET | `_edoc` read, circle-of-care |
+| `DocumentTextBoxes2Action` (`documentManager.actions`) | Returns word bounding boxes for one page as JSON, in normalized page coordinates, from `PDFTextStripper` `TextPosition`s. Extracted per request; nothing is cached on the server, and the client keeps them only for the life of one page load. Empty list when the page has no text layer. | GET | `_edoc` read, circle-of-care |
 | `DocumentAnnotationDto` | Immutable carrier: `type`, `page`, `x`, `y`, `w`, `h`, `points`, `text`, `color`, `strokeWidth`, `fontSize`. | — | — |
 | `DocumentAnnotationParser` | JSON → `List<DocumentAnnotationDto>` with the limits in section 6. Throws `IllegalArgumentException` with a non-PHI message. | — | — |
 | `AnnotatedDocumentComposer` | PDFBox composition per section 7. Pure function of source path, annotations, signature path → bytes. No DAO access. | — | — |
@@ -91,7 +92,7 @@ Created through `EDoc` + `EDocUtil.addDocumentSQL(EDoc)`, the same path `SplitDo
 | Field | Value | Note |
 |---|---|---|
 | `docfilename` | `document_<millis>_annotated.pdf` | Mirrors the existing `document_<millis>.dat` convention. Validated with `PathValidationUtils.validateGeneratedFileName` and `validateGeneratedChildPath`. |
-| `docdesc` | `<source docdesc> (annotated)` | Suffix comes from a resource key so it localizes. |
+| `docdesc` | `<source docdesc> (annotated)` | Suffix is a hardcoded English literal (`AnnotatedDocumentService.ANNOTATED_SUFFIX`), deliberately NOT localized: `docdesc` is stored once on a shared clinical record, so resolving a bundle at write time would bake the saving provider's locale into it permanently. |
 | `doctype`, `docClass`, `docSubClass` | copied from source | The copy files where the original files. |
 | `contenttype` | `application/pdf` | |
 | `numberofpages` | from the composed PDF | Asserted equal to the source. |

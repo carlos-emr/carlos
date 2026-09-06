@@ -76,8 +76,14 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
     @Override
     public List<Object[]> searchSpecialistsWithService(String keyword, int maxResults) {
         String lk = "%" + keyword.toLowerCase() + "%";
+        // Projects the service DESCRIPTION, not the ConsultationServices entity. That entity's
+        // specialists collection is @ManyToMany(fetch = EAGER), HQL never join-fetches an eager
+        // collection, and the second-level cache is off — so selecting `cs` issued one extra
+        // select per row and hydrated the whole specialist roster of every matched service, none
+        // of which is read. The caller only ever wanted getServiceDesc(). `ser` was projected and
+        // never referenced at all, so it is gone too.
         Query query = entityManager.createQuery(
-            "SELECT ser, pro, cs FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs " +
+            "SELECT pro, cs.serviceDesc FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs " +
             "WHERE pro.id = ser.id.specId AND cs.serviceId = ser.id.serviceId " +
             "AND pro.deleted = false AND pro.hideFromView = false " +
             "AND (LOWER(pro.lastName) LIKE :kw OR LOWER(pro.firstName) LIKE :kw OR LOWER(cs.serviceDesc) LIKE :kw) " +
