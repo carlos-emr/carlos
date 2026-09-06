@@ -239,16 +239,31 @@ def oscar_program_statement(dst_schema: str) -> str:
     # on a clinic whose import had otherwise passed every gate. The five
     # columns below are `private boolean` fields in Program.java over
     # columns the CARLOS schema leaves nullable; `userDefined` defaults
-    # to true there, the rest to false. Re-derive the set by crossing
-    # Program.java's primitive fields with the nullable columns of
-    # `program` -- which is exactly what the contract test does.
+    # to true there, the rest to false.
+    #
+    # BOXED `Boolean` fields belong to the same rule, and finding that
+    # out cost a second measurement: `enableEncounterTime` and
+    # `enableEncounterTransportationTime` are `Boolean` (not `boolean`)
+    # in Program.java, so the primitive cross missed them -- and the
+    # application unboxes them anyway. On a migrated clinic the clinical
+    # NOTES pane of EVERY chart answered HTTP 500 with
+    #
+    #   NullPointerException: Cannot invoke "java.lang.Boolean.
+    #   booleanValue()" because the return value of
+    #   "Program.getEnableEncounterTime()" is null
+    #
+    # Both carry `= false` in Program.java, which is what this writes.
+    # Re-derive the set by crossing Program.java's `boolean` AND
+    # `Boolean` fields with the nullable columns of `program` -- which is
+    # exactly what the contract test does.
     return ("INSERT INTO `{0}`.program (facilityId, name, description, "
             "type, programStatus, maxAllowed, transgender, firstNation, "
             "alcohol, physicalHealth, mentalHealth, housing, exclusiveView, "
             "ageMin, ageMax, holdingTank, allowBatchAdmission, "
-            "allowBatchDischarge, hic, userDefined) SELECT MIN(f.id), "
+            "allowBatchDischarge, hic, userDefined, enableEncounterTime, "
+            "enableEncounterTransportationTime) SELECT MIN(f.id), "
             "'{1}', '{1}', 'Service', 'active', 99999, 0, 0, 0, 0, 0, 0, "
-            "'no', 0, 0, 0, 0, 0, 0, 1 FROM "
+            "'no', 0, 0, 0, 0, 0, 0, 1, 0, 0 FROM "
             "`{0}`.Facility f WHERE f.disabled = 0 HAVING MIN(f.id) IS NOT "
             "NULL AND NOT EXISTS (SELECT 1 FROM `{0}`.program WHERE name = "
             "'{1}')".format(dst_schema, OSCAR_PROGRAM))
@@ -279,20 +294,84 @@ def membership_statements(dst_schema: str) -> List[str]:
     least_role = ("(SELECT r.role_no FROM `{0}`.secRole r WHERE r.role_name "
                   "NOT REGEXP '{2}' ORDER BY {1} ASC, r.role_no LIMIT 1)"
                   .format(dst_schema, grants, NON_ROLE_GROUP_SQL_RE))
+    # the programs this provider's OWN work is in, beside the OSCAR
+    # program. A membership only in OSCAR is not enough to reach a chart:
+    # `CaseManagementManagerImpl.isClientInProgramDomain` compares the
+    # provider's programs against the CLIENT'S ADMISSIONS, so a patient
+    # admitted to any other program answers "not in your program domain"
+    # and the encounter never opens. Measured on a migrated clinic whose
+    # OSCAR 19 `program_provider` was empty: every chart was unreachable
+    # for every provider, including the break-glass administrator.
+    #
+    # This only ever fires for a provider who has NO membership at all --
+    # a clinic that never configured program access, where OSCAR 19
+    # denied them just as much -- so it cannot loosen an access
+    # configuration the clinic actually made.
+    own_programs = (
+        "p.id IN (SELECT a.program_id FROM `{0}`.admission a WHERE "
+        "a.provider_no = pr.provider_no AND a.program_id IS NOT NULL) "
+        "OR p.id IN (SELECT ap.program_id FROM `{0}`.appointment ap WHERE "
+        "ap.provider_no = pr.provider_no AND ap.program_id IS NOT NULL)")
     template = ("INSERT INTO `{0}`.program_provider (program_id, "
-                "provider_no, role_id, team_id) SELECT p.id, pr.provider_no, "
-                "{1}, NULL FROM `{0}`.provider pr JOIN `{0}`.program p "
-                "ON p.name = '{2}' WHERE pr.status = '1' AND pr.provider_no "
+                "provider_no, role_id, team_id) SELECT DISTINCT p.id, "
+                "pr.provider_no, {1}, NULL FROM `{0}`.provider pr JOIN "
+                "`{0}`.program p ON (p.name = '{2}' OR {5}) WHERE "
+                "pr.status = '1' AND pr.provider_no "
                 "<> '{4}' AND NOT EXISTS (SELECT 1 FROM "
                 "`{0}`.program_provider "
                 "pp WHERE pp.provider_no = pr.provider_no) AND {3} IS NOT "
                 "NULL")
     return [
         template.format(dst_schema, active_role, OSCAR_PROGRAM, active_role,
-                        SYSTEM_PROVIDER),
+                        SYSTEM_PROVIDER,
+                        own_programs.format(dst_schema)),
         template.format(dst_schema, least_role, OSCAR_PROGRAM, least_role,
-                        SYSTEM_PROVIDER),
+                        SYSTEM_PROVIDER,
+                        own_programs.format(dst_schema)),
     ]
+
+
+def admin_membership_statement(dst_schema: str,
+                               admin_provider_no: str) -> str:
+    """Put the break-glass administrator in every program the clinic's
+    patients are actually admitted to.
+
+    The account exists so an operator can verify a migration before the
+    clinic sees it, and `docs/o19-import-deb.md` tells them to smoke-test
+    the migrated charts with it -- which the program-domain check makes
+    impossible while the admin's only membership is the OSCAR program the
+    roles step invents. Scoped to programs that HOLD an admission rather
+    than to every row of the `program` table, so the account gains
+    nothing it does not need: 33 of the stock programs are discharge
+    destinations no patient is ever admitted to.
+
+    Its role_id is the one its own OSCAR-program membership already
+    carries, so this grants reach, never privilege. Idempotent: the
+    NOT EXISTS skips a program it is already in, and the whole statement
+    is a no-op once it has run."""
+    pn = _sql_str(admin_provider_no)
+    role = ("(SELECT pp.role_id FROM `{0}`.program_provider pp WHERE "
+            "pp.provider_no = '{1}' ORDER BY pp.id LIMIT 1)"
+            .format(dst_schema, pn))
+    return ("INSERT INTO `{0}`.program_provider (program_id, provider_no, "
+            "role_id, team_id) SELECT DISTINCT a.program_id, '{1}', {2}, "
+            "NULL FROM `{0}`.admission a JOIN `{0}`.program p ON p.id = "
+            "a.program_id WHERE a.program_id IS NOT NULL AND {2} IS NOT "
+            "NULL AND NOT EXISTS (SELECT 1 FROM `{0}`.program_provider q "
+            "WHERE q.provider_no = '{1}' AND q.program_id = a.program_id)"
+            .format(dst_schema, pn, role))
+
+
+def admin_unreachable_programs_sql(dst_schema: str,
+                                   admin_provider_no: str) -> str:
+    """COUNT of programs holding an admission that the break-glass
+    administrator is still not a member of — the residual the report
+    names, and zero after `admin_membership_statement` has run."""
+    pn = _sql_str(admin_provider_no)
+    return ("SELECT COUNT(DISTINCT a.program_id) FROM `{0}`.admission a "
+            "WHERE a.program_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "
+            "`{0}`.program_provider q WHERE q.provider_no = '{1}' AND "
+            "q.program_id = a.program_id)".format(dst_schema, pn))
 
 
 def fallback_membership_candidates_sql(dst_schema: str) -> str:
@@ -994,6 +1073,19 @@ def verify_role_checks(query: Callable, dst_schema: str,
             problems.append("break-glass admin has no _admin x/w grant "
                             "through an active role")
 
+    # every chart reads these on every open; a row naming a table CARLOS
+    # removed makes the notes pane answer HTTP 500 (EctFormData)
+    broken = query(encounter_forms_missing_tables_sql(dst_schema))
+    if broken:
+        problems.append(
+            "{0} encounterForm row(s) name a form table this schema does "
+            "not have — every chart's notes pane would fail to load"
+            .format(len(broken)))
+        private.extend("encounterForm names a missing table: {0} ({1})"
+                       .format(r[0], r[1]) for r in broken)
+    else:
+        ok.append("every encounterForm row names a table that exists")
+
     if n(enabled_facility_count_sql(dst_schema)):
         ok.append("an enabled Facility exists")
     else:
@@ -1184,7 +1276,12 @@ class RolesRun(object):
 
     def __init__(self, ctx, query, plain, report, state_dir, ledger,
                  appended, n, count, mark, record_appended, plan,
-                 append_private):
+                 append_private, admin_provider_no=None):
+        #: the break-glass account this import created, or None on a run
+        #: that did not create one. The program step needs it: the
+        #: account has to reach the charts the operator is told to smoke
+        #: test.
+        self.admin_provider_no = admin_provider_no
         self.query = query
         self.plain = plain
         self.src = ctx["src_schema"]
@@ -1507,6 +1604,22 @@ def roles_program_memberships(run: 'RolesRun') -> None:
         query(least)
         added_role = after_role - before
         added_least = count("program_provider") - after_role
+        admin_line = ""
+        if run.admin_provider_no:
+            # after the two general statements: the admin's role_id is
+            # read from the membership they create for it
+            unreachable = plan(
+                "program_admin", lambda: n(admin_unreachable_programs_sql(
+                    dst, run.admin_provider_no)))
+            query(admin_membership_statement(dst, run.admin_provider_no))
+            left = n(admin_unreachable_programs_sql(
+                dst, run.admin_provider_no))
+            admin_line = ("; the break-glass administrator was given "
+                          "membership of {0} program(s) holding admissions "
+                          "so it can open a migrated chart{1}"
+                          .format(unreachable - left,
+                                  (" ({0} still unreachable)".format(left))
+                                  if left else ""))
         record_appended("program_provider")
         still = n(providers_without_membership_sql(dst))
         report("roles: program '{0}' {1}; {2} active provider(s) had no "
@@ -1519,7 +1632,8 @@ def roles_program_memberships(run: 'RolesRun') -> None:
                        "created" if appended["program"] else "present",
                        missing, added_role, added_least, len(fallback),
                        ("; {0} still without membership — P7 will fail"
-                        .format(still)) if still else ""))
+                        .format(still)) if still else "")
+               + admin_line)
         mark("program")
 
 
@@ -1788,6 +1902,95 @@ def roles_prune_property_keys(run: 'RolesRun') -> None:
         mark("property_pruned", {"pruned": pruned})
 
 
+#: encounterForm rows whose `form_table` names a table the TARGET does
+#: not have. CARLOS's encounter reads every one of them on every chart
+#: (`EctFormData.getGroupedPatientFormsFromAllTables`), and a missing
+#: table is not skipped: the SQLException becomes a PersistenceException
+#: and `CaseManagementView` answers HTTP 500, so the clinical NOTES pane
+#: of every chart fails. Measured on a migrated clinic, whose OSCAR 19
+#: `encounterForm` listed seven forms CARLOS removed (`formAdf`,
+#: `formAR`, `formONAR`, ...).
+#:
+#: The comparison is BINARY on purpose: MariaDB table names are
+#: case-sensitive on Linux, so a row naming `formadf` when the table is
+#: `formAdf` is a broken row and must be treated as one.
+#: One definition, shared with `row_parity`: a check that tolerated a
+#: different set from the one the prune removes would either hide a row
+#: the prune missed or fail on a row it removed.
+def _encounter_form_missing(dst_schema: str) -> str:
+    return o19etl.pruned_encounter_form_predicate(dst_schema, alias="e")
+
+
+def encounter_forms_missing_tables_sql(dst_schema: str) -> str:
+    """The form_table/form_name pairs pointing at a table CARLOS does not
+    have — what the prune removes, and what P7 requires to be empty."""
+    return ("SELECT e.form_table, e.form_name FROM `{0}`.encounterForm e "
+            "WHERE {1} ORDER BY e.form_table"
+            .format(dst_schema, _encounter_form_missing(dst_schema)))
+
+
+def encounter_form_prune_statements(dst_schema: str, archive_schema: str
+                                    ) -> Tuple[str, str]:
+    """(archive-sql, delete-sql) for those rows.
+
+    Archived before deletion, not just deleted: the row is the clinic's
+    own menu entry and the form's DATA is preserved as
+    `import_archived_<form table>`, so the pointer to it is kept too and
+    nothing about the removed form is orphaned. Both statements are
+    idempotent -- the INSERT is guarded by NOT EXISTS on the archive and
+    the DELETE's own predicate is false once the rows are gone."""
+    missing = _encounter_form_missing(dst_schema)
+    archive = ("INSERT INTO `{1}`.encounterForm__pruned (form_table, "
+               "form_name) SELECT e.form_table, e.form_name FROM "
+               "`{0}`.encounterForm e WHERE {2} AND NOT EXISTS (SELECT 1 "
+               "FROM `{1}`.encounterForm__pruned a WHERE a.form_table = "
+               "e.form_table AND a.form_name = e.form_name)"
+               .format(dst_schema, archive_schema, missing))
+    delete = ("DELETE FROM `{0}`.`encounterForm` WHERE {1}"
+              .format(dst_schema,
+                      o19etl.pruned_encounter_form_predicate(dst_schema,
+                                                             alias="")))
+    return archive, delete
+
+
+def encounter_form_archive_ddl(archive_schema: str) -> str:
+    """The archive table the prune writes into."""
+    return ("CREATE TABLE IF NOT EXISTS `{0}`.encounterForm__pruned ("
+            "form_table VARCHAR(255), form_name VARCHAR(255)) "
+            "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4".format(archive_schema))
+
+
+def roles_prune_encounter_forms(run: 'RolesRun') -> None:
+    """Remove encounter-form menu entries pointing at removed forms.
+
+    Without this the notes pane of EVERY chart answers HTTP 500 after a
+    migration -- the single most visible thing a clinic would meet on
+    the morning after cutover."""
+    query = run.query
+    plain = run.plain
+    dst = run.dst
+    arch = run.arch
+    report = run.report
+    ledger = run.ledger
+    mark = run.mark
+    plan = run.plan
+    if ledger.get("encounter_forms_pruned"):
+        return
+    pruned = plan("encounter_forms", lambda: [
+        [r[0], r[1]] for r in plain(encounter_forms_missing_tables_sql(dst))])
+    if pruned:
+        query(encounter_form_archive_ddl(arch))
+        archive, delete = encounter_form_prune_statements(dst, arch)
+        query(archive)
+        query(delete)
+        report("roles: {0} encounter-form entr(ies) named a form table "
+               "CARLOS removed and would have made every chart's notes "
+               "pane fail; pruned and kept at {1}.encounterForm__pruned: "
+               "{2}".format(len(pruned), arch,
+                            ", ".join(sorted(t for t, _n in pruned))))
+    mark("encounter_forms_pruned", {"pruned": pruned})
+
+
 def roles_prevention_types(run: 'RolesRun') -> None:
     """Reconcile prevention type codes against the CARLOS set."""
     query = run.query
@@ -1963,7 +2166,8 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     def append_private(lines):
         o19import.append_private(details_path, "\n".join(lines) + "\n")
     run = RolesRun(ctx, query, plain, report, state_dir, ledger, appended,
-                   n, count, mark, record_appended, plan, append_private)
+                   n, count, mark, record_appended, plan, append_private,
+                   progress.get("admin_provider_no"))
     requested, overrides = roles_bind_role_templates(run, ctx)
     roles_append_carlos_roles(run)
     roles_align_role_spelling(run)
@@ -1975,6 +2179,7 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     roles_backfill_custom_grants(run, overrides, requested)
     roles_privilege_diff(run)
     roles_prune_property_keys(run)
+    roles_prune_encounter_forms(run)
     roles_prevention_types(run)
     roles_rich_text_letter(run, ctx)
 

@@ -711,14 +711,32 @@ def parse_prevention_items(text: str) -> List[str]:
 #: Java root scanned for the entity mappings behind `PRIMITIVE_COLUMNS`.
 JAVA_ROOT = REPO_ROOT / "src" / "main" / "java"
 
-_TABLE_RE = re.compile(r"@Table\s*\(\s*name\s*=\s*\"([^\"]+)\"")
-#: a field declaration whose Java type is a PRIMITIVE. `char` is included
-#: for completeness; `String`, the boxed types and every entity reference
-#: are deliberately absent, because those can hold null.
+#: `@Table` and `@jakarta.persistence.Table` both appear in this tree
+#: (28 files use the fully qualified form), and missing one of them
+#: silently drops a whole entity from the scan -- which is how
+#: `casemgmt_note` was missed the first time, leaving every migrated
+#: chart's notes pane answering HTTP 500.
+_TABLE_RE = re.compile(
+    r"@(?:jakarta\.persistence\.)?Table\s*\(\s*name\s*=\s*\"([^\"]+)\"")
+_PRIMITIVE = r"boolean|byte|short|int|long|float|double|char"
+#: a field declaration whose Java type is a PRIMITIVE. `String`, the
+#: boxed types and every entity reference are deliberately absent,
+#: because those can hold null.
 _PRIMITIVE_FIELD_RE = re.compile(
     r"(?:private|protected|public)\s+(?:final\s+)?"
-    r"(?:boolean|byte|short|int|long|float|double|char)\s+(\w+)\s*[;=]")
-_COLUMN_NAME_RE = re.compile(r"@Column\s*\([^)]*\bname\s*=\s*\"([^\"]+)\"")
+    r"(?:" + _PRIMITIVE + r")\s+(\w+)\s*[;=]")
+#: a GETTER whose return type is a primitive. CARLOS mixes field access
+#: and PROPERTY access: `CaseManagementNote` annotates its getters, so
+#: its fields carry no `@Column` at all and the field name is not the
+#: column name (`includeissue` is `include_issue_innote`). Reading the
+#: getters is the only way to see those.
+_PRIMITIVE_GETTER_RE = re.compile(
+    r"public\s+(?:final\s+)?(?:" + _PRIMITIVE + r")\s+"
+    r"(?:get|is)(\w+)\s*\(\s*\)")
+_COLUMN_NAME_RE = re.compile(
+    r"@(?:jakarta\.persistence\.)?Column\s*\([^)]*\bname\s*=\s*"
+    r"\"([^\"]+)\"")
+_TRANSIENT_RE = re.compile(r"@(?:jakarta\.persistence\.)?Transient\b")
 
 
 def _blank_literals(text: str) -> str:
@@ -814,20 +832,38 @@ def scan_primitive_columns(java_root: Path) -> Dict[str, List[str]]:
             continue
         depths = _depths(text)
         columns = []
+
+        def annotations_before(start: int) -> str:
+            """The annotations attached to the member starting at
+            `start`: everything back to the previous statement or block
+            boundary."""
+            head = text[:start]
+            cut = max(head.rfind(";"), head.rfind("}"), head.rfind("{"))
+            return head[cut + 1:]
+
         for m in _PRIMITIVE_FIELD_RE.finditer(text):
             # depth 1 is the class body: depth 0 is outside the class and
             # depth 2+ is inside a method, a constructor or an initializer
             if depths[m.start()] != 1:
                 continue
-            # the annotations attached to this field: everything back to
-            # the previous statement or block boundary
-            head = text[:m.start()]
-            cut = max(head.rfind(";"), head.rfind("}"), head.rfind("{"))
-            annotations = head[cut + 1:]
-            if "@Transient" in annotations or " static " in m.group(0):
+            annotations = annotations_before(m.start())
+            if _TRANSIENT_RE.search(annotations) or " static " in m.group(0):
                 continue
             named = _COLUMN_NAME_RE.search(annotations)
             columns.append(named.group(1) if named else m.group(1))
+        for m in _PRIMITIVE_GETTER_RE.finditer(text):
+            if depths[m.start()] != 1:
+                continue
+            annotations = annotations_before(m.start())
+            if _TRANSIENT_RE.search(annotations):
+                continue
+            named = _COLUMN_NAME_RE.search(annotations)
+            if named:
+                columns.append(named.group(1))
+            else:
+                # JPA's default: the property name, first letter lowered
+                prop = m.group(1)
+                columns.append(prop[:1].lower() + prop[1:])
         if columns:
             out.setdefault(tables[0], []).extend(columns)
     return {t: sorted(set(cols)) for t, cols in out.items()}

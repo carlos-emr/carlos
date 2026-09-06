@@ -65,6 +65,12 @@ class FakeDb(object):
             "admin_left": [["999904"]], "activeyn_left": 1,
             "dangling": [["999905", "Site Manager"]],
             "without_membership": 5, "fallback": [["999903"]],
+            #: programs holding an admission the break-glass admin is not
+            #: a member of, read once before its membership write and
+            #: once after
+            "admin_pn": "999999", "admin_unreachable": [2, 0],
+            #: encounterForm rows naming a form table CARLOS removed
+            "encounter_forms_missing": [["formAdf", "ADF"]],
             "pending": 1, "property_counts": {"INTEGRATOR_": 1},
             "prevention_counts": {"Flu": 1}, "unknown": [["Weird", "2"]],
             "restored": [["receptionist", "_billing", "r", "0"]],
@@ -133,6 +139,10 @@ class FakeDb(object):
             return [[str(a["without_membership"])]]
         if sql == o19roles.fallback_membership_candidates_sql(DST):
             return a["fallback"]
+        if sql == o19roles.admin_unreachable_programs_sql(
+                DST, a["admin_pn"]):
+            left = a["admin_unreachable"]
+            return [[str(left.pop(0) if len(left) > 1 else left[0])]]
         if sql == ("SELECT roleUserGroup, objectName, privilege, priority "
                    "FROM " + SNAP):
             return SEED_ROWS
@@ -164,6 +174,8 @@ class FakeDb(object):
             return [[str(a.get("spelling_drift", 0))]]
         if sql == o19roles.comma_named_roles_sql(DST):
             return a.get("comma_roles", [])
+        if sql == o19roles.encounter_forms_missing_tables_sql(DST):
+            return a["encounter_forms_missing"]
         if sql == o19roles.rtl_rows_sql(DST):
             if len(self.rtl_sequence) > 1:
                 return self.rtl_sequence.pop(0)
@@ -785,6 +797,91 @@ class TestRichTextLetterOutcome(RunRolesBase):
         self.assertEqual(progress["roles"]["appended"]["eform"], 1)
         self.assertIn("ENABLED Rich Text Letter",
                       "\n".join(self.reports))
+
+
+class TestEncounterFormsPointingAtRemovedForms(RunRolesBase):
+
+    """A migrated clinic's own encounter-form menu can name forms CARLOS
+    removed, and CARLOS reads every one of them on every chart open.
+
+    It does not skip a missing table: the SQLException becomes a
+    PersistenceException, `CaseManagementView` answers HTTP 500 and the
+    clinical NOTES pane fails on every chart -- the most visible thing a
+    clinic would meet the morning after cutover. Measured, then fixed
+    here."""
+
+    def test_the_broken_entries_are_archived_and_removed(self):
+        db = FakeDb()
+        self.run_roles(db)
+        archive, delete = o19roles.encounter_form_prune_statements(DST, ARCH)
+        self.assertIn(o19roles.encounter_form_archive_ddl(ARCH), db.writes)
+        self.assertIn(archive, db.writes)
+        self.assertIn(delete, db.writes)
+        # the archive is written BEFORE the delete, or the rows are gone
+        self.assertLess(db.writes.index(archive), db.writes.index(delete))
+
+    def test_the_report_names_the_form_tables(self):
+        self.run_roles(FakeDb())
+        text = "\n".join(self.reports)
+        self.assertIn("encounter-form entr(ies) named a form table CARLOS "
+                      "removed", text)
+        self.assertIn("formAdf", text)
+
+    def test_a_clean_menu_is_left_alone(self):
+        db = FakeDb(encounter_forms_missing=[])
+        self.run_roles(db)
+        _archive, delete = o19roles.encounter_form_prune_statements(DST, ARCH)
+        self.assertNotIn(delete, db.writes)
+        self.assertNotIn("encounter-form entr(ies)", "\n".join(self.reports))
+
+
+class TestTheBreakGlassAdminCanOpenAChart(RunRolesBase):
+
+    """The account the import creates for the operator's own review has
+    to be able to open a migrated chart.
+
+    `CaseManagementManagerImpl.isClientInProgramDomain` compares the
+    provider's programs against the CLIENT'S ADMISSIONS, so an account
+    whose only membership is the OSCAR program the roles step invents
+    gets "not in your program domain" on every patient the clinic
+    admitted anywhere else -- which is what `docs/o19-import-deb.md`
+    step 3 asks the operator to check. Measured on a migrated clinic:
+    the break-glass admin could log in, see the schedule, and open
+    nothing."""
+
+    def test_it_is_given_the_programs_that_hold_admissions(self):
+        db = FakeDb()
+        self.run_roles(db, progress={"tables": {},
+                                     "admin_provider_no": "999999"})
+        inserts = [w for w in db.writes
+                   if w == o19roles.admin_membership_statement(DST,
+                                                               "999999")]
+        self.assertEqual(len(inserts), 1, db.writes)
+
+    def test_the_report_says_how_many_it_gained(self):
+        db = FakeDb()
+        self.run_roles(db, progress={"tables": {},
+                                     "admin_provider_no": "999999"})
+        text = "\n".join(self.reports)
+        self.assertIn("the break-glass administrator was given membership "
+                      "of 2 program(s) holding admissions so it can open a "
+                      "migrated chart", text)
+
+    def test_a_program_it_still_cannot_reach_is_named(self):
+        db = FakeDb(admin_unreachable=[3, 1])
+        self.run_roles(db, progress={"tables": {},
+                                     "admin_provider_no": "999999"})
+        self.assertIn("(1 still unreachable)", "\n".join(self.reports))
+
+    def test_a_run_with_no_break_glass_account_writes_nothing(self):
+        db = FakeDb()
+        self.run_roles(db)
+        self.assertEqual(
+            [w for w in db.writes
+             if w == o19roles.admin_membership_statement(DST, "999999")],
+            [])
+        self.assertNotIn("break-glass administrator was given membership",
+                         "\n".join(self.reports))
 
 
 if __name__ == "__main__":

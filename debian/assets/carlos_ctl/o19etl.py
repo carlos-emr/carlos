@@ -997,6 +997,28 @@ def merge_missing_count_sql(table: str, entry: dict, src_schema: str,
     return sql
 
 
+def pruned_encounter_form_predicate(dst_schema: str,
+                                    alias: str = "s") -> str:
+    """Staging-side predicate for the `encounterForm` rows the roles step
+    prunes: those whose `form_table` names a table the TARGET does not
+    have.
+
+    The definition, not a copy of the outcome: `row_parity` calls this to
+    decide which staging rows are allowed to have no target twin, and
+    `o19roles` calls the same shape to decide which rows to delete. A row
+    the prune missed therefore still fails parity."""
+    # an EMPTY alias leaves the column unqualified, which is what a
+    # single-table DELETE needs: the multi-table `DELETE e FROM ...`
+    # form is ERROR 1046 ("No database selected") when the connection
+    # has no default database, and the import's does not.
+    col = "{0}.form_table".format(alias) if alias else "form_table"
+    return ("{1} IS NOT NULL AND {1} <> '' AND NOT "
+            "EXISTS (SELECT 1 FROM information_schema.TABLES t WHERE "
+            "t.TABLE_SCHEMA = '{0}' AND CONVERT(t.TABLE_NAME USING utf8mb4) "
+            "COLLATE utf8mb4_bin = CONVERT({1} USING utf8mb4) "
+            "COLLATE utf8mb4_bin)".format(_sql_str(dst_schema), col))
+
+
 def pruned_property_predicate(prefixes: Sequence[str],
                               keys: Sequence[str] = (),
                               alias: str = "s") -> str:
@@ -4474,6 +4496,14 @@ def row_parity(plain_query, src_schema: str, dst_schema: str,
                 exclude = pruned_property_predicate(
                     pruned_property_prefixes or (),
                     pruned_property_keys or ())
+            elif table == "encounterForm":
+                # the roles step deletes the menu entries naming a form
+                # table CARLOS removed (o19roles.roles_prune_encounter_
+                # forms). Same predicate, so parity tolerates EXACTLY the
+                # rows the prune removes and not one more -- and it is
+                # re-evaluated here rather than read from a ledger, so a
+                # row the prune missed still fails.
+                exclude = pruned_encounter_form_predicate(dst_schema)
             missing = int(plain_query(merge_missing_count_sql(
                 table, entry, src_schema, dst_schema, dst_info[table],
                 archive_schema, exclude))[0][0])

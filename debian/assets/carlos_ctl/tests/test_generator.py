@@ -1209,9 +1209,14 @@ class TestEveryPrimitiveMappedColumnIsSupplied(unittest.TestCase):
         carlos = carlos_schema(gen)
         columns = carlos.tables.get("program") or {}
         self.assertTrue(columns, "no `program` table in the CARLOS schema")
+        # `Boolean` as well as `boolean`: the application unboxes both,
+        # and the boxed pair (`enableEncounterTime`,
+        # `enableEncounterTransportationTime`) is what made every
+        # migrated chart's notes pane answer HTTP 500 after the
+        # primitive-only cross had already been fixed.
         primitives = set(re.findall(
-            r"private\s+(?:boolean|int|long|double|float|short|byte)\s+"
-            r"(\w+)", self.ENTITY.read_text(encoding="utf-8")))
+            r"private\s+(?:boolean|Boolean|int|long|double|float|short"
+            r"|byte)\s+(\w+)", self.ENTITY.read_text(encoding="utf-8")))
         self.assertTrue(primitives, self.ENTITY)
         nullable = {c for c, definition in columns.items()
                     if "NOT NULL" not in definition.upper()}
@@ -1257,6 +1262,19 @@ class TestPrimitiveColumnManifest(unittest.TestCase):
             {"primitive_columns": gen.scan_primitive_columns(
                 gen.JAVA_ROOT)})
         self.assertEqual(o19map_schema.PRIMITIVE_COLUMNS, expected)
+
+    def test_the_columns_that_broke_every_migrated_chart_are_named(self):
+        """`casemgmt_note.locked` and `.appointmentNo` are nullable with
+        a NULL default and OSCAR 19 leaves both NULL. CARLOS maps them
+        `boolean` and `int` through getter annotations, so every note
+        Hibernate tried to hydrate threw and the clinical notes pane of
+        every chart answered HTTP 500 -- measured on a migrated clinic,
+        and reproduced on an untouched CARLOS schema with one
+        hand-inserted note."""
+        columns = o19map_schema.PRIMITIVE_COLUMNS.get("casemgmt_note", ())
+        for column in ("locked", "appointmentNo", "position", "signed",
+                       "archived", "include_issue_innote"):
+            self.assertIn(column, columns)
 
     def test_the_column_that_broke_a_migrated_schedule_is_named(self):
         self.assertIn(
@@ -1349,6 +1367,52 @@ class TestPrimitiveFieldScan(unittest.TestCase):
                       'public class One { private int a; }\n'
                       '@Table(name = "two")\n'
                       'class Two { private int b; }\n'),
+            {})
+
+    def test_the_fully_qualified_table_annotation_counts(self):
+        """28 entities in this tree spell it `@jakarta.persistence.Table`,
+        `casemgmt_note` among them. Matching only the short form dropped
+        the whole entity from the scan, and every migrated chart's notes
+        pane then answered HTTP 500 on `casemgmt_note.locked`."""
+        self.assertEqual(
+            self.scan('@jakarta.persistence.Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    private int facilityId;\n'
+                      '}\n'),
+            {"thing": ["facilityId"]})
+
+    def test_a_primitive_getter_is_a_column_under_property_access(self):
+        """CARLOS mixes field access and PROPERTY access. Under property
+        access the FIELD carries no annotation and its name is not the
+        column name -- `CaseManagementNote.includeissue` is
+        `include_issue_innote` -- so the getters have to be read."""
+        self.assertEqual(
+            self.scan('@jakarta.persistence.Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    private boolean includeissue = true;\n'
+                      '    @jakarta.persistence.Column('
+                      'name = "include_issue_innote")\n'
+                      '    public boolean isIncludeissue() {\n'
+                      '        return includeissue;\n'
+                      '    }\n'
+                      '}\n'),
+            {"thing": ["include_issue_innote", "includeissue"]})
+
+    def test_an_unannotated_primitive_getter_uses_the_property_name(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    public int getPosition() { return 0; }\n'
+                      '}\n'),
+            {"thing": ["position"]})
+
+    def test_a_transient_getter_is_not_a_column(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    @jakarta.persistence.Transient\n'
+                      '    public int getCached() { return 0; }\n'
+                      '}\n'),
             {})
 
     def test_a_brace_inside_a_string_does_not_move_the_class_body(self):

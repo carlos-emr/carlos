@@ -133,13 +133,22 @@ class TestStatementShapes(unittest.TestCase):
         `ContextStartupListener` died with `NullPointerException ...
         Program$HibernateAccessOptimizer`, and the whole webapp failed to
         deploy — HTTP 404 on every route, on an import that had passed
-        every gate it has."""
+        every gate it has.
+
+        Two more columns joined them after a SECOND measurement:
+        `enableEncounterTime` and `enableEncounterTransportationTime`
+        are BOXED `Boolean`, so a primitive-only rule missed them, and
+        the application unboxes them anyway — every migrated chart's
+        clinical notes pane answered HTTP 500 from
+        `Program.getEnableEncounterTime()` returning null."""
         sql = o19roles.oscar_program_statement("carlos")
         for column in ("holdingTank", "allowBatchAdmission",
-                       "allowBatchDischarge", "hic", "userDefined"):
+                       "allowBatchDischarge", "hic", "userDefined",
+                       "enableEncounterTime",
+                       "enableEncounterTransportationTime"):
             self.assertIn(column, sql, column)
         # Program.java's own defaults: userDefined true, the rest false
-        self.assertIn("0, 0, 0, 0, 1 FROM", sql)
+        self.assertIn("0, 0, 0, 0, 1, 0, 0 FROM", sql)
 
     def test_membership_uses_the_clinics_role_no_and_skips_members(self):
         stmts = o19roles.membership_statements("carlos")
@@ -171,6 +180,75 @@ class TestStatementShapes(unittest.TestCase):
                           " pp WHERE pp.provider_no = pr.provider_no)", sql)
             self.assertIn("pr.status = '1'", sql)
             self.assertNotIn("caisi_role", sql)
+
+    def test_membership_covers_the_programs_the_providers_work_is_in(self):
+        """The OSCAR program alone is not reach.
+
+        `isClientInProgramDomain` compares the provider's programs
+        against the CLIENT'S ADMISSIONS, so a synthesised membership in
+        the OSCAR program leaves every patient the clinic admitted
+        elsewhere unreachable -- measured on a migrated clinic whose
+        OSCAR 19 `program_provider` was empty, where no provider could
+        open any chart. Widened to the programs the provider's own
+        admissions and appointments name, and only ever for a provider
+        who has NO membership at all, so it cannot loosen an access
+        configuration the clinic actually made."""
+        for sql in o19roles.membership_statements("carlos"):
+            self.assertIn("ON (p.name = 'OSCAR' OR p.id IN (SELECT "
+                          "a.program_id FROM `carlos`.admission a WHERE "
+                          "a.provider_no = pr.provider_no AND a.program_id "
+                          "IS NOT NULL) OR p.id IN (SELECT ap.program_id "
+                          "FROM `carlos`.appointment ap WHERE ap.provider_no "
+                          "= pr.provider_no AND ap.program_id IS NOT NULL))",
+                          sql)
+            # one row per program, whatever the number of admissions
+            self.assertIn("SELECT DISTINCT p.id", sql)
+
+    def test_the_break_glass_admin_reaches_the_charts_it_must_review(self):
+        """Scoped to programs that HOLD an admission, carrying the role
+        its own membership already has: reach, never privilege."""
+        sql = o19roles.admin_membership_statement("carlos", "999999")
+        self.assertIn("FROM `carlos`.admission a JOIN `carlos`.program p ON "
+                      "p.id = a.program_id", sql)
+        self.assertIn("SELECT DISTINCT a.program_id, '999999'", sql)
+        self.assertIn("SELECT pp.role_id FROM `carlos`.program_provider pp "
+                      "WHERE pp.provider_no = '999999'", sql)
+        # idempotent, and never a program with no admission in it
+        self.assertIn("NOT EXISTS (SELECT 1 FROM `carlos`.program_provider q "
+                      "WHERE q.provider_no = '999999' AND q.program_id = "
+                      "a.program_id)", sql)
+        self.assertTrue(idempotent(sql), sql)
+
+    def test_the_admin_residual_counts_only_admitted_programs(self):
+        sql = o19roles.admin_unreachable_programs_sql("carlos", "999999")
+        self.assertIn("COUNT(DISTINCT a.program_id)", sql)
+        self.assertIn("FROM `carlos`.admission a", sql)
+        self.assertIn("q.provider_no = '999999'", sql)
+
+    def test_an_encounter_form_naming_a_missing_table_is_found(self):
+        """CARLOS reads every encounterForm row on every chart open and
+        does NOT skip a missing table: `EctFormData` turns the
+        SQLException into a PersistenceException, `CaseManagementView`
+        answers HTTP 500, and the clinical NOTES pane of every chart
+        fails. Measured on a migrated clinic carrying seven forms CARLOS
+        removed."""
+        sql = o19roles.encounter_forms_missing_tables_sql("carlos")
+        self.assertIn("FROM `carlos`.encounterForm e", sql)
+        self.assertIn("e.form_table IS NOT NULL AND e.form_table <> ''", sql)
+        self.assertIn("t.TABLE_SCHEMA = 'carlos'", sql)
+        # binary: MariaDB table names are case-sensitive on Linux, so a
+        # row naming `formadf` when the table is `formAdf` IS broken
+        self.assertIn("COLLATE utf8mb4_bin", sql)
+
+    def test_the_pruned_entries_are_archived_before_they_are_deleted(self):
+        archive, delete = o19roles.encounter_form_prune_statements(
+            "carlos", "o19_archive")
+        self.assertIn("INSERT INTO `o19_archive`.encounterForm__pruned",
+                      archive)
+        self.assertIn("DELETE FROM `carlos`.`encounterForm` WHERE", delete)
+        for sql in (o19roles.encounter_form_archive_ddl("o19_archive"),
+                    archive, delete):
+            self.assertTrue(idempotent(sql), sql)
 
     def test_facility_link_targets_the_first_enabled_facility(self):
         sql = o19roles.provider_facility_statement("carlos")
@@ -668,7 +746,7 @@ class TestVerifyRoleChecks(unittest.TestCase):
             "admin_active": "2", "admin_grant": "1", "facility": "1",
             "clinic": "1", "program": "1", "missing": "0", "unlinked": "0",
             "grants": "600", "no_role": [], "no_grant": [], "locked": [],
-            "jobs": "1", "spelling_drift": "0",
+            "jobs": "1", "spelling_drift": "0", "broken_forms": [],
             "rtl": [["12", "Rich Text Letter", "1",
                      "Rich Text Letter Generator 2026.3.0",
                      "1", "0", "1"]],
@@ -706,6 +784,8 @@ class TestVerifyRoleChecks(unittest.TestCase):
                 return answers["locked"]
             if "OscarJobType" in sql:
                 return [[answers["jobs"]]]
+            if "encounterForm e WHERE" in sql:
+                return answers["broken_forms"]
             if "<title>Rich Text Letter</title>" in sql:
                 return answers["rtl"]
             raise AssertionError("unexpected SQL: " + sql)
@@ -729,6 +809,10 @@ class TestVerifyRoleChecks(unittest.TestCase):
         ("facility", "0", "no enabled Facility"),
         ("clinic", "0", "clinic table is empty"),
         ("unlinked", "4", "without a facility link"),
+        # a form table CARLOS removed makes EVERY chart's notes pane
+        # answer HTTP 500 (EctFormData throws rather than skipping)
+        ("broken_forms", [["formAdf", "ADF"]],
+         "name a form table this schema does not have"),
     )
 
     def test_each_hard_check_reports_its_own_failure(self):
@@ -751,6 +835,7 @@ class TestVerifyRoleChecks(unittest.TestCase):
         for phrase in ("role-name spellings agree",
                        "an enabled Facility exists",
                        "clinic row present",
+                       "every encounterForm row names a table that exists",
                        "every active provider is linked to a facility"):
             self.assertTrue(any(phrase in line for line in ok),
                             "{0!r} not in ok: {1}".format(phrase, ok))

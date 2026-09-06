@@ -2375,6 +2375,41 @@ class TestMergeReverseParity(unittest.TestCase):
                           pruned_property_prefixes=["INTEGRATOR_"])
         self.assertTrue(any("INTEGRATOR\\_%" in x for x in seen), seen)
 
+    def test_pruned_encounter_form_rows_are_not_expected_back(self):
+        """The roles step deletes the menu entries naming a form table
+        CARLOS removed -- without that prune every chart's notes pane
+        answers HTTP 500 -- so the reverse count must not ask for them
+        back. Tolerated by the SAME predicate the prune deletes on, so a
+        row the prune missed still fails."""
+        from carlos_ctl import o19roles
+        pred = o19etl.pruned_encounter_form_predicate("carlos")
+        self.assertIn("s.form_table IS NOT NULL", pred)
+        self.assertIn("t.TABLE_SCHEMA = 'carlos'", pred)
+        # the delete is the same predicate under the encounterForm alias
+        _archive, delete = o19roles.encounter_form_prune_statements(
+            "carlos", "o19_archive")
+        self.assertIn(
+            o19etl.pruned_encounter_form_predicate("carlos", alias=""),
+            delete)
+
+    def test_row_parity_tolerates_the_encounter_form_prune(self):
+        entry = o19map_schema.TABLES["encounterForm"]
+        dst_info = {"encounterForm": {c: col() for c in entry["cols"]}}
+        seen = []
+        info = is_rows({"encounterForm": entry["cols"]})
+
+        def q(sql):
+            if "information_schema.COLUMNS" in sql or (
+                    "information_schema" in sql and "TABLE_TYPE" in sql):
+                return info(sql)
+            seen.append(sql)
+            return [["0"]]
+
+        o19etl.row_parity(q, "stage", "carlos", dst_info=dst_info)
+        self.assertTrue(
+            any("CONVERT(t.TABLE_NAME USING utf8mb4)" in x for x in seen),
+            seen)
+
     def test_row_parity_drops_fk_remaps_whose_parent_is_absent(self):
         # the copy drops them too, so no id map exists: joining through
         # one would reference a table that was never created
