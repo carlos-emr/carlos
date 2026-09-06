@@ -252,6 +252,9 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+# Devcontainer seed values. On a FRESH DEB INSTALL the package randomises the password and the
+# PIN for carlosdoc -- read both from /etc/carlos-emr/initial-admin.txt and use those instead,
+# starting with the one-time forced-reset step further down.
 export TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
 # DB-backed checks: root over the MariaDB unix socket (the password value is
 # ignored by unix_socket auth but the scripts require it to be set).
@@ -349,13 +352,28 @@ export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 # same invocation is still using the OLD TEST_PASSWORD and fails too. The reset is a one-time,
 # persistent change to the account, so it belongs outside the loop entirely.
 #
-# Run this ONCE, before exporting anything else, then use the new password for the whole suite:
+# The reset logs in with the CURRENT credential, so TEST_PASSWORD and TEST_PIN must be the
+# package-generated ones from /etc/carlos-emr/initial-admin.txt for this one command -- NOT the
+# carlos2026 / 2026 in the environment block above, which are the devcontainer seed values. The
+# package replaces both (the username stays carlosdoc; the password and the PIN are random per
+# install), so with the block's values the login fails on a wrong password before it ever
+# reaches /forcepasswordreset, and the reset silently does not happen. Set them inline so the
+# block's exports cannot shadow them:
 #
+#   sudo sed -n 's/^ *\(user\|password\|PIN\):/\1:/p' /etc/carlos-emr/initial-admin.txt
+#
+#   TEST_PASSWORD='<password from initial-admin.txt>' \
+#   TEST_PIN='<PIN from initial-admin.txt>' \
 #   RESET_PASSWORD='Carlos2026!Verify' \
 #     node scripts/drugref-update-playwright-checks.js      # completes the reset, then checks
-#   export TEST_PASSWORD='Carlos2026!Verify'                # for the loop below and every rerun
 #
-# Not needed on the devcontainer, whose carlosdoc is not flagged.
+# Then re-export both for the loop below and every rerun -- the PIN does not change during the
+# reset, so it keeps the generated value for the rest of the suite:
+#
+#   export TEST_PASSWORD='Carlos2026!Verify'
+#   export TEST_PIN='<PIN from initial-admin.txt>'
+#
+# Not needed on the devcontainer, whose carlosdoc is not flagged and does keep carlos2026/2026.
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below

@@ -263,6 +263,25 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not query administration rights when prescriber rights already allow verify")
+    void shouldNotQueryAdministrationRights_whenRxRightsAlreadyAllowVerify() throws Exception {
+        // Ordering, not just outcome. Every hasPrivilege call re-runs
+        // secUserRoleDao.findActiveByProviderNo -- there is no role cache -- and TopLinks2.jspf
+        // fires verify on every Rx page load. Evaluating the administration rights first cost
+        // ordinary prescribers two extra role queries per page load to answer a question `_rx`
+        // alone settles, so the short-circuit is the point and this pins it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "verify");
+
+        action.execute();
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_admin"), any(), isNull());
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_admin.misc"), any(), isNull());
+    }
+
+    @Test
     @DisplayName("should allow verify to an administrator who is not a prescriber")
     void shouldAllowVerify_forAnAdministratorWithoutRxRights() throws Exception {
         // The admin page fires verify too. Gating it on _rx alone would leave an administrator

@@ -311,12 +311,60 @@
             }
 
             function updateDB() {
-                // Frozen before the POST, while the panel still shows the pre-run value. If the
-                // page was opened mid-run this is null -- the baseline is genuinely unknown,
-                // and the legacy fallback says so rather than guessing either way.
+                setResult('Starting the update...', 'info');
+                // Hidden now, not in startUpdate(): the re-probe below is a round trip, and the
+                // trigger must not stay clickable across it.
+                show('updateButton', false);
+                // Re-probe the baseline instead of reusing the one from page load. On a DrugRef
+                // too old to report an outcome, the legacy fallback decides success by whether
+                // the history timestamp MOVED, so a stale baseline is not a cosmetic problem:
+                // if another administrator completed an update while this page sat open, the
+                // timestamp has already moved, and THIS run -- however it ends -- would be
+                // reported as "Update finished at <their date>". A failed rebuild announced as
+                // a success is the one outcome this panel exists to prevent.
+                //
+                // The probe cannot fail the run: DrugRef refuses to start a second update while
+                // one is going, so the only cost of an unreachable probe is an unknown
+                // baseline, which the fallback already reports honestly rather than guessing.
+                verifyForBaseline()
+                    .then(startUpdate)
+                    .catch(function (error) {
+                        console.error('Could not re-read the baseline before updating:', error);
+                        baselineKnown = false;
+                        startUpdate();
+                    });
+            }
+
+            // Re-reads the last-update timestamp and refreshes the panel with it, so the
+            // baseline frozen a moment later is what DrugRef reports NOW, not at page load.
+            function verifyForBaseline() {
+                return callDrugref('verify').then(function (json) {
+                    var unavailable = !json
+                            || (json.lastUpdate == null && json.drugDatabase == null && json.version == null);
+                    if (unavailable || json.lastUpdate === 'updating') {
+                        // No usable baseline. Either DrugRef could not be reached, or a run is
+                        // already going -- and a timestamp frozen mid-run belongs to whatever
+                        // that run does, not to this one. Marking it unknown routes the legacy
+                        // fallback to its "cannot tell" message instead of a guess; leaving the
+                        // page-load value in place would be the stale baseline this re-probe
+                        // exists to eliminate.
+                        baselineKnown = false;
+                        return;
+                    }
+                    renderVerify(json);
+                });
+            }
+
+            function startUpdate() {
+                // Frozen immediately before the POST. If the page was opened mid-run, or the
+                // re-probe above could not reach DrugRef, this is unknown -- and the legacy
+                // fallback says so rather than guessing either way.
                 lastUpdateBeforeRun = lastVerifiedUpdate;
                 baselineKnownBeforeRun = baselineKnown;
-                setResult('Starting the update...', 'info');
+                // Again: the re-probe calls renderVerify(), which shows the trigger when the
+                // database looks updatable. That is right for the panel and wrong for the
+                // moment a run is starting, so the last word belongs here.
+                show('updateButton', false);
                 callDrugref('updateDB')
                     .then(function (json) {
                         if (json.result === 'running') {

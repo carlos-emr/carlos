@@ -107,16 +107,21 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         // administrator who is not a prescriber could open the page and then every call from it
         // failed with an HTML 500, which is the state this action exists to stop the page being
         // in. The admin page also fires `verify`, so administration rights satisfy that too.
+        //
+        // Evaluated lazily and cheapest-first, which matters here specifically: every
+        // hasPrivilege call re-runs secUserRoleDao.findActiveByProviderNo (there is no role
+        // cache), and TopLinks2.jspf fires `verify` on every Rx page load. Computing the
+        // administration rights up front cost ordinary prescribers two extra role queries per
+        // page load to answer a question `_rx` alone settles. The `||` order carries the
+        // authorization, not just the performance: it is the same predicate either way, so
+        // this stays a pure short-circuit and never widens who is allowed through.
         boolean administrative = mutating || "status".equals(method);
-        boolean hasAdministrationRights =
-                securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null);
         if (administrative) {
-            if (!hasAdministrationRights) {
+            if (!hasAdministrationRights(loggedInInfo)) {
                 throw new SecurityException("missing required sec object (_admin or _admin.misc)");
             }
-        } else if (!hasAdministrationRights
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
+        } else if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)
+                && !hasAdministrationRights(loggedInInfo)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
@@ -128,6 +133,16 @@ public class RxUpdateDrugref2Action extends ActionSupport {
             return status();
         }
         return getLastUpdate();
+    }
+
+    /**
+     * @return whether the caller may perform the administrative operations of this action, which
+     *         either administration security object grants. Not cached: each call re-reads the
+     *         caller's active roles, so call it only on the branch that needs it.
+     */
+    private boolean hasAdministrationRights(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null);
     }
 
     public String updateDB() throws IOException, ServletException {
