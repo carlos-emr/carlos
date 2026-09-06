@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -199,6 +200,63 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse status to a prescriber without administration rights")
+    void shouldRefuseStatus_whenTheCallerHasNoAdminRights() throws Exception {
+        // `status` relays DrugRef's root-cause failure text -- a JDBC URL, a database host and
+        // user, a filesystem path. `_rx` read is every prescriber in the clinic; the page that
+        // consumes this is gated on _admin / _admin.misc read by ViewUpdateDrugref2Action.
+        // Reporting is not automatically public just because it does not write.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("r"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "status");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin or _admin.misc");
+        assertThat(mockResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should allow status on the misc administration right alone")
+    void shouldAllowStatus_whenTheCallerHasOnlyAdminMisc() throws Exception {
+        // ViewUpdateDrugref2Action accepts either right, so this must too -- gating on _admin
+        // alone would lock the relay away from operators who can open the page.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "status");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentAsString()).contains("\"state\":\"UNAVAILABLE\"");
+    }
+
+    @Test
+    @DisplayName("should still allow verify at prescriber read rights")
+    void shouldStillAllowVerify_atPrescriberReadRights() throws Exception {
+        // The counterpart to the two above: TopLinks2.jspf fires verify on every Rx page load,
+        // and it carries only a date, a version and a database name. Tightening status must not
+        // drag verify along with it, or every prescriber gets the "unavailable" banner again.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "verify");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_admin"), any(), isNull());
+    }
+
+    @Test
     @DisplayName("should answer status JSON with state UNAVAILABLE when DrugRef cannot be reached")
     void shouldAnswerUnavailableState_whenDrugRefUnreachable() throws Exception {
         // No DrugRef is listening in a unit test, so the relay must degrade to a well-formed
@@ -206,6 +264,9 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
         // build without getUpdateStatus produces (an XML-RPC fault), and the page falls back to
         // the verify probe on it.
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        // status also demands administration rights: it relays DrugRef's root-cause text.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
                 .thenReturn(true);
         mockRequest.setParameter("method", "status");
 
@@ -224,6 +285,7 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("\"finishedAt\":\"\"")
                 .contains("\"lastUpdate\":\"\"");
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
         verifyNoMoreInteractions(mockSecurityInfoManager);
     }
 

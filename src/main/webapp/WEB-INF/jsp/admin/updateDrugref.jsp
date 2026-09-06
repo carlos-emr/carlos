@@ -78,6 +78,14 @@
             // nothing at all. Now it polls status until the run ends and says how it ended.
             var POLL_MS = 15000;
             var pollTimer = null;
+            // The newest history timestamp this page has seen from a verify probe, and a copy
+            // of it frozen at the moment a run starts. On a DrugRef too old for getUpdateStatus
+            // there is no outcome to read, and the timestamp moving is the only evidence a run
+            // succeeded -- the history row is written at the end of a good rebuild and not at
+            // all by a failed one. Frozen separately because the poll re-renders verify, which
+            // would otherwise overwrite the baseline with the value being compared against.
+            var lastVerifiedUpdate = null;
+            var lastUpdateBeforeRun = null;
 
             function getCsrfToken() {
                 var el = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -142,6 +150,7 @@
                     show('statusDisplay', false);
                     show('updateButton', false);
                 } else {
+                    lastVerifiedUpdate = json.lastUpdate;
                     document.getElementById('dbDateTime').textContent = json.lastUpdate;
                     document.getElementById('drugDatabaseVersion').textContent = json.version;
                     document.getElementById('drugDatabase').textContent = json.drugDatabase;
@@ -216,18 +225,50 @@
                                 renderVerify(v);
                                 if (v && v.lastUpdate === 'updating') {
                                     schedulePoll();
-                                } else if (!v || v.lastUpdate == null) {
-                                    // DrugRef stopped answering mid-run. A null lastUpdate is
-                                    // "cannot tell", NOT "finished": reporting success here
-                                    // would tell the operator the rebuild completed when it
-                                    // may have died with the tables half-built. Keep looking.
+                                } else if (!v || (v.lastUpdate == null && v.drugDatabase == null
+                                        && v.version == null)) {
+                                    // DrugRef stopped answering mid-run. An ALL-null payload is
+                                    // the action's unavailable fallback; testing lastUpdate
+                                    // alone also caught a healthy DrugRef that has simply never
+                                    // been updated, and then accused it of being down and
+                                    // polled forever with the trigger hidden. "Cannot tell" is
+                                    // still not "finished": reporting success here would say
+                                    // the rebuild completed when it may have died with the
+                                    // tables half-built. Keep looking.
                                     setResult('DrugRef stopped responding, so the outcome of this update is '
                                         + 'unknown. Still checking. If this persists, check the DrugRef service '
                                         + '(journalctl -u carlos-emr) before prescribing.', 'danger');
                                     show('updateButton', false);
                                     schedulePoll();
-                                } else {
+                                } else if (lastUpdateBeforeRun == null) {
+                                    // The page never saw a pre-run timestamp (opened mid-run),
+                                    // so there is nothing to compare against and neither
+                                    // "succeeded" nor "failed" can be claimed. Say that, in
+                                    // those words, rather than picking one.
+                                    setResult('The update has ended. This DrugRef build cannot report '
+                                        + 'whether it succeeded, and this page did not see the previous '
+                                        + 'timestamp to compare against. DrugRef reports last updated '
+                                        + (v.lastUpdate || 'never')
+                                        + ' — confirm drug search before prescribing.', 'warning');
+                                    show('updateButton', true);
+                                } else if (v.lastUpdate != null && v.lastUpdate !== lastUpdateBeforeRun) {
+                                    // The history timestamp MOVED. On a DrugRef too old to
+                                    // report an outcome, that is the only positive evidence a
+                                    // run finished: the row is written at the end of a
+                                    // successful rebuild and not at all by a failed one.
                                     setResult('Update finished at ' + v.lastUpdate + '.', 'success');
+                                } else {
+                                    // The run ended and the timestamp did NOT move. Reporting
+                                    // "Update finished at <date>" here -- as this did -- painted
+                                    // a green success built entirely on the "updating" flag
+                                    // having cleared, quoting the PRE-RUN date back at the
+                                    // operator. A failed run clears that flag too.
+                                    setResult('The update has ended, but DrugRef reports no new update'
+                                        + (v.lastUpdate ? ' (still ' + v.lastUpdate + ')' : '')
+                                        + ', so it most likely FAILED. This DrugRef build is too old to '
+                                        + 'report why — check the service log (journalctl -u carlos-emr) '
+                                        + 'and confirm drug search before prescribing.', 'danger');
+                                    show('updateButton', true);
                                 }
                             });
                         }
@@ -254,6 +295,10 @@
             }
 
             function updateDB() {
+                // Frozen before the POST, while the panel still shows the pre-run value. If the
+                // page was opened mid-run this is null -- the baseline is genuinely unknown,
+                // and the legacy fallback says so rather than guessing either way.
+                lastUpdateBeforeRun = lastVerifiedUpdate;
                 setResult('Starting the update...', 'info');
                 callDrugref('updateDB')
                     .then(function (json) {
