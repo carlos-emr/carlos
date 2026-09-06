@@ -48,14 +48,16 @@
  *   TEST_USER=carlosdoc  TEST_PASSWORD=carlos2026  TEST_PIN=2026
  *   EDOC_NAV_SCREENSHOT_DIR=/tmp   ALLOW_NON_LOCAL_BASE_URL=true
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (fixture teardown; see below)
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  *
  * FIXTURE SAFETY: uploads one PDF this script generates under a unique,
  * timestamped description and only ever asserts on that document. Note that the
  * UI delete in scenario 3 is the application's SOFT delete -- status='D', row and
  * file both still there -- so it is an assertion, NOT teardown. The row is removed
  * for real in the `finally` block, pass or fail, so an interrupted run leaves
- * nothing behind either. Cleanup never fails the run; if it could not connect it
- * warns, and strays are then removable with:
+ * nothing behind either -- including on SIGINT/SIGTERM, which skip `finally`.
+ * Cleanup never fails the run; if it could not connect it warns, and strays are
+ * then removable with:
  *   DELETE FROM document WHERE docdesc LIKE 'carlos-nav-probe-%';
  */
 
@@ -65,6 +67,31 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+/*
+ * Hosts that are unambiguously this machine or its compose network. The teardown below
+ * DELETEs document rows, so the database target is held to this narrower set rather than
+ * BASE_URL's (which also admits private IPv4). Same sets as
+ * assign-role-playwright-checks.js, which seeds rows for the same reason.
+ */
+const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
+
+function normalizeHost(rawHost) {
+  return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
+}
+
+function isExactLocalHost(rawHost) {
+  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
+}
+
+/** Refuses to point the fixture teardown's DELETEs at a database that is not plainly local. */
+function validateMysqlHost(rawHost) {
+  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing to delete probe document rows from non-local MYSQL_HOST ${rawHost};`
+      + ' set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database');
+  }
+  return rawHost;
+}
+
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
   chromePath: process.env.CHROME_PATH || '',
@@ -72,7 +99,7 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.EDOC_NAV_SCREENSHOT_DIR || '/tmp',
-  mysqlHost: process.env.MYSQL_HOST || '127.0.0.1',
+  mysqlHost: validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1'),
   mysqlUser: process.env.MYSQL_USER || 'root',
   mysqlPassword: process.env.MYSQL_PASSWORD || 'password',
   mysqlDatabase: process.env.MYSQL_DATABASE || 'carlos',
@@ -104,8 +131,7 @@ function validateBaseUrl(rawBaseUrl) {
 
 /** True when BASE_URL points at this machine, the only case where a bad cert is expected. */
 function isLoopbackTarget() {
-  const host = config.baseUrl.hostname.toLowerCase();
-  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+  return isExactLocalHost(config.baseUrl.hostname);
 }
 
 function appUrl(appPath) {
@@ -159,7 +185,12 @@ function sql(query) {
  * both the row and the uploaded PDF in place -- so it is an assertion, not teardown. This runs
  * unconditionally, pass or fail, so an interrupted run leaves nothing behind either.
  */
+let cleanupDone = false;
 function cleanupProbeDocuments() {
+  if (cleanupDone) {
+    return;
+  }
+  cleanupDone = true;
   try {
     const ids = sql(
       `SELECT document_no FROM document WHERE docdesc LIKE '${docDescription}%'`,
@@ -167,6 +198,12 @@ function cleanupProbeDocuments() {
     if (!ids.length) return;
     const list = ids.join(',');
     console.log(`cleanup: removing probe document row(s) ${list} for ${docDescription}`);
+    // document_storage is empty in the default file-backed mode, but carries the file's bytes
+    // when database-backed storage is on (AddEditDocument2Action writes it), so the blob has to
+    // go before the row that names it. The uploaded file itself lives in the server's document
+    // store, which a browser-driven check cannot reach -- same limitation as
+    // document-upload-playwright-checks.js.
+    sql(`DELETE FROM document_storage WHERE documentNo IN (${list})`);
     sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
     sql(`DELETE FROM document WHERE document_no IN (${list})`);
   } catch (e) {
@@ -361,6 +398,25 @@ async function run() {
     cleanupMysqlDefaults();
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+/*
+ * Node does not run finally blocks on SIGINT/SIGTERM, so an interrupted run would strand the
+ * probe document row and the cleartext mysql password file. Both cleanups are idempotent, so
+ * running them here is safe even when the finally block has already fired. The browser is left
+ * to the OS; only the row and that file matter.
+ */
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    console.error(`\n${signal} received; removing the probe document before exiting.`);
+    try {
+      cleanupProbeDocuments();
+    } catch (error) {
+      console.error(`WARN: cleanup after ${signal} failed: ${error.message}`);
+    }
+    cleanupMysqlDefaults();
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  });
 }
 
 run();
