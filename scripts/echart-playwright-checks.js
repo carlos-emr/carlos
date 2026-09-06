@@ -354,15 +354,21 @@ async function archiveCppNote(page, noteText) {
 /**
  * True when the response answers a POST to the note route whose body carries `method=<name>`.
  * The method travels in the body, not the query string, on every call this check watches.
+ *
+ * The body is form-encoded, so parse it as such rather than pattern-matching the raw string:
+ * a substring match would also have to reason about parameter boundaries and percent-encoding,
+ * and building the pattern from the caller's argument put a dynamically constructed RegExp on
+ * a hot path for no benefit.
  */
 function isCaseManagementEntryPost(response, method) {
-  if (response.request().method() !== 'POST') {
+  const request = response.request();
+  if (request.method() !== 'POST') {
     return false;
   }
   if (!new URL(response.url()).pathname.endsWith('/CaseManagementEntry')) {
     return false;
   }
-  return new RegExp(`(?:^|&)method=${method}(?:&|$)`).test(response.request().postData() || '');
+  return new URLSearchParams(request.postData() || '').getAll('method').includes(method);
 }
 
 function isAutosaveResponse(response) {
