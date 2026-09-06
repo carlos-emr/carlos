@@ -357,6 +357,50 @@ class TestAValueCarlosRequires(EtlDriverBase):
                          self.report_text(lines))
 
 
+class TestAColumnCarlosAddedAfterTheFork(EtlDriverBase):
+
+    """A column the OSCAR 19 dump does not carry, mapped as a Java
+    primitive.
+
+    The unit tests prove the SQL builder supplies a literal; this proves
+    the two things only a whole run can: that the literal reaches the
+    INSERT the driver actually issues, and that the operator is told the
+    import invented a value. Both were dead code away from being silent
+    -- the first import of this shape answered HTTP 500 on the schedule
+    of every provider who had a message."""
+
+    def primitive_run(self, **over):
+        columns = {t: list(c) for t, c in DST_COLUMNS.items()}
+        columns["AppDefinition"] = columns["AppDefinition"] + ["facilityId"]
+        original = o19map_schema.PRIMITIVE_COLUMNS
+        o19map_schema.PRIMITIVE_COLUMNS = dict(
+            original, AppDefinition=["facilityId"])
+        try:
+            return self.run_etl(dst_columns=columns, **over)
+        finally:
+            o19map_schema.PRIMITIVE_COLUMNS = original
+
+    def test_the_literal_reaches_the_insert_the_driver_issues(self):
+        db, _lines, _counts = self.primitive_run()
+        inserts = self.writes_matching(
+            db, r"^INSERT INTO `carlos`\.`AppDefinition`")
+        self.assertEqual(len(inserts), 1, db.writes)
+        self.assertIn("`facilityId`", inserts[0])
+
+    def test_the_supplied_column_reaches_the_report(self):
+        _db, lines, _counts = self.primitive_run()
+        text = self.report_text(lines)
+        self.assertIn("columns CARLOS added after the fork, supplied by "
+                      "the import", text)
+        self.assertIn("AppDefinition.facilityId: not in the OSCAR 19 "
+                      "dump", text)
+
+    def test_nothing_is_reported_when_no_column_needs_supplying(self):
+        _db, lines, _counts = self.run_etl()
+        self.assertNotIn("columns CARLOS added after the fork",
+                         self.report_text(lines))
+
+
 class TestTheCopyPath(EtlDriverBase):
     """What reaches the database for each manifest class."""
 

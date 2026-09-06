@@ -708,6 +708,131 @@ def parse_prevention_items(text: str) -> List[str]:
     return sorted(set(_PREVENTION_ITEM_RE.findall(text)))
 
 
+#: Java root scanned for the entity mappings behind `PRIMITIVE_COLUMNS`.
+JAVA_ROOT = REPO_ROOT / "src" / "main" / "java"
+
+_TABLE_RE = re.compile(r"@Table\s*\(\s*name\s*=\s*\"([^\"]+)\"")
+#: a field declaration whose Java type is a PRIMITIVE. `char` is included
+#: for completeness; `String`, the boxed types and every entity reference
+#: are deliberately absent, because those can hold null.
+_PRIMITIVE_FIELD_RE = re.compile(
+    r"(?:private|protected|public)\s+(?:final\s+)?"
+    r"(?:boolean|byte|short|int|long|float|double|char)\s+(\w+)\s*[;=]")
+_COLUMN_NAME_RE = re.compile(r"@Column\s*\([^)]*\bname\s*=\s*\"([^\"]+)\"")
+
+
+def _blank_literals(text: str) -> str:
+    """`text` with comments and string/char literals blanked to spaces,
+    same length. Used only to count brace depth: a `{` inside a comment
+    or a string would otherwise move every field after it into an
+    imaginary method body."""
+    out = list(text)
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] != "\n":
+                out[i] = " "
+                i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "*":
+            out[i] = out[i + 1] = " "
+            i += 2
+            while i < n and not (text[i] == "*" and i + 1 < n
+                                 and text[i + 1] == "/"):
+                if text[i] != "\n":
+                    out[i] = " "
+                i += 1
+            if i < n:
+                out[i] = " "
+                if i + 1 < n:
+                    out[i + 1] = " "
+                i += 2
+        elif c in "\"'":
+            quote = c
+            i += 1
+            while i < n and text[i] != quote:
+                if text[i] == "\\":
+                    out[i] = " "
+                    i += 1
+                if i < n and text[i] != "\n":
+                    out[i] = " "
+                i += 1
+            if i < n:
+                i += 1
+        else:
+            i += 1
+    return "".join(out)
+
+
+def _depths(text: str) -> List[int]:
+    """Brace depth BEFORE the character at each offset."""
+    blanked = _blank_literals(text)
+    depth = 0
+    out = []
+    for c in blanked:
+        out.append(depth)
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+    return out
+
+
+def scan_primitive_columns(java_root: Path) -> Dict[str, List[str]]:
+    """{table (as the entity spells it): [column, ...]} for every column
+    a CARLOS JPA entity maps to a JAVA PRIMITIVE.
+
+    Insertability is not readability. Hibernate cannot hydrate NULL into
+    an `int` field: it throws `IllegalArgumentException: Can not set int
+    field ... to null value` the first time anything loads the row. So a
+    NULL the schema permits is still a row the application cannot read,
+    and the ETL has to supply a value for these columns whatever the
+    column's own nullability says. Measured, not theorised: a migrated
+    clinic's schedule answered HTTP 500 for every provider holding a
+    message, because `messagelisttbl.destinationFacilityId` --
+    nullable, and absent from the OSCAR 19 dump entirely -- reached
+    `MessageList.destinationFacilityId`, an `int`.
+
+    Deliberately conservative, because a column wrongly included would
+    have the import write a type zero where the clinic meant NULL:
+
+    * only a file with exactly ONE `@Table` is read -- an inner entity
+      class would make the field-to-table attribution a guess;
+    * only declarations at CLASS BODY depth count, so a local variable
+      inside a method cannot be mistaken for a field (`boolean matches
+      = ...` in an `equals` override is the shape that would);
+    * `static` and `@Transient` fields are skipped;
+    * a column name the CARLOS schema does not carry is dropped by the
+      caller.
+
+    A column missed here is no worse than today's behaviour."""
+    out: Dict[str, List[str]] = {}
+    for path in sorted(java_root.rglob("*.java")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        tables = _TABLE_RE.findall(text)
+        if len(tables) != 1:
+            continue
+        depths = _depths(text)
+        columns = []
+        for m in _PRIMITIVE_FIELD_RE.finditer(text):
+            # depth 1 is the class body: depth 0 is outside the class and
+            # depth 2+ is inside a method, a constructor or an initializer
+            if depths[m.start()] != 1:
+                continue
+            # the annotations attached to this field: everything back to
+            # the previous statement or block boundary
+            head = text[:m.start()]
+            cut = max(head.rfind(";"), head.rfind("}"), head.rfind("{"))
+            annotations = head[cut + 1:]
+            if "@Transient" in annotations or " static " in m.group(0):
+                continue
+            named = _COLUMN_NAME_RE.search(annotations)
+            columns.append(named.group(1) if named else m.group(1))
+        if columns:
+            out.setdefault(tables[0], []).extend(columns)
+    return {t: sorted(set(cols)) for t, cols in out.items()}
+
+
 def read_sql(path: Path) -> str:
     """Read one SQL source. Undecodable bytes are replaced rather than
     fatal: the O19 tree carries latin1-era files, and a stray byte in a
@@ -1596,7 +1721,38 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " and is reported")
     out.append("KNOWN_PREVENTION_TYPES = "
                + _fmt(list(extras.get("known_prevention_types", []))) + "\n")
+    out.append("# columns a CARLOS JPA entity maps to a JAVA PRIMITIVE."
+               " Hibernate cannot hydrate\n# NULL into one -- it throws"
+               " `Can not set int field ... to null value` and the page"
+               "\n# reading the row answers HTTP 500 -- so the ETL supplies"
+               " a value for these\n# whatever the column's own nullability"
+               " says (see o19etl.primitive_fallback).")
+    out.append("PRIMITIVE_COLUMNS = "
+               + _fmt(primitive_columns(copy_tables, carlos, extras)) + "\n")
     return "\n".join(out).rstrip("\n") + "\n"
+
+
+def primitive_columns(copy_tables: List[str], carlos: Schema,
+                      extras: Dict) -> Dict[str, List[str]]:
+    """The entity scan narrowed to what the manifest can act on: tables
+    the import writes, and columns the CARLOS schema actually has.
+
+    Matched case-INSENSITIVELY and emitted in the SCHEMA's spelling,
+    because an entity and a migration do not always agree on case and
+    the ETL looks these up against information_schema."""
+    scanned = extras.get("primitive_columns", {})
+    lowered = {t.lower(): cols for t, cols in scanned.items()}
+    out: Dict[str, List[str]] = {}
+    for table in copy_tables:
+        declared = lowered.get(table.lower())
+        if not declared:
+            continue
+        have = {c.lower(): c for c in carlos.tables[table]}
+        cols = sorted({have[d.lower()] for d in declared
+                       if d.lower() in have})
+        if cols:
+            out[table] = cols
+    return out
 
 
 def undisposed_property_keys(o19_defaults, ov):
@@ -1855,6 +2011,7 @@ def main() -> int:
                 "rows (stale entry)".format(t, n, seed_counts.get(t, 0)))
         seed_counts[t] -= n
     extras = {
+        "primitive_columns": scan_primitive_columns(JAVA_ROOT),
         "stock_role_names": sorted(set(stock_role_names)),
         "prevention_type_map": parse_prevention_type_map(
             read_sql(PREVENTION_TYPE_SCRIPT)),
@@ -1864,6 +2021,11 @@ def main() -> int:
     if not extras["stock_role_names"]:
         raise SystemExit("no secRole seed rows found in the CARLOS "
                          "migrations")
+    if not extras["primitive_columns"]:
+        # an empty scan would silently disarm the NULL-into-a-primitive
+        # protection for every table at once
+        raise SystemExit("no JPA entity primitives found under {}"
+                         .format(JAVA_ROOT))
     if not extras["prevention_type_map"]:
         raise SystemExit("no prevention type mappings parsed from {}"
                          .format(PREVENTION_TYPE_SCRIPT))

@@ -21,11 +21,14 @@ from carlos_ctl import o19etl, o19map_schema
 
 
 def col(dtype="varchar", nullable=True, char_len=0, column_type=None,
-        has_default=False, auto_increment=False, octet_len=None):
+        has_default=False, auto_increment=False, octet_len=None,
+        primitive=False, default=None):
     return {"type": dtype, "nullable": nullable, "char_len": char_len,
             "column_type": column_type or dtype,
             "octet_len": char_len if octet_len is None else octet_len,
-            "has_default": has_default, "auto_increment": auto_increment}
+            "has_default": has_default, "auto_increment": auto_increment,
+            # a CARLOS entity maps this column to a Java primitive
+            "primitive": primitive, "default": default}
 
 
 def selected_expr(sql, target_col):
@@ -776,6 +779,137 @@ class TestNullIntoAColumnCarlosRequires(unittest.TestCase):
         self.assertIn("t.a: 4 row(s) hold NULL where CARLOS requires a "
                       "value; stored as 0", joined)
         self.assertIn("stored as the import's own timestamp", joined)
+
+
+class TestNullIntoAColumnCarlosMapsAsAPrimitive(unittest.TestCase):
+
+    r"""A column the SCHEMA leaves nullable that the ENTITY maps as a
+    Java primitive is a column the import must still fill.
+
+    Found by the migrated-database UI smoke, not by reading the schema:
+    a clinician who had any message got HTTP 500 on the CARLOS schedule,
+    because `messagelisttbl.destinationFacilityId` -- nullable, with a
+    NULL default, and absent from the OSCAR 19 dump entirely -- reached
+    `MessageList.destinationFacilityId`, declared `int`. Hibernate threw
+    `IllegalArgumentException: Can not set int field ... to null value`
+    hydrating the row and the whole page failed.
+
+    Insertability is not readability: nothing in the schema, the copy or
+    P7 parity can see this, because the row IS the source's row. Only
+    the entity mapping says the column cannot hold NULL, which is why
+    the manifest carries `PRIMITIVE_COLUMNS` and the ETL reads it."""
+
+    def test_a_nullable_primitive_column_gets_the_types_zero(self):
+        self.assertEqual(
+            o19etl.primitive_fallback(col("int", primitive=True)), "0")
+        self.assertEqual(
+            o19etl.primitive_fallback(col("tinyint", primitive=True)), "0")
+        self.assertEqual(
+            o19etl.sanitize_expr("s.`a`", col("int", primitive=True)),
+            "IFNULL(s.`a`, 0)")
+
+    def test_a_nullable_column_no_entity_maps_is_left_alone(self):
+        self.assertIsNone(o19etl.primitive_fallback(col("int")))
+        self.assertEqual(o19etl.sanitize_expr("s.`a`", col("int")),
+                         "s.`a`")
+
+    def test_a_not_null_column_is_still_the_servers_substitution(self):
+        # required_fallback answers from not_null_fallback first, so the
+        # NOT NULL path keeps modelling what the SERVER does
+        info = col("int", nullable=False, primitive=True)
+        self.assertIsNone(o19etl.primitive_fallback(info))
+        self.assertEqual(o19etl.required_fallback(info), "0")
+
+    def test_a_column_the_dump_does_not_carry_is_supplied(self):
+        entry = {"class": "copy", "cols": ["status"]}
+        dst = {"status": col("varchar"),
+               "destinationFacilityId": col("int", primitive=True)}
+        supplied = o19etl.primitive_supplied_columns(entry, dst)
+        self.assertEqual(supplied, [("destinationFacilityId", "0")])
+        sql = o19etl.copy_statement("messagelisttbl", entry, "src", "dst",
+                                    dst)
+        self.assertIn("`status`, `destinationFacilityId`", sql)
+        self.assertEqual(selected_expr(sql, "destinationFacilityId"), "0")
+
+    def test_a_column_whose_default_is_not_null_is_left_out(self):
+        """Omitting it stores the DEFAULT, which is readable; supplying a
+        zero would overwrite the schema's own answer."""
+        entry = {"class": "copy", "cols": ["status"]}
+        dst = {"status": col("varchar"),
+               "flag": col("tinyint", primitive=True, has_default=True,
+                           default="1")}
+        self.assertEqual(o19etl.primitive_supplied_columns(entry, dst), [])
+        self.assertNotIn(
+            "`flag`", o19etl.copy_statement("t", entry, "src", "dst", dst))
+
+    def test_a_not_null_column_the_dump_lacks_is_left_out(self):
+        # the server stores the type zero for an omitted NOT NULL column
+        entry = {"class": "copy", "cols": ["status"]}
+        dst = {"status": col("varchar"),
+               "flag": col("tinyint", nullable=False, primitive=True)}
+        self.assertEqual(o19etl.primitive_supplied_columns(entry, dst), [])
+
+    def test_an_auto_increment_column_is_never_supplied(self):
+        entry = {"class": "copy", "cols": ["status"]}
+        dst = {"status": col("varchar"),
+               "id": col("int", primitive=True, auto_increment=True)}
+        self.assertEqual(o19etl.primitive_supplied_columns(entry, dst), [])
+
+    def test_the_merge_supplies_them_too_but_never_the_surrogate(self):
+        entry = {"class": "merge", "cols": ["id", "name"],
+                 "merge_keys": ["name"], "surrogate_pk": "id"}
+        dst = {"id": col("int", primitive=True, auto_increment=True),
+               "name": col("varchar"),
+               "shared": col("tinyint", primitive=True)}
+        sql = o19etl.merge_statement("t", entry, "src", "dst", dst)
+        # selected_expr() is shaped for a plain copy; a merge's SELECT
+        # carries its own subquery, so this reads the lists directly
+        self.assertIn("(`name`, `shared`) SELECT s.`name`, 0 FROM", sql)
+        self.assertNotIn("`id`", sql.split(") SELECT", 1)[0])
+
+    def test_the_copy_and_its_own_check_agree_on_a_copied_column(self):
+        entry = {"class": "copy", "cols": ["id", "flag"]}
+        dst = {"id": col("int", nullable=False),
+               "flag": col("tinyint", primitive=True)}
+        insert = o19etl.copy_statement("t", entry, "src", "dst", dst)
+        check = o19etl.copy_value_mismatch_sql(
+            "t", entry, "src", "dst", dst, ("id",))
+        self.assertIn("IFNULL(s.`flag`, 0)", insert)
+        self.assertIn("IFNULL(s.`flag`, 0)", check)
+
+    def test_the_substitution_is_counted_for_the_report(self):
+        entry = {"class": "copy", "cols": ["a", "b"]}
+        dst = {"a": col("int", primitive=True), "b": col("int")}
+        pairs = o19etl.not_null_coercion_count_sql("t", entry, "src", dst)
+        self.assertEqual([c for c, _ in pairs], ["a"])
+
+    def test_the_introspection_stamps_the_flag_from_the_manifest(self):
+        """The whole chain hangs off this: the manifest knows which
+        columns an entity maps as a primitive, and the ETL only ever
+        sees information_schema. If the flag stopped being stamped,
+        every check above would still pass on its hand-built dict while
+        the real import went back to writing NULL."""
+        table, column = "messagelisttbl", "destinationFacilityId"
+        self.assertIn(column,
+                      o19map_schema.PRIMITIVE_COLUMNS.get(table, ()))
+        rows = [
+            [table, column, "int", "int(11)", "YES", "0", "\\0NONE", "",
+             "0", "", ""],
+            [table, "status", "varchar", "varchar(10)", "YES", "10",
+             "\\0NONE", "", "10", "utf8mb4", "utf8mb4_general_ci"],
+        ]
+        info = o19etl.introspect_columns(lambda sql: rows, "target")
+        self.assertTrue(info[table][column]["primitive"])
+        self.assertFalse(info[table]["status"]["primitive"])
+
+    def test_a_supplied_column_is_named_in_the_report(self):
+        entry = {"class": "copy", "cols": ["status"]}
+        dst = {"t": {"status": col("varchar"),
+                     "facilityId": col("int", primitive=True)}}
+        lines = o19etl.primitive_supplied_lines(dst, {"t": entry})
+        self.assertEqual(len(lines), 1)
+        self.assertIn("t.facilityId: not in the OSCAR 19 dump", lines[0])
+        self.assertIn("every row is written 0", lines[0])
 
 
 class TestEnumValues(unittest.TestCase):

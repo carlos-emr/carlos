@@ -171,8 +171,10 @@ def repair_expr(expr: str) -> str:
 
 def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
     """{table: {column: {type, column_type, nullable, char_len, default,
-    extra}}} from information_schema."""
+    extra, primitive}}} from information_schema."""
     out: Dict[str, Dict[str, dict]] = {}
+    primitive = {t: set(cols) for t, cols
+                 in getattr(o19map_schema, "PRIMITIVE_COLUMNS", {}).items()}
     rows = query(
         "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, "
         "IS_NULLABLE, IFNULL(CHARACTER_MAXIMUM_LENGTH, 0), "
@@ -227,6 +229,13 @@ def introspect_columns(query, schema: str) -> Dict[str, Dict[str, dict]]:
             # same bytes at the same capacity (archived_column_type)
             "charset": charset,
             "collation": collation,
+            # a CARLOS JPA entity maps this column to a Java PRIMITIVE,
+            # which cannot hold NULL (`primitive_fallback`). It is a fact
+            # about CARLOS's own mapping, so it is stamped on every
+            # introspection; only the TARGET side is ever read for it,
+            # since the staging schema is OSCAR 19's and no entity maps
+            # it.
+            "primitive": c in primitive.get(t, ()),
         }
     return out
 
@@ -434,6 +443,81 @@ def not_null_fallback(dst_info: dict) -> Optional[str]:
     return "''"
 
 
+def primitive_fallback(dst_info: dict) -> Optional[str]:
+    """The literal a NULL must fall to because CARLOS maps this column to
+    a Java PRIMITIVE, or None when the column is not one.
+
+    A NOT NULL column is already handled by `not_null_fallback` (the
+    server substitutes and that function models the substitution). This
+    is the other half, and the one no schema rule catches: a column the
+    schema leaves NULLABLE that the entity maps as `int`, `boolean`,
+    `long`. Hibernate throws `IllegalArgumentException: Can not set int
+    field ... to null value` hydrating such a row, so the page that
+    reads it answers HTTP 500 -- measured on a migrated clinic, where
+    every provider holding a message got a 500 on the schedule because
+    `messagelisttbl.destinationFacilityId` was NULL.
+
+    The value is the TYPE's zero, deliberately, and not the column's
+    DEFAULT: it is what the Java field itself holds when nothing sets it
+    (`int x;` is 0, `boolean b;` is false), so a row the import writes
+    reads back the way a row the application writes does. Columns whose
+    DEFAULT is not NULL never reach here -- they are simply left out of
+    the INSERT and the server stores the default."""
+    if not dst_info.get("primitive") or not dst_info.get("nullable"):
+        return None
+    dtype = (dst_info.get("type") or "").lower()
+    if dtype in ("timestamp", "enum"):
+        # a primitive never maps to either; leaving them alone keeps the
+        # enum CASE and the timestamp relaxation the only owners of those
+        return None
+    if dtype in _NOT_NULL_ZERO:
+        return _NOT_NULL_ZERO[dtype]
+    if dtype in NUMERIC_TYPES:
+        return "0"
+    return "''"
+
+
+def required_fallback(dst_info: dict) -> Optional[str]:
+    """The literal a NULL falls to in a column CARLOS cannot read as
+    NULL -- because the schema declares it NOT NULL, or because the
+    entity maps it to a Java primitive. One accessor so the copy, the
+    value check and the report cannot disagree about which columns
+    those are."""
+    fallback = not_null_fallback(dst_info)
+    if fallback is not None:
+        return fallback
+    return primitive_fallback(dst_info)
+
+
+def primitive_supplied_columns(entry: dict, dst_cols: Dict[str, dict]
+                               ) -> List[Tuple[str, str]]:
+    """[(column, literal)] for every primitive-mapped target column this
+    table's copy would otherwise leave NULL.
+
+    These are columns the OSCAR 19 dump does not carry at all -- CARLOS
+    added them after the fork -- so there is no source expression to
+    sanitize and the INSERT simply omitted them. Omitting a column with
+    a DEFAULT stores the default and omitting a NOT NULL one stores the
+    type zero, and both of those are readable; only a NULLABLE column
+    whose default is NULL ends up holding NULL, and that is the row
+    Hibernate cannot hydrate. So this is the narrowest possible set: the
+    columns where doing nothing produces an unreadable row."""
+    cols = set(entry["cols"])
+    out = []
+    for col in sorted(dst_cols):
+        info = dst_cols[col]
+        if col in cols or not info.get("primitive"):
+            continue
+        if info.get("auto_increment") or not info.get("nullable"):
+            continue
+        if info.get("default") is not None:
+            continue
+        literal = primitive_fallback(info)
+        if literal is not None:
+            out.append((col, literal))
+    return out
+
+
 def sanitize_expr(expr: str, dst_info: dict) -> str:
     """Wrap zero-date, enum and NOT NULL sanitizers around a source
     expression.
@@ -463,7 +547,7 @@ def sanitize_expr(expr: str, dst_info: dict) -> str:
                 null_case, expr,
                 ", ".join("'{0}'".format(v) for v in values),
                 enum_fallback(dst_info, values))
-    fallback = not_null_fallback(dst_info)
+    fallback = required_fallback(dst_info)
     if fallback is not None:
         expr = "IFNULL({0}, {1})".format(expr, fallback)
     return expr
@@ -493,7 +577,13 @@ def not_null_coercion_count_sql(table: str, entry: dict, src_schema: str,
     out = []
     for c in entry["cols"]:
         info = dst_cols.get(c)
-        if not info or info.get("nullable"):
+        if not info:
+            continue
+        # NOT NULL columns (the server substitutes) and nullable columns
+        # a CARLOS entity maps to a Java primitive (the ETL substitutes,
+        # `primitive_fallback`): both change a value the clinic had, and
+        # both belong in the report for the same reason
+        if info.get("nullable") and not info.get("primitive"):
             continue
         if c in (entry.get("archived_cols") or {}):
             continue          # copied verbatim into a column of the
@@ -534,12 +624,36 @@ def not_null_coercion_lines(query, src_schema: str, arch_schema: str,
             if not n:
                 continue
             info = dst_info[table][col]
-            fallback = not_null_fallback(info)
+            fallback = required_fallback(info)
             became = (fallback if fallback is not None
                       else "the import's own timestamp")
             lines.append(
                 "{0}.{1}: {2} row(s) hold NULL where CARLOS requires a "
                 "value; stored as {3}".format(table, col, n, became))
+    return lines
+
+
+def primitive_supplied_lines(dst_info: Dict[str, Dict[str, dict]],
+                             effective: Dict[str, dict]) -> List[str]:
+    """Report lines for columns the OSCAR 19 dump does not carry at all
+    and the import supplies, because a CARLOS entity maps them to a Java
+    primitive that cannot hold NULL.
+
+    Per TABLE, not per row: there is no source value to count, and every
+    row copied gets the same literal. Reported for the same reason the
+    coercions are -- a value the operator did not supply is a value the
+    operator has to see."""
+    lines: List[str] = []
+    for table in sorted(effective):
+        cols = dst_info.get(table)
+        if not cols:
+            continue
+        for col, literal in primitive_supplied_columns(
+                effective[table], cols):
+            lines.append(
+                "{0}.{1}: not in the OSCAR 19 dump; CARLOS maps it as a "
+                "Java primitive, so every row is written {2}"
+                .format(table, col, literal))
     return lines
 
 
@@ -589,19 +703,25 @@ def copy_statement(table: str, entry: dict, src_schema: str,
     the columns whose double-encoded text this run rewrites."""
     cols = entry["cols"]
     archived = entry.get("archived_cols") or {}
-    targets = ", ".join("`{0}`".format(c) for c in cols)
+    supplied = primitive_supplied_columns(entry, dst_cols)
+    targets = ", ".join(
+        "`{0}`".format(c) for c in cols + [c for c, _ in supplied])
     # an `import_archived_` column is a verbatim copy of a source column
     # into a target column of the source's own type: nothing to sanitize,
     # and sanitizing anyway would rewrite a zero date to NULL and make
     # the archive differ from what the clinic had
     exprs = ", ".join(
-        source_expr(entry, c, repaired, archive_schema,
-                    dst_cols[c]["nullable"])
-        if c in archived else
-        sanitize_expr(source_expr(entry, c, repaired, archive_schema,
-                                  dst_cols[c]["nullable"]),
-                      dst_cols[c])
-        for c in cols)
+        [source_expr(entry, c, repaired, archive_schema,
+                     dst_cols[c]["nullable"])
+         if c in archived else
+         sanitize_expr(source_expr(entry, c, repaired, archive_schema,
+                                   dst_cols[c]["nullable"]),
+                       dst_cols[c])
+         for c in cols]
+        # a column CARLOS added after the fork and maps as a Java
+        # primitive: no source to select, and NULL is a row the
+        # application cannot load
+        + [literal for _, literal in supplied])
     sql = ("INSERT INTO `{0}`.`{1}` ({2}) SELECT {3} FROM `{4}`.`{1}` s"
            .format(dst_schema, table, targets, exprs, src_schema))
     if window:
@@ -673,15 +793,20 @@ def merge_statement(table: str, entry: dict, src_schema: str,
     surrogate = entry.get("surrogate_pk")
     archived = entry.get("archived_cols") or {}
     cols = [c for c in entry["cols"] if c != surrogate]
-    targets = ", ".join("`{0}`".format(c) for c in cols)
+    supplied = [(c, literal) for c, literal
+                in primitive_supplied_columns(entry, dst_cols)
+                if c != surrogate]
+    targets = ", ".join(
+        "`{0}`".format(c) for c in cols + [c for c, _ in supplied])
     exprs = ", ".join(
-        source_expr(entry, c, repaired, archive_schema,
-                    dst_cols[c]["nullable"])
-        if c in archived else
-        sanitize_expr(source_expr(entry, c, repaired, archive_schema,
-                                  dst_cols[c]["nullable"]),
-                      dst_cols[c])
-        for c in cols)
+        [source_expr(entry, c, repaired, archive_schema,
+                     dst_cols[c]["nullable"])
+         if c in archived else
+         sanitize_expr(source_expr(entry, c, repaired, archive_schema,
+                                   dst_cols[c]["nullable"]),
+                       dst_cols[c])
+         for c in cols]
+        + [literal for _, literal in supplied])
     sql = ("INSERT INTO `{0}`.`{1}` ({2}) SELECT {3} FROM `{4}`.`{1}` s "
            "WHERE NOT EXISTS (SELECT 1 FROM `{0}`.`{1}` d WHERE {5})"
            .format(dst_schema, table, targets, exprs, src_schema,
@@ -3021,6 +3146,10 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
     if null_lines:
         report("values CARLOS requires, supplied by the server:\n  "
                + "\n  ".join(null_lines))
+    supplied_lines = primitive_supplied_lines(dst_info, effective)
+    if supplied_lines:
+        report("columns CARLOS added after the fork, supplied by the "
+               "import:\n  " + "\n  ".join(supplied_lines))
 
     plain("CREATE DATABASE IF NOT EXISTS `{0}`".format(arch))
     progress = load_progress(state_dir, ctx.get("dump_sha256"),

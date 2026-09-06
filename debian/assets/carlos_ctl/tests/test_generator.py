@@ -1230,5 +1230,136 @@ class TestEveryPrimitiveMappedColumnIsSupplied(unittest.TestCase):
                 "the webapp fails to deploy".format(column))
 
 
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestPrimitiveColumnManifest(unittest.TestCase):
+
+    r"""`PRIMITIVE_COLUMNS` is the manifest's record of which columns a
+    CARLOS JPA entity maps to a Java primitive.
+
+    It exists because insertability is not readability: a NULL the
+    schema permits is still a row Hibernate refuses to hydrate into an
+    `int` field, and the page reading it answers HTTP 500. Measured on a
+    migrated clinic -- every provider holding a message got a 500 on the
+    schedule, from `messagelisttbl.destinationFacilityId`.
+
+    These pin the fact rather than the mechanism: a new entity field, a
+    migration that adds a column, or a scanner that stops seeing a
+    declaration all change what the shipped manifest should say."""
+
+    def test_the_shipped_manifest_matches_a_fresh_scan(self):
+        gen = load_generator()
+        carlos = carlos_schema(gen)
+        copy_tables = sorted(
+            t for t, e in o19map_schema.TABLES.items()
+            if e["class"] in ("copy", "merge"))
+        expected = gen.primitive_columns(
+            copy_tables, carlos,
+            {"primitive_columns": gen.scan_primitive_columns(
+                gen.JAVA_ROOT)})
+        self.assertEqual(o19map_schema.PRIMITIVE_COLUMNS, expected)
+
+    def test_the_column_that_broke_a_migrated_schedule_is_named(self):
+        self.assertIn(
+            "destinationFacilityId",
+            o19map_schema.PRIMITIVE_COLUMNS.get("messagelisttbl", ()),
+            "the column whose NULL made a migrated clinic's schedule "
+            "answer HTTP 500 is no longer in the manifest")
+
+    def test_every_named_column_is_one_the_target_actually_has(self):
+        for table, columns in o19map_schema.PRIMITIVE_COLUMNS.items():
+            self.assertIn(table, o19map_schema.CARLOS_COLUMNS, table)
+            for column in columns:
+                self.assertIn(column,
+                              o19map_schema.CARLOS_COLUMNS[table],
+                              "{0}.{1}".format(table, column))
+
+    def test_only_copy_and_merge_tables_are_listed(self):
+        for table in o19map_schema.PRIMITIVE_COLUMNS:
+            self.assertIn(o19map_schema.TABLES[table]["class"],
+                          ("copy", "merge"), table)
+
+
+@unittest.skipUnless(GEN.is_file(), "generator not in this checkout")
+class TestPrimitiveFieldScan(unittest.TestCase):
+
+    """What the entity scan must NOT pick up.
+
+    A column wrongly listed makes the import write a type zero where the
+    clinic meant NULL, so every exclusion here is a data-integrity rule,
+    not a tidiness one."""
+
+    def scan(self, java: str):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "Thing.java").write_text(java, encoding="utf-8")
+            return load_generator().scan_primitive_columns(root)
+
+    def test_a_class_body_field_is_a_column(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    private int facilityId;\n'
+                      '}\n'),
+            {"thing": ["facilityId"]})
+
+    def test_a_local_variable_inside_a_method_is_not(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    public boolean equals(Object o) {\n'
+                      '        private boolean matches = false;\n'
+                      '        return matches;\n'
+                      '    }\n'
+                      '}\n'),
+            {})
+
+    def test_a_transient_field_is_not(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    @Transient\n'
+                      '    private int cached;\n'
+                      '}\n'),
+            {})
+
+    def test_a_column_annotation_renames_the_field(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    @Column(name = "facility_id")\n'
+                      '    private int facilityId;\n'
+                      '}\n'),
+            {"thing": ["facility_id"]})
+
+    def test_a_boxed_field_is_not_a_primitive(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    private Integer facilityId;\n'
+                      '    private String name;\n'
+                      '}\n'),
+            {})
+
+    def test_a_file_with_two_tables_is_skipped(self):
+        """Field-to-table attribution would be a guess, and a guess here
+        writes zeros into the wrong table."""
+        self.assertEqual(
+            self.scan('@Table(name = "one")\n'
+                      'public class One { private int a; }\n'
+                      '@Table(name = "two")\n'
+                      'class Two { private int b; }\n'),
+            {})
+
+    def test_a_brace_inside_a_string_does_not_move_the_class_body(self):
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      'public class Thing {\n'
+                      '    private static final String Q = "{";\n'
+                      '    private int facilityId;\n'
+                      '}\n'),
+            {"thing": ["facilityId"]})
+
+
 if __name__ == "__main__":
     unittest.main()
