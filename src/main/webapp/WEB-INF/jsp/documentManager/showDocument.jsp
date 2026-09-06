@@ -1173,7 +1173,7 @@
             // acknowledge anything — one that only files a tickler succeeds and leaves the
             // document NEW, and dropping it from the inbox would hide unfinished work.
             if (json.acknowledged) {
-                notifyInboxhubAfterDocMacro(formEl);
+                notifyInboxhubAfterDocMacro(formEl, json.clearedCount);
             }
             if (closeOnSuccess) {
                 window.close();
@@ -1192,14 +1192,26 @@
      * responses, which nulls window.opener on popups opened from the Inboxhub, so
      * BroadcastChannel is the only reliable same-origin channel back to it. The id lets the
      * inbox drop this document from its counters, which a plain list re-fetch does not touch.
+     *
+     * clearedCount is passed through for the same reason as on the lab page: the counters
+     * count routing rows. A document has no version chain, so the server reports one — but
+     * the inbox is told the number rather than left to assume it.
+     *
+     * @param {Element} formEl the acknowledge form the macro was run against
+     * @param {number} clearedCount routing rows the server reported clearing
      */
-    function notifyInboxhubAfterDocMacro(formEl) {
+    function notifyInboxhubAfterDocMacro(formEl, clearedCount) {
         var elements = (formEl && formEl.elements) ? formEl.elements : null;
         var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
         var labType = (elements && elements.labType) ? elements.labType.value : 'DOC';
         try {
             var bc = new BroadcastChannel('inboxhub-refresh');
-            bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });
+            bc.postMessage({
+                action: 'refresh',
+                segmentID: segmentId,
+                labType: labType,
+                clearedCount: clearedCount
+            });
             bc.close();
         } catch (e) {
             // BroadcastChannel unsupported — the clinician must refresh the inbox by hand.

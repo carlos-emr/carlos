@@ -130,6 +130,7 @@ public class ReportMacro2Action extends ActionSupport {
         // that only files a tickler runs perfectly and leaves the lab NEW. The inbox uses this
         // flag, not success, to decide whether to drop the item from its list and counters.
         result.put("acknowledged", outcome.acknowledged());
+        result.put("clearedCount", outcome.clearedCount());
         response.getWriter().write(result.toString());
         return null;
     }
@@ -139,22 +140,27 @@ public class ReportMacro2Action extends ActionSupport {
      *
      * @param success      the macro ran to completion
      * @param acknowledged it contained an acknowledge action AND that action was applied
+     * @param clearedCount how many routing rows the acknowledgement took out of the NEW state —
+     *                     the reviewed lab plus each older version filed with it. The inbox
+     *                     counters count routing rows, so the browser needs this number rather
+     *                     than assuming one per acknowledged item.
      */
-    protected record MacroOutcome(boolean success, boolean acknowledged) {
+    protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
         static MacroOutcome notRun() {
-            return new MacroOutcome(false, false);
+            return new MacroOutcome(false, false, 0);
         }
 
         static MacroOutcome failed() {
-            return new MacroOutcome(false, false);
+            return new MacroOutcome(false, false, 0);
         }
 
-        static MacroOutcome ran(boolean acknowledged) {
-            return new MacroOutcome(true, acknowledged);
+        static MacroOutcome ran(boolean acknowledged, int clearedCount) {
+            return new MacroOutcome(true, acknowledged, clearedCount);
         }
 
         MacroOutcome combinedWith(MacroOutcome other) {
-            return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged());
+            return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged(),
+                    clearedCount + other.clearedCount());
         }
     }
 
@@ -180,6 +186,7 @@ public class ReportMacro2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         boolean acknowledged = false;
+        int clearedCount = 0;
 
         if (macro.has("acknowledge")) {
             logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -201,7 +208,7 @@ public class ReportMacro2Action extends ActionSupport {
             // inbox shows one row per accession chain, so a macro that only stamped the newest
             // version left the row behind pointing at the previous version, and the lab looked
             // like the macro had done nothing. Same routine as the Acknowledge button.
-            CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
+            clearedCount = CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
                     skipComment(providerNo), request.getParameter("multiID"));
 
             // Audit log for lab acknowledgment
@@ -287,7 +294,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         }
 
-        return MacroOutcome.ran(acknowledged);
+        return MacroOutcome.ran(acknowledged, clearedCount);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

@@ -1146,7 +1146,7 @@ input[id^='acklabel_']{
                 // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
                 // dealt with.
                 if (json.acknowledged) {
-                    notifyInboxhubAfterMacro(formid);
+                    notifyInboxhubAfterMacro(formid, json.clearedCount);
                 }
                 if (closeOnSuccess) {
                     closeLabAfterMacro(formid, json.acknowledged);
@@ -1190,9 +1190,13 @@ input[id^='acklabel_']{
         }
 
         if (typeof _in_window !== 'undefined' && _in_window) {
-            if (acknowledged && self.opener && typeof self.opener.removeReport !== 'undefined'
+            // Row only. The counters are the broadcast's job here, because it is the only
+            // party carrying clearedCount — a macro form has no multiID to walk, so this
+            // window cannot tell how many routing rows the acknowledgement cleared, and
+            // removeReport would assume one and undercount a multi-version lab.
+            if (acknowledged && self.opener && typeof self.opener.removeInboxhubRow === 'function'
                     && segmentId.length > 0) {
-                self.opener.removeReport(segmentId, labType);
+                self.opener.removeInboxhubRow(segmentId, labType);
             }
             window.close();
             return;
@@ -1217,8 +1221,16 @@ input[id^='acklabel_']{
      * The type travels with it because segment ids are NOT unique across report types —
      * documents, HRM reports and HL7 labs have independent key sequences — so an id on
      * its own can name a document's inbox row as readily as this lab's.
+     *
+     * The server's clearedCount travels with it because those counters count ROUTING rows,
+     * one per lab VERSION, while the list shows one collapsed row per chain. Acknowledging
+     * a two-version lab removes one row and clears two counted rows, and only the server
+     * knows the chain — this page never sees it.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {number} clearedCount routing rows the server reported clearing
      */
-    function notifyInboxhubAfterMacro(formid) {
+    function notifyInboxhubAfterMacro(formid, clearedCount) {
         var segmentId = '';
         var labType = 'HL7';
         if (formid) {
@@ -1233,7 +1245,12 @@ input[id^='acklabel_']{
         }
         try {
             var bc = new BroadcastChannel('inboxhub-refresh');
-            bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });
+            bc.postMessage({
+                action: 'refresh',
+                segmentID: segmentId,
+                labType: labType,
+                clearedCount: clearedCount
+            });
             bc.close();
         } catch (e) {
             // BroadcastChannel unsupported — the acknowledged item is still hidden locally.

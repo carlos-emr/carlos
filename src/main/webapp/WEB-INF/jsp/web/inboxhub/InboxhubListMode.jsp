@@ -239,6 +239,13 @@
     /**
      * Drops one acknowledged/signed-off item from the inbox table and from its counters.
      *
+     * This is the legacy window.opener entry point: popups call it once per id they cleared.
+     * Each call therefore means exactly one routing row, which is the unit the counters
+     * count — so it counts one, whether or not a row was on screen to remove. Acknowledging
+     * a lab calls it once per version in the chain, and the older versions have no row of
+     * their own (the inbox collapses a chain to one row) but do each hold a routing row that
+     * the badge is counting. Tying the count to a row being removed left those behind.
+     *
      * The count is taken off the STORED total (see countAcknowledgedInboxhubItem in
      * InboxhubForm.jsp), not off the rendered badge: the badges are repainted from those
      * hidden inputs on every list draw, so a badge-only edit is undone by the next refresh
@@ -246,29 +253,13 @@
      * also keeps the count to once per item, since a popup calls this directly AND
      * broadcasts, and the row may already be gone by the time the broadcast lands.
      *
-     * Popups call this directly through window.opener and cannot know which mode the inbox
-     * is showing, so the DataTable is touched only when the table is actually on the page:
-     * in preview mode there are cards and no #inbox_table, and reaching for the DataTable
-     * API there would throw and take the counter update down with it.
-     *
-     * Counting is tied to a row ACTUALLY being removed. Acknowledging a lab calls this once
-     * per id in its version chain, and the older versions have no row of their own — the
-     * inbox collapses the chain to one. Counting every call therefore dropped the total by
-     * the number of versions for a single visible row. The acknowledged item is counted by
-     * dropAcknowledgedInboxhubItem instead, which does not need a row to be present, and the
-     * shared per-item key stops the two routes counting it twice.
-     *
      * @param {string} reportId segment id of the item to drop
      * @param {string} labType its report type; segment ids are not unique across types, so
      *                 without one this can only fall back to whatever row carries the id
      */
     function removeReport(reportId, labType) {
-        const rowEl = inboxhubItemElement(reportId, labType);
-        if (rowEl.length === 0) { return; }
-        const resolvedType = labType || rowEl.data('labType');
-        if (jQuery('#inbox_table').length > 0) {
-            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
-        }
+        const resolvedType = labType || inboxhubItemElement(reportId, labType).data('labType');
+        removeInboxhubRow(reportId, resolvedType);
         countAcknowledgedInboxhubItem(reportId, resolvedType);
     }
 </script>

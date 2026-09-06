@@ -121,6 +121,49 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report one cleared routing row for every version it took out of NEW")
+    void shouldReportClearedRowCount_forAMultiVersionChain() {
+        registerStaticInitializerMocks();
+
+        // The inbox counters count providerLabRouting rows — one per lab VERSION — while the
+        // list collapses a chain to a single row. The browser cannot see the chain on the
+        // macro path, so this number is the only thing that lets it move the badge by the
+        // amount the next page load will compute for itself.
+        try (MockedStatic<CommonLabResultData> commonLabResultData =
+                     mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("171")).thenReturn("169,170,171");
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
+
+            int cleared = CommonLabResultData.acknowledgeReport(
+                    171, "999998", "Reviewed", "HL7", false, "169,170,171");
+
+            assertThat(cleared).isEqualTo(3);
+        }
+    }
+
+    @Test
+    @DisplayName("should report a single cleared routing row for a lab with no earlier version")
+    void shouldReportOneClearedRow_forASingleVersionLab() {
+        registerStaticInitializerMocks();
+
+        try (MockedStatic<CommonLabResultData> commonLabResultData =
+                     mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+
+            int cleared = CommonLabResultData.acknowledgeReport(170, "999998", "", "HL7", true, "170");
+
+            assertThat(cleared).isEqualTo(1);
+        }
+    }
+
+    @Test
     @DisplayName("should write nothing when the version chain cannot be resolved")
     void shouldWriteNothing_whenChainLookupFails() {
         registerStaticInitializerMocks();

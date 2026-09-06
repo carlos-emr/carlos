@@ -409,9 +409,10 @@ public class CommonLabResultData {
      * @param skipCommentOnUpdate true to leave an existing comment untouched
      * @param multiId the client's comma-separated version chain, oldest first; may be null
      */
-    public static void acknowledgeReport(int labNo, String providerNo, String comment, String labType,
-                                         boolean skipCommentOnUpdate, String multiId) {
-        updateReportStatusWithOlderVersions(labNo, providerNo, 'A', comment, labType, skipCommentOnUpdate, multiId);
+    public static int acknowledgeReport(int labNo, String providerNo, String comment, String labType,
+                                        boolean skipCommentOnUpdate, String multiId) {
+        return updateReportStatusWithOlderVersions(labNo, providerNo, 'A', comment, labType,
+                skipCommentOnUpdate, multiId);
     }
 
     /**
@@ -430,10 +431,13 @@ public class CommonLabResultData {
      * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
      * @param skipCommentOnUpdate true to leave an existing comment untouched
      * @param multiId the client's version chain; only consulted for types with no server-side chain
+     * @return how many routing rows this changed — the reviewed one plus each version filed. The
+     *         inbox counters count ROUTING rows, not the collapsed list rows, so a caller that
+     *         wants to adjust them live has to know this number rather than assume one.
      */
-    public static void updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
-                                                           String comment, String labType,
-                                                           boolean skipCommentOnUpdate, String multiId) {
+    public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
+                                                          String comment, String labType,
+                                                          boolean skipCommentOnUpdate, String multiId) {
         // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
         // that fails after the reviewed row is already stamped, the caller reports a failure
         // while the acknowledgement is half-applied: the lab is acknowledged, its older
@@ -446,6 +450,7 @@ public class CommonLabResultData {
         for (Integer olderLabNo : olderLabNos) {
             updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
         }
+        return 1 + olderLabNos.size();
     }
 
     /**

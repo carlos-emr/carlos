@@ -63,6 +63,9 @@ class InboxAcknowledgeNotificationRegressionTest {
             "ReportMacro2Action.java");
     private static final Path HRM_ACTIONS_JS = Path.of(
             "src", "main", "webapp", "hospitalReportManager", "hrmActions.js");
+    private static final Path COMMON_LAB_RESULT_DATA = Path.of(
+            "src", "main", "java", "io", "github", "carlos_emr", "carlos", "lab", "ca", "on",
+            "CommonLabResultData.java");
 
     private static String read(Path path) throws IOException {
         return Files.readString(path, StandardCharsets.UTF_8);
@@ -73,7 +76,7 @@ class InboxAcknowledgeNotificationRegressionTest {
     void shouldNotifyInbox_whenLabMacroDoesNotCloseWindow() throws IOException {
         String labDisplay = read(LAB_DISPLAY_JSP);
 
-        int notifyCall = labDisplay.indexOf("notifyInboxhubAfterMacro(formid);");
+        int notifyCall = labDisplay.indexOf("notifyInboxhubAfterMacro(formid, json.clearedCount);");
         int closeCall = labDisplay.indexOf("if (closeOnSuccess) {");
         assertThat(notifyCall)
                 .as("lab macro success handler must notify the Inboxhub")
@@ -94,12 +97,13 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(labDisplay)
                 .as("closing the window must not take an unacknowledged lab out of the inbox")
                 .contains("closeLabAfterMacro(formid, json.acknowledged);")
-                .contains("if (acknowledged && self.opener && typeof self.opener.removeReport !== 'undefined'");
+                .contains("if (acknowledged && self.opener "
+                        + "&& typeof self.opener.removeInboxhubRow === 'function'");
         assertThat(read(SHOW_DOCUMENT_JSP)).contains("if (json.acknowledged) {");
         assertThat(read(REPORT_MACRO_ACTION))
                 .as("the server must report acknowledgement separately from success")
                 .contains("result.put(\"acknowledged\", outcome.acknowledged());")
-                .contains("return MacroOutcome.ran(acknowledged);");
+                .contains("return MacroOutcome.ran(acknowledged, clearedCount);");
     }
 
     @Test
@@ -107,7 +111,7 @@ class InboxAcknowledgeNotificationRegressionTest {
     void shouldNotifyInbox_whenDocumentMacroSucceeds() throws IOException {
         assertThat(read(SHOW_DOCUMENT_JSP))
                 .as("document macro success handler must notify the Inboxhub")
-                .contains("notifyInboxhubAfterDocMacro(formEl);");
+                .contains("notifyInboxhubAfterDocMacro(formEl, json.clearedCount);");
     }
 
     @Test
@@ -117,11 +121,14 @@ class InboxAcknowledgeNotificationRegressionTest {
         // message re-draws the list and leaves the badges counting an acknowledged item.
         // The type goes with it because segment ids are not unique across report types.
         assertThat(read(OSCAR_MDS_INDEX_JS))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: String(doclabid), labType: labType });");
+                .contains("segmentID: String(doclabid),")
+                .contains("labType: labType,");
         assertThat(read(LAB_DISPLAY_JSP))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });");
+                .contains("segmentID: segmentId,")
+                .contains("labType: labType,");
         assertThat(read(SHOW_DOCUMENT_JSP))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });");
+                .contains("segmentID: segmentId,")
+                .contains("labType: labType,");
         assertThat(read(HRM_ACTIONS_JS))
                 .contains("bc.postMessage({ action: 'refresh', segmentID: String(reportId), labType: 'HRM' });");
     }
@@ -173,7 +180,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // anything, and the stored totals still count the item. Keying the guard on the item
         // rather than on DOM presence is what keeps the badge correct in that case.
         assertThat(read(INBOXHUB_FORM_JSP))
-                .contains("countAcknowledgedInboxhubItem(segmentId, resolvedType);")
+                .contains("countAcknowledgedInboxhubItem(segmentId, resolvedType, clearedCount);")
                 .contains("if (countedAcknowledgedItems[key]) { return; }");
     }
 
@@ -184,11 +191,11 @@ class InboxAcknowledgeNotificationRegressionTest {
 
         assertThat(inboxhubForm)
                 .as("the refresh listener must drop the item before re-fetching the list")
-                .contains("dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType);");
+                .contains("dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType, acknowledgedRows);");
         assertThat(inboxhubForm)
                 .as("the stored totals, not just the rendered badges, must be decremented")
-                .contains("typeInput.val(typeCount - 1);")
-                .contains("allInput.val(allCount - 1);");
+                .contains("typeInput.val(typeCount - taken);")
+                .contains("allInput.val(Math.max(0, allCount - taken));");
     }
 
     @Test
@@ -205,17 +212,52 @@ class InboxAcknowledgeNotificationRegressionTest {
     }
 
     @Test
-    @DisplayName("should count one inbox row once, not once per version in its chain")
-    void shouldCountOnce_forEachInboxRowNotEachChainVersion() throws IOException {
-        // Acknowledging calls removeReport once per id in the version chain, and the older
-        // versions have no row of their own — the inbox collapses the chain to one. Counting
-        // every call dropped the total by the number of versions for a single visible row.
-        assertThat(read(INBOXHUB_LIST_MODE_JSP))
-                .as("removeReport must count only when it actually removed a row")
-                .contains("if (rowEl.length === 0) { return; }");
+    @DisplayName("should count one routing row per cleared lab version, not one per collapsed row")
+    void shouldCountEveryClearedRoutingRow_forAMultiVersionLab() throws IOException {
+        // The inbox counters count providerLabRouting rows — one per lab VERSION — while the
+        // list collapses a version chain to a single row. Acknowledging a two-version lab
+        // therefore removes one row but takes two rows out of NEW, and a client that assumed
+        // one left the badge one ahead of the figure the next page load computes.
+        assertThat(read(COMMON_LAB_RESULT_DATA))
+                .as("the server must report how many routing rows it cleared")
+                .contains("return 1 + olderLabNos.size();");
+        assertThat(read(REPORT_MACRO_ACTION))
+                .as("the macro response must carry that count to the browser")
+                .contains("result.put(\"clearedCount\", outcome.clearedCount());");
         assertThat(read(INBOXHUB_FORM_JSP))
-                .as("the acknowledged item is still counted whether or not its row was present")
-                .contains("countAcknowledgedInboxhubItem(segmentId, resolvedType);");
+                .as("the listener must move the totals by the reported count, not by one")
+                .contains("decrementInboxhubStatFor(labType, (isNaN(rows) || rows < 1) ? 1 : rows);");
+    }
+
+    @Test
+    @DisplayName("should count one routing row for each id the manual acknowledge path clears")
+    void shouldCountPerCall_whenOpenerClearsEachChainVersion() throws IOException {
+        // The manual path has the chain client-side and calls removeReport once per id it
+        // cleared, so each call is exactly one routing row. Making that count conditional on
+        // a row being present dropped the older versions from the badge, because the inbox
+        // collapses a chain and only the newest version ever has a row.
+        assertThat(read(INBOXHUB_LIST_MODE_JSP))
+                .as("removeReport counts its call, whether or not a row was on screen")
+                .contains("removeInboxhubRow(reportId, resolvedType);")
+                .contains("countAcknowledgedInboxhubItem(reportId, resolvedType);")
+                .doesNotContain("if (rowEl.length === 0) { return; }");
+        assertThat(read(OSCAR_MDS_INDEX_JS))
+                .as("the opener loop must walk the same versions the server files")
+                .contains("return at < 0 ? [target] : chain.slice(0, at + 1);")
+                .contains("notifyInboxhubAcknowledged(doclabid, data.labType, clearedIds.length);");
+    }
+
+    @Test
+    @DisplayName("should name the report type on every document acknowledge that reaches the opener")
+    void shouldPassReportType_fromEveryDocumentOpenerCall() throws IOException {
+        // Segment ids are not unique across report types, so an untyped call can remove a
+        // lab's row and decrement the Labs total when a document was acknowledged.
+        assertThat(read(OSCAR_MDS_INDEX_JS))
+                .contains("self.opener.removeReport(num, 'DOC');")
+                .contains("self.opener.removeReport(docId, type);")
+                .as("no acknowledge path may reach removeReport without a type")
+                .doesNotContain("self.opener.removeReport(num);")
+                .doesNotContain("self.opener.removeReport(docId);");
     }
 
     @Test
@@ -245,7 +287,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         String showDocument = read(SHOW_DOCUMENT_JSP);
 
         int successCheck = showDocument.indexOf("if (!json.success) {");
-        int notifyCall = showDocument.indexOf("notifyInboxhubAfterDocMacro(formEl);");
+        int notifyCall = showDocument.indexOf("notifyInboxhubAfterDocMacro(formEl, json.clearedCount);");
         assertThat(successCheck).as("document macro must inspect the JSON body").isGreaterThan(-1);
         assertThat(successCheck)
                 .as("the failure check must gate the notification")
@@ -258,8 +300,8 @@ class InboxAcknowledgeNotificationRegressionTest {
         // Popups call removeReport through window.opener and cannot know which mode the
         // inbox is showing; preview mode has cards and no #inbox_table, and reaching for the
         // DataTable API there would throw and take the counter update down with it.
-        assertThat(read(INBOXHUB_LIST_MODE_JSP))
-                .contains("if (jQuery('#inbox_table').length > 0) {");
+        assertThat(read(INBOXHUB_FORM_JSP))
+                .contains("if (jQuery('#inbox_table').length === 0) { return; }");
     }
 
     @Test

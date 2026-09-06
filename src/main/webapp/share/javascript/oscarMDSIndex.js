@@ -1927,7 +1927,9 @@ function updateDocumentAndNext(eleId) {//save doc info
 
             if (typeof _in_window !== 'undefined' && _in_window) {
                 if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                    self.opener.removeReport(num);
+                    // Typed: segment ids are not unique across report types, and an untyped
+                    // call can remove another type's row and decrement its total instead.
+                    self.opener.removeReport(num, 'DOC');
                 }
                 window.close();
             } else {
@@ -1989,7 +1991,8 @@ function updateDocument(eleId) {
 
                 if (typeof _in_window !== 'undefined' && _in_window) {
                     if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                        self.opener.removeReport(num);
+                        // Typed, for the same reason as updateDocumentAndNext above.
+                        self.opener.removeReport(num, 'DOC');
                         success = true;
                     }
                 } else {
@@ -2073,17 +2076,49 @@ function checkObservationDate(formid) {
  * documents, HRM reports and HL7 labs have independent key sequences, and all render as
  * id="labdoc_<id>" — so an id alone can name another type's row and decrement its total.
  *
+ * The cleared-row count travels with it because those counters count ROUTING rows, one per
+ * lab VERSION, while the list collapses a version chain to a single row. Acknowledging a
+ * two-version lab therefore removes one row but clears two of the rows the badge counts.
+ *
  * @param {string} doclabid segment id of the acknowledged lab or document
  * @param {string} labType report type of that item, e.g. 'HL7' or 'DOC'
+ * @param {number} clearedCount routing rows the acknowledgement cleared; omit for items with
+ *                 no version chain (documents, HRM reports), which always clear one
  */
-function notifyInboxhubAcknowledged(doclabid, labType) {
+function notifyInboxhubAcknowledged(doclabid, labType, clearedCount) {
     try {
         const bc = new BroadcastChannel('inboxhub-refresh');
-        bc.postMessage({ action: 'refresh', segmentID: String(doclabid), labType: labType });
+        bc.postMessage({
+            action: 'refresh',
+            segmentID: String(doclabid),
+            labType: labType,
+            clearedCount: clearedCount
+        });
         bc.close();
     } catch (e) {
         // BroadcastChannel unsupported — user must manually refresh the inbox
     }
+}
+
+/**
+ * The lab versions an acknowledgement of doclabid files away: itself and everything older.
+ *
+ * Mirrors CommonLabResultData.updateReportStatusWithOlderVersions on the server, including
+ * the case where doclabid is absent from the chain — then only doclabid itself is affected,
+ * rather than the whole chain. Each id here is one routing row leaving the NEW state, so the
+ * length of this list is what the inbox counters have to move by.
+ *
+ * @param {string} multiID comma-separated version chain, oldest first
+ * @param {string} doclabid the acknowledged version
+ * @return {Array<string>} ids cleared, in chain order
+ */
+function acknowledgedVersionIds(multiID, doclabid) {
+    const target = String(doclabid);
+    const chain = String(multiID || '').split(',')
+        .map(function (id) { return id.trim(); })
+        .filter(function (id) { return id.length > 0; });
+    const at = chain.indexOf(target);
+    return at < 0 ? [target] : chain.slice(0, at + 1);
 }
 
 function updateStatus(formid) {//acknowledge
@@ -2117,23 +2152,24 @@ function updateStatus(formid) {//acknowledge
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
 					// The card is hidden, but the surrounding inbox still counts this item in its
-					// Documents/Labs/HRMs totals until it is told the item is gone.
-					notifyInboxhubAcknowledged(doclabid, data.labType);
+					// Documents/Labs/HRMs totals until it is told the item is gone — and it
+					// counts one row per lab version, not one per card.
+					notifyInboxhubAcknowledged(doclabid, data.labType,
+						acknowledgedVersionIds(data.multiID, doclabid).length);
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
+					/**
+					 * Acknowledging any lab version also files away the versions older than it,
+					 * so every one of them has to leave the inbox. Only the newest has a row —
+					 * the inbox collapses a version chain — but each has its own routing row in
+					 * the counters, and removeReport counts one per call.
+					 */
+					const clearedIds = acknowledgedVersionIds(data.multiID, doclabid);
                     if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-						/**
-						 * When a user acknowledges any lab version, it automatically files away older versions
-						 * as well as the acknowledged version. This function removes those versions from the
-						 * inbox results by calling the jQuery `removeReport` function on IDs up to and including
-						 * the doclabid.
-						 */
-						const multiIds = (data.multiID || String(doclabid)).split(",");
-						for (const id of multiIds) {
+						for (const id of clearedIds) {
 							self.opener.removeReport(id, data.labType);
-							if (id === doclabid) break;
 						}
                     }
-                    notifyInboxhubAcknowledged(doclabid, data.labType);
+                    notifyInboxhubAcknowledged(doclabid, data.labType, clearedIds.length);
                     window.close();
                 } else {
                     //Hide document
@@ -2168,7 +2204,8 @@ function fileDoc(docId) {
 
                             if (typeof _in_window !== 'undefined' && _in_window) {
                                 if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                                    self.opener.removeReport(docId);
+                                    // 'type' is the labType this filing was posted under.
+                                    self.opener.removeReport(docId, type);
                                 }
 
                                 window.close();
