@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -55,6 +56,31 @@ import java.util.concurrent.TimeoutException;
  */
 public final class BoundedPdfTask {
 
+    /**
+     * Ceiling on parses in flight, counting ones already abandoned by their caller.
+     *
+     * <p>Releasing the request thread at the deadline does not stop the worker — a CPU-bound
+     * PDFBox parse ignores interrupts and Java cannot kill a thread. Measured: 50 concurrent
+     * callers each abandoning a 20-second parse returned promptly and left 50 workers running,
+     * with nothing to cap them. Since every servlet request can start one, the real ceiling was
+     * the connector's thread pool, so a few dozen crafted documents could leave the box saturated
+     * with parses no one is waiting for.
+     *
+     * <p>Sized at twice the CPU count with a floor of 8. Deliberately loose: the viewer fires one
+     * word-box read per visible page as a clinician scrolls, and refusing those would break a
+     * working feature to defend against a rare one. The cap only has to be low enough that runaway
+     * parses cannot saturate the box, not low enough to schedule fairly. Callers beyond it are
+     * refused immediately rather than queued — waiting for a permit would re-park the very request
+     * thread the deadline exists to free.
+     */
+    private static final Semaphore PARSE_PERMITS =
+            new Semaphore(maxConcurrentParses());
+
+    /** Visible for tests: the number of parses that may be in flight at once. */
+    static int maxConcurrentParses() {
+        return Math.max(8, 2 * Runtime.getRuntime().availableProcessors());
+    }
+
     private BoundedPdfTask() {
     }
 
@@ -68,13 +94,27 @@ public final class BoundedPdfTask {
      *         programming error should not be disguised as an I/O problem.
      */
     public static <T> T runWithin(int seconds, String threadName, Callable<T> task) throws IOException {
+        // Acquired here, released by the WORKER when it finishes — not by this method when it
+        // times out. That is the point: an abandoned parse keeps its permit until it actually
+        // stops, so the cap bounds work in flight rather than callers waiting.
+        if (!PARSE_PERMITS.tryAcquire()) {
+            throw new IOException("The server is busy reading documents. Try again in a moment.");
+        }
+        boolean submitted = false;
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread worker = new Thread(runnable, threadName);
             worker.setDaemon(true);
             return worker;
         });
         try {
-            Future<T> future = executor.submit(task);
+            Future<T> future = executor.submit(() -> {
+                try {
+                    return task.call();
+                } finally {
+                    PARSE_PERMITS.release();
+                }
+            });
+            submitted = true;
             try {
                 return future.get(seconds, TimeUnit.SECONDS);
             } catch (TimeoutException e) {
@@ -91,9 +131,20 @@ public final class BoundedPdfTask {
                 if (cause instanceof RuntimeException re) {
                     throw re;
                 }
+                if (cause instanceof Error err) {
+                    // An OutOfMemoryError or StackOverflowError is not a document problem, and
+                    // reporting it as one told the clinician to check their PDF while the JVM was
+                    // failing. Measured: an OOM in the task surfaced as "The document could not be
+                    // read."
+                    throw err;
+                }
                 throw new IOException("The document could not be read.");
             }
         } finally {
+            if (!submitted) {
+                // submit() itself failed, so no worker will ever release the permit.
+                PARSE_PERMITS.release();
+            }
             // Returns immediately; close() would wait for the abandoned worker instead.
             executor.shutdownNow();
         }

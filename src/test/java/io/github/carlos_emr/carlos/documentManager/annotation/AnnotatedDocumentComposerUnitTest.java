@@ -168,6 +168,85 @@ class AnnotatedDocumentComposerUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            // rotation, cropX, cropY, cropW, cropH, markX, markY
+            "  0,   0,   0, 612, 792, 0.10, 0.10",
+            " 90,   0,   0, 612, 792, 0.10, 0.10",
+            "180,   0,   0, 612, 792, 0.10, 0.10",
+            "270,   0,   0, 612, 792, 0.10, 0.10",
+            "  0,   0,   0, 612, 792, 0.70, 0.10",
+            " 90,   0,   0, 612, 792, 0.70, 0.10",
+            "180,   0,   0, 612, 792, 0.70, 0.10",
+            "270,   0,   0, 612, 792, 0.70, 0.10",
+            "  0,   0,   0, 612, 792, 0.10, 0.75",
+            " 90,   0,   0, 612, 792, 0.10, 0.75",
+            "180,   0,   0, 612, 792, 0.10, 0.75",
+            "270,   0,   0, 612, 792, 0.10, 0.75",
+            // A margin-trimming scanner leaves a CropBox with a non-zero lower-left origin.
+            "  0, 100, 150, 400, 500, 0.10, 0.10",
+            " 90, 100, 150, 400, 500, 0.10, 0.10",
+            "180, 100, 150, 400, 500, 0.10, 0.10",
+            "270, 100, 150, 400, 500, 0.10, 0.10",
+            "  0, 100, 150, 400, 500, 0.70, 0.10",
+            " 90, 100, 150, 400, 500, 0.70, 0.10",
+            "180, 100, 150, 400, 500, 0.70, 0.10",
+            "270, 100, 150, 400, 500, 0.70, 0.10",
+    })
+    @DisplayName("should land the mark where it was placed, for every rotation and crop box")
+    void shouldLandMarkWherePlaced_forEveryRotationAndCropBox(
+            int rotation, float cropX, float cropY, float cropW, float cropH,
+            double markX, double markY, @TempDir Path tempDir) throws Exception {
+
+        // This is the feature's central clinical invariant, and the only way to check it is to
+        // RENDER the composed page and look at the pixels. A quadrant assertion is not enough:
+        // several wrong matrices put a top-left mark somewhere in the top-left quadrant. Here the
+        // measured position must match the requested position to within a pixel.
+        Path source = tempDir.resolve("r" + rotation + "-" + markX + "-" + markY + ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage(new PDRectangle(0, 0, 612, 792));
+            page.setCropBox(new PDRectangle(cropX, cropY, cropW, cropH));
+            page.setRotation(rotation);
+            document.addPage(page);
+            document.save(source.toFile());
+        }
+
+        String json = String.format(java.util.Locale.ROOT,
+                "{\"annotations\":[{\"type\":\"highlight\",\"page\":1,\"x\":%f,\"y\":%f,"
+                        + "\"w\":0.2,\"h\":0.1,\"color\":\"yellow\"}]}", markX, markY);
+        byte[] output = composer.compose(
+                source, new DocumentAnnotationParser().parse(json, 1), null, null);
+
+        Path composed = tempDir.resolve("out-r" + rotation + "-" + markX + "-" + markY + ".pdf");
+        java.nio.file.Files.write(composed, output);
+        try (PDDocument rendered = org.apache.pdfbox.Loader.loadPDF(composed.toFile())) {
+            java.awt.image.BufferedImage image =
+                    new org.apache.pdfbox.rendering.PDFRenderer(rendered)
+                            .renderImageWithDPI(0, 96, org.apache.pdfbox.rendering.ImageType.RGB);
+
+            int minX = Integer.MAX_VALUE;
+            int minY = Integer.MAX_VALUE;
+            for (int y = 0; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    if ((image.getRGB(x, y) & 0xFFFFFF) != 0xFFFFFF) {
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                    }
+                }
+            }
+            assertThat(minX).as("the mark must actually render").isLessThan(Integer.MAX_VALUE);
+
+            double gotX = (double) minX / image.getWidth();
+            double gotY = (double) minY / image.getHeight();
+            assertThat(gotX)
+                    .as("rotation %d: mark left edge, measured on the rendered page", rotation)
+                    .isCloseTo(markX, org.assertj.core.data.Offset.offset(0.02));
+            assertThat(gotY)
+                    .as("rotation %d: mark top edge, measured on the rendered page", rotation)
+                    .isCloseTo(markY, org.assertj.core.data.Offset.offset(0.02));
+        }
+    }
+
     /* ---------- helpers ---------- */
 
     private static DocumentAnnotationDto highlight(int page) {
