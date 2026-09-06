@@ -21,6 +21,7 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
+from carlos_ctl import o19host  # noqa: F401
 from carlos_ctl import dbops
 from carlos_ctl import (o19etl, o19import, o19map_schema,
                         o19report)
@@ -125,7 +126,7 @@ class TestDestroyDataDestroysTheWholeO19Estate(unittest.TestCase):
             mock.patch.object(dbops, "run", fake_run),
             mock.patch.object(shutil, "rmtree", fake_rmtree),
             mock.patch.object(
-                o19import, "STATE_DIR",
+                o19host, "STATE_DIR",
                 self.workspace if workspace else os.path.join(
                     self.dir, "absent")),
         ]
@@ -913,7 +914,7 @@ class TestARewoundWorkspace(unittest.TestCase):
                 "--dump", os.path.join(self.state_dir, "d.sql"),
                 "--properties", os.path.join(self.state_dir, "o.properties"),
                 "--skip-documents", "--admin-user", "brk"] + list(flags)
-        with mock.patch.object(o19import, "STATE_DIR", self.state_dir), \
+        with mock.patch.object(o19host, "STATE_DIR", self.state_dir), \
                 contextlib.redirect_stdout(io.StringIO()), \
                 contextlib.redirect_stderr(err):
             with self.assertRaises(SystemExit):
@@ -1241,7 +1242,7 @@ class TestCleanupEndToEnd(unittest.TestCase):
         """The context the CLI really builds, not one a test invented."""
         args = argparse.Namespace(mariadb_arg=["--x"], dev_target=True,
                                   dry_run=False, fixups_dir=None)
-        with mock.patch.object(o19import, "STATE_DIR", self.state_dir), \
+        with mock.patch.object(o19host, "STATE_DIR", self.state_dir), \
                 mock.patch.object(o19import, "take_workspace_lock",
                                   lambda d: None), \
                 mock.patch.object(o19import, "make_query",
@@ -3520,7 +3521,7 @@ class TestTheBackupPhase(unittest.TestCase):
         real_exists = os.path.exists
 
         def exists(path):
-            if path == o19import.BACKUP_ENV:
+            if path == o19host.BACKUP_ENV:
                 return configured
             return real_exists(path)
 
@@ -3530,7 +3531,7 @@ class TestTheBackupPhase(unittest.TestCase):
                                       stderr="")
         err = io.StringIO()
         with mock.patch.object(o19import.os.path, "exists", exists), \
-                mock.patch.object(o19import, "run", run), \
+                mock.patch.object(o19host, "run", run), \
                 contextlib.redirect_stderr(err):
             try:
                 o19import.run_p3(ctx)
@@ -3660,10 +3661,10 @@ class TestTheRunningWebappGuard(unittest.TestCase):
             return subprocess.CompletedProcess(cmd, 0,
                                                stdout=active_state + "\n")
 
-        with mock.patch.object(o19import, "ENV_FILE",
+        with mock.patch.object(o19host, "ENV_FILE",
                                self.env_file if env_file is None
                                else env_file), \
-                mock.patch.object(o19import, "run", fake_run):
+                mock.patch.object(o19host, "run", fake_run):
             return o19import.webapp_running_refusal()
 
     def test_a_unit_still_starting_is_refused(self):
@@ -3802,32 +3803,65 @@ class TestTheDevelopmentTargetSchema(unittest.TestCase):
             self.assertIsNotNone(
                 o19import.dev_target_db_refusal(bad, True, False), bad)
 
-    def test_the_imports_own_schemas_are_refused_as_a_target(self):
-        """Pointing the import AT its own working storage.
-
-        The staging schema is the clinic's only copy of the dump until
-        P4 finishes; the archive schema is the only copy of everything
-        CARLOS has no home for. Either as the target means the import
-        reads and writes one schema: P1 would drop the source it is
-        about to restore, and P4 would copy a table onto itself. Every
-        name here is a plain identifier, so nothing later catches it."""
-        for name in (o19import.STAGING_SCHEMA, o19import.ARCHIVE_SCHEMA):
-            refusal = o19import.dev_target_db_refusal(name, True, False)
-            self.assertIsNotNone(refusal, name)
-            self.assertIn(name, refusal)
-
-    def test_the_servers_own_schemas_are_refused_as_a_target(self):
-        # a "target" that is `mysql` is not a mistake anything later
-        # would catch either
-        for name in ("mysql", "information_schema", "performance_schema",
-                     "sys"):
-            self.assertIsNotNone(
-                o19import.dev_target_db_refusal(name, True, False), name)
-
     def test_an_ordinary_name_is_still_accepted(self):
         # the refusals above must not be a blanket one
         self.assertIsNone(
             o19import.dev_target_db_refusal("oscar_bc", True, False))
+
+
+class TestTheImportIsNeverPointedAtItsOwnStorage(unittest.TestCase):
+
+    """The RESOLVED target, wherever it came from.
+
+    The staging schema is the clinic's only copy of the dump until P4
+    finishes; the archive schema is the only copy of everything CARLOS
+    has no home for. Either as the target means the import reads and
+    writes one schema: P1 drops the source it is about to restore, and
+    P4 copies a table onto itself. Every name is a plain identifier, so
+    nothing later catches it.
+
+    Checked on the resolved value rather than beside the flag, because
+    the flag is not the only way in: a packaged host's CARLOS_DB_NAME
+    reaches the same variable, and a check that only guarded the
+    development seam would leave the deployment's own answer
+    unexamined."""
+
+    def _refused(self, name, packaged):
+        """The target resolution's refusal text, or None."""
+        host = mock.Mock()
+        host.configured_db_name.return_value = name if packaged else None
+        host.identity_source.return_value = "/etc/carlos-emr/carlos-emr.env"
+        err = io.StringIO()
+        with mock.patch.object(o19import, "HOST", host), \
+                contextlib.redirect_stderr(err):
+            try:
+                o19import._target_db(True, None if packaged else name)
+            except SystemExit:
+                return err.getvalue()
+        return None
+
+    def test_the_development_seam_is_refused(self):
+        for name in (o19import.STAGING_SCHEMA, o19import.ARCHIVE_SCHEMA,
+                     "mysql", "information_schema", "performance_schema",
+                     "sys"):
+            message = self._refused(name, packaged=False)
+            self.assertIsNotNone(message, name)
+            self.assertIn(name, message)
+            self.assertIn("--dev-target-db", message)
+
+    def test_a_packaged_hosts_own_setting_is_refused_too(self):
+        # CARLOS_DB_NAME reaches the same variable; a check that only
+        # guarded --dev-target-db would leave this open
+        for name in (o19import.STAGING_SCHEMA, o19import.ARCHIVE_SCHEMA,
+                     "mysql"):
+            message = self._refused(name, packaged=True)
+            self.assertIsNotNone(message, name)
+            self.assertIn(name, message)
+            self.assertIn("carlos-emr.env", message)
+
+    def test_an_ordinary_schema_resolves(self):
+        self.assertIsNone(self._refused("carlos", packaged=True))
+        self.assertIsNone(self._refused("oscar_bc", packaged=False))
 
 
 class TestTheTargetSchemaCannotChangeMidImport(unittest.TestCase):
@@ -3904,7 +3938,7 @@ class TestTheTargetSchemaCannotChangeMidImport(unittest.TestCase):
                                   dry_run=False, province=None,
                                   dev_target_db=None)
         err = io.StringIO()
-        with mock.patch.object(o19import, "STATE_DIR", state_dir), \
+        with mock.patch.object(o19host, "STATE_DIR", state_dir), \
                 mock.patch.object(o19import, "take_workspace_lock",
                                   lambda d: None), \
                 mock.patch.object(o19import, "make_query",

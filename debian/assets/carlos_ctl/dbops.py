@@ -698,7 +698,10 @@ def o19_estate():
         # operator must be told is going)
         if n or schema_exists(schema):
             found.append((schema, n))
-    workspace = o19import.STATE_DIR
+    # the workspace is the DEPLOYMENT's answer, not a constant: the
+    # import asks its host where it lives, and destroy-data must look
+    # in the same place
+    workspace = o19import.HOST.state_dir
     return found, (workspace if os.path.isdir(workspace) else None)
 
 

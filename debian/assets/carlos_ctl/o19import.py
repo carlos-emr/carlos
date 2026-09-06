@@ -46,13 +46,22 @@ import time
 from typing import (Callable, Dict, Iterator, List, Optional,
                     Sequence, Set, Tuple)
 
-from . import (dbops, o19_preflight, o19bundle, o19digest, o19docs,
-               o19etl, o19map_props, o19map_schema,
+from . import (o19_preflight, o19bundle, o19digest, o19docs,
+               o19etl, o19host, o19map_props, o19map_schema,
                o19report)
-from .util import (BACKUP_ENV, ENV_FILE, STATE, die, genpw, genrandom, log,
-                   run, warn)
+from .util import (die, genpw, genrandom, log, run, warn)
 
-STATE_DIR = os.path.join(STATE, "o19-import")
+#: The deployment this import runs on. Every substrate question -- where
+#: the workspace lives, how a client is spawned, who takes the snapshot,
+#: whether the application is up -- is asked of THIS object, so
+#: carlos-podman can answer differently without a second orchestrator
+#: (see o19host). Reassigned by that port before any phase runs; nothing
+#: below may cache what it returns across a phase.
+HOST = o19host.Host()
+
+#: kept as module names because the tests and the phase code read them
+#: directly; the HOST is what a port replaces
+STATE_DIR = o19host.STATE_DIR
 STAGING_SCHEMA = "o19_import"
 ARCHIVE_SCHEMA = "o19_archive"
 
@@ -134,7 +143,7 @@ DUMP_COMPLETED_MARKER = b"-- Dump completed"
 #: those are precisely the hand-crafted ones
 DUMP_REDIRECT_RE = re.compile(rb"(?im)^[ \t]*(use\b|create\s+database\b)")
 DUMP_GTID_MARKER = b"GTID_PURGED"
-STAGING_USER = "o19_import"
+STAGING_USER = o19host.STAGING_USER
 SPOT_CHECK_PATIENTS = 10
 
 
@@ -307,14 +316,28 @@ def statement_timeout_prelude(seconds: int) -> str:
     return "SET SESSION max_statement_time={0}".format(int(seconds))
 
 
+def _client_env() -> Optional[Dict[str, str]]:
+    """The environment a client invocation runs under, or None to
+    inherit this process's.
+
+    None rather than `{}`: subprocess REPLACES the environment when one
+    is given, so passing the deb's empty extras would run every client
+    without PATH. A deployment whose client needs a credential returns it
+    from `Host.client_env` and it is merged in here -- through the
+    environment, never argv, because /proc/<pid>/cmdline is
+    world-readable and these statements touch PHI."""
+    extra = HOST.client_env()
+    if not extra:
+        return None
+    return dict(os.environ, **extra)
+
+
 def make_query(mariadb_args: Optional[List[str]],
                statement_timeout: int = 0) -> Callable:
     """query(sql, db=None) -> rows. Default: root over the unix socket
     exactly like dbops.db_root; --mariadb-arg overrides the client argv
     tail for dev environments (and implies --dev-target)."""
-    base = ["mariadb", "--protocol=socket", "--user=root"]
-    if mariadb_args:
-        base = ["mariadb"] + list(mariadb_args)
+    base = HOST.client_base_argv(mariadb_args)
 
     def query(sql, db=None):
         argv = list(base) + list(CLIENT_COMMON_ARGS)
@@ -325,7 +348,8 @@ def make_query(mariadb_args: Optional[List[str]],
             argv.append(db)
         # statements go through STDIN, never argv: /proc/<pid>/cmdline is
         # world-readable and some statements carry credentials
-        cp = run(argv, input=sql, capture_output=True, errors="replace")
+        cp = run(argv, input=sql, capture_output=True, errors="replace",
+                 env=_client_env())
         if cp.returncode != 0:
             raise o19etl.QueryError("SQL failed ({0}): {1}".format(
                 redact_statement(sql), cp.stderr.strip()), cp.stderr)
@@ -421,9 +445,7 @@ def make_row_stream(mariadb_args: Optional[List[str]],
     iteration: batch mode escapes \0 \t \n \\ inside values, so a bare
     "\r" (a CRLF eForm) is DATA, and universal-newline translation would
     split a row in half."""
-    base = ["mariadb", "--protocol=socket", "--user=root"]
-    if mariadb_args:
-        base = ["mariadb"] + list(mariadb_args)
+    base = HOST.client_base_argv(mariadb_args)
 
     def stream(sql, db=None):
         argv = list(base) + list(CLIENT_COMMON_ARGS) + ["--quick"]
@@ -434,7 +456,8 @@ def make_row_stream(mariadb_args: Optional[List[str]],
             argv.append(db)
         proc = subprocess.Popen(argv, stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
+                                stderr=subprocess.PIPE,
+                                env=_client_env())
         try:
             proc.stdin.write(sql.encode("utf-8"))
             proc.stdin.close()
@@ -642,7 +665,7 @@ def check_disk_headroom(dump_bytes: int, bundle_size: int,
     part-way through."""
     needs = (("database volume", datadir or server_datadir(),
               int(dump_bytes * db_factor)),
-             ("state volume", STATE,
+             ("state volume", HOST.state_dir,
               bundle_size * 2 + int(documents_size * docs_factor)))
     by_device: Dict[int, List] = {}
     for label, path, needed in needs:
@@ -1030,7 +1053,7 @@ def run_p0(ctx) -> None:
     run_p0_capacity(ctx)
 
     if not dev:
-        rc = dbops.run_flyway("validate")
+        rc = HOST.flyway_validate()
         if rc != 0:
             die("flyway validate failed — the carlos schema does not match "
                 "the deployed application (run carlos-ctl db-migrate first)")
@@ -1310,6 +1333,19 @@ def strip_client_identity(args: List[str]) -> List[str]:
     return out
 
 
+def staging_init_command(statement_timeout: int = 0) -> str:
+    """The session the restore runs under: no binlog (a throwaway
+    schema), no constraint checks (a dump arrives in dump order), and
+    permissive SQL so 2006-era statements load. `--statement-timeout`
+    bounds the dump's own statements too -- one crafted INSERT could
+    otherwise hold the restore forever."""
+    init = ("SET SESSION sql_log_bin=0, FOREIGN_KEY_CHECKS=0, "
+            "UNIQUE_CHECKS=0, sql_mode=''")
+    if statement_timeout:
+        init += ", max_statement_time={0}".format(int(statement_timeout))
+    return init
+
+
 def staging_client_argv(base_argv: List[str], client_cnf: str,
                         statement_timeout: int = 0) -> List[str]:
     """The restore client's argv: the connection tail of the root argv
@@ -1327,28 +1363,18 @@ def staging_client_argv(base_argv: List[str], client_cnf: str,
     schema-scoped grants, --one-database — would be gone. A command-line
     option outranks every option file. --local-infile=0 closes the same
     class for a system defaults file that enables it."""
-    tail = strip_client_identity(list(base_argv)[1:])
-    init = ("SET SESSION sql_log_bin=0, FOREIGN_KEY_CHECKS=0, "
-            "UNIQUE_CHECKS=0, sql_mode=''")
-    if statement_timeout:
-        init += ", max_statement_time={0}".format(int(statement_timeout))
-    return (["mariadb", "--defaults-extra-file=" + client_cnf,
-             "--user=" + STAGING_USER, "--local-infile=0",
-             "--max-allowed-packet=1G"] + tail
-            + ["--one-database", "--init-command=" + init, STAGING_SCHEMA])
+    return HOST.staging_client_argv(base_argv, client_cnf,
+                                    statement_timeout)
 
 
-# the account is created for both host patterns: a socket connection
-# matches 'localhost' first (an anonymous ''@'localhost' row would otherwise
-# shadow a '%' entry), a dev seam over TCP matches '%'
-STAGING_ACCOUNT_HOSTS = ("localhost", "%")
+STAGING_ACCOUNT_HOSTS = o19host.STAGING_ACCOUNT_HOSTS
 
 
 def staging_account_statements(password: str) -> List[str]:
     """DDL for the throwaway restore account: all privileges on the staging
     schema only. Nothing here reaches the live schema even if the dump
     tries to."""
-    pw = dbops.sql_escape(password)
+    pw = HOST.sql_escape(password)
     out = []
     for host in STAGING_ACCOUNT_HOSTS:
         out.append("DROP USER IF EXISTS '{0}'@'{1}'".format(
@@ -1394,16 +1420,11 @@ def grant_staging_account(query, client_cnf: str) -> None:
                 "the import needs MariaDB 10.5 or newer so the restore can "
                 "run under a schema-scoped account".format(
                     str(exc).strip()[:200]))
-    fd = os.open(client_cnf, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    # the mode argument applies to a NEW file only, and O_TRUNC does not
-    # reset an existing one's -- the same reason write_private,
-    # durable_json, stage_digests, write_fragment and the archive CSV
-    # writer all fchmod. This file carries the live password of an
-    # account holding ALL PRIVILEGES on a full copy of the clinic's EMR.
-    os.fchmod(fd, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        fh.write("[client]\nuser={0}\npassword={1}\n".format(
-            STAGING_USER, password.replace("\\", "\\\\")))
+    # how the password reaches the restore client is the deployment's
+    # answer: the deb writes a 0600 defaults file beside the workspace,
+    # a containerised one forwards it through the environment. Either
+    # way it never becomes an argv token.
+    HOST.stage_credential(password, client_cnf)
 
 
 def revoke_staging_account(query, client_cnf: str) -> None:
@@ -1417,8 +1438,7 @@ def revoke_staging_account(query, client_cnf: str) -> None:
             query("DROP USER IF EXISTS '{0}'@'{1}'".format(
                 STAGING_USER, host))
     finally:
-        if os.path.exists(client_cnf):
-            os.unlink(client_cnf)
+        HOST.clear_stage_credential(client_cnf)
 
 
 # an incomplete line longer than this is carried as "mid-line" instead:
@@ -1891,7 +1911,7 @@ def run_p3(ctx) -> None:
     if phase_done(ctx["state"], "backup"):
         log("backup: pre-import snapshot already taken — skipping")
         return
-    if not os.path.exists(BACKUP_ENV):
+    if not HOST.backup_configured():
         if "no-pre-backup" in ctx["accepted"] or ctx["dev_target"]:
             warn("backups are not configured — proceeding WITHOUT a "
                  "pre-import snapshot (acknowledged)")
@@ -1903,22 +1923,21 @@ def run_p3(ctx) -> None:
         die("backups are not configured ({0} missing) — the pre-import "
             "restic snapshot is the rollback point. Configure backups, or "
             "acknowledge with --accept no-pre-backup{1}".format(
-                BACKUP_ENV, resume_hint(ctx["state"])))
-    log("taking the pre-import backup (systemd unit; this is the rollback "
-        "point) ...")
-    cp = run(["systemctl", "start", "carlos-emr-backup.service"])
-    if cp.returncode != 0:
+                HOST.backup_configuration_hint(),
+                resume_hint(ctx["state"])))
+    ok, diagnosis = HOST.pre_import_backup()
+    if not ok:
         if "no-pre-backup" in ctx["accepted"]:
-            warn("the pre-import backup FAILED (journalctl -u "
-                 "carlos-emr-backup -n 50) — proceeding WITHOUT a rollback "
-                 "point under --accept no-pre-backup")
+            warn("the pre-import backup FAILED ({0}) — proceeding WITHOUT "
+                 "a rollback point under --accept no-pre-backup"
+                 .format(diagnosis))
             mark_done(ctx["state_dir"], ctx["state"], "backup",
                       skipped="no-pre-backup", unit_failed=True)
             report_append(ctx["state_dir"], "P3 backup",
                           "FAILED and acknowledged (--accept no-pre-backup)")
             return
-        die("the pre-import backup FAILED — journalctl -u carlos-emr-backup "
-            "-n 50. Not proceeding without a rollback point.")
+        die("the pre-import backup FAILED — {0}. Not proceeding without a "
+            "rollback point.".format(diagnosis))
     mark_done(ctx["state_dir"], ctx["state"], "backup")
     report_append(ctx["state_dir"], "P3 backup",
                   "pre-import restic snapshot taken (rollback point)")
@@ -1953,7 +1972,8 @@ def make_etl_query(base_argv: List[str],
             + list(CLIENT_COMMON_ARGS)
         if db:
             argv.append(db)
-        cp = run(argv, input=sql, capture_output=True, errors="replace")
+        cp = run(argv, input=sql, capture_output=True, errors="replace",
+                 env=_client_env())
         if cp.returncode != 0:
             raise o19etl.QueryError(
                 "ETL statement failed ({0} ...): {1}".format(
@@ -3117,10 +3137,7 @@ def _default_province() -> str:
     """The packaged host's configured province; a development database
     (no env file) defaults to Ontario. A malformed env file is an error,
     never silently Ontario."""
-    from . import config
-    if not os.path.exists(ENV_FILE):
-        return "on"
-    return config.load().province
+    return HOST.configured_province()
 
 
 def _province(args) -> str:
@@ -3129,10 +3146,10 @@ def _province(args) -> str:
     run the Ontario manifest against a BC schema."""
     configured = _default_province()
     chosen = getattr(args, "province", None)
-    if chosen and os.path.exists(ENV_FILE) and chosen != configured:
+    if chosen and HOST.is_packaged_host() and chosen != configured:
         die("--province {0!r} contradicts this host's configured province "
             "{1!r} ({2}); the import runs against the host as deployed"
-            .format(chosen, configured, ENV_FILE))
+            .format(chosen, configured, HOST.identity_source()))
     return chosen or configured
 
 
@@ -3436,7 +3453,8 @@ def dev_mode_refusal(dev_target: bool, mariadb_arg: Optional[List[str]],
     if packaged_host:
         return ("--dev-target/--mariadb-arg are for development databases "
                 "only; this is a packaged host ({0} exists) and its "
-                "stock-deploy gate has no override".format(ENV_FILE))
+                "stock-deploy gate has no override"
+                .format(HOST.identity_source()))
     if dev_target and not mariadb_arg:
         return "--dev-target requires --mariadb-arg (the dev database)"
     return None
@@ -3445,7 +3463,7 @@ def dev_mode_refusal(dev_target: bool, mariadb_arg: Optional[List[str]],
 def _dev_mode(args) -> bool:
     """Whether this invocation targets a development database, dying on the
     combinations that are not allowed on a packaged host."""
-    packaged = os.path.exists(ENV_FILE)
+    packaged = HOST.is_packaged_host()
     refusal = dev_mode_refusal(bool(args.dev_target), args.mariadb_arg,
                                packaged)
     if refusal:
@@ -3552,13 +3570,15 @@ def take_workspace_lock(state_dir: str) -> None:
     _WORKSPACE_LOCK["fd"] = fd
 
 
-def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
+def _make_ctx(args, import_mode: bool,
+              state_dir: Optional[str] = None) -> Dict:
     """Build the phase context and take the workspace lock.
 
     `import_mode` false (and a dry run) means an ASSESSMENT: it refuses a
     workspace whose import has begun, extracts to `bundle-assess/`, and
     does not rewrite the ledger's recorded inputs -- an assessment must
     never disturb a run in progress."""
+    state_dir = state_dir or HOST.state_dir
     dev_target = _dev_mode(args)
     # BEFORE anything reads the manifest. One package serves every
     # province (debconf picks one at install time from the same .deb),
@@ -3702,6 +3722,7 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
         "bundle_size": (os.path.getsize(args.bundle)
                         if getattr(args, "bundle", None) else 0),
         "target_db": target_db,
+        "documents_root": HOST.documents_root,
         "restage": getattr(args, "restage", False),
         "resume": getattr(args, "resume", False),
         "dry_run": getattr(args, "dry_run", False),
@@ -3758,7 +3779,7 @@ def nothing_to_resume_refusal(state: Dict, resume: bool,
         return None
     return ("--resume: no import is recorded under {0} (a staged dump "
             "alone is not a run) — start the import without --resume"
-            .format(STATE_DIR))
+            .format(HOST.state_dir))
 
 
 #: schema names the import may never be pointed AT, and why. The two
@@ -3788,38 +3809,51 @@ def dev_target_db_refusal(name, dev_target: bool,
     if packaged_host:
         return ("--dev-target-db is for development databases only; this "
                 "is a packaged host ({0} exists) and CARLOS_DB_NAME "
-                "decides the target".format(ENV_FILE))
+                "decides the target".format(HOST.identity_source()))
     if not dev_target:
         return "--dev-target-db requires --dev-target"
     if not re.match(r"^[A-Za-z0-9_]+$", name):
         return ("--dev-target-db must be a plain schema name (letters, "
                 "digits and underscore)")
-    if name in RESERVED_TARGET_SCHEMAS:
-        # the staging schema is the clinic's only copy of the dump until
-        # P4 finishes and the archive schema is the only copy of
-        # everything CARLOS has no home for. Either as the TARGET means
-        # the import reads and writes the same schema: P1 would drop the
-        # source it is about to restore, and P4 would copy a table onto
-        # itself. The server's own schemas are named for the same reason
-        # -- a "target" that is `mysql` is not a mistake anything later
-        # would catch.
-        return ("--dev-target-db may not be {0!r}: it is {1}"
-                .format(name, RESERVED_TARGET_SCHEMAS[name]))
     return None
+
+
+def _checked_target(name: str, source: str) -> str:
+    """The resolved target schema, or a refusal.
+
+    Checked HERE rather than beside the flag, because the flag is not the
+    only way in: a packaged host's CARLOS_DB_NAME reaches the same
+    variable, and a check that only guarded the development seam would
+    leave the deployment's own answer unexamined.
+
+    The staging schema is the clinic's only copy of the dump until P4
+    finishes, and the archive schema is the only copy of everything
+    CARLOS has no home for. Either as the TARGET means the import reads
+    and writes one schema: P1 drops the source it is about to restore,
+    and P4 copies a table onto itself. The server's own schemas are named
+    for the same reason -- a "target" that is `mysql` is not a mistake
+    anything later catches."""
+    if name in RESERVED_TARGET_SCHEMAS:
+        die("the target schema is {0!r} (from {1}), which is {2}. The "
+            "import cannot write the clinic's data there: name a schema "
+            "of its own."
+            .format(name, source, RESERVED_TARGET_SCHEMAS[name]))
+    return name
 
 
 def _target_db(dev_target: bool, dev_target_db=None) -> str:
     """CARLOS_DB_NAME from the packaged host's env file; a dev database
     (no env file, --mariadb-arg seam) uses --dev-target-db, or the
     deployment default when none was given."""
-    from . import config
-    if os.path.exists(ENV_FILE):
-        return config.load().db_name
+    configured = HOST.configured_db_name()
+    if configured is not None:
+        return _checked_target(configured, HOST.identity_source())
     if dev_target:
         # the deb deployment's CARLOS_DB_NAME default
-        return dev_target_db or "oscar"
+        return _checked_target(dev_target_db or "oscar",
+                               "--dev-target-db")
     die("{0} missing — this is not a packaged CARLOS host (a development "
-        "database needs --mariadb-arg)".format(ENV_FILE))
+        "database needs --mariadb-arg)".format(HOST.identity_source()))
     return ""  # unreachable
 
 
@@ -3828,22 +3862,7 @@ def webapp_running_refusal() -> Optional[str]:
     its startup listener creates rows (program, site, memberships) that
     would fail row parity, and a live session could read a half-copied
     chart. Checked on every real run and resume of a packaged host."""
-    if not os.path.exists(ENV_FILE):
-        return None  # a development database, no service unit
-    # NOT `is-active --quiet`: a unit still starting reports
-    # ActiveState=activating, for which is-active exits 3 — and Tomcat
-    # takes tens of seconds to reach `active`, so the guard would be
-    # inert for exactly the window in which the startup listener writes
-    # its rows. dbops.py makes the same correction for the backup units.
-    state = run(["systemctl", "show", "-p", "ActiveState", "--value",
-                 "carlos-emr"], capture_output=True).stdout.strip()
-    if state in ("active", "activating", "reloading", "deactivating"):
-        return ("carlos-emr is {0} — stop it for the duration of the "
-                "import (`carlos-ctl stop`, or `systemctl stop carlos-emr`) "
-                "and re-run; start it again only after the verified import "
-                "and the properties fragment have been applied".format(
-                    state))
-    return None
+    return HOST.app_running_refusal()
 
 
 def _guarded(fn, code: int = 1):
@@ -3913,7 +3932,9 @@ def _cmd_import_o19(argv) -> int:
     # before any other gate, including --cleanup's: a workspace rewound
     # by a restored snapshot makes every one of them refuse, and two of
     # them point back at the snapshot the operator just restored
-    refusal = rewound_workspace_refusal(load_state(STATE_DIR), STATE_DIR)
+    workspace = HOST.state_dir
+    refusal = rewound_workspace_refusal(load_state(workspace),
+                                        workspace)
     if refusal:
         die(refusal)
 
@@ -3934,13 +3955,13 @@ def _cmd_import_o19(argv) -> int:
             o19etl.validate_admin_user(args.admin_user)
         except ValueError as exc:
             die(str(exc))
-    state = load_state(STATE_DIR)
+    state = load_state(HOST.state_dir)
     refusal = require_resume_for_existing_state(
         state, args.resume, args.dry_run)
     if refusal:
         die(refusal)
     refusal = nothing_to_resume_refusal(
-        state, args.resume, etl_started(STATE_DIR))
+        state, args.resume, etl_started(HOST.state_dir))
     if refusal:
         die(refusal)
     if not args.dry_run:
@@ -3981,7 +4002,7 @@ def _make_ctx_for_cleanup(args) -> Dict:
     target and archive schemas ARE needed, because the drop is gated on a
     parity that counts staging rows against the homes they were preserved
     into."""
-    state_dir = STATE_DIR
+    state_dir = HOST.state_dir
     dev_target = _dev_mode(args)
     # cleanup counts staging rows against the homes the manifest says
     # they were preserved into, so it reads the same per-province rulings
