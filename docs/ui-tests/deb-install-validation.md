@@ -7,8 +7,10 @@ the real front door (nginx + ModSecurity/CRS on `:443`), not the devcontainer's
 bare Tomcat.
 
 It is the procedure that first surfaced the WAF false positives on note-saving
-and eForm saves, the add-patient validation regression, and the nullable-column
-500s on the consultation surfaces. Last validated end-to-end 2026-08-31 with
+and eForm saves, the add-patient validation regression, the nullable-column
+500s on the consultation surfaces, and the empty Consultations inbox on the demo
+dataset (the seeded `_site_access_privacy` grant was applied without multisite mode;
+`consultation-nullable-fields-playwright-checks.js` now asserts the list has rows). Last validated end-to-end 2026-08-31 with
 **41/41 scripts passing** on 2026.09.0~snapshot18.
 
 That 37/37 is also the cautionary tale for this document. A tester found six

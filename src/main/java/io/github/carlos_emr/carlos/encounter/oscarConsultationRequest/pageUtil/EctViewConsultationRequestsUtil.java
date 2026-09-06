@@ -139,9 +139,13 @@ public class EctViewConsultationRequestsUtil {
                  }
               }
 
-              providerId = demo.getProviderNo();
-              if ( providerId != null && !providerId.equals("")) {
-                  prov = providerDao.getProvider(demo.getProviderNo());
+              // Same contract as estConsultationVecByDemographic below: the whole loop
+              // shares one catch, so a consult whose demographic or most-responsible
+              // provider row is gone must degrade to "N/A" rather than NPE and blank the
+              // entire inbox list.
+              providerId = (demo != null) ? demo.getProviderNo() : null;
+              prov = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId) : null;
+              if ( prov != null ) {
                   providerName = prov.getFormattedName();
                   providerNo.add(prov.getProviderNo());
               }
@@ -164,10 +168,11 @@ public class EctViewConsultationRequestsUtil {
               boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
 
               demographicNo.add(consult.getDemographicId().toString());
-              date.add(DateFormatUtils.ISO_DATE_FORMAT.format(consult.getReferralDate()));
+              Date referralDate = consult.getReferralDate();
+              date.add(referralDate != null ? DateFormatUtils.ISO_DATE_FORMAT.format(referralDate) : "");
               ids.add(consult.getId().toString());
               status.add(consult.getStatus());
-              patient.add(demo.getFormattedName());
+              patient.add(demo != null ? demo.getFormattedName() : "");
               provider.add(providerName);
               service.add(serviceDescription);
               vSpecialist.add(specialistName);
@@ -199,7 +204,8 @@ public class EctViewConsultationRequestsUtil {
                 followUpDate.add(DateFormatUtils.ISO_DATE_FORMAT.format(date1));
               }
               
-              Provider cProv = providerDao.getProvider(consult.getProviderNo());
+              String cProvNo = consult.getProviderNo();
+              Provider cProv = (cProvNo != null && !cProvNo.isEmpty()) ? providerDao.getProvider(cProvNo) : null;
               consultProvider.add(cProv);
           }
       } catch (Exception e) {            

@@ -118,6 +118,12 @@ function sqlValue(value) {
     await listPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(listPage, 'consultation list');
     await screenshot(listPage, config.screenshotDir, 'consultation-nullable-list');
+    // The demo dataset ships hundreds of consults, so an empty first page is a
+    // regression, not a filter: the packaged install once rendered zero rows
+    // because the seeded _site_access_privacy grant was applied without
+    // multisite mode. The per-request fallback below must not mask that.
+    const listRows = await listPage.locator('table.consult-table tbody tr').count();
+    assert(listRows > 0, 'consultation list rendered no rows for the demo dataset');
 
     // Open the staged request from the list the way a user would; the list
     // links carry requestId=<id>. Fall back to direct navigation only if the
