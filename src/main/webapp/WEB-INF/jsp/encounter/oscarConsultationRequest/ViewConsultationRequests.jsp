@@ -128,8 +128,16 @@
     List<ProviderData> pdList = null;
     HashMap<String, String> providerMap = new HashMap<String, String>();
 
+    // Site/team access privacy is a MULTISITE feature and is only applied when
+    // multisite mode is on, mirroring the schedule (appointmentprovideradminday.jsp).
+    // The Flyway seed grants the admin role _site_access_privacy on every install,
+    // but without multisite there are no site assignments to restrict by and
+    // mgrSite below stays empty, so applying the filters here would silently
+    // drop EVERY consult from the list (seen on the packaged demo install).
+    boolean restrictToSiteOrTeam = bMultisites && (isSiteAccessPrivacy || isTeamAccessPrivacy);
+
 //multisites function
-    if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+    if (restrictToSiteOrTeam) {
 
         if (isSiteAccessPrivacy)
             pdList = providerDataDao.findByProviderSite(curProvider_no);
@@ -210,9 +218,11 @@
         EctConsultationFormRequestUtil consultUtil;
         consultUtil = new EctConsultationFormRequestUtil();
 
-        if (isTeamAccessPrivacy) {
+        // Same multisite gate as the row filters below: outside multisite mode the
+        // team dropdown lists every team rather than the (non-existent) site's.
+        if (restrictToSiteOrTeam && isTeamAccessPrivacy) {
             consultUtil.estTeamsByTeam(curProvider_no);
-        } else if (isSiteAccessPrivacy) {
+        } else if (restrictToSiteOrTeam && isSiteAccessPrivacy) {
             consultUtil.estTeamsBySite(curProvider_no);
         } else {
             consultUtil.estTeams();
@@ -527,7 +537,7 @@
 
                             for (int i = 0; i < theRequests.ids.size(); i++) {
                                 //multisites. skip record if not belong to same site/team
-                                if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+                                if (restrictToSiteOrTeam) {
                                     if (providerMap.get(theRequests.providerNo.get(i)) == null) continue;
                                 }
 
@@ -555,7 +565,7 @@
                                 }
 
                                 //multisites. skip record if not belong to same site
-                                if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+                                if (restrictToSiteOrTeam) {
                                     if (!mgrSite.contains(siteName)) continue;
                                 }
                                 overdue = false;

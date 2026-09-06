@@ -25,11 +25,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
@@ -38,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -71,6 +74,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     private ConsultationRequestExtDao consultationRequestExtDao;
     private ProviderDao providerDao;
     private DemographicManager demographicManager;
+    private ConsultationManager consultationManager;
 
     private LoggedInInfo loggedInInfo;
     private EctViewConsultationRequestsUtil util;
@@ -89,6 +93,10 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         registerMock(DemographicManager.class, demographicManager);
         // Resolved by the util even on the serviceId==0 path, so it must be registered.
         registerMock(ConsultationServiceDao.class, mock(ConsultationServiceDao.class));
+        // The inbox (by-team) path folds the extension rows through the manager.
+        consultationManager = mock(ConsultationManager.class);
+        when(consultationManager.getExtValuesAsMap(any())).thenReturn(Map.of());
+        registerMock(ConsultationManager.class, consultationManager);
 
         // serviceId 0 routes the description and specialist lookups through the extensions table,
         // keeping these tests off the ConsultationServices path they are not about.
@@ -185,5 +193,74 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
 
         assertThat(verdict).isTrue();
         assertThat(util.provider).containsExactly("Lovelace, Ada");
+    }
+
+    /**
+     * The inbox (by-team) list shares the by-demographic contract: one imperfect row must
+     * degrade to "N/A"/blank, never take every consult on the page down with it. The
+     * unbounded-filter call is what ViewConsultationRequests.jsp issues for the default
+     * "Consultations" view.
+     */
+    private void stubInboxQuery(ConsultationRequest consult) {
+        when(consultationRequestDao.getConsults(isNull(), eq(false), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), isNull()))
+                .thenReturn(List.of(consult));
+    }
+
+    @Test
+    @DisplayName("should list the inbox consult when the demographic's MRP no longer exists")
+    void shouldListInboxConsult_whenMrpProviderRowWasDeleted() throws Exception {
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
+                .thenReturn(demographicWithMrp("999"));
+        when(providerDao.getProvider("999")).thenReturn(null);
+        stubInboxQuery(consultWithNoOrderingProvider());
+
+        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
+                null, null, null);
+
+        assertThat(verdict).isTrue();
+        assertThat(util.ids).containsExactly("7");
+        assertThat(util.provider).containsExactly("N/A");
+        assertThat(util.providerNo).containsExactly("-1");
+        assertThat(util.patient).containsExactly("Doe, Jane");
+        // A null referral date renders blank instead of NPE-ing the whole page.
+        assertThat(util.date).containsExactly("");
+    }
+
+    @Test
+    @DisplayName("should list the inbox consult when the demographic itself cannot be resolved")
+    void shouldListInboxConsult_whenDemographicCannotBeResolved() throws Exception {
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
+                .thenReturn(null);
+        stubInboxQuery(consultWithNoOrderingProvider());
+
+        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
+                null, null, null);
+
+        assertThat(verdict).isTrue();
+        assertThat(util.ids).containsExactly("7");
+        assertThat(util.provider).containsExactly("N/A");
+        assertThat(util.patient).containsExactly("");
+        assertThat(util.demographicNo).containsExactly(DEMO_NO);
+    }
+
+    @Test
+    @DisplayName("should render the inbox MRP's formatted name when the provider record resolves")
+    void shouldRenderInboxFormattedName_whenMrpResolves() throws Exception {
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq(DEMO_ID)))
+                .thenReturn(demographicWithMrp("101"));
+        Provider mrp = new Provider();
+        mrp.setProviderNo("101");
+        mrp.setFirstName("Ada");
+        mrp.setLastName("Lovelace");
+        when(providerDao.getProvider("101")).thenReturn(mrp);
+        stubInboxQuery(consultWithNoOrderingProvider());
+
+        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
+                null, null, null);
+
+        assertThat(verdict).isTrue();
+        assertThat(util.provider).containsExactly("Lovelace, Ada");
+        assertThat(util.providerNo).containsExactly("101");
     }
 }
