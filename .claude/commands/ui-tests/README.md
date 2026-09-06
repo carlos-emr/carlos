@@ -107,7 +107,7 @@ See `docs/ui-tests/UI-TEST-PROCESS.md` for complete setup requirements.
 
 ```bash
 # Application responding
-curl -sI http://localhost:8080/oscar/index.jsp | head -1
+curl -sI http://localhost:8080/carlos/ | head -1
 
 # Database accessible
 mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
@@ -121,7 +121,7 @@ mariadb -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE u
 **Application not responding**:
 ```bash
 server restart && server log
-curl -I http://localhost:8080/oscar/index.jsp  # Should return 200
+curl -I http://localhost:8080/carlos/  # Should return 200
 ```
 
 **Test user missing**:

@@ -52,8 +52,12 @@ def require_db_root() -> None:
 def sql_escape(value: str) -> str:
     """SQL string-literal escaping for generated passwords interpolated into
     account DDL. Belt and braces: everything this tool generates is
-    alphanumeric already."""
-    return value.replace("\\", "\\\\").replace("'", "\\'")
+    alphanumeric already.
+
+    Kept as a name here because callers and tests reach for
+    ``dbops.sql_escape``; the escape itself lives in util so the package has
+    one implementation rather than the four that had already drifted."""
+    return util.sql_escape(value)
 
 
 # --- raw client passthrough (verb: db) --------------------------------------
@@ -301,8 +305,10 @@ def _find_java() -> str:
     JDBC driver come out of the deployed WAR (class file version 65) and a
     default-java pointing at 17 or 25 fails in class-loading shapes rather
     than with a clean message."""
-    for d in sorted(glob.glob("/usr/lib/jvm/java-21-openjdk-*")) + \
-             ["/usr/lib/jvm/java-21-openjdk", "/usr/lib/jvm/default-java"]:
+    candidates = (sorted(glob.glob("/usr/lib/jvm/java-21-openjdk-*"))
+                  + ["/usr/lib/jvm/java-21-openjdk",
+                     "/usr/lib/jvm/default-java"])
+    for d in candidates:
         if _is_java_21(d) and os.access(os.path.join(d, "bin", "java"), os.X_OK):
             return os.path.join(d, "bin", "java")
     die("no Java 21 runtime found; install openjdk-21-jre-headless")
@@ -386,7 +392,8 @@ def cmd_db_apply_settings(argv) -> int:
         # "loaded", then wrote a default-time-zone the server cannot start
         # with. CONVERT_TZ returns NULL for an unknown zone.
         cp = db_root(["-N", "-B", "-e",
-                      f"SELECT CONVERT_TZ('2026-01-01 00:00:00','UTC','{sql_escape(zone)}') IS NOT NULL"],
+                      "SELECT CONVERT_TZ('2026-01-01 00:00:00','UTC',"
+                      f"'{sql_escape(zone)}') IS NOT NULL"],
                      capture_output=True)
         return cp.returncode == 0 and cp.stdout.strip() == "1"
 
@@ -395,7 +402,8 @@ def cmd_db_apply_settings(argv) -> int:
     # adds a renamed one. A custom CARLOS_BACKUP_VERIFY_DB otherwise made
     # every db-apply-settings restart MariaDB for a value no restart applies.
     verify_db_now = env_get(BACKUP_ENV, "CARLOS_BACKUP_VERIFY_DB") or "carlos_restore_drill"
-    extra = "" if verify_db_now == "carlos_restore_drill" else f"binlog_ignore_db = {verify_db_now}\n"
+    extra = ("" if verify_db_now == "carlos_restore_drill"
+             else f"binlog_ignore_db = {verify_db_now}\n")
 
     tz_ok = bool(tz) and os.path.isfile(f"/usr/share/zoneinfo/{tz}")
     if tz_ok and not _tz_resolves(tz):
@@ -491,7 +499,8 @@ def cmd_db_apply_settings(argv) -> int:
         return 0
     log("restarting MariaDB to apply /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
     if run(["systemctl", "restart", "mariadb.service"]).returncode != 0:
-        die("MariaDB failed to restart; check 'systemctl status mariadb' and 'journalctl -u mariadb'")
+        die("MariaDB failed to restart; check 'systemctl status mariadb' "
+            "and 'journalctl -u mariadb'")
     import time
     for _ in range(60):
         if db_root_ok():
@@ -533,7 +542,8 @@ def cmd_bootstrap_admin(argv) -> int:
     # a credential the clinic may have long since made its own.
     # This is NOT a leaked secret: it is the already-public value this verb
     # exists to hunt down and replace.
-    seeded_hash = "{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju"  # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
+    # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
+    seeded_hash = "{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju"
     cp = db_root(["-N", "-B", "-e",
                   f"SELECT COUNT(*) FROM `{s.db_name}`.security "
                   f"WHERE user_name='{user}' AND password='{sql_escape(seeded_hash)}'"],
@@ -569,7 +579,8 @@ def cmd_bootstrap_admin(argv) -> int:
     # and the next run regenerates it.
     outfile = os.path.join(CONF_DIR, "initial-admin.txt")
     if not os.path.isdir(CONF_DIR):
-        die(f"{CONF_DIR} does not exist — reinstall carlos-emr before resetting the seeded credential")
+        die(f"{CONF_DIR} does not exist — reinstall carlos-emr before "
+            "resetting the seeded credential")
     sql = f"""
 SET SESSION sql_log_bin = 0;
 UPDATE `{s.db_name}`.security
@@ -631,6 +642,101 @@ backup.
 
 # --- deliberate decommissioning (verb: destroy-data) ------------------------
 
+#: The OSCAR 19 import leaves an estate `destroy-data` knew nothing
+#: about. Held here as names rather than imported at module scope
+#: because o19import imports THIS module; `o19_estate` resolves them
+#: lazily.
+#: schema -> what a reader loses with it, in the operator's terms
+O19_SCHEMAS = {
+    "o19_import": "the clinic's staged source database",
+    "o19_archive": "clinic records the EMR schema does not hold",
+}
+
+
+class EstateUnknown(Exception):
+
+    """MariaDB could not be asked what the OSCAR 19 import left behind.
+
+    Raised instead of answering "nothing": a failed inventory query and
+    an absent schema look identical in the answer and could not be more
+    different in the consequence. Reporting absence on a failed query
+    let a confirmed `destroy-data` skip the DROP for a schema that was
+    really there -- `o19_import` is the clinic's whole source database
+    -- and still print "done." with exit 0. The reachability gate above
+    the drop exists for exactly this reason; it cannot see a query that
+    fails after it passes."""
+
+
+def o19_estate():
+    """What an OSCAR 19 import has left on this host.
+
+    Returns ``([(schema, table count), ...], workspace_path_or_None)``.
+    Raises `EstateUnknown` if MariaDB cannot answer -- callers that are
+    about to destroy something must refuse rather than assume absence.
+
+    `o19_archive` survives `--cleanup` BY DESIGN (it is the source of the
+    CSV export the clinic is handed) and `o19_import` survives any run
+    abandoned before `--cleanup` -- the clinic's entire source database.
+    The workspace holds `admin-credentials.txt` (a plaintext
+    administrator password and PIN, deliberately excluded from
+    `--cleanup`'s retirement list), `o19-derived-carlos.properties` (the
+    clinic's carried Teleplan/MCEDT/HCV/SMTP/PGP secrets in clear),
+    `o19-archive-export/*.csv` (archive-only clinical records as
+    plaintext CSV) and, for an abandoned run, `bundle/` with the whole
+    source database as plaintext SQL. carlos-emr-backup excludes exactly
+    those from restic because they are a credential and PHI store;
+    nothing gave them the same treatment at destruction time."""
+    from . import o19import           # imports this module; lazy on purpose
+    found = []
+    for schema in O19_SCHEMAS:
+        n = _count(
+            "SELECT COUNT(*) FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = '{0}'".format(schema),
+            "count the tables in the '{0}' schema".format(schema))
+        # a schema that does not exist answers 0 tables; only a real one
+        # is reported, and an EMPTY real one still is (it is a schema the
+        # operator must be told is going)
+        if n or schema_exists(schema):
+            found.append((schema, n))
+    # the workspace is the DEPLOYMENT's answer, not a constant: the
+    # import asks its host where it lives, and destroy-data must look
+    # in the same place
+    workspace = o19import.HOST.state_dir
+    return found, (workspace if os.path.isdir(workspace) else None)
+
+
+def _count(sql: str, what: str) -> int:
+    """One COUNT(*) off `information_schema`, or `EstateUnknown`.
+
+    Every failure mode is the same refusal: a non-zero exit, no output
+    at all (a successful COUNT always prints a number, so silence is a
+    fault), and output that is not an integer."""
+    cp = db_root(["-N", "-B", "-e", sql], capture_output=True)
+    if cp.returncode != 0:
+        raise EstateUnknown("could not {0}: mysql exited {1}{2}".format(
+            what, cp.returncode,
+            (" (" + (cp.stderr or "").strip().splitlines()[-1] + ")")
+            if (cp.stderr or "").strip() else ""))
+    text = (cp.stdout or "").strip()
+    if not text:
+        raise EstateUnknown(
+            "could not {0}: mysql answered nothing".format(what))
+    try:
+        return int(text.splitlines()[-1])
+    except ValueError:
+        raise EstateUnknown(
+            "could not {0}: mysql answered {1!r}".format(
+                what, text.splitlines()[-1][:80]))
+
+
+def schema_exists(name: str) -> bool:
+    """Whether `name` is a schema on this host. Raises `EstateUnknown`
+    if MariaDB cannot answer -- see `o19_estate`."""
+    return _count("SELECT COUNT(*) FROM information_schema.SCHEMATA "
+                  "WHERE SCHEMA_NAME = '{0}'".format(name),
+                  "look up the '{0}' schema".format(name)) > 0
+
+
 def cmd_destroy_data(argv) -> int:
     """The ONLY supported way this software destroys clinical data. It lives
     in a command an operator types, not in the package's removal path: `apt
@@ -650,11 +756,43 @@ def cmd_destroy_data(argv) -> int:
             die(f"unknown option: {a}")
 
     if confirm != s.server_name:
+        # The estate is enumerated for THIS host, so the operator reads
+        # what will actually go rather than a generic paragraph. It is
+        # read before the reachability gate below on purpose: naming what
+        # is at stake must not depend on MariaDB being up.
+        o19_unknown = ""
+        try:
+            o19_schemas, o19_workspace = o19_estate()
+        except EstateUnknown as e:
+            # Still prints, but says the estate could not be READ rather
+            # than implying there is none; the confirmed run below
+            # refuses outright on the same condition.
+            o19_schemas, o19_workspace, o19_unknown = [], None, str(e)
+        except Exception:                                     # noqa: BLE001
+            o19_schemas, o19_workspace = [], None
+        o19_note = ""
+        if o19_schemas or o19_workspace:
+            lines = []
+            for schema, tables in o19_schemas:
+                lines.append(f"  - the '{schema}' schema ({tables} table(s)) "
+                             f"— {O19_SCHEMAS[schema]}")
+            if o19_workspace:
+                lines.append(f"  - {o19_workspace} — the import workspace: a "
+                             "plaintext administrator password, the clinic's")
+                lines.append("    carried secrets, the archive CSV export, "
+                             "and (for an abandoned run) their whole")
+                lines.append("    source database as plaintext SQL")
+            o19_note = ("\n\nThis host also carries an OSCAR 19 import. That "
+                        "will be destroyed too:\n" + "\n".join(lines))
+        elif o19_unknown:
+            o19_note = ("\n\nThis host could NOT be asked whether it carries an "
+                        "OSCAR 19 import\n(" + o19_unknown + "). If it does, that "
+                        "will be destroyed too.")
         print(f"""carlos-ctl: this destroys the clinical record on this host and cannot be undone.
 
 It will DROP the '{s.db_name}' and 'drugref2' databases, and delete every
 patient document under {STATE}/OscarDocument, every JVM heap dump, and the
-application logs.
+application logs.{o19_note}
 
 To proceed you must name the host you are destroying:
 
@@ -676,17 +814,35 @@ instance whose backups are gone is not decommissioned, it is lost.""", file=sys.
             "refusing to start a destruction that would be incomplete. Start MariaDB "
             "(systemctl start mariadb) and re-run.")
 
+    # Enumerated BEFORE anything is stopped or dropped, so the report can
+    # name what went. The standing rule is that data is never destroyed
+    # silently: a schema holding tables is announced with its table count
+    # first, and only then dropped. A MariaDB that answers the
+    # reachability probe above but not this query stops the run right
+    # here, with the service still running and nothing removed —
+    # "absent" and "could not tell" must not be the same answer to a
+    # command that is about to DROP.
+    try:
+        o19_schemas, o19_workspace = o19_estate()
+    except EstateUnknown as e:
+        die(f"{e} — refusing to start a destruction that could leave the clinic's "
+            "OSCAR 19 source database behind while reporting success. Check MariaDB "
+            "and re-run.")
+
     warn(f"destroying the CARLOS clinical data on {s.server_name}")
     if os.path.isdir("/run/systemd/system"):
         run(["systemctl", "stop", "carlos-emr.service"], capture_output=True)
-
+    o19_sql = "".join(f"DROP DATABASE IF EXISTS `{schema}`;\n"
+                      for schema, _n in o19_schemas)
     if db_root_ok():
+        for schema, tables in o19_schemas:
+            log(f"dropping the OSCAR 19 '{schema}' schema ({tables} table(s))")
         log("dropping databases")
         cp = db_root([], input=f"""
 SET SESSION sql_log_bin = 0;
 DROP DATABASE IF EXISTS `{s.db_name}`;
 DROP DATABASE IF EXISTS `drugref2`;
-DROP USER IF EXISTS 'carlos'@'localhost';
+{o19_sql}DROP USER IF EXISTS 'carlos'@'localhost';
 DROP USER IF EXISTS 'carlos'@'127.0.0.1';
 DROP USER IF EXISTS 'drugref'@'localhost';
 DROP USER IF EXISTS 'drugref'@'127.0.0.1';
@@ -705,12 +861,33 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
     # Errors are collected and REPORTED, never ignored: this command's whole
     # value is that its report is exact — "destroyed" must not mean "mostly".
     rm_errors = []
+
     def _collect(_fn, path, exc):
         rm_errors.append(f"{path}: {exc[1]}")
+
     for p in (f"{STATE}/OscarDocument", f"{STATE}/heapdumps",
               "/var/log/carlos-emr/tomcat", "/var/log/carlos-emr/modsec"):
         if os.path.exists(p):
             shutil.rmtree(p, onerror=_collect)
+    if o19_workspace:
+        # Shredded, not merely unlinked, for the same reason backup.env
+        # is below: admin-credentials.txt holds a working administrator
+        # password and PIN, and o19-derived-carlos.properties the
+        # clinic's carried Teleplan/MCEDT/HCV/SMTP/PGP secrets in clear.
+        # A failing shred is recorded, never swallowed — this verb's
+        # whole value is that "destroyed" does not mean "mostly".
+        log(f"destroying the OSCAR 19 import workspace ({o19_workspace})")
+        for name in sorted(os.listdir(o19_workspace)):
+            if not (name.startswith("admin-credentials.txt")
+                    or name.startswith("o19-derived-carlos.properties")):
+                continue
+            f = os.path.join(o19_workspace, name)
+            if not os.path.isfile(f):
+                continue
+            cp = run(["shred", "-u", f], capture_output=True)
+            if cp.returncode != 0:
+                rm_errors.append(f"{f}: shred failed ({cp.stderr.strip()})")
+        shutil.rmtree(o19_workspace, onerror=_collect)
     if rm_errors:
         for e in rm_errors[:10]:
             warn(f"could not remove: {e}")
@@ -758,5 +935,21 @@ DROP USER IF EXISTS 'backup'@'127.0.0.1';
         warn(f"{BACKUP_ENV} and {PROPERTIES} were kept with them — without "
              "RESTIC_PASSWORD and encryption.util.secret.key those backups are "
              "unreadable. Escrow both before you wipe this host.")
+        if o19_schemas or o19_workspace:
+            # carlos-emr-backup excludes the credential note, the
+            # properties fragment and bundle/ from restic, and never
+            # dumps o19_archive — but it does NOT exclude
+            # o19-archive-export/, and the EMR schema it dumps carries
+            # the import_archived_ objects. Destroying the estate on
+            # disk while those snapshots stand is not decommissioning.
+            warn("the retained backups still hold this clinic's OSCAR 19 "
+                 "archive CSV export and the import_archived_ objects "
+                 "inside the EMR dump. Re-run with --including-backups, "
+                 "or treat the repository as clinical records.")
+    if o19_schemas or o19_workspace:
+        destroyed = [f"the '{schema}' schema" for schema, _n in o19_schemas]
+        if o19_workspace:
+            destroyed.append("the import workspace")
+        log("OSCAR 19 import estate destroyed: " + ", ".join(destroyed))
     log("done. 'apt purge carlos-emr carlos-emr-drugref' now removes the software.")
     return 0

@@ -62,7 +62,7 @@ Test 4 validates the prescription management workflow:
 
 Before starting, verify application and database are ready:
 
-1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
+1. **Application Check**: Run `curl -sI http://localhost:8080/carlos/ | head -1`
    - Expected: `HTTP/1.1 200`
 
 2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
@@ -78,7 +78,7 @@ Before starting, verify application and database are ready:
 Follow the 18-step workflow defined in `docs/ui-tests/test-4/test-4-EXECUTION.md`:
 
 ### Phase 1: Authentication & Patient Access (Steps 1-4)
-1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
+1. **Login Page** - Navigate to http://localhost:8080/carlos, screenshot
 2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **Patient Chart** - Open patient chart, screenshot

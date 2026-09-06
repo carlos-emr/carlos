@@ -1,0 +1,836 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+"""Hand-curated schema-manifest overlay for the OSCAR 19 importer.
+
+generate_manifests.py deep-merges this over its mechanical O19/CARLOS schema
+diff. This file is the durable curation home — regeneration never touches it.
+
+Classification principles (see docs/oscar19-to-carlos-migration-plan.md §4):
+
+* Shared tables default to class "copy". Overrides here mark:
+  - CLASS_REFERENCE  — CARLOS's Flyway-seeded rows win outright; the dump's
+    rows are ignored. Only for code-owned/ministry data that clinics do not
+    author (ICD, security objects, billing error codes, ...).
+  - REPLACE_SEED     — the table is seeded by Flyway but its PRIMARY KEYS ARE
+    REFERENCED BY CLINIC DATA (issue ids in casemgmt_issue, program ids in
+    admissions, the clinic row, schedule config, role matrix). The importer
+    deletes the seed rows and copies the clinic's rows id-intact so those
+    references stay valid. Safe because P0 has verified the table holds
+    exactly the seed rows.
+  - CLASS_MERGE      — union semantics on a NATURAL key: CARLOS seed rows
+    win, clinic-added rows are appended. For tables where both systems seed
+    near-identical standard rows and clinics add custom ones (encounter form
+    registry, billing service codes, lookup lists). Tables whose natural key
+    is not the PK carry surrogate-id handling in the ETL (M4).
+* O19-only tables (absent from CARLOS) are ARCHIVE_PATIENT (clinical /
+  patient-authored -> o19_archive + CSV, preflight B1 blocker),
+  ARCHIVE_OTHER (clinic config, templates, logs -> o19_archive, advisory),
+  or DROP (infrastructure of removed modules, temp tables, reloadable
+  ministry reference — allowed only for zero-CARLOS-reference tables of
+  documented-removed modules). Anything unlisted stays "unknown", which the
+  integrity test refuses to ship.
+
+Legacy-twin note: OSCAR carried duplicate legacy/entity table pairs, and
+CARLOS kept only the entity-named survivor. The twins still present in a
+patched O19 database — `group_note_link` (GroupNoteLink), `recycle_bin`
+(recyclebin), `report_filter` (reportFilter) — are archived below. Twins
+that O19's own update scripts already dropped (`facility`, `Vacancy`, temp
+tables) are absent from the generated diff; on a clinic database that never
+ran those updates they surface through preflight's unknown-table flow (B2,
+archive-by-default).
+"""
+
+SCHEMA_MAP_VERSION = "o19map-2"
+
+#: Provinces the import verb will actually RUN, as opposed to provinces
+#: the package carries a profile for (generate_manifests.PROVINCES).
+#:
+#: The two are deliberately separate. A profile becomes present the
+#: moment its rulings are curated, which is what makes it reviewable and
+#: testable; it becomes SUPPORTED only after a full rehearsal has taken
+#: a clinic database of that province from P0 to a passing P7. Between
+#: those two points the manifest is real and the gates still refuse the
+#: host -- and the refusal names the reason rather than pretending the
+#: province is unknown. Promoting one is a one-line change here, made
+#: with the rehearsal that earns it.
+#:
+#: 'bc' was promoted after a full rehearsal on 2026-09-06: a BC OSCAR 19
+#: fixture (oscarinit_bc/oscardata_bc plus the BC clinical rows) imported
+#: into a CARLOS BC schema, P0 through P7, verification PASSED with row
+#: parity clean for 1196 tables and the MSP billing totals matching, then
+#: --cleanup. Four rulings that pass every SQL gate were wrong before
+#: that run and are right because of it (billinglocation, billingvisit,
+#: the three seeded directories, serviceSpecialists' uncountable seed).
+SUPPORTED_PROVINCES = ("on", "bc")
+
+# A tickler with neither a usable update_date nor a service_date (both are
+# nullable/sentinel in O19) gets this fixed creation_date rather than the
+# import time: reproducible across re-imports and visibly "unknown" in the
+# UI. Safely inside the TIMESTAMP range in every session time zone.
+UNKNOWN_DATE_SENTINEL = "1970-01-02 00:00:00"
+
+# --- shared-table class overrides -----------------------------------------
+
+# CARLOS-owned data: the dump's rows are ignored entirely.
+CLASS_REFERENCE = {
+    "icd9", "icd10", "measurementMap", "diagnosticcode", "ichppccode",
+    "billing_on_errorCode", "country_codes",
+    # secPrivilege is the privilege-token vocabulary (x/r/w/u/d/o); the
+    # role matrix itself (secObjPrivilege) and the object catalogue
+    # (secObjectName) are MERGED below — clinic-custom roles, per-provider
+    # overrides and patient-scoped lockouts live there
+    "secPrivilege",
+    "gstControl", "specialistsJavascript", "oscarcommlocations",
+    "OscarJob", "OscarJobType", "OscarCode", "oscar_msg_type",
+    "fax_config",                    # CARLOS fax is SRFax/DB-configured
+    "documentDescriptionTemplate",   # CARLOS-era feature seed
+    "CdsFormOption", "batchEligibility", "CtlRelationships",
+    "specialty", "ContactSpecialty",
+    "config_Immunization",
+}
+
+# Seeded tables whose ids clinic data references: delete seeds, copy clinic
+# rows id-intact. (provider/security are handled by CARLOSDOC_SEED_DELETES +
+# the ordered seed-reconciliation script, not here.)
+REPLACE_SEED = {
+    # the deploy's own audit rows (a verification login) are deleted
+    # before the clinic's id-intact rows land — see
+    # PRISTINE_TOLERATED_TABLES
+    "log",
+    # ctl_document's "natural key" is (module, module_id, document_no) —
+    # three CLINIC-scoped surrogate ids, so merging is meaningless: the
+    # CARLOS seed's three demo rows (documents 4953-4955, two of them
+    # bound to provider 999998) would attach to whatever the clinic's
+    # documents 4953-4955 happen to be, and a clinic row with the same
+    # triple would lose its status to the seed's. Nothing CARLOS-authored
+    # is worth preserving here.
+    "ctl_document",
+    "clinic", "clinic_location", "clinic_nbr", "provider_facility",
+    "issue", "program", "program_provider",
+    "caisi_role", "access_type", "default_role_access", "secRole",
+    "secUserRole", "mygroup", "scheduletemplate", "scheduletemplatecode",
+    "scheduleholiday", "queue", "groups_tbl", "agency", "Facility",
+    "FunctionalCentre", "bed_type", "report", "reportprovider",
+    "lst_admission_status", "lst_discharge_reason", "lst_field_category",
+    "lst_organization", "lst_orgcd", "lst_program_type",
+    "lst_sector", "lst_service_restriction",
+}
+
+# Union on a natural key: CARLOS seeds win, clinic-added rows append.
+# Value = the natural-key column list used by the anti-join.
+CLASS_MERGE = {
+    # form_value (the form's URL/id) is the PK; form_name is a label that
+    # two distinct forms may share
+    "encounterForm": ["form_value"],
+    "billingservice": ["service_code", "billingservice_date"],
+    "ctl_billingservice": ["service_code", "servicetype"],
+    "ctl_billingservice_premium": ["service_code", "servicetype_name"],
+    "ctl_diagcode": ["servicetype", "diagnostic_code"],
+    "ctl_doc_class": ["reportclass", "subclass"],
+    "ctl_doctype": ["module", "doctype"],
+    "ctl_frequency": ["freqcode"],
+    "ctl_specialinstructions": ["description"],
+    "appointment_status": ["status"],
+    "billing_payment_type": ["payment_type"],
+    "billcenter": ["billcenter_code"],
+    "consultationServices": ["serviceDesc"],
+    "encountertemplate": ["encountertemplate_name"],
+    "frm_labreq_preset": ["lab_type", "prop_name"],
+    "criteria_type": ["FIELD_NAME"],
+    "criteria_type_option": ["CRITERIA_TYPE_ID", "OPTION_VALUE"],
+    "HL7HandlerMSHMapping": ["hospital_site", "facility"],
+    "Icd9Synonym": ["dxCode", "patientFriendly"],
+    "app_lookuptable": ["tableid"],
+    "app_lookuptable_fields": ["tableid", "fieldname"],
+    "LookupList": ["name"],
+    "LookupListItem": ["lookupListId", "value"],
+    # consentType.type is the code the application looks a consent up by
+    # (ConsentTypeDao.findConsentType); name is its label. Ruled
+    # `reference` until 2026-09, which filed every clinic's Consent rows
+    # under CARLOS's seed by RAW id -- and the seeds disagree on id 1
+    # (CARLOS default_consent_entry, O19 integrator_patient_consent), so
+    # integrator consents arrived as "Demonstration Consent". The id is a
+    # surrogate; Consent reads it through the id map (FK_REMAP below).
+    "consentType": ["type"],
+    # HRM matches an incoming report on the mnemonic
+    # (HRMCategoryDao.findBySubClassNameMnemonic -- a bare getSingleResult
+    # that throws on a second row per mnemonic), and the two seeds spell
+    # the DEFAULT row differently by NAME, so the mnemonic is the key: the
+    # ten stock rows twin id-for-id and only clinic-added categories move.
+    "HRMCategory": ["subClassNameMnemonic"],
+    "quickList": ["quickListName", "dxResearchCode"],
+    "tickler_category": ["category"],
+    "tickler_text_suggest": ["suggested_text"],
+    "measurementType": ["type", "measuringInstruction"],
+    "validations": ["name"],
+    # seeded by V1.0.10 via statements the seed counter cannot count as
+    # rows; clinics customize measurement groups, so union semantics
+    "measurementGroup": ["name", "typeDisplayName"],
+    "measurementGroupStyle": ["groupName"],
+    # the role matrix: CARLOS's seeded grants win on a (role, object)
+    # collision (deliberate CARLOS policy such as doctor/_eform 'w'), the
+    # clinic's own rows append — custom roles, per-provider overrides
+    # (roleUserGroup = provider_no), patient-scoped lockouts
+    # (_eChart$<demo>, roleUserGroup '_all'), document-queue objects
+    # (_queue.<id>). The (roleUserGroup, objectName) PK is the natural key.
+    # The roles post-step (o19roles) reports every overridden clinic row.
+    "secObjPrivilege": ["roleUserGroup", "objectName"],
+    "secObjectName": ["objectName"],
+    # runtime configuration store (UserProperty): CARLOS defaults stand,
+    # the clinic's own keys append; a surrogate id, so appended rows get
+    # fresh ids (nothing references property.id)
+    "property": ["name", "provider_no"],
+    # CARLOS adds gender codes (U, X) O19 lacks; clinic rows append
+    "lst_gender": ["code"],
+}
+
+# Rows a merge-class table must NOT accept from the dump: privilege objects
+# no CARLOS code checks AND no CARLOS seed grants (verified against both;
+# a dead object only clutters the admin UI's role matrix). The list is
+# explicit and small on purpose: carrying a dead object is clutter, dropping
+# a live one locks a clinic-custom role out — the `_pmm.*` objects the
+# program-management code still checks (and the seed grants) are carried;
+# only two dead ones are listed. `_caisi.documentationWarning ` is spelled with
+# a trailing space in the O19 seed; both spellings are listed. Predicates
+# address the staging alias `s`.
+MERGE_EXCLUDE = {
+    "secObjPrivilege": ("s.`objectName` IN ('_admin.traceability', "
+                        "'_newCasemgmt.clearTempNotes', "
+                        "'_caisi.documentationWarning', "
+                        "'_caisi.documentationWarning ', "
+                        "'_pmm.editProgram.schedules', "
+                        "'_pmm.functionalCentre')"),
+    "secObjectName": ("s.`objectName` IN ('_admin.traceability', "
+                      "'_newCasemgmt.clearTempNotes', "
+                      "'_caisi.documentationWarning', "
+                      "'_caisi.documentationWarning ', "
+                      "'_pmm.editProgram.schedules', "
+                      "'_pmm.functionalCentre')"),
+}
+
+# Seed rows a later Flyway migration DELETEs again (the static tuple count
+# over-counts them): table -> rows to subtract from the P0 floor.
+SEED_COUNT_DELETIONS = {
+    # common/V1.0.9 removes the carlosdoc-scoped _admin.schedule.groupCreate
+    # denial the on_data baseline seeded
+    "secObjPrivilege": 1,
+}
+
+# Rows the CARLOS webapp creates on its FIRST START (ContextStartupListener:
+# the OSCAR program with a membership for the seeded clinician, and the
+# default site). A packaged host has booted before the import runs, so P0
+# tolerates exactly these rows, and the seed script deletes them before the
+# clinic's rows (which reuse the same ids) are copied. Predicates address
+# the target table directly; a subquery names its schema as {schema}
+# (the client runs without a default database).
+# Copy-class tables the P0 pristine sweep tolerates rows in. The sweep
+# exists to catch a deploy that has been USED clinically; `log` is the
+# audit trail, and CARLOS writes a row there for every login attempt —
+# including a failed one — so a sysadmin who logs in once to confirm the
+# deploy works permanently disqualifies the host, with "provision a fresh
+# Flyway schema" as the only offered remedy. Safe to tolerate because
+# every table here is also REPLACE_SEED: the copy deletes the target's
+# rows before writing the clinic's id-intact ones, so nothing collides
+# and nothing of the deploy's own survives. The counts are reported.
+PRISTINE_TOLERATED_TABLES = ["log"]
+
+STARTUP_CREATED_ROWS = [
+    ("site", "name = 'Main Clinic'"),
+    ("providersite", "provider_no = '999998'"),
+    ("program_provider", "provider_no = '999998' AND program_id IN "
+                         "(SELECT id FROM {schema}.program WHERE name = "
+                         "'OSCAR')"),
+    ("program", "name = 'OSCAR'"),
+]
+
+# Custom-role backfill (o19roles): a clinic role gets the CARLOS-era grants
+# of the stock role whose privilege set it resembles most, but only when the
+# resemblance (Jaccard over (object, privilege) pairs) reaches this floor;
+# below it the role is reported for manual review instead of guessed at.
+ROLE_TEMPLATE_MIN_JACCARD = 0.3
+
+# Child tables whose foreign key points at a merge-class parent with a
+# surrogate PK: appended parent rows get fresh ids, so the child reads its
+# key through the parent's o19_archive.<parent>__idmap (see o19etl).
+# child -> {column: parent}. Parents are processed before children.
+FK_REMAP = {
+    "LookupListItem": {"lookupListId": "LookupList"},
+    # flagged by the generator's unruled-FK refusal (see NOT_FK): each names
+    # a parent whose ids the import does not keep
+    "Consent": {"consent_type_id": "consentType"},
+    "HRMDocument": {"hrmCategoryId": "HRMCategory"},
+    "HRMSubClass": {"hrmCategoryId": "HRMCategory"},
+    "criteria_type_option": {"CRITERIA_TYPE_ID": "criteria_type"},
+    "criteria": {"CRITERIA_TYPE_ID": "criteria_type"},
+    "consultationRequests": {"serviceId": "consultationServices"},
+    "serviceSpecialists": {"serviceId": "consultationServices"},
+    "tickler": {"category_id": "tickler_category"},
+    # measurementType.validation is a varchar holding validations.id
+    "measurementType": {"validation": "validations"},
+}
+
+# --- shared tables that must NOT copy ---------------------------------------
+
+# Bearer/OAuth tokens issued by the OSCAR 19 install. Copying them would let
+# every token that was live on the old server authenticate against CARLOS;
+# they are archived for the record and never restored into the live schema
+# (integrations re-authorize after the migration).
+ARCHIVE_SHARED = {"SecurityToken", "ServiceAccessToken", "ServiceRequestToken"}
+
+# Copied verbatim, but they ARE credentials: the ETL report names them under
+# a rotate/verify advisory (OAuth consumer secrets, signing key pairs).
+CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
+
+# The claim header P7 aggregates by fiscal year, per province. It is the
+# money check -- the one verification an operator's accountant will ask
+# about -- and it was hardcoded to the Ontario table, which a BC clinic
+# does not have: the check would have found the table absent on both
+# sides, said so, and passed, so BC billing would have been the one
+# clinical surface no verification covered.
+#
+# Both tables carry `billing_date` (DATE) and `total`, so the aggregate
+# is the same statement with a different name. Ontario's OHIP claim
+# header is billing_on_cheader1; in BC the invoice lives in `billing`
+# (the province-neutral table CARLOS's BillingBCDao reads), with
+# billingmaster holding its service lines.
+BILLING_TOTALS_TABLE = {
+    "on": "billing_on_cheader1",
+    "bc": "billing",
+}
+
+# --- O19-only table dispositions ------------------------------------------
+
+# Rulings that hold in ONE province only. Everything else in this file
+# applies to every profile.
+#
+# Two mechanisms, and both are needed, because a table can need them in
+# opposite directions:
+#
+# * PROVINCE_SCOPED REMOVES a base entry for every other province. It is
+#   for a ruling that INVERTS -- `formBCAR2007` is archived patient data
+#   against the Ontario schema (CARLOS removed the form there) and an
+#   ordinary copy against BC, where it is a live table. Left unscoped the
+#   generator refuses the BC run, correctly, as an inverted bucket.
+#   The Ontario-only entries name tables no BC install has at all
+#   (`billing_on_*`, the OLIS stack, the ONAR forms); scoping them keeps a
+#   BC generation from warning about nine tables that were never its
+#   business.
+#
+# * BY_PROVINCE ADDS rulings where the base has nothing to say.
+#   `frm_labreq_preset` is the case that needs both readings: shared in
+#   Ontario (it is CLASS_MERGE below, and stays there) and O19-only in BC,
+#   where the CARLOS schema has no such table and the clinic's rows must
+#   be preserved.
+PROVINCE_SCOPED = {
+    # live in the CARLOS BC schema; removed from the Ontario one
+    "formBCAR2007": "on",
+    # Ontario billing and lab stacks: no BC install carries them
+    "billing_on_errorCode": "on",
+    "billing_on_cheader1": "on",
+    "billing_on_item": "on",
+    "OLISProviderPreferences": "on",
+    "OLISSystemPreferences": "on",
+    "OLISRequestNomenclature": "on",
+    "OLISResultNomenclature": "on",
+    # Ontario-only encounter forms
+    "formONAR": "on",
+    "formovulation": "on",
+    # The CLASS_MERGE ruling below is Ontario's: CARLOS ships this table
+    # only in the Ontario migration set, so in BC it is O19-only and
+    # BY_PROVINCE archives it instead. Scoped explicitly rather than
+    # left to the classifier's precedence -- a merge ruling that quietly
+    # does not apply is the kind of thing the integrity suite is for.
+    "frm_labreq_preset": "on",
+}
+
+BY_PROVINCE = {
+    "bc": {
+        # The BC MSP locality list: 244 rows in the CARLOS BC seed, the
+        # same 243 rows in OSCAR 19's oscardata_bc.sql plus
+        # 'VICTORIA/GREATER VICTORIA'. Ministry reference data, and
+        # neither product can author it -- the only code touching the
+        # table in OSCAR 19 or CARLOS is one SELECT that fills the
+        # billing form's location dropdown (BillingBCDao.findBillingLo-
+        # cations), with no INSERT or UPDATE anywhere. So there is no
+        # clinic authorship to preserve, and CARLOS's superset wins.
+        #
+        # It cannot be merged: `billinglocation` is '00' on every row,
+        # `region` is 'BC' on every row and 26 descriptions repeat, so
+        # the table has no natural key for an anti-join (and no PRIMARY
+        # KEY either). Left as the default `copy` it would APPEND the
+        # clinic's 243 rows to the seeded 244 and double every entry in
+        # the dropdown -- which is what the BC twin of the manifest
+        # integrity suite caught.
+        "CLASS_REFERENCE": {"billinglocation"},
+        # The MSP visit-type list. Unlike billinglocation this one HAS a
+        # natural key -- (visittype, region) is unique across all 21
+        # CARLOS-seeded rows -- and CARLOS's list is OSCAR 19's twelve
+        # plus the nine MSP has added since (B, J, K, L, N, Q, U, V, W).
+        # So it is the textbook union: CARLOS's codes win, anything the
+        # clinic added appends.
+        "CLASS_MERGE": {"billingvisit": ["visittype", "region"]},
+        # Three directories CARLOS seeds ONLY in the BC migration set
+        # (V1.0.6, INSERT IGNORE without the surrogate column, so the
+        # seeded rows take auto_increment ids 1..N):
+        #
+        #   billingreferral         10676 referring practitioners
+        #   pharmacyInfo              677 pharmacies
+        #   professionalSpecialists 14285 specialists
+        #
+        # All three are copy-class with an AUTO_INCREMENT surrogate PK
+        # that CLINIC data points at -- consultationRequests.specId,
+        # the prescription pharmacy links, the billing referral rows --
+        # so the clinic's ids have to survive the import intact. An
+        # id-intact copy on top of the seed collides twice over: on the
+        # PK, and on the unique index V1.0.6 adds to
+        # billingreferral.referral_no. Deleting the seed first is the
+        # only ruling that keeps both the rows and the references; the
+        # clinic's own directory is the one its records were built
+        # against.
+        "REPLACE_SEED": {
+            "billingreferral", "pharmacyInfo", "professionalSpecialists",
+            # the join table behind ConsultationServices' @JoinTable,
+            # pairing consultationServices.serviceId with
+            # professionalSpecialists.specId. It has to follow
+            # professionalSpecialists: keeping the seeded pairs while
+            # that table's seed is deleted would leave 14209 rows
+            # pointing at specIds that no longer exist.
+            "serviceSpecialists",
+        },
+        # P0 requires a copy-class table to hold EXACTLY the manifest's
+        # seed count, and serviceSpecialists' seed is produced by an
+        # INSERT ... SELECT (V1.0.6 resolves professionalSpecialists.
+        # specType through consultationServices.serviceDesc), which the
+        # generator's literal-VALUES count cannot see. The manifest says
+        # 0, a stock BC deploy holds 14209, and P0 refused every BC host
+        # with a hard blocker that has no --accept -- found by the first
+        # BC rehearsal. Tolerated here for the same reason `log` is: a
+        # row count the deploy produces and no static count can predict.
+        "PRISTINE_TOLERATED_TABLES": {"serviceSpecialists"},
+        # Requirement B puts every dropped column on the live table as
+        # `import_archived_<col>`. formRourke2009 is the one table where
+        # that is physically impossible: OSCAR 19's BC Rourke form
+        # (rourke2009_from_oscarinit_bc.sql) carries 288 columns CARLOS's
+        # does not, on a table CARLOS already defines with 1227 -- and a
+        # MyISAM table definition tops out well before 1515 columns
+        # ("ERROR 1117: Table definition is too large", measured on
+        # MariaDB 10.11, which took 169 of the 288 before refusing).
+        #
+        # So this table's dropped columns are preserved in o19_archive
+        # ONLY: the `<table>__dropped` shadow capture holds every row
+        # whose value is not the column default, with the row's
+        # identifying columns beside it, and the archive CSV export is
+        # rendered from it. A row where all 288 held their default
+        # carries nothing to preserve. Nothing is lost --
+        # what is lost is the convenience of reading those values beside
+        # the live row, and the import says so in its report rather than
+        # leaving the operator to notice the twins are missing.
+        #
+        # It is a RULING, not a fallback: the ETL probes the server
+        # before P4 and refuses any OTHER table whose twins will not fit,
+        # rather than quietly demoting it to shadow-only.
+        "ARCHIVE_TWINS_EXEMPT": {"formRourke2009"},
+        # CARLOS ships these only in the Ontario migration set while
+        # OSCAR 19 defines them in its COMMON schema, so a BC clinic's
+        # dump carries them and the CARLOS BC schema has no home for
+        # them. Each carries `demographic_no`, so the preflight names
+        # them as patient data the clinic signs off before they become
+        # archive-only.
+        "ARCHIVE_PATIENT": {
+            "batch_billing", "formLabReq07", "formLabReq10",
+            "formPositionHazard",
+        },
+        # same origin, no `demographic_no`: `billing_on_premium` is
+        # provider RA payment rows, the other two are configuration.
+        # Preserved, never dropped -- a BC clinic that once ran Ontario
+        # billing still has the rows.
+        "ARCHIVE_OTHER": {
+            "billing_on_premium", "ctl_billingtype", "frm_labreq_preset",
+        },
+        "NOT_FK": {
+            # `billingservice_no` in `billingservice` is an int
+            # auto_increment surrogate; this column is VARCHAR(10) (OSCAR
+            # 19 ALTERed it in oscarinit_bc.sql, keeping the old name)
+            # and holds the MSP SERVICE CODE. oscardata_bc.sql shows it:
+            # `VALUES (1,'00112',0)`, `(2,'01200',0)` -- five-digit MSP
+            # codes matching `billingservice.service_code`, not any row's
+            # billingservice_no. Remapping it through the id map would
+            # rewrite a service code into an unrelated row id.
+            ("billing_msp_servicecode_times", "billingservice_no"):
+                "the MSP service code (VARCHAR(10), e.g. '00112'), "
+                "matching billingservice.service_code, not the surrogate "
+                "billingservice_no",
+            # same shape: VARCHAR(10) beside `billingServiceTrayNo
+            # VARCHAR(10)`, a code pair rather than a key into a
+            # renumbered parent
+            ("billing_trayfees", "billingServiceNo"):
+                "the MSP service code (VARCHAR(10)) paired with "
+                "billingServiceTrayNo, not the surrogate "
+                "billingservice_no",
+        },
+    },
+}
+
+ARCHIVE_PATIENT = {
+    # deprecated encounter forms (patient-entered)
+    "formAR", "formAdf", "formBCAR2007", "formIntakeHx", "formONAR",
+    "formONAREnhanced", "formONAREnhancedRecord", "formONAREnhancedRecordExt1",
+    "formONAREnhancedRecordExt2", "formType2Diabetes", "form_hsfo_visit",
+    "formfollowup", "formovulation",
+    # HSFO study
+    "hsfo_patient",
+    # generic intake answers
+    "intake", "intake_answer", "intake_answer_element",
+    # OCAN assessments
+    "OcanClientForm", "OcanClientFormData", "OcanStaffForm",
+    "OcanStaffFormData", "OcanSubmissionLog",
+    # eyeform clinical records
+    "Eyeform", "EyeformConsultationReport", "EyeformFollowUp",
+    "EyeformOcularProcedure", "EyeformSpecsHistory", "EyeformTestBook",
+    # drug dispensing records
+    "DrugDispensing", "DrugDispensingMapping",
+    # CAISI residential care (patient-linked)
+    "bed_demographic", "bed_demographic_historical", "bed_demographic_status",
+    "room_demographic", "functionalCentreAdmission", "complaint", "incident",
+    "oncall_questionnaire",
+    # PHR / patient-shared documents and consents
+    "phr_documents", "phr_document_ext", "phr_actions", "indivoDocs",
+    "PHRVerification",
+    # Integrator patient consents
+    "IntegratorConsent", "IntegratorConsentComplexExitInterview",
+    "IntegratorConsentShareDataMap",
+    # sharing center patient-facing records
+    "sharing_patient_document", "sharing_patient_network",
+    "sharing_patient_policy_consent", "sharing_document_export",
+    "sharing_exported_doc", "sharing_mapping_edoc", "sharing_mapping_eform",
+    "sharing_mapping_misc",
+    # chart annotations, prevention-billing links, messages, site links
+    "oscar_annotations", "preventionsBilling", "resident_oscarMsg",
+    "demographicSite",
+    # legacy twin of the surviving GroupNoteLink (note-to-group linkage)
+    "group_note_link",
+}
+
+ARCHIVE_OTHER = {
+    # form/intake definitions and options (clinic-authored config)
+    "intake_answer_validation", "intake_node", "intake_node_js",
+    "intake_node_label", "intake_node_template", "intake_node_type",
+    "OcanConnexOption", "OcanFormOption",
+    "EyeformMacro", "EyeformProcedureBook", "eyeform_macro_billing",
+    "eyeform_macro_def",
+    "DrugProductTemplate", "ProductLocation",
+    "hsfo_system",
+    # CAISI facility config
+    "bed_check_time", "room_bed", "room_bed_historical", "room_type",
+    "onCallClinicDates", "caisi_form_question", "doc_category", "doc_manager",
+    "MyGroupProgram", "ProgramContactType", "ProgramEncounterType",
+    "ContactType", "EncounterType", "app_module", "site_role_mpg", "secSite",
+    # report-runner (clinic-authored report templates)
+    "report_template", "report_template_criteria", "report_template_org",
+    "report_date_sp", "report_doctext", "report_document", "report_filter",
+    "report_lk_reportgroup", "report_option", "report_qgviewfield",
+    "report_qgviewsummary", "report_role",
+    # CAISI lookup lists (possibly clinic-edited)
+    "lst_aboriginal", "lst_actions_content", "lst_bed_type", "lst_casestatus",
+    "lst_complaint_method", "lst_complaint_outcome", "lst_complaint_section",
+    "lst_complaint_source", "lst_complaint_subsection",
+    "lst_componentofservice", "lst_country", "lst_cursleeparrangement",
+    "lst_documentcategory", "lst_documenttype", "lst_encounter_type",
+    "lst_family_relationship", "lst_fieldtype", "lst_incident_clientissues",
+    "lst_incident_disposition", "lst_incident_nature", "lst_incident_others",
+    "lst_intake_reject_reason", "lst_language", "lst_lengthofhomeless",
+    "lst_livedbefore", "lst_message_type", "lst_operator", "lst_province",
+    "lst_reason_notsign", "lst_reasonforhomeless", "lst_reasonforservice",
+    "lst_reasonnoadmit", "lst_referredby", "lst_referredto", "lst_room_type",
+    "lst_shelter", "lst_shelter_standards", "lst_sourceincome",
+    "lst_statusincanada", "lst_title", "lst_transportation_type",
+    # transmission/report logs of removed integrations
+    "BornTransmissionLog", "ORNCkdScreeningReportLog",
+    "ORNPreImplementationReportLog", "SentToPHRTracking",
+    # OLIS preferences (module removed — advisory)
+    "OLISProviderPreferences", "OLISSystemPreferences",
+    # misc small clinic config / survey remnants
+    "survey_test_data", "survey_test_instance", "uploadfile_from",
+    # legacy twin of the surviving `recyclebin` (deleted-item store)
+    "recycle_bin",
+}
+
+DROP = {
+    # Integrator sync machinery (no clinical content)
+    "IntegratorControl", "IntegratorProgress", "IntegratorProgressItem",
+    "RemoteIntegratedDataCopy",
+    # sharing center infrastructure
+    "sharing_acl_definition", "sharing_actor", "sharing_affinity_domain",
+    "sharing_clinic_info", "sharing_code_mapping", "sharing_code_value",
+    "sharing_infrastructure", "sharing_mapping_code", "sharing_mapping_site",
+    "sharing_policy_definition", "sharing_value_set",
+    # cookie-revolver auth infrastructure
+    "cr_cert", "cr_iprange", "cr_machine", "cr_policy",
+    "cr_securityquestion", "cr_user", "cr_userrole",
+    # reloadable ministry reference of removed modules
+    "BORNPathwayMapping", "OLISRequestNomenclature", "OLISResultNomenclature",
+    "mdsZCL", "mdsZCT",
+    # temp tables
+    "caisi_form_instance_tmpsave",
+}
+
+# --- column-level curation ------------------------------------------------
+
+# Dropped columns whose non-default usage is a preflight B3 blocker (the
+# clinic actively used a workflow CARLOS removed). All other dropped columns
+# still get shadow-table capture, just without blocking.
+B3_COLUMNS = {
+    ("drugs", "dispensingUnits"),
+    ("document", "fileSignature"),
+}
+# (drugs.outside_provider survives in CARLOS and copies; the generator
+# refuses a B3 entry that does not name a dropped column, so a stale
+# entry cannot linger silently.)
+# (demographic.preferred_lang is NOT dropped: O19's own update-2009-02-23
+# renamed it to official_lang, which is shared and copies. A pre-2009
+# unpatched database surfaces it through preflight's unknown-column flow.)
+
+# --------------------------------------------------------------------------
+# Renames, and the pairs that only look like renames
+#
+# The generator matches O19 columns to CARLOS columns by NAME, case-folded.
+# That is silent when it is wrong: an unmatched O19 column falls into
+# `dropped` (captured, but only as a shadow) while the unmatched CARLOS
+# column takes its default, and each half reads as deliberate on its own.
+# So the generator refuses to emit a manifest for any table that has BOTH
+# an unmatched O19 column and an unfilled CARLOS column until a human has
+# ruled on it here -- as a rename, or explicitly as a coincidence.
+#
+# RENAMES is target -> source, the direction `source_expr` reads.
+#
+# Empty, and audited rather than assumed. `check-entity-names.py` compares
+# the JPA @Column mappings in both trees -- the code's own statement of
+# which field is which column, which catches a rename even where the DDL
+# comparison cannot (both sides holding a column of the matching name).
+# Against oscaremr/oscar a7900d56 it reports no mismatches across the 255
+# entities the two trees share (1,759 field pairs); the only difference is
+# CARLOS quoting the reserved word `value` in BillingService, which is
+# Hibernate quoting and not a rename.
+#
+# Read the tool's coverage line with the verdict, not instead of it: an
+# @Entity that maps every field implicitly declares no @Column, so it is
+# invisible to the comparison, and neither @JoinColumn nor the O19
+# .hbm.xml mappings are read. "No mismatches" is a statement about what
+# was compared. Re-run it when curating this file.
+RENAMES = {}
+
+# Ruled coincidental: (table, o19_column) -> (why, the CARLOS columns the
+# ruling covers). Keyed by the individual column rather than the table so
+# that a NEW unmatched O19 column in an already-ruled table re-triggers the
+# refusal instead of inheriting an old blanket ruling.
+#
+# The second half of the value is why the ruling names the CARLOS columns
+# machine-checkably and not only in prose. A ruling is a statement about a
+# PAIR -- "this dropped O19 column is not the counterpart of THOSE unwritten
+# CARLOS columns" -- and CARLOS is the side under active Flyway development.
+# Keyed by the O19 column alone, a later migration that adds a CARLOS column
+# to an already-ruled table would inherit the old ruling and the new column
+# would face the drop unexamined: exactly the rename this namespace exists
+# to catch, on the side more likely to move. The generator refuses unless
+# the recorded columns are still the unwritten ones, so any change on either
+# side re-opens the ruling.
+#: named once: all seven ProviderPreference rulings face the same two
+#: CARLOS additions, and a list repeated seven times is a list that drifts
+_PROVIDER_PREFERENCE_ADDITIONS = ("defaultBillingLocation", "defaultSliCode")
+
+NOT_RENAMES = {
+    # O19 re-created this table in 2008 (caisi/updates/
+    # patch-2008-12-06-2-quatromerge.sql) keyed by `code varchar(3)`;
+    # CARLOS keys it by an AUTO_INCREMENT `id`. That IS a re-key, but it
+    # strands nothing: no Java, JSP or XML in the O19 tree reads
+    # lst_discharge_reason at all (only two 2008 report patches mention
+    # it), and admission.radioDischargeReason -- the field that looks
+    # like a foreign key into it -- stores a DischargeReason enum
+    # ORDINAL, not a code (PMmodule/ClientManager/discharge.jsp builds
+    # the select from DischargeReason.<VALUE>.ordinal()).
+    ("lst_discharge_reason", "code"): (
+        "O19 keys on code, CARLOS on a surrogate id; nothing reads the "
+        "table and radioDischargeReason is an enum ordinal, not an FK",
+        ("id",)),
+    ("lst_discharge_reason", "lastUpdateDate"): (
+        "audit column CARLOS does not carry on this lookup table",
+        ("id",)),
+    ("lst_discharge_reason", "lastUpdateUser"): (
+        "audit column CARLOS does not carry on this lookup table",
+        ("id",)),
+
+    # CARLOS additions, not counterparts: `stable` is a NOT NULL DEFAULT 1
+    # flag and `errorLog` a tinyblob, neither of which O19 has.
+    ("eform", "disableUpdate"): (
+        "removed O19 flag; CARLOS's stable/errorLog are additions",
+        ("stable", "errorLog")),
+
+    # Curated B3 drops (see B3_COLUMNS above) sitting beside unrelated
+    # CARLOS additions -- the co-occurrence is coincidence, and the drop
+    # itself was ruled on when it was added to B3_COLUMNS.
+    ("document", "fileSignature"): (
+        "curated B3 drop; CARLOS's abnormal/report_media/sent_date_time "
+        "are additions",
+        ("abnormal", "report_media", "sent_date_time")),
+    ("drugs", "dispensingUnits"): (
+        "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
+        "priorRxProtocol/pharmacyId are additions",
+        ("demographic_contact_id", "protocol", "priorRxProtocol",
+         "pharmacyId")),
+
+    # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
+    # defaultSliCode are unrelated additions.
+    ("ProviderPreference", "eRxEnabled"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRx_SSO_URL"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxUsername"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxPassword"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxFacility"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "eRxTrainingMode"): (
+        "removed eRx module", _PROVIDER_PREFERENCE_ADDITIONS),
+    ("ProviderPreference", "encryptedMyOscarPassword"): (
+        "removed MyOscar integration", _PROVIDER_PREFERENCE_ADDITIONS),
+
+    # CARLOS's oneId*/mfa* columns are the modern auth additions; O19's
+    # storageVersion belonged to a storage scheme CARLOS does not use.
+    ("security", "storageVersion"): (
+        "O19 storage-scheme marker; CARLOS's oneId*/usingMfa/mfaSecret "
+        "are additions",
+        ("oneIdKey", "oneIdEmail", "delegateOneIdEmail", "usingMfa",
+         "mfaSecret")),
+}
+
+# The same question one level up: (o19_table, carlos_table) -> why the pair
+# is NOT a table rename. A renamed table classifies as O19-only `archive`
+# while its CARLOS twin keeps its Flyway seed, and nothing says so; the
+# generator flags any O19-only/CARLOS-only pair whose case-folded column
+# names agree by Jaccard >= 0.70 and refuses to emit until it is ruled.
+# Both sides must carry at least 3 columns to be considered at all: a
+# one- or two-column audit table is Jaccard-similar to half the schema by
+# accident, so flagging those would produce noise a curator learns to
+# wave through -- which is worse than not flagging them.
+#
+# Deliberately a SEPARATE namespace from NOT_RENAMES: the column validator
+# reads element 2 of every NOT_RENAMES key as a dropped column name, so a
+# table pair filed there is rejected as a stale entry and the documented
+# escape hatch cannot be used.
+#
+# Empty against oscaremr/oscar a7900d56 -- no pair reaches the threshold.
+# That is the intended steady state: the check costs nothing until the day
+# a rename lands.
+NOT_RENAMED_TABLES = {}
+
+# Ruled NOT a foreign key into a renumbered parent: (table, column) -> why.
+# The generator flags any copied column named <parent>_id / <parent>Id /
+# <parent>_no (case- and underscore-folded, anchored at the end of the
+# name) whose parent is reference-class (the clinic's ids never land) or
+# merge-class with a surrogate id (appended rows are renumbered) and has
+# no FK_REMAP entry. Copied raw, such an id points at whichever CARLOS row
+# happens to hold it -- consentType's two seeds disagree on id 1, so every
+# clinic's integrator consent arrived filed as the demonstration consent,
+# and P7 passed because the value was copied faithfully.
+#
+# Names, not semantics: a key that does not follow the convention
+# (tickler.category_id into tickler_category, consultationRequests.
+# serviceId) is invisible to it and is ruled in FK_REMAP by hand. A reason
+# here for a reference-class parent is a claim that BOTH seeds agree on
+# EVERY id; state which seeds were compared.
+#
+# Empty against oscaremr/oscar a7900d56 -- every flagged column is ruled
+# in FK_REMAP. That is the intended steady state for the base rulings;
+# the two BC entries live in BY_PROVINCE["bc"], because a ruling naming a
+# table the profile being generated does not have is refused as stale.
+NOT_FK = {}
+
+# Big tables copied in PK windows (single-column integer PK verified by the
+# generator at emission time).
+CHUNK_TABLES = {
+    "hl7TextMessage", "document", "casemgmt_note", "eform_data",
+    "measurements", "measurementsExt", "casemgmt_note_ext",
+    "appointment", "log", "billing_on_cheader1", "billing_on_item",
+    "billing_on_transaction", "dxresearch", "hl7TextInfo",
+}
+
+# Narrative text columns sampled for latin1/utf8 double-encoding (§4.4).
+CHARSET_SCAN = {
+    "demographic": ["last_name", "first_name", "address", "city"],
+    "casemgmt_note": ["note"],
+    "drugs": ["special", "comment"],
+    "document": ["docdesc"],
+    "appointment": ["reason", "notes", "name"],
+    "tickler": ["message"],
+    "messagetbl": ["thesubject", "themessage"],
+    "consultationRequests": ["reason", "clinicalInfo"],
+    "demographiccust": ["content"],
+}
+
+# Rows Flyway seeds for the default clinician; deleted (in order) after the
+# break-glass admin exists and before providers/security copy. WHERE clauses
+# are fragments the ETL wraps in DELETE statements.
+# Tables the import cannot run without: the roles post-step and the ETL
+# pre-checks both refuse a dump that lacks one. Emitted into the manifest
+# AND into the preflight's generated block so the assessment refuses the
+# same dump the import would, instead of saying "go" and failing at P4
+# after the snapshot and the staging restore.
+REQUIRED_TABLES = [
+    "Facility", "clinic", "provider", "security", "secRole", "secUserRole",
+    "secObjPrivilege", "secObjectName", "program", "program_provider",
+    "provider_facility", "preventions", "eform", "property",
+]
+
+CARLOSDOC_SEED_DELETES = [
+    ("secUserRole", "provider_no = '999998'"),
+    ("ProviderPreference", "providerNo = '999998'"),
+    ("providersite", "provider_no = '999998'"),
+    # two CARLOS seed rows are provider-SCOPED to the seeded clinician
+    # (default_ref_prac, consultation_letterheadname_default). property
+    # merges on (name, provider_no), so they survive the import and
+    # re-bind to whichever clinic provider ends up holding 999998 —
+    # giving a real clinician a default referring practitioner and a
+    # letterhead they never set, or silently winning over the ones they
+    # did. They belong with the rest of the seeded clinician's rows.
+    ("property", "provider_no = '999998'"),
+    ("security", "user_name = 'carlosdoc'"),
+    ("provider", "provider_no = '999998'"),
+]
+
+# CARLOS-added NOT NULL columns without defaults: the value the import
+# synthesizes for them (SQL over the staging row alias `s`). The ETL
+# pre-check aborts naming any such column that lacks an entry here.
+VALUE_EXPRS = {
+    # uid groups pharmacy record revisions in CARLOS; each imported O19
+    # pharmacy heads its own group.
+    "pharmacyInfo": {"uid": "s.`recordID`"},
+    # document.receivedDate is nullable with no default: it would simply
+    # be NULL for every imported row; the O19 observation date is the
+    # honest value
+    "document": {"receivedDate": "s.`observationdate`"},
+    # O19's update_date default (0001-01-01) and MySQL zero dates count
+    # as absent; the target is a NOT NULL TIMESTAMP, so no NULLIF is
+    # added by the sanitizer and the zero dates must be caught here
+    "tickler": {"creation_date": "COALESCE(NULLIF(NULLIF(s.`update_date`, "
+                                 "'0001-01-01 00:00:00'), "
+                                 "'0000-00-00 00:00:00'), "
+                                 "NULLIF(NULLIF(s.`service_date`, "
+                                 "'0001-01-01 00:00:00'), "
+                                 "'0000-00-00 00:00:00'), "
+                                 "'" + UNKNOWN_DATE_SENTINEL + "')"},
+    # property merges on (name, provider_no); O19 writes '' where CARLOS
+    # writes NULL for a global key, so both spell the key the same way
+    "property": {"provider_no": "NULLIF(s.`provider_no`, '')"},
+}
+
+SEED_PROVIDER_NO = "999998"
+SEED_USER_NAME = "carlosdoc"
+
+# Property prefixes of removed modules are DERIVED from the dropped-flag
+# rules in overrides_props.PREFIX_RULES and embedded into
+# o19_preflight.py (ldap. escalates to blocker B5 there). The same list
+# prunes the clinic's `property` TABLE, so a hand-maintained copy beside
+# the file rules drifts into a contradiction: it had fallen six prefixes
+# behind, and hsfo_* keys were dropped from oscar.properties while the
+# matching property rows survived the import and CARLOS read them back.

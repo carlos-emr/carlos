@@ -82,6 +82,65 @@ case "$1" in
         # is a liability. The account it describes still exists in the retained
         # database; a reinstall issues a fresh one.
         rm -f "${CONF_DIR}/initial-admin.txt"
+        # Same rule for the OSCAR 19 import's break-glass credential note
+        # and the derived properties fragment, which carries the clinic's
+        # carried secrets (fax, OAuth, mail) in clear. Both are 0600 under
+        # a 0700 directory, which is no protection at all once the disk
+        # leaves the building. The rest of the workspace is a record of
+        # the import and is KEPT — it is named in the notice below.
+        #
+        # The clinic's OWN oscar.properties goes too, and it is why the
+        # depth is 2: a run abandoned before `--cleanup` (a P2 no-go, or
+        # a failure the operator gave up on — and `--cleanup` REFUSES a
+        # mid-import workspace) leaves the extracted bundle in place,
+        # and bundle/oscar.properties is the superset the derived
+        # fragment was distilled from. Shredding the distillate while
+        # its source sat one directory below was a hole this block's own
+        # rationale did not survive.
+        # A postrm must not fail (dpkg would leave the package half-purged
+        # and the operator unable to proceed), so an unavailable or failing
+        # `shred` falls back to an ordinary unlink. That fallback leaves the
+        # bytes recoverable, so it is SAID rather than passed off as a
+        # shred: the notice below is written from this flag.
+        # `set -e` is active: the AND-OR list below takes the status of
+        # whichever side ran last, so an undeletable file (immutable
+        # attribute, read-only or full filesystem) in the FALLBACK would
+        # abort the whole postrm and leave the package half-purged --
+        # skipping the warning, the notice and the nginx reload. The
+        # trailing `|| O19_DELETE_FAILED=1` both swallows that status and
+        # records it, so the failure is reported rather than fatal.
+        O19_SHREDDED=1
+        O19_DELETE_FAILED=0
+        if [ -d "${STATE}/o19-import" ]; then
+            find "${STATE}/o19-import" -maxdepth 2 -type f \
+                \( -name 'admin-credentials.txt*' \
+                   -o -name 'o19-derived-carlos.properties*' \
+                   -o -name 'oscar.properties' \) \
+                -exec shred -u {} + 2>/dev/null \
+              || {
+                O19_SHREDDED=0
+                find "${STATE}/o19-import" -maxdepth 2 -type f \
+                   \( -name 'admin-credentials.txt*' \
+                      -o -name 'o19-derived-carlos.properties*' \
+                      -o -name 'oscar.properties' \) -delete
+              } || O19_DELETE_FAILED=1
+        fi
+        if [ "$O19_DELETE_FAILED" = 1 ]; then
+            echo "carlos-emr: WARNING: the OSCAR 19 credential note, the" >&2
+            echo "carlos-emr: properties fragment and/or the clinic's own" >&2
+            echo "carlos-emr: oscar.properties could NOT be removed from" >&2
+            echo "carlos-emr:   ${STATE}/o19-import" >&2
+            echo "carlos-emr: They hold a plaintext administrator password" >&2
+            echo "carlos-emr: and the clinic's carried secrets. Remove them" >&2
+            echo "carlos-emr: by hand (shred -u) before this disk leaves." >&2
+        elif [ "$O19_SHREDDED" = 0 ]; then
+            echo "carlos-emr: WARNING: shred failed or is unavailable; the" >&2
+            echo "carlos-emr: OSCAR 19 credential note, properties fragment" >&2
+            echo "carlos-emr: and oscar.properties were DELETED, not" >&2
+            echo "carlos-emr: overwritten. Their" >&2
+            echo "carlos-emr: contents remain recoverable from this disk;" >&2
+            echo "carlos-emr: wipe the filesystem before the disk leaves." >&2
+        fi
 
         # Tomcat scratch, the WAF spool and the ACME webroot: all rebuilt on
         # the next install, none of it a record of anything.
@@ -89,14 +148,106 @@ case "$1" in
         # Heap dumps are PHI, so they are NOT removed here — see the notice
         # below.
 
-        cat >&2 <<'NOTICE'
-carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED.
+        # `carlos-ctl destroy-data` may have been run BEFORE purge, in
+        # which case the clinical databases are already gone. A notice
+        # that promises a retained `oscar` — and, below, tells the
+        # operator to sign in with a clinic provider login that went with
+        # it — is then actively wrong at the moment they are deciding what
+        # this host still holds. Probe, but NEVER fail the postrm on it:
+        # mariadb may be stopped or its client already removed, and in
+        # that case the notice asserts nothing either way.
+        # The schema name is CONFIGURABLE (CARLOS_DB_NAME, default oscar).
+        # Probing a hardcoded `oscar` on a clinic that set its own name
+        # would report the clinical database missing when it is right
+        # there — and then say it had been destroyed.
+        # carlos-ctl's env_get is the canonical reader and this must not
+        # disagree with it, or the notice reports on a schema the tool
+        # never created. Its rule is `^KEY=` -- no leading whitespace, no
+        # space around `=` -- LAST assignment wins, surrounding double
+        # quotes stripped -- ALL of them, because Python's str.strip('"') is
+        # repeated, so `CARLOS_DB_NAME=""foo""` is `foo` to carlos-ctl and
+        # a single-pass strip here would leave `"foo"`, fail the character
+        # class below and probe `oscar` instead. Two earlier divergences
+        # each inverted the
+        # notice: allowing leading whitespace made this read a name
+        # carlos-ctl ignored, and requiring a NON-empty value made a
+        # later `CARLOS_DB_NAME=` (which resets the name to the default)
+        # fall through to a stale earlier assignment. So match the empty
+        # value too and let it reach `tail -1`.
+        O19_DBNAME=""
+        if [ -r /etc/carlos-emr/carlos-emr.env ]; then
+            O19_DBNAME=$(sed -n 's/^CARLOS_DB_NAME=\(.*\)$/\1/p' \
+                /etc/carlos-emr/carlos-emr.env | tail -1 \
+                | sed -e :s -e 's/^"//' -e 's/"$//' -e ts)
+        fi
+        # config.py restricts the name to this class. Anything else is not
+        # something this probe can interpolate into SQL, so fall back
+        # rather than guess -- as does an empty or absent assignment.
+        case "${O19_DBNAME}" in
+            "" | *[!A-Za-z0-9_]* ) O19_DBNAME=oscar ;;
+        esac
+        O19_DB=unknown
+        if command -v mariadb >/dev/null 2>&1; then
+            O19_SCHEMA=""
+            O19_RC=0
+            O19_SCHEMA=$(mariadb --protocol=socket --user=root -N -B -e \
+                "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA \
+                 WHERE SCHEMA_NAME = '${O19_DBNAME}'" 2>/dev/null) || O19_RC=$?
+            if [ "$O19_RC" -ne 0 ]; then
+                O19_DB=unknown
+            elif [ -n "$O19_SCHEMA" ]; then
+                O19_DB=present
+            else
+                O19_DB=absent
+            fi
+        fi
 
-  kept: the `oscar` and `drugref2` databases and their accounts
-  kept: /var/lib/carlos-emr/OscarDocument   (patient documents)
-  kept: /var/lib/carlos-emr/heapdumps        (JVM heap dumps — treat as PHI)
+        cat >&2 <<'NOTICE'
+carlos-emr: purge complete. THIS PURGE REMOVED NOTHING BELONGING TO THE
+CLINICAL RECORD.
+NOTICE
+        case "$O19_DB" in
+          present) echo "
+  kept: the \`${O19_DBNAME}\` and \`drugref2\` databases and their accounts" >&2 ;;
+          absent)  echo "
+  gone: no \`${O19_DBNAME}\` schema is visible on this host. This purge did not
+        remove it -- it was already absent, whether destroyed earlier
+        (carlos-ctl destroy-data), never provisioned, or living somewhere this
+        check cannot see. Confirm before treating the clinical record as
+        lost." >&2 ;;
+          *)       echo "
+  kept: the \`${O19_DBNAME}\` and \`drugref2\` databases and their accounts, if
+        they were still present -- this purge did not touch them (the
+        database could not be reached to confirm)" >&2 ;;
+        esac
+        # `carlos-ctl destroy-data` empties OscarDocument, heapdumps and the
+        # tomcat/modsec log trees and recreates the bare skeleton, so after
+        # that path these paths still EXIST while holding nothing. Reporting
+        # them as "kept: patient documents" would be the same false comfort
+        # the database line used to give. Say what is actually there.
+        # -type f, not "any entry": `carlos-ctl destroy-data` rmtrees these
+        # paths and then RECREATES the empty directory skeleton, because
+        # the still-installed services need it (with modsec/ gone every
+        # later `nginx -t`, and so every reload and cert operation,
+        # fails). Counting those recreated empty subdirectories as
+        # content made the notice say "kept: access and WAF audit logs"
+        # about logs that had just been destroyed -- the same false
+        # comfort this helper was written to remove.
+        has_content() {
+            [ -d "$1" ] && [ -n "$(find "$1" -mindepth 1 -type f -print -quit 2>/dev/null)" ]
+        }
+        kept_or_empty() { # path, description
+            if has_content "$1"; then
+                echo "  kept: $1  ($2)" >&2
+            else
+                echo "  empty: $1  (nothing left to keep)" >&2
+            fi
+        }
+        kept_or_empty "${STATE}/OscarDocument" "patient documents"
+        kept_or_empty "${STATE}/heapdumps" "JVM heap dumps — treat as PHI"
+        kept_or_empty /var/log/carlos-emr "access and WAF audit logs"
+        cat >&2 <<'NOTICE'
   kept: /var/backups/carlos-emr              (backups and the restic repository)
-  kept: /var/log/carlos-emr                  (access and WAF audit logs)
   kept: /etc/carlos-emr/carlos.properties    (holds encryption.util.secret.key —
         without it, credentials stored in the retained database cannot be
         decrypted, so deleting it destroys data even though it is a config file)
@@ -105,13 +256,65 @@ carlos-emr: purge complete. NOTHING BELONGING TO THE CLINICAL RECORD WAS REMOVED
   kept: the `carlos` and `carlos-backup` system accounts, because files on this
         host are still owned by them and a reused uid would silently inherit
         patient documents
+NOTICE
+        # Only where an import actually left a workspace. This line used to
+        # sit in the unconditional heredoc above, so a host that never ran
+        # import-o19 was told a directory it does not have was "kept" --
+        # the same false comfort kept_or_empty exists to remove.
+        if has_content "${STATE}/o19-import"; then
+            cat >&2 <<'NOTICE'
+  kept: /var/lib/carlos-emr/o19-import       (an OSCAR 19 import's ledgers,
+        reports and the CSV export of its archive-only clinical records — the
+        break-glass credential note and the derived properties fragment were
+        removed (shredded unless a warning above says otherwise), the rest is
+        the record of what the migration did)
+NOTICE
+        fi
+        # only meaningful where an import actually ran, and only a live
+        # account where the database survived it
+        if [ -d "${STATE}/o19-import" ] && [ "$O19_DB" = present ]; then
+            cat >&2 <<NOTICE
+  NOTE: the import's break-glass administrator account still EXISTS in the
+        retained \`${O19_DBNAME}\` database, and the note holding its password
+        is now gone. The clinic's own provider logins came across with the
+        import and are unaffected -- sign in with one of those.
+        \`carlos-ctl bootstrap-admin\` will NOT help here: it only resets the
+        seeded \`carlosdoc\` credential, and the import deletes that account.
+        With no usable login left at all, the account has to be repaired by
+        hand in the retained \`security\` table: CARLOS authenticates on BOTH a
+        \`password\` (a \`{bcrypt}\`-prefixed hash) and a numeric \`pin\`, so
+        setting one without the other still leaves no way in. Clear
+        \`forcePasswordReset\` at the same time, or set a password the
+        operator is willing to be prompted to change on first login.
+NOTICE
+        elif [ -d "${STATE}/o19-import" ] && [ "$O19_DB" = absent ]; then
+            cat >&2 <<'NOTICE'
+  NOTE: an OSCAR 19 import ran on this host and created a break-glass
+        administrator account. The note holding its password has now been
+        removed. No clinical schema is visible here, so that account is
+        probably gone with it -- but if the database turns up (see above),
+        the account is still in its `security` table and needs both a
+        `{bcrypt}` password and a numeric `pin` set by hand to be usable.
+NOTICE
+        fi
+
+        # unquoted: the schema name below is the configured one, not a
+        # literal `oscar`. Nothing else in this block expands.
+        cat >&2 <<NOTICE
 
 To destroy the data deliberately, reinstall the package and run
   carlos-ctl destroy-data --confirm <server-name>
 or do it by hand:
-  sudo mariadb -e "DROP DATABASE oscar; DROP DATABASE drugref2;"
+  sudo mariadb -e "DROP DATABASE ${O19_DBNAME}; DROP DATABASE drugref2;"
+  sudo mariadb -e "DROP DATABASE IF EXISTS o19_archive;
+                   DROP DATABASE IF EXISTS o19_import;"
+    (only on a host that ran an OSCAR 19 import: o19_archive holds the
+     archive-only clinical records and o19_import the clinic's whole
+     source database. \`carlos-ctl destroy-data\` drops both for you)
   sudo shred -u /etc/carlos-emr/carlos.properties /etc/carlos-emr/backup.env
   sudo rm -rf /var/lib/carlos-emr /var/backups/carlos-emr /var/log/carlos-emr
+    (/var/lib/carlos-emr includes the o19-import workspace and its CSV export
+     of the archive-only records — hand those to the clinic first)
 NOTICE
 
         if [ -d /run/systemd/system ] && nginx -t >/dev/null 2>&1; then

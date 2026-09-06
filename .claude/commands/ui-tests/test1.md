@@ -46,7 +46,7 @@ Automated execution of Test 1 (login + patient demographics) using Playwright MC
 
 Before starting, verify application and database are ready by running these checks:
 
-1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
+1. **Application Check**: Run `curl -sI http://localhost:8080/carlos/ | head -1`
    - Expected: `HTTP/1.1 200` (if you get connection refused or 000, the app server isn't running)
 
 2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc' LIMIT 1;"`

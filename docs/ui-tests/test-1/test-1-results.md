@@ -3,7 +3,7 @@
 **Test Date**: 2026-01-16
 **Test Type**: Manual smoke test using Playwright MCP
 **Application**: CARLOS EMR (Development)
-**Environment**: http://localhost:8080/oscar
+**Environment**: http://localhost:8080/carlos
 
 ---
 
@@ -254,13 +254,13 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
 
 **404 Errors (Missing JavaScript Files)**:
 
-1. **`/oscar/js/dateFormatUtils.js`**
+1. **`/carlos/js/dateFormatUtils.js`**
    - **Location**: Patient search page (`/demographic/search.jsp`)
    - **Type**: JavaScript utility file
    - **Impact**: Date formatting functions unavailable
    - **Severity**: Low - core search functionality unaffected
 
-2. **`/oscar/js/custom/default/master.js`**
+2. **`/carlos/js/custom/default/master.js`**
    - **Location**: Demographic detail pages (`/demographic/DemographicEdit.do`)
    - **Type**: Custom JavaScript configuration
    - **Impact**: Custom UI enhancements unavailable
@@ -277,7 +277,7 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
    - **Severity**: Low
 
 2. **`TypeError: Cannot read properties of undefined (reading 'username')`**
-   - **Location**: Login page (`/oscar/index.jsp:43:36`)
+   - **Location**: Login page (`/carlos/index.jsp:43:36`)
    - **Function**: `setfocus()` in onload event
    - **Impact**: Focus may not automatically set to username field
    - **Severity**: Low - users can still click into field

@@ -1,0 +1,431 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+"""Hand-curated properties-manifest overlay for the OSCAR 19 importer.
+
+Dispositions (docs/oscar19-to-carlos-migration-plan.md §8.1) applied by the
+props phase to every clinic key whose value differs from the stock O19
+default (O19_DEFAULTS in the generated module):
+
+  carry         copied verbatim into the derived override fragment
+  carry-secret  copied, but masked in the human report and listed under a
+                "credentials imported — rotate/verify" heading
+  translate     value rewritten (t: "docpath" rewrites the O19 OscarDocument
+                context path to /var/lib/carlos-emr/OscarDocument/carlos/…;
+                t: "drugref" points at this deployment's drugref2026)
+  deploy-owned  refused even if present — the deb deployment provisions it
+  dropped-flag  not carried; itemized in the report (module removed).
+                "advisory" groups the report line; advisory "ldap" escalates
+                to preflight blocker B5, "olis"/"erx"/"fax" get named
+                advisories
+  (unmatched)   "unknown" — reported for human classification, never
+                silently carried or dropped
+
+KEYS (exact match) wins over PREFIX_RULES (first match in order).
+
+A `carry` entry may also carry {"rewrite": "bundle"}: its value holds
+`${...}` tokens naming oscarResources bundle keys, and the props phase
+rewrites the ones CARLOS renamed (BUNDLE_PREFIX_RENAMES, below) before
+carrying it.
+"""
+
+PROPS_MAP_VERSION = "o19map-2"
+
+KEYS = {
+    # --- clinic identity / billing (carry) --------------------------------
+    # billregion is NOT carried: the province is a HOST decision. debconf
+    # asks for it at install, config.py writes it into carlos.properties,
+    # it selects the Flyway migration set the schema was built from, and
+    # the import asserts the manifest profile against it before P0. A
+    # carried value that disagreed would put the whole billing UI on the
+    # other province while every other layer stayed on the host's -- the
+    # one place where the clinic's file must not win.
+    "billregion": {"d": "deploy-owned"},
+    "billcenter": {"d": "carry"},
+    "default_bill_center": {"d": "carry"},
+    "clinic_no": {"d": "carry"},
+    "dataCenterId": {"d": "carry"},
+    "phoneprefix": {"d": "carry"},
+    "visitlocation": {"d": "carry"},
+    "visittype": {"d": "carry"},
+    "visit_type": {"d": "carry"},
+    "isNewONbilling": {"d": "carry"},
+    "Support_Contact": {"d": "carry"},
+    "BILLING_SUPERUSER": {"d": "carry"},
+    "SUPERUSER": {"d": "carry"},
+    "mrp_model": {"d": "carry"},
+    "useDemoClinicInfoOnInvoice": {"d": "carry"},
+    "warnOnDeleteBill": {"d": "carry"},
+    "WCB_FORM_REQUIRED_CODES": {"d": "carry"},
+    "DX_QUICK_LIST_DEFAULT": {"d": "carry"},
+    "DX_QUICK_LIST_BILLING_REVIEW": {"d": "carry"},
+    # --- workflow toggles (carry) -----------------------------------------
+    "CASEMANAGEMENT": {"d": "carry"},
+    "CMESort": {"d": "carry"},
+    "DATE_FORMAT": {"d": "carry"},
+    "TIME_FORMAT": {"d": "carry"},
+    # a customised sign line is carried, but its ${...} tokens are keys of
+    # the oscarResources bundle and CARLOS renamed the namespace they live
+    # in; carried verbatim they resolve to "" and the words "Signed on" /
+    # "by" vanish from every note signed after cutover (rewrite: "bundle",
+    # see BUNDLE_PREFIX_RENAMES)
+    "ECHART_SIGN_LINE": {"d": "carry", "rewrite": "bundle"},
+    "ECHART_VERSIGN_LINE": {"d": "carry", "rewrite": "bundle"},
+    "SINGLE_PAGE_CHART": {"d": "carry"},
+    "ENCOUNTER_TIME_MANDATORY": {"d": "carry"},
+    "default_view": {"d": "carry"},
+    "default_search_mode": {"d": "carry"},
+    "displayAlertsOnScheduleScreen": {"d": "carry"},
+    "displayNotesOnScheduleScreen": {"d": "carry"},
+    "receptionist_alt_view": {"d": "carry"},
+    "allowMultipleSameDayGroupAppt": {"d": "carry"},
+    "appointment_locking_timeout": {"d": "carry"},
+    "schedule_templatecode": {"d": "carry"},
+    "search.most_recent_on_empty": {"d": "carry"},
+    "search.searchName.addLeadingWildcard": {"d": "carry"},
+    "searchresults.showAddress": {"d": "carry"},
+    "inactive_statuses": {"d": "carry"},
+    "skip_postal_code_validation": {"d": "carry"},
+    "IMMUNIZATION_IN_PREVENTION": {"d": "carry"},
+    "PREVENTION": {"d": "carry"},
+    "SHOW_PREVENTION_STOP_SIGNS": {"d": "carry"},
+    "prevention_show_comments": {"d": "carry"},
+    "ENABLE_PREVENTION_BILLING": {"d": "carry"},
+    "new_flowsheet_enabled": {"d": "carry"},
+    "workflow_enhance": {"d": "carry"},
+    "rx_enhance": {"d": "carry"},
+    "rx.allow_rerx": {"d": "carry"},
+    "rx_strict_med_term": {"d": "carry"},
+    "RX_ALLERGY_CHECKING": {"d": "carry"},
+    "RENAL_DOSING_DS": {"d": "carry"},
+    "enable_rx_watermark": {"d": "carry"},
+    "showRxChartNo": {"d": "carry"},
+    "showRxBandNumber": {"d": "carry"},
+    "showBandNumberOnly": {"d": "carry"},
+    "showSexualHealthLabel": {"d": "carry"},
+    "prenatal_screening_abbrv": {"d": "carry"},
+    "prenatal_screening_eform_group": {"d": "carry"},
+    "prenatal_screening_name": {"d": "carry"},
+    "onare_labreqver": {"d": "carry"},
+    "orn_labreqver": {"d": "carry"},
+    "lab_req_include_chartno": {"d": "carry"},
+    "use_lab_clientreference": {"d": "carry"},
+    "LAB_NOMATCH_NAMES": {"d": "carry"},
+    "HL7TEXT_LABS": {"d": "carry"},
+    "CONSULTATION_AUTO_INCLUDE_ALLERGIES": {"d": "carry"},
+    "CONSULTATION_AUTO_INCLUDE_MEDICATIONS": {"d": "carry"},
+    "CONSULTATION_LOCK_REFERRAL_DATE": {"d": "carry"},
+    "CONSULTATION_PATIENT_WILL_BOOK": {"d": "carry"},
+    "consultation_dynamic_labelling_enabled": {"d": "carry"},
+    "consultation_signature_enabled": {"d": "carry"},
+    "eform_signature_enabled": {"d": "carry"},
+    "rx_signature_enabled": {"d": "carry"},
+    "referral_menu": {"d": "carry"},
+    "printPDF_referring_prac": {"d": "carry"},
+    "print.includeMRP": {"d": "carry"},
+    "print.useCurrentProgramInfoInHeader": {"d": "carry"},
+    "DEMOGRAPHIC_PATIENT_CLINIC_STATUS": {"d": "carry"},
+    "DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM": {"d": "carry"},
+    "DEMOGRAPHIC_PATIENT_ROSTERING": {"d": "carry"},
+    "DEMOGRAPHIC_WAITING_LIST": {"d": "carry"},
+    "NEW_CONTACTS_UI": {"d": "carry"},
+    "NEW_CONTACTS_UI_EXTERNAL_CONTACT": {"d": "carry"},
+    "USE_NEW_PATIENT_CONSENT_MODULE": {"d": "carry"},
+    "FORMS_PROMOTEXT": {"d": "carry"},
+    "appt_formTbl": {"d": "carry"},
+    "wl_default_issue": {"d": "carry"},
+    "GET_OHIP_INFO": {"d": "carry"},
+    "moh_file_management_enabled": {"d": "carry"},
+    "IS_PIN_ENCRYPTED": {"d": "carry"},
+    "IGNORE_PASSWORD_REQUIREMENTS": {"d": "carry"},
+    "mandatory_password_reset": {"d": "carry"},
+    "login_max_duration": {"d": "carry"},
+    "login_max_failed_times": {"d": "carry"},
+    "seconds_till_considered_stale": {"d": "carry"},
+    "dxResearch_coding_sys": {"d": "carry"},
+    # --- integration credentials (carry-secret) ---------------------------
+    "PGP_KEY": {"d": "carry-secret"},
+    "PGP_BIN": {"d": "carry"},
+    "PGP_CMD": {"d": "carry"},
+    "PGP_ENV": {"d": "carry"},
+    # --- path/value translations ------------------------------------------
+    "ONEDT_INBOX": {"d": "translate", "t": "docpath"},
+    "ONEDT_OUTBOX": {"d": "translate", "t": "docpath"},
+    "ONEDT_SENT": {"d": "translate", "t": "docpath"},
+    "ONEDT_ARCHIVE": {"d": "translate", "t": "docpath"},
+    "INVOICE_DIR": {"d": "translate", "t": "docpath"},
+    # HL7 A04 (ADT) directories: only the build directory has a CARLOS
+    # reader (CarlosProperties.getHL7A04BuildDirectory -> HL7A04Data), so
+    # the failed and sent directories are told rather than shown as
+    # carried — the same rule the transport address and port get below.
+    # Translating them put two inert paths under the `translate` heading
+    # of the reviewed fragment, which reads as ADT failure handling having
+    # been migrated when nothing in CARLOS consults them.
+    "hl7_a04_build_dir": {"d": "translate", "t": "docpath"},
+    "hl7_a04_fail_dir": {"d": "dropped-flag", "advisory": "misc"},
+    "l7_a04_sent_dir": {"d": "dropped-flag", "advisory": "misc"},
+    "INCOMINGDOCUMENT_DIR": {"d": "translate", "t": "docpath"},
+    # a boolean (recycle bin on/off), not a path — CARLOS reads it the same
+    "INCOMINGDOCUMENT_RECYCLEBIN": {"d": "carry"},
+    # CARLOS reads the eForm image directory under a new key name
+    "eform_image": {"d": "translate", "t": "docpath",
+                    "as": "EFORM_IMAGES_DIR"},
+    # no CARLOS reader (legacy fax cover-page logo) — reported, not carried
+    # CARLOS takes the cover-page and consultation logos from
+    # faxLogoInCoverPage / faxLogoInConsultation / clinicLetterheadLogo,
+    # which are set in the deployment's own properties, not from this key
+    "faxLogo": {"d": "dropped-flag", "advisory": "fax"},
+    "HOME_DIR": {"d": "translate", "t": "docpath"},
+    # a bare checkpoint FILENAME (default .LastDownloadedID), not a path
+    "mcedt.last.downloadedID.file": {"d": "carry"},
+    # only a commented-out reader remains in CARLOS — reported, not carried
+    "oscarMeasurement_css": {"d": "dropped-flag", "advisory": "misc"},
+    "drugref_url": {"d": "translate", "t": "drugref"},
+    # --- deployment-owned (refused) ---------------------------------------
+    "db_uri": {"d": "deploy-owned"},
+    "db_username": {"d": "deploy-owned"},
+    "db_password": {"d": "deploy-owned"},
+    "db_driver": {"d": "deploy-owned"},
+    "db_type": {"d": "deploy-owned"},
+    "db_name": {"d": "deploy-owned"},
+    "db_max_active": {"d": "deploy-owned"},
+    "db_max_idle": {"d": "deploy-owned"},
+    "db_max_wait": {"d": "deploy-owned"},
+    "db_validationQuery": {"d": "deploy-owned"},
+    "db_log_abandoned": {"d": "deploy-owned"},
+    "db_remove_abandoned": {"d": "deploy-owned"},
+    "db_remove_abandoned_timeout": {"d": "deploy-owned"},
+    "tomcat_path": {"d": "deploy-owned"},
+    "project_home": {"d": "deploy-owned"},
+    "oscar_port": {"d": "deploy-owned"},
+    "host": {"d": "deploy-owned"},
+    "TOMCAT_KEYSTORE_FILE": {"d": "deploy-owned"},
+    "TOMCAT_KEYSTORE_PASSWORD": {"d": "deploy-owned"},
+    "TOMCAT_TRUSTSTORE_FILE": {"d": "deploy-owned"},
+    "TOMCAT_TRUSTSTORE_PASSWORD": {"d": "deploy-owned"},
+    "BASE_DOCUMENT_DIR": {"d": "deploy-owned"},
+    "DOCUMENT_DIR": {"d": "deploy-owned"},
+    "backup_path": {"d": "deploy-owned"},
+    "buildtag": {"d": "deploy-owned"},
+    # CARLOS-era keys the deb provisions. No OSCAR 19 install ships them,
+    # so these entries change nothing for a stock clinic -- they exist so
+    # a HAND-ADDED one is refused outright instead of surfacing as an
+    # "unknown, classify this" row that an operator could reasonably
+    # carry, overriding the deployment's own value.
+    "FAX_INCOMING_DIR": {"d": "deploy-owned"},
+    "carlos.flyway.locations": {"d": "deploy-owned"},
+    "carlos.flyway.onBoot": {"d": "deploy-owned"},
+    "eform_pdf_browser_startup_check": {"d": "deploy-owned"},
+    # the AES key for fax credentials, MFA secrets and signature images:
+    # generated once per host by config.py and escrowed with the backup
+    "encryption.util.secret.key": {"d": "deploy-owned"},
+    "log.purge.outputdir": {"d": "deploy-owned"},
+    "buildDateTime": {"d": "deploy-owned"},
+    "version": {"d": "deploy-owned"},
+    "versionDate": {"d": "deploy-owned"},
+    # clinic policy CARLOS still reads (LoginCheckLogin): the local-network
+    # ranges exempt from the failed-login lockout
+    "login_local_ip": {"d": "carry"},
+    "ws_endpoint_url_base": {"d": "deploy-owned"},
+    # a clinic-chosen link target on the provider menu, still read by CARLOS
+    # (validated as a plain http(s) URL: the JSPs place it in a JS string)
+    "resource_base_url": {"d": "carry", "validate": "url"},
+    "log.purge.mysqldump": {"d": "deploy-owned"},
+    # --- fax ---------------------------------------------------------
+    # CARLOS kept fax (SRFax transport); only the OLD MIDDLEWARE
+    # TRANSPORT'S settings are gone. The per-feature switches and the
+    # poll interval are still read — dropping them turned the clinic's
+    # Rx and consultation fax buttons off at cutover and told the
+    # operator the module had been removed, so they would not have
+    # re-added them. Verified against src/main: FaxSchedulerJob
+    # (faxPollInterval), Preview2.jsp (RXFAX) and CarlosProperties
+    # (rx_fax_enabled, consultation_fax_enabled, eform_fax_enabled,
+    # enableFax).
+    "faxURI": {"d": "dropped-flag", "advisory": "fax"},
+    "faxIdentifier": {"d": "dropped-flag", "advisory": "fax"},
+    "faxKeystore": {"d": "dropped-flag", "advisory": "fax"},
+    # CARLOS reads this one under a different name
+    "faxEnable": {"d": "carry", "as": "enableFax"},
+    "faxPollInterval": {"d": "carry"},
+    "RXFAX": {"d": "carry"},
+    "rx_fax_enabled": {"d": "carry"},
+    "consultation_fax_enabled": {"d": "carry"},
+    "eform_fax_enabled": {"d": "carry"},
+    # --- remaining stock keys, classified by whether CARLOS reads them ----
+    # (every O19_DEFAULTS / SECRET_DEFAULT_KEYS key has a disposition; the
+    # test suite pins that none is left "unknown")
+    # clinic policy CARLOS still reads: carry
+    "ALLOW_UPDATE_DOCUMENT_CONTENT": {"d": "carry"},
+    "AUTO_GENERATE_PROVIDER_NO": {"d": "carry"},
+    "BILLING_REVIEW_AUTO_PAYMENT": {"d": "carry"},
+    "COMMUNITY_ISSUE_CODETYPE": {"d": "carry"},
+    "CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP": {"d": "carry"},
+    "ENABLE_CONFORMANCE_ONLY_FEATURES": {"d": "carry"},
+    "FILTER_ON_FACILITY": {"d": "carry"},
+    "FIRST_NATIONS_MODULE": {"d": "carry"},
+    "NEW_BC_TELEPLAN": {"d": "carry"},
+    "NEW_USER_PIN_CONTROL": {"d": "carry"},
+    "PREVENTION_CLASSIC_VIEW": {"d": "carry"},
+    "RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER": {"d": "carry"},
+    "SHOW_FILE_IMPORT_SEARCH": {"d": "carry"},
+    "SOB_CHECKALL": {"d": "carry"},
+    "TORONTO_RFQ": {"d": "carry"},
+    "Vendor_Product": {"d": "carry"},
+    "clinic_view": {"d": "carry"},
+    "confidentiality_statement.v1": {"d": "carry"},
+    "confidentiality_statement.v2": {"d": "carry"},
+    "drugref_route": {"d": "carry"},
+    "drugref_route_search": {"d": "carry"},
+    "inPatient": {"d": "carry"},
+    "new_label_print": {"d": "carry"},
+    "oscarMeasurements.orderGroupById": {"d": "carry"},
+    "rma_enabled": {"d": "carry"},
+    "save_as_xml": {"d": "carry"},
+    # the CAISI program-module switch (isPropertyActive("program"))
+    "program": {"d": "carry"},
+    # HL7 A04 (ADT) generation: only the switch has a CARLOS reader; the
+    # transport address and port are not consulted, so a clinic that set
+    # them is told rather than shown them as carried
+    "HL7_A04_GENERATION": {"d": "carry"},
+    "HL7_A04_TRANSPORT_ADDR": {"d": "dropped-flag", "advisory": "misc"},
+    "HL7_A04_TRANSPORT_PORT": {"d": "dropped-flag", "advisory": "misc"},
+    # deployment-owned on the deb host (binaries, log retention)
+    "WKHTMLTOPDF_COMMAND": {"d": "deploy-owned"},
+    "WKHTMLTOPDF_ARGS": {"d": "deploy-owned"},
+    "log.purge.minDays": {"d": "deploy-owned"},
+    # OMD HRM SFTP connection: CARLOS's HRM transport is configured in
+    # Administration, not through these keys (the user name is a credential
+    # and is never printed)
+    "OMD_HRM_USER": {"d": "dropped-flag", "advisory": "hrm"},
+    "OMD_HRM_IP": {"d": "dropped-flag", "advisory": "hrm"},
+    "OMD_HRM_PORT": {"d": "dropped-flag", "advisory": "hrm"},
+    "OMD_HRM_REMOTE_DIR": {"d": "dropped-flag", "advisory": "hrm"},
+    "OMD_HRM_AUTH_KEY_FILENAME": {"d": "dropped-flag", "advisory": "hrm"},
+    # post-upload forward targets: CARLOS still reads DOC_FORWARD,
+    # RA_FORWORD and TA_FORWARD, but its defaults are Struts routes and a
+    # clinic value names an O19 JSP path CARLOS no longer serves — reported
+    # for the operator to re-point in the CARLOS override, never carried
+    # as-is (EA_FORWORD has no reader left)
+    "DOC_FORWARD": {"d": "dropped-flag", "advisory": "misc"},
+    "EA_FORWORD": {"d": "dropped-flag", "advisory": "misc"},
+    "RA_FORWORD": {"d": "dropped-flag", "advisory": "misc"},
+    "TA_FORWARD": {"d": "dropped-flag", "advisory": "misc"},
+    # only a commented-out reader remains (like oscarMeasurement_css)
+    "oscarMeasurement_css_download_method": {"d": "dropped-flag",
+                                             "advisory": "misc"},
+    # no CARLOS reader: reported, never carried
+    "ALT_DISCHARGE_REASON": {"d": "dropped-flag"},
+    "AdtA09Handler.CHECK_IN_EARLY_ALLOWANCE": {"d": "dropped-flag"},
+    "AdtA09Handler.CHECK_IN_LATE_ALLOWANCE": {"d": "dropped-flag"},
+    "CASELOAD_DEFAULT_ALL_PROVIDERS": {"d": "dropped-flag"},
+    "DOCUMENT_DOWNLOAD_METHOD": {"d": "dropped-flag"},
+    "HELP_SEARCH_URL": {"d": "dropped-flag"},
+    "ORN_PILOT": {"d": "dropped-flag"},
+    "TESTING": {"d": "dropped-flag"},
+    "TRANSPORTATION_TIME_MANDATORY": {"d": "dropped-flag"},
+    "USE_CAISI_LOGO": {"d": "dropped-flag"},
+    "USE_NEW_ECHART": {"d": "dropped-flag"},
+    "VMSTAT_LOGGING_PERIOD": {"d": "dropped-flag"},
+    "admin.hph": {"d": "dropped-flag"},
+    "appt_intake_form": {"d": "dropped-flag"},
+    # the stock O19 default; locked notes are the preflight's B4 concern
+    "casemgmt.note.password.enabled": {"d": "dropped-flag"},
+    "ckd_notification_scheme": {"d": "dropped-flag"},
+    "clientdropbox": {"d": "dropped-flag"},
+    "cobalt": {"d": "dropped-flag"},
+    "contact.required.program": {"d": "dropped-flag"},
+    "documentUploader.maxNumberOfFiles": {"d": "dropped-flag"},
+    "enable_create_child_record": {"d": "dropped-flag"},
+    "enable_rx_custom_methodone_suboxone": {"d": "dropped-flag"},
+    "enable_wait_list_email_notifications": {"d": "dropped-flag"},
+    "groupModuleEnabled": {"d": "dropped-flag"},
+    "labreq_CKD": {"d": "dropped-flag"},
+    "ontariomd_cds_diabetes_link": {"d": "dropped-flag"},
+    "professionalContact.required.program": {"d": "dropped-flag"},
+    "professionalContact.required.workPhone": {"d": "dropped-flag"},
+    "rx.enable_internal_dispensing": {"d": "dropped-flag"},
+    "schedule.groupsFromPrograms": {"d": "dropped-flag"},
+    "wait_list_email_notification_period": {"d": "dropped-flag"},
+    "wait_list_email_notification_program_ids": {"d": "dropped-flag"},
+}
+
+# Ordered; first match wins after an exact-KEYS miss.
+PREFIX_RULES = [
+    ("ldap.", {"d": "dropped-flag", "advisory": "ldap"}),
+    ("mcedt.", {"d": "carry-secret"}),
+    ("hcv.", {"d": "carry-secret"}),
+    ("email.", {"d": "carry-secret"}),
+    ("teleplan", {"d": "carry-secret"}),
+    ("hibernate.", {"d": "deploy-owned"}),
+    ("db_", {"d": "deploy-owned"}),
+    ("OLIS_", {"d": "dropped-flag", "advisory": "olis"}),
+    ("olis_", {"d": "dropped-flag", "advisory": "olis"}),
+    ("util.erx.", {"d": "dropped-flag", "advisory": "erx"}),
+    ("born", {"d": "dropped-flag"}),
+    ("INTEGRATOR_", {"d": "dropped-flag"}),
+    ("MY_OSCAR", {"d": "dropped-flag"}),
+    ("MYOSCAR", {"d": "dropped-flag"}),
+    ("myoscar", {"d": "dropped-flag"}),
+    ("myOSCAR", {"d": "dropped-flag"}),
+    ("oscar_myoscar", {"d": "dropped-flag"}),
+    ("mymeds", {"d": "dropped-flag"}),
+    ("MYDRUGREF", {"d": "dropped-flag"}),
+    ("CBI_", {"d": "dropped-flag"}),
+    ("clinicaid", {"d": "dropped-flag"}),
+    ("indivica", {"d": "dropped-flag"}),
+    ("consultation_indivica", {"d": "dropped-flag"}),
+    ("eform_generator_indivica", {"d": "dropped-flag"}),
+    ("spire_", {"d": "dropped-flag"}),
+    ("redirectstudysite_", {"d": "dropped-flag"}),
+    ("sharingcenter", {"d": "dropped-flag"}),
+    ("cr_security", {"d": "dropped-flag"}),
+    ("RX3", {"d": "dropped-flag"}),
+    ("loginlogo", {"d": "dropped-flag"}),
+    ("logintext", {"d": "dropped-flag"}),
+    ("logintitle", {"d": "dropped-flag"}),
+    ("eaaps.", {"d": "dropped-flag"}),
+    ("health_tracker", {"d": "dropped-flag"}),
+    ("streethealth", {"d": "dropped-flag"}),
+    ("hsfo", {"d": "dropped-flag"}),
+    ("osp.", {"d": "dropped-flag"}),
+    ("vendor", {"d": "dropped-flag"}),
+    ("software", {"d": "dropped-flag"}),
+    ("lab.handler.", {"d": "carry"}),
+    ("label.", {"d": "carry"}),
+    ("password_", {"d": "carry"}),
+    ("password.", {"d": "carry"}),
+    ("tickler", {"d": "carry"}),
+    ("caisi.", {"d": "carry"}),
+    ("pmm.", {"d": "carry"}),
+    ("multioffice.", {"d": "carry"}),
+    ("QR_CODE_", {"d": "carry"}),
+    ("refresh.", {"d": "carry"}),
+    ("web_service_client.", {"d": "carry"}),
+    ("form_intake_program_", {"d": "carry"}),
+    ("DEMOGRAPHIC_CONTACT", {"d": "carry"}),
+    ("invoice_", {"d": "carry"}),
+    ("billing", {"d": "carry"}),
+]
+
+# Resource-bundle namespaces CARLOS renamed, for values dispositioned
+# {"rewrite": "bundle"}.
+#
+# The sign-line templates are resolved token by token against the
+# `oscarResources` bundle by
+# CaseManagementManagerImpl.getTemplateSignature, whose lookup failure
+# path is `catch (Exception e) { substituteValue = ""; }` — an unknown key
+# becomes an empty string with nothing logged, so a clinic that customised
+# its sign line silently loses the "Signed on" / "by" wording from every
+# note signed after cutover. Scope is deliberately the
+# EctSaveEncounterAction message class: that is where every word a sign
+# line can name lives. A token outside it cannot be proven to resolve, so
+# the props phase refuses the value (needs-review) rather than carrying a
+# template that renders blanks into the clinical record.
+#
+# The generator verifies every target against
+# src/main/resources/oscarResources_en.properties and refuses a prefix
+# whose old spelling still resolves in CARLOS (nothing would need
+# rewriting) or that matches no O19 bundle key (stale curation).
+BUNDLE_PREFIX_RENAMES = [
+    ("oscarEncounter.class.EctSaveEncounterAction.",
+     "encounter.class.EctSaveEncounterAction."),
+]

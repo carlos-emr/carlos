@@ -64,7 +64,7 @@ Execute these checks to ensure the environment is ready:
 
 ```bash
 # 1. Application running
-curl -sI http://localhost:8080/oscar/index.jsp | head -1
+curl -sI http://localhost:8080/carlos/ | head -1
 # Expected: HTTP/1.1 200
 
 # 2. Database connection

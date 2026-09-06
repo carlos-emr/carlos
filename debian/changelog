@@ -21,5 +21,13 @@ carlos-emr (2026.09.0~snapshot1) resolute; urgency=medium
     backup full/verify/status, cert-renew, rotate, status), so operators move
     between the two deployment styles without relearning the tool.
     `carlosctl` remains as a deprecated alias.
+  * Experimental OSCAR 19 clinic migration: `carlos-ctl import-o19` imports an
+    OSCAR 19 backup into a stock initial deploy (manifest-driven ETL, an
+    archive schema for everything CARLOS no longer models, documents restore
+    with blocking reconciliation, roles and privilege reconciliation, and a
+    reviewed properties fragment), and `carlos-ctl o19-preflight` runs the
+    go/no-go feasibility check on its own. Both are experimental: a
+    migration's output needs a technical review before clinical use. See
+    docs/o19-import-deb.md.
 
  -- CARLOS EMR Maintainers <maintainers@carlos-emr.invalid>  Thu, 20 Aug 2026 19:00:00 +0000

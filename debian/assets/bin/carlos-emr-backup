@@ -40,6 +40,7 @@ STATE_DIR=/var/backups/carlos-emr
 ALERTED=0
 WORK_DIR="${STATE_DIR}/work"
 DOCS_DIR=/var/lib/carlos-emr/OscarDocument
+O19_DIR=/var/lib/carlos-emr/o19-import
 LOG_TAG=carlos-emr-backup
 
 log()  { printf '%s: %s\n' "${LOG_TAG}" "$*"; }
@@ -64,6 +65,20 @@ DB_HOST="${CARLOS_BACKUP_DB_HOST:-127.0.0.1}"
 DB_PORT="${CARLOS_BACKUP_DB_PORT:-3306}"
 DB_NAME="${CARLOS_BACKUP_DB_NAME:-oscar}"
 KEEP="${CARLOS_BACKUP_KEEP:---keep-daily 7 --keep-weekly 5 --keep-monthly 12}"
+# ...split into an ARRAY rather than relying on an unquoted expansion at the
+# call site. These are separate restic flags and must arrive as separate
+# arguments, but an unquoted "${KEEP}" also globs: with CARLOS_BACKUP_KEEP
+# set to anything containing *, ? or [, a retention value would be silently
+# replaced by whatever the working directory happened to contain.
+KEEP_ARGS=()
+# -d '' so the WHOLE value is consumed: backup.env is shell-sourced, so a
+# long policy may legally be written across several lines, and a plain
+# `read -r -a` stops at the first newline. That silently shortened
+# "--keep-daily 7 \n --keep-weekly 5 --keep-monthly 12" to just the daily
+# rule, and the next nightly run would have pruned every weekly and
+# monthly snapshot the operator asked to keep. `read` returns 1 at EOF
+# when it finds no NUL, which is the normal case here.
+read -r -d '' -a KEEP_ARGS < <(printf '%s' "${KEEP}") || true
 # How long shipped binary logs stay restorable. This bounds the
 # point-in-time window: a dump OLDER than this can still be restored, but
 # only to its own instant (no roll-forward). KEEP above does not govern it.
@@ -339,15 +354,28 @@ ship_binlogs() {
     # the suffix filter below would silently skip ALL logs forever. If the
     # recorded name is no longer in the server's list, start over from the
     # earliest available log and say so.
-    if [ -n "${previous}" ] && ! printf '%s\n' ${logs} | grep -qx "${previous}"; then
+    # "${logs}" quoted: it is ALREADY newline-separated (awk printed one
+    # name per line) and command substitution stripped the trailing
+    # newline, so printf reproduces the same lines either way — while
+    # unquoted it would also glob, and a log name containing [ ? or *
+    # would be silently rewritten into whatever the working directory
+    # happens to contain.
+    if [ -n "${previous}" ] && ! printf '%s\n' "${logs}" | grep -Fqx "${previous}"; then
         alert "binlog chain restarted — reshipping from the earliest available log" \
               "the marker (${previous}) names a log the server no longer lists; the binlog base name changed or the counter was reset. Shipping restarts from the earliest server-known log. Verify which full dump anchors your recovery chain before relying on point-in-time restore across the reset."
         previous=""
     fi
-    last="$(printf '%s\n' ${logs} | tail -1)"
+    last="$(printf '%s\n' "${logs}" | tail -1)"
 
     local name any=0 stream_failed=""
-    for name in ${logs}; do
+    # read, not `for name in ${logs}`: that expansion globs, so a log name
+    # containing [ ? or * became whatever the working directory held. It
+    # also disagreed with "${last}" above once that was quoted, and the
+    # comparison below is what stops the CURRENTLY-OPEN binlog — a
+    # half-written event — from being shipped. A here-string keeps the
+    # loop in this shell, so `any` and `stream_failed` still carry out.
+    while IFS= read -r name; do
+        [ -n "${name}" ] || continue
         [ "${name}" = "${last}" ] && continue
         # Compare on the numeric suffix, not the whole string: binlog names are
         # <base>.NNNNNN and only the counter moves. `sort` on the full name
@@ -405,7 +433,7 @@ ship_binlogs() {
             stream_failed="${name}"
             break
         fi
-    done
+    done <<< "${logs}"
 
     if [ "${any}" = 1 ]; then
         # Checked explicitly: this function is called as `ship_binlogs || …`,
@@ -490,6 +518,15 @@ cmd_run() {
     # is exactly the material that must survive the loss of the host.
     local -a targets=("${DOCS_DIR}")
     [ -d "${CONF_DIR}" ] && targets+=("${CONF_DIR}")
+    # The OSCAR 19 import workspace, when one exists. Two things live
+    # there that exist nowhere else: the CSV rendering of the o19_archive
+    # schema (the clinic's only readable copy of every record that became
+    # archive-only, which they signed off as such), and the run ledgers
+    # that describe what the import did. Without the ledgers a restored
+    # snapshot rewinds the database while state.json still claims two
+    # hundred tables are done, and the import can be neither resumed nor
+    # cleaned up.
+    [ -d "${O19_DIR}" ] && targets+=("${O19_DIR}")
     # Two deliberate exclusions:
     #
     #   tls/          the front-door key and certificate. The key is
@@ -502,9 +539,49 @@ cmd_run() {
     #                 read once and shredded; copying it into every snapshot
     #                 would keep a plaintext administrator password alive long
     #                 after the account it describes was supposed to change.
+    #   admin-credentials.txt  the break-glass password the import
+    #                 creates, for the same reason as initial-admin.txt.
+    #                 The `*` catches the set-aside copies too.
+    #   o19-derived-carlos.properties  the props phase writes the clinic's
+    #                 carried credentials into it in clear (Teleplan, MCEDT,
+    #                 HCV, SMTP, PGP_KEY). The postrm shreds this file
+    #                 alongside admin-credentials.txt precisely because it is
+    #                 a credential store; carrying it into a year of snapshots
+    #                 contradicts that. It is regenerable from the dump, and
+    #                 the values that matter live on in carlos.properties,
+    #                 which IS backed up.
+    #   bundle/, bundle-assess/  the extracted handoff archive: the clinic's
+    #                 ENTIRE database as plaintext SQL, their documents tar
+    #                 and their oscar.properties. It sits in the workspace
+    #                 from the moment the bundle is opened until --cleanup,
+    #                 which spans the mandatory pre-import snapshot (P3) and
+    #                 the post-import full backup the next-steps text asks
+    #                 for -- so without this exclusion every import
+    #                 guarantees a second, unmanaged copy of the whole
+    #                 pre-migration record in the repository, kept for up to
+    #                 a year by the retention policy. The operator still
+    #                 holds the bundle itself; a backup is not the place for
+    #                 an unpacked copy of an input file.
+    #   oscar.properties  the clinic's OWN deployed properties file, carried
+    #                 in the bundle: it holds their OSCAR 19 database
+    #                 password and their Teleplan/MCEDT/HCV/SMTP/PGP
+    #                 secrets. It lives inside bundle/ today and is covered
+    #                 by that exclusion, but the postrm shreds it BY NAME at
+    #                 -maxdepth 2, so it is excluded by name here too --
+    #                 otherwise the day it is written anywhere else in the
+    #                 workspace, one script treats it as a credential store
+    #                 and the other keeps it in a year of snapshots. Both
+    #                 depths the postrm reaches are named.
     restic backup --tag files --host "$(hostname -s)-carlos" \
         --exclude "${CONF_DIR}/tls" \
         --exclude "${CONF_DIR}/initial-admin.txt" \
+        --exclude "${O19_DIR}/admin-credentials.txt*" \
+        --exclude "${O19_DIR}/o19-derived-carlos.properties*" \
+        --exclude "${O19_DIR}/oscar.properties" \
+        --exclude "${O19_DIR}/**/oscar.properties" \
+        --exclude "${O19_DIR}/bundle" \
+        --exclude "${O19_DIR}/bundle-assess" \
+        --exclude "${O19_DIR}/.lock" \
         "${targets[@]}"
 
     log "pruning old snapshots (${KEEP})"
@@ -516,7 +593,8 @@ cmd_run() {
     # repository lock three times) every night for no benefit.
     local tag
     for tag in db files; do
-        restic forget --tag "${tag}" --host "$(hostname -s)-carlos" ${KEEP}
+        restic forget --tag "${tag}" --host "$(hostname -s)-carlos" \
+            "${KEEP_ARGS[@]}"
     done
     # Binary logs only matter within reach of a full dump to replay them onto.
     restic forget --tag binlog --host "$(hostname -s)-carlos" --keep-within "${BINLOG_KEEP}"
@@ -586,6 +664,9 @@ cmd_verify() {
     # one, and the unprivileged backup account cannot create objects with a
     # foreign definer — the drill would then page "NOT restorable" about a
     # dump that restores fine under the documented root procedure.
+    # shellcheck disable=SC2016  # the backticks are LITERAL: they are how
+    # MySQL quotes the identifiers in a DEFINER clause, and this pattern
+    # strips them. Nothing here is meant to expand.
     if ! sed -E 's|/\*!5001[37] DEFINER=`[^`]+`@`[^`]+`\s*\*/||g; s|DEFINER=`[^`]+`@`[^`]+`||g' "${dump}" \
             | mariadb "${MYSQL_ARGS[@]}" --default-character-set=utf8mb4 "${VERIFY_DB}"; then
         alert "restore drill failed" "the newest database dump did not load into ${VERIFY_DB}. The backups are NOT restorable."

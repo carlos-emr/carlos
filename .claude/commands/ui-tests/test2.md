@@ -60,7 +60,7 @@ Test 2 is a **comprehensive end-to-end test** that validates:
 
 Before starting, verify application and database are ready:
 
-1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
+1. **Application Check**: Run `curl -sI http://localhost:8080/carlos/ | head -1`
    - Expected: `HTTP/1.1 200`
 
 2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc' LIMIT 1;"`
@@ -97,7 +97,7 @@ Before starting, verify application and database are ready:
 Follow the 30-step workflow defined in `docs/ui-tests/test-2/test-2-EXECUTION.md`:
 
 ### Phase 1: Authentication & Navigation (Steps 1-3)
-1. **Login Page** - Navigate to http://localhost:8080/oscar and screenshot
+1. **Login Page** - Navigate to http://localhost:8080/carlos and screenshot
 2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), log console messages, screenshot
 3. **Search Page** - Click Search menu, switch to new tab, screenshot
 
@@ -181,7 +181,7 @@ Follow the 30-step workflow defined in `docs/ui-tests/test-2/test-2-EXECUTION.md
 5. If record doesn't exist, refresh page and retry
 
 **If page doesn't load:**
-1. Check with `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
+1. Check with `curl -sI http://localhost:8080/carlos/ | head -1`
 2. If not 200, run `server restart`
 3. Wait for server to be ready, then retry
 

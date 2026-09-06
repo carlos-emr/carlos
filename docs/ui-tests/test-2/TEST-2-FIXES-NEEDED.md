@@ -48,11 +48,11 @@
 
 | Action | URL Pattern |
 |--------|-------------|
-| Search Page | `/oscar/demographic/search.jsp` |
-| Search Results | `/oscar/demographic/DemographicSearch.do?...` |
-| Add Demographic (via link) | `/oscar/demographic/demographicaddarecordhtm.jsp?search_mode=...` |
-| Edit Demographic | `/oscar/demographic/DemographicEdit.do?demographic_no=X` |
-| View Demographic | `/oscar/demographic/DemographicEdit.do?demographic_no=X` |
+| Search Page | `/carlos/demographic/search.jsp` |
+| Search Results | `/carlos/demographic/DemographicSearch.do?...` |
+| Add Demographic (via link) | `/carlos/demographic/demographicaddarecordhtm.jsp?search_mode=...` |
+| Edit Demographic | `/carlos/demographic/DemographicEdit.do?demographic_no=X` |
+| View Demographic | `/carlos/demographic/DemographicEdit.do?demographic_no=X` |
 
 ## Expected Console Warnings (Non-blocking)
 

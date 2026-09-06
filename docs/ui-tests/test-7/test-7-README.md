@@ -25,7 +25,7 @@ Test 7 validates the Ontario MOH billing workflow in CARLOS EMR, including creat
 ## Prerequisites
 
 ### Application Requirements
-- CARLOS EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/carlos
 - Ontario (ON) billing configuration enabled
 - OHIP service codes loaded
 - Database accessible and writable
@@ -117,8 +117,8 @@ Location: Clinic (default)
 ## Expected Warnings (Non-Blocking)
 
 ### 404 Errors
-- `/oscar/js/dateFormatUtils.js` - Various pages (expected)
-- `/oscar/js/custom/default/master.js` - Various pages (expected)
+- `/carlos/js/dateFormatUtils.js` - Various pages (expected)
+- `/carlos/js/custom/default/master.js` - Various pages (expected)
 
 ### JavaScript Warnings
 - `Unexpected token '%'` - JSP template parsing (expected)

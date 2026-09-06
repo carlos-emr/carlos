@@ -180,7 +180,7 @@ The UI tests are currently run using the Playwright MCP server through Claude Co
 
 3. **Run UI test commands** (example):
    ```
-   Navigate to http://localhost:8080/oscar/index.jsp
+   Navigate to http://localhost:8080/carlos/
    Fill username: carlosdoc
    Fill password: carlos2026
    Fill PIN: 2026
@@ -263,7 +263,7 @@ See [smoke-test-results.md](./smoke-test-results.md) for detailed test results f
 - **Application Server**: Apache Tomcat 9.0.97
 - **Java Version**: 21
 - **Database**: MariaDB (Docker container)
-- **Application URL**: http://localhost:8080/oscar
+- **Application URL**: http://localhost:8080/carlos
 - **Framework**: Struts 2.x + Spring 5.3.39
 
 ### Database Connection
@@ -349,7 +349,7 @@ server start
 | Patient Record | `/demographic/DemographicEdit.do?demographic_no=3` | ✅ |
 | Appointments | `/appointment/appointmentcontrol.jsp` | Not tested |
 | E-Chart | `/encounter/Index.jsp` | Not tested |
-| Prescriptions | `/oscarRx/choosePatient.do` | Not tested |
+| Prescriptions | `/rx/choosePatient` | Not tested |
 
 ## Troubleshooting
 
@@ -466,7 +466,7 @@ For issues with UI tests:
 make install && server start
 
 # 2. Verify app is ready
-curl http://localhost:8080/oscar/index.jsp
+curl http://localhost:8080/carlos/
 
 # 3. Check test user
 mariadb -h db -uroot -ppassword oscar -e \

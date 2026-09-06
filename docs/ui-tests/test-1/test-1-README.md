@@ -32,7 +32,7 @@ Test 1 is a foundational smoke test that validates the most common workflow in C
 ## Test Steps
 
 ### 1. Login (Step 1)
-- Navigate to http://localhost:8080/oscar/index.jsp
+- Navigate to http://localhost:8080/carlos/
 - Enter credentials (carlosdoc / carlos2026 / 2026)
 - Submit login form
 - **Expected**: Redirect to provider dashboard

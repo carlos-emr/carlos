@@ -266,7 +266,7 @@ Validate the most common provider workflow: logging in as a healthcare provider 
 
 ### Prerequisites
 
-- **Application**: Running on http://localhost:8080/oscar
+- **Application**: Running on http://localhost:8080/carlos
 - **Database**: Contains test data (carlosdoc user, patient IDs 1 and 182)
 - **Playwright MCP**: Configured with headless Chromium
 
@@ -276,7 +276,7 @@ Validate the most common provider workflow: logging in as a healthcare provider 
 
 **Action**:
 ```
-Navigate to: http://localhost:8080/oscar/index.jsp
+Navigate to: http://localhost:8080/carlos/
 ```
 
 **Expected Behavior**:
@@ -336,7 +336,7 @@ Click "Search" in navigation menu
 - Search page opens in new tab/window
 - Search form with dropdown (Name, Phone, DOB, etc.)
 - Active/Inactive/All filter buttons visible
-- **Known 404**: `/oscar/js/dateFormatUtils.js` (non-blocking)
+- **Known 404**: `/carlos/js/dateFormatUtils.js` (non-blocking)
 
 **Screenshot**: `ui-test-runs/$TIMESTAMP/test-1/screenshots/test-1-03-patient-search.png`
 
@@ -390,7 +390,7 @@ Click on patient ID 182 (FAKE-Gaylord, FAKE-Branda)
 - All sections visible: Demographic, Contact Info, Health Insurance, Clinic Status
 - Left navigation menu with patient functions
 - Action buttons at bottom
-- **Known 404**: `/oscar/js/custom/default/master.js` (non-blocking)
+- **Known 404**: `/carlos/js/custom/default/master.js` (non-blocking)
 
 **Screenshot**: `ui-test-runs/$TIMESTAMP/test-1/screenshots/test-1-05-demographic-patient1.png`
 
@@ -470,8 +470,8 @@ After completing all 7 steps:
    ```
 
 2. **Check for Expected Warnings**:
-   - ✅ 404: `/oscar/js/dateFormatUtils.js` (search page)
-   - ✅ 404: `/oscar/js/custom/default/master.js` (demographic pages)
+   - ✅ 404: `/carlos/js/dateFormatUtils.js` (search page)
+   - ✅ 404: `/carlos/js/custom/default/master.js` (demographic pages)
    - ✅ JavaScript: `Unexpected token '%'` (multiple pages)
    - ✅ TypeError: `Cannot read properties of undefined (reading 'username')` (login page)
 
@@ -499,8 +499,8 @@ After completing all 7 steps:
 These are **expected** and should be present in every Test 1 run:
 
 1. **404 Errors**:
-   - `/oscar/js/dateFormatUtils.js` - Patient search page
-   - `/oscar/js/custom/default/master.js` - Demographic pages
+   - `/carlos/js/dateFormatUtils.js` - Patient search page
+   - `/carlos/js/custom/default/master.js` - Demographic pages
 
 2. **JavaScript Warnings**:
    - `Unexpected token '%'` - JSP template variable issues

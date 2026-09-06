@@ -46,7 +46,8 @@ Depends:
  iproute2,
 # ps, for the "no component runs as root" assertion in `carlos-ctl check`.
  procps,
-# python3-bcrypt hashes the replacement for the seeded administrator password.
+# python3-bcrypt hashes the replacement for the seeded administrator password
+# (bootstrap-admin) and the break-glass administrator import-o19 creates.
  python3,
  python3-bcrypt,
  debconf (>= 0.5) | debconf-2.0
@@ -82,6 +83,9 @@ Description: CARLOS EMR - Canadian electronic medical record (single-host deploy
  system user "carlos", backups as "carlos-backup", nginx as "www-data" and
  MariaDB as "mysql". Root is used only by the package maintainer scripts and
  by the certificate-renewal timer.
+ .
+ An experimental migration path imports an existing OSCAR 19 clinic into a
+ fresh install; see carlos-ctl(8), verbs import-o19 and o19-preflight.
  .
  For a container-based, multi-pod deployment with an observability stack see
  the carlos-podman project instead.

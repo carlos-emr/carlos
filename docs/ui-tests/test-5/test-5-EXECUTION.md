@@ -6,7 +6,7 @@ Before executing Test 5, verify all prerequisites are met.
 
 ### 1. Application Status
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/carlos/
 # Should return: 200
 ```
 
@@ -36,7 +36,7 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-5"
 ### Phase 1: Authentication & Tickler Access
 
 #### Step 1: Navigate to Login Page
-**Action**: Navigate to http://localhost:8080/oscar
+**Action**: Navigate to http://localhost:8080/carlos
 **Screenshot**: `test-5-01-login-page.png`
 **Expected**: Login form with username, password, and PIN fields
 
@@ -166,8 +166,8 @@ ORDER BY tickler_no DESC LIMIT 1;"
 
 ### 3. Console Warnings Check
 Expected 404 errors (non-blocking):
-- `/oscar/js/dateFormatUtils.js`
-- `/oscar/js/custom/default/master.js`
+- `/carlos/js/dateFormatUtils.js`
+- `/carlos/js/custom/default/master.js`
 
 ---
 

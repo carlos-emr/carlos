@@ -12,6 +12,13 @@
  * password, forcePasswordReset flag, and passwordUpdateDate in a finally block. Use a
  * disposable development database, not a production or PHI-bearing environment.
  *
+ * NOT for a migrated clinic database. This script needs TEST_PASSWORD_HASH to match the
+ * CARLOS dev seed and drives the seeded clinician `carlosdoc`, which an OSCAR 19 import
+ * deletes (its P0 pristine gate refuses a target holding extra logins, and the seed
+ * script removes the seeded clinician before the clinic's rows land). Point it at a dev
+ * database; for a migrated one use scripts/o19-migrated-smoke-playwright-checks.js,
+ * which discovers its own accounts and fixtures from the migrated schema.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/login-playwright-checks.js
  *

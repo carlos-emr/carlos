@@ -1,4 +1,4 @@
-.TH CARLOS-CTL 8 "2026-08-20" "carlos-emr" "System Administration"
+.TH CARLOS-CTL 8 "2026-09-03" "carlos-emr" "System Administration"
 .SH NAME
 carlos\-ctl \- administer a CARLOS EMR host installed from the carlos\-emr package
 .SH SYNOPSIS
@@ -69,7 +69,7 @@ Repair
 after a failed migration.
 .TP
 .B db-apply-settings
-Restart MariaDB if — and only if — its running values disagree with the
+Restart MariaDB if \(em and only if \(em its running values disagree with the
 packaged drop\-in (checked first, so an upgrade that changes nothing never
 bounces the database).
 .TP
@@ -127,7 +127,7 @@ failure the running rules keep serving and the command says so.
 .SS Backups
 .TP
 .B backup full
-Take a backup now, by starting the same systemd unit the nightly timer runs —
+Take a backup now, by starting the same systemd unit the nightly timer runs \(em
 so a manual run and a timer run are the identical code path, with the unit's
 sandbox and its read capability. The job itself executes as the
 .B carlos\-backup
@@ -184,7 +184,20 @@ Rotate every generated database password and restart the application.
 The ONLY supported way this software destroys clinical data. It DROPs the
 EMR and DrugRef databases and deletes patient documents, heap dumps and
 application logs (the empty directory skeleton is recreated so the still-
-installed services keep working); backups survive unless
+installed services keep working). On a host that ran an OSCAR 19 import
+it also DROPs the
+.B o19_archive
+and
+.B o19_import
+schemas and destroys the
+.I /var/lib/carlos-emr/o19-import
+workspace, shredding the plaintext administrator note and the carried
+properties fragment first; each schema is named with its table count
+before it is dropped, and the estate is named again in the summary.
+Retained backups still hold the clinic's archive CSV export and the
+.B import_archived_
+objects inside the EMR dump, and the command says so. Backups survive
+unless
 .B --including-backups
 is also given, which additionally deletes /var/backups/carlos-emr and
 SHREDS backup.env and carlos.properties \(em the restic passphrase and the
@@ -194,6 +207,244 @@ required before the host can run the EMR or read any remaining backup.
 It refuses to run while MariaDB is unreachable: a destruction that cannot
 drop the databases does not start. Removing or purging the packages never does any of this. The
 command refuses unless the host's own configured name is typed back to it.
+.SS Clinic migration from OSCAR 19 (experimental)
+Migration output should receive a technical review \(em verification
+report, spot checks, UI smoke \(em before clinical use.
+.TP
+.B import-o19 (experimental)
+Import an OSCAR 19 clinic backup into a STOCK initial deploy (a fresh
+Flyway schema holding only its seed rows; anything else is refused with no
+override). Inputs: either
+.B \-\-bundle
+.I FILE
+\(em one archive (.tar/.tar.gz/.tar.enc/.tar.gz.enc; .enc is
+openssl password-based encryption, unlocked with
+.BR \-\-bundle-pass ;
+the digest the clinic conveyed separately is checked with
+.B \-\-bundle-sha256
+before the bundle is opened, because openssl enc has no integrity check of
+its own)
+holding the dump, the OscarDocument tar, oscar.properties and
+optionally the clinic's content digests (*.json) at its root
+\(em or the
+.BR \-\-dump / \-\-documents / \-\-properties
+flags.
+.B \-\-o19-digests
+.I FILE
+supplies those digests when they were shipped outside the bundle. They are
+what proves the TRANSFER \(em that the dump restored here holds the values
+the clinic's own database held, which nothing on this host can otherwise
+know. Without them P2 compares row counts only. P7's value checks are
+unaffected: they compare the staged schema against the target directly and
+run either way, so what is lost is the link back to the clinic's server,
+not value checking as such.
+.B \-\-admin-user
+names the break-glass administrator created before the seeded clinician is
+removed; it is required for a real import and refused only by
+.BR \-\-dry-run .
+The clinic's role matrix is merged under CARLOS's seeded grants
+(CARLOS wins on the same role and object, clinic rows append) and
+clinic-custom roles receive the CARLOS-era privileges of the closest stock
+role;
+.B \-\-role-template
+.I CUSTOM=STOCK
+(repeatable, case-insensitive) overrides that choice; the mapping is
+recorded in the import ledger once it validates and bound once the backfill
+has decided on it, after which a
+.B \-\-resume
+continues with it (a different mapping is then refused; before that a resume
+may add or correct the flag). Blockers found by the built-in preflight
+are cleared only by explicit
+.B \-\-accept
+sign-off flags, recorded in the report. The CARLOS service must be stopped
+for a real run: a running
+.B carlos\-emr
+unit is refused (its startup writes rows the row-parity gate would reject).
+.B \-\-dry-run
+stages and reports without writing to the EMR schema (its
+.B \-\-accept
+flags are not recorded; it still runs the stock\-deploy, capacity and
+server\-compatibility gates, and it is refused over a workspace whose import
+is in progress);
+.B \-\-resume
+continues an interrupted real import (required whenever a previous run left
+state behind beyond a staged dump \(em state is never continued implicitly,
+and the flag is refused when no run is recorded, so it never starts a fresh
+import; once the data copy has started, only the emptiness sweep is skipped
+on resume);
+.B \-\-restage
+drops and re-restores the staging schema (clearing the recorded preflight
+verdict);
+.B \-\-cleanup
+drops the staging schema and the throwaway staging account, removes both
+extracted bundle trees
+.RI ( bundle/ " and " bundle-assess/ ),
+retires the run's ledgers, report, private files and the derived properties
+fragment with a
+.I .completed-<timestamp>
+suffix and keeps the o19_archive schema, the
+.B import_archived_
+tables in the EMR schema and
+.I admin-credentials.txt
+\(em allowed after verification or while nothing has been written to the
+EMR schema, never on a mid-import workspace, and never at all while any
+staging table holds rows with no verified copy outside it (the refusal
+names the tables). The
+.B import_archived_
+tables hold the OSCAR 19 tables and columns CARLOS has no home for; being
+in the EMR schema they are covered by the nightly
+.B carlos-emr-backup
+dump, which does not cover
+.BR o19_archive .
+.B destroy-data
+drops the EMR schema and takes them with it. They are invisible to
+Flyway, whose history and checksums the import never touches, so
+.B db-migrate
+and the application's boot gate behave exactly as before; a data
+migration written afterwards must name its columns, since a column-less
+.B INSERT
+binds by position and a preserved column widens the row. The pre-import
+backup is taken
+before the staged restore, which runs as a throwaway account limited to the
+staging schema; a dump carrying USE or CREATE DATABASE statements is
+refused.
+.B \-\-dev-target
+(which needs
+.BR \-\-mariadb-arg ,
+and is implied by it) and
+.B \-\-mariadb-arg
+serve development databases only and are refused on a packaged host
+.RB ( \-\-fixups-dir
+points a development run at the data-fixup scripts the package installs
+under /usr/share/carlos-emr/schema/o19-fixups). See
+docs/oscar19-to-carlos-migration-plan.md and docs/o19-import-deb.md in the
+source tree.
+.RS
+.PP
+Options:
+.BR \-\-bundle " FILE,"
+.BR \-\-bundle-pass " SPEC"
+(openssl \-pass spec: file:PATH, env:VAR, fd:N, stdin),
+.BR \-\-bundle-sha256 " HEX,"
+.BR \-\-bundle-cipher " NAME"
+(default aes\-256\-cbc),
+.BR \-\-bundle-openssl-opt " OPT"
+(repeatable passthrough for legacy bundles, e.g. \-md then md5);
+.BR \-\-dump " FILE,"
+.BR \-\-documents " FILE,"
+.BR \-\-properties " FILE,"
+.BR \-\-o19-digests " FILE;"
+.B \-\-skip-documents
+(needs
+.BR "\-\-accept no-documents" );
+.BR \-\-province " on|bc"
+(must match the host's configured province; one package carries a manifest
+profile per province and binds the host's, and a province it carries no
+rehearsed profile for is refused);
+.BR \-\-admin-user " NAME;"
+.BR \-\-role-template " CUSTOM=STOCK;"
+.BR \-\-accept " CLASS;"
+.BR \-\-dry-run ,
+.BR \-\-resume ,
+.BR \-\-restage ,
+.BR \-\-cleanup ;
+.BR \-\-statement-timeout " SECONDS"
+(bound every SQL statement of the import to this many seconds, MariaDB
+max_statement_time; 0 = no bound, the default);
+.BR \-\-dev-target ,
+.BR \-\-mariadb-arg " ARG,"
+.BR \-\-fixups-dir " DIR."
+.PP
+Sign-off classes for
+.BR \-\-accept :
+.B archived-forms
+(patient data in removed modules becomes archive-only),
+.B unknown-as-archive
+(tables the manifest does not know are preserved whole, in
+.I o19_archive
+and as
+.BR import_archived_ <table>),
+.B dropped-columns
+(columns CARLOS has no home for are preserved on the live table as
+.BR import_archived_ <column>,
+and shadow-captured to
+.IR o19_archive ),
+.B charset-repair
+(double-encoded text is repaired per row),
+.B olis-gone
+(OLIS data is archive-only),
+.B no-documents
+(import without the documents tree),
+.B no-pre-backup
+(no pre-import restic snapshot; required when backups are not configured),
+.B unverified-bundle
+(open a bundle whose SHA-256 was never conveyed \(em the CLINIC's
+out-of-band value for the bundle FILE, not the content digests inside
+it),
+.B carry-credentials
+(the dump carries live OAuth consumer secrets or signing keys, copied
+verbatim; rotate or verify them before go-live),
+.B content-transfer
+(the restored staging schema does not match the content digests the
+clinic took before the dump \(em a broken dump, transfer or restore,
+not a migration decision),
+.B no-content-digests
+(the transfer's content could not be fully verified, usually because no
+digest document was shipped; row counts still are),
+.B content-migration
+(a preserved copy, a copied row's twin in the live schema, a merge
+table's CARLOS seed rows, its appended rows or its archived backfill
+hold the right NUMBER of rows but not the same values \(em about what
+the ETL did, where content-transfer is about the dump and the restore;
+the few tables a later step deliberately rewrites are reported
+.B NOT CHECKED
+with the reason instead of compared). Every class is recorded in the report and
+survives \-\-resume.
+.RE
+.TP
+.B o19-preflight (experimental)
+Stage a dump and run only the capacity checks and the go/no-go feasibility
+check; the exit status is the verdict (0 go, 1 acknowledgements required,
+2 no-go) and 3 for any failure of the tool itself (unreachable server, bad
+flags, refused dump, insufficient disk); nothing is recorded as a sign-off
+and a
+workspace whose import is in progress is refused untouched. Options:
+.BR \-\-bundle ,
+.BR \-\-bundle-pass ,
+.BR \-\-bundle-sha256 ,
+.BR \-\-bundle-cipher ,
+.BR \-\-bundle-openssl-opt ,
+.BR \-\-dump ,
+.BR \-\-properties ,
+.BR \-\-o19-digests ,
+.BR \-\-province ,
+.BR \-\-accept ,
+.BR \-\-restage ,
+.BR \-\-mariadb-arg ,
+.B \-\-dev-target
+as for
+.BR import-o19 .
+For an assessment BEFORE backups are shipped, copy
+.I /usr/lib/carlos\-emr/carlos_ctl/o19_preflight.py
+to the OSCAR 19 server and run it there standalone. The standalone form
+takes its own flags \(em
+.BR \-\-db ", " \-\-mysql-cmd ", " \-\-mysql-arg ", "
+.BR \-\-mysql-password-file ", " \-\-properties ", " \-\-province ", "
+.BR \-\-accept ", " \-\-json " and " \-\-digests
+\(em not this verb's, and its
+.B \-\-accept
+knows only the six classes an assessment can acknowledge: archived\-forms,
+unknown\-as\-archive, olis\-gone, dropped\-columns, carry\-credentials
+and charset\-repair.
+.B \-\-digests
+.I PATH
+writes a content digest of every table (0600) for the clinic to ship in
+the bundle; it costs one full scan of the database and is what lets the
+CARLOS host prove the transfer carried every value. A table it could not
+hash is left out of the document and named on standard error, with the
+server's reason: the import treats such a table as unverified, and most
+of them raise no blocker here, so the warning is the operator's only
+chance to fix it before leaving the clinic.
 .SH FILES
 .TP
 .I /etc/carlos-emr/carlos-emr.env
@@ -213,9 +464,69 @@ WAF policy and site exclusions.
 .TP
 .I /etc/nginx/sites-available/carlos-emr
 The front door.
+.TP
+.I /var/lib/carlos-emr/o19-import/
+Workspace of an OSCAR 19 import (root\-only, created by
+.BR import-o19 ):
+.I state.json
+and
+.I etl-progress.json
+(the ledgers a
+.B \-\-resume
+continues from),
+.I report.txt
+(the running phase log),
+.I preflight.txt
+and
+.IR preflight.json ,
+.I o19-digests.json
+(the run's own 0600 copy of the clinic's content digests; the ledger
+binds its sha256, so a resumed run cannot substitute another) and
+.I content-transfer.json
+(the P2 comparison of those digests against the restored staging
+schema),
+the root\-only
+.IR verify-details.txt ,
+the root\-only
+.I pristine-details.txt
+(the non\-seed logins P0's pristine sweep refused on \(em a login name
+is a person, so the sweep line in the log gives only the count),
+the root\-only
+.I content-details.txt
+(the primary keys of the rows P7's value checks disagreed about \(em
+PHI\-correlating, so the report carries the counts and this file the
+keys),
+.I roles-details.txt
+and
+.IR privilege-diff.txt ,
+the derived
+.I o19-derived-carlos.properties
+fragment, the root\-only
+.I documents-details.txt
+and
+.I o19-archive-export/
+(the CSV export of the archived tables; its
+.I README.txt
+names the binary columns written as hex), and
+.I admin-credentials.txt
+(the break\-glass administrator's password, kept by
+.B \-\-cleanup
+when everything else is retired).
+.I report.txt
+is the running phase log;
+.I import-report.txt
+and
+.I import-report.json
+are the operator's validation report, written at the end of verification.
 .SH EXIT STATUS
 .B check
-exits non\-zero when any check fails. Other commands exit non\-zero on error.
+exits non\-zero when any check fails.
+.B o19-preflight
+reports its verdict as its status: 0 go, 1 go with acknowledgements, 2
+no\-go, and 3 when the tool itself failed \(em so 1 and 2 are answers, not
+errors. Every other command, including
+.BR import-o19 ,
+exits 0 on success and non\-zero on error.
 .SH SEE ALSO
 .BR nginx (8),
 .BR certbot (1),

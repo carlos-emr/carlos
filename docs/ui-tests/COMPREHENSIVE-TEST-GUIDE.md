@@ -119,7 +119,7 @@ Before running any test:
 
 ### 1. Application Status
 ```bash
-curl -sI http://localhost:8080/oscar/index.jsp | head -1
+curl -sI http://localhost:8080/carlos/ | head -1
 # Expected: HTTP/1.1 200
 ```
 
@@ -172,8 +172,8 @@ For first-time execution or full regression testing:
 These warnings are expected and do not indicate failures:
 
 ### 404 Errors (Non-blocking)
-- `/oscar/js/dateFormatUtils.js`
-- `/oscar/js/custom/default/master.js`
+- `/carlos/js/dateFormatUtils.js`
+- `/carlos/js/custom/default/master.js`
 
 ### JavaScript Warnings
 - `Unexpected token '%'` - JSP template parsing
