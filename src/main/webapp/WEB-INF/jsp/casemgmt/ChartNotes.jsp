@@ -31,9 +31,12 @@
 <%--
     ChartNotes.jsp — Renders the clinical notes panel inside the encounter page.
 
-    Loaded either as the standalone CaseManagementView AJAX result or as part of
-    newEncounterLayout.jsp. Displays filtered and sorted clinical notes for a
-    patient, with inline editing, issue assignment, and template insertion.
+    Rendered as the CaseManagementView "ajaxView" result into the encounter
+    layout's #notCPP container: on chart open through viewFullChart(false), and
+    again on every filter or save reload. newEncounterLayout.jsp must never also
+    include it server-side; that produced two note panels per chart. Displays
+    filtered and sorted clinical notes for a patient, with inline editing, issue
+    assignment, and template insertion.
 
     The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
     from truncating large AJAX forward responses. Without it, the
@@ -160,11 +163,11 @@
         if (request.getParameter("caseManagementEntryForm") == null) {
             request.setAttribute("caseManagementEntryForm", cform);
         }
-        boolean layoutIncludesDependencies = Boolean.parseBoolean(
-                String.valueOf(request.getAttribute("eChartLayoutIncludesDependencies")));
 %>
 
-<% if (!layoutIncludesDependencies) { %>
+<%-- Shared libraries for the standalone route (casemgmt/ViewChartNotes). When this fragment is
+     inserted into #notCPP by CarlosAjax/update(), external <script src> tags are stripped and
+     not re-loaded (Prototype evalScripts semantics); only the inline scripts below run. --%>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script type="text/javascript">jQuery.noConflict();</script>
@@ -176,7 +179,6 @@
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/select.js" type="text/javascript"></script>
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
-<% } %>
 <script type="text/javascript">
     ctx = "${carlos:forJavaScript(ctx)}";
     imgPrintgreen.src = ctx + "/encounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
@@ -210,9 +212,9 @@
 
     jQuery(document).ready(function () {
         notesLoader(0, notesIncrement, demographicNo);
-        // The encounter layout renders this page twice on open, and both copies run this
-        // handler in the same window. Without the stop, the first interval handle is
-        // overwritten here and its timer polls on, unstoppable, for the life of the chart.
+        // Filter and save reloads re-render this fragment into #notCPP and run this handler
+        // again in the same window. Without the stop, the earlier interval handle would be
+        // overwritten here and its timer would poll on, unstoppable, for the life of the chart.
         stopNotesScrollCheck();
         notesScrollCheckInterval = setInterval('notesIncrementAndLoadMore()', 1000);
     });

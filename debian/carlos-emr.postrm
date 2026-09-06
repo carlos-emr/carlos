@@ -67,6 +67,7 @@ case "$1" in
         rm -rf /var/log/carlos-emr/backup-state
         rm -f "${STATE}/.first-configure-pending" \
               "${STATE}/.consult-signature-default-migrated" \
+              "${STATE}/.consult-fax-default-migrated" \
               "${STATE}/.db-name-default-migrated"
         # The OscarDocument -> CarlosDocument compat symlink is package
         # machinery, not data: the real document store it points at is KEPT.

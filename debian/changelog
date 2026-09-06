@@ -1,3 +1,22 @@
+carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
+
+  * Consultation faxing is enabled by default and its flag is a real boolean.
+    The two buttons that start a consultation fax were rendered by a tag that
+    compared consultation_fax_enabled against the literal string "yes", while
+    every other reader of the key accepted true/yes/on -- so true enabled the
+    whole workflow except the buttons that launch it. The buttons now go
+    through the same boolean check as the rest of the page.
+  * The upgrade normalises the flag in /etc/carlos-emr/carlos.properties: the
+    old stock consultation_fax_enabled=false is flipped to true once (sentinel
+    guarded, upgrade only, byte-exact whole-line match, so an operator's own
+    edit is left alone), and the legacy yes/no/on/off spellings are rewritten
+    to true/false. That rewrite is semantics-preserving in both directions --
+    a site that had disabled faxing with "no" keeps it disabled as "false".
+    Faxing only becomes VISIBLE; sending still needs an active account under
+    Administration > Faxes > Configure Fax and the _fax security object.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot19) resolute; urgency=medium
 
   * The install wizard's billing-province question offers a third answer,
