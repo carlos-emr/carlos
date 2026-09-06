@@ -1202,10 +1202,33 @@ DATA_LINE_RE = re.compile(rb"\s*(?:INSERT|REPLACE)\b", re.I)
 SQL_NOISE_RE = re.compile(
     rb"'(?:[^'\\]|\\.|'')*'"          # single-quoted literal
     rb"|\"(?:[^\"\\]|\\.|\"\")*\""      # double-quoted literal
-    rb"|/\*.*?\*/"                      # block comment, `/*!...*/` too
+    rb"|/\*!\d*(?P<executable>.*?)\*/"   # executable comment: body KEPT
+    rb"|/\*.*?\*/"                      # ordinary block comment
     rb"|--[ \t][^\n]*|--$"              # MySQL line comment needs a space
     rb"|#[^\n]*",                       # ...`#` does not
     re.S)
+
+
+def sql_noise_blank(match) -> bytes:
+    """A space for noise -- but an executable comment's own SQL back.
+
+    `/*!... */` is not a comment to the server: it EXECUTES the text
+    inside, and mysqldump puts a real declaration there. MEASURED with
+    mysqldump 10.11 `--databases`:
+
+        CREATE DATABASE /*!32312 IF NOT EXISTS*/ `x`
+          /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_general_ci */;
+
+    -- the schema's default collation, and on a clinic whose default the
+    target server does not carry, the one name the gate exists to refuse
+    on. Blanking it made the gate pass and the restore fail mid-stream.
+    The body is re-scrubbed so a literal or ordinary comment nested
+    inside it is still noise."""
+    body = match.group("executable")
+    if body is None:
+        return b" "
+    return b" " + SQL_NOISE_RE.sub(sql_noise_blank, body) + b" "
+
 
 #: enough to hold a collation name split across a chunk boundary
 COLLATION_CARRY = 64
@@ -1229,7 +1252,8 @@ def ddl_collations(data: bytes) -> Set[str]:
             continue
         # a SPACE, not an empty string: scrubbing must not weld two
         # tokens into a third that matches
-        for m in COLLATION_RE.finditer(SQL_NOISE_RE.sub(b" ", line)):
+        scanned = SQL_NOISE_RE.sub(sql_noise_blank, line)
+        for m in COLLATION_RE.finditer(scanned):
             names.add(m.group(1).decode("ascii", "replace"))
     return names
 

@@ -1741,16 +1741,17 @@ class TestStagingRestore(unittest.TestCase):
         """Skipping data LINES is not enough on its own.
 
         A collation name can reach a non-INSERT line three other ways --
-        a `--` or `#` comment, one of the `/*!40101 ... */` blocks
-        mysqldump writes into every dump, and the text of a table's own
-        `COMMENT='...'`. Each read as a declaration, and each would have
-        refused a perfectly good clinic dump mid-cutover with no flag to
-        clear it. The real OSCAR 19 fixture carries none of them (521
-        COLLATE occurrences, every one genuine DDL), so this is a
-        refusal waiting for a dump with a table comment."""
+        a `--` comment, a `#` comment, an ordinary `/* ... */` block, and
+        the text of a table's own `COMMENT='...'`. Each read as a
+        declaration, and each would have refused a perfectly good clinic
+        dump mid-cutover with no flag to clear it. The real OSCAR 19
+        fixture carries none of them (521 COLLATE occurrences, every one
+        genuine DDL), so this is a refusal waiting for a dump with a
+        table comment."""
         for line in (b"-- dump note: COLLATE=comment_bogus",
                      b"# legacy note COLLATE=hash_bogus",
-                     b"/*!40101 SET x COLLATE=cstyle_bogus */;"):
+                     b"/* dump note COLLATE=block_bogus */ CREATE TABLE t "
+                     b"(a int);"):
             self.assertEqual(o19import.ddl_collations(line), set(), line)
         # ...and a COMMENT= that mentions one still declares its OWN
         self.assertEqual(
@@ -1758,6 +1759,37 @@ class TestStagingRestore(unittest.TestCase):
                 b"CREATE TABLE t (a int) COMMENT='use COLLATE=bogus' "
                 b"COLLATE=utf8mb4_real;"),
             {"utf8mb4_real"})
+
+    def test_an_executable_comment_declares(self):
+        """`/*! ... */` is SQL the server RUNS, not a comment.
+
+        MEASURED with mysqldump 10.11 `--databases`: the schema's own
+        default collation is emitted inside one --
+
+            CREATE DATABASE /*!32312 IF NOT EXISTS*/ `x`
+              /*!40100 DEFAULT CHARACTER SET latin1
+                COLLATE latin1_general_ci */;
+
+        -- so treating it as noise makes the gate pass a clinic whose
+        default collation the target server does not carry, and the
+        restore then fails mid-stream with nothing to clear it. The
+        body is scanned; a literal nested INSIDE it is still noise."""
+        self.assertEqual(
+            o19import.ddl_collations(
+                b"CREATE DATABASE /*!32312 IF NOT EXISTS*/ `o19` "
+                b"/*!40100 DEFAULT CHARACTER SET latin1 "
+                b"COLLATE latin1_general_ci */;"),
+            {"latin1_general_ci"})
+        self.assertEqual(
+            o19import.ddl_collations(
+                b"/*!50001 CREATE VIEW v AS SELECT 'COLLATE=bogus' */;"),
+            set())
+        # the head scan reads the same shape, so the refusal costs nothing
+        self.assertEqual(
+            o19import.head_collations(
+                b"CREATE DATABASE `o19` /*!40100 DEFAULT CHARACTER SET "
+                b"latin1 COLLATE latin1_general_ci */;\n"),
+            ["latin1_general_ci"])
 
     def test_genuine_declarations_still_read(self):
         # the negative control: scrubbing comments and string literals

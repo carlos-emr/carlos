@@ -75,6 +75,7 @@ Exit codes: 0 = every invariant held; 1 = at least one failed (printed);
 from __future__ import annotations
 
 import argparse
+import decimal
 import re
 import shutil
 import subprocess
@@ -2225,6 +2226,27 @@ def check_primitive_fallback_types(client: Client, src: str,
                    "EXISTS `{1}`;".format(src, dst))
 
 
+def same_reported_value(shown: str, actual: str) -> bool:
+    """Does the report's literal name the value the server actually holds?
+
+    Exact, with ONE tolerance: the server RENDERS a numeric value in the
+    column's own width and scale, so the literal `0` the ETL supplies
+    comes back as `0000` from a `year` and `0.00` from a `decimal(6,2)`.
+    Those are the same value. Everything else must match character for
+    character, and in particular `''` and `0000` are NOT the same value:
+    telling a clinic a column holds the empty string when the server
+    stored a zero year is the exact defect this check exists to catch,
+    and an earlier form of it -- which excused any shown value that was
+    empty once its zeros were stripped -- could not.
+    """
+    if shown == actual:
+        return True
+    try:
+        return decimal.Decimal(shown) == decimal.Decimal(actual)
+    except (decimal.InvalidOperation, ValueError):
+        return False
+
+
 def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
     failures: List[str] = []
     uncovered = _uncovered_primitive_types()
@@ -2326,12 +2348,18 @@ def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
     # and the literal it PRINTS is the one the column now holds
     for line in lines:
         col_name = line.split(":", 1)[0].split(".", 1)[1]
+        # BIT is the one type the client renders as its raw BYTE (a NUL
+        # comes back as the two characters `\0`), so ask the server for
+        # the number instead of comparing the report against an escape
+        # sequence. Every other type renders as itself.
+        expr = "`{0}`".format(col_name)
+        if dst_cols[col_name]["type"] == "bit":
+            expr = "`{0}` + 0".format(col_name)
         stored = client.rows(
-            "SELECT `{0}` FROM `t` WHERE id = 2".format(col_name), dst)
+            "SELECT {0} FROM `t` WHERE id = 2".format(expr), dst)
         shown = line.rsplit("stored as ", 1)[-1].strip().strip("'")
         actual = "" if not stored else str(stored[0][0])
-        if shown.lstrip("0") not in (actual.lstrip("0"), "") \
-                and shown != actual:
+        if not same_reported_value(shown, actual):
             failures.append(
                 "{0}: the report says the column now holds {1!r}, the "
                 "server stored {2!r}".format(col_name, shown, actual))
