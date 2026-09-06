@@ -138,14 +138,6 @@ assert(typedDrugTerm.length >= 3, `ALLERGY_TYPED_DRUG_TERM must be at least 3 ch
 // reference knows for the free-text branch to have anything to resolve.
 assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 characters, got "${customAllergen}"`);
 
-/**
- * Escapes the RegExp metacharacters in a literal so it can be embedded in a pattern.
- * Allergen names carry them freely -- percentages, decimals, parenthesised qualifiers, "PA+++".
- */
-function escapeRegExp(literal) {
-  return String(literal).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 (async () => {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
@@ -201,20 +193,20 @@ function escapeRegExp(literal) {
         + 'this check exists to exercise never happens.',
     );
 
-    // Prefer the exact class the alert assertion depends on; fall back to the
-    // first result so the recording half still runs on a different dataset.
-    // Anchor on the allergen name as a LITERAL. Escaping is not hypothetical here: 274 of the
-    // 75,113 names in the seeded reference throw when interpolated raw ("SPF 30 PA+++" is
-    // "Nothing to repeat"), and many more silently mis-match because "." matches any character.
-    let chosen = results.filter({ hasText: new RegExp(`^\\s*${escapeRegExp(allergenName)}\\s*$`) }).first();
+    // Prefer the exact class the alert assertion depends on; fall back to the first result so the
+    // recording half still runs on a different dataset. Compared as plain strings rather than
+    // through a RegExp: the match wanted here IS equality, and allergen names carry regex
+    // metacharacters freely -- 274 of the 75,113 names in the seeded reference cannot be compiled
+    // as a pattern at all ("SPF 30 PA+++" is "Nothing to repeat"), and any name with a decimal
+    // would match strings it should not, because "." matches any character.
+    const resultNames = (await results.allTextContents()).map((text) => text.trim());
+    const exactIndex = resultNames.indexOf(allergenName);
     // Part 4 asserts a warning for this allergen from a drug in ITS class, so that pairing has to
     // be the one the operator configured. The fallback keeps parts 1-3 working on a dataset that
     // does not carry the requested name, but it breaks the pairing, so part 4 stands down rather
     // than asserting against whatever the search happened to return first.
-    const matchedRequestedAllergen = (await chosen.count()) > 0;
-    if (!matchedRequestedAllergen) {
-      chosen = results.first();
-    }
+    const matchedRequestedAllergen = exactIndex >= 0;
+    const chosen = results.nth(matchedRequestedAllergen ? exactIndex : 0);
     const chosenName = ((await chosen.textContent()) || '').trim();
     assert(chosenName.length > 0, 'Search result anchor has no text');
 
