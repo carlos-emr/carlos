@@ -189,6 +189,9 @@ async function callStatus(page) {
       assert(status.state !== 'RUNNING', 'an update is already running; rerun when it has finished');
       console.log(`STEP 2 status: PASS (state ${status.state}${status.message ? ', ' + status.message : ''})`);
     }
+    // Load-bearing: #updateButton now renders hidden and is only revealed once a probe
+    // reports a definite state, so this asserts the page positively enabled the trigger
+    // rather than merely never having hidden it.
     assert(await popup.locator('#updatedb').isVisible(), 'the Update Drugref button is not visible');
 
     if (!trigger) {

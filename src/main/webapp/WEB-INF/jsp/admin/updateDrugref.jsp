@@ -160,10 +160,15 @@
                         return json;
                     })
                     .catch(function () {
+                        // Hidden, not shown: this is the transport-level twin of the
+                        // all-null branch in renderVerify, and it hid the trigger for the
+                        // same reason. An unreachable DrugRef says nothing about whether a
+                        // run is going, so offering Update here invites a second one on top
+                        // of the first.
                         document.getElementById('dbInfo').textContent = 'Drugref database is unavailable. Contact support.';
                         show('dbInfo', true);
                         show('statusDisplay', false);
-                        show('updateButton', true);
+                        show('updateButton', false);
                         return null;
                     });
             }
@@ -304,6 +309,10 @@
                         console.warn('Skipping getUpdateTime — CSRF token not available:', err);
                         document.getElementById('dbInfo').textContent =
                             'Could not load CSRF token. Refresh the page or contact support.';
+                        // No token means every POST this page makes is rejected, the probe
+                        // included, so the state is unknown and the trigger would fail if
+                        // pressed.
+                        show('updateButton', false);
                     });
             });
         </script>
@@ -333,7 +342,7 @@
             <label for="dbDateTime"><fmt:message key="admin.admin.DrugRef.updateDate"/>&colon; </label>
             <span id="dbDateTime"></span></div>
         </div>
-        <div id="updateButton">
+        <div id="updateButton" style="display:none;">
           <a id="updatedb" onclick="updateDB();" href="javascript:void(0);"
               class="btn btn-primary"><fmt:message key="admin.admin.UpdateDrugref"/></a>
         </div>
