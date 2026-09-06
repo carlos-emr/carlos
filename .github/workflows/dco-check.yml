@@ -39,6 +39,7 @@ jobs:
   dco:
     name: DCO Sign-Off
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Keep issue_comment runs scoped to the documented phrase; the shell step
     # repeats a case-insensitive phrase check before touching PR state.
     if: >

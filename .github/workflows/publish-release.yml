@@ -28,6 +28,7 @@ jobs:
   validate:
     name: Validate release tag
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       # Required to inspect prior workflow runs and validation-job results for dispatch retries.
       actions: read
@@ -201,6 +202,7 @@ jobs:
     needs: [validate, full-check]
     if: always() && needs.validate.outputs.skip != 'true' && needs.full-check.result == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
       attestations: write
@@ -227,11 +229,31 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Verify the release image pins the dev container's JDK digest
+        run: |
+          set -euo pipefail
+          # The release WAR must be compiled by the same JDK build that CI
+          # verified it with. Both Dockerfiles pin the base image by digest;
+          # nothing else keeps them in sync, so refuse to build if they differ.
+          # `|| true` so a Dockerfile with no digest-pinned FROM yields an empty
+          # value for the check below instead of tripping pipefail/errexit first.
+          dev=$(grep -m1 -oE '^FROM [^ ]+@sha256:[0-9a-f]{64}' .devcontainer/development/Dockerfile | cut -d' ' -f2 || true)
+          rel=$(grep -m1 -oE '^FROM [^ ]+@sha256:[0-9a-f]{64}' .github/release-build/Dockerfile | cut -d' ' -f2 || true)
+          if [ -z "$dev" ] || [ -z "$rel" ] || [ "$dev" != "$rel" ]; then
+            echo "::error::.github/release-build/Dockerfile base ($rel) does not match .devcontainer/development/Dockerfile base ($dev); update them together."
+            exit 1
+          fi
+          echo "Release build base image: $rel"
+
       - name: Build the release environment from tagged source
         run: |
           set -euo pipefail
 
-          docker build --pull -t carlos-release-build-env .devcontainer/development
+          # .github/release-build/Dockerfile: the digest-pinned JDK 21 base the dev
+          # container uses, plus Maven and git from its Ubuntu archive, and
+          # nothing else. Building the full development container here cost
+          # ~5 min per release for tooling the WAR build never touches.
+          docker build --pull -t carlos-release-build-env .github/release-build
 
       - name: Build the WAR and CycloneDX SBOM from a clean checkout
         run: |

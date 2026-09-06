@@ -1,0 +1,173 @@
+# Composite action: start the CARLOS dev container for a CI job.
+#
+# Every Maven-based job (maven-project.yml build/tests/jspc, sonarcloud.yml,
+# spotbugs.yml, and the release verification that reuses maven-project.yml)
+# needs the same ~70 lines of setup: log in to ghcr.io, pull the pre-built
+# carlos-tomcat-dev image, fall back to a local buildx build when the image is
+# not in the registry, restore (or restore-and-save) the Maven repository
+# cache, evict the two vendored groupIds that a restored cache must never
+# shadow, and start the container with the workspace mounted. This action is
+# that block, kept in one place so the callers cannot drift apart.
+#
+# Ordering contract: actions/checkout must run BEFORE this action -- a local
+# `uses: ./.github/actions/...` is loaded from the checked-out tree, so the
+# action has to exist on the ref being built (for a workflow_dispatch retry
+# of an older release tag, dispatch with --ref refs/tags/<tag>, as
+# deb-packages.yml already requires).
+#
+# What deliberately stays in the caller: any `sudo chown` workspace-ownership
+# fix that a cache-saving job needs before its post steps run (composite
+# actions have no post: hook of their own), and of course the build/test
+# command that runs inside the container.
+#
+# License:
+# This file is part of the CARLOS EMR project and is subject to the licensing
+# terms outlined in the repository's LICENSE file.
+
+name: CARLOS dev container
+description: >-
+  Logs in to ghcr.io, pulls the pre-built carlos-tomcat-dev image (or builds it
+  locally when it is not in the registry), restores the Maven repository cache,
+  and starts the container with the workspace and Maven cache mounted.
+
+inputs:
+  token:
+    description: >-
+      Token with packages:read for ghcr.io. Composite actions cannot read
+      `secrets`, so callers pass `secrets.GITHUB_TOKEN` explicitly.
+    required: true
+  image:
+    description: Pre-built dev image to pull.
+    required: false
+    default: ghcr.io/${{ github.repository_owner }}/carlos-tomcat-dev:latest
+  maven-cache:
+    description: >-
+      `save` restores the Maven cache now and saves it at job end
+      (actions/cache); `restore` is restore-only and never writes a cache
+      entry (actions/cache/restore). Exactly one job per workflow run should
+      use `save`.
+    required: false
+    default: save
+  extra-run-args:
+    description: >-
+      Extra `docker run` arguments, split on whitespace -- e.g. an additional
+      `-v` mount. Paths containing spaces are not supported.
+    required: false
+    default: ''
+  container-name:
+    description: Name given to the started container.
+    required: false
+    default: carlos-tomcat-dev
+
+outputs:
+  pulled:
+    description: "`true` when the pre-built image was pulled from the registry."
+    value: ${{ steps.pull.outputs.pulled }}
+  cache-hit:
+    description: "`true` on an exact Maven cache key hit."
+    value: ${{ steps.cache-save.outputs.cache-hit || steps.cache-restore.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Log in to Container Registry
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token }}
+
+    - name: Try to pull pre-built image from ghcr.io
+      id: pull
+      shell: bash
+      continue-on-error: true
+      env:
+        IMAGE: ${{ inputs.image }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: bash "$ACTION_PATH/pull-image.sh"
+
+    - name: Fail on unexpected image pull error
+      if: steps.pull.outputs.reason == 'error'
+      shell: bash
+      run: |
+        echo "::error::Failed to pull pre-built image from ghcr.io for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+        exit 1
+
+    - name: Set up Docker Buildx
+      if: steps.pull.outputs.pulled != 'true' && steps.pull.outputs.reason == 'not-found'
+      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+    - name: Cache Docker layers
+      if: steps.pull.outputs.pulled != 'true' && steps.pull.outputs.reason == 'not-found'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Cache Maven packages
+      # One canonical key for every Maven job in the repository. Two different
+      # keys used to coexist (sonarcloud had its own), which meant two GB-scale
+      # caches competing for the repository's cache quota.
+      id: cache-save
+      if: inputs.maven-cache == 'save'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: .m2-cache
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+
+    - name: Restore Maven cache
+      id: cache-restore
+      if: inputs.maven-cache == 'restore'
+      continue-on-error: true
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: .m2-cache
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+
+    - name: Prepare Maven cache directory and purge stale local_repo artifacts
+      shell: bash
+      run: |
+        # Create the mount point as the runner user (a cache miss would otherwise
+        # let dockerd create it root-owned), then evict the two formerly-JitPack
+        # groupIds: they are vendored in local_repo with bytes that differ from
+        # what JitPack ever served, a restored cache copy shadows local_repo
+        # (Maven prefers ~/.m2 and never re-verifies cached bytes), so they must
+        # re-copy from file://local_repo on every run.
+        mkdir -p .m2-cache
+        rm -rf .m2-cache/repository/com/github/openosp \
+               .m2-cache/repository/com/github/librepdf
+
+    - name: Build dev container (fallback)
+      if: steps.pull.outputs.pulled != 'true'
+      shell: bash
+      run: |
+        echo "Building container locally..."
+        docker buildx build \
+          --cache-from=type=local,src=/tmp/.buildx-cache \
+          --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+          --load \
+          -t carlos-tomcat-dev \
+          .devcontainer/development
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+    - name: Start container
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        EXTRA_RUN_ARGS: ${{ inputs.extra-run-args }}
+      run: |
+        # shellcheck disable=SC2086 # EXTRA_RUN_ARGS is deliberately word-split
+        docker run -d --name "$CONTAINER_NAME" \
+          -v "$GITHUB_WORKSPACE:/workspace" \
+          -v "$GITHUB_WORKSPACE/.m2-cache:/root/.m2" \
+          $EXTRA_RUN_ARGS \
+          -w /workspace \
+          carlos-tomcat-dev tail -f /dev/null
+        docker exec "$CONTAINER_NAME" git config --global --add safe.directory /workspace

@@ -30,6 +30,14 @@ on:
   schedule:
     - cron: '23 4 * * 1'  # Monday 4:23 UTC (weekly full scan)
 
+# Superseded pushes to the same PR cancel the in-progress run; every other
+# event (push to a protected branch, schedule, dispatch) gets a unique group
+# via run_id and is never queued behind or cancelled by another run. The final
+# head of a PR always gets its own complete run, so no check outcome changes.
+concurrency:
+  group: semgrep-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   security-events: write
   actions: read
@@ -39,6 +47,7 @@ jobs:
   semgrep:
     name: Semgrep SAST Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 90 }}
     container:
       image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
     env:
@@ -47,6 +56,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Run Semgrep CI
         id: run_semgrep
