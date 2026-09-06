@@ -48,6 +48,9 @@ const captures = [];
 const badResponses = [];
 const consoleIssues = [];
 const notesLoadRequests = [];
+// Set when a response arrives through the packaged nginx front door, which is the only
+// configuration where the WAF can see (and so false-positive on) the seeded clinical text.
+let frontDoorObserved = false;
 
 // The notes list pages in older notes from a 1s poll, so "settled" means no new fetch
 // for several poll ticks. The overall cap keeps a legitimately long chart from hanging
@@ -68,8 +71,8 @@ const CLINICAL_TEXT_THE_WAF_SCORES =
   "reviewed prior imaging at http://pacs.example.org/study?id=1&cmd=view; pt's father had COPD, BP > 140/90";
 
 // backup() re-arms every 5s and autosaves whenever the note textarea differs from the
-// value the chart loaded, so one tick plus slack is enough to observe a draft save.
-const AUTOSAVE_TICK_MS = 7000;
+// value the chart loaded, so one tick plus generous slack is enough to observe a draft save.
+const AUTOSAVE_WAIT_MS = 20000;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -132,6 +135,9 @@ function wirePage(page, label) {
     const responseUrl = response.url();
     const status = response.status();
     const contentType = response.headers()['content-type'] || '';
+    if (/nginx/i.test(response.headers()['server'] || '')) {
+      frontDoorObserved = true;
+    }
     if (status >= 400 && !isExpectedMissingFixtureImage(status, responseUrl)) {
       badResponses.push({ label, status, url: responseUrl, contentType });
     }
@@ -298,6 +304,7 @@ async function screenshot(page, name) {
 async function seedEncounterNoteText(page, text) {
   await page.locator('#caseManagementEntryForm textarea[name="caseNote_note"]')
     .first().waitFor({ state: 'attached', timeout: 15000 });
+  // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the argument is this script's own constant or a value just read back out of the same textarea; it is assigned to .value, never used to build a URL or a request target
   return page.evaluate((value) => {
     const form = document.forms['caseManagementEntryForm'];
     const textarea = form && form.querySelector('textarea[name="caseNote_note"]');
@@ -308,6 +315,27 @@ async function seedEncounterNoteText(page, text) {
     textarea.value = value;
     return previous;
   }, text);
+}
+
+/**
+ * Drops the temporary draft the autosave stored for this provider/patient/program.
+ *
+ * Calls the page's own deleteAutoSave(), which posts method=cancel and makes the action
+ * call deleteTmpSave(). Without it the seeded text survives the run: edit() restores a
+ * tmpsave on the next open of this chart, so the check would hand the next reader its own
+ * attack-shaped prose as an unsaved note.
+ */
+async function discardEncounterNoteDraft(page) {
+  const cancelled = page.waitForResponse(
+    (response) => isCaseManagementEntryPost(response, 'cancel'), { timeout: 15000 });
+  await page.evaluate(() => {
+    if (typeof deleteAutoSave !== 'function') {
+      throw new Error('deleteAutoSave() is not defined on the chart page');
+    }
+    deleteAutoSave();
+  });
+  const response = await cancelled;
+  assert(response.ok(), `discarding the note draft failed with HTTP ${response.status()}`);
 }
 
 async function archiveCppNote(page, noteText) {
@@ -321,6 +349,24 @@ async function archiveCppNote(page, noteText) {
   await page.locator("#frmIssueNotes input[type='image'][src*='edit-cut.png']").click();
   await noteLink.waitFor({ state: 'detached', timeout: 15000 });
   return true;
+}
+
+/**
+ * True when the response answers a POST to the note route whose body carries `method=<name>`.
+ * The method travels in the body, not the query string, on every call this check watches.
+ */
+function isCaseManagementEntryPost(response, method) {
+  if (response.request().method() !== 'POST') {
+    return false;
+  }
+  if (!new URL(response.url()).pathname.endsWith('/CaseManagementEntry')) {
+    return false;
+  }
+  return new RegExp(`(?:^|&)method=${method}(?:&|$)`).test(response.request().postData() || '');
+}
+
+function isAutosaveResponse(response) {
+  return isCaseManagementEntryPost(response, 'autosave');
 }
 
 function isUnresolvedIssuesResponse(response) {
@@ -379,6 +425,14 @@ function isExpectedNoteLockDialog(issue) {
       // without it the check drives only the one shape that already worked.
       originalEncounterNote = await seedEncounterNoteText(echart, CLINICAL_TEXT_THE_WAF_SCORES);
 
+      // Arm the autosave wait BEFORE the save click. Waiting a fixed interval and moving on
+      // would pass silently in the one case worth catching: if the note timer never re-arms,
+      // no autosave is sent, ARGS:note is never exercised, and a re-broken exclusion goes
+      // unnoticed. Requiring the request also settles whether assigning textarea.value is
+      // enough to trigger it — backup() polls the value against origCaseNote rather than
+      // listening for input events, so no synthetic event is needed, and this proves it.
+      const autosaveResponse = echart.waitForResponse(isAutosaveResponse, { timeout: AUTOSAVE_WAIT_MS });
+
       await echart.locator('#noteEditTxt').fill(cppNote);
       const unresolvedIssuesResponse = echart.waitForResponse(isUnresolvedIssuesResponse, { timeout: 15000 });
       await echart.locator("#frmIssueNotes input[type='image'][src*='note-save.png']").click();
@@ -388,17 +442,27 @@ function isExpectedNoteLockDialog(issue) {
         `Unresolved Issues refresh failed with HTTP ${refreshResponse.status()}: ${refreshResponse.url()}`);
       await echart.locator('#divR1I1').filter({ hasText: cppNoteToken }).waitFor({ state: 'visible', timeout: 15000 });
       saveConfirmed = true;
-      // One autosave tick, so a blocked draft save is a failure of this run rather than a
-      // silent one: nothing in the UI reports an autosave that never lands.
-      await echart.waitForTimeout(AUTOSAVE_TICK_MS);
+
+      const draftSave = await autosaveResponse;
+      assert(draftSave.ok(),
+        `note draft autosave failed with HTTP ${draftSave.status()}; the encounter note text is `
+        + `blocked before it reaches the application, and nothing in the UI reports it`);
       await screenshot(echart, 'echart-after-social-history-save');
     } catch (error) {
       saveFailure = error;
     } finally {
       if (originalEncounterNote !== null) {
-        // Hand the chart note back unchanged; a differing textarea keeps the autosave timer
-        // re-arming for the rest of the run.
+        // Restore the note text, then drop the draft the autosave above deposited. Restoring
+        // alone is not cleanup: the value now matches origCaseNote, so no later tick
+        // overwrites the stored draft, and edit() restores it on the next open of this chart
+        // — the run's signature-shaped test text would come back as the clinician's own
+        // unsaved note. deleteAutoSave() is the page's own cancel path.
         await seedEncounterNoteText(echart, originalEncounterNote).catch(() => {});
+        try {
+          await discardEncounterNoteDraft(echart);
+        } catch (error) {
+          cleanupFailure = new Error(`note draft cleanup failed: ${error.message}`, { cause: error });
+        }
       }
       try {
         const archived = await archiveCppNote(echart, cppNoteToken);
@@ -430,9 +494,19 @@ function isExpectedNoteLockDialog(issue) {
       `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
 
     console.log('PASS eChart clinical notes rendered, note pagination stopped at end of chart, '
-      + 'Social History saved and archived, and Unresolved Issues refreshed');
+      + 'Social History saved and archived, note draft autosaved and discarded, and '
+      + 'Unresolved Issues refreshed');
     console.log(`Observed ${notesLoadRequests.length} note pagination requests`);
     console.log(`Observed ${captures.length} eChart-related responses`);
+    // Say plainly whether the WAF was in the path. This script's default BASE_URL is the
+    // devcontainer's bare Tomcat, where CLINICAL_TEXT_THE_WAF_SCORES passes for the boring
+    // reason that nothing inspected it — a green run there is NOT evidence that exclusion
+    // 1010 is intact, and only the packaged front door on :443 can give that.
+    console.log(frontDoorObserved
+      ? 'WAF coverage: requests went through the packaged front door, so the '
+        + 'attack-shaped clinical text exercised exclusion 1010'
+      : 'WAF coverage: NONE — no front-door responses seen, so this run says nothing about '
+        + 'the WAF exclusions; re-run with BASE_URL pointing at the packaged install on :443');
     if (consoleIssues.length) {
       console.log(`Non-blocking browser diagnostics: ${JSON.stringify(consoleIssues, null, 2)}`);
     }

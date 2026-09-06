@@ -49,6 +49,16 @@ class CaseManagementEmptyStateRegressionTest {
     private static final Path RESOURCES_DIRECTORY = resolveProjectPath(Path.of("src/main/resources"));
     private static final String[] LOCALES = {"en", "es", "fr", "pl", "pt_BR"};
 
+    /**
+     * The English text, written once. Both the "en says exactly this" assertion and the
+     * "no other locale says this" assertion read these, so a reworded English string cannot
+     * leave the absence check guarding a sentence the product no longer ships.
+     */
+    private static final String ENGLISH_NO_HISTORY =
+            "casemgmt.showHistory.msgNoHistory=No history has been recorded for this issue.";
+    private static final String ENGLISH_NO_NOTES =
+            "casemgmt.viewNotes.msgNoNotes=No notes have been recorded for this section.";
+
     @Test
     @DisplayName("issue history popup should explain when no history exists")
     void shouldRenderHistoryEmptyState_whenHistoryIsEmpty() throws IOException {
@@ -100,8 +110,8 @@ class CaseManagementEmptyStateRegressionTest {
                 RESOURCES_DIRECTORY.resolve("oscarResources_en.properties"),
                 StandardCharsets.UTF_8);
         assertThat(english)
-                .contains("casemgmt.showHistory.msgNoHistory=No history has been recorded for this issue.")
-                .contains("casemgmt.viewNotes.msgNoNotes=No notes have been recorded for this section.");
+                .contains(ENGLISH_NO_HISTORY)
+                .contains(ENGLISH_NO_NOTES);
     }
 
     @Test
@@ -121,8 +131,8 @@ class CaseManagementEmptyStateRegressionTest {
 
             assertThat(resources)
                     .as("empty-state messages for %s must not fall back to the English text", locale)
-                    .doesNotContain("casemgmt.showHistory.msgNoHistory=No history has been recorded")
-                    .doesNotContain("casemgmt.viewNotes.msgNoNotes=No notes have been recorded");
+                    .doesNotContain(ENGLISH_NO_HISTORY)
+                    .doesNotContain(ENGLISH_NO_NOTES);
         }
     }
 
