@@ -2652,6 +2652,15 @@ class TestVerifyPhaseFiles(unittest.TestCase):
         o19import._row_parity = self._parity
         o19roles.verify_role_checks = self._checks
 
+    #: the province these fixtures drive; the BC subclass at the end of
+    #: the module re-runs every one of them against the other profile,
+    #: which is what pins that the money check follows the province
+    PROVINCE = "on"
+
+    @property
+    def BILLING_TABLE(self):
+        return o19map_schema.BILLING_TOTALS_TABLE[self.PROVINCE]
+
     def _ctx(self):
         def query(sql, db=None):
             if "COUNT(*) FROM `o19_import`.demographic" in sql:
@@ -2665,7 +2674,7 @@ class TestVerifyPhaseFiles(unittest.TestCase):
                 # `seed = 0` in the shipped code would pass it.
                 self.assertIn("RAND({0})".format(self.expected_seed), sql)
                 return [["7"], ["9"]]
-            if "billing_on_cheader1 GROUP BY" in sql:
+            if "{0}` GROUP BY".format(self.BILLING_TABLE) in sql:
                 return []
             if "WHERE `demographic_no` = 7" in sql \
                     or "WHERE `demographicNo` = 7" in sql:
@@ -2676,7 +2685,9 @@ class TestVerifyPhaseFiles(unittest.TestCase):
                 return [[str(self.staging_rows_for_7)]] \
                     if "`o19_import`" in sql else [["1"]]
             return [["0"]] if "COUNT(*)" in sql else []
-        return {"state_dir": self.state_dir,
+        # province, because the claim header P7 aggregates is per
+        # province and billing_totals_table() fails closed without one
+        return {"state_dir": self.state_dir, "province": self.PROVINCE,
                 "state": {"phases": {"stage": {
                     "dump_sha256": self.DUMP_SHA256}}},
                 "query": query, "target_db": "carlos"}
@@ -2736,18 +2747,19 @@ class TestVerifyPhaseFiles(unittest.TestCase):
         self.assertIn("VERDICT", text)
 
     def test_a_one_sided_billing_table_is_not_reported_as_a_match(self):
-        # billing_on_cheader1 present in the target but absent from
+        # the claim header present in the target but absent from
         # staging: the run records that it cannot compare. Zeroing both
         # sides to keep the equality test simple used to print "billing
         # totals match for 0 fiscal year(s)" directly under that failure.
         ctx = self._ctx()
         inner = ctx["query"]
+        table = self.BILLING_TABLE
 
         def query(sql, db=None):
-            if "billing_on_cheader1 GROUP BY" in sql and "o19_import" in sql:
+            if "{0}` GROUP BY".format(table) in sql and "o19_import" in sql:
                 raise RuntimeError(
                     "ERROR 1146 (42S02) at line 1: Table "
-                    "'o19_import.billing_on_cheader1' doesn't exist")
+                    "'o19_import.{0}' doesn't exist".format(table))
             return inner(sql, db)
         ctx["query"] = query
         with self.assertRaises(SystemExit):
@@ -3755,6 +3767,73 @@ class TestProcessGrantState(unittest.TestCase):
                      [], None):
             self.assertEqual(o19import.process_grant_state(rows),
                              "unknown", repr(rows))
+
+
+class TestVerifyPhaseFilesBC(TestVerifyPhaseFiles):
+
+    """Every P7 file assertion again, against the BC profile.
+
+    The money check was hardcoded to Ontario's OHIP claim header. On a
+    BC clinic that table does not exist, so P7 found it absent on BOTH
+    sides, said so, and passed -- billing would have been the one
+    clinical surface no verification covered. Re-running the whole
+    fixture under the other province is what proves the check follows
+    the province rather than a name."""
+
+    PROVINCE = "bc"
+
+    def test_the_claim_header_is_not_the_ontario_one(self):
+        # else this whole subclass is the Ontario suite run twice
+        self.assertNotEqual(
+            o19map_schema.BILLING_TOTALS_TABLE["bc"],
+            o19map_schema.BILLING_TOTALS_TABLE["on"])
+
+
+class TestTheMoneyCheckFailsClosed(unittest.TestCase):
+
+    """A province with no claim header must stop the run, not skip the
+    check.
+
+    The quiet alternative -- defaulting to Ontario's table -- is worse
+    than a crash: on any other province it would find the table absent
+    on both sides, report "absent from both schemas", and let
+    verification PASS with the billing totals never compared."""
+
+    def _ctx(self, province):
+        return {"province": province, "query": lambda sql, db=None: [],
+                "state_dir": "/nonexistent", "state": {}, }
+
+    def test_an_unruled_province_stops_verification(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import.billing_totals_table(self._ctx("ab"))
+        self.assertIn("BILLING_TOTALS_TABLE", err.getvalue())
+
+    def test_a_missing_province_stops_verification(self):
+        # a context built without one, which is how the gap first showed
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import.billing_totals_table({})
+        self.assertIn("billing", err.getvalue())
+
+    def test_a_header_that_is_not_an_identifier_is_refused(self):
+        # it is interpolated into SQL as a bare backticked name
+        with mock.patch.object(o19map_schema, "BILLING_TOTALS_TABLE",
+                               {"on": "billing`; DROP TABLE x; --"}):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                with self.assertRaises(SystemExit):
+                    o19import.billing_totals_table(self._ctx("on"))
+            self.assertIn("plain identifier", err.getvalue())
+
+    def test_every_shipped_profile_names_a_claim_header(self):
+        carried = sorted({o19map_schema._DEFAULT_PROFILE["O19_PROFILE"]}
+                         | set(o19map_schema.PROFILES))
+        for province in carried:
+            self.assertIn(province, o19map_schema.BILLING_TOTALS_TABLE,
+                          province)
 
 
 if __name__ == "__main__":

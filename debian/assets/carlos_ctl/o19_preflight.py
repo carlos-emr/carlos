@@ -1711,10 +1711,15 @@ UNMEASURED_FINDING_IDS = ("column-checks-deferred", "charset-b8-unmeasured")
 VIEWS_FINDING = "views-block-the-restore"
 
 # Core-table inventory reported as sanity anchors for later row-parity.
+# Both claim headers are listed: billing_on_cheader1 is Ontario's and
+# absent from a BC clinic, `billing` is the province-neutral invoice
+# table BC bills through. An absent one is reported as absent rather
+# than counted, so naming both leaves every province with a billing
+# anchor instead of only Ontario.
 INVENTORY_TABLES = [
     "demographic", "provider", "security", "appointment", "casemgmt_note",
     "document", "drugs", "hl7TextMessage", "eform_data", "preventions",
-    "billing_on_cheader1", "tickler",
+    "billing_on_cheader1", "billing", "tickler",
 ]
 
 # UTF-8 bytes of a double-encoded latin1 lead byte ("A-tilde" = C3 83):

@@ -21068,6 +21068,14 @@ SEED_USER_NAME = 'carlosdoc'
 # keys): copied verbatim, named in the ETL report under a rotate/verify advisory
 CREDENTIAL_TABLES = ['ServiceClient', 'oscarKeys', 'publicKeys']
 
+# the claim header P7 aggregates by fiscal year, per province: the money check.
+# Keyed by province rather than emitted per profile because the import reads it
+# for the host's province, which it has already asserted against the profile.
+BILLING_TOTALS_TABLE = {
+    'on': 'billing_on_cheader1',
+    'bc': 'billing',
+}
+
 # rows the webapp creates on its first start (the OSCAR program, the seeded
 # clinician's membership, the default site): tolerated by the P0 sweep on a booted
 # host and deleted by the seed script before the clinic's rows copy

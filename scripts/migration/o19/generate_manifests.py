@@ -1777,6 +1777,13 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " report under a rotate/verify advisory")
     out.append("CREDENTIAL_TABLES = "
                + _fmt(list(getattr(ov, "CREDENTIAL_TABLES", []))) + "\n")
+    out.append("# the claim header P7 aggregates by fiscal year, per"
+               " province: the money check.\n# Keyed by province rather"
+               " than emitted per profile because the import reads it"
+               "\n# for the host's province, which it has already"
+               " asserted against the profile.")
+    out.append("BILLING_TOTALS_TABLE = "
+               + _fmt(dict(getattr(ov, "BILLING_TOTALS_TABLE", {}))) + "\n")
     out.append("# rows the webapp creates on its first start (the OSCAR"
                " program, the seeded\n# clinician's membership, the default"
                " site): tolerated by the P0 sweep on a booted\n# host and"

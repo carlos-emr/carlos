@@ -2459,6 +2459,31 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
         FAILED_NEXT_STEPS if problems else NEXT_STEPS)
 
 
+def billing_totals_table(ctx) -> str:
+    """The claim-header table P7 aggregates and spot-checks, for this
+    host's province.
+
+    Fails CLOSED. A province with no entry is a curation gap, and the
+    quiet alternative -- falling back to Ontario's table -- would find
+    it absent on both sides of a BC import, report "absent from both
+    schemas", and pass: the money check silently not run on the one
+    surface an operator's accountant will ask about. The province gate
+    has already refused anything but a carried profile by the time this
+    runs, so an empty lookup means the overlay, not the host."""
+    province = ctx.get("province")
+    table = getattr(o19map_schema, "BILLING_TOTALS_TABLE", {}).get(province)
+    if not table:
+        die("the manifest names no billing claim header for province "
+            "{0!r}, so verification cannot check billing totals; add one "
+            "to BILLING_TOTALS_TABLE in overrides_schema.py and "
+            "regenerate".format(province))
+    if not o19etl.IDENTIFIER_RE.match(table):
+        # it is interpolated into SQL as a bare identifier
+        die("the manifest's billing claim header for province {0!r} is "
+            "not a plain identifier".format(province))
+    return table
+
+
 def write_import_report(ctx, parity_ok: Sequence[str],
                         problems: Sequence[str],
                         verify_lines: Sequence[str],
@@ -2533,13 +2558,17 @@ def run_p7(ctx) -> None:
     if total and not sample:
         problems.append("spot check drew no patients from {0} demographic "
                         "row(s)".format(total))
+    # the claim header is per province: Ontario's OHIP header, BC's
+    # invoice table. Named from the manifest so the BC spot check
+    # covers billing instead of skipping an absent Ontario table.
+    billing_table = billing_totals_table(ctx)
     joins = (("appointment", "demographic_no"),
              ("casemgmt_note", "demographic_no"),
              ("drugs", "demographic_no"),
              ("preventions", "demographic_no"),
              ("measurements", "demographicNo"),
              ("eform_data", "demographic_no"),
-             ("billing_on_cheader1", "demographic_no"))
+             (billing_table, "demographic_no"))
     details: List[str] = []
     checked = 0
     for demo in sample:
@@ -2574,10 +2603,12 @@ def run_p7(ctx) -> None:
     lines.append("referential spot checks on {0} of {1} random patient(s) "
                  "({2} join checks)".format(len(sample), total, checked))
 
-    # billing totals per fiscal year, to the cent
+    # billing totals per fiscal year, to the cent. Both provinces'
+    # claim headers carry `billing_date` (DATE) and `total`, so only the
+    # table name varies.
     agg = ("SELECT IFNULL(YEAR(billing_date),0), COUNT(*), "
            "IFNULL(SUM(CAST(total AS DECIMAL(14,2))),0) FROM "
-           "`{0}`.billing_on_cheader1 GROUP BY 1 ORDER BY 1")
+           "`{0}`.`" + billing_table + "` GROUP BY 1 ORDER BY 1")
 
     def billing_totals(schema):
         """The aggregate, or None when this schema has no such table —
@@ -2598,8 +2629,8 @@ def run_p7(ctx) -> None:
         # way the parity and spot-check loops tolerate it, rather than
         # ending a completed import on a raw "table doesn't exist"
         s_rows = d_rows = {}
-        lines.append("billing totals: billing_on_cheader1 absent from "
-                     "both schemas")
+        lines.append("billing totals: {0} absent from both schemas"
+                     .format(billing_table))
     elif s_rows is None or d_rows is None:
         # one-sided: recorded as a failure AND reported as uncompared.
         # Zeroing both sides here would make the equality below hold and
@@ -2607,11 +2638,11 @@ def run_p7(ctx) -> None:
         # problem saying the totals could not be compared at all.
         present = dst if s_rows is None else src
         problems.append(
-            "billing_on_cheader1 exists in {0} but not in {1} — "
-            "verification cannot compare billing totals".format(
-                present, src if s_rows is None else dst))
-        lines.append("billing totals: NOT COMPARED (billing_on_cheader1 "
-                     "is in {0} only)".format(present))
+            "{0} exists in {1} but not in {2} — verification cannot "
+            "compare billing totals".format(
+                billing_table, present, src if s_rows is None else dst))
+        lines.append("billing totals: NOT COMPARED ({0} is in {1} "
+                     "only)".format(billing_table, present))
         s_rows = d_rows = None
     if s_rows is None:
         pass

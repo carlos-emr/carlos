@@ -273,6 +273,23 @@ ARCHIVE_SHARED = {"SecurityToken", "ServiceAccessToken", "ServiceRequestToken"}
 # a rotate/verify advisory (OAuth consumer secrets, signing key pairs).
 CREDENTIAL_TABLES = ["ServiceClient", "oscarKeys", "publicKeys"]
 
+# The claim header P7 aggregates by fiscal year, per province. It is the
+# money check -- the one verification an operator's accountant will ask
+# about -- and it was hardcoded to the Ontario table, which a BC clinic
+# does not have: the check would have found the table absent on both
+# sides, said so, and passed, so BC billing would have been the one
+# clinical surface no verification covered.
+#
+# Both tables carry `billing_date` (DATE) and `total`, so the aggregate
+# is the same statement with a different name. Ontario's OHIP claim
+# header is billing_on_cheader1; in BC the invoice lives in `billing`
+# (the province-neutral table CARLOS's BillingBCDao reads), with
+# billingmaster holding its service lines.
+BILLING_TOTALS_TABLE = {
+    "on": "billing_on_cheader1",
+    "bc": "billing",
+}
+
 # --- O19-only table dispositions ------------------------------------------
 
 # Rulings that hold in ONE province only. Everything else in this file
