@@ -49,7 +49,12 @@ class EctDisplayActionReloadUrlUnitTest {
 
     private static final String URI = "/carlos/encounter/displayTickler";
 
+    /** Builds a single-valued parameter map from alternating name/value arguments. */
     private static Map<String, String[]> params(String... keyValues) {
+        if (keyValues.length % 2 != 0) {
+            throw new IllegalArgumentException(
+                    "params() takes alternating name/value arguments, got " + keyValues.length);
+        }
         Map<String, String[]> map = new LinkedHashMap<>();
         for (int i = 0; i < keyValues.length; i += 2) {
             map.put(keyValues[i], new String[]{keyValues[i + 1]});

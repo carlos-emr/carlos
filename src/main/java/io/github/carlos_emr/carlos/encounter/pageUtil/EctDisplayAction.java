@@ -440,8 +440,12 @@ public class EctDisplayAction extends ActionSupport {
 
     /**
      * Appends one request parameter to the query string, repeating the key once per value so a
-     * multi-valued parameter survives the round trip. A parameter present with no value at all
-     * is emitted as a bare key, which is how it arrived.
+     * multi-valued parameter survives the round trip.
+     *
+     * <p>A null or empty {@code values} array is emitted as a bare key. That is defensive rather
+     * than a shape the container produces: a servlet parameter map surfaces even {@code ?flag}
+     * as a single empty-string value, so this branch exists for a caller that hands over a map
+     * built some other way, not to reproduce how the parameter arrived over HTTP.</p>
      */
     private static void appendEncodedParameter(StringJoiner joiner, String name, String[] values) {
         String encodedKey = URLEncoder.encode(name, StandardCharsets.UTF_8);
