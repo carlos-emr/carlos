@@ -111,7 +111,7 @@ public final class DocumentWordBoxes {
      * @param displayH page height in display orientation, the divisor for normalising y
      */
     private static PDFTextStripper collectingStripper(List<double[]> boxes, int maxWords,
-                                                      float displayW, float displayH) throws IOException {
+                                                      float displayW, float displayH) {
         return new PDFTextStripper() {
             @Override
             protected void writeString(String text, List<TextPosition> positions) throws IOException {
