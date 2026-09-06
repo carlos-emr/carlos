@@ -295,12 +295,37 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
         // The page renders {"result":null} as "could not be started"; it used to render nothing.
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
+        // A rebuild is an administrative act: it also needs the page's right.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
         mockRequest.setParameter("method", "updateDB");
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
         assertThat(mockResponse.getContentAsString()).isEqualTo("{\"result\":null}");
+    }
+
+    @Test
+    @DisplayName("should refuse to start a rebuild for a prescriber without administration rights")
+    void shouldRefuseUpdateDb_whenTheCallerHasOnlyRxWrite() throws Exception {
+        // `_rx` write is every prescriber in the clinic. A rebuild degrades prescribing for
+        // half an hour and is an administrative act; the page that offers it is gated on
+        // _admin / _admin.misc, and the direct POST must be gated the same way or the page's
+        // gate is decorative.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("r"), isNull()))
+                .thenReturn(false);
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("method", "updateDB");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_admin or _admin.misc");
+        assertThat(mockResponse.getContentAsString()).as("nothing reached the response").isEmpty();
     }
 
     @Test

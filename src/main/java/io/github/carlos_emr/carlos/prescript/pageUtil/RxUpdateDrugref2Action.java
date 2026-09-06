@@ -97,19 +97,26 @@ public class RxUpdateDrugref2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        // `status` additionally needs the same rights as the page that consumes it.
+        // `updateDB` and `status` additionally need the same rights as the page that hosts
+        // them. The privilege split above reasons about mutation, which is the wrong axis for
+        // these two:
         //
-        // The privilege split above reasons about mutation, which is the wrong axis for this
-        // one: `status` relays DrugRef's root-cause failure text, and that is operational
-        // detail -- a JDBC URL, a database host and user, a filesystem path, a driver or
-        // classpath message. `_rx` read is every prescriber in the clinic, while
-        // Administration > Update Drugref, the only caller, is gated on `_admin` /
-        // `_admin.misc` read by ViewUpdateDrugref2Action. Reporting is not automatically
-        // public just because it does not write.
+        //  - `status` relays DrugRef's root-cause failure text, and that is operational
+        //    detail -- a JDBC URL, a database host and user, a filesystem path, a driver or
+        //    classpath message. Reporting is not automatically public because it does not write.
+        //  - `updateDB` rebuilds the clinic's drug database and degrades prescribing for the
+        //    thirty-odd minutes it takes. That is an administrative act, not a prescribing one,
+        //    and `_rx` write is every prescriber in the clinic. The rebuild and the report on it
+        //    belong to the same audience.
         //
-        // `verify` deliberately stays at `_rx` read: TopLinks2.jspf fires it on every Rx page
-        // load, and it carries only a date, a version and a database name.
-        if ("status".equals(method)
+        // Administration > Update Drugref, the only caller of either, is gated on `_admin` /
+        // `_admin.misc` read by ViewUpdateDrugref2Action, so nobody who can reach the page loses
+        // anything here; what closes is the direct POST from a prescriber-only account.
+        //
+        // `verify` and `getLastUpdate` deliberately stay at `_rx` read: TopLinks2.jspf fires
+        // verify on every Rx page load, and both carry only a date, a version and a database name.
+        boolean administrative = mutating || "status".equals(method);
+        if (administrative
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null)) {
             throw new SecurityException("missing required sec object (_admin or _admin.misc)");
