@@ -239,18 +239,24 @@
     /**
      * Drops one acknowledged/signed-off item from the inbox table and from its counters.
      *
-     * The count is taken off the STORED total (see decrementInboxhubStatFor in
+     * The count is taken off the STORED total (see countAcknowledgedInboxhubItem in
      * InboxhubForm.jsp), not off the rendered badge: the badges are repainted from those
      * hidden inputs on every list draw, so a badge-only edit is undone by the next refresh
-     * and the acknowledged item keeps being counted until a full page reload.
+     * and the acknowledged item keeps being counted until a full page reload. That helper
+     * also keeps the count to once per item, since a popup calls this directly AND
+     * broadcasts, and the row may already be gone by the time the broadcast lands.
+     *
+     * @param {string} reportId segment id of the item to drop
+     * @param {string} labType its report type; segment ids are not unique across types, so
+     *                 without one this can only fall back to whatever row carries the id
      */
-    function removeReport(reportId) {
-        const rowEl = jQuery("#labdoc_" + reportId);
+    function removeReport(reportId, labType) {
+        const rowEl = inboxhubItemElement(reportId, labType);
+        const resolvedType = labType || (rowEl.length > 0 ? rowEl.data('labType') : null);
         if (rowEl.length > 0) {
-            const labType = rowEl.data('labType');
             jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
-            decrementInboxhubStatFor(labType);
         }
+        countAcknowledgedInboxhubItem(reportId, resolvedType);
     }
 </script>
 </c:if>

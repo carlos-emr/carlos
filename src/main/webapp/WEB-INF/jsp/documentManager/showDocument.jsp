@@ -1151,6 +1151,18 @@
             if (!response.ok) {
                 console.error('Macro execution failed: ' + response.status + ' ' + response.statusText);
                 alert('Macro execution failed. Please try again.');
+                return null;
+            }
+            // RunMacro reports a LOGICAL failure — the macro was deleted after this page
+            // loaded, the segment id was rejected — as HTTP 200 with {"success": false}.
+            // Checking response.ok alone would tell the inbox to drop a document that was
+            // never acknowledged, and its counters would stay wrong until a page reload.
+            return response.json();
+        })
+        .then(function(json) {
+            if (!json) { return; }
+            if (!json.success) {
+                alert(json.error ? json.error : 'Macro execution failed. Please try again.');
                 return;
             }
             // Tell the Inboxhub on every successful macro, whether or not the macro closes
@@ -1176,10 +1188,12 @@
      * inbox drop this document from its counters, which a plain list re-fetch does not touch.
      */
     function notifyInboxhubAfterDocMacro(formEl) {
-        var segmentId = (formEl && formEl.elements && formEl.elements.segmentID) ? formEl.elements.segmentID.value : '';
+        var elements = (formEl && formEl.elements) ? formEl.elements : null;
+        var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
+        var labType = (elements && elements.labType) ? elements.labType.value : 'DOC';
         try {
             var bc = new BroadcastChannel('inboxhub-refresh');
-            bc.postMessage({ action: 'refresh', segmentID: segmentId });
+            bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });
             bc.close();
         } catch (e) {
             // BroadcastChannel unsupported — the clinician must refresh the inbox by hand.

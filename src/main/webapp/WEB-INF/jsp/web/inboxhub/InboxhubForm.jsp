@@ -579,12 +579,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             // Newer senders post {action, segmentID}; hrmActions.js still posts the bare
             // string 'refresh'. Both must keep working.
             const acknowledgedId = (event && event.data && event.data.segmentID) ? event.data.segmentID : null;
+            const acknowledgedType = (event && event.data && event.data.labType) ? event.data.labType : null;
             if (acknowledgedId) {
                 // The list re-fetch below reflects the acknowledgement, but the counters do
                 // not: they are rendered by displayInboxForm and re-read from hidden inputs
                 // on every list draw. Drop the item from the stored totals first so the badge
                 // stops counting something the clinician has already dealt with.
-                dropAcknowledgedInboxhubItem(acknowledgedId);
+                dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType);
             }
             fetchInboxhubData();
             // When Rapid Review is on, open the next item after the refresh completes
@@ -602,44 +603,108 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      * The badges are painted from these hidden inputs on every list draw, so editing the
      * badge text alone is undone by the next refresh — the stored value is what has to move.
      *
+     * The overall total moves only when the type's own total did. Decrementing the two
+     * independently let a type already at zero walk the "all results" figure below the truth.
+     *
      * @param {string} labType 'DOC', 'HRM', or a lab type such as 'HL7'
      */
     function decrementInboxhubStatFor(labType) {
         const countInputId = labType === 'DOC' ? 'totalDocsCount' :
                              labType === 'HRM' ? 'totalHRMCount' : 'totalLabsCount';
-        [countInputId, 'totalResultsCount'].forEach(function(inputId) {
-            const input = jQuery('#' + inputId);
-            const current = parseInt(input.val(), 10);
-            if (!isNaN(current) && current > 0) {
-                input.val(current - 1);
-            }
-        });
+        const typeInput = jQuery('#' + countInputId);
+        const typeCount = parseInt(typeInput.val(), 10);
+        if (isNaN(typeCount) || typeCount <= 0) { return; }
+        typeInput.val(typeCount - 1);
+
+        const allInput = jQuery('#totalResultsCount');
+        const allCount = parseInt(allInput.val(), 10);
+        if (!isNaN(allCount) && allCount > 0) {
+            allInput.val(allCount - 1);
+        }
         showInboxhubStats();
     }
 
     /**
-     * Removes an acknowledged item from the inbox and from its counters, exactly once.
+     * Finds one inbox item's element, qualified by report type.
      *
-     * A popup that still has a live window.opener has already called removeReport() by the
-     * time its broadcast arrives, and that removed the row and the count. Keying off the
-     * item's presence in the DOM is what keeps the two routes from double-counting: no
-     * element means somebody already dropped it.
+     * A segment id is NOT unique across report types: documents, HRM reports and HL7 labs
+     * come from independent key sequences and all render as id="labdoc_&lt;id&gt;", so an
+     * inbox holding document 170 and lab 170 has two elements carrying that id and
+     * jQuery('#labdoc_170') would return whichever the browser reached first. Matching the
+     * type as well is what stops an acknowledgement removing another type's row and, worse,
+     * decrementing another type's total — which a list re-fetch does NOT repair, because the
+     * totals are stored, not recomputed.
+     *
+     * @param {string} segmentId segment id of the item
+     * @param {string} labType its report type, or null when the sender did not say
+     * @return {Object} jQuery set of matching elements, possibly empty
+     */
+    function inboxhubItemElement(segmentId, labType) {
+        if (!isInboxhubItemToken(segmentId)) { return jQuery(); }
+        const candidates = jQuery('[id="labdoc_' + segmentId + '"]');
+        if (!isInboxhubItemToken(labType)) { return candidates; }
+        return candidates.filter('[data-lab-type="' + labType + '"]');
+    }
+
+    /**
+     * Whether a broadcast value has the shape a real segment id or report type has.
+     *
+     * Both reach a jQuery attribute selector and the counter bookkeeping from a
+     * BroadcastChannel message, so anything outside this shape is rejected rather than
+     * interpolated: it keeps the selector literal and stops a malformed id from minting an
+     * endless supply of fresh counter keys, each good for one more decrement.
+     */
+    function isInboxhubItemToken(value) {
+        return value !== null && value !== undefined && /^[A-Za-z0-9_-]+$/.test(String(value));
+    }
+
+    /**
+     * Item keys already taken off the stored totals.
+     *
+     * Two routes drop an acknowledged item — a popup whose window.opener survived calls
+     * removeReport() directly, and the broadcast arrives moments later — and both must not
+     * count it twice. The guard is the key, NOT the row's presence in the DOM: the row can
+     * already be gone for reasons that have nothing to do with the acknowledgement (the
+     * clinician changed a filter while the popup was open), and the totals still have to
+     * move. Reset only by a full page load, which is also when the totals are re-rendered.
+     */
+    var countedAcknowledgedItems = Object.create(null);
+
+    /**
+     * Takes an acknowledged item off the stored totals, at most once per item.
+     *
+     * @param {string} segmentId segment id of the acknowledged item
+     * @param {string} labType its report type; without one there is no total to pick
+     */
+    function countAcknowledgedInboxhubItem(segmentId, labType) {
+        if (!isInboxhubItemToken(segmentId) || !isInboxhubItemToken(labType)) { return; }
+        const key = labType + ':' + segmentId;
+        if (countedAcknowledgedItems[key]) { return; }
+        countedAcknowledgedItems[key] = true;
+        decrementInboxhubStatFor(labType);
+    }
+
+    /**
+     * Removes an acknowledged item from the inbox and from its counters.
      *
      * @param {string} segmentId segment id of the acknowledged lab, document or HRM report
+     * @param {string} labType its report type; older senders may not supply one
      */
-    function dropAcknowledgedInboxhubItem(segmentId) {
-        const itemEl = jQuery('#labdoc_' + segmentId);
-        if (itemEl.length === 0) { return; }
+    function dropAcknowledgedInboxhubItem(segmentId, labType) {
+        const itemEl = inboxhubItemElement(segmentId, labType);
+        // A sender that predates the typed message — a popup running a cached script — gives
+        // only an id, and then the rendered row is the one place the type can come from.
+        const resolvedType = labType || (itemEl.length > 0 ? itemEl.data('labType') : null);
         // removeReport stays defined after a switch to preview mode, so the table itself —
         // not the function — is what says which mode is on screen.
         if (jQuery('#inbox_table').length > 0 && typeof removeReport === 'function') {
             // List mode: removeReport drops the DataTable row and the count together.
-            removeReport(segmentId);
+            removeReport(segmentId, resolvedType);
             return;
         }
         // Preview mode renders cards rather than table rows; the refresh re-renders them,
         // so only the stored count needs correcting here.
-        decrementInboxhubStatFor(itemEl.data('labType'));
+        countAcknowledgedInboxhubItem(segmentId, resolvedType);
     }
 
     /**

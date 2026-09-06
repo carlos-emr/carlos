@@ -2069,12 +2069,17 @@ function checkObservationDate(formid) {
  * only the result LIST: its Documents/Labs/HRMs counters come from the surrounding form
  * page and would otherwise keep counting the acknowledged item until a full page reload.
  *
+ * The report type travels with it because segment ids are NOT unique across types —
+ * documents, HRM reports and HL7 labs have independent key sequences, and all render as
+ * id="labdoc_<id>" — so an id alone can name another type's row and decrement its total.
+ *
  * @param {string} doclabid segment id of the acknowledged lab or document
+ * @param {string} labType report type of that item, e.g. 'HL7' or 'DOC'
  */
-function notifyInboxhubAcknowledged(doclabid) {
+function notifyInboxhubAcknowledged(doclabid, labType) {
     try {
         const bc = new BroadcastChannel('inboxhub-refresh');
-        bc.postMessage({ action: 'refresh', segmentID: String(doclabid) });
+        bc.postMessage({ action: 'refresh', segmentID: String(doclabid), labType: labType });
         bc.close();
     } catch (e) {
         // BroadcastChannel unsupported — user must manually refresh the inbox
@@ -2113,7 +2118,7 @@ function updateStatus(formid) {//acknowledge
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
 					// The card is hidden, but the surrounding inbox still counts this item in its
 					// Documents/Labs/HRMs totals until it is told the item is gone.
-					notifyInboxhubAcknowledged(doclabid);
+					notifyInboxhubAcknowledged(doclabid, data.labType);
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
                     if (self.opener && typeof self.opener.removeReport !== 'undefined') {
 						/**
@@ -2122,13 +2127,13 @@ function updateStatus(formid) {//acknowledge
 						 * inbox results by calling the jQuery `removeReport` function on IDs up to and including
 						 * the doclabid.
 						 */
-						const multiIds = data.multiID.split(",");
+						const multiIds = (data.multiID || String(doclabid)).split(",");
 						for (const id of multiIds) {
-							self.opener.removeReport(id);
+							self.opener.removeReport(id, data.labType);
 							if (id === doclabid) break;
 						}
                     }
-                    notifyInboxhubAcknowledged(doclabid);
+                    notifyInboxhubAcknowledged(doclabid, data.labType);
                     window.close();
                 } else {
                     //Hide document

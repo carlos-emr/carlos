@@ -41,16 +41,17 @@ function doSignOff(reportId, view, isSign) {
                 // window.opener is null when Inboxhub is the opener due to Struts 7's
                 // CoopInterceptor setting Cross-Origin-Opener-Policy: same-origin.
                 if (self.opener && typeof self.opener.removeReport === 'function') {
-                    self.opener.removeReport(reportId);
+                    self.opener.removeReport(reportId, 'HRM');
                 }
                 // Notify the Inboxhub to refresh its data after sign-off.
                 // BroadcastChannel provides reliable same-origin cross-window messaging
                 // that is unaffected by COOP headers.
                 // The id lets the inbox drop this report from its Documents/Labs/HRMs
-                // counters, which a plain list re-fetch does not touch.
+                // counters, which a plain list re-fetch does not touch. The type goes with
+                // it because segment ids are not unique across report types.
                 try {
                     const bc = new BroadcastChannel('inboxhub-refresh');
-                    bc.postMessage({ action: 'refresh', segmentID: String(reportId) });
+                    bc.postMessage({ action: 'refresh', segmentID: String(reportId), labType: 'HRM' });
                     bc.close();
                 } catch (e) {
                     // BroadcastChannel unsupported — user must manually refresh the inbox

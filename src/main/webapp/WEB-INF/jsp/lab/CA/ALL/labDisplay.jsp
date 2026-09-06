@@ -1190,18 +1190,27 @@ input[id^='acklabel_']{
      * Documents/Labs/HRMs counters come from the surrounding form page. Without the id
      * the counters keep counting the acknowledged lab until a full page reload, which
      * reads to a clinician as "the acknowledgement did nothing".
+     *
+     * The type travels with it because segment ids are NOT unique across report types —
+     * documents, HRM reports and HL7 labs have independent key sequences — so an id on
+     * its own can name a document's inbox row as readily as this lab's.
      */
     function notifyInboxhubAfterMacro(formid) {
         var segmentId = '';
+        var labType = 'HL7';
         if (formid) {
             var formEl = document.getElementById(formid);
-            if (formEl && formEl.elements && formEl.elements.segmentID) {
-                segmentId = formEl.elements.segmentID.value;
+            var elements = (formEl && formEl.elements) ? formEl.elements : null;
+            if (elements && elements.segmentID) {
+                segmentId = elements.segmentID.value;
+            }
+            if (elements && elements.labType) {
+                labType = elements.labType.value;
             }
         }
         try {
             var bc = new BroadcastChannel('inboxhub-refresh');
-            bc.postMessage({ action: 'refresh', segmentID: segmentId });
+            bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });
             bc.close();
         } catch (e) {
             // BroadcastChannel unsupported — the acknowledged item is still hidden locally.

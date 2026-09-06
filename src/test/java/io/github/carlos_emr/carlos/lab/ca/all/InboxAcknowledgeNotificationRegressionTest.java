@@ -58,6 +58,8 @@ class InboxAcknowledgeNotificationRegressionTest {
             "src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "InboxhubListMode.jsp");
     private static final Path OSCAR_MDS_INDEX_JS = Path.of(
             "src", "main", "webapp", "share", "javascript", "oscarMDSIndex.js");
+    private static final Path HRM_ACTIONS_JS = Path.of(
+            "src", "main", "webapp", "hospitalReportManager", "hrmActions.js");
 
     private static String read(Path path) throws IOException {
         return Files.readString(path, StandardCharsets.UTF_8);
@@ -87,16 +89,70 @@ class InboxAcknowledgeNotificationRegressionTest {
     }
 
     @Test
-    @DisplayName("should name the acknowledged item on every inbox refresh broadcast")
-    void shouldBroadcastSegmentId_fromEveryAcknowledgePath() throws IOException {
+    @DisplayName("should name the acknowledged item and its type on every inbox refresh broadcast")
+    void shouldBroadcastSegmentIdAndType_fromEveryAcknowledgePath() throws IOException {
         // The id is what lets the inbox drop the item from its counters; a bare 'refresh'
         // message re-draws the list and leaves the badges counting an acknowledged item.
+        // The type goes with it because segment ids are not unique across report types.
         assertThat(read(OSCAR_MDS_INDEX_JS))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: String(doclabid) });");
+                .contains("bc.postMessage({ action: 'refresh', segmentID: String(doclabid), labType: labType });");
         assertThat(read(LAB_DISPLAY_JSP))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: segmentId });");
+                .contains("bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });");
         assertThat(read(SHOW_DOCUMENT_JSP))
-                .contains("bc.postMessage({ action: 'refresh', segmentID: segmentId });");
+                .contains("bc.postMessage({ action: 'refresh', segmentID: segmentId, labType: labType });");
+        assertThat(read(HRM_ACTIONS_JS))
+                .contains("bc.postMessage({ action: 'refresh', segmentID: String(reportId), labType: 'HRM' });");
+    }
+
+    @Test
+    @DisplayName("should match an inbox item by type as well as id, because ids repeat across types")
+    void shouldMatchInboxItem_byTypeAndId() throws IOException {
+        // Documents, HRM reports and HL7 labs have independent key sequences and all render
+        // as id="labdoc_<id>", so an id alone can name another type's row — and decrementing
+        // the wrong stored total is not repaired by the list re-fetch.
+        String inboxhubForm = read(INBOXHUB_FORM_JSP);
+
+        assertThat(inboxhubForm)
+                .contains("candidates.filter('[data-lab-type=\"' + labType + '\"]')");
+        assertThat(read(INBOXHUB_LIST_MODE_JSP))
+                .as("removeReport must resolve its row through the type-qualified lookup")
+                .contains("inboxhubItemElement(reportId, labType)")
+                .doesNotContain("jQuery(\"#labdoc_\" + reportId)");
+    }
+
+    @Test
+    @DisplayName("should move the overall total only when the type's own total moved")
+    void shouldKeepTotalsConsistent_whenTypeCountIsAlreadyZero() throws IOException {
+        // Decrementing the type total and the overall total independently let a type already
+        // at zero walk the "all results" figure below the truth on every stray message.
+        assertThat(read(INBOXHUB_FORM_JSP))
+                .contains("if (isNaN(typeCount) || typeCount <= 0) { return; }");
+    }
+
+    @Test
+    @DisplayName("should ignore a broadcast whose id or type is not shaped like a real one")
+    void shouldIgnoreBroadcast_withMalformedIdentifiers() throws IOException {
+        // These values reach a jQuery attribute selector and the counter bookkeeping, so a
+        // malformed id must not be interpolated, nor mint fresh keys that each buy another
+        // decrement of a counter.
+        String inboxhubForm = read(INBOXHUB_FORM_JSP);
+
+        assertThat(inboxhubForm)
+                .contains("return value !== null && value !== undefined && /^[A-Za-z0-9_-]+$/.test(String(value));");
+        assertThat(inboxhubForm)
+                .as("the counter path must validate, not just the DOM lookup")
+                .contains("if (!isInboxhubItemToken(segmentId) || !isInboxhubItemToken(labType)) { return; }");
+    }
+
+    @Test
+    @DisplayName("should still update the counters when the acknowledged row is no longer rendered")
+    void shouldCountAcknowledgedItem_whenRowIsAlreadyGone() throws IOException {
+        // A filter change while the popup was open removes the row without acknowledging
+        // anything, and the stored totals still count the item. Keying the guard on the item
+        // rather than on DOM presence is what keeps the badge correct in that case.
+        assertThat(read(INBOXHUB_FORM_JSP))
+                .contains("countAcknowledgedInboxhubItem(segmentId, resolvedType);")
+                .contains("if (countedAcknowledgedItems[key]) { return; }");
     }
 
     @Test
@@ -106,10 +162,11 @@ class InboxAcknowledgeNotificationRegressionTest {
 
         assertThat(inboxhubForm)
                 .as("the refresh listener must drop the item before re-fetching the list")
-                .contains("dropAcknowledgedInboxhubItem(acknowledgedId);");
+                .contains("dropAcknowledgedInboxhubItem(acknowledgedId, acknowledgedType);");
         assertThat(inboxhubForm)
                 .as("the stored totals, not just the rendered badges, must be decremented")
-                .contains("[countInputId, 'totalResultsCount'].forEach(");
+                .contains("typeInput.val(typeCount - 1);")
+                .contains("allInput.val(allCount - 1);");
     }
 
     @Test
@@ -119,7 +176,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // edit here is silently undone by the refresh that follows an acknowledgement.
         String listMode = read(INBOXHUB_LIST_MODE_JSP);
 
-        assertThat(listMode).contains("decrementInboxhubStatFor(labType);");
+        assertThat(listMode).contains("countAcknowledgedInboxhubItem(reportId, resolvedType);");
         assertThat(listMode)
                 .as("removeReport must not hand-edit the rendered badge")
                 .doesNotContain("totalLabsCountStat');");
@@ -128,11 +185,26 @@ class InboxAcknowledgeNotificationRegressionTest {
     @Test
     @DisplayName("should count an acknowledged item once when the opener already removed its row")
     void shouldNotDoubleCount_whenOpenerAlreadyRemovedTheRow() throws IOException {
-        // A popup whose window.opener survived has already called removeReport by the time its
-        // broadcast lands; presence in the DOM is what makes the two routes idempotent.
+        // A popup whose window.opener survived has already called removeReport by the time
+        // its broadcast lands; the per-item key is what makes the two routes idempotent.
         assertThat(read(INBOXHUB_FORM_JSP))
-                .contains("const itemEl = jQuery('#labdoc_' + segmentId);")
-                .contains("if (itemEl.length === 0) { return; }");
+                .contains("countedAcknowledgedItems[key] = true;")
+                .contains("var countedAcknowledgedItems = Object.create(null);");
+    }
+
+    @Test
+    @DisplayName("should not tell the inbox anything when a document macro reports failure")
+    void shouldNotNotifyInbox_whenDocumentMacroReportsFailure() throws IOException {
+        // RunMacro reports a logical failure as HTTP 200 with {"success": false}; notifying
+        // on response.ok alone would drop a document that was never acknowledged.
+        String showDocument = read(SHOW_DOCUMENT_JSP);
+
+        int successCheck = showDocument.indexOf("if (!json.success) {");
+        int notifyCall = showDocument.indexOf("notifyInboxhubAfterDocMacro(formEl);");
+        assertThat(successCheck).as("document macro must inspect the JSON body").isGreaterThan(-1);
+        assertThat(successCheck)
+                .as("the failure check must gate the notification")
+                .isLessThan(notifyCall);
     }
 
     @Test
