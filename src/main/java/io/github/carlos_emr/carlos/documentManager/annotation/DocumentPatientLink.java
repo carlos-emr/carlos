@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.annotation;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import org.apache.commons.lang3.StringUtils;
 
@@ -52,6 +53,10 @@ public final class DocumentPatientLink {
      *         patient-linked — a provider-scoped document, an unfiled inbox document
      *         ({@code module_id} of {@code 0} or {@code -1}), or a non-numeric link
      */
+    // IMPROPER_UNICODE: case-insensitive comparison of the ctl_document module name against "demographic", an ASCII protocol/domain
+    // constant. String.equalsIgnoreCase is locale-independent, and the detector fires on the
+    // call shape regardless of Locale, so it cannot be cleared in code.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ASCII protocol/domain constant; equalsIgnoreCase is locale-independent")
     public static int demographicNoOf(EDoc doc) {
         if (doc == null || !DEMOGRAPHIC_MODULE.equalsIgnoreCase(StringUtils.trimToEmpty(doc.getModule()))) {
             return 0;

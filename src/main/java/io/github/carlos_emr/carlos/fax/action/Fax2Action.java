@@ -1035,6 +1035,10 @@ public class Fax2Action extends ActionSupport {
      * <p>Deliberately not a claim check: the types above never record claims, and demanding one
      * would refuse them for the wrong reason. Containment is the invariant that actually holds.
      */
+    // PATH_TRAVERSAL_IN: this method exists to REJECT paths. It builds the document-store
+    // location only to compare against it, and the submitted path must additionally match a
+    // claim this session recorded; nothing here opens or reads the file.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "comparison-only guard; the path is rejected unless it matches a session claim, and is never read here")
     private void rejectUnstagedDocumentStorePath() {
         String submitted = StringUtils.trimToNull(faxFilePath);
         if (submitted == null) {

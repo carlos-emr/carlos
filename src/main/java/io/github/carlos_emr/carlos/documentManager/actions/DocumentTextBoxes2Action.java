@@ -96,9 +96,18 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
-    // FindSecBugs XSS_SERVLET: the body is an application/json document serialised by Jackson,
-    // never HTML, and every value is a number or an application-authored message.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "application/json body serialised by Jackson; no HTML context and no caller-supplied content")
+    // XSS_SERVLET: the body is an application/json document serialised by Jackson, never HTML,
+    // and every value is a number or an application-authored message.
+    // IMPROPER_UNICODE: case-insensitive comparison of the HTTP verb, an ASCII protocol constant.
+    // String.equalsIgnoreCase is locale-independent, and the detector fires on the call shape
+    // regardless of Locale, so it cannot be cleared in code.
+    // PATH_TRAVERSAL_IN: the stored filename becomes a File only through
+    // PathValidationUtils.validateExistingPath, which confines it to DOCUMENT_DIR.
+    @SuppressFBWarnings(
+            value = {"XSS_SERVLET", "IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"},
+            justification = "application/json body serialised by Jackson with no caller-supplied content; "
+                    + "case-insensitive comparison of an ASCII protocol constant is locale-independent; "
+                    + "the path is confined to the document directory by PathValidationUtils before any read")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

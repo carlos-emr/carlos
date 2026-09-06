@@ -57,7 +57,31 @@ function requireEnv(name) {
   return value;
 }
 
-const baseUrl = (process.env.BASE_URL || 'http://127.0.0.1:8080/carlos').replace(/\/+$/, '');
+/**
+ * Validates BASE_URL before it reaches page.goto or a credentialed request, matching the guard in
+ * scripts/login-playwright-checks.js. This script types a real password into the target, so it
+ * must not be pointed at an arbitrary host by an unchecked environment variable.
+ */
+function validateBaseUrl(rawBaseUrl) {
+  const parsed = new URL(rawBaseUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed credentials');
+  }
+  const host = parsed.hostname.toLowerCase();
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const local = localHosts.has(host) || privateIpv4;
+  if (!local && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  }
+  return { href: parsed.href.replace(/\/+$/, ''), local };
+}
+
+const validatedBaseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validatedBaseUrl.href;
 const testUser = requireEnv('TEST_USER');
 const testPassword = requireEnv('TEST_PASSWORD');
 const testPin = requireEnv('TEST_PIN');
@@ -82,6 +106,9 @@ function check(label, condition, detail) {
 const FORBIDDEN_ASSET = /\.mjs(\?|$)|pdf\.worker|pdfjs|\/webjars\//i;
 
 async function login(page) {
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
+  // baseUrl comes from validateBaseUrl(): protocol allow-listed, credentials refused, host local
+  // unless ALLOW_NON_LOCAL_BASE_URL is set deliberately.
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
@@ -122,7 +149,10 @@ async function main() {
     ...(chromePath ? { executablePath: chromePath } : {}),
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  // Self-signed certificates are normal on a local dev deployment and never acceptable for a
+  // remote one: this script sends a real password, and skipping verification there would put it
+  // on an unauthenticated TLS channel.
+  const context = await browser.newContext({ ignoreHTTPSErrors: validatedBaseUrl.local });
 
   const forbiddenRequests = [];
   const imageRequests = [];
@@ -188,6 +218,8 @@ async function main() {
     check('save endpoint refuses GET with 405', getSave === 405, `status ${getSave}`);
 
     // ---- the viewer renders ----
+    // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
+    // Same validated baseUrl; docId is a positive integer parsed from the environment.
     const viewerResponse = await page.goto(
       `${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`,
       { waitUntil: 'domcontentloaded' });

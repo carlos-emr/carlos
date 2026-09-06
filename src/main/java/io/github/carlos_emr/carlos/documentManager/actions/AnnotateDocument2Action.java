@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
@@ -78,6 +79,10 @@ public class AnnotateDocument2Action extends ActionSupport {
     }
 
     @Override
+    // IMPROPER_UNICODE: case-insensitive comparison of the stored content type against "application/pdf", an ASCII protocol/domain
+    // constant. String.equalsIgnoreCase is locale-independent, and the detector fires on the
+    // call shape regardless of Locale, so it cannot be cleared in code.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ASCII protocol/domain constant; equalsIgnoreCase is locale-independent")
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

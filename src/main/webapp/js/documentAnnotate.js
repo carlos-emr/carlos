@@ -37,6 +37,10 @@
     if (!cfg) { return; }
 
     var SVG_NS = 'http://www.w3.org/2000/svg';
+    // Default freehand stroke, in PDF points. Must match DocumentAnnotationParser's
+    // DEFAULT_STROKE_WIDTH: the preview, the committed mark and the composed PDF all scale
+    // from this one value.
+    var DEFAULT_STROKE_WIDTH = 2;
 
     /** Keep in step with AnnotatedDocumentComposer.TEXT_BASELINE_RATIO. */
     var TEXT_BASELINE_RATIO = 0.78;
@@ -194,7 +198,7 @@
             }).join(' '));
             poly.setAttribute('fill', 'none');
             poly.setAttribute('stroke', COLORS[a.color] || COLORS.black);
-            poly.setAttribute('stroke-width', (a.strokeWidth || 2) * unit);
+            poly.setAttribute('stroke-width', (a.strokeWidth || DEFAULT_STROKE_WIDTH) * unit);
             poly.setAttribute('stroke-linecap', 'round');
             poly.setAttribute('stroke-linejoin', 'round');
             poly.setAttribute('class', 'mark');
@@ -322,6 +326,12 @@
         });
     }
 
+    /** Points-to-pixels scale for the page image this overlay sits on; 1 if it is not measurable. */
+    function previewScale(svg) {
+        var img = svg.parentNode ? svg.parentNode.querySelector('img') : null;
+        return img ? pxPerPoint(img) : 1;
+    }
+
     function previewDrag(svg, drag) {
         var existing = svg.querySelector('.preview');
         if (existing) { existing.remove(); }
@@ -335,7 +345,10 @@
             }).join(' '));
             el.setAttribute('fill', 'none');
             el.setAttribute('stroke', COLORS[state.color]);
-            el.setAttribute('stroke-width', '2');
+            // Same per-page scale redrawPage() uses. Hard-coding 2 here made the stroke visibly
+            // change width the instant the pointer came up, because the committed mark is drawn
+            // at strokeWidth * pxPerPoint while the preview was drawn at 2 device pixels.
+            el.setAttribute('stroke-width', DEFAULT_STROKE_WIDTH * previewScale(svg));
         } else {
             el = document.createElementNS(SVG_NS, 'rect');
             el.setAttribute('x', Math.min(drag.x0, drag.x1 || drag.x0) * w);
@@ -354,7 +367,7 @@
             if (drag.points.length < 2) { return; }
             addAnnotation({
                 type: 'ink', page: page, color: state.color,
-                strokeWidth: 2, points: simplify(drag.points)
+                strokeWidth: DEFAULT_STROKE_WIDTH, points: simplify(drag.points)
             });
             return;
         }

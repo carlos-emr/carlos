@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -90,6 +91,8 @@ public class FaxDocument2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         if (!"GET".equals(request.getMethod())) {
+            // RFC 9110 requires Allow on a 405; without it a client cannot tell what to retry with.
+            response.setHeader("Allow", "GET");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -159,6 +162,16 @@ public class FaxDocument2Action extends ActionSupport {
     // guard. Gating it behind isErrorEnabled() adds a branch that is never false and makes a
     // security control conditional.
     @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
+    // IMPROPER_UNICODE: case-insensitive comparison of the stored content type against the ASCII
+    // constant "application/pdf". String.equalsIgnoreCase is locale-independent, and the detector
+    // fires on the call shape regardless of Locale, so it cannot be cleared in code.
+    // PATH_TRAVERSAL_IN: the stored filename becomes a path only after
+    // PathValidationUtils.validateExistingPath confines it to DOCUMENT_DIR; a traversal attempt is
+    // rejected there and this method returns before any read.
+    @SuppressFBWarnings(
+            value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"},
+            justification = "case-insensitive comparison of an ASCII protocol constant is locale-independent; "
+                    + "the path is confined to the document directory by PathValidationUtils before it is read")
     private static String faxabilityProblem(EDoc doc, int docId) {
         // Exact match, not contains("pdf"): "application/pdfx" is a different format, and the
         // staging path this gate redirects into requires application/pdf exactly — so a
@@ -209,6 +222,10 @@ public class FaxDocument2Action extends ActionSupport {
      * name a document-store path of its own choosing on the cover-page form. Mirrors
      * {@code AddEForm2Action.redirectToPreparedFax}.
      */
+    // UNVALIDATED_REDIRECT: the target is this application's own context path plus a literal
+    // route; the only interpolated values are two ints already parsed from the request and
+    // URL-encoded here, so no caller-supplied string reaches the Location header.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-application relative redirect; only URL-encoded numeric parameters are interpolated")
     private String redirectToPreparedFax(HttpServletRequest request, HttpServletResponse response,
                                          int docId, int demographicNo) {
         String target = request.getContextPath()

@@ -98,6 +98,10 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
     }
 
     @Override
+    // IMPROPER_UNICODE: case-insensitive comparison of the HTTP verb, an ASCII protocol/domain
+    // constant. String.equalsIgnoreCase is locale-independent, and the detector fires on the
+    // call shape regardless of Locale, so it cannot be cleared in code.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ASCII protocol/domain constant; equalsIgnoreCase is locale-independent")
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();

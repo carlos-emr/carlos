@@ -174,6 +174,10 @@ public class FaxManagerImpl implements FaxManager {
     // guard. Gating it behind isErrorEnabled() adds a branch that is never false and makes a
     // security control conditional.
     @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
+    // PATH_TRAVERSAL_IN: the stored path is confined to DOCUMENT_DIR by
+    // PathValidationUtils.validateExistingPath below before anything reads it; a traversal attempt
+    // is refused there and this method returns null.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path confined to the document directory by PathValidationUtils before any read")
     public Path renderDocument(LoggedInInfo loggedInInfo, int documentNo, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, demographicNo)) {
             throw new RuntimeException("missing required sec object (_edoc)");

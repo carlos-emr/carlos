@@ -324,6 +324,10 @@ public class AnnotatedDocumentService {
         return SpringUtils.getBean(NioFileManager.class);
     }
 
+    // IMPROPER_UNICODE: case-insensitive comparison of the stored content type against "application/pdf", an ASCII protocol/domain
+    // constant. String.equalsIgnoreCase is locale-independent, and the detector fires on the
+    // call shape regardless of Locale, so it cannot be cleared in code.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ASCII protocol/domain constant; equalsIgnoreCase is locale-independent")
     private void assertAnnotatable(EDoc source, File sourceFile) {
         if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(source.getContentType()))) {
             throw new IllegalArgumentException("Only PDF documents can be annotated.");
@@ -385,8 +389,12 @@ public class AnnotatedDocumentService {
         }
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // PATH_TRAVERSAL_IN: unlike save() and pageCountOf(), this method calls no validator and does
+    // not need one -- both components are application-controlled (the ServletContext real path and
+    // a compile-time constant), so no request data reaches the path. Saying "validated via
+    // PathValidationUtils" here, as this justification previously did, described code that does
+    // not exist.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path is built from the servlet context root and a compile-time constant; no request data reaches it")
     private Path fontPath() {
         if (StringUtils.isBlank(webappRoot)) {
             return null;

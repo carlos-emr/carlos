@@ -165,29 +165,23 @@ public class FaxRecipientSearch2Action extends ActionSupport {
         int remaining = MAX_RESULTS - results.size();
         if (remaining <= 0) return;
         try {
-            // searchPharmacyByNameAddressCity matches name/address by first param, city by second.
-            // Passing "" for city means any city is accepted.
-            // Pass remaining as DB-level limit; the loop below still skips entries without a fax
-            // number, so we may get fewer than remaining results — that's acceptable.
-            List<PharmacyInfo> pharmacies = pharmacyInfoDao.searchPharmacyByNameAddressCity(term, "", remaining);
+            // Matches keyword against name/address, "" accepts any city. The DAO returns only
+            // pharmacies that have a fax number, so the row cap is spent entirely on usable
+            // recipients rather than on entries the picker would have to discard.
+            List<PharmacyInfo> pharmacies = pharmacyInfoDao.searchFaxablePharmacies(term, "", remaining);
             for (PharmacyInfo ph : pharmacies) {
-                if (remaining <= 0) break;
-                if (StringUtils.isNotBlank(ph.getFax())) {
-                    remaining--;
-
-                    String displayName = StringUtils.defaultIfBlank(ph.getName(), "Unknown Pharmacy");
-                    String city = StringUtils.trimToEmpty(ph.getCity());
-                    if (!city.isEmpty()) {
-                        displayName = displayName + " (" + city + ")";
-                    }
-
-                    ObjectNode item = objectMapper.createObjectNode();
-                    item.put("name", displayName);
-                    item.put("fax", ph.getFax());
-                    item.put("badge", "pharmacy");
-                    item.put("type", "PHARMACY");
-                    results.add(item);
+                String displayName = StringUtils.defaultIfBlank(ph.getName(), "Unknown Pharmacy");
+                String city = StringUtils.trimToEmpty(ph.getCity());
+                if (!city.isEmpty()) {
+                    displayName = displayName + " (" + city + ")";
                 }
+
+                ObjectNode item = objectMapper.createObjectNode();
+                item.put("name", displayName);
+                item.put("fax", ph.getFax());
+                item.put("badge", "pharmacy");
+                item.put("type", "PHARMACY");
+                results.add(item);
             }
         } catch (Exception e) {
             logger.warn("Error loading pharmacy fax autocomplete results", e);

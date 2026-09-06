@@ -56,7 +56,20 @@ public interface PharmacyInfoDao extends AbstractDao<PharmacyInfo> {
 
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city);
 
-    public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city, int maxResults);
+    /**
+     * Searches ACTIVE pharmacies that can actually receive a fax, for the fax recipient picker.
+     *
+     * <p>The fax-number filter is applied in SQL rather than by the caller for the same reason it
+     * is on {@code ServiceSpecialistsDao.searchSpecialistsWithService}: {@code maxResults} caps the
+     * rows the database returns, so discarding fax-less rows afterwards let a run of them consume
+     * the whole limit and hide faxable pharmacies that sorted after them.
+     *
+     * @param keyword    matched against name or address
+     * @param city       matched against city; pass {@code ""} to accept any city
+     * @param maxResults row cap, applied after the fax filter; ignored when not positive
+     * @return active pharmacies with a non-blank fax number, ordered by name then address
+     */
+    public List<PharmacyInfo> searchFaxablePharmacies(String keyword, String city, int maxResults);
 
     public List<String> searchPharmacyByCity(String city);
 
