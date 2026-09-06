@@ -134,7 +134,7 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin or _admin.misc)");
 
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "w", null);
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), any(), isNull());
     }
 
@@ -263,6 +263,47 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse updateDB to a view-only administrator")
+    void shouldRefuseUpdateDb_forAViewOnlyAdministrator() throws Exception {
+        // Read on an administration object opens the page and answers status; it must not start
+        // a rebuild. That runs for half an hour, degrades drug lookups clinic-wide while it does,
+        // and can end with the dataset replaced -- a mutation, and CARLOS gates mutating
+        // administration on write (ManageFlowsheets2Action, LookupListManager2Action, the admin
+        // gate actions). Accepting read here let a view-only administrator trigger it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.misc"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "updateDB");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin or _admin.misc)");
+
+        // Refused before anything was written to the response, so no partial JSON escapes.
+        assertThat(mockResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should still answer status to a view-only administrator")
+    void shouldStillAnswerStatus_forAViewOnlyAdministrator() throws Exception {
+        // The counterpart: tightening the trigger must not take the read-only view with it, or
+        // an administrator who can open the page cannot see what the update is doing.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(false);
+        mockRequest.setParameter("method", "status");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+    }
+
+    @Test
     @DisplayName("should not query administration rights when prescriber rights already allow verify")
     void shouldNotQueryAdministrationRights_whenRxRightsAlreadyAllowVerify() throws Exception {
         // Ordering, not just outcome. Every hasPrivilege call re-runs
@@ -290,6 +331,8 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
                 .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
         mockRequest.setParameter("method", "verify");
 
         String result = action.execute();
@@ -306,6 +349,8 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), any(), isNull()))
                 .thenReturn(false);
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
                 .thenReturn(true);
         mockRequest.setMethod("POST");
         mockRequest.setParameter("method", "updateDB");
@@ -327,6 +372,8 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         // status also demands administration rights: it relays DrugRef's root-cause text.
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
                 .thenReturn(true);
         mockRequest.setParameter("method", "status");
 
@@ -358,6 +405,8 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         // A rebuild is an administrative act: it also needs the page's right.
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("w"), isNull()))
                 .thenReturn(true);
         mockRequest.setParameter("method", "updateDB");
 

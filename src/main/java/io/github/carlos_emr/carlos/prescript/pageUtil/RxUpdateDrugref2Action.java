@@ -115,8 +115,17 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         // page load to answer a question `_rx` alone settles. The `||` order carries the
         // authorization, not just the performance: it is the same predicate either way, so
         // this stays a pure short-circuit and never widens who is allowed through.
-        boolean administrative = mutating || "status".equals(method);
-        if (administrative) {
+        // Read is not enough to START one, though. updateDB rebuilds the drug database: it runs
+        // for half an hour, degrades drug lookups clinic-wide while it does, and can end with
+        // the dataset replaced. That is a mutation, and CARLOS gates mutating administration on
+        // WRITE -- ManageFlowsheets2Action, LookupListManager2Action and the admin gate actions
+        // all take "w" on _admin / _admin.misc. Accepting read here let a view-only
+        // administrator trigger the rebuild. `status` stays at read: it only reports.
+        if (mutating) {
+            if (!canTriggerUpdate(loggedInInfo)) {
+                throw new SecurityException("missing required sec object (_admin or _admin.misc)");
+            }
+        } else if ("status".equals(method)) {
             if (!hasAdministrationRights(loggedInInfo)) {
                 throw new SecurityException("missing required sec object (_admin or _admin.misc)");
             }
@@ -143,6 +152,23 @@ public class RxUpdateDrugref2Action extends ActionSupport {
     private boolean hasAdministrationRights(LoggedInInfo loggedInInfo) {
         return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null);
+    }
+
+    /**
+     * @return whether the caller may START a database rebuild, which needs write on either
+     *         administration object. Kept public and static-free so
+     *         {@link io.github.carlos_emr.carlos.admin.gate.ViewUpdateDrugref2Action} can ask the
+     *         same question when deciding whether to render the trigger: a page that offers a
+     *         button this action then refuses is the failure this split exists to avoid.
+     */
+    public static boolean canTriggerUpdate(SecurityInfoManager securityInfoManager,
+            LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null);
+    }
+
+    private boolean canTriggerUpdate(LoggedInInfo loggedInInfo) {
+        return canTriggerUpdate(securityInfoManager, loggedInInfo);
     }
 
     public String updateDB() throws IOException, ServletException {

@@ -125,8 +125,24 @@
                 });
             }
 
+            // Read on _admin / _admin.misc opens this page; only WRITE may start a rebuild.
+            // Set by ViewUpdateDrugref2Action from the same predicate RxUpdateDrugref2Action
+            // enforces, so the two cannot drift apart.
+            var canTriggerUpdate = ${canTriggerUpdate ? 'true' : 'false'};
+
             function show(id, visible) {
-                document.getElementById(id).style.display = visible ? 'block' : 'none';
+                // One choke point rather than a guard at each of the seventeen call sites: a
+                // view-only administrator must never be offered a trigger the action will refuse
+                // with an HTML 500, and a future branch that forgets to check would reintroduce
+                // exactly that. This is presentation only -- the control is the refusal in
+                // RxUpdateDrugref2Action, which does not consult anything the browser sends.
+                if (id === 'updateButton' && !canTriggerUpdate) {
+                    visible = false;
+                }
+                var el = document.getElementById(id);
+                if (el) {
+                    el.style.display = visible ? 'block' : 'none';
+                }
             }
 
             // Keep the strings this page builds ASCII. The JSP declares no page encoding and
