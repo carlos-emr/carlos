@@ -104,6 +104,28 @@ class CaseManagementEmptyStateRegressionTest {
                 .contains("casemgmt.viewNotes.msgNoNotes=No notes have been recorded for this section.");
     }
 
+    @Test
+    @DisplayName("empty states should be translated, not English copied into every bundle")
+    void shouldTranslateEmptyStates_forNonEnglishLocales() throws IOException {
+        // The keys shipped present-but-English in all five bundles behind a "# TODO:
+        // translate" marker, so a French or Spanish CPP panel rendered the English
+        // sentence. Key presence alone cannot catch that — assert the English string is
+        // absent from every non-English bundle.
+        for (String locale : LOCALES) {
+            if ("en".equals(locale)) {
+                continue;
+            }
+            String resources = Files.readString(
+                    RESOURCES_DIRECTORY.resolve("oscarResources_" + locale + ".properties"),
+                    StandardCharsets.UTF_8);
+
+            assertThat(resources)
+                    .as("empty-state messages for %s must not fall back to the English text", locale)
+                    .doesNotContain("casemgmt.showHistory.msgNoHistory=No history has been recorded")
+                    .doesNotContain("casemgmt.viewNotes.msgNoNotes=No notes have been recorded");
+        }
+    }
+
     private void assertConditionalMessage(String jsp, String collection, String messageKey) {
         String condition = "<c:if test=\"${empty " + collection + "}\">";
         int conditionStart = jsp.indexOf(condition);
