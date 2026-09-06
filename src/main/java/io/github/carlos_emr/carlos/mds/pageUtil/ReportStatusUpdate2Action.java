@@ -102,17 +102,13 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             // A real acknowledgement failure throws (handled below); updateReportStatus otherwise
             // persists the status. Its boolean is not an ack-success signal — do not gate the
             // response on it.
-            CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
-            if (multiID != null) {
-                String[] id = multiID.split(",");
-                int i = 0;
-                int idNum = Integer.parseInt(id[i]);
-                while (idNum != labNo) {
-                    CommonLabResultData.updateReportStatus(idNum, providerNo, 'F', "", lab_type);
-                    i++;
-                    idNum = Integer.parseInt(id[i]);
-                }
-
+            if (status == 'A') {
+                // Acknowledging also files the older versions of the same lab, which is what
+                // actually clears the collapsed inbox row. Shared with the macro path so the
+                // two ways of acknowledging a lab cannot drift apart again.
+                CommonLabResultData.acknowledgeReport(labNo, providerNo, comment, lab_type, false, multiID);
+            } else {
+                CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
             }
             if (ajaxcall != null && ajaxcall.equals("yes"))
                 return null;

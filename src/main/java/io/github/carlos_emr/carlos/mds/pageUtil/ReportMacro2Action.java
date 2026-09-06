@@ -150,7 +150,13 @@ public class ReportMacro2Action extends ActionSupport {
                 logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
                 return false;
             }
-            CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));
+            // Acknowledge the reviewed version AND file the older versions of the same lab.
+            // Filing the older versions is what removes the collapsed row from the inbox: the
+            // inbox shows one row per accession chain, so a macro that only stamped the newest
+            // version left the row behind pointing at the previous version, and the lab looked
+            // like the macro had done nothing. Same routine as the Acknowledge button.
+            CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
+                    skipComment(providerNo), request.getParameter("multiID"));
 
             // Audit log for lab acknowledgment
             LogAction.addLogSynchronous(providerNo, LogConst.ACK,

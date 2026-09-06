@@ -236,17 +236,20 @@
         }
     });
 
+    /**
+     * Drops one acknowledged/signed-off item from the inbox table and from its counters.
+     *
+     * The count is taken off the STORED total (see decrementInboxhubStatFor in
+     * InboxhubForm.jsp), not off the rendered badge: the badges are repainted from those
+     * hidden inputs on every list draw, so a badge-only edit is undone by the next refresh
+     * and the acknowledged item keeps being counted until a full page reload.
+     */
     function removeReport(reportId) {
         const rowEl = jQuery("#labdoc_" + reportId);
         if (rowEl.length > 0) {
             const labType = rowEl.data('labType');
             jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
-            const countStatId = labType === 'DOC' ? 'totalDocsCountStat' :
-                                labType === 'HRM' ? 'totalHRMsCountStat' : 'totalLabsCountStat';
-            const current = parseInt(jQuery('#' + countStatId).text()) || 0;
-            if (current > 0) {
-                jQuery('#' + countStatId).text(current - 1);
-            }
+            decrementInboxhubStatFor(labType);
         }
     }
 </script>

@@ -46,9 +46,11 @@ function doSignOff(reportId, view, isSign) {
                 // Notify the Inboxhub to refresh its data after sign-off.
                 // BroadcastChannel provides reliable same-origin cross-window messaging
                 // that is unaffected by COOP headers.
+                // The id lets the inbox drop this report from its Documents/Labs/HRMs
+                // counters, which a plain list re-fetch does not touch.
                 try {
                     const bc = new BroadcastChannel('inboxhub-refresh');
-                    bc.postMessage('refresh');
+                    bc.postMessage({ action: 'refresh', segmentID: String(reportId) });
                     bc.close();
                 } catch (e) {
                     // BroadcastChannel unsupported — user must manually refresh the inbox

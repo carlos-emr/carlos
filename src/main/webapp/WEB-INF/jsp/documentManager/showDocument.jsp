@@ -1153,6 +1153,10 @@
                 alert('Macro execution failed. Please try again.');
                 return;
             }
+            // Tell the Inboxhub on every successful macro, whether or not the macro closes
+            // the window: without it the acknowledged document stays in the inbox list and
+            // its counters until the clinician reloads the page.
+            notifyInboxhubAfterDocMacro(formEl);
             if (closeOnSuccess) {
                 window.close();
             }
@@ -1161,6 +1165,25 @@
             console.error('Error executing macro:', err);
             alert('Macro execution failed. Please try again.');
         });
+    }
+
+    /**
+     * Asks the Inboxhub to refresh, naming the document that was just acknowledged.
+     *
+     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action
+     * responses, which nulls window.opener on popups opened from the Inboxhub, so
+     * BroadcastChannel is the only reliable same-origin channel back to it. The id lets the
+     * inbox drop this document from its counters, which a plain list re-fetch does not touch.
+     */
+    function notifyInboxhubAfterDocMacro(formEl) {
+        var segmentId = (formEl && formEl.elements && formEl.elements.segmentID) ? formEl.elements.segmentID.value : '';
+        try {
+            var bc = new BroadcastChannel('inboxhub-refresh');
+            bc.postMessage({ action: 'refresh', segmentID: segmentId });
+            bc.close();
+        } catch (e) {
+            // BroadcastChannel unsupported — the clinician must refresh the inbox by hand.
+        }
     }
 
     // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs

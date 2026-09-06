@@ -2057,6 +2057,30 @@ function checkObservationDate(formid) {
     return true;
 }
 
+/**
+ * Notifies the Inboxhub that one inbox item has been acknowledged.
+ *
+ * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action
+ * responses, which nulls window.opener on popups opened from the Inboxhub, so
+ * self.opener.removeReport() cannot be relied on. BroadcastChannel is same-origin
+ * messaging that COOP does not break.
+ *
+ * The acknowledged id travels with the message because the Inboxhub's refresh re-fetches
+ * only the result LIST: its Documents/Labs/HRMs counters come from the surrounding form
+ * page and would otherwise keep counting the acknowledged item until a full page reload.
+ *
+ * @param {string} doclabid segment id of the acknowledged lab or document
+ */
+function notifyInboxhubAcknowledged(doclabid) {
+    try {
+        const bc = new BroadcastChannel('inboxhub-refresh');
+        bc.postMessage({ action: 'refresh', segmentID: String(doclabid) });
+        bc.close();
+    } catch (e) {
+        // BroadcastChannel unsupported — user must manually refresh the inbox
+    }
+}
+
 function updateStatus(formid) {//acknowledge
     const num = formid.split("_");
     const doclabid = num[1];
@@ -2087,6 +2111,9 @@ function updateStatus(formid) {//acknowledge
 				if (window.frameElement) {
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
+					// The card is hidden, but the surrounding inbox still counts this item in its
+					// Documents/Labs/HRMs totals until it is told the item is gone.
+					notifyInboxhubAcknowledged(doclabid);
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
                     if (self.opener && typeof self.opener.removeReport !== 'undefined') {
 						/**
@@ -2101,17 +2128,7 @@ function updateStatus(formid) {//acknowledge
 							if (id === doclabid) break;
 						}
                     }
-                    // Notify the Inboxhub to refresh its data after acknowledge.
-                    // Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action responses,
-                    // which nulls window.opener on popups opened from Inboxhub. BroadcastChannel provides
-                    // reliable same-origin cross-window messaging that is unaffected by COOP.
-                    try {
-                        const bc = new BroadcastChannel('inboxhub-refresh');
-                        bc.postMessage('refresh');
-                        bc.close();
-                    } catch (e) {
-                        // BroadcastChannel unsupported — user must manually refresh the inbox
-                    }
+                    notifyInboxhubAcknowledged(doclabid);
                     window.close();
                 } else {
                     //Hide document

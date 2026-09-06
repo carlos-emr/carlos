@@ -48,6 +48,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionChain;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
 import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
@@ -385,6 +386,54 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         labs = populateLabsData(loggedInInfo, providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, scannedDocStatus);
         return labs;
+    }
+
+    /**
+     * Acknowledges one lab report and files every OLDER version of the same lab.
+     *
+     * <p>Labs arrive as a chain of versions that share an accession number (preliminary, final,
+     * corrected). The inbox collapses that chain to a single row for the newest version, so
+     * acknowledging only the version the clinician opened leaves the older rows at status
+     * {@code N}: the collapsed row simply re-appears pointing at the previous version and the
+     * lab looks like it was never acknowledged. Filing the older versions is what actually
+     * clears the item from the inbox, and BOTH acknowledge paths (the Acknowledge button and a
+     * lab macro) must do it, or they disagree about what an acknowledgement means.
+     *
+     * <p>Newer versions are deliberately left alone. A corrected result that arrived after this
+     * one is a NEW clinical fact and has to stay in the inbox until somebody reads it.
+     *
+     * @param labNo the version the clinician reviewed; acknowledged as {@code A}
+     * @param providerNo acknowledging provider (session-derived, never client-supplied)
+     * @param comment acknowledgement comment, may be null or empty
+     * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
+     * @param skipCommentOnUpdate true to leave an existing comment untouched
+     * @param multiId the client's comma-separated version chain, oldest first; may be null
+     */
+    public static void acknowledgeReport(int labNo, String providerNo, String comment, String labType,
+                                         boolean skipCommentOnUpdate, String multiId) {
+        updateReportStatus(labNo, providerNo, 'A', comment, labType, skipCommentOnUpdate);
+        for (Integer olderLabNo : olderVersionsOf(labNo, labType, multiId)) {
+            updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
+        }
+    }
+
+    /**
+     * Resolves the versions of {@code labNo} that are OLDER than it, oldest first.
+     *
+     * <p>The client posts the chain it rendered ({@code multiID}) and that is used when it
+     * actually describes this lab. When it does not — a macro POST from a page that never
+     * rendered the chain, a truncated value, a lab opened by a direct link — the chain is
+     * re-derived server side for HL7 labs from the accession number, which is the same source
+     * the view used to build {@code multiID} in the first place.
+     */
+    static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
+        String chain = multiId;
+        // Exact match, not a case-insensitive one: the routing rows are looked up by this same
+        // lab_type string, so accepting a spelling here that the lookup would miss buys nothing.
+        if (!LabVersionChain.describes(labNo, chain) && LabResultData.HL7TEXT.equals(labType)) {
+            chain = Hl7textResultsData.getMatchingLabs(String.valueOf(labNo));
+        }
+        return LabVersionChain.olderThan(labNo, chain);
     }
 
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType) {

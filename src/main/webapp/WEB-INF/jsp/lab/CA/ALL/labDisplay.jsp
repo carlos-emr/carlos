@@ -1136,6 +1136,11 @@ input[id^='acklabel_']{
         })
         .then(function(json) {
             if (json && json.success) {
+                // Tell the Inboxhub on EVERY successful macro, not only when the macro is
+                // configured to close the window. A macro that acknowledges without
+                // closeOnSuccess used to leave the inbox untouched, so the lab it had just
+                // acknowledged sat in the list until the clinician reloaded the page.
+                notifyInboxhubAfterMacro(formid);
                 if (closeOnSuccess) {
                     closeLabAfterMacro(formid);
                 }
@@ -1153,8 +1158,6 @@ input[id^='acklabel_']{
     function closeLabAfterMacro(formid) {
         var formEl = document.getElementById(formid);
         var segmentId = formEl && formEl.elements && formEl.elements.segmentID ? formEl.elements.segmentID.value : '';
-
-        notifyInboxhubAfterMacro();
 
         if (window.frameElement) {
             var card = window.frameElement.closest('.document-card.card');
@@ -1180,10 +1183,25 @@ input[id^='acklabel_']{
         }
     }
 
-    function notifyInboxhubAfterMacro() {
+    /**
+     * Asks the Inboxhub to refresh, naming the lab that was just acknowledged.
+     *
+     * The id matters: the inbox re-fetches only the result LIST, while the
+     * Documents/Labs/HRMs counters come from the surrounding form page. Without the id
+     * the counters keep counting the acknowledged lab until a full page reload, which
+     * reads to a clinician as "the acknowledgement did nothing".
+     */
+    function notifyInboxhubAfterMacro(formid) {
+        var segmentId = '';
+        if (formid) {
+            var formEl = document.getElementById(formid);
+            if (formEl && formEl.elements && formEl.elements.segmentID) {
+                segmentId = formEl.elements.segmentID.value;
+            }
+        }
         try {
             var bc = new BroadcastChannel('inboxhub-refresh');
-            bc.postMessage('refresh');
+            bc.postMessage({ action: 'refresh', segmentID: segmentId });
             bc.close();
         } catch (e) {
             // BroadcastChannel unsupported — the acknowledged item is still hidden locally.
