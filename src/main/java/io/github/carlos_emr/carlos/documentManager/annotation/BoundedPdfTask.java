@@ -93,6 +93,10 @@ public final class BoundedPdfTask {
      *         A {@link RuntimeException} thrown by the task propagates unchanged, because a
      *         programming error should not be disguised as an I/O problem.
      */
+    // Sonar sees no close() or try-with-resources and reports a leaked executor. The executor is
+    // shut down in the finally block below with shutdownNow(); close() is deliberately not used
+    // because it awaits termination of the abandoned worker, which makes the deadline inert.
+    @SuppressWarnings("java:S2095") // shutdownNow() in finally; close() would park the caller (see class Javadoc)
     public static <T> T runWithin(int seconds, String threadName, Callable<T> task) throws IOException {
         // Acquired here, released by the WORKER when it finishes — not by this method when it
         // times out. That is the point: an abandoned parse keeps its permit until it actually
