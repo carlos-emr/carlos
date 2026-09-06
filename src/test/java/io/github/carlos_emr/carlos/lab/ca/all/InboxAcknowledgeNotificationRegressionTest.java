@@ -248,6 +248,18 @@ class InboxAcknowledgeNotificationRegressionTest {
     }
 
     @Test
+    @DisplayName("should report one chain's cleared rows once when duplicate macro names both run")
+    void shouldNotAddClearedCounts_whenTwoEntriesShareAMacroName() throws IOException {
+        // Nothing stops a provider defining two macros with the same name, and every match
+        // runs — against the one segmentID the request named. Two acknowledging entries
+        // therefore clear the SAME routing rows, and summing their counts would move the
+        // badge twice for one chain.
+        assertThat(read(REPORT_MACRO_ACTION))
+                .contains("Math.max(clearedCount, other.clearedCount())")
+                .doesNotContain("clearedCount + other.clearedCount()");
+    }
+
+    @Test
     @DisplayName("should name the report type on every document acknowledge that reaches the opener")
     void shouldPassReportType_fromEveryDocumentOpenerCall() throws IOException {
         // Segment ids are not unique across report types, so an untyped call can remove a

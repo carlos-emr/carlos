@@ -158,9 +158,17 @@ public class ReportMacro2Action extends ActionSupport {
             return new MacroOutcome(true, acknowledged, clearedCount);
         }
 
+        /**
+         * Folds in another entry that ran under the same macro name in the same request.
+         *
+         * clearedCount takes the larger rather than the sum: every entry acts on the one
+         * segmentID this request named, so two acknowledging entries clear the SAME routing
+         * rows and the second only re-stamps what the first already took out of NEW. Adding
+         * them would tell the browser to move the badge twice for one chain.
+         */
         MacroOutcome combinedWith(MacroOutcome other) {
             return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged(),
-                    clearedCount + other.clearedCount());
+                    Math.max(clearedCount, other.clearedCount()));
         }
     }
 
