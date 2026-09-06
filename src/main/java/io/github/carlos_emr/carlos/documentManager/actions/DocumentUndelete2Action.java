@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -115,6 +116,10 @@ public class DocumentUndelete2Action extends ActionSupport {
                 .param("view", view)
                 .param("viewstatus", viewstatus)
                 .param("categorykey", categorykey)
+                // Redirect => new request, so the schedule-shell flag the report page posted
+                // with this action would otherwise be dropped and the navigation header tabs
+                // would disappear. paramValue() yields null (and is skipped) when inactive.
+                .param(ScheduleNav.PARAM, ScheduleNav.paramValue(request))
                 .toString();
         response.sendRedirect(redirect);
         return NONE;

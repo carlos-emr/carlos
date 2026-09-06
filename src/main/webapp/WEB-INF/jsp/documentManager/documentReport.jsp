@@ -231,6 +231,33 @@
                 }
             }
 
+            /**
+             * Copies the CSRFGuard token the client script injected into this page's own
+             * (combine-PDF) form into a dynamically built one.
+             *
+             * CSRFGuard injects into forms that exist when its script runs; a form created and
+             * submitted in the same tick misses that (its injectIntoDynamicNodes observer has not
+             * fired yet), so the POST arrives with no token and CSRFGuard answers 403 -- which is
+             * what deleting a document from this page did. Same helper as
+             * MultiPageDocDisplay.jsp.
+             */
+            function appendCsrfToken(form) {
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!csrfEl || !csrfEl.value) {
+                    // Fail closed. Submitting anyway only trades a silent no-op for CSRFGuard's
+                    // 403 error page, which is the failure this helper exists to prevent; tell
+                    // the user to reload instead, so the action can actually be retried.
+                    console.warn('CSRF token not found on page; document action not submitted.');
+                    return false;
+                }
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+                return true;
+            }
+
             /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate action route. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
@@ -259,6 +286,10 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                if (!appendCsrfToken(form)) {
+                    showListAlert(msgCsrfTokenMissing);
+                    return;
+                }
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -273,6 +304,7 @@
             }
 
             var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
+            var msgCsrfTokenMissing = '<fmt:message key="dms.documentReport.msgCsrfTokenMissing"/>';
 
             /**
              * Displays a dismissable Bootstrap alert-danger in the document list alert container.
