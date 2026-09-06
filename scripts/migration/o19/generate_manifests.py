@@ -1701,7 +1701,7 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
     out.append('"""OSCAR 19 -> CARLOS schema manifest (Ontario profile)."""\n')
     out.append("SCHEMA_MAP_VERSION = {!r}".format(
         schema_map_version(tables, ov)))
-    out.append("O19_PROFILE = 'on'")
+    out.append("O19_PROFILE = {!r}".format(extras.get("province", "on")))
     # provenance is the O19 commit only — no wall-clock stamp, so --check
     # compares content, not the day it was generated
     out.append("O19_SOURCE_COMMIT = {!r}\n".format(o19_commit))
@@ -1952,6 +1952,12 @@ def emit_preflight_data(tables, ov, props_ov,
     lines = [MARKER_BEGIN]
     lines.append("SCHEMA_MAP_VERSION = {!r}".format(
         schema_map_version(tables, ov)))
+    # the province this data was curated FOR. The check refuses a host
+    # configured for another one: every ruling below -- which table is
+    # copied, which column is dropped, which row counts as patient data
+    # -- was decided against one province's schema, and running it
+    # against another would classify silently and wrongly.
+    lines.append("O19_PROFILE = {!r}".format(extras.get("province", "on")))
     lines.append("REQUIRED_TABLES = " + _fmt(list(ov.REQUIRED_TABLES)))
     lines.append("PATIENT_DATA_TABLES = " + _fmt(patient))
     lines.append("KNOWN_TABLES = " + _fmt(known))
@@ -2047,6 +2053,10 @@ def main() -> int:
                 "rows (stale entry)".format(t, n, seed_counts.get(t, 0)))
         seed_counts[t] -= n
     extras = {
+        # the province every ruling below was curated against; both
+        # emitters stamp it so the import can refuse a host configured
+        # for a different one (o19import.run_p0, o19_preflight)
+        "province": "on",
         "primitive_columns": scan_primitive_columns(JAVA_ROOT),
         "stock_role_names": sorted(set(stock_role_names)),
         "prevention_type_map": parse_prevention_type_map(

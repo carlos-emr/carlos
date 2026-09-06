@@ -994,13 +994,25 @@ def run_p0(ctx) -> None:
     the checks that assume a packaged host."""
     query = ctx["query"]
     dev = ctx["dev_target"]
-    if ctx.get("province") != "on":
-        # the seed floors are generated from the Ontario migration set;
-        # sweeping a BC host against them would refuse it for the wrong
-        # reason before the preflight's own province gate is reached
-        die("province {0!r}: the OSCAR 19 import supports Ontario "
-            "deployments only (the BC manifest pass is outstanding)"
-            .format(ctx.get("province")))
+    # The manifest is curated FOR one province, and says which: every
+    # ruling in it -- which table is copied, which column is dropped,
+    # which rows the pristine sweep expects -- was decided against that
+    # province's CARLOS schema. Running it against another host would not
+    # fail loudly; it would classify silently and wrongly, and the seed
+    # floors would refuse the host for the wrong reason.
+    #
+    # Asserted rather than string-tested against 'on': this is the check
+    # that has to hold when a second profile ships, and a check written
+    # only when its second case exists has never been run.
+    profile = getattr(o19map_schema, "O19_PROFILE", None)
+    if profile != ctx.get("province"):
+        die("this package carries the {0!r} schema manifest and the host "
+            "is configured for province {1!r}. Every table ruling in the "
+            "manifest was curated against one province's CARLOS schema, "
+            "so it cannot be run against another: install a carlos-ctl "
+            "whose manifest profile matches, or correct the host's "
+            "province."
+            .format(profile, ctx.get("province")))
     run_p0_capacity(ctx)
 
     if not dev:

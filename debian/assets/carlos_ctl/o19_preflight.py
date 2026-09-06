@@ -66,6 +66,7 @@ import sys
 
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
 SCHEMA_MAP_VERSION = 'o19map-2+d6061d0a'
+O19_PROFILE = 'on'
 REQUIRED_TABLES = [
     'Facility',
     'clinic',
@@ -2770,12 +2771,21 @@ def run_checks(query, properties=None, province="on", accepted=(),
         return n
 
     # --- province gate ----------------------------------------------------
-    if province != "on":
+    # The generated block above was curated for ONE province and stamps
+    # which (O19_PROFILE). A host configured for another one would be
+    # assessed against the wrong table classes, the wrong patient-data
+    # list and the wrong dropped columns -- quietly, since every ruling
+    # would still be a ruling. Asserted, not string-tested against 'on',
+    # so the check is the same one when a second profile ships.
+    if province != O19_PROFILE:
         findings.append(finding(
             "province", BLOCKER,
-            "province '{0}' is not supported yet".format(province),
-            "Only the Ontario manifest is curated; the BC pass is tracked in "
-            "the migration plan. No --accept flag exists for this."))
+            "this check carries the '{0}' manifest and the host is "
+            "province '{1}'".format(O19_PROFILE, province),
+            "Every table ruling here was curated against one province's "
+            "CARLOS schema. Install a carlos-ctl whose manifest profile "
+            "matches the host, or correct the host's province. No "
+            "--accept flag exists for this."))
 
     (schema_expr, tables, live_names, live_to_manifest,
      known_live_lower) = live_table_inventory(query, findings, db_name)

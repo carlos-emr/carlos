@@ -1397,6 +1397,49 @@ class TestInheritedImportRefusal(unittest.TestCase):
             o19import.inherited_import_refusal(False, [], "carlos"))
 
 
+class TestTheManifestProfileMatchesTheHost(unittest.TestCase):
+
+    """P0 refuses a manifest curated for another province.
+
+    Every ruling in the manifest -- which table is copied, which column
+    is dropped, which rows the pristine sweep expects to find -- was
+    decided against ONE province's CARLOS schema. Run against another
+    host it would not fail loudly: each ruling would still be a ruling,
+    and a wrong one, and the seed floors would refuse the host for the
+    wrong reason. Written as an assertion on the manifest's own stamped
+    profile rather than a string test against 'on', so it is the same
+    check when a second profile ships -- a check written only once its
+    second case exists has never been run."""
+
+    def _ctx(self, province):
+        return {"query": lambda sql, db=None: [], "dev_target": True,
+                "province": province, "state_dir": "/nonexistent",
+                "state": {"phases": {}}, "accepted": []}
+
+    def test_a_mismatched_profile_stops_p0_before_any_work(self):
+        other = "bc" if o19map_schema.O19_PROFILE != "bc" else "on"
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import.run_p0(self._ctx(other))
+        message = err.getvalue()
+        self.assertIn(o19map_schema.O19_PROFILE, message)
+        self.assertIn(other, message)
+        self.assertIn("curated", message)
+
+    def test_the_gate_reads_the_manifest_not_a_hardcoded_province(self):
+        # with the manifest claiming the host's province, the run gets
+        # past this gate (and on to the next one, whatever it is)
+        with mock.patch.object(o19map_schema, "O19_PROFILE", "bc"):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                # it stops later, on the next gate this stub cannot
+                # satisfy; what matters is that it is not THIS one
+                with self.assertRaises(Exception):
+                    o19import.run_p0(self._ctx("bc"))
+            self.assertNotIn("curated", err.getvalue())
+
+
 class TestStateArchiving(unittest.TestCase):
 
     """Retiring a finished run so it cannot be resumed or mistaken."""

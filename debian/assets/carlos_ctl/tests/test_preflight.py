@@ -494,10 +494,52 @@ class TestVerdicts(unittest.TestCase):
         self.assertNotIn("B9-credentials-carried",
                          {f["id"] for f in report["findings"]})
 
-    def test_bc_province_is_a_hard_no_go(self):
+    def test_a_province_the_manifest_was_not_curated_for_is_a_no_go(self):
+        """The gate is the PROFILE, not the string 'on'.
+
+        Every ruling in the generated block -- table class, patient-data
+        list, dropped columns -- was decided against one province's
+        CARLOS schema. Assessing another province against it would not
+        fail loudly; each ruling would still be a ruling, and a wrong
+        one. Written as an assertion rather than a string test so it is
+        the same check when a second profile ships, and so a profile
+        that does not match the host cannot be dropped in unnoticed."""
+        other = "bc" if pf.O19_PROFILE != "bc" else "on"
         report = pf.run_checks(FakeDb(base_tables()),
-                               properties=clean_props(), province="bc")
+                               properties=clean_props(), province=other)
         self.assertEqual(report["verdict"], "no-go")
+        blocker = next(f for f in report["findings"]
+                       if f["id"] == "province")
+        self.assertIn(pf.O19_PROFILE, blocker["title"])
+        self.assertIn(other, blocker["title"])
+
+    def test_the_manifests_own_province_passes_the_gate(self):
+        report = pf.run_checks(FakeDb(base_tables()),
+                               properties=clean_props(),
+                               province=pf.O19_PROFILE)
+        self.assertNotIn("province",
+                         {f["id"] for f in report["findings"]})
+
+    def test_the_gate_follows_the_profile_not_a_hardcoded_province(self):
+        """With a second profile shipped, the gate has to accept THAT
+        province and refuse the one it was written against. Patched
+        rather than waited for: a gate that only ever sees 'on' cannot
+        be told apart from `province != "on"`."""
+        original = pf.O19_PROFILE
+        pf.O19_PROFILE = "bc"
+        try:
+            accepted = pf.run_checks(FakeDb(base_tables()),
+                                     properties=clean_props(),
+                                     province="bc")
+            refused = pf.run_checks(FakeDb(base_tables()),
+                                    properties=clean_props(),
+                                    province="on")
+        finally:
+            pf.O19_PROFILE = original
+        self.assertNotIn("province",
+                         {f["id"] for f in accepted["findings"]})
+        self.assertIn("province", {f["id"] for f in refused["findings"]})
+        self.assertEqual(refused["verdict"], "no-go")
 
 
 class TestAdvisories(unittest.TestCase):
