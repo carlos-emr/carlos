@@ -260,3 +260,29 @@ All names follow `should<Action>_<context><Condition>` with one underscore.
 - **Retain the annotation JSON.** `Document.docxml` is unused for PDFs. Storing the posted JSON there gives an audit record of what was drawn at no schema cost. Not required for the feature.
 - **Description wording.** `(annotated)` suffix versus a prefix, and whether to include the author's initials.
 - **Who may annotate.** This design uses `_edoc` write. If annotation should be narrower than document editing, a new security object is needed.
+
+## 15. Rejected: client-side PDF.js in any form
+
+Security is the primary requirement for this feature, so the decision in section 1 is final: **no PDF is parsed in the browser.** This section records why every client-side variant was rejected, so the question does not reopen.
+
+- **Rendering is parsing.** To draw a page, PDF.js must interpret the whole file, including fonts, image codecs, forms, and actions, as JavaScript running in the page. The known advisories (CVE-2024-4367, CVE-2026-16633) are all "open a crafted PDF, attacker code runs in the hosting site." Inbound faxes are attacker-controllable input.
+- **Configuration only narrows known exploits.** Disabling scripting, XFA, `eval`, and font-face injection addresses the published cases, not the class.
+- **Shadow DOM is not a boundary.** It scopes styles and IDs. Script inside a shadow root shares the page's realm, origin, cookies, DOM, and network. A closed shadow root hides nothing from code inside it.
+- **Web Workers are not a boundary.** No DOM, but the same origin and cookies on every fetch.
+- **A sandboxed iframe is a boundary, and was still rejected.** `sandbox="allow-scripts"` without `allow-same-origin` yields an opaque origin, and a `connect-src` limited to the vendored library path plus delivering the PDF by `postMessage` would confine a compromise to the one open document. It was rejected because it adds roughly 4.6 to 5.6 MB of vendored code that the project must track and patch itself (Maven and Dependabot cannot see it, and CI passed on the vulnerable PR), a cross-frame protocol, a CSP and CORS filter, a vendoring script, an advisory check, and a named owner with a patch deadline, all to put an untrusted parser back in the browser for a document that the server already rasterizes today. The residual risk is small but the ongoing cost is not, and the server-side design has neither.
+- **Vendoring from Mozilla instead of npm or WebJars** fixes provenance and patch latency but none of the above.
+
+## 16. Hardening the parser this design does use
+
+The chosen design still parses untrusted PDFs, on the server, with PDFBox. CARLOS already does this for every document view and every fax preview, so nothing here is new exposure, but the feature adds a composition step and heavier use of page rendering. These controls apply to `showPage`, `DocumentTextBoxes2Action`, and `AnnotatedDocumentComposer` alike, and the first three should also be applied to the existing `ManageDocument2Action` render path in the same PR.
+
+1. **Bounded memory.** Load with `Loader.loadPDF(file, IOUtils.createTempFileOnlyStreamCache())`, as `createCacheVersion2` already does, so object streams spill to disk rather than heap.
+2. **Bounded output.** Before rendering, compute the page's CropBox at the requested DPI and refuse any page over 30 megapixels with a 422. A crafted page box of 200 by 200 inches at 144 dpi would otherwise request 830 megapixels. Today's `showPage` has no such bound.
+3. **Bounded time.** Run each render and each composition on a dedicated executor with a hard timeout (10 seconds per page for rendering, 60 seconds per document for composition) and cancel on expiry. Log the document number only.
+4. **Bounded input.** Annotation is offered only for documents up to 200 pages and 50 MB; larger documents can still be viewed and faxed as-is. Inbound faxes are far below this.
+5. **Decoder surface tracked by Maven.** The JBIG2, JPEG 2000, and TIFF decoders PDFBox delegates to are ImageIO plugins declared in `pom.xml`, so Dependabot and `dependency-review` see them. Keep them declared explicitly rather than transitively so version pins are visible.
+6. **No JavaScript, no XFA.** PDFBox does not execute document JavaScript. The composer copies page content and appends; it never evaluates actions, form calculations, or XFA. Nothing in this design calls `PDAcroForm.flatten()` or touches the document catalog beyond page objects.
+7. **Compose on a copy, verify the output.** The composer reads a read-only copy in app temp, writes to memory, asserts `%PDF` and an unchanged page count, and only then writes into `DOCUMENT_DIR`. A composition failure leaves no partial file.
+8. **The viewer page is a plain page.** It receives PNG or JPEG page images decoded by the browser's own process-sandboxed image code, sets a `Content-Security-Policy` of `default-src 'self'; img-src 'self'; script-src 'self'; style-src 'self'`, and runs one static script file. There is no third-party code on it.
+
+The one control this design does not add is out-of-process rendering, running PDFBox in a separate JVM with its own limits. It is the next step if the threat model ever calls for it, and it can be added behind the same `AnnotatedDocumentComposer` interface without touching the rest of this design.
