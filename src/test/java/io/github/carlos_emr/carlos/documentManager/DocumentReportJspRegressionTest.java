@@ -34,7 +34,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DocumentReportJspRegressionTest {
 
     private static final Path DOCUMENT_REPORT_JSP =
-            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "documentReport.jsp");
+            resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager",
+                    "documentReport.jsp"));
+
+    /**
+     * Resolves a repo-relative fixture by walking up from the working directory, so the test
+     * passes whether Surefire or an IDE picked the module root or a parent as {@code user.dir}.
+     */
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath);
+    }
 
     /**
      * {@code submitDocAction()} creates a form and submits it in the same tick, so CSRFGuard's
@@ -54,7 +73,7 @@ class DocumentReportJspRegressionTest {
 
         // The call has to sit inside submitDocAction, before the submit -- a defined-but-uncalled
         // helper looks identical to a fix and ships the same 403.
-        int helperCall = documentReport.indexOf("appendCsrfToken(form);");
+        int helperCall = documentReport.indexOf("if (!appendCsrfToken(form)) {");
         int submit = documentReport.indexOf("form.submit();");
         assertThat(helperCall)
                 .as("submitDocAction must call appendCsrfToken")
@@ -62,5 +81,22 @@ class DocumentReportJspRegressionTest {
         assertThat(helperCall)
                 .as("the token must be appended before the form is submitted")
                 .isLessThan(submit);
+    }
+
+    /**
+     * Without a token the helper must refuse rather than submit anyway: submitting only trades a
+     * silent no-op for CSRFGuard's 403 error page, which is the failure the helper exists to
+     * prevent. The user gets a reload-and-retry message instead.
+     */
+    @Test
+    @DisplayName("should abort the document action when no CSRF token is on the page")
+    void shouldAbortDocumentAction_whenCsrfTokenMissing() throws IOException {
+        String documentReport = Files.readString(DOCUMENT_REPORT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(documentReport)
+                .contains("if (!csrfEl || !csrfEl.value) {")
+                .contains("showListAlert(msgCsrfTokenMissing);")
+                .contains("var msgCsrfTokenMissing = '<fmt:message"
+                        + " key=\"dms.documentReport.msgCsrfTokenMissing\"/>';");
     }
 }

@@ -64,6 +64,10 @@ public final class ScheduleNav {
      * {@code ?} or {@code &} from the URL already built. Returns {@code url} unchanged
      * when the shell is not active, so a caller never has to branch.
      *
+     * <p>A fragment is split off first and re-attached after: a parameter written after
+     * {@code #} never reaches the server, so appending naively would drop the flag on any
+     * redirect target that carries one.
+     *
      * @param url     an application-relative redirect target
      * @param request the current servlet request
      */
@@ -71,6 +75,9 @@ public final class ScheduleNav {
         if (url == null || !isActive(request)) {
             return url;
         }
-        return url + (url.indexOf('?') >= 0 ? "&" : "?") + PARAM + "=" + ENABLED;
+        int fragmentIndex = url.indexOf('#');
+        String base = fragmentIndex >= 0 ? url.substring(0, fragmentIndex) : url;
+        String fragment = fragmentIndex >= 0 ? url.substring(fragmentIndex) : "";
+        return base + (base.indexOf('?') >= 0 ? "&" : "?") + PARAM + "=" + ENABLED + fragment;
     }
 }

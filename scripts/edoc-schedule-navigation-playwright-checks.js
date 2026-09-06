@@ -47,15 +47,20 @@
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc  TEST_PASSWORD=carlos2026  TEST_PIN=2026
  *   EDOC_NAV_SCREENSHOT_DIR=/tmp   ALLOW_NON_LOCAL_BASE_URL=true
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (fixture teardown; see below)
  *
  * FIXTURE SAFETY: uploads one PDF this script generates under a unique,
- * timestamped description, only ever asserts on that document, and deletes it
- * through the UI on the way out -- which is scenario 3, so the cleanup is the
- * check. The description is printed, so a failed run is still traceable:
- *   SELECT doc_no FROM document WHERE docdesc LIKE 'carlos-nav-probe-%';
+ * timestamped description and only ever asserts on that document. Note that the
+ * UI delete in scenario 3 is the application's SOFT delete -- status='D', row and
+ * file both still there -- so it is an assertion, NOT teardown. The row is removed
+ * for real in the `finally` block, pass or fail, so an interrupted run leaves
+ * nothing behind either. Cleanup never fails the run; if it could not connect it
+ * warns, and strays are then removable with:
+ *   DELETE FROM document WHERE docdesc LIKE 'carlos-nav-probe-%';
  */
 
 const { chromium } = require('playwright');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -67,6 +72,10 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.EDOC_NAV_SCREENSHOT_DIR || '/tmp',
+  mysqlHost: process.env.MYSQL_HOST || '127.0.0.1',
+  mysqlUser: process.env.MYSQL_USER || 'root',
+  mysqlPassword: process.env.MYSQL_PASSWORD || 'password',
+  mysqlDatabase: process.env.MYSQL_DATABASE || 'carlos',
 };
 
 const NAV_SELECTOR = '#firstTable #navlist';
@@ -78,6 +87,11 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would ride along on every navigation and surface in Playwright's
+  // own error messages, which this script prints on failure.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
@@ -86,6 +100,12 @@ function validateBaseUrl(rawBaseUrl) {
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+/** True when BASE_URL points at this machine, the only case where a bad cert is expected. */
+function isLoopbackTarget() {
+  const host = config.baseUrl.hostname.toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
 }
 
 function appUrl(appPath) {
@@ -107,6 +127,52 @@ function assert(condition, message) {
 
 function gotoApp(page, appPath, options) {
   return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+}
+
+let mysqlDefaults = null;
+function initMysqlDefaults() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'edoc-nav-sql-'));
+  const file = path.join(dir, 'mysql-defaults.cnf');
+  fs.writeFileSync(file, `[client]\npassword=${config.mysqlPassword}\n`, { mode: 0o600 });
+  mysqlDefaults = { dir, file };
+}
+
+function cleanupMysqlDefaults() {
+  if (mysqlDefaults) {
+    fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+    mysqlDefaults = null;
+  }
+}
+
+function sql(query) {
+  assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
+  return execFileSync('mysql', [
+    `--defaults-extra-file=${mysqlDefaults.file}`,
+    '-h', config.mysqlHost, '-u', config.mysqlUser, config.mysqlDatabase, '-N', '-B', '-e', query,
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
+}
+
+/**
+ * Removes the rows this run created, keyed on its unique description only.
+ *
+ * The UI delete in scenario 3 is the application's SOFT delete -- it sets status='D' and leaves
+ * both the row and the uploaded PDF in place -- so it is an assertion, not teardown. This runs
+ * unconditionally, pass or fail, so an interrupted run leaves nothing behind either.
+ */
+function cleanupProbeDocuments() {
+  try {
+    const ids = sql(
+      `SELECT document_no FROM document WHERE docdesc LIKE '${docDescription}%'`,
+    ).split(/\s+/).filter(Boolean);
+    if (!ids.length) return;
+    const list = ids.join(',');
+    console.log(`cleanup: removing probe document row(s) ${list} for ${docDescription}`);
+    sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
+    sql(`DELETE FROM document WHERE document_no IN (${list})`);
+  } catch (e) {
+    // Housekeeping, never an assertion: a cleanup problem must not turn a passing run red.
+    console.warn(`WARN: could not clean up probe documents for ${docDescription}: ${e.message}`);
+  }
 }
 
 /** Minimal one-page PDF; the report list only needs a real %PDF file, not real content. */
@@ -235,12 +301,15 @@ async function deleteDocument(page) {
 
 async function run() {
   const { tempDir, pdfPath } = createPdfFixture();
+  initMysqlDefaults();
   const launchOptions = { headless: true };
   if (config.chromePath) {
     launchOptions.executablePath = config.chromePath;
   }
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  // The packaged install serves a self-signed certificate, so loopback runs must accept it --
+  // but a run pointed at a real host with ALLOW_NON_LOCAL_BASE_URL must still verify TLS.
+  const context = await browser.newContext({ ignoreHTTPSErrors: isLoopbackTarget() });
   let page;
 
   try {
@@ -283,11 +352,13 @@ async function run() {
       console.error(`failure url: ${page.url()}`);
     }
     console.error(`FAIL: ${error.message}`);
-    console.error(`probe document description (clean up if it survived): ${docDescription}`);
+    console.error(`probe document description: ${docDescription}`);
     process.exitCode = 1;
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
+    cleanupProbeDocuments();
+    cleanupMysqlDefaults();
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 }

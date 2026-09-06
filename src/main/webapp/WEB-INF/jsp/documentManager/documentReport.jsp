@@ -243,15 +243,19 @@
              */
             function appendCsrfToken(form) {
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                if (csrfEl) {
-                    var csrfInput = document.createElement('input');
-                    csrfInput.type = 'hidden';
-                    csrfInput.name = 'CSRF-TOKEN';
-                    csrfInput.value = csrfEl.value;
-                    form.appendChild(csrfInput);
-                } else {
-                    console.warn('CSRF token not found on page; form submission may be rejected by server.');
+                if (!csrfEl || !csrfEl.value) {
+                    // Fail closed. Submitting anyway only trades a silent no-op for CSRFGuard's
+                    // 403 error page, which is the failure this helper exists to prevent; tell
+                    // the user to reload instead, so the action can actually be retried.
+                    console.warn('CSRF token not found on page; document action not submitted.');
+                    return false;
                 }
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+                return true;
             }
 
             /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate action route. */
@@ -282,7 +286,10 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
-                appendCsrfToken(form);
+                if (!appendCsrfToken(form)) {
+                    showListAlert(msgCsrfTokenMissing);
+                    return;
+                }
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -297,6 +304,7 @@
             }
 
             var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
+            var msgCsrfTokenMissing = '<fmt:message key="dms.documentReport.msgCsrfTokenMissing"/>';
 
             /**
              * Displays a dismissable Bootstrap alert-danger in the document list alert container.

@@ -68,6 +68,19 @@ class ScheduleNavUnitTest {
     }
 
     @Test
+    @DisplayName("should insert the flag before a fragment rather than after it")
+    void shouldInsertBeforeFragment_whenUrlHasFragment() {
+        // A parameter written after '#' never reaches the server, so appending naively would
+        // silently drop the flag on any redirect target carrying a fragment.
+        assertThat(ScheduleNav.append("/carlos/documentManager/ViewDocumentReport#docs",
+                requestWith("1")))
+                .isEqualTo("/carlos/documentManager/ViewDocumentReport?scheduleNav=1#docs");
+        assertThat(ScheduleNav.append("/carlos/documentManager/ViewDocumentReport?function=providers#docs",
+                requestWith("1")))
+                .isEqualTo("/carlos/documentManager/ViewDocumentReport?function=providers&scheduleNav=1#docs");
+    }
+
+    @Test
     @DisplayName("should leave the url untouched when the shell is not active")
     void shouldLeaveUrlUnchanged_whenShellInactive() {
         String url = "/carlos/documentManager/ViewDocumentReport?function=providers";

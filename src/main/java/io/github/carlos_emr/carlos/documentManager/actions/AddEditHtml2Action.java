@@ -163,12 +163,11 @@ public class AddEditHtml2Action extends ActionSupport {
         redirect.append("?function=").append(functionParam != null ? URLEncoder.encode(functionParam, StandardCharsets.UTF_8) : "");
         redirect.append("&functionid=").append(functionIdParam != null ? URLEncoder.encode(functionIdParam, StandardCharsets.UTF_8) : "");
         // The redirect is a fresh request: re-append the schedule-shell flag the Add Link form
-        // posted, or the document list comes back without its navigation header tabs.
-        if (ScheduleNav.isActive(request)) {
-            redirect.append('&').append(ScheduleNav.PARAM).append('=').append(ScheduleNav.ENABLED);
-        }
+        // posted, or the document list comes back without its navigation header tabs. The helper
+        // is a no-op when the shell is not active.
+        String target = ScheduleNav.append(redirect.toString(), request);
         try {
-            response.sendRedirect(redirect.toString());
+            response.sendRedirect(target);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
