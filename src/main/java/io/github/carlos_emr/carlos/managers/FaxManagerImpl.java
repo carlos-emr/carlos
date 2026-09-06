@@ -39,8 +39,8 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
-import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
@@ -195,18 +195,18 @@ public class FaxManagerImpl implements FaxManager {
         // nothing about whether this document belongs to that patient, so without this a caller
         // authorised for patient A could name patient B's documentNo and receive its path. The
         // document's own module link is the authority; the request parameter is not.
-        String moduleId = StringUtils.trimToNull(doc.getModuleId());
-        if (moduleId != null && !"0".equals(moduleId) && !"-1".equals(moduleId)) {
-            try {
-                int documentDemographicNo = Integer.parseInt(moduleId);
-                if (documentDemographicNo != demographicNo) {
-                    logger.error("renderDocument: refusing documentNo={} which is not linked to the requested patient",
-                            documentNo);
-                    return null;
-                }
-            } catch (NumberFormatException e) {
-                // A non-numeric module id means the document is not patient-linked.
-            }
+        // module_id is only a demographic number when ctl_document.module is "demographic".
+        // Parsing it unconditionally, as this did, compared a PROVIDER number (or any other
+        // module's numeric id) against a demographic number: a provider-scoped document whose
+        // module_id happened to equal the requested demographicNo passed the check, and one that
+        // did not was refused for the wrong reason. DocumentPatientLink.demographicNoOf applies
+        // the module test and the positive-integer test together, and is the same helper the
+        // other five call sites in this slice use.
+        int documentDemographicNo = DocumentPatientLink.demographicNoOf(doc);
+        if (documentDemographicNo != 0 && documentDemographicNo != demographicNo) {
+            logger.error("renderDocument: refusing documentNo={} which is not linked to the requested patient",
+                    documentNo);
+            return null;
         }
 
         String filePath = doc.getFilePath();
