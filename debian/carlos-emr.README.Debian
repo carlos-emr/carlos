@@ -244,11 +244,18 @@ practice subnet. That is supported, and the package makes it work: CRS rule
 5-point inbound threshold on EVERY request from such a client, leaving 2 points
 of headroom in which a single further rule match blocks ordinary clinical work
 with a bare 403 and no application log line. Packaged rule 1090 removes 920350
-for clients whose SOURCE address is in a private, loopback or link-local range
-(10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, 100.64/10, ::1, fc00::/7,
-fe80::/10), so a LAN-local deployment starts each request with the full 5
-points. The source address is the peer nginx accepted the connection from, not
-a header, so an off-network client cannot claim it.
+for a request that BOTH arrives from a SOURCE address in a private, loopback or
+link-local range (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1,
+fc00::/7, fe80::/10) AND carries no forwarding header, so a LAN-local
+deployment starts each request with the full 5 points. The source address is
+the peer nginx accepted the connection from, not a header, so an off-network
+client cannot claim it.
+
+Carrier-grade NAT space (100.64/10) is deliberately NOT in that list: RFC 6598
+shared address space belongs to the ISP and unrelated subscribers can sit in
+it, so it is not a private-network trust boundary. A site that deliberately
+runs a mesh VPN in that range and wants the exemption should add it in its own
+local-exclusions-before-crs.conf, as its own decision.
 
 A request arriving from a PUBLIC source address is deliberately NOT exempt:
 that is the case 920350 exists for (an internet scanner sweeping a range by
@@ -262,9 +269,20 @@ the 2-point headroom, and its users will see occasional unexplained 403s on
 ordinary clinical work — a saved form or a refreshed panel failing with no
 error in the application log. A DNS name removes the whole class of problem,
 and you need one anyway for a real (non-self-signed) TLS certificate: see
-section 4. If an extra proxy or load balancer sits in front of this nginx, what
-counts is that hop's address — a LAN hop keeps the exemption, a public-cloud
-front end does not, which fails safe toward more inspection rather than less.
+section 4.
+
+IF YOU FRONT THIS DEPLOYMENT WITH ANOTHER PROXY, CDN OR LOAD BALANCER, read
+this. That hop connects from its own address, which in the usual layout is
+RFC1918 — so REMOTE_ADDR stops being the client and becomes the proxy. Rule
+1090 requires the absence of a forwarding header precisely so the standard case
+(any proxy that sets X-Forwarded-For, X-Real-IP or Forwarded) cannot launder
+internet clients into the exemption. A front end that sets NONE of them still
+would. This is the same premise the packaged rate limits already depend on —
+they key on the TCP peer and collapse into one shared bucket behind an
+unconfigured front end (see conf.d/carlos-emr-limits.conf). Either way the
+answer is the same: configure set_real_ip_from/real_ip_header for the front
+end, confirm with "carlos-ctl waf tail" that 920350 behaves as you expect, and
+if in doubt disable this exemption in your own local-exclusions file.
 
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The package already ships
