@@ -740,8 +740,14 @@ _TRANSIENT_RE = re.compile(r"@(?:jakarta\.persistence\.)?Transient\b")
 _ID_RE = re.compile(r"@(?:jakarta\.persistence\.)?(?:Embedded)?Id\b")
 #: an explicit `@Access(AccessType.X)`. JPA lets an entity DECLARE its
 #: access type, and that declaration outranks where the identifier sits.
+#: `value =` is optional in Java's single-element annotation syntax, so
+#: both `@Access(AccessType.PROPERTY)` and
+#: `@Access(value = AccessType.PROPERTY)` are legal and mean the same
+#: thing. All 34 entities here use the first form today; accepting both
+#: costs nothing and keeps a rename from silently changing a ruling.
 _ACCESS_RE = re.compile(
     r"@(?:jakarta\.persistence\.)?Access\s*\(\s*"
+    r"(?:value\s*=\s*)?"
     r"(?:jakarta\.persistence\.)?AccessType\.(\w+)")
 #: any member declaration at class-body depth -- used only to see which
 #: KIND of member the entity's `@Id` sits on.

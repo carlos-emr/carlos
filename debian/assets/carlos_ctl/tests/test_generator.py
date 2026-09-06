@@ -1466,6 +1466,21 @@ class TestPrimitiveFieldScan(unittest.TestCase):
                       '}\n'),
             {"thing": ["kept"]})
 
+    def test_the_named_access_form_is_read_too(self):
+        """`value =` is optional in Java's single-element annotation
+        syntax, so both spellings are legal and mean the same thing."""
+        self.assertEqual(
+            self.scan('@Table(name = "thing")\n'
+                      '@Access(value = AccessType.PROPERTY)\n'
+                      'public class Thing {\n'
+                      '    @Id\n'
+                      '    private Integer id;\n'
+                      '    private Boolean flag;\n'
+                      '    @Column(name = "flag_col")\n'
+                      '    public boolean isFlag() { return flag; }\n'
+                      '}\n'),
+            {"thing": ["flag_col"]})
+
     def test_an_embedded_id_getter_is_property_access(self):
         """A composite key is still an identifier: `@EmbeddedId` on a
         getter says the entity is mapped through its getters exactly as

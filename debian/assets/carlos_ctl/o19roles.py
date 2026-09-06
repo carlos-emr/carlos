@@ -1950,14 +1950,25 @@ def encounter_form_prune_statements(dst_schema: str, archive_schema: str
 
     Both statements are idempotent -- the INSERT is guarded by NOT
     EXISTS on the archive and the DELETE's own predicate is false once
-    the rows are gone."""
+    the rows are gone.
+
+    The guard has a SECOND arm for rows an older carlos-ctl archived.
+    Those rows were written before `form_value` existed as a column, so
+    `encounter_form_archive_upgrades` leaves them holding NULL there --
+    and `NULL = 'anything'` is NULL, never true, so a form_value-only
+    guard would not recognise them and a resume that crashed between
+    the archive and the delete would insert every one a second time.
+    A legacy row records exactly its (form_table, form_name) pair, so
+    that is what it is matched on."""
     missing = _encounter_form_missing(dst_schema)
     archive = ("INSERT INTO `{1}`.encounterForm__pruned (form_table, "
                "form_name, form_value, hidden) SELECT e.form_table, "
                "e.form_name, e.form_value, e.hidden FROM "
                "`{0}`.encounterForm e WHERE {2} AND NOT EXISTS (SELECT 1 "
-               "FROM `{1}`.encounterForm__pruned a WHERE a.form_value = "
-               "e.form_value)"
+               "FROM `{1}`.encounterForm__pruned a WHERE "
+               "a.form_value = e.form_value OR (a.form_value IS NULL "
+               "AND a.form_table = e.form_table AND a.form_name = "
+               "e.form_name))"
                .format(dst_schema, archive_schema, missing))
     delete = ("DELETE FROM `{0}`.`encounterForm` WHERE {1}"
               .format(dst_schema,

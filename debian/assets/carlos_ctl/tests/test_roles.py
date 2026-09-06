@@ -308,7 +308,25 @@ class TestStatementShapes(unittest.TestCase):
         archive, _delete = o19roles.encounter_form_prune_statements(
             "carlos", "o19_archive")
         self.assertIn("a.form_value = e.form_value", archive)
-        self.assertNotIn("a.form_name = e.form_name", archive)
+
+    def test_a_legacy_archive_row_is_recognised_by_its_pair(self):
+        """Rows an older carlos-ctl wrote hold NULL in `form_value`, and
+        `NULL = 'x'` is NULL -- never true.
+
+        A guard on form_value alone would not see them, so a resume that
+        crashed between the archive and the delete would archive every
+        one of them again. The pair is what such a row actually
+        recorded, so the pair is what it is matched on."""
+        archive, _delete = o19roles.encounter_form_prune_statements(
+            "carlos", "o19_archive")
+        self.assertIn("a.form_value IS NULL", archive)
+        self.assertIn("a.form_table = e.form_table AND a.form_name = "
+                      "e.form_name", archive)
+        # the pair arm applies ONLY to a legacy row: a current row is
+        # matched on form_value, so two entries sharing a table and a
+        # name still archive separately
+        self.assertIn("a.form_value = e.form_value OR (a.form_value IS "
+                      "NULL", archive)
 
     def test_facility_link_targets_the_first_enabled_facility(self):
         sql = o19roles.provider_facility_statement("carlos")
