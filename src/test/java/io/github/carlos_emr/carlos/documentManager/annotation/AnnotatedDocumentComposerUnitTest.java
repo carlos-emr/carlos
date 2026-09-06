@@ -60,6 +60,19 @@ class AnnotatedDocumentComposerUnitTest {
     private final AnnotatedDocumentComposer composer = new AnnotatedDocumentComposer();
 
     @Test
+    @DisplayName("should report the page count the file actually has")
+    void shouldReportPageCount_fromTheFile(@TempDir Path tempDir) throws Exception {
+        // The document row carries its own numberofpages, and it lies: legacy rows hold zero and
+        // a row can drift from the file it names. Both the view gate and the save path bound the
+        // annotation page range with this number, so if it came from the row instead of the file
+        // the viewer would offer pages the save path then refuses — losing the provider's work
+        // with a message that makes no sense ("page 7, outside the document's 1 to 1").
+        Path source = blankPdf(tempDir.resolve("ten-pages.pdf"), 10, 0);
+
+        assertThat(composer.pageCount(source)).isEqualTo(10);
+    }
+
+    @Test
     @DisplayName("should leave the source file untouched when composing")
     void shouldLeaveSourceUntouched_whenComposing(@TempDir Path tempDir) throws Exception {
         Path source = blankPdf(tempDir.resolve("source.pdf"), 2, 0);

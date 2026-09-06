@@ -134,7 +134,23 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return json(response, HttpServletResponse.SC_NOT_FOUND,
                     error("The document could not be found."));
         }
-        int pageCount = Math.max(source.getNumberOfPages(), 1);
+        // Read from the FILE, matching what AnnotateDocument2Action showed the provider. The
+        // stored count is metadata: legacy rows carry zero, which this used to floor at 1, so a
+        // mark the viewer legitimately allowed on page 7 of a 10-page scan was rejected here as
+        // "outside the document's 1 to 1". The gate and this bound must name the same number or
+        // the provider loses the work with no way to tell why.
+        int pageCount;
+        try {
+            pageCount = AnnotatedDocumentService.pageCountOf(source);
+        } catch (IOException | RuntimeException e) {
+            logger.warn("Could not read the page count for document {} while saving annotations", docId);
+            return json(response, HttpServletResponse.SC_BAD_REQUEST,
+                    error("This document could not be opened."));
+        }
+        if (pageCount < 1) {
+            return json(response, HttpServletResponse.SC_BAD_REQUEST,
+                    error("This document has no pages to annotate."));
+        }
 
         String body;
         try {
