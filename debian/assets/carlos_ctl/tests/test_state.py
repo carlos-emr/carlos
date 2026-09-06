@@ -3802,6 +3802,118 @@ class TestTheDevelopmentTargetSchema(unittest.TestCase):
             self.assertIsNotNone(
                 o19import.dev_target_db_refusal(bad, True, False), bad)
 
+    def test_the_imports_own_schemas_are_refused_as_a_target(self):
+        """Pointing the import AT its own working storage.
+
+        The staging schema is the clinic's only copy of the dump until
+        P4 finishes; the archive schema is the only copy of everything
+        CARLOS has no home for. Either as the target means the import
+        reads and writes one schema: P1 would drop the source it is
+        about to restore, and P4 would copy a table onto itself. Every
+        name here is a plain identifier, so nothing later catches it."""
+        for name in (o19import.STAGING_SCHEMA, o19import.ARCHIVE_SCHEMA):
+            refusal = o19import.dev_target_db_refusal(name, True, False)
+            self.assertIsNotNone(refusal, name)
+            self.assertIn(name, refusal)
+
+    def test_the_servers_own_schemas_are_refused_as_a_target(self):
+        # a "target" that is `mysql` is not a mistake anything later
+        # would catch either
+        for name in ("mysql", "information_schema", "performance_schema",
+                     "sys"):
+            self.assertIsNotNone(
+                o19import.dev_target_db_refusal(name, True, False), name)
+
+    def test_an_ordinary_name_is_still_accepted(self):
+        # the refusals above must not be a blanket one
+        self.assertIsNone(
+            o19import.dev_target_db_refusal("oscar_bc", True, False))
+
+
+class TestTheTargetSchemaCannotChangeMidImport(unittest.TestCase):
+
+    """A workspace describes ONE target schema.
+
+    The ledger, the ETL progress marks, the archive schema and the
+    validation report all describe the schema the first phases wrote.
+    Resolve a different one later and every later phase acts on a
+    database that has none of those writes — the ETL re-copies over rows
+    it never wrote, P7 compares a half-copied schema against a staging
+    schema it does not match, and --cleanup drops staging after counting
+    its rows against a target that never received them.
+
+    It is reachable on either deployment: `--dev-target-db` left off a
+    resume falls back to the deployment default, and CARLOS_DB_NAME
+    edited between runs moves a packaged host's target the same way."""
+
+    def test_a_fresh_workspace_records_nothing_to_disagree_with(self):
+        self.assertIsNone(o19import.target_change_refusal({}, "oscar"))
+        self.assertIsNone(o19import.target_change_refusal(
+            {"inputs": {}}, "oscar"))
+
+    def test_the_same_target_continues(self):
+        state = {"inputs": {"target_db": "oscar_bc"}}
+        self.assertIsNone(
+            o19import.target_change_refusal(state, "oscar_bc"))
+
+    def test_a_different_target_is_refused_and_names_both(self):
+        state = {"inputs": {"target_db": "oscar_bc"}}
+        refusal = o19import.target_change_refusal(state, "oscar")
+        self.assertIsNotNone(refusal)
+        self.assertIn("oscar_bc", refusal)
+        self.assertIn("oscar", refusal)
+        # and it says how to name the recorded one again, on either
+        # deployment
+        self.assertIn("--dev-target-db", refusal)
+        self.assertIn("CARLOS_DB_NAME", refusal)
+
+    def test_the_import_context_records_and_then_enforces_it(self):
+        """End to end through the context builder, not the pure
+        function: the recording and the check must be the same value,
+        and the check must run BEFORE anything else is written."""
+        def stop(_state_dir):
+            raise AssertionError(
+                "the workspace lock was taken before the target check")
+
+        state_dir = tempfile.mkdtemp(prefix="o19target-")
+        self.addCleanup(shutil.rmtree, state_dir, ignore_errors=True)
+        o19import.save_state(state_dir, {
+            "phases": {"stage": {"status": "done"}},
+            "inputs": {"target_db": "oscar_bc"}})
+        args = argparse.Namespace(mariadb_arg=["--x"], dev_target=True,
+                                  dry_run=False, fixups_dir=None,
+                                  province=None, dev_target_db=None)
+        err = io.StringIO()
+        with mock.patch.object(o19import, "take_workspace_lock", stop), \
+                contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import._make_ctx(args, True, state_dir)
+        message = err.getvalue()
+        self.assertIn("oscar_bc", message)
+        self.assertIn("oscar", message)
+
+    def test_cleanup_is_refused_against_another_target_too(self):
+        # cleanup counts every staging table against the home it was
+        # copied into, so it must be the same home the import wrote
+        state_dir = tempfile.mkdtemp(prefix="o19targetc-")
+        self.addCleanup(shutil.rmtree, state_dir, ignore_errors=True)
+        o19import.save_state(state_dir, {
+            "phases": {"verify": {"status": "done"}},
+            "inputs": {"target_db": "oscar_bc"}})
+        args = argparse.Namespace(mariadb_arg=["--x"], dev_target=True,
+                                  dry_run=False, province=None,
+                                  dev_target_db=None)
+        err = io.StringIO()
+        with mock.patch.object(o19import, "STATE_DIR", state_dir), \
+                mock.patch.object(o19import, "take_workspace_lock",
+                                  lambda d: None), \
+                mock.patch.object(o19import, "make_query",
+                                  lambda a: (lambda sql, db=None: [])), \
+                contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit):
+                o19import._make_ctx_for_cleanup(args)
+        self.assertIn("oscar_bc", err.getvalue())
+
     def test_nothing_is_refused_when_it_is_not_used(self):
         self.assertIsNone(o19import.dev_target_db_refusal(None, False, True))
 

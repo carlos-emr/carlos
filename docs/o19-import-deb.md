@@ -796,9 +796,18 @@ clinic's sign-off.
 - *non-numeric value(s) in a column CARLOS stores as a number* — the copy
   would store 0 for them under the import's `sql_mode=''`; curate a
   `value_exprs` entry or fix the values in the source.
-- *province 'bc': the OSCAR 19 import supports Ontario deployments only* —
-  P0 refuses a non-Ontario host before sweeping it (the seed floors are
-  generated from the Ontario migration set).
+- *this package carries the 'X' schema manifest and the host is configured
+  for province 'Y'* — the manifest profile and the host disagree. Every
+  ruling in a profile (which table is copied, which column is dropped,
+  which rows count as patient data) was curated against ONE province's
+  CARLOS schema, and the seed floors come from that province's migration
+  set. Install a carlos-ctl whose profile matches, or correct the host's
+  province.
+- *the 'X' profile has not completed an end-to-end migration rehearsal* —
+  the package carries that province's rulings but no rehearsal has taken
+  a clinic database of it from P0 to a passing verification, so the
+  import refuses. The refusal names the provinces this build does
+  support.
 - *`--role-template 'X': not a clinic-custom role with imported grants`* /
   *`'Y' is not a CARLOS stock role`* — on a fresh run this surfaces as
   *ETL pre-checks failed (nothing was written): --role-template …*, on a

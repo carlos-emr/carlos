@@ -338,7 +338,9 @@ Options:
 (needs
 .BR "\-\-accept no-documents" );
 .BR \-\-province " on|bc"
-(must match the host's configured province; the import supports Ontario);
+(must match the host's configured province; one package carries a manifest
+profile per province and binds the host's, and a province it carries no
+rehearsed profile for is refused);
 .BR \-\-admin-user " NAME;"
 .BR \-\-role-template " CUSTOM=STOCK;"
 .BR \-\-accept " CLASS;"

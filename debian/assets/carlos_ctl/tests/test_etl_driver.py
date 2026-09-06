@@ -736,14 +736,21 @@ class TestATableRuledTwinExempt(EtlDriverBase):
             db, r"`o19_archive`\.`Contact__unknown_cols`"), db.writes)
 
     def test_the_operator_is_told_which_columns_have_no_twin(self):
-        # a report that simply did not mention the table would read as
-        # "nothing was dropped from it"
+        """A report that simply did not mention the table would read as
+        "nothing was dropped from it".
+
+        Each population is sent to the archive table it is actually in:
+        the manifest's curated `dropped` columns to `<table>__dropped`,
+        a clinic fork's unknown columns to `<table>__unknown_cols`. One
+        name for both sends an operator looking for half the values in a
+        table that does not hold them."""
         _db, lines, _counts = self.run_etl()
         text = self.report_text(lines)
         self.assertIn("preserved in o19_archive ONLY", text)
-        self.assertIn("Contact: 2 column(s)", text)
-        self.assertIn("programNo", text)
-        self.assertIn("vendorExtra", text)
+        self.assertIn("1 column(s) in `o19_archive`.`Contact__dropped` "
+                      "-- programNo", text)
+        self.assertIn("1 column(s) in `o19_archive`."
+                      "`Contact__unknown_cols` -- vendorExtra", text)
 
     def test_the_copy_does_not_name_a_column_that_was_never_added(self):
         # with_archived_columns is skipped too, or the INSERT would

@@ -1428,9 +1428,11 @@ def archived_column_plan(entry: dict, src_cols: Dict[str, dict]
         # probe and both halves of P7 agree by construction -- a check
         # that modelled the exemption differently from the write would
         # prove nothing. The values still reach o19_archive: the
-        # `<table>__dropped` shadow keeps every row whose value is not
-        # the column default, with the row's identifying columns beside
-        # it, and the archive CSV export is rendered from it.
+        # `<table>__dropped` shadow for the manifest's curated dropped
+        # columns and `<table>__unknown_cols` for a fork's own, each
+        # keeping every row whose value is not the column default with
+        # the row's identifying columns beside it, and the archive CSV
+        # export is rendered from them.
         return []
     lower = {c.lower(): (c, info) for c, info in src_cols.items()}
     out = []
@@ -2768,19 +2770,28 @@ def etl_archived_columns(run: 'EtlRun', table: str, entry: dict,
         # operator reading "columns preserved on the live table" and not
         # finding this one would reasonably conclude nothing was dropped
         # from it.
-        missing = sorted(set(entry.get("dropped", {}))
-                         | set(unknown_columns(entry, src_info[table])))
-        if missing and not tstate.get("twin_exempt_reported"):
-            # named, but not all 288 of them on one line: the archive
-            # table is the list, and a report an operator cannot read is
-            # not a report
-            shown = ", ".join(missing[:8])
-            if len(missing) > 8:
-                shown += ", ... ({0} more)".format(len(missing) - 8)
+        # the two populations land in DIFFERENT archive tables, and an
+        # operator sent to the wrong one finds nothing: the manifest's
+        # curated `dropped` columns go to `<table>__dropped`, a clinic
+        # fork's unknown columns to `<table>__unknown_cols`
+        dropped = sorted(entry.get("dropped", {}))
+        unknown = sorted(unknown_columns(entry, src_info[table]))
+        if (dropped or unknown) and not tstate.get("twin_exempt_reported"):
+            parts = []
+            for cols, shadow in ((dropped, "__dropped"),
+                                 (unknown, "__unknown_cols")):
+                if not cols:
+                    continue
+                # named, but not all 288 of them on one line: the archive
+                # table is the list, and a report an operator cannot read
+                # is not a report
+                shown = ", ".join(cols[:8])
+                if len(cols) > 8:
+                    shown += ", ... ({0} more)".format(len(cols) - 8)
+                parts.append("{0} column(s) in `o19_archive`.`{1}{2}` -- "
+                             "{3}".format(len(cols), table, shadow, shown))
             run.twin_exempt_lines.append(
-                "{0}: {1} column(s), preserved in `o19_archive`.`{0}"
-                "__dropped` only -- {2}".format(table, len(missing),
-                                                shown))
+                "{0}: {1}".format(table, "; ".join(parts)))
             tstate["twin_exempt_reported"] = True
             save_progress(run.state_dir, run.progress)
         return entry
@@ -3223,12 +3234,14 @@ def report_etl_findings(run: 'EtlRun') -> None:
         report("columns preserved in o19_archive ONLY. The live table "
                "cannot take another column -- MySQL's table-definition "
                "ceiling -- so these have no `import_archived_` twin "
-               "beside the row. Their values are in the "
-               "`<table>__dropped` capture in o19_archive (every row "
+               "beside the row. Each line names the archive table its "
+               "values are in: `<table>__dropped` for the columns "
+               "CARLOS has no home for, `<table>__unknown_cols` for the "
+               "ones a clinic's own fork added. Both capture every row "
                "whose value is not the column default, with the row's "
-               "identifying columns beside it) and in the archive CSV "
-               "export made from it; a row where all of them held the "
-               "default carries nothing to preserve:\n  "
+               "identifying columns beside it, and the archive CSV "
+               "export is made from them; a row where all of them held "
+               "the default carries nothing to preserve:\n  "
                + "\n  ".join(twin_exempt_lines))
     if shadow_notes:
         report("dropped-column capture:\n  " + "\n  ".join(shadow_notes))

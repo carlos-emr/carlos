@@ -3037,7 +3037,8 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
     ap.add_argument("--province", choices=["on", "bc"],
                     help="restate the host's configured province; a value "
                          "that differs from it is refused (default: the "
-                         "host's own). The import supports Ontario")
+                         "host's own). It selects the manifest profile "
+                         "this build carries for that province")
     # the assessment evaluates only the preflight blockers, and opens
     # bundles: the phase sign-offs (backup, documents, charset repair)
     # belong to phases it never runs. choices stay the full set so a
@@ -3172,6 +3173,37 @@ def manifest_change_refusal(state: Dict,
             "package version that shipped manifest {0}, --resume, "
             "--cleanup, then upgrade; otherwise restore the pre-import "
             "snapshot and start over.".format(recorded, current_map))
+
+
+def target_change_refusal(state: Dict,
+                          current_target: str) -> Optional[str]:
+    """Why this workspace may not continue against `current_target`, or
+    None.
+
+    The ledger, the ETL progress marks, the archive schema and the
+    validation report all describe ONE target schema. Resolve a different
+    one on a later invocation and every later phase acts on a database
+    that has none of the first half's writes: the ETL would re-copy over
+    rows it never wrote, P7 would compare a half-copied schema against a
+    staging schema it does not match, and --cleanup would drop the
+    staging schema after counting its rows against a target that never
+    received them.
+
+    It can happen on either deployment: `--dev-target-db` left off a
+    resume falls back to the deployment default, and CARLOS_DB_NAME
+    edited between runs moves a packaged host's target the same way.
+    Recorded on the first real run, compared on every one after it."""
+    recorded = state.get("inputs", {}).get("target_db")
+    if not recorded or recorded == current_target:
+        return None
+    return ("this import ran against the schema {0!r}; this invocation "
+            "resolves {1!r}. Everything the workspace records — the ETL "
+            "progress marks, the archive schema, the report — describes "
+            "{0!r}, so continuing against another schema would copy into "
+            "one database and verify another. Re-run naming {0!r} (a "
+            "development target: --dev-target-db {0}; a packaged host: "
+            "CARLOS_DB_NAME), or start over from the pre-import snapshot."
+            .format(recorded, current_target))
 
 
 def documents_refusal(skip_documents: bool, accepted, documents,
@@ -3537,6 +3569,15 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
     # run_p0's assertion, so binding here does not weaken that gate.
     province = _province(args)
     o19map_schema.bind(province)
+    # Resolved and checked FIRST, before the lock, the bundle or
+    # anything recorded: it depends on nothing but the flags and the
+    # ledger, every later phase reads ctx["target_db"], and a workspace
+    # that already wrote half an import into another schema must not get
+    # as far as extracting a bundle.
+    target_db = _target_db(dev_target, getattr(args, "dev_target_db", None))
+    refusal = target_change_refusal(load_state(state_dir), target_db)
+    if refusal:
+        die(refusal)
     take_workspace_lock(state_dir)
     state = load_state(state_dir)
     os.makedirs(state_dir, mode=0o700, exist_ok=True)
@@ -3627,6 +3668,10 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
             # different document is refused above rather than quietly
             # comparing against numbers the earlier phases never saw
             "digests_sha256": digests_sha,
+            # the schema this import writes: a later invocation that
+            # resolves a different one is refused above rather than
+            # copying into one database and verifying another
+            "target_db": target_db,
             "dev_target": dev_target,
         })
         recorded.setdefault("schema_map_version",
@@ -3656,8 +3701,7 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
                            if inputs.get("documents") else 0),
         "bundle_size": (os.path.getsize(args.bundle)
                         if getattr(args, "bundle", None) else 0),
-        "target_db": _target_db(
-            dev_target, getattr(args, "dev_target_db", None)),
+        "target_db": target_db,
         "restage": getattr(args, "restage", False),
         "resume": getattr(args, "resume", False),
         "dry_run": getattr(args, "dry_run", False),
@@ -3717,6 +3761,19 @@ def nothing_to_resume_refusal(state: Dict, resume: bool,
             .format(STATE_DIR))
 
 
+#: schema names the import may never be pointed AT, and why. The two
+#: import schemas are its own working storage; the rest are the server's.
+RESERVED_TARGET_SCHEMAS = {
+    STAGING_SCHEMA: "the import's staging schema (the restored dump)",
+    ARCHIVE_SCHEMA: "the import's archive schema (everything CARLOS has "
+                    "no home for)",
+    "mysql": "the server's own account and privilege store",
+    "information_schema": "a server metadata schema",
+    "performance_schema": "a server metadata schema",
+    "sys": "a server metadata schema",
+}
+
+
 def dev_target_db_refusal(name, dev_target: bool,
                           packaged_host: bool):
     """Why --dev-target-db may not be used (None when it may).
@@ -3737,6 +3794,17 @@ def dev_target_db_refusal(name, dev_target: bool,
     if not re.match(r"^[A-Za-z0-9_]+$", name):
         return ("--dev-target-db must be a plain schema name (letters, "
                 "digits and underscore)")
+    if name in RESERVED_TARGET_SCHEMAS:
+        # the staging schema is the clinic's only copy of the dump until
+        # P4 finishes and the archive schema is the only copy of
+        # everything CARLOS has no home for. Either as the TARGET means
+        # the import reads and writes the same schema: P1 would drop the
+        # source it is about to restore, and P4 would copy a table onto
+        # itself. The server's own schemas are named for the same reason
+        # -- a "target" that is `mysql` is not a mistake anything later
+        # would catch.
+        return ("--dev-target-db may not be {0!r}: it is {1}"
+                .format(name, RESERVED_TARGET_SCHEMAS[name]))
     return None
 
 
@@ -3920,13 +3988,19 @@ def _make_ctx_for_cleanup(args) -> Dict:
     # the import ran under and has to bind them the same way
     o19map_schema.bind(_province(args))
     take_workspace_lock(state_dir)
+    state = load_state(state_dir)
+    # cleanup counts every staging table against the home it was copied
+    # into, so it must be the same home the import wrote
+    target_db = _target_db(dev_target, getattr(args, "dev_target_db", None))
+    refusal = target_change_refusal(state, target_db)
+    if refusal:
+        die(refusal)
     return {
         "state_dir": state_dir,
-        "state": load_state(state_dir),
+        "state": state,
         "query": make_query(args.mariadb_arg),
         "dev_target": dev_target,
-        "target_db": _target_db(
-            dev_target, getattr(args, "dev_target_db", None)),
+        "target_db": target_db,
         "archive_schema": ARCHIVE_SCHEMA,
         "dry_run": getattr(args, "dry_run", False),
     }
