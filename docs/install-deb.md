@@ -345,6 +345,7 @@ sudo carlos-ctl check
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |
 | eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-chromedriver -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
 | Drug search returns nothing when prescribing | `sudo carlos-ctl check` (DrugRef probe) | `carlos-emr-drugref` not installed, or its service is down |
+| Administration > Update Drugref reports a failed update, or stays "updating" | The message on that page; `sudo journalctl -u carlos-emr \| grep 'DrugRef database update'` | The Tomcat JVM has no outbound HTTPS to `www.canada.ca` (proxy not passed via `CARLOS_JAVA_OPTS`, see `/usr/share/doc/carlos-emr-drugref/README.Debian`). A failed run keeps the previous drug data |
 | "no space left on device" anywhere | `df -h /var` | Database, document store and the local backup tier all live under `/var` — grow the disk or move backups offsite |
 
 ## The full operator reference

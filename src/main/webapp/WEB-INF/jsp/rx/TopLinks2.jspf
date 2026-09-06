@@ -37,6 +37,7 @@
 <script type="text/javascript">
 const msgDrugrefUnavailable = '<fmt:message key="oscarRx.drugrefUnavailable"/>';
 const msgDrugrefUnavailableContact = '<fmt:message key="oscarRx.drugrefUnavailableContact"/>';
+const msgDrugrefUpdating = '<fmt:message key="oscarRx.drugrefUpdating"/>';
 
 function newWindow(url) {
     var newwin = window.open(url, 'name', 'height=700,width=1000');
@@ -70,8 +71,10 @@ function getDrugRefStatus() {
 			// .catch below. 'updating' is still covered -- it is truthy and is
 			// handled by the same banner.
 			if (!json || !json.lastUpdate || json.lastUpdate === 'updating' ) {
+				// 'updating' is a rebuild in progress (Administration > Update Drugref), not an
+				// outage: say so, because the two call for different reactions from the desk.
 				let statusDisplay = document.getElementById('statusDisplay');
-				statusDisplay.innerHTML = msgDrugrefUnavailable;
+				statusDisplay.innerHTML = (json && json.lastUpdate === 'updating') ? msgDrugrefUpdating : msgDrugrefUnavailable;
 				statusDisplay.style.color = 'red';
 				statusDisplay.style.fontWeight = 'bold';
 			} else {

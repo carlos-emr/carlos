@@ -101,15 +101,35 @@ public class RxUpdateDrugref2Action extends ActionSupport {
             return updateDB();
         } else if ("verify".equals(method)) {
             return verify();
+        } else if ("status".equals(method)) {
+            return status();
         }
         return getLastUpdate();
     }
 
     public String updateDB() throws IOException, ServletException {
         Map<String, Object> d = new HashMap<>();
+        // A null result means the call itself failed (DrugRef down, unreachable, or a fault):
+        // the page shows that as an error rather than the silent nothing it used to render.
         d.put("result", runOrFallback("updateDB", () -> new RxDrugRef().updateDB(), null));
         writeJson(d);
-        return null;
+        return NONE;
+    }
+
+    /**
+     * Relays DrugRef's {@code getUpdateStatus}: whether the last update attempt is running,
+     * succeeded or failed, and why. The admin page polls this after starting an update.
+     *
+     * <p>Falls back to {@code state=UNAVAILABLE} when DrugRef cannot answer, which is also what
+     * a DrugRef build older than the method returns (an XML-RPC fault). The page then degrades
+     * to the {@code verify} probe, whose {@code lastUpdate} still flips away from
+     * {@code "updating"} when the run ends.</p>
+     */
+    private String status() throws IOException, ServletException {
+        Map<String, String> fallback = new HashMap<>();
+        fallback.put("state", "UNAVAILABLE");
+        writeJson(runOrFallback("getUpdateStatus", () -> new RxDrugRef().getUpdateStatus(), fallback));
+        return NONE;
     }
 
     private String verify() throws IOException, ServletException {
@@ -122,14 +142,14 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         fallback.put("drugDatabase", null);
         fallback.put("version", null);
         writeJson(runOrFallback("verify", () -> new RxDrugRef().verify(), fallback));
-        return null;
+        return NONE;
     }
 
     private String getLastUpdate() throws IOException, ServletException {
         Map<String, String> d = new HashMap<>();
         d.put("lastUpdate", runOrFallback("getLastUpdateTime", () -> new RxDrugRef().getLastUpdateTime(), null));
         writeJson(d);
-        return null;
+        return NONE;
     }
 
     /**

@@ -321,6 +321,15 @@ export RX_FAX_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # click can take longer than the check's default 45 s round-trip allowance; raise it for a
 # cold server rather than reading the timeout as a fax failure.
 export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
+# Administration > Update Drugref (drugref-update-playwright-checks.js). Read-only by default:
+# it opens the page from the Administration panel and asserts the status panel and the status
+# relay answer. DRUGREF_UPDATE_TRIGGER=true also clicks the button and follows the rebuild to
+# its end (SUCCEEDED, date moved forward, drug search still answers). That rebuilds the DrugRef
+# database from DPD_BASE_URL in /etc/carlos-emr/drugref2.properties -- Health Canada's site
+# unless you point it at a mirror -- and takes 15-60 minutes, so run it last and only on a
+# throwaway VM. DRUGREF_UPDATE_REQUIRE_STATUS=true rejects a DrugRef build without
+# getUpdateStatus (the packaged one must have it).
+export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below

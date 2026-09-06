@@ -188,6 +188,51 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should demand only read privilege when method is status")
+    void shouldDemandOnlyRead_whenMethodIsStatus() {
+        denyAllPrivileges();
+        mockRequest.setParameter("method", "status");
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+    }
+
+    @Test
+    @DisplayName("should answer status JSON with state UNAVAILABLE when DrugRef cannot be reached")
+    void shouldAnswerUnavailableState_whenDrugRefUnreachable() throws Exception {
+        // No DrugRef is listening in a unit test, so the relay must degrade to a well-formed
+        // JSON payload the page can act on, not an HTTP 500. UNAVAILABLE is also what a DrugRef
+        // build without getUpdateStatus produces (an XML-RPC fault), and the page falls back to
+        // the verify probe on it.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "status");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+        assertThat(mockResponse.getContentAsString()).contains("\"state\":\"UNAVAILABLE\"");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verifyNoMoreInteractions(mockSecurityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should answer a null result as JSON when updateDB cannot reach DrugRef")
+    void shouldAnswerNullResultAsJson_whenUpdateDbUnreachable() throws Exception {
+        // The page renders {"result":null} as "could not be started"; it used to render nothing.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "updateDB");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentAsString()).isEqualTo("{\"result\":null}");
+    }
+
+    @Test
     @DisplayName("should gate a case variant of updateDB at read, not write")
     void shouldGateCaseVariant_atReadPrivilege() {
         denyAllPrivileges();

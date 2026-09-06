@@ -3,9 +3,16 @@
 # release build: a branch name makes two builds weeks apart ship different
 # code under one package version.
 #
-# The current pin is the master merge commit of the pre-release security
-# hardening (carlos-emr/drugref2026#10). It must not be moved back below this
-# revision: earlier DrugRef builds ship the bundled `root` superuser credential
+# The current pin carries the database-update fix (carlos-emr/drugref2026
+# branch claude/drugref-db-update-trigger-8vxtn7, on top of the #10 merge):
+# download-before-drop, rollback to the previous dataset on failure, the
+# Hibernate 7 HQL fix without which every update died with the tables
+# already dropped, the column widths the 2026 extract needs, and the
+# getUpdateStatus() method Administration > Update Drugref polls. Advance it
+# to that branch's merge commit once it lands on master.
+#
+# It must not be moved back below the #10 merge (566a46eec559a0ba02f40afbc37ff14440bbc098):
+# earlier DrugRef builds ship the bundled `root` superuser credential
 # with a password published in that source tree, browser JSPs that run a
 # destructive database re-import on an unauthenticated GET and reflect a request
 # parameter unencoded, and JPQL built by string concatenation — including an
@@ -13,4 +20,4 @@
 # surface. It also carries the earlier EntityManager-leak fix
 # (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
 # after one or two calls and permanently return "None found".
-ref=566a46eec559a0ba02f40afbc37ff14440bbc098
+ref=a53deaaf7467ebab9a422de396e0726407199897

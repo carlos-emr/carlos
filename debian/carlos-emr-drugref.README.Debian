@@ -47,6 +47,37 @@ Refresh or replace the dataset according to your own drug-data source and
 licensing. Commercial Medi-Span interaction monographs need a licence key in
 /etc/carlos-emr/drugref2.properties.
 
+Updating the dataset from Health Canada
+---------------------------------------
+Administration > Update Drugref (in CARLOS) asks DrugRef to rebuild its
+database from Health Canada's current Drug Product Database extract. The page
+follows the run and reports how it ended; a failed run keeps the previous
+dataset and says why it failed. The run takes 15 to 60 minutes, during which
+drug lookups when prescribing are limited, so start it outside clinic hours.
+
+What it needs from this host:
+
+  * Outbound HTTPS from the carlos-emr service to www.canada.ca. The download
+    is made by the Tomcat JVM itself (DrugRef runs inside it), so a host that
+    only allows browsers out through a proxy must pass the proxy to the JVM.
+    Set it in /etc/carlos-emr/carlos-emr.env and restart:
+
+        CARLOS_JAVA_OPTS="-Dhttps.proxyHost=proxy.example.ca -Dhttps.proxyPort=3128"
+
+    A proxy that intercepts TLS must also have its CA trusted by the JVM
+    (-Djavax.net.ssl.trustStore=... in the same variable, or import it into
+    the JDK's cacerts). Without either, the update fails during its download
+    step, harmlessly, and the page shows the reason.
+
+  * A mirror instead of the live site, if you stage the archives yourself:
+    set DPD_BASE_URL=https://mirror.example.ca/dpd in
+    /etc/carlos-emr/drugref2.properties (the file is read at Tomcat start).
+
+The run's log lines are prefixed "DrugRef database update" in
+journalctl -u carlos-emr. Every table the update rebuilds is kept as
+<table>_prev until the run succeeds; an interrupted run (a service restart
+mid-import) is rolled back automatically at the next start.
+
 Deployment fix baked into the webapp
 ------------------------------------
 The package installs WEB-INF/classes/hibernate.properties naming the dialect

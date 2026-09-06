@@ -434,6 +434,34 @@ public class RxDrugRef {
     }
 
     /**
+     * Returns the outcome of the most recent {@link #updateDB()} attempt on the DrugRef server.
+     *
+     * <p>{@link #getLastUpdateTime()} answers only a date or the literal {@code "updating"}; it
+     * cannot say that an update failed, or why. DrugRef's {@code getUpdateStatus} can. The map
+     * carries {@code state} ({@code IDLE}, {@code RUNNING}, {@code SUCCEEDED}, {@code FAILED}),
+     * {@code step}, {@code message}, {@code startedAt}, {@code finishedAt} and {@code lastUpdate},
+     * every value a String (empty when absent).</p>
+     *
+     * @return Map&lt;String, String&gt; of the status struct
+     * @throws Exception if the DrugRef service is unavailable, predates {@code getUpdateStatus}
+     *                   (an XML-RPC fault), or answers with something other than a struct
+     * @since 2026-09-05
+     */
+    public Map<String, String> getUpdateStatus() throws Exception {
+        Vector params = new Vector();
+        Object result = callWebserviceLite("getUpdateStatus", params);
+        if (!(result instanceof Map<?, ?> struct)) {
+            throw new Exception("DrugRef: 'getUpdateStatus' returned no struct for server " + server_url);
+        }
+        Map<String, String> status = new HashMap<>();
+        for (Map.Entry<?, ?> entry : struct.entrySet()) {
+            status.put(String.valueOf(entry.getKey()),
+                    entry.getValue() == null ? "" : String.valueOf(entry.getValue()));
+        }
+        return status;
+    }
+
+    /**
      * Returns all matching drug search elements using the version 2 search API.
      * Search is case-insensitive.
      *
