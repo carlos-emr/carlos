@@ -8,6 +8,11 @@
  * interaction that can leave the eChart without its clinical-notes DOM or
  * JavaScript handlers, plus the shared save callback used by all CPP sections.
  *
+ * The chart carries clinical prose the OWASP CRS reads as an attack while it does
+ * this (see CLINICAL_TEXT_THE_WAF_SCORES), so the run is only meaningful against
+ * the packaged front door on :443 — through bare Tomcat there is no WAF to
+ * false-positive and that half of the check proves nothing.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/echart-playwright-checks.js
  *
@@ -49,6 +54,22 @@ const notesLoadRequests = [];
 // the check while still failing the runaway-pagination regression.
 const NOTES_POLL_QUIET_MS = 4000;
 const NOTES_POLL_TIMEOUT_MS = 30000;
+
+// Ordinary clinical prose that the OWASP CRS scores as an attack: the pasted PACS link's
+// own query string carries the literal "&cmd", which is rule 932110 (Windows command
+// injection), and one CRITICAL match is the whole request at the packaged anomaly
+// threshold. Every argument that carries this on POST /carlos/CaseManagementEntry —
+// ARGS:value (the CPP body), ARGS:caseNote_note (the encounter note in the serialized
+// form) and ARGS:note (the draft autosave) — is exempted per-argument by exclusion 1010
+// in debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf. This string is
+// the check's whole point through the front door, so keep it signature-shaped: replacing
+// it with clean prose makes the check green on a re-broken WAF policy.
+const CLINICAL_TEXT_THE_WAF_SCORES =
+  "reviewed prior imaging at http://pacs.example.org/study?id=1&cmd=view; pt's father had COPD, BP > 140/90";
+
+// backup() re-arms every 5s and autosaves whenever the note textarea differs from the
+// value the chart loaded, so one tick plus slack is enough to observe a draft save.
+const AUTOSAVE_TICK_MS = 7000;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -260,6 +281,29 @@ async function screenshot(page, name) {
   await page.screenshot({ path: buildArtifactPath(screenshotDir, name), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 }
 
+/**
+ * Writes text into the encounter-note textarea that lives inside caseManagementEntryForm
+ * and returns whatever was there before.
+ *
+ * It has to be THAT textarea, not merely a visible one: the encounter layout renders
+ * ChartNotes.jsp twice, so the chart has two textareas named caseNote_note, and only the
+ * one inside the first form is what the CPP save callback and the autosave actually post.
+ * Typing into the other one exercises nothing. The value is set directly rather than
+ * through fill() because the field can be off-screen behind the CPP editor overlay.
+ */
+async function seedEncounterNoteText(page, text) {
+  return page.evaluate((value) => {
+    const form = document.forms['caseManagementEntryForm'];
+    const textarea = form && form.querySelector('textarea[name="caseNote_note"]');
+    if (!textarea) {
+      throw new Error('encounter note textarea was not found inside caseManagementEntryForm');
+    }
+    const previous = textarea.value;
+    textarea.value = value;
+    return previous;
+  }, text);
+}
+
 async function archiveCppNote(page, noteText) {
   const noteLink = page.locator("#divR1I1 a[id^='listNote']").filter({ hasText: noteText }).first();
   if (!(await noteLink.isVisible().catch(() => false))) {
@@ -313,11 +357,22 @@ function isExpectedNoteLockDialog(issue) {
     assert(/Social History/i.test(editor.text), `Social History editor did not contain its expected label: ${editor.text}`);
     await screenshot(echart, 'echart-after-social-history-plus');
 
-    const cppNote = `Playwright Social History ${Date.now()}`;
+    const cppNoteToken = `Playwright Social History ${Date.now()}`;
+    const cppNote = `${cppNoteToken} — ${CLINICAL_TEXT_THE_WAF_SCORES}`;
     let saveFailure = null;
     let cleanupFailure = null;
     let saveConfirmed = false;
+    let originalEncounterNote = null;
     try {
+      // Put clinical text the CRS scores into the ENCOUNTER note before touching the CPP
+      // box. The CPP save is not self-contained: its issue-refresh callback re-serializes
+      // the whole caseManagementEntryForm (ARGS:caseNote_note), and the 5s draft autosave
+      // posts the same text again as ARGS:note. Behind the packaged front door both were
+      // 403ed while the CPP item itself saved, which is how a saved Social History entry
+      // still produced "403 ... your session has expired". Leave this seeding in place —
+      // without it the check drives only the one shape that already worked.
+      originalEncounterNote = await seedEncounterNoteText(echart, CLINICAL_TEXT_THE_WAF_SCORES);
+
       await echart.locator('#noteEditTxt').fill(cppNote);
       const unresolvedIssuesResponse = echart.waitForResponse(isUnresolvedIssuesResponse, { timeout: 15000 });
       await echart.locator("#frmIssueNotes input[type='image'][src*='note-save.png']").click();
@@ -325,14 +380,22 @@ function isExpectedNoteLockDialog(issue) {
       const refreshResponse = await unresolvedIssuesResponse;
       assert(refreshResponse.ok(),
         `Unresolved Issues refresh failed with HTTP ${refreshResponse.status()}: ${refreshResponse.url()}`);
-      await echart.locator('#divR1I1').filter({ hasText: cppNote }).waitFor({ state: 'visible', timeout: 15000 });
+      await echart.locator('#divR1I1').filter({ hasText: cppNoteToken }).waitFor({ state: 'visible', timeout: 15000 });
       saveConfirmed = true;
+      // One autosave tick, so a blocked draft save is a failure of this run rather than a
+      // silent one: nothing in the UI reports an autosave that never lands.
+      await echart.waitForTimeout(AUTOSAVE_TICK_MS);
       await screenshot(echart, 'echart-after-social-history-save');
     } catch (error) {
       saveFailure = error;
     } finally {
+      if (originalEncounterNote !== null) {
+        // Hand the chart note back unchanged; a differing textarea keeps the autosave timer
+        // re-arming for the rest of the run.
+        await seedEncounterNoteText(echart, originalEncounterNote).catch(() => {});
+      }
       try {
-        const archived = await archiveCppNote(echart, cppNote);
+        const archived = await archiveCppNote(echart, cppNoteToken);
         if (saveConfirmed && !archived) {
           cleanupFailure = new Error('saved Social History item was not available to archive');
         }

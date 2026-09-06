@@ -109,6 +109,52 @@ class CaseManagementCppSaveRegressionTest {
                 .contains("\"summary\" + \"${carlos:forJavaScriptBlock(noteIndex)}\"");
     }
 
+    @Test
+    @DisplayName("Clinician free text on the note route should be exempt from WAF content scoring (#3611)")
+    void shouldExemptClinicianFreeText_fromPackagedWafScoring() throws IOException {
+        // Verified on a packaged Ubuntu 26.04 install: ordinary clinical prose in the
+        // encounter note — a pasted PACS link whose own query string contains "&cmd" —
+        // scored CRS 932110 and answered POST /carlos/CaseManagementEntry with 403. That
+        // one note text broke three workflows, because the same body travels under three
+        // parameter names on this route: ARGS:caseNote_note on the serialized
+        // caseManagementEntryForm, ARGS:note on the 5s draft autosave, and ARGS:value in
+        // the CPP editor. The CPP item itself still saved (its own POST carries ARGS:value,
+        // already exempt for SQLi/XSS), so the clinician saw only a spurious
+        // "403 ... your session has expired" alert on a Social History entry that was in
+        // fact on disk. Miss any one name and the workflow only half works.
+        String exclusions = read(Path.of("debian", "assets", "modsecurity",
+                "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"));
+        int ruleStart = exclusions.indexOf("id:1010,");
+        assertThat(ruleStart).as("exclusion 1010 for the note route is present").isGreaterThanOrEqualTo(0);
+        int ruleEnd = exclusions.indexOf("ARGS:reloadUrl\"", ruleStart);
+        assertThat(ruleEnd).as("exclusion 1010 ends on its reloadUrl clause").isGreaterThan(ruleStart);
+        String rule = exclusions.substring(
+                exclusions.lastIndexOf("SecRule REQUEST_URI", ruleStart),
+                ruleEnd + "ARGS:reloadUrl\"".length());
+
+        assertThat(rule).contains("^/carlos/CaseManagementEntry(?:[;?]|$)");
+        assertThat(rule).contains("@streq POST");
+        for (String argument : new String[] {"value", "caseNote_note", "note", "problemdescription",
+                "treatment", "exposuredetail", "relationship", "procedure", "lifestage"}) {
+            for (String tag : new String[] {"attack-sqli", "attack-xss", "attack-rce",
+                    "attack-injection-php", "attack-protocol", "attack-lfi"}) {
+                assertThat(rule)
+                        .as("clinician free text %s is exempt from %s", argument, tag)
+                        .contains("ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:" + argument + ",");
+            }
+        }
+        // reloadUrl is an app-generated URL, not prose, and keeps its narrower treatment:
+        // the keyword tags plus only rule 932110, never the whole attack-rce family.
+        assertThat(rule).contains("ctl:ruleRemoveTargetById=932110;ARGS:reloadUrl");
+        assertThat(rule).doesNotContain("ctl:ruleRemoveTargetByTag=attack-rce;ARGS:reloadUrl");
+        // Per-argument only: nothing in this rule may drop a signature request-wide.
+        assertThat(rule).doesNotContain("ruleRemoveById=932110,");
+    }
+
+    private static String read(Path relativePath) throws IOException {
+        return Files.readString(resolveProjectPath(relativePath), StandardCharsets.UTF_8);
+    }
+
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty(
                 "maven.multiModuleProjectDirectory",
