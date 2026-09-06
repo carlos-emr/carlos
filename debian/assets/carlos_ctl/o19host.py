@@ -249,12 +249,31 @@ class Host(object):
         # would be inert for exactly the window in which the startup
         # listener writes its rows. dbops.py makes the same correction
         # for the backup units.
-        state = run(["systemctl", "show", "-p", "ActiveState", "--value",
-                     "carlos-emr"], capture_output=True).stdout.strip()
+        cp = run(["systemctl", "show", "-p", "ActiveState", "--value",
+                  "carlos-emr"], capture_output=True)
+        state = (cp.stdout or "").strip()
+        # Fail CLOSED. A `systemctl show` that exits non-zero, or that
+        # answers something this does not recognise, has not established
+        # that the application is stopped -- and the whole point of the
+        # gate is that a running CARLOS writes rows into the target
+        # while the import copies into it. Reading an unknown answer as
+        # "not running" would make the guard silently inert on exactly
+        # the host where systemd is unwell.
+        if cp.returncode != 0 or not state:
+            return ("could not determine whether carlos-emr is running "
+                    "(systemctl show exited {0}). The import must not run "
+                    "against a live application: stop it (`carlos-ctl "
+                    "stop`), confirm with `systemctl status carlos-emr`, "
+                    "and re-run.".format(cp.returncode))
         if state in ("active", "activating", "reloading", "deactivating"):
             return ("carlos-emr is {0} — stop it for the duration of the "
                     "import (`carlos-ctl stop`, or `systemctl stop "
                     "carlos-emr`) and re-run; start it again only after "
                     "the verified import and the properties fragment have "
                     "been applied".format(state))
+        if state not in ("inactive", "failed"):
+            return ("carlos-emr reports an unrecognised state {0!r}; the "
+                    "import will not assume it is stopped. Confirm with "
+                    "`systemctl status carlos-emr` and re-run."
+                    .format(state))
         return None

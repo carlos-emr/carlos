@@ -97,6 +97,30 @@ class TestTheDebsOwnAnswers(unittest.TestCase):
         source = inspect.getsource(o19docs)
         self.assertIn("HOST.document_ownership()", source)
 
+    def test_the_staging_environment_reaches_the_restore(self):
+        """A deployment that forwards the staging password instead of
+        writing a defaults file returns it from `stage_credential`, and
+        P1 must PASS it to the restore client -- dropped, that client
+        cannot authenticate at all and the phase fails with a permission
+        error nobody can explain."""
+        import inspect
+        source = inspect.getsource(o19import.run_p1)
+        self.assertIn("stage_env = grant_staging_account(", source)
+        self.assertIn("restore_argv,\n                                "
+                      "                  available, stage_env)", source)
+        # and the grant hands it back rather than discarding it
+        self.assertIn("return HOST.stage_credential(",
+                      inspect.getsource(o19import.grant_staging_account))
+
+    def test_the_restore_environment_is_merged_not_substituted(self):
+        # the same trap as the client environment: subprocess REPLACES
+        # the environment, so a forwarded credential must be merged or
+        # the restore runs without PATH
+        import inspect
+        source = inspect.getsource(o19import._stream_dump)
+        self.assertIn("dict(os.environ, **restore_env)", source)
+        self.assertIn("if restore_env else None", source)
+
     def test_clearing_a_credential_that_is_not_there_is_not_an_error(self):
         # it is called from a `finally`, after a failure that may have
         # happened before the file existed

@@ -34,7 +34,6 @@ from .util import STATE, die, log, run, sql_escape, warn
 
 DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
 TARGET_CTX = "carlos"
-SERVICE_USER = "carlos"
 
 # derived caches are regenerated on demand by the application
 # (NioFileManagerImpl) — never migrated, never a reconciliation failure.

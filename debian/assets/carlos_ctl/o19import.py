@@ -1386,7 +1386,7 @@ def staging_account_statements(password: str) -> List[str]:
     return out
 
 
-def grant_staging_account(query, client_cnf: str) -> None:
+def grant_staging_account(query, client_cnf: str) -> Dict[str, str]:
     """Create the throwaway staging account and write its client defaults
     file at 0600.
 
@@ -1424,7 +1424,7 @@ def grant_staging_account(query, client_cnf: str) -> None:
     # answer: the deb writes a 0600 defaults file beside the workspace,
     # a containerised one forwards it through the environment. Either
     # way it never becomes an argv token.
-    HOST.stage_credential(password, client_cnf)
+    return HOST.stage_credential(password, client_cnf)
 
 
 def revoke_staging_account(query, client_cnf: str) -> None:
@@ -1480,7 +1480,8 @@ class RedirectScanner:
 
 
 def _stream_dump(opener: List[str], restore_argv: List[str],
-                 available_collations=()):
+                 available_collations=(),
+                 restore_env: Optional[Dict[str, str]] = None):
     """Pipe the dump through the restore client, scanning every chunk for
     redirecting statements and for a collation this server lacks.
     Returns (source_rc, client_rc, tail_bytes, refusal_or_None); the
@@ -1488,7 +1489,9 @@ def _stream_dump(opener: List[str], restore_argv: List[str],
     same handling either scan needs."""
     src = subprocess.Popen(opener, stdout=subprocess.PIPE)  # nosec B603
     sink = subprocess.Popen(restore_argv,                    # nosec B603
-                            stdin=subprocess.PIPE)
+                            stdin=subprocess.PIPE,
+                            env=(dict(os.environ, **restore_env)
+                                 if restore_env else None))
     tail = b""
     scanner = RedirectScanner()
     collations = CollationScanner(available_collations)
@@ -1607,11 +1610,15 @@ def run_p1(ctx) -> None:
     client_cnf = os.path.join(ctx["state_dir"], ".stage-client.cnf")
     restore_argv = staging_client_argv(ctx["query"].base_argv, client_cnf,
                                        ctx.get("statement_timeout", 0))
-    grant_staging_account(query, client_cnf)
+    # the environment the restore client needs to authenticate as that
+    # account. Empty on the deb (a 0600 defaults file carries it); a
+    # deployment that forwards it instead returns it here, and dropping
+    # it would leave P1 unable to connect at all
+    stage_env = grant_staging_account(query, client_cnf)
 
     try:
         src_rc, rc, tail, redirect = _stream_dump(opener, restore_argv,
-                                                  available)
+                                                  available, stage_env)
     finally:
         # the account and its credential file never outlive the restore,
         # whatever the failure mode

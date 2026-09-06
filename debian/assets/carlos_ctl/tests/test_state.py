@@ -3655,10 +3655,10 @@ class TestTheRunningWebappGuard(unittest.TestCase):
             fh.write("CARLOS_DB_NAME=carlos\n")
         self.argv = []
 
-    def refusal(self, active_state, env_file=None):
+    def refusal(self, active_state, env_file=None, rc=0):
         def fake_run(cmd, **kw):
             self.argv.append(list(cmd))
-            return subprocess.CompletedProcess(cmd, 0,
+            return subprocess.CompletedProcess(cmd, rc,
                                                stdout=active_state + "\n")
 
         with mock.patch.object(o19host, "ENV_FILE",
@@ -3679,6 +3679,30 @@ class TestTheRunningWebappGuard(unittest.TestCase):
     def test_every_live_state_is_refused(self):
         for state in ("active", "activating", "reloading", "deactivating"):
             self.assertIsNotNone(self.refusal(state), state)
+
+    def test_an_unreadable_state_is_refused_not_assumed_stopped(self):
+        """Fail CLOSED. A `systemctl show` that exits non-zero has not
+        established that the application is stopped, and reading its
+        silence as "not running" makes the guard inert on exactly the
+        host where systemd is unwell -- while a live CARLOS writes rows
+        into the schema the import is copying into."""
+        message = self.refusal("", rc=1)
+        self.assertIsNotNone(message)
+        self.assertIn("could not determine", message)
+        self.assertIn("carlos-ctl stop", message)
+        # an empty answer with a zero exit is the same non-answer
+        self.assertIsNotNone(self.refusal("", rc=0))
+
+    def test_an_unrecognised_state_is_refused(self):
+        # systemd grows states; one this does not know is not evidence
+        # of a stopped unit
+        message = self.refusal("maintenance")
+        self.assertIsNotNone(message)
+        self.assertIn("maintenance", message)
+
+    def test_the_two_stopped_states_let_the_import_through(self):
+        for state in ("inactive", "failed"):
+            self.assertIsNone(self.refusal(state), state)
 
     def test_a_stopped_unit_lets_the_import_through(self):
         for state in ("inactive", "failed"):
