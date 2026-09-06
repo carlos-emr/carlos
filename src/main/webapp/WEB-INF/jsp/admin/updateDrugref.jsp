@@ -86,6 +86,13 @@
             // would otherwise overwrite the baseline with the value being compared against.
             var lastVerifiedUpdate = null;
             var lastUpdateBeforeRun = null;
+            // Whether a verify probe has answered definitely at all. Distinct from the timestamp
+            // above being null, which is ALSO what a healthy install that has never been updated
+            // answers -- and there the baseline is perfectly well known ("no history yet"), so a
+            // timestamp appearing afterwards is proof the first rebuild worked. Conflating the
+            // two reported a successful first-ever update as an unknown outcome.
+            var baselineKnown = false;
+            var baselineKnownBeforeRun = false;
 
             function getCsrfToken() {
                 var el = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -145,6 +152,9 @@
                     show('statusDisplay', false);
                     show('updateButton', false);
                 } else if (json.lastUpdate == null) {
+                    // Definite: DrugRef answered, and it has no history. A known baseline.
+                    baselineKnown = true;
+                    lastVerifiedUpdate = null;
                     document.getElementById('dbInfo').textContent = 'Drugref database has not been updated, please update.';
                     show('dbInfo', true);
                     show('statusDisplay', false);
@@ -155,6 +165,7 @@
                     show('statusDisplay', false);
                     show('updateButton', false);
                 } else {
+                    baselineKnown = true;
                     lastVerifiedUpdate = json.lastUpdate;
                     document.getElementById('dbDateTime').textContent = json.lastUpdate;
                     document.getElementById('drugDatabaseVersion').textContent = json.version;
@@ -245,7 +256,7 @@
                                         + '(journalctl -u carlos-emr) before prescribing.', 'danger');
                                     show('updateButton', false);
                                     schedulePoll();
-                                } else if (lastUpdateBeforeRun == null) {
+                                } else if (!baselineKnownBeforeRun) {
                                     // The page never saw a pre-run timestamp (opened mid-run),
                                     // so there is nothing to compare against and neither
                                     // "succeeded" nor "failed" can be claimed. Say that, in
@@ -304,6 +315,7 @@
                 // page was opened mid-run this is null -- the baseline is genuinely unknown,
                 // and the legacy fallback says so rather than guessing either way.
                 lastUpdateBeforeRun = lastVerifiedUpdate;
+                baselineKnownBeforeRun = baselineKnown;
                 setResult('Starting the update...', 'info');
                 callDrugref('updateDB')
                     .then(function (json) {
@@ -356,7 +368,7 @@
                         });
                     })
                     .catch(function (err) {
-                        console.warn('Skipping getUpdateTime — CSRF token not available:', err);
+                        console.warn('Skipping getUpdateTime - CSRF token not available:', err);
                         document.getElementById('dbInfo').textContent =
                             'Could not load CSRF token. Refresh the page or contact support.';
                         // No token means every POST this page makes is rejected, the probe

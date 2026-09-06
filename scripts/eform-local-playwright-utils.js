@@ -186,9 +186,12 @@ async function login(context, config, recorder) {
   if (/forcepasswordreset/i.test(page.url())) {
     assert(
       config.resetPassword,
-      `${config.testUser} must change its password before it can be used. Set RESET_PASSWORD to a`
-      + ' new password meeting the policy and re-run; the check will complete the reset once and'
-      + ' then log in with it. (A fresh carlos-emr install flags its generated admin credential.)',
+      `${config.testUser} must change its password before it can be used: a fresh carlos-emr`
+      + ' install flags its generated admin credential for a forced reset. Complete it ONCE, in an'
+      + ' isolated run outside any suite loop, with RESET_PASSWORD set to a new password meeting'
+      + ' the policy, then export TEST_PASSWORD as that new password for every later run. Doing'
+      + ' it inside a loop leaves the scripts that ran before it unreset and the ones after it'
+      + ' authenticating with the old password.',
     );
     await page.locator('input[name="oldPassword"]').fill(config.testPassword);
     await page.locator('input[name="newPassword"]').fill(config.resetPassword);

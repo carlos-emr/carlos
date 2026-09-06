@@ -123,16 +123,19 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should demand write privilege when method is updateDB")
-    void shouldDemandWrite_whenMethodIsUpdateDb() {
+    @DisplayName("should demand administration rights when method is updateDB")
+    void shouldDemandAdministrationRights_whenMethodIsUpdateDb() {
+        // A rebuild is an administrative act, so it is gated like the page that offers it and
+        // NOT on _rx. Requiring both locked out an administrator who is not a prescriber.
         denyAllPrivileges();
         mockRequest.setParameter("method", "updateDB");
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_rx)");
+                .hasMessage("missing required sec object (_admin or _admin.misc)");
 
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), any(), isNull());
     }
 
     @Test
@@ -189,14 +192,16 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should demand only read privilege when method is status")
-    void shouldDemandOnlyRead_whenMethodIsStatus() {
+    @DisplayName("should demand administration rights when method is status")
+    void shouldDemandAdministrationRights_whenMethodIsStatus() {
         denyAllPrivileges();
         mockRequest.setParameter("method", "status");
 
-        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin or _admin.misc)");
 
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
     }
 
     @Test
@@ -253,7 +258,43 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
         assertThat(mockResponse.getContentType()).startsWith("application/json");
-        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_admin"), any(), isNull());
+        // No administration rights needed: prescriber read alone is enough.
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+    }
+
+    @Test
+    @DisplayName("should allow verify to an administrator who is not a prescriber")
+    void shouldAllowVerify_forAnAdministratorWithoutRxRights() throws Exception {
+        // The admin page fires verify too. Gating it on _rx alone would leave an administrator
+        // who does not prescribe able to open the page and see nothing but an outage banner.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), any(), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setParameter("method", "verify");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentType()).startsWith("application/json");
+    }
+
+    @Test
+    @DisplayName("should let an administrator without Rx rights start a rebuild")
+    void shouldAllowUpdateDb_forAnAdministratorWithoutRxRights() throws Exception {
+        // The defect this replaces: _rx was required on top of _admin, so a non-prescribing
+        // administrator could open the page and every call from it failed with an HTML 500.
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), any(), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod("POST");
+        mockRequest.setParameter("method", "updateDB");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(mockResponse.getContentAsString()).contains("result");
     }
 
     @Test
@@ -284,8 +325,9 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("\"startedAt\":\"\"")
                 .contains("\"finishedAt\":\"\"")
                 .contains("\"lastUpdate\":\"\"");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
+        // status is gated on administration rights alone; _rx is not consulted for it.
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(), eq("_rx"), any(), isNull());
         verifyNoMoreInteractions(mockSecurityInfoManager);
     }
 
@@ -337,8 +379,13 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
         // "UPDATEDB" routes to -- shouldRouteCaseVariant_toAReadOnlyBranch covers that half.
         mockRequest.setParameter("method", "UPDATEDB");
 
-        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
 
+        // The read branch consults administration rights first (they also satisfy it), then _rx.
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin", "r", null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_admin.misc", "r", null);
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "r", null);
         verifyNoMoreInteractions(mockSecurityInfoManager);
     }

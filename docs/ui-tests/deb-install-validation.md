@@ -339,16 +339,23 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
-# On a FRESH install the packaged admin credential (/etc/carlos-emr/initial-admin.txt) is
-# flagged for a forced password reset, so TEST_PASSWORD alone cannot log in: the login lands on
-# /forcepasswordreset and every check fails there before testing anything. Set RESET_PASSWORD to
-# a new password meeting the policy and the first check completes the reset once.
+# FRESH INSTALL ONLY: clear the forced password reset BEFORE the loop below, not inside it.
 #
-# The reset is a ONE-TIME, PERSISTENT change to the account. After it, TEST_PASSWORD must be the
-# NEW password for every subsequent run -- so once the first check has passed, set
-#   export TEST_PASSWORD="$RESET_PASSWORD"
-# and drop RESET_PASSWORD. Neither is needed on the devcontainer, whose carlosdoc is not flagged.
-export RESET_PASSWORD='Carlos2026!Verify'
+# The packaged admin credential (/etc/carlos-emr/initial-admin.txt) is flagged for a forced
+# reset, so TEST_PASSWORD alone cannot log in -- every check lands on /forcepasswordreset and
+# fails there before testing anything. Doing it inside the loop does not work, in both
+# directions: the loop runs scripts in glob order, so several run before drugref-update and
+# abort on the reset; and once one of them has reset the credential, every later script in the
+# same invocation is still using the OLD TEST_PASSWORD and fails too. The reset is a one-time,
+# persistent change to the account, so it belongs outside the loop entirely.
+#
+# Run this ONCE, before exporting anything else, then use the new password for the whole suite:
+#
+#   RESET_PASSWORD='Carlos2026!Verify' \
+#     node scripts/drugref-update-playwright-checks.js      # completes the reset, then checks
+#   export TEST_PASSWORD='Carlos2026!Verify'                # for the loop below and every rerun
+#
+# Not needed on the devcontainer, whose carlosdoc is not flagged.
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below

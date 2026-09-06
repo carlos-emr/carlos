@@ -203,6 +203,9 @@ async function callStatus(page) {
     // Step 1b: drug search works BEFORE the update. Without this the post-update search below
     // cannot distinguish "the rebuild broke prescribing" from "prescribing was already broken",
     // which is the whole question an operator is asking when they press the button.
+    // The Rx picker has minLength: 3 (SearchDrug3.jsp), so a shorter term emits no POST at all
+    // and searchDrugs would sit out its 60s timeout instead of saying why.
+    assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, got "${searchTerm}"`);
     const foundBefore = await searchDrugs(context, config, recorder, searchTerm, 'drug-search-before');
     assert(foundBefore > 0, `drug search for "${searchTerm}" found nothing BEFORE any update: the installed dataset is already unusable`);
     console.log(`STEP 1b search (before): PASS ("${searchTerm}" -> ${foundBefore} result(s))`);
