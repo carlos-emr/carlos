@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.util;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -86,6 +87,28 @@ class LabVersionChainUnitTest {
         assertThatCode(() -> LabVersionChain.olderThan(999, "169,170,171")).doesNotThrowAnyException();
         assertThat(LabVersionChain.olderThan(999, "169,170,171")).isEmpty();
         assertThat(LabVersionChain.olderThan(999, null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should stay quiet on a long malformed chain rather than log per junk token")
+    void shouldLogOnce_forChainWithManyJunkTokens() {
+        // multiID comes from the browser, so a per-token warning turned one acknowledgement
+        // into thousands of log lines. The parse must still return the real lab numbers.
+        StringBuilder chain = new StringBuilder("169");
+        for (int i = 0; i < 500; i++) {
+            chain.append(",junk").append(i);
+        }
+        chain.append(",170");
+
+        // MiscUtils.getLogger() names the logger after its CALLER, so the logger to watch is
+        // the one LabVersionChain itself gets — not one obtained from this test class.
+        try (LogCapture capture = LogCapture.forLogger(LabVersionChain.class)) {
+            assertThat(LabVersionChain.parse(chain.toString())).containsExactly(169, 170);
+
+            assertThat(capture.messages())
+                    .as("at most one line for the whole chain, never one per token")
+                    .hasSizeLessThanOrEqualTo(1);
+        }
     }
 
     @Test

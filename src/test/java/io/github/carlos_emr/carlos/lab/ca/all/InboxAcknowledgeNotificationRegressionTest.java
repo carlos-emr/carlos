@@ -208,11 +208,23 @@ class InboxAcknowledgeNotificationRegressionTest {
     }
 
     @Test
+    @DisplayName("should touch the inbox table only when it is the mode on screen")
+    void shouldGuardDataTableAccess_whenRemovingFromPreviewMode() throws IOException {
+        // Popups call removeReport through window.opener and cannot know which mode the
+        // inbox is showing; preview mode has cards and no #inbox_table, and reaching for the
+        // DataTable API there would throw and take the counter update down with it.
+        assertThat(read(INBOXHUB_LIST_MODE_JSP))
+                .contains("if (rowEl.length > 0 && jQuery('#inbox_table').length > 0) {");
+    }
+
+    @Test
     @DisplayName("should still accept the plain refresh message senders that carry no item id")
     void shouldTolerateIdlessMessage_fromLegacySenders() throws IOException {
         assertThat(read(INBOXHUB_FORM_JSP))
                 .as("a message without a segmentID must still refresh rather than throw")
                 .contains("const acknowledgedId = (event && event.data && event.data.segmentID) "
-                        + "? event.data.segmentID : null;");
+                        + "? event.data.segmentID : null;")
+                .contains("const acknowledgedType = (event && event.data && event.data.labType) "
+                        + "? event.data.labType : null;");
     }
 }

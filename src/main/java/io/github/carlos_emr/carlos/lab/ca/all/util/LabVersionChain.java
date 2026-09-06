@@ -63,6 +63,7 @@ public final class LabVersionChain {
             return Collections.emptyList();
         }
         List<Integer> labNos = new ArrayList<>();
+        int skipped = 0;
         for (String token : chain.split(",")) {
             String trimmed = token.trim();
             if (trimmed.isEmpty()) {
@@ -71,8 +72,15 @@ public final class LabVersionChain {
             try {
                 labNos.add(Integer.valueOf(trimmed));
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().warn("ignoring non-numeric entry in lab version chain");
+                skipped++;
             }
+        }
+        if (skipped > 0) {
+            // One DEBUG line for the whole chain, not one per token: the chain comes from the
+            // browser, so a long malformed value would otherwise turn a single acknowledgement
+            // into thousands of log lines. Junk here is not an operational problem either —
+            // olderThan() ignores any chain that does not describe the lab being acknowledged.
+            MiscUtils.getLogger().debug("ignored {} non-numeric entries in a lab version chain", skipped);
         }
         return labNos;
     }

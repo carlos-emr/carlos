@@ -576,8 +576,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     try {
         const inboxhubRefreshChannel = new BroadcastChannel('inboxhub-refresh');
         inboxhubRefreshChannel.onmessage = function(event) {
-            // Newer senders post {action, segmentID}; hrmActions.js still posts the bare
-            // string 'refresh'. Both must keep working.
+            // Senders post {action, segmentID, labType}. A popup running a cached older
+            // script can still post the bare string 'refresh'; both must keep working.
             const acknowledgedId = (event && event.data && event.data.segmentID) ? event.data.segmentID : null;
             const acknowledgedType = (event && event.data && event.data.labType) ? event.data.labType : null;
             if (acknowledgedId) {

@@ -246,6 +246,11 @@
      * also keeps the count to once per item, since a popup calls this directly AND
      * broadcasts, and the row may already be gone by the time the broadcast lands.
      *
+     * Popups call this directly through window.opener and cannot know which mode the inbox
+     * is showing, so the DataTable is touched only when the table is actually on the page:
+     * in preview mode there are cards and no #inbox_table, and reaching for the DataTable
+     * API there would throw and take the counter update down with it.
+     *
      * @param {string} reportId segment id of the item to drop
      * @param {string} labType its report type; segment ids are not unique across types, so
      *                 without one this can only fall back to whatever row carries the id
@@ -253,7 +258,7 @@
     function removeReport(reportId, labType) {
         const rowEl = inboxhubItemElement(reportId, labType);
         const resolvedType = labType || (rowEl.length > 0 ? rowEl.data('labType') : null);
-        if (rowEl.length > 0) {
+        if (rowEl.length > 0 && jQuery('#inbox_table').length > 0) {
             jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
         }
         countAcknowledgedInboxhubItem(reportId, resolvedType);
