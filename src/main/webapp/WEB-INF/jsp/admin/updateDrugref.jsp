@@ -396,11 +396,21 @@
                         } else {
                             setResult('The update could not be started: DrugRef did not answer. Check that the '
                                 + 'DrugRef service is running (drug lookups also need it).', 'danger');
+                            // Nothing was started, so the trigger comes back: the operator can
+                            // start the service or fix the proxy and retry in place. It is
+                            // hidden before the POST to stop a double-click across the round
+                            // trip, and leaving it hidden here would strand them on a dead page
+                            // with a reload as the only way forward. show() still withholds it
+                            // from anyone without write rights.
+                            show('updateButton', true);
                         }
                     })
                     .catch(function (error) {
                         console.error('Error updating database:', error);
                         setResult('The update could not be started: ' + error.message, 'danger');
+                        // Same reasoning as above: the request failed, so no run is in flight
+                        // and a retry is exactly what the operator should be able to do.
+                        show('updateButton', true);
                     });
             }
 
