@@ -137,11 +137,43 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
+            // Every version of this chain is still sitting in the provider's inbox.
+            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
+                    anyInt(), anyString(), anyString())).thenReturn(1);
 
             int cleared = CommonLabResultData.acknowledgeReport(
                     171, "999998", "Reviewed", "HL7", false, "169,170,171");
 
             assertThat(cleared).isEqualTo(3);
+        }
+    }
+
+    @Test
+    @DisplayName("should not count a version of the chain that somebody had already filed")
+    void shouldSkipAlreadyFiledVersions_whenCountingClearedRows() {
+        registerStaticInitializerMocks();
+
+        // Only rows that were NEW are in a total the inbox badge is counting. Counting one per
+        // version regardless made the badge read low on a partly-filed chain, and the clinician
+        // saw a figure that only a full page reload put right.
+        try (MockedStatic<CommonLabResultData> commonLabResultData =
+                     mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("171")).thenReturn("169,170,171");
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
+            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
+                    anyInt(), anyString(), anyString())).thenReturn(1);
+            // 169 was filed by hand earlier, so it is not in the badge's total any more.
+            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
+                    eq(169), anyString(), anyString())).thenReturn(0);
+
+            int cleared = CommonLabResultData.acknowledgeReport(
+                    171, "999998", "Reviewed", "HL7", false, "169,170,171");
+
+            assertThat(cleared).isEqualTo(2);
         }
     }
 
@@ -156,6 +188,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
+                    anyInt(), anyString(), anyString())).thenReturn(1);
 
             int cleared = CommonLabResultData.acknowledgeReport(170, "999998", "", "HL7", true, "170");
 

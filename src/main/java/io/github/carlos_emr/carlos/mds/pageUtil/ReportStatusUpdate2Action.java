@@ -79,6 +79,8 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         return executemain();
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String executemain() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
@@ -111,12 +113,18 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             // is what actually clears the collapsed inbox row, and it is what this endpoint has
             // always done. Shared with the macro path so the two ways of acknowledging a lab
             // cannot drift apart again.
-            CommonLabResultData.updateReportStatusWithOlderVersions(
+            int clearedCount = CommonLabResultData.updateReportStatusWithOlderVersions(
                     labNo, providerNo, status, comment, lab_type, false, multiID);
-            if (ajaxcall != null && ajaxcall.equals("yes"))
-                return null;
-            else
-                return SUCCESS;
+            if (ajaxcall != null && ajaxcall.equals("yes")) {
+                // The browser cannot work this number out for itself. It walks the posted
+                // multiID, which the server ignores for HL7 in favour of the chain it derives
+                // from the accession number, and which says nothing about which of those
+                // versions were still NEW. Reporting it is what keeps the inbox badge in step
+                // with the figure the next page load computes.
+                writeClearedCount(clearedCount);
+                return NONE;
+            }
+            return SUCCESS;
         } catch (Exception e) {
             logger.error("exception in ReportStatusUpdate2Action", e);
             return "failure";
@@ -159,6 +167,26 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }
 
         return null;
+    }
+
+    /**
+     * Writes the acknowledge/file response for the AJAX callers, and only for them.
+     *
+     * <p>A failure to write it is logged and swallowed: the status change is already
+     * persisted, and turning a delivery problem into an error would tell the clinician their
+     * acknowledgement failed when it did not. The inbox counter is corrected by the next page
+     * load in that case.
+     */
+    private void writeClearedCount(int clearedCount) {
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("clearedCount", clearedCount);
+        response.setContentType("application/json; charset=UTF-8");
+        try {
+            response.getWriter().write(json.toString());
+            response.flushBuffer();
+        } catch (IOException e) {
+            logger.error("failed to return the cleared routing row count", e);
+        }
     }
 
     private static String getDemographicIdFromLab(String labType, int labNo) {

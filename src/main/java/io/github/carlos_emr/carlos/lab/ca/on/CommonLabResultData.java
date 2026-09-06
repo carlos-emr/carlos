@@ -431,9 +431,12 @@ public class CommonLabResultData {
      * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
      * @param skipCommentOnUpdate true to leave an existing comment untouched
      * @param multiId the client's version chain; only consulted for types with no server-side chain
-     * @return how many routing rows this changed — the reviewed one plus each version filed. The
-     *         inbox counters count ROUTING rows, not the collapsed list rows, so a caller that
-     *         wants to adjust them live has to know this number rather than assume one.
+     * @return how many of this provider's routing rows this call took OUT of the NEW state.
+     *         The inbox counters count NEW routing rows, not the collapsed list rows, so a
+     *         caller adjusting them live has to know this number rather than assume one per
+     *         acknowledged item. Rows that were already filed, rows this call creates, and —
+     *         when {@code status} is itself {@code N} — the reviewed row are all excluded,
+     *         because none of them leaves a total the badge was counting.
      */
     public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                           String comment, String labType,
@@ -446,11 +449,44 @@ public class CommonLabResultData {
         // partway through the loop below can still file some versions and not others.)
         List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
 
+        // Counted BEFORE each write, and only for rows that were actually NEW. updateReportStatus
+        // reports nothing usable here — every path in it returns TRUE, including the one that
+        // CREATES a routing row that never existed — so "one per version" would count a chain
+        // whose older versions somebody had already filed, and the badge would read low until
+        // the next page load recomputed it.
+        int clearedFromNew = status == 'N' ? 0 : countNewRoutingRows(labNo, labType, providerNo);
         updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
         for (Integer olderLabNo : olderLabNos) {
+            clearedFromNew += countNewRoutingRows(olderLabNo, labType, providerNo);
             updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
         }
-        return 1 + olderLabNos.size();
+        return clearedFromNew;
+    }
+
+    /**
+     * How many of this provider's routing rows for one lab version are currently NEW.
+     *
+     * <p>Package-private so the acknowledge tests can drive the arithmetic above without
+     * standing up a routing DAO; nothing outside this class should call it.
+     *
+     * <p>Normally nought or one; the list tolerates more because
+     * {@code providerLabRouting} has no uniqueness constraint on (lab, type, provider) and
+     * duplicate rows do exist in older data — each one is counted by the inbox badge, so each
+     * one has to be counted here too.
+     */
+    static int countNewRoutingRows(int labNo, String labType, String providerNo) {
+        List<ProviderLabRoutingModel> rows =
+                providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
+        if (rows == null) {
+            return 0;
+        }
+        int newRows = 0;
+        for (ProviderLabRoutingModel row : rows) {
+            if ("N".equals(row.getStatus())) {
+                newRows++;
+            }
+        }
+        return newRows;
     }
 
     /**

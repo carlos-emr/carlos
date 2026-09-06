@@ -63,6 +63,9 @@ class InboxAcknowledgeNotificationRegressionTest {
             "ReportMacro2Action.java");
     private static final Path HRM_ACTIONS_JS = Path.of(
             "src", "main", "webapp", "hospitalReportManager", "hrmActions.js");
+    private static final Path REPORT_STATUS_UPDATE_ACTION = Path.of(
+            "src", "main", "java", "io", "github", "carlos_emr", "carlos", "mds", "pageUtil",
+            "ReportStatusUpdate2Action.java");
     private static final Path COMMON_LAB_RESULT_DATA = Path.of(
             "src", "main", "java", "io", "github", "carlos_emr", "carlos", "lab", "ca", "on",
             "CommonLabResultData.java");
@@ -97,8 +100,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(labDisplay)
                 .as("closing the window must not take an unacknowledged lab out of the inbox")
                 .contains("closeLabAfterMacro(formid, json.acknowledged);")
-                .contains("if (acknowledged && self.opener "
-                        + "&& typeof self.opener.removeInboxhubRow === 'function'");
+                .contains("if (acknowledged && self.opener && segmentId.length > 0) {");
         assertThat(read(SHOW_DOCUMENT_JSP)).contains("if (json.acknowledged) {");
         assertThat(read(REPORT_MACRO_ACTION))
                 .as("the server must report acknowledgement separately from success")
@@ -220,7 +222,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // one left the badge one ahead of the figure the next page load computes.
         assertThat(read(COMMON_LAB_RESULT_DATA))
                 .as("the server must report how many routing rows it cleared")
-                .contains("return 1 + olderLabNos.size();");
+                .contains("return clearedFromNew;");
         assertThat(read(REPORT_MACRO_ACTION))
                 .as("the macro response must carry that count to the browser")
                 .contains("result.put(\"clearedCount\", outcome.clearedCount());");
@@ -244,7 +246,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .as("the opener loop must walk the same versions the server files")
                 .contains("return at < 0 ? [target] : chain.slice(0, at + 1);")
-                .contains("notifyInboxhubAcknowledged(doclabid, data.labType, clearedIds.length);");
+                .contains("removeOpenerInboxRow(id, data.labType);");
     }
 
     @Test
@@ -257,6 +259,58 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(REPORT_MACRO_ACTION))
                 .contains("Math.max(clearedCount, other.clearedCount())")
                 .doesNotContain("clearedCount + other.clearedCount()");
+    }
+
+    @Test
+    @DisplayName("should count only the routing rows that were actually new")
+    void shouldCountOnlyRowsLeavingNew_whenPartOfTheChainIsAlreadyFiled() throws IOException {
+        // updateReportStatus reports nothing usable — every path in it returns TRUE, including
+        // the one that CREATES a routing row that never existed — so "one per version" counted
+        // versions somebody had already filed, and the badge read low until the next reload.
+        String commonLabResultData = read(COMMON_LAB_RESULT_DATA);
+
+        assertThat(commonLabResultData)
+                .contains("int clearedFromNew = status == 'N' ? 0 : countNewRoutingRows(labNo, labType, providerNo);")
+                .contains("clearedFromNew += countNewRoutingRows(olderLabNo, labType, providerNo);")
+                .as("the count must be taken before the write that changes the status")
+                .doesNotContain("return 1 + olderLabNos.size();");
+        assertThat(commonLabResultData)
+                .as("only rows in the NEW state are in a total the badge is counting")
+                .contains("if (\"N\".equals(row.getStatus())) {");
+    }
+
+    @Test
+    @DisplayName("should take the manual acknowledge count from the server, not the posted chain")
+    void shouldUseServerClearedCount_forTheManualAcknowledgePath() throws IOException {
+        // The posted multiID is the chain the page was RENDERED with. The server ignores it for
+        // HL7 and re-derives the chain, and it alone can see which of those rows were still
+        // NEW, so a stale or forged chain must not decide how far the badge moves.
+        assertThat(read(REPORT_STATUS_UPDATE_ACTION))
+                .as("the AJAX acknowledge response must carry the cleared count")
+                .contains("json.put(\"clearedCount\", clearedCount);")
+                .contains("writeClearedCount(clearedCount);");
+        assertThat(read(OSCAR_MDS_INDEX_JS))
+                .as("the browser must ask for that response and use it")
+                .contains("data.ajaxcall = 'yes';")
+                .contains("const clearedCount = serverClearedCount(responseBody);")
+                .contains("notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);");
+        assertThat(read(OSCAR_MDS_INDEX_JS))
+                .as("a chain token the server would skip must not be counted as a cleared row")
+                .contains(".filter(function (id) { return /^\\d+$/.test(id); });");
+    }
+
+    @Test
+    @DisplayName("should still drop the row when the opener predates the row-only API")
+    void shouldFallBackToRemoveReport_whenOpenerHasNoInboxhubRowApi() throws IOException {
+        // removeInboxhubRow only exists on the Inboxhub. An opener without it must still be
+        // told to drop the row: over-counting a badge by one is corrected by the next page
+        // load, whereas an acknowledged lab left visible reads as "the acknowledgement failed".
+        assertThat(read(OSCAR_MDS_INDEX_JS))
+                .contains("if (typeof self.opener.removeInboxhubRow === 'function') {")
+                .contains("} else if (typeof self.opener.removeReport !== 'undefined') {");
+        assertThat(read(LAB_DISPLAY_JSP))
+                .contains("if (typeof self.opener.removeInboxhubRow === 'function') {")
+                .contains("} else if (typeof self.opener.removeReport !== 'undefined') {");
     }
 
     @Test

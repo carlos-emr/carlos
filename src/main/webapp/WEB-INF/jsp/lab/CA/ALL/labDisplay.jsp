@@ -1190,13 +1190,19 @@ input[id^='acklabel_']{
         }
 
         if (typeof _in_window !== 'undefined' && _in_window) {
-            // Row only. The counters are the broadcast's job here, because it is the only
-            // party carrying clearedCount — a macro form has no multiID to walk, so this
-            // window cannot tell how many routing rows the acknowledgement cleared, and
-            // removeReport would assume one and undercount a multi-version lab.
-            if (acknowledged && self.opener && typeof self.opener.removeInboxhubRow === 'function'
-                    && segmentId.length > 0) {
-                self.opener.removeInboxhubRow(segmentId, labType);
+            // Row only, where the opener offers a row-only call. The counters are the
+            // broadcast's job here, because it is the only party carrying clearedCount — a
+            // macro form has no multiID to walk, so this window cannot tell how many routing
+            // rows the acknowledgement cleared, and removeReport would assume one and
+            // undercount a multi-version lab. removeReport stays the fallback so an opener
+            // without the newer API is not left showing an acknowledged row; over-counting a
+            // badge by one is the lesser fault, and the next page load corrects it.
+            if (acknowledged && self.opener && segmentId.length > 0) {
+                if (typeof self.opener.removeInboxhubRow === 'function') {
+                    self.opener.removeInboxhubRow(segmentId, labType);
+                } else if (typeof self.opener.removeReport !== 'undefined') {
+                    self.opener.removeReport(segmentId, labType);
+                }
             }
             window.close();
             return;
