@@ -173,10 +173,32 @@ async function login(context, config, recorder) {
     await page.locator('#pin').fill(config.testPin);
   }
   await Promise.all([
-    page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+    // forcepasswordreset is a legitimate destination, not a failure: the carlos-emr package
+    // generates its first-login credential already flagged for a reset, so on a freshly
+    // installed deb -- the case the deb-install runbook is written for -- this is where the
+    // login lands. Waiting only for the schedule made every check here fail before it tested
+    // anything, and the devcontainer defaults hid it because that account is not flagged.
+    page.waitForURL(/providercontrol|appointment|forcepasswordreset/i, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  if (/forcepasswordreset/i.test(page.url())) {
+    assert(
+      config.resetPassword,
+      `${config.testUser} must change its password before it can be used. Set RESET_PASSWORD to a`
+      + ' new password meeting the policy and re-run; the check will complete the reset once and'
+      + ' then log in with it. (A fresh carlos-emr install flags its generated admin credential.)',
+    );
+    await page.locator('input[name="oldPassword"]').fill(config.testPassword);
+    await page.locator('input[name="newPassword"]').fill(config.resetPassword);
+    await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
+    await Promise.all([
+      page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
+      page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    ]);
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  }
   return page;
 }
 

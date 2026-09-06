@@ -339,6 +339,16 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
+# On a FRESH install the packaged admin credential (/etc/carlos-emr/initial-admin.txt) is
+# flagged for a forced password reset, so TEST_PASSWORD alone cannot log in: the login lands on
+# /forcepasswordreset and every check fails there before testing anything. Set RESET_PASSWORD to
+# a new password meeting the policy and the first check completes the reset once.
+#
+# The reset is a ONE-TIME, PERSISTENT change to the account. After it, TEST_PASSWORD must be the
+# NEW password for every subsequent run -- so once the first check has passed, set
+#   export TEST_PASSWORD="$RESET_PASSWORD"
+# and drop RESET_PASSWORD. Neither is needed on the devcontainer, whose carlosdoc is not flagged.
+export RESET_PASSWORD='Carlos2026!Verify'
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below

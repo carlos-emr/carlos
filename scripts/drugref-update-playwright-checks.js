@@ -41,6 +41,9 @@
  * deb-install suite loop (docs/ui-tests/deb-install-validation.md §6).
  *
  * Requires the deb-install env contract: BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN.
+ * On a freshly installed deb the packaged admin credential is flagged for a forced password
+ * reset, so also set RESET_PASSWORD to a new password meeting the policy; the check completes
+ * that reset once and then logs in with it.
  * Optional: DRUGREF_UPDATE_TRIGGER (default false), DRUGREF_UPDATE_TIMEOUT_SEC
  *   (default 3600), DRUGREF_UPDATE_REQUIRE_STATUS (default false), CHROME_PATH,
  *   DRUGREF_UPDATE_SCREENSHOT_DIR (default /tmp), DRUG_SEARCH_TERM (default "amox").
@@ -67,6 +70,9 @@ const config = {
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
+  // Only needed against a freshly installed deb, whose generated admin credential is flagged
+  // for a forced password reset; login() completes the reset once and carries on.
+  resetPassword: process.env.RESET_PASSWORD || '',
   screenshotDir: process.env.DRUGREF_UPDATE_SCREENSHOT_DIR || '/tmp',
 };
 const trigger = process.env.DRUGREF_UPDATE_TRIGGER === 'true';
