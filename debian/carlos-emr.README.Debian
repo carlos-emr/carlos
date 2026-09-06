@@ -236,6 +236,36 @@ request or response bodies (SecAuditLogParts ABFHZ). That is the PHI decision
 described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
 
+REACHING THE SERVER BY IP ADDRESS, AND WHEN YOU MUST NOT.
+
+Most clinics run this on their own LAN and reach it at its address on the
+practice subnet. That is supported, and the package makes it work: CRS rule
+920350 ("Host header is a numeric IP address") would otherwise score 3 of the
+5-point inbound threshold on EVERY request from such a client, leaving 2 points
+of headroom in which a single further rule match blocks ordinary clinical work
+with a bare 403 and no application log line. Packaged rule 1090 removes 920350
+for clients whose SOURCE address is in a private, loopback or link-local range
+(10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, 100.64/10, ::1, fc00::/7,
+fe80::/10), so a LAN-local deployment starts each request with the full 5
+points. The source address is the peer nginx accepted the connection from, not
+a header, so an off-network client cannot claim it.
+
+A request arriving from a PUBLIC source address is deliberately NOT exempt:
+that is the case 920350 exists for (an internet scanner sweeping a range by
+IP), and the exemption would be worthless if it could be claimed from outside.
+
+  So: if this server is reachable from outside the practice network and people
+  reach it BY IP ADDRESS, give it a DNS name and have them use the name.
+
+An internet-exposed install used by public IP keeps the standing 3 points and
+the 2-point headroom, and its users will see occasional unexplained 403s on
+ordinary clinical work — a saved form or a refreshed panel failing with no
+error in the application log. A DNS name removes the whole class of problem,
+and you need one anyway for a real (non-self-signed) TLS certificate: see
+section 4. If an extra proxy or load balancer sits in front of this nginx, what
+counts is that hop's address — a LAN hop keeps the exemption, a public-cloud
+front end does not, which fails safe toward more inspection rather than less.
+
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The package already ships
 clinical-workflow exclusions for the known free-text and base64 routes (see
