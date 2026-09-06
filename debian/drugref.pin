@@ -22,7 +22,10 @@
 # success and then dropped the *_prev tables, destroying the only copy of the
 # drug data. And the "refuse to start on an unresolvable swap" guard now
 # actually fires -- it was unreachable, because the undecidable-marker error
-# arrived through the same catch as "could not reach the database".
+# arrived through the same catch as "could not reach the database". And a
+# restore no longer guesses about an orphan table: the backup records what it
+# moved, so a table the import created is emptied and one the rename loop
+# never reached is left alone.
 #
 # This revision was verified on a packaged install (Ubuntu 26.04, MariaDB
 # 11.8.6): the four startup-repair cases, the empty-rebuild gate firing and
@@ -42,4 +45,4 @@
 # surface. It also carries the earlier EntityManager-leak fix
 # (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
 # after one or two calls and permanently return "None found".
-ref=97c5d64f462d80e3e59b425e9ef5cc4e11eef107
+ref=bcac158506571c329396dc9528019dc1608b62a7
