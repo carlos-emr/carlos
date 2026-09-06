@@ -20,4 +20,4 @@
 # surface. It also carries the earlier EntityManager-leak fix
 # (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
 # after one or two calls and permanently return "None found".
-ref=7e64f6915c58ffdfc3b0149c504ff078ffcfedb3
+ref=29a238ebb4ee4ae203e47fe2cca838e0578d8baa
