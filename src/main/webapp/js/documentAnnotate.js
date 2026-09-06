@@ -259,6 +259,7 @@
                 placePoint(page, nx, ny);
                 return;
             }
+            if (state.tool === 'highlight') { fetchWordBoxes(page); }
             dragging = { x0: nx, y0: ny, points: [[nx, ny]] };
             svg.setPointerCapture(event.pointerId);
         });
@@ -358,11 +359,24 @@
 
     /* ---------- snap to text ---------- */
 
-    // Inbound faxes carry an OCR text layer applied before they reach CARLOS, so a
-    // highlight can be squared to the words it covers instead of the hand-drawn box.
+    /*
+     * Snapping is a convenience layered on top of an OCR text layer, and the text layer is
+     * OPTIONAL. A page can legitimately have none: a scan that was never run through OCR, a
+     * photographed page, or an image-only fax. Every path below therefore returns null so
+     * commitDrag falls back to the rectangle the provider actually drew. Highlighting, and
+     * every other tool, works identically on a page with no text.
+     */
+
+    // Fraction of the drawn rectangle the snapped box must cover to be worth using. Sparse or
+    // noisy OCR can put a single stray word inside a large drag; snapping to it would shrink
+    // the provider's highlight to something they did not ask for, so below this the drawn
+    // rectangle wins.
+    var MIN_SNAP_COVERAGE = 0.25;
+
     function snapToWords(page, box) {
         var words = state.wordBoxes[page];
-        if (!words || !words.length) { return null; }
+        // undefined  -> not fetched yet, 'pending' -> in flight, [] -> page has no text layer.
+        if (!Array.isArray(words) || !words.length) { return null; }
         var hits = words.filter(function (word) {
             return word.x < box.x + box.w && word.x + word.w > box.x
                 && word.y < box.y + box.h && word.y + word.h > box.y;
@@ -372,20 +386,49 @@
         var y0 = Math.min.apply(null, hits.map(function (w) { return w.y; }));
         var x1 = Math.max.apply(null, hits.map(function (w) { return w.x + w.w; }));
         var y1 = Math.max.apply(null, hits.map(function (w) { return w.y + w.h; }));
+
+        var drawnArea = box.w * box.h;
+        var snappedArea = (x1 - x0) * (y1 - y0);
+        if (drawnArea > 0 && snappedArea / drawnArea < MIN_SNAP_COVERAGE) { return null; }
+
         return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
     }
 
+    /*
+     * Word boxes are fetched per page and only for pages in view. Requesting all of them when
+     * the highlight tool is picked would fire one server-side text extraction per page, which
+     * on a long fax is a burst of work for a feature the provider may not use on every page.
+     */
     function fetchWordBoxes(page) {
-        if (state.wordBoxes[page]) { return; }
-        state.wordBoxes[page] = [];
+        if (state.wordBoxes[page] !== undefined) { return; }
+        state.wordBoxes[page] = 'pending';
         fetch(cfg.contextPath + '/documentManager/DocumentTextBoxes?docId='
             + encodeURIComponent(cfg.docId) + '&page=' + encodeURIComponent(page),
             { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
-                if (data && Array.isArray(data.words)) { state.wordBoxes[page] = data.words; }
+                // An empty list is the normal answer for a page with no text layer, and is
+                // cached as such so the page is not asked for again.
+                state.wordBoxes[page] = (data && Array.isArray(data.words)) ? data.words : [];
             })
-            .catch(function () { /* No snap targets is a normal outcome, not an error. */ });
+            .catch(function () {
+                // A transient failure must not disable snapping for the rest of the session:
+                // clearing the entry lets the next drag on this page try again. Until then
+                // snapToWords returns null and the drawn rectangle is used.
+                delete state.wordBoxes[page];
+            });
+    }
+
+    /** Fetches word boxes for pages currently on screen, when the highlight tool is active. */
+    function prefetchVisibleWordBoxes() {
+        if (state.tool !== 'highlight') { return; }
+        var wraps = pagesEl.querySelectorAll('.page');
+        for (var i = 0; i < wraps.length; i++) {
+            var rect = wraps[i].getBoundingClientRect();
+            if (rect.top < window.innerHeight && rect.bottom > 0) {
+                fetchWordBoxes(Number(wraps[i].dataset.page));
+            }
+        }
     }
 
     /* ---------- save ---------- */
@@ -490,9 +533,7 @@
             buttons[i].setAttribute('aria-pressed', String(buttons[i].dataset.tool === tool));
         }
         pagesEl.dataset.tool = tool;
-        if (tool === 'highlight') {
-            for (var page = 1; page <= cfg.pageCount; page++) { fetchWordBoxes(page); }
-        }
+        prefetchVisibleWordBoxes();
     }
 
     function zoom(direction) {
@@ -527,7 +568,10 @@
         document.getElementById('btnSave').addEventListener('click', function () { save(false); });
         document.getElementById('btnSaveFax').addEventListener('click', function () { save(true); });
 
-        window.addEventListener('scroll', loadVisiblePages, { passive: true });
+        window.addEventListener('scroll', function () {
+            loadVisiblePages();
+            prefetchVisibleWordBoxes();
+        }, { passive: true });
         window.addEventListener('resize', function () {
             var wraps = pagesEl.querySelectorAll('.page');
             for (var n = 0; n < wraps.length; n++) { sizeOverlay(wraps[n]); }

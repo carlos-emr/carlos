@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentWordBoxes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -36,13 +37,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.IOUtils;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.pdfbox.text.TextPosition;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -50,33 +44,31 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Serves the word bounding boxes of one document page so the annotation viewer can snap a
  * highlight to text instead of to a hand-drawn rectangle.
  *
- * <p>Inbound faxes reaching CARLOS already carry an OCR text layer applied upstream, so
- * {@link PDFTextStripper} finds positioned glyphs even on scanned pages. A page with no
- * text layer yields an empty list, and the viewer falls back to free rectangles; that is a
- * normal result, not an error.
+ * <p><strong>The text layer is optional.</strong> Inbound faxes reaching CARLOS usually
+ * carry one applied upstream, so positioned glyphs are found even on scanned pages, but a
+ * page may have none — never OCR'd, photographed, or image-only. That yields an empty list
+ * and {@code hasTextLayer: false}, which is a normal answer rather than an error: the
+ * viewer simply keeps the rectangle the provider drew. Highlighting, and every other tool,
+ * works the same either way.
  *
  * <p>Boxes are returned in the same normalised, top-left, rotation-applied space the
  * annotation model uses, so the viewer can compare them against pointer coordinates
  * without knowing the render DPI. See {@code DocumentAnnotationDto} for that contract.
  *
- * <p>Read-scope gate: permits GET, refuses only unsupported verbs. Extraction is bounded
- * by {@link #EXTRACT_TIMEOUT_SECONDS} because the source is untrusted input.
+ * <p>Read-scope gate: permits GET, refuses only unsupported verbs. Extraction is delegated
+ * to {@link DocumentWordBoxes} and capped at {@value #MAX_WORDS_PER_PAGE} boxes, because
+ * the source document is untrusted input.
  *
  * @since 2026-09
  */
 public class DocumentTextBoxes2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
-
-    /** Word extraction on one page should be milliseconds; this only catches pathological input. */
-    public static final int EXTRACT_TIMEOUT_SECONDS = 10;
 
     /** Beyond this a highlight snap is not useful and the payload becomes the bottleneck. */
     private static final int MAX_WORDS_PER_PAGE = 5_000;
@@ -145,17 +137,27 @@ public class DocumentTextBoxes2Action extends ActionSupport {
                     CarlosProperties.getInstance().getDocumentDirectory(), "DOCUMENT_DIR");
             File pdf = PathValidationUtils.validateExistingPath(
                     new File(documentDir, doc.getFileName()), documentDir);
-            extract(pdf, page, words);
+            for (double[] box : DocumentWordBoxes.extract(pdf, page, MAX_WORDS_PER_PAGE)) {
+                ObjectNode node = words.addObject();
+                node.put("x", box[0]);
+                node.put("y", box[1]);
+                node.put("w", box[2]);
+                node.put("h", box[3]);
+            }
         } catch (SecurityException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
-            // A page whose text cannot be read is not a failure of the viewer: it simply
-            // has no snap targets. Log and return an empty list.
+            // A page whose text cannot be read is not a viewer failure: it simply has no snap
+            // targets, exactly like a page that was never OCR'd. Log and answer with an empty
+            // list so the client falls back to free-hand rectangles.
             logger.warn("Word boxes unavailable for document {} page {}", docId, page);
         }
 
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("page", page);
+        // Lets the viewer distinguish "this page has no text layer" from "not fetched yet".
+        // Either way highlighting still works; only snapping is unavailable.
+        payload.put("hasTextLayer", !words.isEmpty());
         payload.set("words", words);
 
         response.setStatus(HttpServletResponse.SC_OK);
@@ -167,99 +169,4 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         return NONE;
     }
 
-    /**
-     * Collects one box per word, normalised against the page's displayed dimensions.
-     *
-     * <p>{@link PDFTextStripper} reports positions in a top-left space that already has
-     * page rotation applied, which is the same space the annotation model uses, so only a
-     * division by the displayed width and height is required.
-     */
-    private void extract(File pdf, int page, ArrayNode out) throws IOException {
-        try (PDDocument document = Loader.loadPDF(pdf, IOUtils.createTempFileOnlyStreamCache())) {
-            if (page < 1 || page > document.getNumberOfPages()) {
-                return;
-            }
-            PDPage pdPage = document.getPage(page - 1);
-            PDRectangle box = pdPage.getCropBox();
-            int rotation = ((pdPage.getRotation() % 360) + 360) % 360;
-            boolean quarterTurn = rotation == 90 || rotation == 270;
-            final float displayW = quarterTurn ? box.getHeight() : box.getWidth();
-            final float displayH = quarterTurn ? box.getWidth() : box.getHeight();
-            if (displayW <= 0f || displayH <= 0f) {
-                return;
-            }
-
-            PDFTextStripper stripper = new PDFTextStripper() {
-                @Override
-                protected void writeString(String text, List<TextPosition> positions) {
-                    if (out.size() >= MAX_WORDS_PER_PAGE) {
-                        return;
-                    }
-                    for (List<TextPosition> word : splitWords(positions)) {
-                        if (out.size() >= MAX_WORDS_PER_PAGE) {
-                            return;
-                        }
-                        appendBox(word, displayW, displayH, out);
-                    }
-                }
-            };
-            stripper.setStartPage(page);
-            stripper.setEndPage(page);
-            stripper.setSortByPosition(true);
-            // The extracted text is discarded; only the geometry is wanted, and the text
-            // itself is PHI that must not leave this method.
-            stripper.getText(document);
-        }
-    }
-
-    /** Splits a run of glyphs into words on whitespace, preserving position data. */
-    private static List<List<TextPosition>> splitWords(List<TextPosition> positions) {
-        List<List<TextPosition>> words = new ArrayList<>();
-        List<TextPosition> current = new ArrayList<>();
-        for (TextPosition position : positions) {
-            String unicode = position.getUnicode();
-            if (unicode == null || unicode.isBlank()) {
-                if (!current.isEmpty()) {
-                    words.add(current);
-                    current = new ArrayList<>();
-                }
-                continue;
-            }
-            current.add(position);
-        }
-        if (!current.isEmpty()) {
-            words.add(current);
-        }
-        return words;
-    }
-
-    private static void appendBox(List<TextPosition> word, float displayW, float displayH, ArrayNode out) {
-        float minX = Float.MAX_VALUE;
-        float minY = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE;
-        float maxY = -Float.MAX_VALUE;
-        for (TextPosition position : word) {
-            float x = position.getXDirAdj();
-            float y = position.getYDirAdj() - position.getHeightDir();
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            maxX = Math.max(maxX, x + position.getWidthDirAdj());
-            maxY = Math.max(maxY, y + position.getHeightDir());
-        }
-        if (maxX <= minX || maxY <= minY) {
-            return;
-        }
-        ObjectNode node = out.addObject();
-        node.put("x", clamp(minX / displayW));
-        node.put("y", clamp(minY / displayH));
-        node.put("w", clamp((maxX - minX) / displayW));
-        node.put("h", clamp((maxY - minY) / displayH));
-    }
-
-    private static double clamp(double value) {
-        if (!Double.isFinite(value)) {
-            return 0d;
-        }
-        return Math.max(0d, Math.min(1d, value));
-    }
 }
