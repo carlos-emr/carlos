@@ -155,6 +155,10 @@ public class FaxDocument2Action extends ActionSupport {
      *         Reasons are deliberately generic: the caller is authorised for {@code _edoc}, but a
      *         stored path is still infrastructure detail that does not belong in the browser.
      */
+    // Sonar S2629: error level is always enabled here, and LogSafe.sanitize is a cheap CRLF/length
+    // guard. Gating it behind isErrorEnabled() adds a branch that is never false and makes a
+    // security control conditional.
+    @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
     private static String faxabilityProblem(EDoc doc, int docId) {
         // Exact match, not contains("pdf"): "application/pdfx" is a different format, and the
         // staging path this gate redirects into requires application/pdf exactly — so a

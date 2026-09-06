@@ -155,7 +155,9 @@ class DocumentAnnotationParserUnitTest {
             }
             json.append("]}");
 
-            assertThatThrownBy(() -> parser.parse(json.toString(), PAGES))
+            String payload = json.toString();
+
+            assertThatThrownBy(() -> parser.parse(payload, PAGES))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining(String.valueOf(DocumentAnnotationParser.MAX_ANNOTATIONS));
         }

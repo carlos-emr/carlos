@@ -141,7 +141,9 @@ class AnnotatedDocumentComposerUnitTest {
                 DocumentAnnotationDto.Type.SIGNATURE, 1, 0.5, 0.8, 0.3, 0.06,
                 List.of(), null, "black", 2, 11);
 
-        assertThatThrownBy(() -> composer.compose(source, List.of(signature), null, null))
+        List<DocumentAnnotationDto> marks = List.of(signature);
+
+        assertThatThrownBy(() -> composer.compose(source, marks, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("signature stamp");
     }
@@ -154,7 +156,9 @@ class AnnotatedDocumentComposerUnitTest {
                 DocumentAnnotationDto.Type.TEXT, 1, 0.1, 0.1, 0.5, 0.05,
                 List.of(), "please review", "black", 2, 11);
 
-        assertThatThrownBy(() -> composer.compose(source, List.of(text), null, null))
+        List<DocumentAnnotationDto> marks = List.of(text);
+
+        assertThatThrownBy(() -> composer.compose(source, marks, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("font");
     }

@@ -66,12 +66,19 @@ public class FaxRecipientSearch2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private static final int MAX_RESULTS = 20;
 
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final PharmacyInfoDao pharmacyInfoDao = SpringUtils.getBean(PharmacyInfoDao.class);
-    private final ServiceSpecialistsDao serviceSpecialistsDao = SpringUtils.getBean(ServiceSpecialistsDao.class);
+    // transient: ActionSupport is Serializable but these Spring collaborators are not, and a
+    // Struts action is built fresh per request, so none of them is state worth carrying.
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient PharmacyInfoDao pharmacyInfoDao = SpringUtils.getBean(PharmacyInfoDao.class);
+    private final transient ServiceSpecialistsDao serviceSpecialistsDao =
+            SpringUtils.getBean(ServiceSpecialistsDao.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
+    // Sonar flags the constant NONE return. That is the contract for a direct-response action:
+    // this endpoint writes JSON itself, and any named result would resolve to a JSP forward that
+    // corrupts the response body. Status codes carry the outcome instead.
+    @SuppressWarnings("java:S3516") // direct-response action: NONE on every branch is mandatory
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -107,10 +114,6 @@ public class FaxRecipientSearch2Action extends ActionSupport {
     }
 
     /**
-     * Appends specialist-with-service rows matching the keyword. One entry per (specialist, service)
-     * tuple. Specialists without any service enrollment are not included here.
-     */
-    /**
      * Joins a specialist's name parts without rendering the word "null".
      *
      * <p>{@code lName} is nullable in the schema and {@code setLastName} trims blanks to null, so
@@ -128,6 +131,10 @@ public class FaxRecipientSearch2Action extends ActionSupport {
         return first.isEmpty() ? last : last + ", " + first;
     }
 
+    /**
+     * Appends specialist-with-service rows matching the keyword. One entry per (specialist, service)
+     * tuple. Specialists without any service enrollment are not included here.
+     */
     private void addSpecialistResults(String term, ArrayNode results) {
         int remaining = MAX_RESULTS - results.size();
         if (remaining <= 0) return;
@@ -165,21 +172,22 @@ public class FaxRecipientSearch2Action extends ActionSupport {
             List<PharmacyInfo> pharmacies = pharmacyInfoDao.searchPharmacyByNameAddressCity(term, "", remaining);
             for (PharmacyInfo ph : pharmacies) {
                 if (remaining <= 0) break;
-                if (StringUtils.isBlank(ph.getFax())) continue;
-                remaining--;
+                if (StringUtils.isNotBlank(ph.getFax())) {
+                    remaining--;
 
-                String displayName = StringUtils.defaultIfBlank(ph.getName(), "Unknown Pharmacy");
-                String city = StringUtils.trimToEmpty(ph.getCity());
-                if (!city.isEmpty()) {
-                    displayName = displayName + " (" + city + ")";
+                    String displayName = StringUtils.defaultIfBlank(ph.getName(), "Unknown Pharmacy");
+                    String city = StringUtils.trimToEmpty(ph.getCity());
+                    if (!city.isEmpty()) {
+                        displayName = displayName + " (" + city + ")";
+                    }
+
+                    ObjectNode item = objectMapper.createObjectNode();
+                    item.put("name", displayName);
+                    item.put("fax", ph.getFax());
+                    item.put("badge", "pharmacy");
+                    item.put("type", "PHARMACY");
+                    results.add(item);
                 }
-
-                ObjectNode item = objectMapper.createObjectNode();
-                item.put("name", displayName);
-                item.put("fax", ph.getFax());
-                item.put("badge", "pharmacy");
-                item.put("type", "PHARMACY");
-                results.add(item);
             }
         } catch (Exception e) {
             logger.warn("Error loading pharmacy fax autocomplete results", e);

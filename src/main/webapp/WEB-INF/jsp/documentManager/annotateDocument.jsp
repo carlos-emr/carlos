@@ -142,7 +142,7 @@
 
 <div class="notice">
     <fmt:message key="faxAnnotateViewer.notice.newDocument"/>
-    <span id="status" class="status" role="status" aria-live="polite"></span>
+    <output id="status" class="status"></output>
     <span id="savedLink"></span>
 </div>
 

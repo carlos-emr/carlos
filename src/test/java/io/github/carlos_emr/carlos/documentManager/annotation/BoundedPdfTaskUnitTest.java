@@ -99,6 +99,10 @@ class BoundedPdfTaskUnitTest {
 
     @Test
     @DisplayName("should refuse a new parse when every permit is held by one already running")
+    // Sonar S2925: both sleeps are backoff, not synchronisation. What is being waited on is a
+    // permit held by another thread in a global semaphore, which exposes no event to await; the
+    // alternatives are spinning without backoff or adding an Awaitility dependency for one test.
+    @SuppressWarnings("java:S2925") // backoff against a global semaphore; no awaitable event exists
     void shouldRefuseParse_whenAllPermitsHeld() throws Exception {
         int permits = BoundedPdfTask.maxConcurrentParses();
         CountDownLatch hold = new CountDownLatch(1);

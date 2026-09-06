@@ -66,17 +66,19 @@ public class DocumentAnnotationParser {
     public static final double MIN_STROKE_WIDTH = 0.5d;
     public static final double MAX_STROKE_WIDTH = 8d;
 
+    /** Applied when a mark names no colour; also the fallback member of {@link #ALLOWED_COLORS}. */
+    private static final String DEFAULT_COLOR = "black";
+
     /**
      * Colour names the composer knows how to map to RGB. Kept as an allowlist rather
      * than accepting a hex value so no caller-supplied string ever reaches a drawing
      * or styling context.
      */
     public static final Set<String> ALLOWED_COLORS =
-            Set.of("yellow", "green", "blue", "pink", "red", "black");
+            Set.of("yellow", "green", "blue", "pink", "red", DEFAULT_COLOR);
 
     private static final double DEFAULT_FONT_SIZE = 11d;
     private static final double DEFAULT_STROKE_WIDTH = 2d;
-    private static final String DEFAULT_COLOR = "black";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -125,27 +127,8 @@ public class DocumentAnnotationParser {
         }
 
         DocumentAnnotationDto.Type type = parseType(node.path("type").asText(null));
-
-        // asInt() would truncate 1.9 to 1 and "2" to 2, so a malformed payload would land an
-        // annotation on a page it never named instead of being refused. This is untrusted input
-        // and the page decides which sheet of a clinical document gets marked, so require a
-        // genuine int.
-        JsonNode pageNode = node.path("page");
-        if (!pageNode.isInt() && !pageNode.isLong()) {
-            throw new IllegalArgumentException("Each annotation must name its page as a whole number.");
-        }
-        int page = pageNode.isInt() ? pageNode.intValue() : 0;
-        if (page < 1 || page > pageCount) {
-            throw new IllegalArgumentException(
-                    "An annotation names page " + page + ", outside the document's 1 to " + pageCount + ".");
-        }
-
-        String color = node.hasNonNull("color")
-                ? node.get("color").asText("").trim().toLowerCase(Locale.ROOT)
-                : DEFAULT_COLOR;
-        if (!ALLOWED_COLORS.contains(color)) {
-            throw new IllegalArgumentException("An annotation uses a colour that is not permitted.");
-        }
+        int page = parsePage(node, pageCount);
+        String color = parseColor(node);
 
         if (type == DocumentAnnotationDto.Type.INK) {
             return new DocumentAnnotationDto(type, page, 0, 0, 0, 0,
@@ -166,21 +149,63 @@ public class DocumentAnnotationParser {
             throw new IllegalArgumentException("An annotation has no width or height.");
         }
 
-        String text = null;
-        if (type == DocumentAnnotationDto.Type.TEXT || type == DocumentAnnotationDto.Type.DATE) {
-            text = node.path("text").asText("");
-            if (text.isBlank()) {
-                throw new IllegalArgumentException("A text annotation has no content.");
-            }
-            if (text.length() > MAX_TEXT_LENGTH) {
-                throw new IllegalArgumentException(
-                        "A text annotation is longer than " + MAX_TEXT_LENGTH + " characters.");
-            }
-        }
+        String text = parseText(node, type);
 
         return new DocumentAnnotationDto(type, page, x, y, w, h, List.of(), text, color,
                 DEFAULT_STROKE_WIDTH,
                 bounded(node, "fontSize", DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, "Font size"));
+    }
+
+    /**
+     * @return the 1-based page the mark belongs on, proven to be inside the document
+     */
+    private static int parsePage(JsonNode node, int pageCount) {
+        // asInt() would truncate 1.9 to 1 and "2" to 2, so a malformed payload would land an
+        // annotation on a page it never named instead of being refused. This is untrusted input
+        // and the page decides which sheet of a clinical document gets marked, so require a
+        // genuine int.
+        JsonNode pageNode = node.path("page");
+        if (!pageNode.isInt() && !pageNode.isLong()) {
+            throw new IllegalArgumentException("Each annotation must name its page as a whole number.");
+        }
+        int page = pageNode.isInt() ? pageNode.intValue() : 0;
+        if (page < 1 || page > pageCount) {
+            throw new IllegalArgumentException(
+                    "An annotation names page " + page + ", outside the document's 1 to " + pageCount + ".");
+        }
+        return page;
+    }
+
+    /**
+     * @return a colour name drawn from {@link #ALLOWED_COLORS}; never caller-supplied text
+     */
+    private static String parseColor(JsonNode node) {
+        String color = node.hasNonNull("color")
+                ? node.get("color").asText("").trim().toLowerCase(Locale.ROOT)
+                : DEFAULT_COLOR;
+        if (!ALLOWED_COLORS.contains(color)) {
+            throw new IllegalArgumentException("An annotation uses a colour that is not permitted.");
+        }
+        return color;
+    }
+
+    /**
+     * @return the note body for a type that carries one, otherwise {@code null}. The value can be
+     *         PHI and must not be logged or echoed in an error message.
+     */
+    private static String parseText(JsonNode node, DocumentAnnotationDto.Type type) {
+        if (type != DocumentAnnotationDto.Type.TEXT && type != DocumentAnnotationDto.Type.DATE) {
+            return null;
+        }
+        String text = node.path("text").asText("");
+        if (text.isBlank()) {
+            throw new IllegalArgumentException("A text annotation has no content.");
+        }
+        if (text.length() > MAX_TEXT_LENGTH) {
+            throw new IllegalArgumentException(
+                    "A text annotation is longer than " + MAX_TEXT_LENGTH + " characters.");
+        }
+        return text;
     }
 
     private static DocumentAnnotationDto.Type parseType(String raw) {

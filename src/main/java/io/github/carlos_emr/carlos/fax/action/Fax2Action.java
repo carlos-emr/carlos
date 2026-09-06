@@ -86,6 +86,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class Fax2Action extends ActionSupport {
 
     private static final String ACCESS_DENIED = "Access denied";
+    /** Request attribute the error JSPs render; Struts action errors do not reach them on their own. */
+    private static final String ACTION_ERRORS_ATTRIBUTE = "actionErrors";
     private static final String EFORM_FAX_MISSING_CONTENT_MESSAGE =
             "This eForm could not be fully rendered because required content or behavior is missing. "
             + "You can fax it only after approving the listed issues, but the document may be incomplete.";
@@ -367,7 +369,7 @@ public class Fax2Action extends ActionSupport {
             // the request attribute "actionErrors"; Struts action errors don't reach it on the
             // exception-mapping path without this bridge.
             if (!getActionErrors().isEmpty()) {
-                request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+                request.setAttribute(ACTION_ERRORS_ATTRIBUTE, new ArrayList<>(getActionErrors()));
             }
             throw e;
         }
@@ -469,7 +471,7 @@ public class Fax2Action extends ActionSupport {
         // its own SecurityExceptions), the clinician only sees the generic security error page
         // with no indication of why the fax was not sent.
         addActionError("The eForm no longer belongs to this patient");
-        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        request.setAttribute(ACTION_ERRORS_ATTRIBUTE, new ArrayList<>(getActionErrors()));
         throw new SecurityException("The eForm no longer belongs to this patient");
     }
 
@@ -1049,7 +1051,7 @@ public class Fax2Action extends ActionSupport {
         }
         logger.warn("Rejected fax promotion: the submitted file was not staged by this session");
         addActionError("This fax is no longer available to send. Open the item and try again.");
-        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        request.setAttribute(ACTION_ERRORS_ATTRIBUTE, new ArrayList<>(getActionErrors()));
         throw new SecurityException("Fax file path outside the application staging area");
     }
 
@@ -1080,7 +1082,7 @@ public class Fax2Action extends ActionSupport {
                     + "submitted with the fax job", transactionId);
             deleteRejectedClaimedFaxFile(claimed);
             addActionError(rejection);
-            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            request.setAttribute(ACTION_ERRORS_ATTRIBUTE, new ArrayList<>(getActionErrors()));
             throw new SecurityException("The document no longer belongs to this patient");
         }
         logger.warn("Rejected fax promotion: document fax path was not staged by this session");
@@ -1088,7 +1090,7 @@ public class Fax2Action extends ActionSupport {
             deleteRejectedClaimedFaxFile(claimed);
         }
         addActionError("This fax is no longer available to send. Open the document and try again.");
-        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        request.setAttribute(ACTION_ERRORS_ATTRIBUTE, new ArrayList<>(getActionErrors()));
         throw new SecurityException("Unclaimed fax file path for document promotion");
     }
 

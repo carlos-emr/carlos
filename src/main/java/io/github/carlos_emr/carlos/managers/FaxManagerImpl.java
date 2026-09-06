@@ -170,6 +170,10 @@ public class FaxManagerImpl implements FaxManager {
     }
 
     @Override
+    // Sonar S2629: error level is always enabled here, and LogSafe.sanitize is a cheap CRLF/length
+    // guard. Gating it behind isErrorEnabled() adds a branch that is never false and makes a
+    // security control conditional.
+    @SuppressWarnings("java:S2629") // error level is always enabled; LogSafe.sanitize is required, not optional
     public Path renderDocument(LoggedInInfo loggedInInfo, int documentNo, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, demographicNo)) {
             throw new RuntimeException("missing required sec object (_edoc)");

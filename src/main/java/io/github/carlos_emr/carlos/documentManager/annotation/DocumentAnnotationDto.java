@@ -75,6 +75,11 @@ public final class DocumentAnnotationDto {
     private final double strokeWidth;
     private final double fontSize;
 
+    // Sonar S107: a builder is the usual answer to a long parameter list, but it would let a
+    // half-filled instance exist, and this class documents the opposite invariant -- every
+    // instance is fully populated and range-checked. The constructor is package-private with
+    // DocumentAnnotationParser as its only caller, so the arity is not a public API burden.
+    @SuppressWarnings("java:S107") // immutable carrier; a builder would break the always-well-formed invariant
     DocumentAnnotationDto(Type type, int page, double x, double y, double w, double h,
                           List<double[]> points, String text, String color,
                           double strokeWidth, double fontSize) {

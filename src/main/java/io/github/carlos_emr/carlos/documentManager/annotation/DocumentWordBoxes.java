@@ -87,24 +87,7 @@ public final class DocumentWordBoxes {
                 return boxes;
             }
 
-            PDFTextStripper stripper = new PDFTextStripper() {
-                @Override
-                protected void writeString(String text, List<TextPosition> positions) throws IOException {
-                    for (List<TextPosition> word : splitWords(positions)) {
-                        if (boxes.size() >= maxWords) {
-                            // Returning here would only skip the rest of THIS run: the stripper
-                            // would carry on parsing the page and allocating text positions for
-                            // results that are already discarded. On a page crafted with a huge
-                            // text stream that is the whole cost. Unwinding stops the parse.
-                            throw new WordCeilingReached();
-                        }
-                        double[] wordBox = boundingBox(word, displayW, displayH);
-                        if (wordBox.length == 4) {
-                            boxes.add(wordBox);
-                        }
-                    }
-                }
-            };
+            PDFTextStripper stripper = collectingStripper(boxes, maxWords, displayW, displayH);
             stripper.setStartPage(page);
             stripper.setEndPage(page);
             stripper.setSortByPosition(true);
@@ -117,6 +100,36 @@ public final class DocumentWordBoxes {
         }
 
         return boxes;
+    }
+
+    /**
+     * Builds the stripper that turns each run of glyphs into normalised word boxes.
+     *
+     * @param boxes    collector the stripper appends to, in reading order
+     * @param maxWords ceiling after which the parse is unwound rather than merely skipped
+     * @param displayW page width in display orientation, the divisor for normalising x
+     * @param displayH page height in display orientation, the divisor for normalising y
+     */
+    private static PDFTextStripper collectingStripper(List<double[]> boxes, int maxWords,
+                                                      float displayW, float displayH) throws IOException {
+        return new PDFTextStripper() {
+            @Override
+            protected void writeString(String text, List<TextPosition> positions) throws IOException {
+                for (List<TextPosition> word : splitWords(positions)) {
+                    if (boxes.size() >= maxWords) {
+                        // Returning here would only skip the rest of THIS run: the stripper
+                        // would carry on parsing the page and allocating text positions for
+                        // results that are already discarded. On a page crafted with a huge
+                        // text stream that is the whole cost. Unwinding stops the parse.
+                        throw new WordCeilingReached();
+                    }
+                    double[] wordBox = boundingBox(word, displayW, displayH);
+                    if (wordBox.length == 4) {
+                        boxes.add(wordBox);
+                    }
+                }
+            }
+        };
     }
 
     /** Unwinds {@link PDFTextStripper#getText} once enough boxes have been collected. */
