@@ -851,14 +851,17 @@ def apply_ownership(root: str, dev_target: bool) -> None:
         die("the documents tree holds {0} symbolic link(s); the import "
             "never creates one, so these are foreign. Remove them from "
             "{1} and re-run with --resume.".format(len(links), root))
-    cp = run(["chown", "-Rh",
-              "{0}:{0}".format(SERVICE_USER), root])
+    # the identity and modes are the DEPLOYMENT's: the tree has to be
+    # readable by whatever the application runs as on this host
+    from .o19import import HOST
+    owner, dir_mode, file_mode = HOST.document_ownership()
+    cp = run(["chown", "-Rh", "{0}:{0}".format(owner), root])
     if cp.returncode != 0:
         die("chown of the documents tree failed")
     # directories setgid 2750, files 0640 (matches the tmpfiles skeleton);
     # a failed repair would leave files the service cannot read, which the
     # root-run reconciliation below would not notice — so it is fatal
-    for kind, mode in (("d", "2750"), ("f", "0640")):
+    for kind, mode in (("d", dir_mode), ("f", file_mode)):
         cp = run(["find", root, "-type", kind, "-exec", "chmod", mode,
                   "{}", "+"])
         if cp.returncode != 0:

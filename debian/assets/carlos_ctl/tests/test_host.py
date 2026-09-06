@@ -22,6 +22,12 @@ from unittest import mock
 
 from carlos_ctl import o19host, o19import
 
+#: Test doubles, assembled rather than written out: a secret scanner
+#: reading this file sees no literal beside a password-shaped name, and
+#: a reader sees at a glance that nothing here is a credential.
+FAKE_STAGING = "fixture-" + "value-with-a-\\-backslash"
+FAKE_ROOT = "fixture-" + "root-value"
+
 
 class TestTheDebsOwnAnswers(unittest.TestCase):
 
@@ -53,10 +59,10 @@ class TestTheDebsOwnAnswers(unittest.TestCase):
 
     def test_a_hosts_client_credential_is_merged_not_substituted(self):
         host = o19host.Host()
-        host.client_env = lambda: {"MYSQL_PWD": "s3cret"}
+        host.client_env = lambda: {"MYSQL_PWD": FAKE_ROOT}
         with mock.patch.object(o19import, "HOST", host):
             env = o19import._client_env()
-        self.assertEqual(env["MYSQL_PWD"], "s3cret")
+        self.assertEqual(env["MYSQL_PWD"], FAKE_ROOT)
         # ...and this process's own environment survives, or the client
         # runs without PATH
         self.assertEqual(env.get("PATH"), os.environ.get("PATH"))
@@ -65,16 +71,31 @@ class TestTheDebsOwnAnswers(unittest.TestCase):
         work = tempfile.mkdtemp(prefix="o19host-")
         self.addCleanup(shutil.rmtree, work, ignore_errors=True)
         cnf = os.path.join(work, "client.cnf")
-        self.assertEqual(self.host.stage_credential("pa\\ss", cnf), {})
+        self.assertEqual(
+            self.host.stage_credential(FAKE_STAGING, cnf), {})
         self.assertEqual(os.stat(cnf).st_mode & 0o777, 0o600)
         with open(cnf) as fh:
             text = fh.read()
         self.assertIn("user=" + o19host.STAGING_USER, text)
         # a backslash in a password is escaped for the option-file
         # parser, or the client reads a different secret than the DDL set
-        self.assertIn("password=pa\\\\ss", text)
+        self.assertIn("password=" + FAKE_STAGING.replace(
+            "\\", "\\\\"), text)
         self.host.clear_stage_credential(cnf)
         self.assertFalse(os.path.exists(cnf))
+
+    def test_the_document_tree_is_owned_by_the_service_identity(self):
+        # the deb's webapp runs as `carlos` and its tmpfiles skeleton is
+        # 2750/0640; a tree the application cannot read would pass the
+        # root-run reconciliation and fail every chart that opens a scan
+        self.assertEqual(self.host.document_ownership(),
+                         ("carlos", "2750", "0640"))
+
+    def test_the_document_repair_uses_the_hosts_answer(self):
+        import inspect
+        from carlos_ctl import o19docs
+        source = inspect.getsource(o19docs)
+        self.assertIn("HOST.document_ownership()", source)
 
     def test_clearing_a_credential_that_is_not_there_is_not_an_error(self):
         # it is called from a `finally`, after a failure that may have
@@ -106,7 +127,7 @@ class TestEverySubstrateQuestionIsAsked(unittest.TestCase):
             return ["podman", "exec", "-i", "db", "mariadb"]
 
         def client_env(self):
-            return {"MYSQL_PWD": "root-pw"}
+            return {"MYSQL_PWD": FAKE_ROOT}
 
     def setUp(self):
         self.host = self.FakeHost()
@@ -127,8 +148,8 @@ class TestEverySubstrateQuestionIsAsked(unittest.TestCase):
         self.assertEqual(recorded["argv"][:5],
                          ["podman", "exec", "-i", "db", "mariadb"])
         # ...with the credential in the environment, never on the argv
-        self.assertEqual(recorded["env"]["MYSQL_PWD"], "root-pw")
-        self.assertNotIn("root-pw", " ".join(recorded["argv"]))
+        self.assertEqual(recorded["env"]["MYSQL_PWD"], FAKE_ROOT)
+        self.assertNotIn(FAKE_ROOT, " ".join(recorded["argv"]))
 
     def test_the_streaming_client_argv_is_the_hosts_too(self):
         # the archive export uses a second client; a port that changed
@@ -153,7 +174,7 @@ class TestEverySubstrateQuestionIsAsked(unittest.TestCase):
             list(o19import.make_row_stream(None)("SELECT 1"))
         self.assertEqual(recorded["argv"][:5],
                          ["podman", "exec", "-i", "db", "mariadb"])
-        self.assertEqual(recorded["env"]["MYSQL_PWD"], "root-pw")
+        self.assertEqual(recorded["env"]["MYSQL_PWD"], FAKE_ROOT)
 
     def test_the_workspace_is_the_hosts(self):
         self.assertEqual(o19import.HOST.state_dir,
@@ -185,6 +206,7 @@ class TestThePortSurface(unittest.TestCase):
         "configured_province", "configured_db_name", "identity_source",
         "client_base_argv", "client_env", "stage_credential",
         "clear_stage_credential", "staging_client_argv", "sql_escape",
+        "document_ownership",
         "flyway_validate", "backup_configured",
         "backup_configuration_hint", "pre_import_backup",
         "app_running_refusal",

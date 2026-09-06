@@ -43,6 +43,10 @@ DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
 #: after it
 STAGING_USER = "o19_import"
 
+#: the identity the deb's webapp runs as, and so the owner of the
+#: document tree it has to read
+SERVICE_USER = "carlos"
+
 #: the account is created for both host patterns: a socket connection
 #: matches 'localhost' first (an anonymous ''@'localhost' row would
 #: otherwise shadow a '%' entry), a dev seam over TCP matches '%'
@@ -184,6 +188,18 @@ class Host(object):
                    "--init-command=" + staging_init_command(
                        statement_timeout),
                    STAGING_SCHEMA])
+
+    def document_ownership(self) -> Tuple[str, str, str]:
+        """(owner, directory mode, file mode) for the restored document
+        tree.
+
+        The deb's webapp runs as `carlos` and its tmpfiles skeleton is
+        2750/0640. A deployment whose application reads the tree as a
+        different identity -- a rootless container's mapped uid, say --
+        answers with that one, or the import leaves a tree the
+        application cannot read and the reconciliation, run as root,
+        would not notice."""
+        return (SERVICE_USER, "2750", "0640")
 
     def sql_escape(self, value: str) -> str:
         """Escape a value for a single-quoted SQL literal."""
