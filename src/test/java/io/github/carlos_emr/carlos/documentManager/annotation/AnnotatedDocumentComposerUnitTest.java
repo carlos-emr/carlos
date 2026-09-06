@@ -205,7 +205,10 @@ class AnnotatedDocumentComposerUnitTest {
         // This is the feature's central clinical invariant, and the only way to check it is to
         // RENDER the composed page and look at the pixels. A quadrant assertion is not enough:
         // several wrong matrices put a top-left mark somewhere in the top-left quadrant. Here the
-        // measured position must match the requested position to within a pixel.
+        // Tolerance is 0.02 of the page in normalised coordinates -- about 12pt on a LETTER
+        // page, or ~16px at the 96 DPI this renders at. Wide enough to absorb antialiasing and
+        // the half-pixel the ink scan reports, far tighter than the 0.6+ error a wrong rotation
+        // or a wrong CropBox origin produces.
         Path source = tempDir.resolve("r" + rotation + "-" + markX + "-" + markY + ".pdf");
         try (PDDocument document = new PDDocument()) {
             PDPage page = new PDPage(new PDRectangle(0, 0, 612, 792));

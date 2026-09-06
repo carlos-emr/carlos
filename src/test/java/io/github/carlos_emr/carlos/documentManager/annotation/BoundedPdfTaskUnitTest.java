@@ -48,22 +48,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("BoundedPdfTask")
 class BoundedPdfTaskUnitTest {
 
-    /** Burns CPU without ever checking the interrupt flag, like a PDFBox parse. */
-    private static long spin(long millis) {
-        long end = System.nanoTime() + millis * 1_000_000L;
-        long x = 1;
-        while (System.nanoTime() < end) {
-            x += x * 31 + 7;
-        }
-        return x;
-    }
-
     @Test
     @DisplayName("should release the caller at the deadline when the task ignores interruption")
     void shouldReleaseCaller_whenTaskIgnoresInterruption() {
         long startedAt = System.nanoTime();
+        // Latched rather than a fixed 4s spin: the abandoned worker cannot be killed, so a
+        // hard-coded duration left it burning a core and holding one of the global parse permits
+        // for seconds after this test returned, slowing every test that ran next.
+        CountDownLatch release = new CountDownLatch(1);
 
-        assertThatThrownBy(() -> BoundedPdfTask.runWithin(1, "test-deadline", () -> spin(4_000)))
+        assertThatThrownBy(() -> BoundedPdfTask.runWithin(1, "test-deadline", () -> {
+            // Ignores interruption on purpose -- that is the condition under test.
+            while (release.getCount() > 0) {
+                Thread.onSpinWait();
+            }
+            return 1;
+        }))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("too long");
 
@@ -73,6 +73,10 @@ class BoundedPdfTaskUnitTest {
         assertThat(elapsedMs)
                 .as("the request thread must come back at the deadline, not when the parse ends")
                 .isLessThan(2_500L);
+
+        // Let the abandoned worker finish now that the measurement is taken, so it returns its
+        // permit instead of outliving the test.
+        release.countDown();
     }
 
     @Test

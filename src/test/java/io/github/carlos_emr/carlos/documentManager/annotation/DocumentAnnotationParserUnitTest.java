@@ -226,7 +226,9 @@ class DocumentAnnotationParserUnitTest {
             // however the text were handled. The rejection has to come from the TEXT rule for
             // this to pin anything, so the note is driven over MAX_TEXT_LENGTH instead.
             String phi = "PatientNameCarriedInTheNote";
-            String note = phi + "x".repeat(2100);
+            // Derived from the limit, not a magic number: a literal that merely happens to exceed
+            // MAX_TEXT_LENGTH stops testing anything the day the limit is raised past it.
+            String note = phi + "x".repeat(DocumentAnnotationParser.MAX_TEXT_LENGTH + 1);
             String json = "{\"annotations\":[{\"type\":\"text\",\"page\":1,\"x\":0,\"y\":0,\"w\":0.5,\"h\":0.05,"
                     + "\"text\":\"" + note + "\"}]}";
 

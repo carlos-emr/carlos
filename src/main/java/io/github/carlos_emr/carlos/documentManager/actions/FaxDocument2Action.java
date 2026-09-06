@@ -178,7 +178,10 @@ public class FaxDocument2Action extends ActionSupport {
         // substring test only moved the refusal to a later, less explicable error.
         String contentType = StringUtils.trimToEmpty(doc.getContentType());
         if (!"application/pdf".equalsIgnoreCase(contentType)) {
-            return "Only PDF documents can be faxed directly. This document is a " + contentType
+            // A document row with no stored content type is common enough for legacy imports;
+            // without the default the sentence read "This document is a  file."
+            return "Only PDF documents can be faxed directly. This document is a "
+                    + StringUtils.defaultIfBlank(contentType, "unknown")
                     + " file. Please convert it to PDF before faxing.";
         }
 
