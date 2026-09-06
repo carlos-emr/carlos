@@ -355,6 +355,17 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **`allergy-rx-alert-playwright-checks.js` leaves two allergies on its patient
+  per run**, by design: it records one allergen from the allergy search results
+  and a second through "Custom Allergy", then prescribes against the second. The
+  allergy list is append-only from the UI (rows are archived, never removed), so
+  repeat runs accumulate; that is harmless for the check but clear the strays on
+  a demo box with
+  `UPDATE allergies SET archived=1 WHERE reaction LIKE '%allergen check%';`
+  It is also the one script whose failure can mean the OTHER package is stale:
+  the alert half runs through DrugRef, so a build whose `debian/drugref.pin`
+  predates the free-text (typeCode 0) allergy branch fails part 3 with an empty
+  warnings array while CARLOS itself is correct.
 - **`eform-rtl-print-pdf-playwright-checks.js` must be run through `:443`** too. It
   drives the Rich Text Letter the way a clinician does (Preventions, Download,
   the form's PDF and "Submit & PDF" buttons — the latter must auto-close the window

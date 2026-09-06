@@ -1,3 +1,27 @@
+carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
+
+  * Searching for an allergy and clicking a result now records it. The allergy
+    page loads the picker's results over AJAX and lifts only the results
+    element out of the response, so the script block that defines the click
+    handler never arrived with them: every click died with "submitAddReaction
+    is not defined" and a second error from a delegated handler still parsing a
+    query string off an href that no longer has one. The page now carries the
+    handler itself. The search POST was always a clean 200, which is why this
+    looked like a working page until a result was clicked.
+  * Prescribing now warns about allergies that were typed rather than picked
+    out of the drug reference. DrugRef checked an allergy against the drug only
+    when the allergy carried a reference category, and skipped category 0 -- the
+    one CARLOS writes for every "Custom Allergy" and the one the demonstration
+    dataset seeds its PENICILLINS allergies with. Prescribing amoxicillin to a
+    patient recorded as allergic to PENICILLINS produced no alert and no error.
+    A typed allergen name is now resolved against the drug reference by exact
+    name and checked as whichever categories carry it; a name the reference does
+    not know is reported as unchecked rather than as no allergy. This half of
+    the fix lives in DrugRef, so it needs carlos-emr-drugref built at or past
+    the revision in debian/drugref.pin, which this upload moves.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 06 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
 
   * Consultation faxing is enabled by default and its flag is a real boolean.

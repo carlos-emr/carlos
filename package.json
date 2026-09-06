@@ -22,6 +22,7 @@
     "test:eform-admin-playwright": "node scripts/eform-admin-playwright-checks.js",
     "test:eform-admin-crud-playwright": "node scripts/eform-admin-crud-playwright-checks.js",
     "test:drug-search-playwright": "node scripts/drug-search-playwright-checks.js",
+    "test:allergy-rx-alert-playwright": "node scripts/allergy-rx-alert-playwright-checks.js",
     "test:document-upload-playwright": "node scripts/document-upload-playwright-checks.js",
     "test:pr-hardening-playwright": "node scripts/pr-hardening-playwright-checks.js",
     "test:error-sanitization-playwright": "node scripts/error-sanitization-playwright-checks.js",

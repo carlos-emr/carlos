@@ -135,19 +135,12 @@
                     //--> unbind first to avoid multiple binds.
                     $(".deleteAllergyLink").unbind("click");
                     $(".modifyAllergyLink").unbind("click");
-                    $("#searchResultsContainer a").unbind("click");
                     $(".DivContentSectionHead a img").unbind("click");
 
-                    //--> action for selecting from search results.
-                    $("#searchResultsContainer div[id $= '_content'] a").on("click", function (event) {
-                        event.preventDefault();
-                        // override the old addReaction with the new addReaction2
-                        var path = "${ pageContext.servletContext.contextPath }/rx/addReaction2"
-                        var param = this.href.split("?")[1];
-
-                        sendSearchRequest(path, param, "#addAllergyDialogue");
-                        $("#searchResultsContainer").html("");
-                    });
+                    <%-- Selecting a search result is handled by the inline onclick="submitAddReaction(...)"
+                         carried on the anchors that ChooseAllergy2.jsp renders, not by a delegated handler
+                         here. Those anchors are href="javascript:void(0)" with the drugref id/type/description
+                         in data- attributes, so there is no query string left on this.href to parse. --%>
 
                     //--> delete allergy.
                     $(".deleteAllergyLink").on("click", function (event) {
@@ -285,10 +278,53 @@
 
             }); //--> end document ready
 
+            <%--
+                Entry point for the anchors in the AJAX-loaded search results.
+
+                ChooseAllergy2.jsp is rendered both as a standalone page and, here, as an HTML
+                fragment: renderSearchResults() lifts only its #searchResultsContainer element out
+                of the response, so ChooseAllergy2's own <script> block and its hidden
+                #addReactionForm never reach this DOM. The anchors' onclick therefore resolves
+                against THIS page, and without a definition here every click on a search result
+                died with "submitAddReaction is not defined" and the allergy could not be added.
+
+                The full-page copy in ChooseAllergy2.jsp posts a form; this copy keeps the user on
+                the allergy page and loads the reaction dialogue over AJAX instead.
+            --%>
+            function submitAddReaction(actionUrl, id, type, name) {
+                $(".highLightButton").removeClass("highLightButton");
+                // The fragment's anchors still point at the legacy /rx/addReaction route; this page
+                // has always driven the addReaction2 dialogue, so normalize onto it.
+                var path = (actionUrl || "").replace(/\/rx\/addReaction$/, "/rx/addReaction2");
+                if (path.indexOf("/rx/addReaction2") < 0) {
+                    path = "${ pageContext.servletContext.contextPath }/rx/addReaction2";
+                }
+                var param = "ID=" + encodeURIComponent(id)
+                    + "&type=" + encodeURIComponent(type)
+                    + "&name=" + encodeURIComponent(name);
+
+                sendSearchRequest(path, param, "#addAllergyDialogue");
+                $("#searchResultsContainer").html("");
+            }
+
+            <%-- The NKDA guard has to see through encodeURIComponent(): submitAddReaction() and
+                 addCustomAllergy() percent-encode the name, while the NKDA button passes paramNKDA
+                 verbatim. Decode before matching so both spellings are caught. --%>
+            function paramHasNKDA(param) {
+                try {
+                    return decodeURIComponent(String(param).replace(/\+/g, " ")).indexOf(paramNKDA) >= 0;
+                } catch (e) {
+                    return String(param).indexOf(paramNKDA) >= 0;
+                }
+            }
+
             //--> AJAX the data to the server.
             function sendSearchRequest(path, param, target) {
+                if (param === undefined || param === null) {
+                    return;
+                }
                 var iNKDA = document.forms.searchAllergy2.iNKDA.value;
-                if (param.indexOf(paramNKDA) >= 0) {
+                if (paramHasNKDA(param)) {
                     var hasDrugAllergy = document.forms.searchAllergy2.hasDrugAllergy.value;
                     if (hasDrugAllergy === "true") {
                         alert("Active drug allergy exists!");
