@@ -67,7 +67,7 @@ import sys
 # === BEGIN GENERATED DATA (generate_manifests.py) ===
 SCHEMA_MAP_VERSION = 'o19map-2+d6061d0a'
 O19_PROFILE = 'on'
-SUPPORTED_PROVINCES = ['on']
+SUPPORTED_PROVINCES = ['on', 'bc']
 REQUIRED_TABLES = [
     'Facility',
     'clinic',
@@ -914,7 +914,7 @@ LEGACY_PREVENTION_TYPES = [
 # Every province beyond the module-level default, selected by
 # bind(). Same names as above; only what differs is repeated.
 PROFILE_BC = {
-    'SCHEMA_MAP_VERSION': 'o19map-2+9134992a',
+    'SCHEMA_MAP_VERSION': 'o19map-2+4a2a8ab1',
     'O19_PROFILE': 'bc',
     'PATIENT_DATA_TABLES': [
         'DrugDispensing',

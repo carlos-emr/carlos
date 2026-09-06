@@ -53,7 +53,15 @@ SCHEMA_MAP_VERSION = "o19map-2"
 #: host -- and the refusal names the reason rather than pretending the
 #: province is unknown. Promoting one is a one-line change here, made
 #: with the rehearsal that earns it.
-SUPPORTED_PROVINCES = ("on",)
+#:
+#: 'bc' was promoted after a full rehearsal on 2026-09-06: a BC OSCAR 19
+#: fixture (oscarinit_bc/oscardata_bc plus the BC clinical rows) imported
+#: into a CARLOS BC schema, P0 through P7, verification PASSED with row
+#: parity clean for 1196 tables and the MSP billing totals matching, then
+#: --cleanup. Four rulings that pass every SQL gate were wrong before
+#: that run and are right because of it (billinglocation, billingvisit,
+#: the three seeded directories, serviceSpecialists' uncountable seed).
+SUPPORTED_PROVINCES = ("on", "bc")
 
 # A tickler with neither a usable update_date nor a service_date (both are
 # nullable/sentinel in O19) gets this fixed creation_date rather than the
@@ -381,7 +389,47 @@ BY_PROVINCE = {
         # against.
         "REPLACE_SEED": {
             "billingreferral", "pharmacyInfo", "professionalSpecialists",
+            # the join table behind ConsultationServices' @JoinTable,
+            # pairing consultationServices.serviceId with
+            # professionalSpecialists.specId. It has to follow
+            # professionalSpecialists: keeping the seeded pairs while
+            # that table's seed is deleted would leave 14209 rows
+            # pointing at specIds that no longer exist.
+            "serviceSpecialists",
         },
+        # P0 requires a copy-class table to hold EXACTLY the manifest's
+        # seed count, and serviceSpecialists' seed is produced by an
+        # INSERT ... SELECT (V1.0.6 resolves professionalSpecialists.
+        # specType through consultationServices.serviceDesc), which the
+        # generator's literal-VALUES count cannot see. The manifest says
+        # 0, a stock BC deploy holds 14209, and P0 refused every BC host
+        # with a hard blocker that has no --accept -- found by the first
+        # BC rehearsal. Tolerated here for the same reason `log` is: a
+        # row count the deploy produces and no static count can predict.
+        "PRISTINE_TOLERATED_TABLES": {"serviceSpecialists"},
+        # Requirement B puts every dropped column on the live table as
+        # `import_archived_<col>`. formRourke2009 is the one table where
+        # that is physically impossible: OSCAR 19's BC Rourke form
+        # (rourke2009_from_oscarinit_bc.sql) carries 288 columns CARLOS's
+        # does not, on a table CARLOS already defines with 1227 -- and a
+        # MyISAM table definition tops out well before 1515 columns
+        # ("ERROR 1117: Table definition is too large", measured on
+        # MariaDB 10.11, which took 169 of the 288 before refusing).
+        #
+        # So this table's dropped columns are preserved in o19_archive
+        # ONLY: the `<table>__dropped` shadow capture holds every row
+        # whose value is not the column default, with the row's
+        # identifying columns beside it, and the archive CSV export is
+        # rendered from it. A row where all 288 held their default
+        # carries nothing to preserve. Nothing is lost --
+        # what is lost is the convenience of reading those values beside
+        # the live row, and the import says so in its report rather than
+        # leaving the operator to notice the twins are missing.
+        #
+        # It is a RULING, not a fallback: the ETL probes the server
+        # before P4 and refuses any OTHER table whose twins will not fit,
+        # rather than quietly demoting it to shadow-only.
+        "ARCHIVE_TWINS_EXEMPT": {"formRourke2009"},
         # CARLOS ships these only in the Ontario migration set while
         # OSCAR 19 defines them in its COMMON schema, so a BC clinic's
         # dump carries them and the CARLOS BC schema has no home for

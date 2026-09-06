@@ -3063,6 +3063,12 @@ def _parser(prog: str, import_mode: bool) -> argparse.ArgumentParser:
                     help="DEV ONLY (with --mariadb-arg): downgrade the "
                          "stock-deploy pristine gate to a warning. Refused "
                          "on a packaged host")
+    ap.add_argument("--dev-target-db", metavar="NAME",
+                    help="DEV ONLY (with --dev-target): the CARLOS schema "
+                         "to import into, instead of the deployment "
+                         "default 'oscar'. Exists so two provinces can be "
+                         "rehearsed on one development server without one "
+                         "destroying the other's target")
     if import_mode:
         ap.add_argument("--documents", metavar="FILE",
                         help="tar of the OscarDocument tree")
@@ -3407,8 +3413,13 @@ def dev_mode_refusal(dev_target: bool, mariadb_arg: Optional[List[str]],
 def _dev_mode(args) -> bool:
     """Whether this invocation targets a development database, dying on the
     combinations that are not allowed on a packaged host."""
+    packaged = os.path.exists(ENV_FILE)
     refusal = dev_mode_refusal(bool(args.dev_target), args.mariadb_arg,
-                               os.path.exists(ENV_FILE))
+                               packaged)
+    if refusal:
+        die(refusal)
+    refusal = dev_target_db_refusal(getattr(args, "dev_target_db", None),
+                                    bool(args.dev_target), packaged)
     if refusal:
         die(refusal)
     return bool(args.dev_target or args.mariadb_arg)
@@ -3645,7 +3656,8 @@ def _make_ctx(args, import_mode: bool, state_dir: str = STATE_DIR) -> Dict:
                            if inputs.get("documents") else 0),
         "bundle_size": (os.path.getsize(args.bundle)
                         if getattr(args, "bundle", None) else 0),
-        "target_db": _target_db(dev_target),
+        "target_db": _target_db(
+            dev_target, getattr(args, "dev_target_db", None)),
         "restage": getattr(args, "restage", False),
         "resume": getattr(args, "resume", False),
         "dry_run": getattr(args, "dry_run", False),
@@ -3705,14 +3717,39 @@ def nothing_to_resume_refusal(state: Dict, resume: bool,
             .format(STATE_DIR))
 
 
-def _target_db(dev_target: bool) -> str:
+def dev_target_db_refusal(name, dev_target: bool,
+                          packaged_host: bool):
+    """Why --dev-target-db may not be used (None when it may).
+
+    It names the schema every phase writes, so it is refused wherever
+    the target is not the operator's to choose: on a packaged host the
+    env file decides, and without --dev-target there is no development
+    database to point at. The name is also checked here rather than at
+    the first statement -- it is interpolated as an identifier."""
+    if name is None:
+        return None
+    if packaged_host:
+        return ("--dev-target-db is for development databases only; this "
+                "is a packaged host ({0} exists) and CARLOS_DB_NAME "
+                "decides the target".format(ENV_FILE))
+    if not dev_target:
+        return "--dev-target-db requires --dev-target"
+    if not re.match(r"^[A-Za-z0-9_]+$", name):
+        return ("--dev-target-db must be a plain schema name (letters, "
+                "digits and underscore)")
+    return None
+
+
+def _target_db(dev_target: bool, dev_target_db=None) -> str:
     """CARLOS_DB_NAME from the packaged host's env file; a dev database
-    (no env file, --mariadb-arg seam) uses the deployment default."""
+    (no env file, --mariadb-arg seam) uses --dev-target-db, or the
+    deployment default when none was given."""
     from . import config
     if os.path.exists(ENV_FILE):
         return config.load().db_name
     if dev_target:
-        return "oscar"  # the deb deployment's CARLOS_DB_NAME default
+        # the deb deployment's CARLOS_DB_NAME default
+        return dev_target_db or "oscar"
     die("{0} missing — this is not a packaged CARLOS host (a development "
         "database needs --mariadb-arg)".format(ENV_FILE))
     return ""  # unreachable
@@ -3888,7 +3925,8 @@ def _make_ctx_for_cleanup(args) -> Dict:
         "state": load_state(state_dir),
         "query": make_query(args.mariadb_arg),
         "dev_target": dev_target,
-        "target_db": _target_db(dev_target),
+        "target_db": _target_db(
+            dev_target, getattr(args, "dev_target_db", None)),
         "archive_schema": ARCHIVE_SCHEMA,
         "dry_run": getattr(args, "dry_run", False),
     }

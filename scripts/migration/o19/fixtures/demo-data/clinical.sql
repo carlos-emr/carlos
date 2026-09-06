@@ -8,7 +8,8 @@
 -- The vendored dataset populates demographics, labs, drugs, preventions
 -- and messages, and nothing else: no encounter notes, no appointments,
 -- no ticklers, no consultations, no billing. That left eight of the
--- fourteen chunked tables, the whole Ontario billing copy path, the
+-- fourteen chunked tables, the provincial billing copy paths (now in
+-- the clinical-on.sql / clinical-bc.sql siblings), the
 -- tickler zero-date value_exprs, the fk_remap indirection through an
 -- appended merge parent, and every CHARSET_SCAN column unexercised by
 -- the rehearsal -- so a regression in any of them would ship green.
@@ -148,32 +149,6 @@ VALUES
   ('2014-05-10', @svc, NULL, 'Douleur thoracique atypique',
    'Symptômes depuis trois semaines', 'aucun', 'aucune', '999998',
    @clin3, '1', '1', '2', '2014-05-10 09:00:00');
-
--- ---------------------------------------------------------------------
--- Ontario billing: the P7 verification aggregates these by fiscal year
--- ---------------------------------------------------------------------
-INSERT INTO `billing_on_cheader1`
-  (`header_id`, `hin`, `ver`, `dob`, `demographic_no`, `provider_no`,
-   `demographic_name`, `sex`, `province`, `billing_date`, `billing_time`,
-   `total`, `paid`, `status`, `visittype`, `creator`, `clinic`)
-VALUES
-  (1, '2222222222', 'AZ', '19670701', @clin1, '999998', 'PATIENT, TEST',
-   '2', 'ON', '2014-03-04', '09:20:00', 33.70, 0.00, 'O', '00',
-   '999998', 'Main Clinic'),
-  (2, '1111111119', 'AB', '19740317', @clin3, '999998',
-   'CÔTÉ, GENEVIÈVE', '2', 'ON', '2014-05-06', '11:05:00', 77.20, 77.20,
-   'S', '00', '999998', 'Main Clinic');
-
-INSERT INTO `billing_on_item`
-  (`ch1_id`, `service_code`, `fee`, `ser_num`, `service_date`, `dx`,
-   `status`)
-SELECT id, 'A007A', '33.70', '1', billing_date, '250', 'S'
-  FROM billing_on_cheader1 WHERE header_id = 1;
-INSERT INTO `billing_on_item`
-  (`ch1_id`, `service_code`, `fee`, `ser_num`, `service_date`, `dx`,
-   `status`)
-SELECT id, 'A003A', '77.20', '1', billing_date, '401', 'S'
-  FROM billing_on_cheader1 WHERE header_id = 2;
 
 -- ---------------------------------------------------------------------
 -- allergies and the custom demographic sheet (demographiccust.content is

@@ -191,8 +191,30 @@ truncation it guards against.
 ```bash
 scripts/migration/o19/build-o19-fixture.sh \
     --oscar-src /tmp/oscar19 --out /tmp/o19-inputs \
+    --province on \
     --mysql-cmd mariadb --mysql-arg -uroot --mysql-password-file /root/.o19pw
 ```
+
+`--province on|bc` (default `on`) picks which OSCAR 19 install to build,
+exactly as OSCAR's own `createdatabase_<p>.sh` does: the `_on` or `_bc`
+init/data pair, OLIS for Ontario only (it is the Ontario lab network, and
+`--with-olis` is refused for BC), and for BC the extra
+`rourke2009_from_oscarinit_bc.sql`. The provincial clinical rows follow —
+`clinical-on.sql` (OHIP claims) or `clinical-bc.sql` (MSP claims and
+their service lines, a WorkSafeBC report, a BCAR form, a clinic-added MSP
+visit type, and a Rourke 2009 record whose BC-only columns hold answers).
+Neither province's billing tables exist in the other's database, so that
+file is the one that cannot be shared. **The fixture's province must
+match the CARLOS host it is imported into** — the import asserts the
+manifest profile against the host's province before P0.
+
+The clinic-example properties deliberately set `ldap.enabled=true`, which
+is a preflight BLOCKER with no `--accept` (CARLOS has no LDAP
+authentication, so staff could not log in after cutover). That is the
+point — it exercises B5 — but it also means a rehearsal that passes
+`--properties` gets a `no-go` until you do what a real clinic would do
+and remediate it first: drop the three `ldap.*` lines from your copy of
+`oscar.properties`, then re-run.
 
 The password never goes on the command line (`-pSECRET` is refused): use
 `--mysql-password-file` (exported as `MYSQL_PWD` for the client), a client
@@ -204,10 +226,11 @@ Creates a **latin1** `o19_fixture` database (init scripts in
 dataset, the fixture document rows, `demo-data/roles.sql` — the synthetic
 role/privilege and legacy-data cases the roles post-step reconciles — and
 `demo-data/clinical.sql`, which adds the encounter notes, appointments,
-ticklers, consultations and Ontario billing the vendored dataset does not
-carry, together with accented text in both the correctly-encoded and the
-deliberately double-encoded form so the charset scan, the per-row repair
-and the `charset-repair` sign-off are actually exercised) and emits the
+ticklers and consultations the vendored dataset does not carry, together
+with accented text in both the correctly-encoded and the deliberately
+double-encoded form so the charset scan, the per-row repair and the
+`charset-repair` sign-off are actually exercised, plus the province's own
+`demo-data/clinical-<province>.sql`) and emits the
 three turnkey inputs:
 `o19-fixture.sql.gz`, `o19-documents.tar.gz` (generated placeholder tree —
 includes one deliberate missing-file row and one orphan file so the

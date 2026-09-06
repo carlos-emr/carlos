@@ -122,11 +122,15 @@ class FakeDb(object):
     IS_COLUMNS = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE"
     IS_TABLES = "SELECT TABLE_NAME FROM information_schema.TABLES"
     #: the one DDL the ETL issues against the target, modelled so a
-    #: resumed run introspects the column it added on the first pass --
+    #: resumed run introspects the columns it added on the first pass --
     #: MySQL 8 has no ADD COLUMN IF NOT EXISTS, so that skip is the
-    #: whole idempotency story and a fake that forgot it would pass
-    ADD_COLUMN = re.compile(
-        r"^ALTER TABLE `([^`]+)`\.`([^`]+)` ADD COLUMN `([^`]+)`")
+    #: whole idempotency story and a fake that forgot it would pass.
+    #: The statement carries EVERY column of one table (a multi-clause
+    #: ALTER is atomic, so a definition that cannot hold them all leaves
+    #: the table untouched), and a fake that applied only the first
+    #: clause would report a resume re-adding the rest.
+    ALTER_TABLE = re.compile(r"^ALTER TABLE `([^`]+)`\.`([^`]+)` ")
+    ADD_COLUMN = re.compile(r"ADD COLUMN `([^`]+)`")
 
     def __init__(self, **over):
         self.writes = []
@@ -190,16 +194,17 @@ class FakeDb(object):
             self.reads.append(sql)
             return self._scalar(sql)
         self.writes.append(sql)
-        added = self.ADD_COLUMN.match(sql)
-        if added:
-            schema, table, col = added.groups()
+        altered = self.ALTER_TABLE.match(sql)
+        if altered:
+            schema, table = altered.groups()
             cols = self.columns.setdefault(schema, {}).setdefault(table, [])
-            if col in cols:
-                raise o19etl.QueryError(
-                    "SQL failed ({0})".format(sql),
-                    "ERROR 1060 (42S21): Duplicate column name '{0}'"
-                    .format(col))
-            cols.append(col)
+            for col in self.ADD_COLUMN.findall(sql):
+                if col in cols:
+                    raise o19etl.QueryError(
+                        "SQL failed ({0})".format(sql),
+                        "ERROR 1060 (42S21): Duplicate column name '{0}'"
+                        .format(col))
+                cols.append(col)
         return []
 
     # -- the plain client: reads, plus the archive schema CREATE
@@ -692,6 +697,64 @@ class TestAbsentTables(EtlDriverBase):
         self.assertNotIn("Eyeform", self.report_text(lines))
 
 
+class TestATableRuledTwinExempt(EtlDriverBase):
+
+    """A table whose live twins the manifest rules impossible.
+
+    Measured on a BC clinic: CARLOS defines formRourke2009 with 1227
+    columns and OSCAR 19's BC copy carries 288 the manifest has no home
+    for. The server refuses the definition at 1396 ("ERROR 1117: Table
+    definition is too large"), and adding them one at a time left the
+    LIVE table with 169 orphan columns and no data before it did. The
+    ruling preserves those values in o19_archive instead -- and this is
+    the test that it preserves them, rather than quietly preserving
+    nothing.
+    """
+
+    def setUp(self):
+        EtlDriverBase.setUp(self)
+        exempt = dict(MANIFEST)
+        exempt["Contact"] = dict(MANIFEST["Contact"], archive_twins=False)
+        p = mock.patch.object(o19map_schema, "TABLES", exempt)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_no_column_is_added_to_the_live_table(self):
+        db, _lines, _counts = self.run_etl()
+        self.assertEqual(
+            self.writes_matching(db, r"`carlos`\.`Contact` ADD COLUMN"), [])
+
+    def test_the_values_still_reach_the_archive(self):
+        # the whole point: the ruling moves where they are preserved, it
+        # does not stop preserving them
+        db, _lines, _counts = self.run_etl()
+        shadow = self.writes_matching(
+            db, r"`o19_archive`\.`Contact__dropped__new`")
+        self.assertTrue(shadow, db.writes)
+        self.assertTrue(any("s.`programNo`" in x for x in shadow), shadow)
+        self.assertTrue(self.writes_matching(
+            db, r"`o19_archive`\.`Contact__unknown_cols`"), db.writes)
+
+    def test_the_operator_is_told_which_columns_have_no_twin(self):
+        # a report that simply did not mention the table would read as
+        # "nothing was dropped from it"
+        _db, lines, _counts = self.run_etl()
+        text = self.report_text(lines)
+        self.assertIn("preserved in o19_archive ONLY", text)
+        self.assertIn("Contact: 2 column(s)", text)
+        self.assertIn("programNo", text)
+        self.assertIn("vendorExtra", text)
+
+    def test_the_copy_does_not_name_a_column_that_was_never_added(self):
+        # with_archived_columns is skipped too, or the INSERT would
+        # select into columns the ALTER never created
+        db, _lines, _counts = self.run_etl()
+        inserts = self.writes_matching(db, r"INSERT INTO `carlos`\.`Contact`")
+        self.assertTrue(inserts)
+        for sql in inserts:
+            self.assertNotIn("import_archived_", sql)
+
+
 class TestShadowCapture(EtlDriverBase):
     """Columns CARLOS has no home for are captured, not dropped."""
 
@@ -731,10 +794,14 @@ class TestArchivedColumns(EtlDriverBase):
     def test_both_populations_reach_the_live_table(self):
         db, _lines, _counts = self.run_etl()
         added = " | ".join(self.altered(db))
-        self.assertIn("`carlos`.`Contact` ADD COLUMN "
-                      "`import_archived_programNo`", added)
-        self.assertIn("`carlos`.`Contact` ADD COLUMN "
-                      "`import_archived_vendorExtra`", added)
+        self.assertIn("ALTER TABLE `carlos`.`Contact` ", added)
+        self.assertIn("ADD COLUMN `import_archived_programNo`", added)
+        self.assertIn("ADD COLUMN `import_archived_vendorExtra`", added)
+        # one statement for the table, not one per column: a
+        # multi-clause ALTER is atomic, so a target that cannot hold
+        # them all is left as it was instead of half-altered
+        self.assertEqual(
+            [x for x in self.altered(db) if "`Contact`" in x].__len__(), 1)
 
     def test_the_column_keeps_the_source_type_and_is_nullable(self):
         # NOT NULL would abort the run in missing_required_columns, and a

@@ -15,9 +15,20 @@
 # createdatabase_generic.sh order); the demo dataset and document rows are
 # the vendored fixtures in fixtures/ (see fixtures/PROVENANCE.md).
 #
+# --province picks which OSCAR 19 install to build, exactly as OSCAR's own
+# createdatabase_<p>.sh does: the _on or _bc init/data pair, OLIS only for
+# Ontario (it is the Ontario lab network), and for BC the extra
+# rourke2009_from_oscarinit_bc.sql that createdatabase_bc.sh loads. The
+# provincial clinical rows follow (clinical-on.sql / clinical-bc.sql) --
+# Ontario OHIP claims or BC MSP claims, a WorkSafeBC report and a BCAR
+# form, since neither province's billing tables exist in the other's
+# database. Must match the province of the CARLOS host the fixture is
+# imported into: the import asserts the manifest profile against it.
+#
 # Usage:
 #   build-o19-fixture.sh --oscar-src /path/to/oscar --out /path/out \
-#       [--db o19_fixture] [--with-olis] [--with-updates] \
+#       [--province on|bc] [--db o19_fixture] [--with-olis] \
+#       [--with-updates] \
 #       [--mysql-cmd mariadb] \
 #       [--mysql-arg -uroot] [--mysql-arg --host=127.0.0.1] ... \
 #       [--mysql-password-file /path/to/passfile]
@@ -42,12 +53,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 OSCAR_SRC="" OUT="" DB="o19_fixture" WITH_OLIS=0 WITH_UPDATES=0 MYSQL_CMD="mariadb"
+PROVINCE="on"
 MYSQL_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --oscar-src) OSCAR_SRC="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     --db) DB="$2"; shift 2 ;;
+    --province) PROVINCE="$2"; shift 2 ;;
     --with-olis) WITH_OLIS=1; shift ;;
     --with-updates) WITH_UPDATES=1; shift ;;
     --mysql-cmd) MYSQL_CMD="$2"; shift 2 ;;
@@ -79,10 +92,24 @@ done
 case "$DB" in
   (*[!A-Za-z0-9_]*|"") echo "ERROR: invalid database name '$DB'" >&2; exit 1 ;;
 esac
+case "$PROVINCE" in
+  on|bc) ;;
+  *) echo "ERROR: --province must be 'on' or 'bc' (got '$PROVINCE')" >&2
+     exit 2 ;;
+esac
+[ -f "$SQLDIR/oscarinit_$PROVINCE.sql" ] || {
+  echo "ERROR: $SQLDIR has no oscarinit_$PROVINCE.sql" >&2; exit 1; }
+if [ "$PROVINCE" = "bc" ] && [ "$WITH_OLIS" = 1 ]; then
+  # OLIS is the ONTARIO lab network; loading it into a BC database would
+  # build a clinic that cannot exist and exercise the OLIS-dropped path
+  # against the wrong profile
+  echo "ERROR: --with-olis is Ontario-only" >&2
+  exit 2
+fi
 
 run_sql() { "$MYSQL_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} "$@"; }
 
-echo "creating latin1 database $DB ..."
+echo "creating latin1 database $DB (province: $PROVINCE) ..."
 run_sql -e "DROP DATABASE IF EXISTS \`$DB\`;
             CREATE DATABASE \`$DB\` CHARACTER SET latin1 COLLATE latin1_swedish_ci;"
 
@@ -110,9 +137,9 @@ load() {
           "$DB" < "$2"
 }
 load oscarinit.sql          "$SQLDIR/oscarinit.sql"
-load oscarinit_on.sql       "$SQLDIR/oscarinit_on.sql"
+load "oscarinit_$PROVINCE.sql" "$SQLDIR/oscarinit_$PROVINCE.sql"
 load oscardata.sql          "$SQLDIR/oscardata.sql"
-load oscardata_on.sql       "$SQLDIR/oscardata_on.sql"
+load "oscardata_$PROVINCE.sql" "$SQLDIR/oscardata_$PROVINCE.sql"
 load icd9.sql               "$SQLDIR/icd9.sql"
 load caisi/initcaisi.sql    "$SQLDIR/caisi/initcaisi.sql"
 # initcaisidata SOURCEs sibling files by relative path — the client must
@@ -124,6 +151,12 @@ echo "loading caisi/initcaisidata.sql ... done"
 load icd9_issue_groups.sql  "$SQLDIR/icd9_issue_groups.sql"
 load measurementMapData.sql "$SQLDIR/measurementMapData.sql"
 load expire_oscardoc.sql    "$SQLDIR/expire_oscardoc.sql"
+if [ "$PROVINCE" = "bc" ]; then
+  # createdatabase_bc.sh loads this after the generic set; it is where a
+  # BC install's formRourke2009 comes from
+  load rourke2009_from_oscarinit_bc.sql \
+       "$SQLDIR/rourke2009_from_oscarinit_bc.sql"
+fi
 if [ "$WITH_OLIS" = 1 ]; then
   # olisinit LOAD DATA LOCAL INFILEs its sibling CSVs — client cwd must be
   # the olis directory, and local-infile must be enabled
@@ -173,6 +206,10 @@ load "fixture roles.sql" "$SCRIPT_DIR/fixtures/demo-data/roles.sql"
 # vendored dataset carries (synthetic; see fixtures/PROVENANCE.md)
 load "fixture clinical.sql" "$SCRIPT_DIR/fixtures/demo-data/clinical.sql" \
      utf8mb4
+# the provincial billing rows: neither province's billing tables exist in
+# the other's database, so this file is the one that cannot be shared
+load "fixture clinical-$PROVINCE.sql" \
+     "$SCRIPT_DIR/fixtures/demo-data/clinical-$PROVINCE.sql" utf8mb4
 
 mkdir -p "$OUT"
 # mariadb pairs with mariadb-dump (mariadbdump nowhere); mysql pairs with

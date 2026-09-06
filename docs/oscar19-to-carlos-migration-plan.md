@@ -650,8 +650,13 @@ summarized above, then curated in review like the schema manifest.
 
 1. **Schema drift in the wild** — vendor forks add tables/columns. Mitigated by
    preflight introspection + archive-by-default for unknowns.
-2. **BC profile** — this analysis is Ontario-first; BC (Teleplan tables,
-   `oscarinit_bc`) needs its own manifest pass before a BC clinic migrates.
+2. **BC profile** — *closed.* This analysis was Ontario-first; the BC
+   manifest pass (§9a, M26-2) curated the Teleplan/MSP stack, the BC
+   billing core, WorkSafeBC and the BC form family against
+   `oscarinit_bc`/`oscardata_bc`, and a full BC rehearsal (P0–P7,
+   verification PASSED, `--cleanup`) promoted `bc` into
+   `SUPPORTED_PROVINCES`. One package carries a profile per province and
+   binds the host's; a province it does not carry is still a no-go.
 3. **`demographic.preferred_lang` and other mapped columns** — each needs a
    confirmed CARLOS destination during implementation, not assumed.
 4. **Encrypted casemgmt notes** — if the source site enabled note encryption,
@@ -721,7 +726,8 @@ the §6.1 gate in assessment mode at the clinic and is imported by carlos-ctl
 for import mode (column-level unknown detection activates when the schema
 manifest is passed). Verdict contract: exit 0 `go`, 1
 `go-with-acknowledgements` (each blocker names its `--accept` flag), 2
-`no-go` (LDAP, encrypted notes, BC, or unknowns needing classification);
+`no-go` (LDAP, encrypted notes, a province this build carries no
+rehearsed profile for, or unknowns needing classification);
 `--json` emits the machine report. The generator rewrites its embedded data
 block, and `test_preflight.py` (fake-SQL runner) plus a drift-lock
 test in `test_manifest_integrity.py` pin the behavior. B4 detection keys off
@@ -1135,8 +1141,14 @@ preflight emits.
 **All milestones complete.** The migrated-database UI smoke is now a
 committed suite (`npm run test:o19-migrated-smoke`, driven end to end by
 `scripts/migration/o19/rehearsal/ui-smoke.sh`) and runs green against a
-rehearsal migration. Next steps beyond this round: the BC manifest pass
-(§10.6) and the carlos-podman `import-o19` catch-up.
+rehearsal migration. The BC manifest pass (§10.6) is done: one package
+carries a manifest profile per province and binds the host's, the BC
+rulings are curated and pinned by the same integrity suite Ontario's are,
+and a full BC rehearsal (`build-o19-fixture.sh --province bc`, P0–P7 to a
+PASSED verification with row parity clean for 1196 tables and the MSP
+billing totals matching, then `--cleanup`) is what promoted `bc` into
+`SUPPORTED_PROVINCES`. Next step beyond this round: the carlos-podman
+`import-o19` catch-up.
 
 ## 10. Implementation work breakdown
 
@@ -1156,7 +1168,11 @@ instead). §9a records what was actually built.*
    report), `--dry-run`.
 5. End-to-end rehearsal against a seeded O19 test database built from the
    Bitbucket init scripts + demo data; then against a real anonymized clinic dump.
-6. BC manifest variant.
+6. BC manifest variant. *(Done — M26-2. Delivered as a second profile in
+   the same manifest module rather than a second module: debconf picks
+   the province at install time from one .deb, so the selection is a run
+   time one either way, and `bind()` plus the province assertion makes a
+   forgotten binding a refusal rather than a silent mis-migration.)*
 
 ---
 

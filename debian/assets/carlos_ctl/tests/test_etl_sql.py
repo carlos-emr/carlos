@@ -1217,10 +1217,67 @@ class TestArchivedColumns(unittest.TestCase):
         plan = o19etl.archived_column_plan(self.ENTRY, self.src_cols())
         stmts = o19etl.add_archived_column_statements("t", "carlos", plan,
                                                       {})
-        self.assertEqual(len(stmts), 2)
+        # ONE statement for the whole table: MySQL applies a multi-clause
+        # ALTER atomically, so a definition that cannot hold them all
+        # leaves the table exactly as it was rather than half-altered
+        self.assertEqual(len(stmts), 1)
+        self.assertEqual(stmts[0].count("ADD COLUMN"), len(plan))
+        self.assertTrue(stmts[0].startswith("ALTER TABLE `carlos`.`t` "))
         self.assertIn("ADD COLUMN `import_archived_legacyFlag` tinyint(1) "
                       "NULL COMMENT 'OSCAR 19 t.legacyFlag preserved by "
                       "import-o19'", stmts[0])
+
+    def test_a_table_ruled_twin_exempt_plans_nothing(self):
+        """The manifest can rule a table's live twins impossible -- its
+        definition has no room for another column. The plan going empty
+        is the WHOLE mechanism: the copy, the pre-check probe and both
+        halves of P7 read it, so none of them can disagree about whether
+        the columns exist."""
+        entry = dict(self.ENTRY, archive_twins=False)
+        self.assertEqual(
+            o19etl.archived_column_plan(entry, self.src_cols()), [])
+        self.assertEqual(
+            o19etl.add_archived_column_statements("t", "carlos", [], {}),
+            [])
+        self.assertIsNone(
+            o19etl.archived_twin_probe_sql("t", "carlos", [], {}))
+        # ...and the values still have a home: the dropped-column shadow
+        sql = o19etl.shadow_statements("t", entry, "stage", "arch",
+                                       self.src_cols())
+        self.assertTrue(any("__dropped" in x for x in sql))
+
+    def test_the_probe_asks_the_server_without_writing(self):
+        """A TEMPORARY table LIKE the target carries the real definition
+        and dies with the client invocation, so the pre-check gets the
+        server's own answer while writing nothing."""
+        plan = o19etl.archived_column_plan(self.ENTRY, self.src_cols())
+        sql = o19etl.archived_twin_probe_sql("t", "carlos", plan, {})
+        self.assertIn("CREATE TEMPORARY TABLE `carlos`.`__o19_twin_probe` "
+                      "LIKE `carlos`.`t`", sql)
+        self.assertEqual(sql.count("ADD COLUMN"), len(plan))
+        # never the live table
+        self.assertNotIn("ALTER TABLE `carlos`.`t`", sql)
+        # a column already present is not re-added, so a resume probes
+        # only what is left
+        self.assertIsNone(o19etl.archived_twin_probe_sql(
+            "t", "carlos", plan,
+            {t: {} for _s, t, _c in plan}))
+
+    def test_only_a_capacity_refusal_is_read_as_no_room(self):
+        class Err(Exception):
+            def __init__(self, text):
+                Exception.__init__(self, text)
+                self.stderr = text
+        self.assertTrue(o19etl.twin_capacity_error(
+            Err("ERROR 1117 (HY000) at line 1: Table definition is too "
+                "large")))
+        self.assertTrue(o19etl.twin_capacity_error(
+            Err("ERROR 1118 (42000): Row size too large")))
+        # a wrong statement is not a full table
+        self.assertFalse(o19etl.twin_capacity_error(
+            Err("ERROR 1146 (42S02): Table 'x.y' doesn't exist")))
+        self.assertFalse(o19etl.twin_capacity_error(
+            Err("ERROR 1045 (28000): Access denied")))
 
     def test_the_alter_carries_the_source_charset_and_collation(self):
         """A column CARLOS has no home for is preserved at the SOURCE's
@@ -1242,7 +1299,7 @@ class TestArchivedColumns(unittest.TestCase):
                                                       {})
         self.assertIn("ADD COLUMN `import_archived_vendorNote` text "
                       "CHARACTER SET latin1 COLLATE latin1_swedish_ci "
-                      "NULL COMMENT", stmts[1])
+                      "NULL COMMENT", stmts[0])
         # the row-width estimate still recognises the type under the
         # clause (it anchors at the start of the string); a 4-byte-per-
         # char over-measure of a latin1 VARCHAR is the safe direction

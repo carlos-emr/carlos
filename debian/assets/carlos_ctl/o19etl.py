@@ -1420,6 +1420,18 @@ def archived_column_plan(entry: dict, src_cols: Dict[str, dict]
     # name keeps the manifest's spelling so it is stable across dumps;
     # MySQL resolves the source column name case-insensitively either
     # way, so the emitted SQL is unaffected.
+    if entry.get("archive_twins") is False:
+        # The manifest rules this table's live twins impossible: its
+        # definition has no room for another column (see
+        # ARCHIVE_TWINS_EXEMPT in overrides_schema.py). Answered HERE
+        # rather than at each call site, so the copy, the pre-check
+        # probe and both halves of P7 agree by construction -- a check
+        # that modelled the exemption differently from the write would
+        # prove nothing. The values still reach o19_archive: the
+        # `<table>__dropped` shadow keeps every row whose value is not
+        # the column default, with the row's identifying columns beside
+        # it, and the archive CSV export is rendered from it.
+        return []
     lower = {c.lower(): (c, info) for c, info in src_cols.items()}
     out = []
     for col in sorted(set(entry.get("dropped", {}))
@@ -1597,6 +1609,46 @@ def oversized_rows(table: str, dst_cols: Dict[str, dict],
                     ", ".join(t for _s, t, _c in plan)))
 
 
+#: server refusals that mean "this table cannot take another column",
+#: as opposed to a statement that is wrong. 1117 is MySQL/MariaDB's
+#: table-definition ceiling (measured on MariaDB 10.11: a 1227-column
+#: MyISAM form took 169 more and refused the 170th); 1118 is the row-size
+#: one, which `oversized_rows` predicts arithmetically but which a
+#: charset or row format this tool did not model could still reach.
+TWIN_CAPACITY_ERRNOS = ("1117", "1118")
+
+
+def twin_capacity_error(exc) -> bool:
+    """Whether a server error says the table has no room for the
+    `import_archived_` columns (rather than that the SQL is wrong)."""
+    text = str(getattr(exc, "stderr", "") or exc)
+    return any("ERROR {0} ".format(n) in text for n in TWIN_CAPACITY_ERRNOS)
+
+
+def archived_twin_probe_sql(table: str, dst_schema: str,
+                            plan: Sequence[Tuple[str, str, str]],
+                            dst_cols: Dict[str, dict]) -> Optional[str]:
+    """Ask the SERVER whether this table can take its twins, changing
+    nothing.
+
+    A TEMPORARY table `LIKE` the target carries the real definition --
+    every column, charset and row format -- and lives only for the
+    connection that creates it, so a refusal leaves nothing behind and a
+    success writes nothing to clean up. Both statements go in ONE call
+    because each call is its own client invocation.
+
+    Modelling the ceiling instead would mean reimplementing MySQL's
+    table-definition arithmetic; the answer that matters is the one the
+    server will give when P4 runs the real ALTER."""
+    adds = archived_column_clauses(table, plan, dst_cols)
+    if not adds:
+        return None
+    probe = "__o19_twin_probe"
+    return ("CREATE TEMPORARY TABLE `{0}`.`{1}` LIKE `{0}`.`{2}`; "
+            "ALTER TABLE `{0}`.`{1}` {3}".format(
+                dst_schema, probe, table, ", ".join(adds)))
+
+
 def archived_column(col: str) -> str:
     """The live-schema column under which a source column is preserved."""
     return ARCHIVED_PREFIX + col
@@ -1648,14 +1700,30 @@ def add_archived_column_statements(table: str, dst_schema: str,
     resumed run a no-op rather than a duplicate-column error. The COMMENT
     is for the operator reading `SHOW CREATE TABLE` a year from now: it
     names the OSCAR 19 column the values came from."""
+    adds = archived_column_clauses(table, plan, dst_cols)
+    if not adds:
+        return []
+    # ONE statement, not one per column: MySQL applies a multi-clause
+    # ALTER atomically, so a table whose definition cannot hold them all
+    # is left exactly as it was. Adding them one at a time took a live
+    # BC formRourke2009 to 169 orphan `import_archived_` columns and no
+    # data before the server refused the 170th.
+    return ["ALTER TABLE `{0}`.`{1}` {2}".format(
+        dst_schema, table, ", ".join(adds))]
+
+
+def archived_column_clauses(table: str,
+                            plan: Sequence[Tuple[str, str, str]],
+                            dst_cols: Dict[str, dict]) -> List[str]:
+    """The `ADD COLUMN` clauses for the twins not already present."""
     out = []
     for src_col, target, coltype in plan:
         if target in dst_cols:
             continue
         out.append(
-            "ALTER TABLE `{0}`.`{1}` ADD COLUMN `{2}` {3} NULL COMMENT "
-            "'OSCAR 19 {1}.{4} preserved by import-o19'".format(
-                dst_schema, table, target, coltype, src_col))
+            "ADD COLUMN `{0}` {1} NULL COMMENT "
+            "'OSCAR 19 {2}.{3} preserved by import-o19'".format(
+                target, coltype, table, src_col))
     return out
 
 
@@ -2316,7 +2384,10 @@ def etl_precheck_problems(ctx, plain, query, src_schema: str,
 
     Read-only by contract -- it counts and introspects, never writes,
     because the pristine-target guarantee P0 established still holds
-    while it runs.
+    while it runs. The one apparent exception, `twin_capacity_problems`,
+    keeps it: its probe is a TEMPORARY table, which lives and dies with
+    the client invocation that creates it and is invisible to every
+    other connection and to the schema.
     """
     from . import o19roles  # imports this module; resolved lazily
     src, arch = src_schema, arch_schema
@@ -2451,6 +2522,57 @@ def etl_precheck_problems(ctx, plain, query, src_schema: str,
             wide = oversized_rows(table, dst_info[table], plans[table])
             if wide:
                 problems.append(wide)
+    problems.extend(twin_capacity_problems(
+        query, ctx["target_db"], plans, dst_info))
+    return problems
+
+
+def twin_capacity_problems(query, dst_schema: str,
+                           plans: Dict[str, list],
+                           dst_info: Dict[str, Dict[str, dict]]
+                           ) -> List[str]:
+    """Ask the server, before the first write, whether every table can
+    actually take its `import_archived_` columns.
+
+    `oversized_rows` predicts one ceiling arithmetically. It is not the
+    only one: a BC clinic's formRourke2009 adds 288 narrow columns to a
+    1227-column table -- nowhere near the row-byte limit -- and the
+    server refuses on the TABLE DEFINITION size instead, part-way
+    through, after the live table has already taken 169 of them.
+
+    A table the manifest rules twin-exempt has an empty plan and never
+    reaches here, which is the point: the exemption is a curated ruling,
+    and every OTHER table that will not fit is refused rather than
+    quietly demoted to shadow-only preservation."""
+    problems: List[str] = []
+    for table in sorted(plans):
+        if table not in dst_info:
+            continue
+        sql = archived_twin_probe_sql(table, dst_schema, plans[table],
+                                      dst_info[table])
+        if sql is None:
+            continue
+        try:
+            query(sql)
+        except Exception as exc:                      # noqa: BLE001
+            if twin_capacity_error(exc):
+                problems.append(
+                    "{0}: the target table cannot take the {1} "
+                    "`import_archived_` column(s) this import would add "
+                    "to it -- the server refuses the definition ({2}). "
+                    "Nothing has been written. Either narrow or remove "
+                    "these columns in the source and re-export, or add "
+                    "the table to ARCHIVE_TWINS_EXEMPT in "
+                    "overrides_schema.py and regenerate, which preserves "
+                    "its values in o19_archive only and says so in the "
+                    "report.".format(
+                        table, len(plans[table]),
+                        _query_reason(exc)))
+            else:
+                problems.append(
+                    "{0}: the `import_archived_` columns could not be "
+                    "checked against the target ({1})".format(
+                        table, _query_reason(exc)))
     return problems
 
 
@@ -2527,6 +2649,7 @@ class EtlRun(object):
         self.reference_lines = kept.setdefault("reference", [])
         self.merge_lines = kept.setdefault("merge", [])
         self.archived_col_lines = kept.setdefault("archived_cols", [])
+        self.twin_exempt_lines = kept.setdefault("twin_exempt", [])
         self.shadow_notes = kept.setdefault("shadow", [])
 
 
@@ -2639,6 +2762,28 @@ def etl_archived_columns(run: 'EtlRun', table: str, entry: dict,
     state_dir, progress = run.state_dir, run.progress
     src_info = run.src_info
     archived_col_lines = run.archived_col_lines
+    if entry.get("archive_twins") is False:
+        # the manifest rules this table's live twins impossible. Say so
+        # HERE rather than letting the report simply not mention it: an
+        # operator reading "columns preserved on the live table" and not
+        # finding this one would reasonably conclude nothing was dropped
+        # from it.
+        missing = sorted(set(entry.get("dropped", {}))
+                         | set(unknown_columns(entry, src_info[table])))
+        if missing and not tstate.get("twin_exempt_reported"):
+            # named, but not all 288 of them on one line: the archive
+            # table is the list, and a report an operator cannot read is
+            # not a report
+            shown = ", ".join(missing[:8])
+            if len(missing) > 8:
+                shown += ", ... ({0} more)".format(len(missing) - 8)
+            run.twin_exempt_lines.append(
+                "{0}: {1} column(s), preserved in `o19_archive`.`{0}"
+                "__dropped` only -- {2}".format(table, len(missing),
+                                                shown))
+            tstate["twin_exempt_reported"] = True
+            save_progress(run.state_dir, run.progress)
+        return entry
     col_plan = archived_column_plan(entry, src_info[table])
     if col_plan:
         for sql in add_archived_column_statements(
@@ -3073,6 +3218,18 @@ def report_etl_findings(run: 'EtlRun') -> None:
         report("columns CARLOS has no home for, preserved on the live "
                "table (source type and value kept verbatim):\n  "
                + "\n  ".join(archived_col_lines))
+    twin_exempt_lines = run.twin_exempt_lines
+    if twin_exempt_lines:
+        report("columns preserved in o19_archive ONLY. The live table "
+               "cannot take another column -- MySQL's table-definition "
+               "ceiling -- so these have no `import_archived_` twin "
+               "beside the row. Their values are in the "
+               "`<table>__dropped` capture in o19_archive (every row "
+               "whose value is not the column default, with the row's "
+               "identifying columns beside it) and in the archive CSV "
+               "export made from it; a row where all of them held the "
+               "default carries nothing to preserve:\n  "
+               + "\n  ".join(twin_exempt_lines))
     if shadow_notes:
         report("dropped-column capture:\n  " + "\n  ".join(shadow_notes))
     if merge_lines:

@@ -21027,13 +21027,17 @@ SEED_ROW_COUNTS = {
     'validations': 17,
 }
 
-# copy-class tables the P0 pristine sweep tolerates rows in (all REPLACE_SEED)
+# copy-class tables the P0 pristine sweep tolerates rows in: all REPLACE_SEED,
+# and all with a row count the deploy produces that no static count of the Flyway
+# migrations can predict (a seed written as INSERT ... SELECT, or rows the
+# webapp writes on first start). Per province, because a seed that is
+# uncountable in one province's migration set may be a literal in another's.
 PRISTINE_TOLERATED_TABLES = ['log']
 
 # provinces this build will RUN, not merely carry a profile for. A profile becomes
 # supported once a full rehearsal of that province has passed P0-P7; until then
 # the import and preflight gates refuse the host and say why.
-SUPPORTED_PROVINCES = ['on']
+SUPPORTED_PROVINCES = ['on', 'bc']
 
 # tables the import cannot run without (o19etl pre-checks and the roles step)
 REQUIRED_TABLES = [
@@ -22502,7 +22506,7 @@ PRIMITIVE_COLUMNS = {
 # differs between provinces is repeated here.
 PROFILES = {
     'bc': {
-        'SCHEMA_MAP_VERSION': 'o19map-2+9134992a',
+        'SCHEMA_MAP_VERSION': 'o19map-2+4a2a8ab1',
         'O19_PROFILE': 'bc',
         'TABLES': {
             'AppDefinition': {
@@ -33063,6 +33067,7 @@ PROFILES = {
             },
             'formRourke2009': {
                 'class': 'copy',
+                'archive_twins': False,
                 'cols': [
                     'ID',
                     'demographic_no',
@@ -38084,6 +38089,7 @@ PROFILES = {
             },
             'serviceSpecialists': {
                 'class': 'copy',
+                'replace_seed': True,
                 'cols': ['serviceId', 'specId'],
                 'fk_remap': {
                     'serviceId': 'consultationServices',
@@ -54268,6 +54274,7 @@ PROFILES = {
             'waitingList': ['demographic_no', 'listID', 'position'],
             'wcb': ['ID', 'billing_no', 'demographic_no', 'formNeeded', 'provider_no', 'w_duration'],
         },
+        'PRISTINE_TOLERATED_TABLES': ['log', 'serviceSpecialists'],
     },
 }
 
@@ -54285,6 +54292,7 @@ _PROFILE_NAMES = [
     'SEED_ROW_COUNTS',
     'STOCK_ROLE_NAMES',
     'PRIMITIVE_COLUMNS',
+    'PRISTINE_TOLERATED_TABLES',
 ]
 _DEFAULT_PROFILE = dict((n, globals()[n]) for n in _PROFILE_NAMES)
 

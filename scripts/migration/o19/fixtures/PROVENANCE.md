@@ -31,19 +31,34 @@ content (clearly-fake values only — no real clinic or patient data):
   fixture dump itself is not byte-reproducible (the upstream seed writes
   NOW() values and mysqldump stamps its completion time), nor are the
   bundles that embed it — only the documents tar is.
+- `demo-data/clinical-on.sql`, `demo-data/clinical-bc.sql` — the
+  provincial half of the same dataset, split out when the fixture became
+  province-aware: neither province's billing tables exist in the other's
+  OSCAR 19 database, so a shared file cannot load into both. Ontario adds
+  the OHIP claim headers and items; BC adds the MSP claims and their
+  `billingmaster` service lines, a WorkSafeBC report, a BCAR antenatal
+  form, one clinic-added `billingvisit` type (which is what the merge
+  ruling has to append past the CARLOS seed's 21) and a `formRourke2009`
+  record whose BC-only columns hold answers — that last one because those
+  288 columns are preserved in `o19_archive` only (see
+  `ARCHIVE_TWINS_EXEMPT`), a capture that records non-default rows, so
+  without a row that answers some of them the rehearsal would exercise
+  the ruling while preserving nothing. Amounts differ between the two
+  claims and are not round, so a totals aggregate that dropped a row,
+  double-counted one or summed the wrong column cannot still match.
 - `demo-data/clinical.sql` — synthetic clinical rows the vendored dataset
   does not carry, and the three text encodings the import's charset path
   exists for. The vendored file populates demographics, labs, drugs,
   preventions and messages and nothing else, so eight of the fourteen
-  chunked tables, the whole Ontario billing copy, the tickler zero-date
+  chunked tables, the provincial billing copy paths, the tickler zero-date
   `value_exprs`, the `fk_remap` indirection through an appended merge
   parent and every `CHARSET_SCAN` column were unexercised by the
   rehearsal. This file adds encounter notes (`casemgmt_note`,
   `casemgmt_note_ext`, `casemgmt_issue`), appointments, ticklers on both
   branches of the `creation_date` expression (a zero `update_date`, and
   a row where both candidate dates are absent), a clinic-defined
-  consultation service with two requests that reference it, Ontario
-  billing headers and items, allergies and a custom demographic sheet.
+  consultation service with two requests that reference it, allergies and
+  a custom demographic sheet.
   Two invented patients carry accented names — one correctly encoded, one
   deliberately double-encoded (`Ã©` for `é`) so the per-row repair and
   the `charset-repair` sign-off are actually exercised. Every value is

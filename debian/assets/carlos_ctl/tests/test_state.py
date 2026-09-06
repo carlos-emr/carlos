@@ -1247,7 +1247,7 @@ class TestCleanupEndToEnd(unittest.TestCase):
                 mock.patch.object(o19import, "make_query",
                                   lambda a: self.query), \
                 mock.patch.object(o19import, "_target_db",
-                                  lambda dev: "carlos"):
+                                  lambda dev, name=None: "carlos"):
             ctx = o19import._make_ctx_for_cleanup(args)
         ctx.update(over)
         return ctx
@@ -3767,6 +3767,43 @@ class TestProcessGrantState(unittest.TestCase):
                      [], None):
             self.assertEqual(o19import.process_grant_state(rows),
                              "unknown", repr(rows))
+
+
+class TestTheDevelopmentTargetSchema(unittest.TestCase):
+
+    """`--dev-target-db`: which CARLOS schema a development run writes.
+
+    It exists so two provinces can be rehearsed on one development
+    server -- the BC rehearsal that promotes a profile must not destroy
+    the Ontario target the UI smoke runs against. It names the schema
+    every phase writes, so it is refused wherever the target is not the
+    operator's to choose."""
+
+    def test_the_deployment_default_stands_when_none_is_given(self):
+        self.assertEqual(o19import._target_db(True), "oscar")
+        self.assertEqual(o19import._target_db(True, None), "oscar")
+
+    def test_a_named_schema_is_used(self):
+        self.assertEqual(o19import._target_db(True, "oscar_bc"), "oscar_bc")
+
+    def test_it_is_refused_on_a_packaged_host(self):
+        # there CARLOS_DB_NAME decides, and the stock-deploy gate has no
+        # override
+        refusal = o19import.dev_target_db_refusal("x", True, True)
+        self.assertIn("packaged host", refusal)
+
+    def test_it_needs_the_dev_target_flag(self):
+        refusal = o19import.dev_target_db_refusal("x", False, False)
+        self.assertIn("--dev-target", refusal)
+
+    def test_a_name_that_is_not_a_schema_name_is_refused(self):
+        # it is interpolated as an identifier into every phase's SQL
+        for bad in ("a b", "a`b", "a;DROP", "a-b", ""):
+            self.assertIsNotNone(
+                o19import.dev_target_db_refusal(bad, True, False), bad)
+
+    def test_nothing_is_refused_when_it_is_not_used(self):
+        self.assertIsNone(o19import.dev_target_db_refusal(None, False, True))
 
 
 class TestVerifyPhaseFilesBC(TestVerifyPhaseFiles):

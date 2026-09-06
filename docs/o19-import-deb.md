@@ -65,7 +65,11 @@ Exit 0 = go. Exit 1 = go, once the listed `--accept` sign-offs are agreed
 with the clinic (data in removed modules becomes archive-only). Exit 2 =
 no-go until remediated — notably **LDAP authentication** (CARLOS has none;
 provision local credentials first), **password-protected casemgmt notes**,
-and the not-yet-curated **BC** profile. The report doubles as the
+and a province this build carries no rehearsed profile for. Ontario and
+British Columbia are both supported: one package carries a manifest
+profile per province and binds the host's, and the assessment refuses a
+host whose province the build does not carry (or carries but has not
+rehearsed end to end). The report doubles as the
 clinic-facing feasibility statement: what migrates, what becomes
 archive-only (OLIS, form modules that were removed, antenatal ONAR forms),
 and what must be decided before cutover.
@@ -439,8 +443,10 @@ dump, insufficient disk — never a verdict code); it records no verdict and
 no sign-off, and refuses a workspace whose import is in progress.
 `--province` may only restate the host's configured province: a value that
 differs from `/etc/carlos-emr/carlos-emr.env` is refused before anything is
-staged. On a host configured for BC the assessment stages first and then
-reports the province as a no-go.
+staged. The province selects the manifest profile the assessment reads —
+which table is copied, which column is dropped, which rows count as
+patient data were all decided against ONE province's CARLOS schema — and
+a province the build carries no profile for is a no-go with no `--accept`.
 
 Invoke it the same way as the import, minus the writing flags:
 

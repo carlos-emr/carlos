@@ -1124,6 +1124,17 @@ class TableRules(object):
             set(getattr(ov, "ARCHIVE_SHARED", ())), "ARCHIVE_SHARED")
         self.replace_seed = keep(
             set(getattr(ov, "REPLACE_SEED", ())), "REPLACE_SEED")
+        # per-province like the buckets above: a table whose seed one
+        # province produces by INSERT ... SELECT is exactly countable
+        # (and so not tolerated) in another
+        self.pristine_tolerated = keep(
+            set(getattr(ov, "PRISTINE_TOLERATED_TABLES", ())),
+            "PRISTINE_TOLERATED_TABLES")
+        # tables whose dropped columns are preserved in o19_archive only,
+        # because the live table cannot take another column
+        self.archive_twins_exempt = keep(
+            set(getattr(ov, "ARCHIVE_TWINS_EXEMPT", ())),
+            "ARCHIVE_TWINS_EXEMPT")
         self.archive_patient = keep(set(ov.ARCHIVE_PATIENT),
                                     "ARCHIVE_PATIENT")
         self.archive_other = keep(set(ov.ARCHIVE_OTHER), "ARCHIVE_OTHER")
@@ -1197,6 +1208,13 @@ def _shared_table_class(t, carlos, r):
         entry["class"] = "copy"
         if t in replace_seed:
             entry["replace_seed"] = True
+    if t in r.archive_twins_exempt:
+        # requirement B's column half cannot be done here: the live table
+        # has no room for another column. The ETL reads this ONE flag --
+        # archived_column_plan returns nothing for the table -- so the
+        # copy, both P7 checks and the pre-check probe all agree without
+        # a second rule anywhere.
+        entry["archive_twins"] = False
     return entry
 
 
@@ -1754,10 +1772,18 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
                " migrations may also grow via\n# INSERT ... SELECT, which no"
                " static count can see; clinical data never lives there.")
     out.append("SEED_ROW_COUNTS = " + _fmt(seeded) + "\n")
-    out.append("# copy-class tables the P0 pristine sweep tolerates rows "
-               "in (all REPLACE_SEED)")
+    out.append("# copy-class tables the P0 pristine sweep tolerates rows"
+               " in: all REPLACE_SEED,\n# and all with a row count the"
+               " deploy produces that no static count of the Flyway\n#"
+               " migrations can predict (a seed written as INSERT ..."
+               " SELECT, or rows the\n# webapp writes on first start)."
+               " Per province, because a seed that is\n# uncountable in"
+               " one province's migration set may be a literal in"
+               " another's.")
     out.append("PRISTINE_TOLERATED_TABLES = "
-               + _fmt(list(ov.PRISTINE_TOLERATED_TABLES)) + "\n")
+               + _fmt(sorted(TableRules(
+                   ov, extras.get("province", "on")).pristine_tolerated))
+               + "\n")
     out.append("# provinces this build will RUN, not merely carry a"
                " profile for. A profile becomes\n# supported once a full"
                " rehearsal of that province has passed P0-P7; until then"
@@ -1828,7 +1854,7 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
 #: is a curated overlay list that holds for every profile.
 PROFILE_NAMES = ("SCHEMA_MAP_VERSION", "O19_PROFILE", "TABLES",
                  "CARLOS_COLUMNS", "SEED_ROW_COUNTS", "STOCK_ROLE_NAMES",
-                 "PRIMITIVE_COLUMNS")
+                 "PRIMITIVE_COLUMNS", "PRISTINE_TOLERATED_TABLES")
 
 #: `bind()`, appended verbatim to the generated module. One package
 #: serves both provinces (debconf picks one at install time from the same
@@ -1893,6 +1919,8 @@ def _profiles_block(ov, extras, profiles) -> str:
             "STOCK_ROLE_NAMES": data["stock_role_names"],
             "PRIMITIVE_COLUMNS": primitive_columns(
                 copy_tables, data["carlos"], p_extras),
+            "PRISTINE_TOLERATED_TABLES": sorted(
+                TableRules(ov, province).pristine_tolerated),
         }
         out.append("    {0!r}: {{".format(province))
         for name in PROFILE_NAMES:

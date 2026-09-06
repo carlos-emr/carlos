@@ -770,6 +770,18 @@ class TestOverlayRulingsReachTheManifest(unittest.TestCase):
                    if e.get("fk_remap"))
         self.assertEqual(got, want, self.stale("FK_REMAP"))
 
+    def test_pristine_tolerations_are_the_provinces_tolerations(self):
+        # every tolerated table must exist in this profile and be
+        # copy-class: the sweep it exempts only looks at copy tables, so
+        # a name that is not one is an exemption that does nothing
+        want = sorted(self.rules.pristine_tolerated)
+        got = sorted(profile_data(
+            self.PROVINCE)["PRISTINE_TOLERATED_TABLES"])
+        self.assertEqual(got, want,
+                         self.stale("PRISTINE_TOLERATED_TABLES"))
+        for table in got:
+            self.assertEqual(self.tables[table]["class"], "copy", table)
+
     def test_merge_exclusions_are_the_overlay_exclusions(self):
         want = dict((t, w) for t, w in self.rules.merge_exclude.items()
                     if t in self.tables)
@@ -779,7 +791,11 @@ class TestOverlayRulingsReachTheManifest(unittest.TestCase):
 
     def test_verbatim_overlay_constants_are_copied_through(self):
         # these are emitted unchanged, so equality is the whole contract
-        for name in ("CREDENTIAL_TABLES", "PRISTINE_TOLERATED_TABLES",
+        # PRISTINE_TOLERATED_TABLES is NOT here: it became per-province
+        # when a BC seed written as INSERT ... SELECT turned out to be
+        # uncountable, and it is checked against the province's resolved
+        # rules below instead
+        for name in ("CREDENTIAL_TABLES",
                      "ROLE_TEMPLATE_MIN_JACCARD", "STARTUP_CREATED_ROWS",
                      "REQUIRED_TABLES", "CARLOSDOC_SEED_DELETES",
                      "SEED_PROVIDER_NO", "SEED_USER_NAME"):
@@ -859,6 +875,27 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
         for table in ("formBCAR", "formBCAR2007"):
             self.assertEqual(self.tables[table]["class"], "copy", table)
             self.assertFalse(self.tables[table].get("patient_data"), table)
+
+    def test_the_uncountable_join_seed_is_tolerated_and_replaced(self):
+        """`serviceSpecialists` is seeded by an INSERT ... SELECT.
+
+        V1.0.6 resolves professionalSpecialists.specType through
+        consultationServices.serviceDesc, so the generator's count of
+        literal VALUES tuples sees nothing while a stock BC deploy holds
+        14209 rows. P0 requires a copy table to hold EXACTLY the seed
+        count, so it refused every BC host with a blocker that has no
+        --accept -- which the first BC rehearsal hit before any clinic
+        could. Tolerated for the same reason `log` is, and replaced
+        because its rows pair with professionalSpecialists' seed, which
+        the import deletes."""
+        self.assertIn("serviceSpecialists",
+                      self.data["PRISTINE_TOLERATED_TABLES"])
+        self.assertTrue(
+            self.tables["serviceSpecialists"].get("replace_seed"))
+        # and the Ontario profile does NOT tolerate it: there the table
+        # is empty and an exact count is the stronger check
+        self.assertNotIn("serviceSpecialists",
+                         profile_data("on")["PRISTINE_TOLERATED_TABLES"])
 
     def test_the_bc_reference_catalogs_do_not_duplicate_the_seed(self):
         """Four BC-seeded catalogs that a plain copy would have wrecked.

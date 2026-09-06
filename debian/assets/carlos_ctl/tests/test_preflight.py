@@ -575,22 +575,28 @@ class TestVerdicts(unittest.TestCase):
         refusals are deliberately distinguishable: one says the wrong
         manifest is installed, this one says the right manifest has not
         been rehearsed."""
-        unsupported = [p for p in sorted(pf.PROFILES)
-                       if p not in pf.SUPPORTED_PROVINCES]
-        if not unsupported:
-            self.skipTest("every carried profile is supported")
         default = pf._DEFAULT_PROFILE["O19_PROFILE"]
+        carried = [p for p in sorted(pf.PROFILES) if p != default]
+        self.assertTrue(carried, "only one profile shipped")
+        province = carried[0]
+        original = pf.SUPPORTED_PROVINCES
         try:
+            # every carried profile is supported today, so the gap is
+            # made rather than waited for: a profile is CARRIED from the
+            # day its rulings are curated and SUPPORTED only after a
+            # rehearsal, and this is the window between the two
+            pf.SUPPORTED_PROVINCES = (default,)
             report = pf.run_checks(FakeDb(base_tables()),
                                    properties=clean_props(),
-                                   province=unsupported[0])
+                                   province=province)
         finally:
+            pf.SUPPORTED_PROVINCES = original
             pf.bind(default)
         self.assertEqual(report["verdict"], "no-go")
         blocker = next(f for f in report["findings"]
                        if f["id"] == "province")
         self.assertIn("rehearsal", blocker["title"])
-        self.assertIn(unsupported[0], blocker["title"])
+        self.assertIn(province, blocker["title"])
         # and it is NOT the mismatched-manifest refusal
         self.assertNotIn("curated", blocker["title"])
 

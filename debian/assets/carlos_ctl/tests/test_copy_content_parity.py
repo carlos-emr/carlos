@@ -396,5 +396,46 @@ class TestTheDriverCollectsKeys(unittest.TestCase):
         self.assertEqual(details, [])
 
 
+class TestATableRuledTwinExempt(unittest.TestCase):
+
+    """P7 must read the exemption the same way P4 wrote it.
+
+    `archived_column_plan` is the ONE place that answers "does this table
+    get live `import_archived_` columns". P7 folds the plan into the
+    entry before building its value check, so a check that resolved the
+    exemption anywhere else -- or not at all -- would name columns the
+    ALTER never created and report every row of the table as a
+    mismatch."""
+
+    ENTRY = {
+        "class": "copy", "cols": ["id"],
+        "dropped": {"programNo": {"nondefault": "s.`programNo` <> 0"}},
+    }
+    SRC = {"id": {"type": "int", "column_type": "int(10)",
+                  "nullable": False},
+           "programNo": {"type": "int", "column_type": "int(10)",
+                         "nullable": True}}
+
+    def test_the_plan_is_what_both_halves_read(self):
+        plan = o19etl.archived_column_plan(self.ENTRY, self.SRC)
+        self.assertEqual([t for _s, t, _c in plan],
+                         ["import_archived_programNo"])
+        exempt = dict(self.ENTRY, archive_twins=False)
+        self.assertEqual(
+            o19etl.archived_column_plan(exempt, self.SRC), [])
+
+    def test_the_folded_entry_names_no_column_that_was_not_added(self):
+        exempt = dict(self.ENTRY, archive_twins=False)
+        folded = o19etl.with_archived_columns(
+            exempt, o19etl.archived_column_plan(exempt, self.SRC))
+        self.assertEqual(folded["cols"], ["id"])
+        self.assertNotIn("archived_cols", folded)
+        # ...and without the ruling it does name it, so the assertion
+        # above is about the ruling and not about an empty entry
+        folded = o19etl.with_archived_columns(
+            self.ENTRY, o19etl.archived_column_plan(self.ENTRY, self.SRC))
+        self.assertIn("import_archived_programNo", folded["cols"])
+
+
 if __name__ == "__main__":
     unittest.main()
