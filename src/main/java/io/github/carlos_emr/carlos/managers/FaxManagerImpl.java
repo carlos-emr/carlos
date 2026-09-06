@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
@@ -180,6 +181,24 @@ public class FaxManagerImpl implements FaxManager {
         if (doc == null) {
             logger.error("renderDocument: document not found for documentNo={}", documentNo);
             return null;
+        }
+
+        // The privilege check above authorises the caller for the demographic they SENT. It says
+        // nothing about whether this document belongs to that patient, so without this a caller
+        // authorised for patient A could name patient B's documentNo and receive its path. The
+        // document's own module link is the authority; the request parameter is not.
+        String moduleId = StringUtils.trimToNull(doc.getModuleId());
+        if (moduleId != null && !"0".equals(moduleId) && !"-1".equals(moduleId)) {
+            try {
+                int documentDemographicNo = Integer.parseInt(moduleId);
+                if (documentDemographicNo != demographicNo) {
+                    logger.error("renderDocument: refusing documentNo={} which is not linked to the requested patient",
+                            documentNo);
+                    return null;
+                }
+            } catch (NumberFormatException e) {
+                // A non-numeric module id means the document is not patient-linked.
+            }
         }
 
         String filePath = doc.getFilePath();

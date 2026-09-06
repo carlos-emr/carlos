@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.fax.action;
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
-import java.io.ByteArrayOutputStream;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 
@@ -978,6 +977,14 @@ public class Fax2Action extends ActionSupport {
             throw new IllegalArgumentException("Document not found");
         }
 
+        // FaxDocument2Action refuses non-PDFs before redirecting here, but prepareFax is a
+        // route in its own right: a caller can reach it directly with
+        // transactionType=DOCUMENT and skip that gate. The pipeline can only send PDFs, so
+        // the check has to live where the file actually enters it.
+        if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(doc.getContentType()))) {
+            throw new IllegalArgumentException("Only PDF documents can be faxed directly");
+        }
+
         String moduleId = StringUtils.trimToNull(doc.getModuleId());
         if (moduleId != null && !"0".equals(moduleId) && !"-1".equals(moduleId)) {
             try {
@@ -1000,23 +1007,40 @@ public class Fax2Action extends ActionSupport {
         File stored = PathValidationUtils.validateExistingPath(
                 new File(documentDir, doc.getFileName()), documentDir);
 
-        try (java.io.InputStream in = Files.newInputStream(stored.toPath());
-             ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
-            in.transferTo(buffer);
-            return nioFileManager().createTempFile(doc.getFileName(), buffer);
-        }
+        // Streamed file-to-file. Buffering the document first cost twice its size in heap per
+        // concurrent preview, which repeated previews of large scans can exhaust.
+        return nioFileManager().createTempFileFrom(doc.getFileName(), stored.toPath());
     }
 
     /**
      * Requires the {@code faxFilePath} submitted with a DOCUMENT fax to be one this session
-     * staged in {@link #stageDocumentForFax}. Without this, {@code queue()} accepted any
-     * readable path inside the document store, so a caller with fax rights could name
-     * another patient's document.
+     * staged in {@link #stageDocumentForFax}, AND the submitted {@code demographicNo} to still
+     * match the document's own patient binding.
+     *
+     * <p>Without the path claim, {@code queue()} accepted any readable path inside the document
+     * store, so a caller with fax rights could name another patient's document.
+     *
+     * <p>The path claim alone is not enough. {@code queue()} is a separate, later request than
+     * {@code prepareFax}, and the cover-page form carries its own {@code demographicNo}: a
+     * client could stage its own document legitimately and then submit the claimed path with a
+     * different patient, filing the fax against the wrong chart. The document can also be
+     * re-linked in the gap between the two requests. So the binding is re-derived from the
+     * document here, exactly as {@link #revalidateEformBindingBeforePromotion} does for eForms,
+     * rather than trusted from the form.
      */
     private void revalidateDocumentClaimBeforePromotion() {
         String claimed = consumeClaimedFaxFilePathFromSession();
         if (claimed != null && claimed.equals(faxFilePath)) {
-            return;
+            String rejection = documentPatientRebindingRejection();
+            if (rejection == null) {
+                return;
+            }
+            logger.warn("Rejected fax promotion: document {} no longer belongs to the demographic "
+                    + "submitted with the fax job", transactionId);
+            deleteRejectedClaimedFaxFile(claimed);
+            addActionError(rejection);
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            throw new SecurityException("The document no longer belongs to this patient");
         }
         logger.warn("Rejected fax promotion: document fax path was not staged by this session");
         if (claimed != null) {
@@ -1025,6 +1049,39 @@ public class Fax2Action extends ActionSupport {
         addActionError("This fax is no longer available to send. Open the document and try again.");
         request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
         throw new SecurityException("Unclaimed fax file path for document promotion");
+    }
+
+    /**
+     * @return a user-facing reason the DOCUMENT promotion must be refused, or {@code null} when
+     *         the submitted patient still agrees with the document's own binding. An unlinked
+     *         document (module id absent, {@code 0} or {@code -1}) has no binding to contradict.
+     */
+    private String documentPatientRebindingRejection() {
+        if (transactionId == null) {
+            return null;
+        }
+        EDoc doc = EDocUtil.getDoc(String.valueOf(transactionId.intValue()));
+        if (doc == null) {
+            return "This document is no longer available to send.";
+        }
+        String moduleId = StringUtils.trimToNull(doc.getModuleId());
+        if (moduleId == null || "0".equals(moduleId) || "-1".equals(moduleId)) {
+            return null;
+        }
+        int documentDemographicNo;
+        try {
+            documentDemographicNo = Integer.parseInt(moduleId);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(
+                LoggedInInfo.getLoggedInInfoFromSession(request), documentDemographicNo)) {
+            return "You are not permitted to send this document.";
+        }
+        if (demographicNo != null && demographicNo != documentDemographicNo) {
+            return "This document no longer belongs to this patient.";
+        }
+        return null;
     }
 
     private void recordClaimedFaxFilePathInSession(Path claimedPath) {

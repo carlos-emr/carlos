@@ -43,12 +43,6 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Saves a provider's annotations as a <strong>new</strong> document in the chart.
@@ -161,9 +155,11 @@ public class AnnotatedDocumentService {
 
         Path readOnlyCopy = createPrivateWorkingCopy();
         byte[] composed;
+        int actualPageCount;
         try {
             Files.copy(sourceFile.toPath(), readOnlyCopy,
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            actualPageCount = assertPageCountWithinLimit(readOnlyCopy);
             composed = composeBounded(readOnlyCopy, annotations,
                     signatureFor(loggedInInfo.getLoggedInProviderNo()), fontPath());
         } finally {
@@ -176,7 +172,7 @@ public class AnnotatedDocumentService {
         int newDocNo;
         try {
             newDocNo = Integer.parseInt(EDocUtil.addDocumentSQL(buildCopy(source, newFileName,
-                    loggedInInfo.getLoggedInProviderNo(), sourceDocNo)));
+                    loggedInInfo.getLoggedInProviderNo(), sourceDocNo, actualPageCount)));
         } catch (RuntimeException e) {
             // The row is the thing that makes the file reachable; without it the bytes are
             // unreferenced PHI sitting in the document store.
@@ -193,38 +189,57 @@ public class AnnotatedDocumentService {
     }
 
     /**
-     * Runs composition on its own thread with a hard deadline. A crafted PDF can drive a
-     * parser into pathological work; without a ceiling that consumes a request thread
-     * indefinitely.
+     * Runs composition under the package's hard deadline. A crafted PDF can drive a parser into
+     * pathological work; without a ceiling that consumes a request thread indefinitely.
      */
     private byte[] composeBounded(Path source, List<DocumentAnnotationDto> annotations,
                                   Path signature, Path font) throws IOException {
-        try (ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread t = new Thread(runnable, "annotated-document-composer");
-            t.setDaemon(true);
-            return t;
-        })) {
-            Callable<byte[]> task = () -> composer.compose(source, annotations, signature, font);
-            Future<byte[]> future = executor.submit(task);
-            try {
-                return future.get(COMPOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (TimeoutException e) {
-                future.cancel(true);
-                throw new IOException("Composing the annotated document took too long.");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Composing the annotated document was interrupted.");
-            } catch (java.util.concurrent.ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof IOException io) {
-                    throw io;
-                }
-                if (cause instanceof RuntimeException re) {
-                    throw re;
-                }
-                throw new IOException("The annotated document could not be composed.");
-            }
+        return BoundedPdfTask.runWithin(COMPOSE_TIMEOUT_SECONDS, "annotated-document-composer",
+                () -> composer.compose(source, annotations, signature, font));
+    }
+
+    /**
+     * Reads a stored document's true page count, bounded like every other parse of untrusted
+     * input.
+     *
+     * <p>Static because the view gate needs the number before it has any reason to build a
+     * composing service; it resolves the file through the same validated document directory
+     * the save path uses.
+     *
+     * @return the page count, or 0 when the row names no file
+     * @throws IOException if the document cannot be opened within the deadline
+     */
+    public static int pageCountOf(EDoc doc) throws IOException {
+        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
+            return 0;
         }
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getDocumentDirectory(), DOCUMENT_DIR_LABEL);
+        File file = PathValidationUtils.validateExistingPath(
+                new File(documentDir, doc.getFileName()), documentDir);
+        AnnotatedDocumentComposer probe = new AnnotatedDocumentComposer();
+        return BoundedPdfTask.runWithin(COMPOSE_TIMEOUT_SECONDS, "annotated-document-pagecount",
+                () -> probe.pageCount(file.toPath()));
+    }
+
+    /**
+     * Enforces the page ceiling against the FILE, not against the {@code document} row.
+     *
+     * <p>The row's page count is metadata: legacy rows carry zero and a row can drift from the
+     * file it names, so a check against it can be satisfied by a document that is far longer.
+     * The real count also becomes the copy's own page count, so the new row is not born holding
+     * the same wrong number.
+     *
+     * @return the document's true page count
+     */
+    private int assertPageCountWithinLimit(Path source) throws IOException {
+        int pages = BoundedPdfTask.runWithin(COMPOSE_TIMEOUT_SECONDS, "annotated-document-pagecount",
+                () -> composer.pageCount(source));
+        if (pages > MAX_ANNOTATABLE_PAGES) {
+            throw new IllegalArgumentException(
+                    "Documents longer than " + MAX_ANNOTATABLE_PAGES + " pages cannot be annotated.");
+        }
+        return pages;
     }
 
     /**
@@ -280,10 +295,8 @@ public class AnnotatedDocumentService {
         if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(source.getContentType()))) {
             throw new IllegalArgumentException("Only PDF documents can be annotated.");
         }
-        if (source.getNumberOfPages() > MAX_ANNOTATABLE_PAGES) {
-            throw new IllegalArgumentException(
-                    "Documents longer than " + MAX_ANNOTATABLE_PAGES + " pages cannot be annotated.");
-        }
+        // No page check here on purpose: the stored count is metadata and cannot be trusted to
+        // bound work. assertPageCountWithinLimit reads the file itself, under a deadline.
         if (sourceFile.length() > MAX_ANNOTATABLE_BYTES) {
             throw new IllegalArgumentException("This document is too large to annotate.");
         }
@@ -295,7 +308,7 @@ public class AnnotatedDocumentService {
      * date of the underlying report has not changed just because a provider marked it up.
      * Review state is left clear, so the copy does not inherit a sign-off it never received.
      */
-    private EDoc buildCopy(EDoc source, String fileName, String providerNo, int sourceDocNo) {
+    private EDoc buildCopy(EDoc source, String fileName, String providerNo, int sourceDocNo, int pageCount) {
         EDoc copy = new EDoc();
         copy.setFileName(fileName);
         copy.setDescription(StringUtils.trimToEmpty(source.getDescription()) + ANNOTATED_SUFFIX);
@@ -311,7 +324,8 @@ public class AnnotatedDocumentService {
         copy.setStatus('A');
         copy.setDocPublic(source.getDocPublic());
         copy.setObservationDate(source.getObservationDate());
-        copy.setNumberOfPages(source.getNumberOfPages());
+        // The count read from the file, not the source row's, which may be stale or zero.
+        copy.setNumberOfPages(pageCount);
         copy.setModule(source.getModule());
         copy.setModuleId(source.getModuleId());
         copy.setContentDateTime(new java.util.Date());

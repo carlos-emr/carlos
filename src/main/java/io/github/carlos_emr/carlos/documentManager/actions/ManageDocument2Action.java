@@ -783,19 +783,28 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
-     * Deletes the cached PNG image for a specific page of a document.
+     * Deletes the cached PNG images for a specific page of a document.
      *
-     * @param d Document the document whose cache entry should be deleted
-     * @param pageNum int the 1-based page number of the cache entry to delete
+     * <p>Every DPI variant is removed, not just the default one. Since the annotation viewer
+     * can request 144 and 192 DPI, deleting only the legacy 96-DPI filename would leave a
+     * rotated or deleted page still being served from the higher-resolution cache — the
+     * clinician would see the pre-edit image and, worse, could annotate it.
+     *
+     * @param d Document the document whose cache entries should be deleted
+     * @param pageNum int the 1-based page number of the cache entries to delete
      */
     public static void deleteCacheVersion(Document d, int pageNum) {
         File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
-        Path documentCacheDir = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
-        if (Files.exists(documentCacheDir)) {
+        for (int dpi : ALLOWED_RENDER_DPI) {
+            Path cached = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName(cacheName(d, pageNum, dpi)), cacheDir).toPath();
+            if (!Files.exists(cached)) {
+                continue;
+            }
             try {
-                Files.delete(documentCacheDir);
+                Files.delete(cached);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSafe.sanitizeObject(documentCacheDir.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSafe.sanitizeObject(cached.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
     }

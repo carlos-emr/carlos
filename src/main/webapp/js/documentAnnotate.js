@@ -37,6 +37,15 @@
     if (!cfg) { return; }
 
     var SVG_NS = 'http://www.w3.org/2000/svg';
+
+    /** Keep in step with AnnotatedDocumentComposer.TEXT_BASELINE_RATIO. */
+    var TEXT_BASELINE_RATIO = 0.78;
+
+    var SIGNATURE_W = 0.28;
+    var SIGNATURE_H = 0.07;
+    var TEXT_W = 0.35;
+    var TEXT_H = 0.035;
+
     var DPI_STEPS = [96, 144, 192];
     var COLORS = {
         yellow: '#FFF176', green: '#7BE8B8', blue: '#8FD3F4',
@@ -183,7 +192,12 @@
         if (a.type === 'text' || a.type === 'date') {
             var text = document.createElementNS(SVG_NS, 'text');
             text.setAttribute('x', a.x * w);
-            text.setAttribute('y', (a.y * h) + (a.fontSize || 11));
+            // Must match AnnotatedDocumentComposer.TEXT_BASELINE_RATIO. The mark's y is the TOP
+            // of its box; a baseline a full em below it sits lower than where the composer
+            // actually draws, so the preview would show the text below where the saved copy
+            // puts it. On a clinical document what the provider positions has to be what is
+            // filed and faxed.
+            text.setAttribute('y', (a.y * h) + ((a.fontSize || 11) * TEXT_BASELINE_RATIO));
             text.setAttribute('fill', COLORS[a.color] || COLORS.black);
             text.setAttribute('font-size', (a.fontSize || 11));
             text.setAttribute('font-family', 'sans-serif');
@@ -338,21 +352,34 @@
         }
     }
 
+    /** Local calendar date. toISOString() is UTC, which is the previous or next day for a
+     *  provider whose local date differs from it — a date stamp on a clinical document must
+     *  read as the day they actually signed it. */
+    function todayLocal() {
+        var now = new Date();
+        var month = String(now.getMonth() + 1).padStart(2, '0');
+        var day = String(now.getDate()).padStart(2, '0');
+        return now.getFullYear() + '-' + month + '-' + day;
+    }
+
     function placePoint(page, nx, ny) {
         if (state.tool === 'signature') {
             addAnnotation({
                 type: 'signature', page: page, color: 'black',
-                x: clamp(nx, 0.7), y: clamp(ny, 0.08), w: 0.28, h: 0.07
+                // Clamped against the mark's OWN size, so it can be placed anywhere its box
+                // still fits. Clamping against a larger span confined it to the left of the page.
+                x: clamp(nx, SIGNATURE_W), y: clamp(ny, SIGNATURE_H),
+                w: SIGNATURE_W, h: SIGNATURE_H
             });
             return;
         }
         var isDate = state.tool === 'date';
-        var value = isDate ? new Date().toISOString().slice(0, 10)
+        var value = isDate ? todayLocal()
             : window.prompt(t('promptText', 'Note to add:'), '');
         if (!value) { return; }
         addAnnotation({
             type: isDate ? 'date' : 'text', page: page, color: state.color,
-            x: clamp(nx, 0.6), y: clamp(ny, 0.04), w: 0.35, h: 0.035,
+            x: clamp(nx, TEXT_W), y: clamp(ny, TEXT_H), w: TEXT_W, h: TEXT_H,
             text: value, fontSize: 11
         });
     }
@@ -438,6 +465,23 @@
         return input ? input.value : '';
     }
 
+    /**
+     * Resolves once the CSRF token is actually in the hidden input.
+     *
+     * csrf-token.jspf fetches the token asynchronously on DOMContentLoaded. A provider who
+     * marks up a page and hits Save before that settles would otherwise POST an empty token,
+     * be rejected with an HTML error page, and see the save fail for no visible reason —
+     * intermittently, which is the worst kind. Waiting on the bootstrap's own promise removes
+     * the race; a rejected or absent promise still falls through to the read below, so the
+     * failure surfaces as a normal save error rather than an unhandled rejection.
+     */
+    function csrfTokenReady() {
+        if (csrfToken()) { return Promise.resolve(); }
+        var ready = window.csrfTokenReady;
+        if (!ready || typeof ready.then !== 'function') { return Promise.resolve(); }
+        return ready.catch(function () { /* surfaces below as an empty token */ });
+    }
+
     function save(thenFax) {
         if (!state.annotations.length) { return; }
         setStatus(t('saving', 'Saving…'), 'busy');
@@ -459,16 +503,18 @@
             })
         };
 
-        fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
-            + encodeURIComponent(cfg.docId), {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'CSRF-TOKEN': csrfToken()
-            },
-            body: JSON.stringify(payload)
+        csrfTokenReady().then(function () {
+            return fetch(cfg.contextPath + '/documentManager/SaveAnnotatedDocument?docId='
+                + encodeURIComponent(cfg.docId), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'CSRF-TOKEN': csrfToken()
+                },
+                body: JSON.stringify(payload)
+            });
         }).then(function (response) {
             return response.json().then(function (data) {
                 return { ok: response.ok, data: data };

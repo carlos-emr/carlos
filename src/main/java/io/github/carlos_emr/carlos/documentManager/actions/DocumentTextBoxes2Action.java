@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentWordBoxes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -44,6 +45,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * Serves the word bounding boxes of one document page so the annotation viewer can snap a
@@ -73,6 +75,13 @@ public class DocumentTextBoxes2Action extends ActionSupport {
     /** Beyond this a highlight snap is not useful and the payload becomes the bottleneck. */
     private static final int MAX_WORDS_PER_PAGE = 5_000;
 
+    /**
+     * Hard deadline on text extraction. The source is an inbound fax, so it is untrusted: a
+     * document crafted to make PDFBox work pathologically would otherwise hold a request thread
+     * for as long as it liked, and this endpoint is called once per page.
+     */
+    private static final int EXTRACT_TIMEOUT_SECONDS = 15;
+
     private final transient SecurityInfoManager securityInfoManager;
     private final transient ObjectMapper objectMapper = new ObjectMapper();
 
@@ -89,10 +98,12 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
+        // Read-scope, so GET and HEAD only. This endpoint carries no CSRF token because it
+        // mutates nothing; accepting POST would widen a token-free surface for no gain.
         String method = request.getMethod();
-        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)
-                && !"POST".equalsIgnoreCase(method)) {
+        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "GET, HEAD");
             return NONE;
         }
 
@@ -132,12 +143,21 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         }
 
         ArrayNode words = objectMapper.createArrayNode();
+        // Tracked separately from the box count. A page can carry a text layer and still yield
+        // no usable boxes, and an extraction that fails or times out yields none either — none
+        // of which is the same statement as "this page was never OCR'd". Conflating them told
+        // the viewer something that was not true.
+        boolean extractionSucceeded = false;
         try {
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                     CarlosProperties.getInstance().getDocumentDirectory(), "DOCUMENT_DIR");
             File pdf = PathValidationUtils.validateExistingPath(
                     new File(documentDir, doc.getFileName()), documentDir);
-            for (double[] box : DocumentWordBoxes.extract(pdf, page, MAX_WORDS_PER_PAGE)) {
+            List<double[]> extracted = BoundedPdfTask.runWithin(
+                    EXTRACT_TIMEOUT_SECONDS, "document-word-boxes",
+                    () -> DocumentWordBoxes.extract(pdf, page, MAX_WORDS_PER_PAGE));
+            extractionSucceeded = true;
+            for (double[] box : extracted) {
                 ObjectNode node = words.addObject();
                 node.put("x", box[0]);
                 node.put("y", box[1]);
@@ -155,9 +175,12 @@ public class DocumentTextBoxes2Action extends ActionSupport {
 
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("page", page);
-        // Lets the viewer distinguish "this page has no text layer" from "not fetched yet".
-        // Either way highlighting still works; only snapping is unavailable.
-        payload.put("hasTextLayer", !words.isEmpty());
+        // True only when extraction actually ran to completion AND found positioned text.
+        // Either way highlighting still works; only snapping to text is unavailable.
+        payload.put("hasTextLayer", extractionSucceeded && !words.isEmpty());
+        // Distinguishes "the page has no text" from "we could not read it", which the first
+        // field alone cannot express and which a caller deciding whether to retry needs.
+        payload.put("textLayerRead", extractionSucceeded);
         payload.set("words", words);
 
         response.setStatus(HttpServletResponse.SC_OK);

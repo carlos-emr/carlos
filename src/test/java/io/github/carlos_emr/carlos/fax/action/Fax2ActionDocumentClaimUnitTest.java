@@ -23,6 +23,10 @@ package io.github.carlos_emr.carlos.fax.action;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -69,6 +73,10 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
+    /** The document under test, and the patient its ctl_document row links it to. */
+    private static final int DOCUMENT_NO = 31;
+    private static final int DEMOGRAPHIC_NO = 42;
+
     private static final String APP_TEMP_ROOT =
             Paths.get(System.getProperty("java.io.tmpdir"), "carlos-temp").toString();
 
@@ -92,13 +100,42 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         registerMock(FaxManager.class, faxManager);
         registerMock(DocumentAttachmentManager.class, mock(DocumentAttachmentManager.class));
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        // queue() re-derives the document's patient from the row before promoting it, so the
+        // DAO has to answer even on the paths that only exercise the path claim.
+        registerMock(DocumentDao.class, documentDaoLinking(DOCUMENT_NO, DEMOGRAPHIC_NO));
+    }
+
+    /** A DocumentDao whose one document is linked to {@code demographicNo} via ctl_document. */
+    private static DocumentDao documentDaoLinking(int documentNo, int demographicNo) {
+        Document document = new Document();
+        document.setDocumentNo(documentNo);
+        document.setDocfilename("staged.pdf");
+        document.setContenttype("application/pdf");
+        // EDocUtil.getDoc unboxes this, so it must be present even though nothing here reads it.
+        document.setNumberofpages(1);
+
+        CtlDocument ctl = new CtlDocument();
+        CtlDocumentPK pk = new CtlDocumentPK();
+        pk.setModule("demographic");
+        pk.setModuleId(demographicNo);
+        pk.setDocumentNo(documentNo);
+        ctl.setId(pk);
+
+        DocumentDao dao = mock(DocumentDao.class);
+        when(dao.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(List.<Object[]>of(new Object[]{document, ctl}));
+        return dao;
     }
 
     private Fax2Action documentFaxAction(String faxFilePath) {
+        return documentFaxAction(faxFilePath, DEMOGRAPHIC_NO);
+    }
+
+    private Fax2Action documentFaxAction(String faxFilePath, int submittedDemographicNo) {
         Fax2Action action = new Fax2Action();
         action.setTransactionType("DOCUMENT");
-        action.setTransactionId(31);
-        action.setDemographicNo(42);
+        action.setTransactionId(DOCUMENT_NO);
+        action.setDemographicNo(submittedDemographicNo);
         action.setRecipientFaxNumber("1234567890");
         action.setFaxFilePath(faxFilePath);
         return action;
@@ -185,5 +222,34 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         assertThat(remaining == null || !remaining.contains(staged.toString()))
                 .as("the claim is single use, so a replayed submission cannot queue it again")
                 .isTrue();
+    }
+
+    @Test
+    @DisplayName("should reject queue when the cover page substitutes a different patient")
+    void shouldRejectQueue_whenSubmittedDemographicIsSubstituted() throws Exception {
+        setUpCommonMocks();
+        Files.createDirectories(Paths.get(APP_TEMP_ROOT));
+        Path staged = Files.createTempFile(Paths.get(APP_TEMP_ROOT), "staged-rebind-", ".pdf");
+
+        // The path claim is genuine: this session really did stage this file. What is forged is
+        // the patient the cover-page form submits with it. Without re-deriving the binding from
+        // the document row, the fax would be filed against a chart it does not belong to.
+        request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
+                new HashSet<>(List.of(staged.toString())));
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = documentFaxAction(staged.toString(), DEMOGRAPHIC_NO + 1);
+
+            assertThatThrownBy(action::queue)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("no longer belongs to this patient");
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+
+        verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
     }
 }

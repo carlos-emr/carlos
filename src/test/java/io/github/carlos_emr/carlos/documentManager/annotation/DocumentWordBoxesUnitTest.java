@@ -124,6 +124,38 @@ class DocumentWordBoxesUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("should keep boxes inside the page when the CropBox origin is not zero")
+    void shouldKeepBoxesInsidePage_whenCropBoxOriginIsNotZero(@TempDir Path tempDir) throws Exception {
+        // A scanner that trims margins leaves a CropBox whose lower-left corner is not (0,0).
+        // Boxes are normalised against the DISPLAYED page, so they must stay in the unit square
+        // and must not drift by the crop offset.
+        File cropped = croppedTextPdf(tempDir.resolve("cropped.pdf"), "Cardiology consultation note");
+
+        List<double[]> boxes = DocumentWordBoxes.extract(cropped, 1, MAX_WORDS);
+
+        assertThat(boxes).as("the text sits inside the crop region, so it is extractable").isNotEmpty();
+        for (double[] box : boxes) {
+            assertThat(box[0]).isBetween(0d, 1d);
+            assertThat(box[1]).isBetween(0d, 1d);
+            assertThat(box[0] + box[2]).isLessThanOrEqualTo(1.0001d);
+            assertThat(box[1] + box[3]).isLessThanOrEqualTo(1.0001d);
+        }
+        // The words were drawn 36pt inside the crop's left edge, in a 400pt-wide crop, so a
+        // correctly offset box starts near 0.09. If the CropBox origin were ignored the value
+        // would be computed against the media box instead and land far to the right.
+        assertThat(boxes.get(0)[0]).as("left edge is measured from the CropBox, not the MediaBox")
+                .isBetween(0.02d, 0.25d);
+    }
+
+    @Test
+    @DisplayName("should stop parsing once the word ceiling is reached")
+    void shouldStopParsing_whenCeilingReached(@TempDir Path tempDir) throws Exception {
+        File dense = textPdf(tempDir.resolve("ceiling.pdf"), "one two three four five six seven eight");
+
+        assertThat(DocumentWordBoxes.extract(dense, 1, 3)).hasSize(3);
+    }
+
     /* ---------- helpers ---------- */
 
     private static File blankPdf(Path target, int pages, int rotation) throws IOException {
@@ -140,6 +172,25 @@ class DocumentWordBoxesUnitTest {
 
     private static File textPdf(Path target, String text) throws IOException {
         return textPdf(target, text, 0);
+    }
+
+    /** A page whose CropBox is inset from the MediaBox, as a margin-trimming scanner produces. */
+    private static File croppedTextPdf(Path target, String text) throws IOException {
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.LETTER);
+            page.setCropBox(new PDRectangle(100f, 150f, 400f, 500f));
+            document.addPage(page);
+            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+                content.beginText();
+                content.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 14);
+                // 36pt inside the crop's left edge, comfortably inside its top edge.
+                content.newLineAtOffset(136, 600);
+                content.showText(text);
+                content.endText();
+            }
+            document.save(target.toFile());
+        }
+        return target.toFile();
     }
 
     private static File textPdf(Path target, String text, int rotation) throws IOException {

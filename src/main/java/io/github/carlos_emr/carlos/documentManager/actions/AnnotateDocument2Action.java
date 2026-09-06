@@ -27,12 +27,16 @@ import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentS
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+
+import java.io.IOException;
 
 /**
  * Read-scope gate for the document annotation viewer.
@@ -53,6 +57,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-09
  */
 public class AnnotateDocument2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private final transient SecurityInfoManager securityInfoManager;
 
@@ -111,11 +117,20 @@ public class AnnotateDocument2Action extends ActionSupport {
             throw new SecurityException("Unauthorized access to patient record");
         }
 
-        pageCount = doc.getNumberOfPages();
+        // The stored count is metadata: legacy rows carry zero and a row can drift from the file
+        // it names. Defaulting a zero to 1 rendered a single page of a multi-page document and,
+        // worse, let a document past the page ceiling that the save path then had to refuse. The
+        // count is read from the file instead, under a deadline because it is untrusted input.
+        try {
+            pageCount = AnnotatedDocumentService.pageCountOf(doc);
+        } catch (IOException | RuntimeException e) {
+            logger.warn("Could not read the page count for document {}", docId);
+            return unavailable("This document could not be opened for annotation. "
+                    + "It can still be faxed as it is.");
+        }
         if (pageCount < 1) {
-            // Legacy rows can carry a zero page count. The viewer needs at least one page
-            // to render, and the image endpoint bounds the rest.
-            pageCount = 1;
+            return unavailable("This document has no pages to annotate. "
+                    + "It can still be faxed as it is.");
         }
         if (pageCount > AnnotatedDocumentService.MAX_ANNOTATABLE_PAGES) {
             return unavailable("Documents longer than "

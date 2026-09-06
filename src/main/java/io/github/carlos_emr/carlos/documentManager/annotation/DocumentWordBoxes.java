@@ -89,10 +89,14 @@ public final class DocumentWordBoxes {
 
             PDFTextStripper stripper = new PDFTextStripper() {
                 @Override
-                protected void writeString(String text, List<TextPosition> positions) {
+                protected void writeString(String text, List<TextPosition> positions) throws IOException {
                     for (List<TextPosition> word : splitWords(positions)) {
                         if (boxes.size() >= maxWords) {
-                            return;
+                            // Returning here would only skip the rest of THIS run: the stripper
+                            // would carry on parsing the page and allocating text positions for
+                            // results that are already discarded. On a page crafted with a huge
+                            // text stream that is the whole cost. Unwinding stops the parse.
+                            throw new WordCeilingReached();
                         }
                         double[] wordBox = boundingBox(word, displayW, displayH);
                         if (wordBox.length == 4) {
@@ -104,11 +108,26 @@ public final class DocumentWordBoxes {
             stripper.setStartPage(page);
             stripper.setEndPage(page);
             stripper.setSortByPosition(true);
-            // Return value ignored on purpose: the text is PHI and only its geometry is wanted.
-            stripper.getText(document);
+            try {
+                // Return value ignored on purpose: the text is PHI and only its geometry is wanted.
+                stripper.getText(document);
+            } catch (WordCeilingReached expected) {
+                // The cap is a normal outcome, not a failure; the boxes collected so far stand.
+            }
         }
 
         return boxes;
+    }
+
+    /** Unwinds {@link PDFTextStripper#getText} once enough boxes have been collected. */
+    private static final class WordCeilingReached extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public synchronized Throwable fillInStackTrace() {
+            // Control flow, not a diagnostic: the stack trace would be pure overhead.
+            return this;
+        }
     }
 
     /** Splits a run of glyphs into words on whitespace, keeping each glyph's position. */
@@ -149,12 +168,18 @@ public final class DocumentWordBoxes {
             // A zero-area run (a stray control glyph, say) is not a snap target.
             return NO_BOX;
         }
-        return new double[]{
-                clamp(minX / displayW),
-                clamp(minY / displayH),
-                clamp((maxX - minX) / displayW),
-                clamp((maxY - minY) / displayH)
-        };
+        // Clamp the EDGES, then derive width and height from the clamped edges. Clamping
+        // position and size independently lets a glyph that overhangs the CropBox produce
+        // x + w > 1, which the save-path parser rejects — so a snapped highlight near the page
+        // edge would fail to save at all.
+        double left = clamp(minX / displayW);
+        double top = clamp(minY / displayH);
+        double right = clamp(maxX / displayW);
+        double bottom = clamp(maxY / displayH);
+        if (right <= left || bottom <= top) {
+            return NO_BOX;
+        }
+        return new double[]{left, top, right - left, bottom - top};
     }
 
     private static double clamp(double value) {

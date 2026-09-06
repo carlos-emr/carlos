@@ -101,16 +101,23 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        // Verb gate first: nothing below may run on a GET, including the privilege lookup.
-        String method = request.getMethod();
-        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+        // Verb gate first: nothing below may run on the wrong method, including the privilege
+        // lookup. POST is the only verb this route has; allowing PUT/PATCH/DELETE/OPTIONS to
+        // reach composition and filing lets the action's contract drift away from its caller.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
             return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+            // Answered as JSON rather than thrown. A SecurityException here resolves to the
+            // global securityError.jsp mapping, so the caller's response.json() would reject an
+            // HTML page and the provider would see a save silently do nothing.
+            logger.warn("Refused annotated-document save: caller lacks _edoc write");
+            return json(response, HttpServletResponse.SC_FORBIDDEN,
+                    error("You do not have permission to save annotated documents."));
         }
 
         int docId;

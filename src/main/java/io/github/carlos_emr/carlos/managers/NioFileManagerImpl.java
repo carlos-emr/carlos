@@ -821,6 +821,25 @@ public class NioFileManagerImpl implements NioFileManager {
         return Files.write(file, os.toByteArray());
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public Path createTempFileFrom(final String fileName, Path source) throws IOException {
+        String sanitizedName = new File(fileName).getName();
+
+        Path directory = Files.createTempDirectory(applicationTempParent(), DEFAULT_GENERIC_TEMP + System.currentTimeMillis());
+        Path file = directory.resolve(sanitizedName).normalize();
+
+        try {
+            file = PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile()).toPath();
+        } catch (SecurityException e) {
+            throw new SecurityException("File can only be created in temporary directory.");
+        }
+
+        // Streamed, so the document's size never lands on the heap.
+        Files.copy(source, file, StandardCopyOption.REPLACE_EXISTING);
+        return file;
+    }
+
     /**
      * Deletes a validated temporary file. Existing targets must resolve to approved temp
      * directories through {@link PathValidationUtils}; missing approved temp files return

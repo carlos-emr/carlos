@@ -91,6 +91,23 @@ public class AnnotatedDocumentComposer {
             "black", new Color(0x1A, 0x1A, 0x1A));
 
     /**
+     * Reads the true page count from the file.
+     *
+     * <p>The {@code document} row carries a page count too, but it is metadata: legacy rows hold
+     * zero, and a row can drift from the file it names. Any limit that exists to bound work on an
+     * untrusted document has to be measured against the document, so this is the number that
+     * decides whether composition may run at all.
+     *
+     * <p>Untrusted input: call this through {@link BoundedPdfTask}, never directly on a request
+     * thread.
+     */
+    public int pageCount(Path source) throws IOException {
+        try (PDDocument document = Loader.loadPDF(source.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
+            return document.getNumberOfPages();
+        }
+    }
+
+    /**
      * Composes the annotated PDF.
      *
      * @param source        the stored document; opened read-only and never written to

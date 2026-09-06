@@ -126,7 +126,15 @@ public class DocumentAnnotationParser {
 
         DocumentAnnotationDto.Type type = parseType(node.path("type").asText(null));
 
-        int page = node.path("page").asInt(0);
+        // asInt() would truncate 1.9 to 1 and "2" to 2, so a malformed payload would land an
+        // annotation on a page it never named instead of being refused. This is untrusted input
+        // and the page decides which sheet of a clinical document gets marked, so require a
+        // genuine int.
+        JsonNode pageNode = node.path("page");
+        if (!pageNode.isInt() && !pageNode.isLong()) {
+            throw new IllegalArgumentException("Each annotation must name its page as a whole number.");
+        }
+        int page = pageNode.isInt() ? pageNode.intValue() : 0;
         if (page < 1 || page > pageCount) {
             throw new IllegalArgumentException(
                     "An annotation names page " + page + ", outside the document's 1 to " + pageCount + ".");
