@@ -128,21 +128,25 @@
     List<ProviderData> pdList = null;
     HashMap<String, String> providerMap = new HashMap<String, String>();
 
-    // Site/team access privacy is a MULTISITE feature and is only applied when
-    // multisite mode is on, mirroring the schedule (appointmentprovideradminday.jsp).
-    // The Flyway seed grants the admin role _site_access_privacy on every install,
-    // but without multisite there are no site assignments to restrict by and
-    // mgrSite below stays empty, so applying the filters here would silently
-    // drop EVERY consult from the list (seen on the packaged demo install).
-    boolean restrictToSiteOrTeam = bMultisites && (isSiteAccessPrivacy || isTeamAccessPrivacy);
+    // Site access privacy is a MULTISITE feature: providersite rows only exist
+    // when multisite mode is on, so it is applied only then, mirroring the
+    // schedule (appointmentprovideradminday.jsp). The Flyway seed grants the
+    // admin role _site_access_privacy on every install, and without multisite
+    // there are no site assignments to restrict by and mgrSite below stays
+    // empty, so applying it would silently drop EVERY consult from the list
+    // (seen on the packaged demo install). Team access privacy filters on the
+    // plain provider.team column and stays enforced without multisite.
+    boolean restrictToSite = bMultisites && isSiteAccessPrivacy;
+    boolean restrictToTeam = isTeamAccessPrivacy;
+    boolean restrictToSiteOrTeam = restrictToSite || restrictToTeam;
 
 //multisites function
     if (restrictToSiteOrTeam) {
 
-        if (isSiteAccessPrivacy)
+        if (restrictToSite)
             pdList = providerDataDao.findByProviderSite(curProvider_no);
 
-        if (isTeamAccessPrivacy)
+        if (restrictToTeam)
             pdList = providerDataDao.findByProviderTeam(curProvider_no);
 
         for (ProviderData providerData : pdList) {
@@ -218,11 +222,12 @@
         EctConsultationFormRequestUtil consultUtil;
         consultUtil = new EctConsultationFormRequestUtil();
 
-        // Same multisite gate as the row filters below: outside multisite mode the
-        // team dropdown lists every team rather than the (non-existent) site's.
-        if (restrictToSiteOrTeam && isTeamAccessPrivacy) {
+        // Same gates as the row filters below: outside multisite mode the site
+        // restriction is off, so the dropdown lists every team unless team
+        // privacy narrows it.
+        if (restrictToTeam) {
             consultUtil.estTeamsByTeam(curProvider_no);
-        } else if (restrictToSiteOrTeam && isSiteAccessPrivacy) {
+        } else if (restrictToSite) {
             consultUtil.estTeamsBySite(curProvider_no);
         } else {
             consultUtil.estTeams();
@@ -565,7 +570,9 @@
                                 }
 
                                 //multisites. skip record if not belong to same site
-                                if (restrictToSiteOrTeam) {
+                                // (mgrSite is only populated under multisite; without it
+                                // this check would drop every row).
+                                if (bMultisites && restrictToSiteOrTeam) {
                                     if (!mgrSite.contains(siteName)) continue;
                                 }
                                 overdue = false;
