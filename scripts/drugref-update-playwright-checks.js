@@ -96,6 +96,30 @@ function postedMethod(response) {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
+/**
+ * Searches for a drug through the prescribing UI, the way a clinician does, and returns the
+ * number of matches. Deliberately not an XML-RPC call: what matters is that a prescriber can
+ * find a drug, which exercises the search index, the Rx page and the relay together.
+ */
+async function searchDrugs(context, config, recorder, term, label) {
+  const rxPage = await context.newPage();
+  wirePage(rxPage, label, recorder);
+  try {
+    await gotoApp(rxPage, config.baseUrl, '/rx/choosePatient?demographicNo=1');
+    await rxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const searchBox = rxPage.locator('#searchString');
+    await searchBox.waitFor({ state: 'visible', timeout: 20000 });
+    const [searchResponse] = await Promise.all([
+      rxPage.waitForResponse((r) => r.url().includes('/rx/searchDrug') && r.request().method() === 'POST', { timeout: 60000 }),
+      searchBox.pressSequentially(term, { delay: 120 }),
+    ]);
+    const payload = await searchResponse.json();
+    return Array.isArray(payload.results) ? payload.results.length : 0;
+  } finally {
+    await rxPage.close();
+  }
+}
+
 async function callStatus(page) {
   // Same call the page makes, through the page's own session and CSRF token.
   return page.evaluate(async (endpoint) => {
@@ -169,6 +193,13 @@ async function callStatus(page) {
     assert(dateBefore === verify.lastUpdate, `panel shows "${dateBefore}" but verify said "${verify.lastUpdate}"`);
     assert((await popup.locator('#drugDatabase').innerText()).trim().length > 0, 'panel shows no database name');
     console.log(`STEP 1 verify: PASS (${verify.drugDatabase} ${verify.version}, last update ${dateBefore})`);
+
+    // Step 1b: drug search works BEFORE the update. Without this the post-update search below
+    // cannot distinguish "the rebuild broke prescribing" from "prescribing was already broken",
+    // which is the whole question an operator is asking when they press the button.
+    const foundBefore = await searchDrugs(context, config, recorder, searchTerm, 'drug-search-before');
+    assert(foundBefore > 0, `drug search for "${searchTerm}" found nothing BEFORE any update: the installed dataset is already unusable`);
+    console.log(`STEP 1b search (before): PASS ("${searchTerm}" -> ${foundBefore} result(s))`);
 
     // Step 2: the status relay answers JSON with a state the page can act on.
     const statusReply = await callStatus(popup);
@@ -266,21 +297,12 @@ async function callStatus(page) {
       assert(/completed/i.test(resultText), `page reports "${resultText}" after the run ended`);
       console.log(`STEP 3c page: PASS (panel now shows ${dateAfter}; "${resultText.slice(0, 100)}")`);
 
-      // And prescribing still finds drugs in the rebuilt dataset.
-      const rxPage = await context.newPage();
-      wirePage(rxPage, 'drug-search', recorder);
-      await gotoApp(rxPage, config.baseUrl, '/rx/choosePatient?demographicNo=1');
-      await rxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-      const searchBox = rxPage.locator('#searchString');
-      await searchBox.waitFor({ state: 'visible', timeout: 20000 });
-      const [searchResponse] = await Promise.all([
-        rxPage.waitForResponse((r) => r.url().includes('/rx/searchDrug') && r.request().method() === 'POST', { timeout: 60000 }),
-        searchBox.pressSequentially(searchTerm, { delay: 120 }),
-      ]);
-      const payload = await searchResponse.json();
-      assert(Array.isArray(payload.results) && payload.results.length > 0, `drug search for "${searchTerm}" found nothing after the update`);
-      console.log(`STEP 3d search: PASS ("${searchTerm}" -> ${payload.results.length} result(s))`);
-      await rxPage.close();
+      // And prescribing still finds drugs in the REBUILT dataset. This is the one that
+      // matters: the original defect left the drug tables empty, so search answered nothing
+      // and the page reported success anyway.
+      const foundAfter = await searchDrugs(context, config, recorder, searchTerm, 'drug-search-after');
+      assert(foundAfter > 0, `drug search for "${searchTerm}" found ${foundBefore} result(s) before the update and NOTHING after it: the rebuild destroyed the dataset`);
+      console.log(`STEP 3d search (after): PASS ("${searchTerm}" -> ${foundAfter} result(s), was ${foundBefore} before)`);
       await screenshot(popup, config.screenshotDir, 'drugref-update-done');
     }
 
