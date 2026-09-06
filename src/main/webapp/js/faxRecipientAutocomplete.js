@@ -195,6 +195,10 @@
         function runSearch(term) {
             if (abortCtrl) { abortCtrl.abort(); }
             abortCtrl = new AbortController();
+            // The visible rows belong to the PREVIOUS term. Leaving them clickable while this
+            // request is in flight lets a click land on a recipient that no longer matches what
+            // the user typed — and the chosen fax number goes onto the cover page.
+            hideDropdown();
 
             fetch(opts.contextPath + '/fax/SearchFaxRecipient?term=' + encodeURIComponent(term), {
                 method: 'GET',

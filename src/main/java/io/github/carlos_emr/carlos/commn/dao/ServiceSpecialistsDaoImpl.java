@@ -86,6 +86,11 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
             "SELECT pro, cs.serviceDesc FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs " +
             "WHERE pro.id = ser.id.specId AND cs.serviceId = ser.id.serviceId " +
             "AND pro.deleted = false AND pro.hideFromView = false " +
+            // A specialist with no fax number cannot be a fax recipient. Filtering them here
+            // rather than in the caller matters because setMaxResults caps the rows the database
+            // returns: leaving them in let a run of fax-less rows consume the whole limit and
+            // hide faxable specialists that sorted after them.
+            "AND pro.faxNumber IS NOT NULL AND TRIM(pro.faxNumber) <> '' " +
             "AND (LOWER(pro.lastName) LIKE :kw OR LOWER(pro.firstName) LIKE :kw OR LOWER(cs.serviceDesc) LIKE :kw) " +
             "ORDER BY pro.lastName, cs.serviceDesc");
         query.setParameter("kw", lk);

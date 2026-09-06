@@ -88,6 +88,16 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <fmt:setBundle basename="oscarResources"/>
+<%-- Attribute-context localized strings are resolved into variables here and rendered below
+     through carlos:forHtmlAttribute. fmt:message writes the bundle value raw, so a future
+     translation containing a quote would break out of the attribute it sits in. The bundles are
+     developer-controlled, so this is hardening rather than a live XSS, but the encoder is what
+     keeps it that way. --%>
+<fmt:message key="coverPage.ph.nameSearch" var="phNameSearch"/>
+<fmt:message key="coverPage.ph.faxNumber" var="phFaxNumber"/>
+<fmt:message key="coverPage.btn.addRecipient" var="btnAddRecipient"/>
+<fmt:message key="coverPage.btn.close" var="btnClose"/>
+
     <title><fmt:message key="coverPage.title"/></title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
@@ -322,13 +332,13 @@
 								<div class="col-sm-8 mb-3" style="position:relative;">
 									<label for="searchProfessionalSpecialist_name"><fmt:message key="coverPage.lbl.name"/></label>
 								 	<input class="form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
-								 		id="searchProfessionalSpecialist_name" placeholder="<fmt:message key='coverPage.ph.nameSearch'/>" required autocomplete="off"/>
+								 		id="searchProfessionalSpecialist_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" required autocomplete="off"/>
 								 	<div id="faxRecipientDropdown" class="fax-ac-dropdown"></div>
 								 </div>
 								 <div class="col-sm-4 mb-3">
 									<label for="searchProfessionalSpecialist_fax"><fmt:message key="coverPage.lbl.fax"/></label>
 									<input class="form-control" type="text" name="recipientFaxNumber" value="<carlos:encode value='${ not empty fax ? fax : param.fax }' context="htmlAttribute"/>"
-										id="searchProfessionalSpecialist_fax" placeholder="<fmt:message key='coverPage.ph.faxNumber'/>" required/>
+										id="searchProfessionalSpecialist_fax" placeholder="${carlos:forHtmlAttribute(phFaxNumber)}" required/>
 								</div>
 							</div>
 						</div>
@@ -346,17 +356,17 @@
 				  				<div class="col-sm-7 mb-3" style="position:relative;">
 						  			<label for="additionalRecipient_name"><fmt:message key="coverPage.lbl.name"/></label>
 								 	<input class="form-control" type="text" value=""
-								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="<fmt:message key='coverPage.ph.nameSearch'/>" autocomplete="off"/>
+								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" autocomplete="off"/>
 								 	<div id="faxCcDropdown" class="fax-ac-dropdown"></div>
 								</div>
 									<div class="col-sm-3 mb-3">
 								 	<label for="additionalRecipient_fax"><fmt:message key="coverPage.lbl.fax"/></label>
 								 	<input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""
-								 		id="additionalRecipient_fax" placeholder="<fmt:message key='coverPage.ph.faxNumber'/>"/>
+								 		id="additionalRecipient_fax" placeholder="${carlos:forHtmlAttribute(phFaxNumber)}"/>
 								</div>
 								<div class="col-sm-2 mb-3">
 									<label for="additionalRecipient_fax_btn">&nbsp;</label>
-							        <button class="btn btn-primary" id="additionalRecipient_fax_btn" title="<fmt:message key='coverPage.btn.addRecipient'/>" type="button">
+							        <button class="btn btn-primary" id="additionalRecipient_fax_btn" title="${carlos:forHtmlAttribute(btnAddRecipient)}" type="button">
 							        	<i class="fa-solid fa-plus"></i>
 							        </button>
 							   </div>
@@ -501,7 +511,7 @@
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
-            <input type="button" class="btn btn-danger btn-md float-end" value="<fmt:message key='coverPage.btn.close'/>" onclick="window.close();"/>
+            <input type="button" class="btn btn-danger btn-md float-end" value="${carlos:forHtmlAttribute(btnClose)}" onclick="window.close();"/>
         </c:if>
 
         <%-- cancel() no longer redirects (and silently discards the message) when

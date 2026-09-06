@@ -141,12 +141,12 @@ public class AnnotatedDocumentService {
         // The patient comes from the document's own module link, never from the request.
         // Trusting a submitted demographic would let a caller pair their own patient's
         // number with another patient's document.
-        String demographicNo = StringUtils.trimToNull(source.getModuleId());
-        if (demographicNo != null && !"0".equals(demographicNo)
-                && !securityInfoManager.isAllowedAccessToPatientRecord(
-                        loggedInInfo, Integer.parseInt(demographicNo))) {
+        int linkedDemographicNo = DocumentPatientLink.demographicNoOf(source);
+        if (linkedDemographicNo > 0 && !securityInfoManager.isAllowedAccessToPatientRecord(
+                loggedInInfo, linkedDemographicNo)) {
             throw new SecurityException("Unauthorized access to patient record");
         }
+        String demographicNo = linkedDemographicNo > 0 ? String.valueOf(linkedDemographicNo) : null;
 
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getDocumentDirectory(), DOCUMENT_DIR_LABEL);

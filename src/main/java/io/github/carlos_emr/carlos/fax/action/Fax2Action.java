@@ -34,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 
 import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -199,6 +200,10 @@ public class Fax2Action extends ActionSupport {
                 request.setAttribute("faxCleanupFailed", Boolean.TRUE);
                 return "preview";
             }
+            // The staged file is gone, so its claim can never be promoted. Leaving it behind
+            // grew the session's claim set by one entry for every preview a clinician opened
+            // and abandoned, for the life of the session.
+            consumeClaimedFaxFilePathFromSession();
         }
 
         if (TransactionType.CONSULTATION.name().equalsIgnoreCase(transactionType)) {
@@ -985,20 +990,15 @@ public class Fax2Action extends ActionSupport {
             throw new IllegalArgumentException("Only PDF documents can be faxed directly");
         }
 
-        String moduleId = StringUtils.trimToNull(doc.getModuleId());
-        if (moduleId != null && !"0".equals(moduleId) && !"-1".equals(moduleId)) {
-            try {
-                int documentDemographicNo = Integer.parseInt(moduleId);
-                if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, documentDemographicNo)) {
-                    throw new SecurityException("Unauthorized access to patient record");
-                }
-                // The cover-page form carries a demographic too; it must agree with the
-                // document's own binding or the two identify different patients.
-                if (demographicNo != null && demographicNo != documentDemographicNo) {
-                    throw new SecurityException("Document does not belong to the submitted patient");
-                }
-            } catch (NumberFormatException ignored) {
-                // Non-numeric module id: the document is not patient-linked.
+        int documentDemographicNo = DocumentPatientLink.demographicNoOf(doc);
+        if (documentDemographicNo > 0) {
+            if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, documentDemographicNo)) {
+                throw new SecurityException("Unauthorized access to patient record");
+            }
+            // The cover-page form carries a demographic too; it must agree with the
+            // document's own binding or the two identify different patients.
+            if (demographicNo != null && demographicNo != documentDemographicNo) {
+                throw new SecurityException("Document does not belong to the submitted patient");
             }
         }
 
@@ -1074,14 +1074,8 @@ public class Fax2Action extends ActionSupport {
         if (doc == null || StringUtils.isBlank(doc.getFileName())) {
             return "This document is no longer available to send.";
         }
-        String moduleId = StringUtils.trimToNull(doc.getModuleId());
-        if (moduleId == null || "0".equals(moduleId) || "-1".equals(moduleId)) {
-            return null;
-        }
-        int documentDemographicNo;
-        try {
-            documentDemographicNo = Integer.parseInt(moduleId);
-        } catch (NumberFormatException e) {
+        int documentDemographicNo = DocumentPatientLink.demographicNoOf(doc);
+        if (documentDemographicNo == 0) {
             return null;
         }
         if (!securityInfoManager.isAllowedAccessToPatientRecord(

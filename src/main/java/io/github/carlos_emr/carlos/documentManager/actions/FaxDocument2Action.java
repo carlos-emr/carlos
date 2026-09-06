@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -151,8 +152,11 @@ public class FaxDocument2Action extends ActionSupport {
      *         stored path is still infrastructure detail that does not belong in the browser.
      */
     private static String faxabilityProblem(EDoc doc, int docId) {
-        String contentType = StringUtils.defaultString(doc.getContentType());
-        if (!contentType.toLowerCase().contains("pdf")) {
+        // Exact match, not contains("pdf"): "application/pdfx" is a different format, and the
+        // staging path this gate redirects into requires application/pdf exactly — so a
+        // substring test only moved the refusal to a later, less explicable error.
+        String contentType = StringUtils.trimToEmpty(doc.getContentType());
+        if (!"application/pdf".equalsIgnoreCase(contentType)) {
             return "Only PDF documents can be faxed directly. This document is a " + contentType
                     + " file. Please convert it to PDF before faxing.";
         }
@@ -183,16 +187,11 @@ public class FaxDocument2Action extends ActionSupport {
 
     /** @return the linked demographic number, or 0 when the document is not patient-linked. */
     private static int resolveDemographicNo(EDoc doc, int docId) {
-        String moduleId = StringUtils.defaultString(doc.getModuleId());
-        if (moduleId.isEmpty() || "-1".equals(moduleId) || "null".equalsIgnoreCase(moduleId)) {
-            return 0;
+        int demographicNo = DocumentPatientLink.demographicNoOf(doc);
+        if (demographicNo == 0) {
+            logger.debug("Document {} is not linked to a patient; faxing it as unfiled", docId);
         }
-        try {
-            return Integer.parseInt(moduleId);
-        } catch (NumberFormatException e) {
-            logger.debug("Non-numeric moduleId for docId={}, treating as unlinked", docId);
-            return 0;
-        }
+        return demographicNo;
     }
 
     /**

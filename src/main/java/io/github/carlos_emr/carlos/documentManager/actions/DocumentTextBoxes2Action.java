@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.documentManager.annotation.DocumentWordBoxes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -131,16 +132,10 @@ public class DocumentTextBoxes2Action extends ActionSupport {
             return NONE;
         }
 
-        String moduleId = StringUtils.trimToNull(doc.getModuleId());
-        if (moduleId != null && !"0".equals(moduleId)) {
-            try {
-                if (!securityInfoManager.isAllowedAccessToPatientRecord(
-                        loggedInInfo, Integer.parseInt(moduleId))) {
-                    throw new SecurityException("Unauthorized access to patient record");
-                }
-            } catch (NumberFormatException ignored) {
-                // A non-numeric module id means the document is not patient-linked.
-            }
+        int linkedDemographicNo = DocumentPatientLink.demographicNoOf(doc);
+        if (linkedDemographicNo > 0
+                && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, linkedDemographicNo)) {
+            throw new SecurityException("Unauthorized access to patient record");
         }
 
         ArrayNode words = objectMapper.createArrayNode();

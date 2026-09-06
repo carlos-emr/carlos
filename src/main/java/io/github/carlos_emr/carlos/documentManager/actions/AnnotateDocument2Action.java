@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.annotation.AnnotatedDocumentService;
+import io.github.carlos_emr.carlos.documentManager.annotation.DocumentPatientLink;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -104,14 +105,10 @@ public class AnnotateDocument2Action extends ActionSupport {
             return unavailable("Only PDF documents can be annotated.");
         }
 
-        String moduleId = StringUtils.trimToNull(doc.getModuleId());
-        if (moduleId != null && !"0".equals(moduleId)) {
-            try {
-                demographicNo = Integer.parseInt(moduleId);
-            } catch (NumberFormatException e) {
-                demographicNo = 0;
-            }
-        }
+        // module_id is only a demographic number when module is "demographic"; on a
+        // provider-scoped document it is a provider number, and treating it as a patient would
+        // check and audit-log against an unrelated chart.
+        demographicNo = DocumentPatientLink.demographicNoOf(doc);
         if (demographicNo > 0
                 && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("Unauthorized access to patient record");

@@ -249,8 +249,14 @@
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     boolean faxEnabled = FaxManager.isEnabled()
         && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null);
-    boolean docIsPdf = curdoc.getContentType() != null
-        && curdoc.getContentType().toLowerCase().contains("pdf");
+    // Exact match, matching AnnotateDocument2Action's own test. contains("pdf") also matched
+    // "application/pdfx", so the button was offered for documents the action then refused.
+    boolean docIsPdf = "application/pdf".equalsIgnoreCase(
+        org.apache.commons.lang3.StringUtils.trimToEmpty(curdoc.getContentType()));
+    // Annotation composes and files a NEW document, so it needs _edoc write. Without this the
+    // button was live for a read-only user and the click ended on the security error page.
+    boolean canAnnotate = docIsPdf
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null);
 
     Set<Integer> docFiledQueues = new HashSet<>();
 
@@ -504,8 +510,8 @@
              editing this one, so the received record is never altered. PDF only. --%>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="annotateBtn_<%=docId%>"
                value=" <fmt:message key="showDocument.btnAnnotate"/> "
-               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.annotatePdfOnlyTooltip"/>" disabled<%}%>
-               <%if (docIsPdf) {%>onClick="popup(900,1000,'${pageContext.servletContext.contextPath}/documentManager/AnnotateDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','annotateDoc')"<%}%>>
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.annotatePdfOnlyTooltip"/>" disabled<%} else if (!canAnnotate) {%>title="<fmt:message key="showDocument.annotateNoRightsTooltip"/>" disabled<%}%>
+               <%if (canAnnotate) {%>onClick="popup(900,1000,'${pageContext.servletContext.contextPath}/documentManager/AnnotateDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','annotateDoc')"<%}%>>
         <%
             String btnDisabled = "disabled";
             if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
