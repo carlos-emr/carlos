@@ -79,15 +79,18 @@ public final class DocumentWordBoxes {
             }
             PDPage pdPage = document.getPage(page - 1);
             PDRectangle box = pdPage.getCropBox();
-            int rotation = ((pdPage.getRotation() % 360) + 360) % 360;
-            boolean quarterTurn = rotation == 90 || rotation == 270;
-            final float displayW = quarterTurn ? box.getHeight() : box.getWidth();
-            final float displayH = quarterTurn ? box.getWidth() : box.getHeight();
-            if (displayW <= 0f || displayH <= 0f) {
+            final int rotation = ((pdPage.getRotation() % 360) + 360) % 360;
+            // UNROTATED CropBox extents on purpose. PDFBox's direction-adjusted accessors report
+            // glyphs in unrotated crop space (measured: getXDirAdj/getYDirAdj are byte-identical
+            // at /Rotate 0, 90, 180 and 270), so normalising happens in that space and the
+            // rectangle is turned into display space afterwards by rotateIntoDisplaySpace().
+            final float cropW = box.getWidth();
+            final float cropH = box.getHeight();
+            if (cropW <= 0f || cropH <= 0f) {
                 return boxes;
             }
 
-            PDFTextStripper stripper = collectingStripper(boxes, maxWords, displayW, displayH);
+            PDFTextStripper stripper = collectingStripper(boxes, maxWords, cropW, cropH, rotation);
             stripper.setStartPage(page);
             stripper.setEndPage(page);
             stripper.setSortByPosition(true);
@@ -107,11 +110,12 @@ public final class DocumentWordBoxes {
      *
      * @param boxes    collector the stripper appends to, in reading order
      * @param maxWords ceiling after which the parse is unwound rather than merely skipped
-     * @param displayW page width in display orientation, the divisor for normalising x
-     * @param displayH page height in display orientation, the divisor for normalising y
+     * @param cropW    UNROTATED CropBox width, the divisor for normalising x
+     * @param cropH    UNROTATED CropBox height, the divisor for normalising y
+     * @param rotation the page's /Rotate, applied after normalising
      */
     private static PDFTextStripper collectingStripper(List<double[]> boxes, int maxWords,
-                                                      float displayW, float displayH) {
+                                                      float cropW, float cropH, int rotation) {
         return new PDFTextStripper() {
             @Override
             protected void writeString(String text, List<TextPosition> positions) throws IOException {
@@ -123,7 +127,7 @@ public final class DocumentWordBoxes {
                         // text stream that is the whole cost. Unwinding stops the parse.
                         throw new WordCeilingReached();
                     }
-                    double[] wordBox = boundingBox(word, displayW, displayH);
+                    double[] wordBox = boundingBox(word, cropW, cropH, rotation);
                     if (wordBox.length == 4) {
                         boxes.add(wordBox);
                     }
@@ -164,7 +168,14 @@ public final class DocumentWordBoxes {
         return words;
     }
 
-    private static double[] boundingBox(List<TextPosition> word, float displayW, float displayH) {
+    /**
+     * @param cropW    UNROTATED CropBox width
+     * @param cropH    UNROTATED CropBox height
+     * @param rotation the page's /Rotate, normalised to 0/90/180/270
+     * @return the word's box in normalised, top-left, ROTATION-APPLIED space, or {@link #NO_BOX}
+     */
+    private static double[] boundingBox(List<TextPosition> word, float cropW, float cropH,
+                                        int rotation) {
         float minX = Float.MAX_VALUE;
         float minY = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE;
@@ -181,18 +192,65 @@ public final class DocumentWordBoxes {
             // A zero-area run (a stray control glyph, say) is not a snap target.
             return NO_BOX;
         }
+        // Normalise in UNROTATED crop space, then turn the rectangle to match what the viewer
+        // is actually looking at. Dividing by display (transposed) extents here instead was the
+        // /Rotate bug: on a quarter-turned page it put every snap target roughly two thirds of a
+        // page away from its own text, so a highlight snapped onto an unrelated line.
+        double[] display = rotateIntoDisplaySpace(
+                minX / cropW, minY / cropH, maxX / cropW, maxY / cropH, rotation);
+
         // Clamp the EDGES, then derive width and height from the clamped edges. Clamping
         // position and size independently lets a glyph that overhangs the CropBox produce
         // x + w > 1, which the save-path parser rejects — so a snapped highlight near the page
         // edge would fail to save at all.
-        double left = clamp(minX / displayW);
-        double top = clamp(minY / displayH);
-        double right = clamp(maxX / displayW);
-        double bottom = clamp(maxY / displayH);
+        double left = clamp(display[0]);
+        double top = clamp(display[1]);
+        double right = clamp(display[2]);
+        double bottom = clamp(display[3]);
         if (right <= left || bottom <= top) {
             return NO_BOX;
         }
         return new double[]{left, top, right - left, bottom - top};
+    }
+
+    /**
+     * Turns a normalised unrotated rectangle into the page's displayed orientation.
+     *
+     * <p>Derived by measurement against {@code PDFRenderer} at each /Rotate, which is the same
+     * renderer that produces the page images the viewer shows, so the boxes and the pixels the
+     * provider points at agree by construction:
+     *
+     * <pre>
+     *     /Rotate    displayed X    displayed Y
+     *        0            u              v
+     *       90          1 - v            u
+     *      180          1 - u          1 - v
+     *      270            v            1 - u
+     * </pre>
+     *
+     * @return {@code {left, top, right, bottom}}, ordered
+     */
+    private static double[] rotateIntoDisplaySpace(double u0, double v0, double u1, double v1,
+                                                   int rotation) {
+        double x0;
+        double y0;
+        double x1;
+        double y1;
+        switch (rotation) {
+            case 90 -> {
+                x0 = 1d - v1; y0 = u0; x1 = 1d - v0; y1 = u1;
+            }
+            case 180 -> {
+                x0 = 1d - u1; y0 = 1d - v1; x1 = 1d - u0; y1 = 1d - v0;
+            }
+            case 270 -> {
+                x0 = v0; y0 = 1d - u1; x1 = v1; y1 = 1d - u0;
+            }
+            default -> {
+                x0 = u0; y0 = v0; x1 = u1; y1 = v1;
+            }
+        }
+        return new double[]{Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)};
     }
 
     private static double clamp(double value) {

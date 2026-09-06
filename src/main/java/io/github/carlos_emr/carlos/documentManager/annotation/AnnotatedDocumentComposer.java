@@ -79,7 +79,15 @@ public class AnnotatedDocumentComposer {
     /** Highlight opacity. Low enough that OCR text under the mark stays readable on a fax. */
     private static final float HIGHLIGHT_ALPHA = 0.38f;
 
-    /** Nominal page width in points assumed when deriving a font ascent ratio. */
+    /**
+     * Fraction of a text mark's box height that sits above the baseline.
+     *
+     * <p>Not a page width — the previous wording said so and described nothing this constant does.
+     * The composer has no font metrics for an arbitrary box, so it drops the baseline to this
+     * fraction of the box height and draws from there. {@code documentAnnotate.js} carries the
+     * same constant for the on-screen preview; the two must move together or a note lands at a
+     * different height in the filed copy than the provider saw.
+     */
     private static final double TEXT_BASELINE_RATIO = 0.78d;
 
     private static final Map<String, Color> COLORS = Map.of(

@@ -230,6 +230,23 @@ async function main() {
     check('the page reported no CSP violation or script error',
       cspViolations.length === 0, cspViolations.slice(0, 3).join(' | '));
 
+    // The status region is an <output>, not a <span role="status">. The element type matters
+    // because the viewer's setStatus() writes to it by id and swaps its className: if the swap
+    // ever broke the handle or the CSS, saves would appear to do nothing. Assert what the
+    // BROWSER computes, not what the markup claims.
+    const statusTag = await page.locator('#status').evaluate(el => el.tagName.toLowerCase());
+    check('the status region is an <output>', statusTag === 'output', `<${statusTag}>`);
+    // includeHidden: while empty the region is display:none via .status:empty, and Playwright's
+    // role engine skips hidden elements. The role is asserted again after a save, when it is
+    // visible and actually announceable.
+    const statusRoleCount = await page.getByRole('status', { includeHidden: true }).count();
+    check('the browser exposes the status region with the ARIA status role',
+      statusRoleCount >= 1, `${statusRoleCount} elements with role=status`);
+    const statusHiddenWhenEmpty = await page.locator('#status')
+      .evaluate(el => getComputedStyle(el).display);
+    check('the empty status region is hidden by .status:empty',
+      statusHiddenWhenEmpty === 'none', `display: ${statusHiddenWhenEmpty}`);
+
     // ---- highlighting works regardless of the text layer ----
     await page.locator('.tool[data-tool="highlight"]').click();
     const overlay = page.locator('svg.overlay').first();
@@ -299,6 +316,31 @@ async function main() {
           openable.status === 200 && /image/i.test(openable.type),
           `status ${openable.status}, type ${openable.type}`);
       }
+
+      // Everything above posts the model with fetch, which never touches setStatus(). Click the
+      // real Save button so the viewer's own status path runs end to end: the handle resolves,
+      // the className swap lands, and the region becomes visible. This files one further copy,
+      // which is why this script is for disposable deployments only.
+      await page.locator('#btnSave').click();
+      await page.waitForFunction(
+        () => document.getElementById('status').textContent.trim().length > 0,
+        null, { timeout: 20000 },
+      ).catch(() => {});
+      const statusAfterSave = await page.locator('#status').evaluate(el => ({
+        text: el.textContent.trim(),
+        cls: el.className,
+        display: getComputedStyle(el).display,
+      }));
+      check('clicking Save writes into the status region',
+        statusAfterSave.text.length > 0, JSON.stringify(statusAfterSave));
+      check('setStatus applies its state class to the status region',
+        /^status( \w+)?$/.test(statusAfterSave.cls), `className="${statusAfterSave.cls}"`);
+      check('the populated status region is visible',
+        statusAfterSave.display !== 'none', `display: ${statusAfterSave.display}`);
+      // Now that it carries text and is visible, it must be announceable as a live status.
+      const visibleStatusRole = await page.getByRole('status').count();
+      check('the visible status region is announceable as role=status',
+        visibleStatusRole >= 1, `${visibleStatusRole} visible elements with role=status`);
     } else {
       findings.push('FAIL  overlay had no usable geometry to draw on');
     }

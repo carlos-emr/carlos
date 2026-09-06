@@ -21,23 +21,30 @@
  */
 package io.github.carlos_emr.carlos.documentManager.annotation;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 /**
  * Pins that the OCR text layer is <strong>optional</strong>.
@@ -106,31 +113,77 @@ class DocumentWordBoxesUnitTest {
         assertThat(DocumentWordBoxes.extract(single, 0, MAX_WORDS)).isEmpty();
     }
 
-    @Test
-    @DisplayName("should keep boxes inside the page for a rotated page")
-    void shouldKeepBoxesInsidePage_forRotatedPage(@TempDir Path tempDir) throws Exception {
-        File rotated = textPdf(tempDir.resolve("rotated.pdf"), "Rotated scan text", 90);
+    /**
+     * The snap target must land on the text the provider can SEE, at every /Rotate.
+     *
+     * <p>Ground truth is measured from {@link PDFRenderer} rather than written down as a
+     * constant. That is deliberate: the previous version of this test pinned hand-computed
+     * numbers, and because those numbers were derived from the same mistaken assumption as the
+     * code, the test certified a real defect as correct behaviour for as long as it existed.
+     * The renderer used here is the one that produces the page images the viewer displays
+     * (see {@code ManageDocument2Action} showPage), so agreement with it is the property that
+     * actually matters — a wrong box means a highlight snapping onto unrelated text, which is
+     * then composed into a filed and faxed copy.
+     */
+    @ParameterizedTest(name = "/Rotate {0}")
+    @ValueSource(ints = {0, 90, 180, 270})
+    @DisplayName("should land on the rendered text for every page rotation")
+    void shouldLandOnRenderedText_forEveryPageRotation(int rotation, @TempDir Path tempDir)
+            throws Exception {
+        File rotated = textPdf(tempDir.resolve("rotated-" + rotation + ".pdf"), "POTASSIUM", rotation);
 
         List<double[]> boxes = DocumentWordBoxes.extract(rotated, 1, MAX_WORDS);
 
         assertThat(boxes).as("a rotated page still has extractable text").isNotEmpty();
-
-        // Containment alone proves nothing here: boundingBox clamps every edge into 0..1, so the
-        // assertions below hold for ANY displayW/displayH, including the un-transposed ones a
-        // broken rotation branch would use. Deleting the quarter-turn transposition changes every
-        // coordinate and a containment-only test still passes. So pin the POSITION.
         for (double[] box : boxes) {
             assertThat(box[0] + box[2]).isLessThanOrEqualTo(1.0001d);
             assertThat(box[1] + box[3]).isLessThanOrEqualTo(1.0001d);
         }
 
-        // At 90 degrees the displayed page is LETTER transposed: 792pt wide by 612pt tall. The
-        // text is drawn at user-space (72, 600) on the unrotated page, which lands near the top
-        // left of the displayed page once the transposition is applied. Against the un-transposed
-        // 612x792 these normalise to visibly different numbers, so this fails if the branch goes.
+        double[] ink = renderedInkBox(rotated);
         double[] first = boxes.get(0);
-        assertThat(first[0]).as("x normalised against the transposed width").isBetween(0.05d, 0.15d);
-        assertThat(first[1]).as("y normalised against the transposed height").isBetween(0.25d, 0.36d);
+        // A glyph box is slightly larger than the ink inside it (side bearings, ascent above the
+        // tallest glyph), so compare centres with a tolerance well under the size of one word.
+        double boxCentreX = first[0] + first[2] / 2d;
+        double boxCentreY = first[1] + first[3] / 2d;
+        double inkCentreX = (ink[0] + ink[2]) / 2d;
+        double inkCentreY = (ink[1] + ink[3]) / 2d;
+        assertThat(boxCentreX)
+                .as("snap target x must sit on the text the viewer renders at /Rotate %d", rotation)
+                .isCloseTo(inkCentreX, within(0.02d));
+        assertThat(boxCentreY)
+                .as("snap target y must sit on the text the viewer renders at /Rotate %d", rotation)
+                .isCloseTo(inkCentreY, within(0.02d));
+    }
+
+    /**
+     * @return {@code {left, top, right, bottom}} of the dark pixels on page 1, normalised against
+     *         the rendered image, which is already in the page's displayed orientation
+     */
+    private static double[] renderedInkBox(File pdf) throws IOException {
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            BufferedImage image = new PDFRenderer(document).renderImageWithDPI(0, 144, ImageType.RGB);
+            int minX = Integer.MAX_VALUE;
+            int minY = Integer.MAX_VALUE;
+            int maxX = -1;
+            int maxY = -1;
+            for (int y = 0; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    int rgb = image.getRGB(x, y);
+                    int luminance = (((rgb >> 16) & 0xFF) + ((rgb >> 8) & 0xFF) + (rgb & 0xFF)) / 3;
+                    if (luminance < 128) {
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                        maxX = Math.max(maxX, x);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+            }
+            assertThat(maxX).as("the rendered page must actually contain ink").isGreaterThan(-1);
+            return new double[]{
+                    minX / (double) image.getWidth(), minY / (double) image.getHeight(),
+                    (maxX + 1) / (double) image.getWidth(), (maxY + 1) / (double) image.getHeight()};
+        }
     }
 
     @Test
