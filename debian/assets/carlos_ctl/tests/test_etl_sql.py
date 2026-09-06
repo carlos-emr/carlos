@@ -808,6 +808,28 @@ class TestNullIntoAColumnCarlosMapsAsAPrimitive(unittest.TestCase):
             o19etl.sanitize_expr("s.`a`", col("int", primitive=True)),
             "IFNULL(s.`a`, 0)")
 
+    def test_a_bit_column_gets_the_integer_zero(self):
+        """MEASURED on MariaDB 10.11, and invisible in the write: with
+        `b'0'` or `''` the copy still STORES the right value, but
+        `IFNULL` turns the expression into a binary string and the value
+        check's `d.b <=> IFNULL(s.b, ...)` is FALSE for every row whose
+        source was NOT null. P4 parity then fails a faithful import on
+        rows that never needed a substitution -- which is what happened
+        to `indicatorTemplate.active` and `tickler_category.active` on a
+        live rehearsal. The integer keeps the comparison numeric.
+        `scripts/migration/o19/verify_sql_semantics.py` puts this to the
+        server for every type the manifest presents."""
+        self.assertEqual(
+            o19etl.primitive_fallback(col("bit", primitive=True,
+                                          column_type="bit(1)")), "0")
+        self.assertEqual(
+            o19etl.not_null_fallback(col("bit", nullable=False,
+                                         column_type="bit(1)")), "0")
+        self.assertEqual(
+            o19etl.sanitize_expr("s.`b`", col("bit", primitive=True,
+                                              column_type="bit(1)")),
+            "IFNULL(s.`b`, 0)")
+
     def test_a_nullable_column_no_entity_maps_is_left_alone(self):
         self.assertIsNone(o19etl.primitive_fallback(col("int")))
         self.assertEqual(o19etl.sanitize_expr("s.`a`", col("int")),

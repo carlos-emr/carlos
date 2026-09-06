@@ -507,10 +507,21 @@ charset analysis only. Rollback = restore the pre-import snapshot (already a
   drugs joined on ids for N random patients; billing invoice totals per fiscal
   year match to the cent.
 - **Files**: document reconciliation (§5, step 3) clean.
-- **App-level smoke**: the existing Playwright UI test suite (`ui-tests` skills,
-  tests 1–9: login, demographic search, appointments, Rx, ticklers, encounter,
-  ON billing, labs, preventions) run against the migrated database — this is the
-  strongest "the clinic can work tomorrow" signal.
+- **App-level smoke**: `scripts/o19-migrated-smoke-playwright-checks.js`
+  (`npm run test:o19-migrated-smoke`), run against the migrated database under a
+  full app deploy — the strongest "the clinic can work tomorrow" signal, and the
+  only check here that opens the application at all. Unlike the `ui-tests`
+  skills and the other `scripts/*-playwright-checks.js`, it hardcodes no
+  fixtures: a migrated database has none of the CARLOS dev seed (P0 refuses a
+  target holding extra logins and the seed script then deletes the seeded
+  clinician), so it discovers the break-glass administrator, the patient with
+  the most notes, that patient's newest note and its signing provider, and their
+  appointment, prescription and lab from the schema itself.
+  `scripts/migration/o19/rehearsal/ui-smoke.sh` drives it end to end.
+  It found three defects every SQL gate passed: a NULL in a column CARLOS maps
+  as a Java primitive (HTTP 500 on the schedule and on every chart's notes
+  pane), the program row the import writes leaving two boxed `Boolean` columns
+  NULL, and encounter-form menu entries naming forms CARLOS removed.
 - **Login**: sample migrated provider logs in with O19 credentials, hash upgrades
   to `{bcrypt}`, forced reset flow completes.
 
@@ -1121,9 +1132,11 @@ disposition, RTL rule, classification counts and manifest names were brought
 back in line with the code, and the blocker table now covers every class the
 preflight emits.
 
-**All milestones complete.** Next steps beyond this round: run the
-Playwright UI suite against a migrated database under a full app deploy,
-the BC manifest pass (§10.6), and the carlos-podman `import-o19` catch-up.
+**All milestones complete.** The migrated-database UI smoke is now a
+committed suite (`npm run test:o19-migrated-smoke`, driven end to end by
+`scripts/migration/o19/rehearsal/ui-smoke.sh`) and runs green against a
+rehearsal migration. Next steps beyond this round: the BC manifest pass
+(§10.6) and the carlos-podman `import-o19` catch-up.
 
 ## 10. Implementation work breakdown
 

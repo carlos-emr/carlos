@@ -424,6 +424,15 @@ _NOT_NULL_ZERO = {
     "date": "'0000-00-00'",
     "datetime": "'0000-00-00 00:00:00'",
     "time": "'00:00:00'",
+    # `bit` needs the INTEGER zero, and getting this wrong is invisible
+    # in the write. MEASURED on MariaDB 10.11: with `IFNULL(s.b, b'0')`
+    # or `IFNULL(s.b, '')` the copy still STORES the right value, but
+    # the result type becomes a binary string, so the value check's
+    # `d.b <=> IFNULL(s.b, ...)` is FALSE for every row whose source was
+    # NOT null -- P4 parity then fails a faithful import on rows that
+    # never needed a substitution at all. `0` keeps the comparison
+    # numeric and both rows agree.
+    "bit": "0",
 }
 
 

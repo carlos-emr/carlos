@@ -71,6 +71,9 @@ class FakeDb(object):
             "admin_pn": "999999", "admin_unreachable": [2, 0],
             #: encounterForm rows naming a form table CARLOS removed
             "encounter_forms_missing": [["formAdf", "ADF"]],
+            #: appointments carrying a program id the day view will not
+            #: show (reported, never rewritten)
+            "appointments_outside_program_zero": 2,
             "pending": 1, "property_counts": {"INTEGRATOR_": 1},
             "prevention_counts": {"Flu": 1}, "unknown": [["Weird", "2"]],
             "restored": [["receptionist", "_billing", "r", "0"]],
@@ -174,6 +177,8 @@ class FakeDb(object):
             return [[str(a.get("spelling_drift", 0))]]
         if sql == o19roles.comma_named_roles_sql(DST):
             return a.get("comma_roles", [])
+        if sql == o19roles.appointments_outside_program_zero_sql(DST):
+            return [[str(a["appointments_outside_program_zero"])]]
         if sql == o19roles.encounter_forms_missing_tables_sql(DST):
             return a["encounter_forms_missing"]
         if sql == o19roles.rtl_rows_sql(DST):
@@ -833,6 +838,31 @@ class TestEncounterFormsPointingAtRemovedForms(RunRolesBase):
         _archive, delete = o19roles.encounter_form_prune_statements(DST, ARCH)
         self.assertNotIn(delete, db.writes)
         self.assertNotIn("encounter-form entr(ies)", "\n".join(self.reports))
+
+
+class TestAppointmentsTheDayViewWillNotShow(RunRolesBase):
+
+    """An appointment carrying a program id other than 0.
+
+    CARLOS's day view pins the program to 0, and so did OSCAR 19's, so
+    such an appointment was invisible on the day schedule BEFORE the
+    migration and stays invisible after it. Nothing is rewritten -- but
+    an operator comparing the two systems' day views has to be told the
+    count rather than discover it at go-live."""
+
+    def test_the_count_is_reported_and_nothing_is_rewritten(self):
+        db = FakeDb()
+        self.run_roles(db)
+        self.assertIn("2 migrated appointment(s) carry a program id other "
+                      "than 0", "\n".join(self.reports))
+        self.assertEqual(
+            [w for w in db.writes if "appointment" in w and "UPDATE" in w],
+            [])
+
+    def test_nothing_is_said_when_every_appointment_is_program_zero(self):
+        self.run_roles(FakeDb(appointments_outside_program_zero=0))
+        self.assertNotIn("carry a program id other than 0",
+                         "\n".join(self.reports))
 
 
 class TestTheBreakGlassAdminCanOpenAChart(RunRolesBase):

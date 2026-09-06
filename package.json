@@ -41,7 +41,8 @@
     "test:report-demographic-navigation-playwright": "node scripts/report-demographic-navigation-playwright-checks.js",
     "test:flowsheet-admin-playwright": "node scripts/flowsheet-admin-playwright-checks.js",
     "test:select-forms-panel-playwright": "node scripts/select-forms-panel-playwright-checks.js",
-    "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js"
+    "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js",
+    "test:o19-migrated-smoke": "node scripts/o19-migrated-smoke-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

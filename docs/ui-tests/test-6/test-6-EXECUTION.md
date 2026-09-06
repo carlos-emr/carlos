@@ -6,7 +6,7 @@ Before executing Test 6, verify all prerequisites are met.
 
 ### 1. Application Status
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/carlos/
 # Should return: 200
 ```
 
@@ -39,7 +39,7 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-6"
 
 **MUST USE** `IncomingEncounter.do` as the entry point:
 ```
-/oscar/encounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
+/carlos/encounter/IncomingEncounter.do?providerNo={providerNo}&appointmentNo=&demographicNo={demographicNo}&curProviderNo=&reason=Tel-Progress+Note&encType=&curDate={YYYY-M-DD}&appointmentDate=&startTime=&status=
 ```
 
 **For Playwright automation:**
@@ -60,7 +60,7 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-6"
 ### Phase 1: Authentication & E-Chart Access
 
 #### Step 1: Navigate to Login Page
-**Action**: Navigate to http://localhost:8080/oscar
+**Action**: Navigate to http://localhost:8080/carlos
 **Screenshot**: `test-6-01-login-page.png`
 **Expected**: Login form with username, password, and PIN fields
 
@@ -250,7 +250,7 @@ WHERE demographic_no = '1'
 2. Generate a unique probe token: `PROBE="AUTOSAVE-PROBE-$TIMESTAMP"`.
 3. Type the probe token into the encounter note textarea (element id `caseNote`).
 4. Wait **≥ 7 seconds** so the 5-second autosave timer fires and `autoSave()` POSTs
-   to `/oscar/CaseManagementEntry?method=autosave`. The "draft saved" timestamp
+   to `/carlos/CaseManagementEntry?method=autosave`. The "draft saved" timestamp
    should appear next to the textarea (`#autosaveTime`).
 
 **Screenshot**: `test-6-23-probe-typed-autosaved.png`
@@ -368,8 +368,8 @@ WHERE demographic_no='1' AND note LIKE '%AUTOSAVE-PROBE-%';"
 
 ### 3. Console Warnings Check
 Expected 404 errors (non-blocking):
-- `/oscar/js/dateFormatUtils.js`
-- `/oscar/js/custom/default/master.js`
+- `/carlos/js/dateFormatUtils.js`
+- `/carlos/js/custom/default/master.js`
 
 ---
 

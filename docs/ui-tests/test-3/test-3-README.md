@@ -23,7 +23,7 @@ Test 3 validates the appointment scheduling workflow in CARLOS EMR, including vi
 ## Prerequisites
 
 ### Application Requirements
-- CARLOS EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/carlos
 - Database accessible and writable
 - Playwright MCP configured (headless Chromium)
 
@@ -125,8 +125,8 @@ Notes: Created by UI Test 3
 ## Expected Warnings (Non-Blocking)
 
 ### 404 Errors
-- `/oscar/js/dateFormatUtils.js` - Schedule pages (expected)
-- `/oscar/js/custom/default/master.js` - Various pages (expected)
+- `/carlos/js/dateFormatUtils.js` - Schedule pages (expected)
+- `/carlos/js/custom/default/master.js` - Various pages (expected)
 
 ### JavaScript Warnings
 - `Unexpected token '%'` - JSP template parsing (expected)

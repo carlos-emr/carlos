@@ -30,7 +30,7 @@ git log -1 --oneline  # Note current commit
 
 ### Step 1: Login Page
 ```
-Navigate: http://localhost:8080/oscar/index.jsp
+Navigate: http://localhost:8080/carlos/
 Screenshot: ui-test-runs/$TIMESTAMP/test-1/screenshots/test-1-01-login-page.png
 Verify: Form visible, fonts correct, no 404s
 ```
@@ -107,8 +107,8 @@ done
 ### 3. Verify Expected Warnings
 
 **Expected 404s**:
-- `/oscar/js/dateFormatUtils.js` (Step 3)
-- `/oscar/js/custom/default/master.js` (Steps 5, 7)
+- `/carlos/js/dateFormatUtils.js` (Step 3)
+- `/carlos/js/custom/default/master.js` (Steps 5, 7)
 
 **Expected JavaScript Warnings**:
 - `Unexpected token '%'` (Steps 1, 4, 6)
@@ -282,7 +282,7 @@ server restart
 sleep 10
 
 # Verify ready
-curl -I http://localhost:8080/oscar/index.jsp
+curl -I http://localhost:8080/carlos/
 ```
 
 ---

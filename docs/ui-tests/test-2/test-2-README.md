@@ -25,7 +25,7 @@ Test 2 is a **comprehensive end-to-end UI test** for the Demographic module in C
 ## Prerequisites
 
 ### Application Requirements
-- CARLOS EMR running at http://localhost:8080/oscar
+- CARLOS EMR running at http://localhost:8080/carlos
 - Database accessible and writable
 - Playwright MCP configured (headless Chromium)
 
@@ -203,8 +203,8 @@ Patient Status: IN (Inactive)
 ## Expected Warnings (Non-Blocking)
 
 ### 404 Errors
-- `/oscar/js/dateFormatUtils.js` - Search page (expected)
-- `/oscar/js/custom/default/master.js` - Demographic pages (expected)
+- `/carlos/js/dateFormatUtils.js` - Search page (expected)
+- `/carlos/js/custom/default/master.js` - Demographic pages (expected)
 
 ### JavaScript Warnings
 - `Unexpected token '%'` - JSP template parsing (expected)

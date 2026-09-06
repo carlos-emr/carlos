@@ -2142,6 +2142,120 @@ def _required_nulls_body(client: Client, src: str, dst: str) -> List[str]:
     return failures
 
 
+#: Every destination type a column CARLOS maps to a Java primitive
+#: actually has in the shipped manifest, paired with a NON-NULL source
+#: value to store in it. The point of the pairing is the row that needs
+#: NO substitution: `IFNULL(expr, <literal>)` changes the EXPRESSION's
+#: type, so a wrong literal can leave the write correct and still make
+#: the value check disagree with it on every faithful row -- which is
+#: exactly what `bit` did, failing P4 parity on a clean import.
+PRIMITIVE_TYPE_FIXTURES = [
+    ("c_tinyint", "tinyint(4)", "1"),
+    ("c_smallint", "smallint(6)", "2"),
+    ("c_mediumint", "mediumint(9)", "3"),
+    ("c_int", "int(11)", "4"),
+    ("c_bigint", "bigint(20)", "5"),
+    ("c_float", "float", "1.5"),
+    ("c_double", "double", "2.5"),
+    ("c_decimal", "decimal(10,2)", "3.25"),
+    ("c_bit", "bit(1)", "b'1'"),
+    ("c_char", "char(1)", "'y'"),
+    ("c_varchar", "varchar(16)", "'text'"),
+    ("c_date", "date", "'2014-03-04'"),
+    ("c_datetime", "datetime", "'2014-03-04 09:00:00'"),
+    ("c_time", "time", "'09:00:00'"),
+]
+
+
+def check_primitive_fallback_types(client: Client, src: str,
+                                   dst: str) -> List[str]:
+    """The substituted literal must be right for EVERY type, on the rows
+    that need no substitution as much as on the rows that do.
+
+    A nullable column CARLOS maps to a Java primitive gets an
+    `IFNULL(expr, <literal>)` wrapper so the row can be hydrated. That
+    wrapper changes the expression's TYPE, and the value check is built
+    from the same expression -- so a literal of the wrong type can store
+    the right value and still make the check FALSE for every row whose
+    source was not null. Measured: with `''` (the fallthrough literal) a
+    `bit(1)` column failed P4 parity on a faithful import, on a row that
+    held a value all along.
+
+    So this drives every type the manifest actually presents, with a
+    real value AND a NULL in each, and requires the check to agree with
+    the copy on both."""
+    try:
+        return _primitive_types_body(client, src, dst)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(src, dst))
+
+
+def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
+    failures: List[str] = []
+    columns = ", ".join("`{0}` {1} NULL".format(name, decl)
+                        for name, decl, _v in PRIMITIVE_TYPE_FIXTURES)
+    names = [name for name, _d, _v in PRIMITIVE_TYPE_FIXTURES]
+    for schema in (src, dst):
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "DEFAULT CHARSET=utf8mb4;".format(schema))
+        client.setup("CREATE TABLE `t` (`id` int NOT NULL PRIMARY KEY, {0})"
+                     ";".format(columns), schema)
+    client.setup(
+        "INSERT INTO `t` VALUES (1, {0});".format(
+            ", ".join(v for _n, _d, v in PRIMITIVE_TYPE_FIXTURES)), src)
+    client.setup(
+        "INSERT INTO `t` VALUES (2, {0});".format(
+            ", ".join("NULL" for _f in PRIMITIVE_TYPE_FIXTURES)), src)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    dst_cols = o19etl.introspect_columns(query, dst)["t"]
+    # every column is primitive-mapped for this fixture: that is the
+    # population the wrapper is added for
+    for name in names:
+        dst_cols[name]["primitive"] = True
+    entry = {"class": "copy", "cols": ["id"] + names}
+
+    print("\n  the substituted literal is right for every type")
+    client.setup("SET SESSION sql_mode='';"
+                 + o19etl.copy_statement("t", entry, src, dst, dst_cols)
+                 + ";", dst)
+
+    # nothing may be NULL on the target: that is what the wrapper is for
+    nulls = int(client.rows(
+        "SELECT COUNT(*) FROM `t` WHERE {0}".format(
+            " OR ".join("`{0}` IS NULL".format(n) for n in names)),
+        dst)[0][0])
+    print("    {0:<44} {1}".format(
+        "no primitive column lands NULL",
+        "ok" if nulls == 0 else "{0} ROW(S) STILL NULL".format(nulls)))
+    if nulls:
+        failures.append("{0} row(s) still hold NULL in a column CARLOS "
+                        "maps as a primitive".format(nulls))
+
+    check = o19etl.copy_value_mismatch_sql("t", entry, src, dst, dst_cols,
+                                           ("id",))
+    alarms = int(client.rows(check, dst)[0][0])
+    print("    {0:<44} {1}".format(
+        "P7 agrees with the copy, both rows",
+        "ok" if alarms == 0 else "{0} FALSE ALARM(S)".format(alarms)))
+    if alarms:
+        # name them, because "one type is wrong" is the whole finding
+        for name in names:
+            one = dict(entry, cols=["id", name])
+            n = int(client.rows(o19etl.copy_value_mismatch_sql(
+                "t", one, src, dst, dst_cols, ("id",)), dst)[0][0])
+            if n:
+                failures.append(
+                    "{0} ({1}): the value check disagrees with the copy on "
+                    "{2} row(s); the substituted literal changes the "
+                    "expression's type".format(
+                        name, dst_cols[name]["column_type"], n))
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -2250,6 +2364,10 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                                            args.prefix + "_rnd")
     if required:
         failures["required column nulls"] = required
+    typed = check_primitive_fallback_types(client, args.prefix + "_pts",
+                                           args.prefix + "_ptd")
+    if typed:
+        failures["primitive fallback types"] = typed
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
@@ -2284,7 +2402,10 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
           "import, and a NULL in a column CARLOS requires takes the "
           "TYPE's zero (never the column's DEFAULT) with the value "
           "check agreeing, where the uncoerced check it replaces "
-          "demonstrably fails a faithful copy")
+          "demonstrably fails a faithful copy, and the literal that "
+          "substitution uses is right for EVERY type the manifest "
+          "presents -- on the rows that needed no substitution as much "
+          "as on the rows that did")
     return 0
 
 

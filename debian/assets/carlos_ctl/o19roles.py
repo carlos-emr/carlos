@@ -1991,6 +1991,43 @@ def roles_prune_encounter_forms(run: 'RolesRun') -> None:
     mark("encounter_forms_pruned", {"pruned": pruned})
 
 
+def appointments_outside_program_zero_sql(dst_schema: str) -> str:
+    """COUNT of migrated appointments carrying a program id other than 0.
+
+    Not a defect and not repaired -- reported. CARLOS's day view pins the
+    program to 0 (`appointmentprovideradminday.jsp`: "Disable schedule
+    view associated with the program"), and so did OSCAR 19's, so an
+    appointment booked under any other program was already invisible on
+    the day schedule BEFORE the migration and stays invisible after it.
+    It is still in the patient's appointment history, and it is still in
+    the database. An operator comparing the two systems' day views needs
+    to know the count rather than discover it at go-live."""
+    return ("SELECT COUNT(*) FROM `{0}`.appointment WHERE program_id IS "
+            "NOT NULL AND program_id <> 0".format(dst_schema))
+
+
+def roles_report_appointment_programs(run: 'RolesRun') -> None:
+    """Report appointments the day schedule will not show."""
+    dst = run.dst
+    report = run.report
+    ledger = run.ledger
+    n = run.n
+    mark = run.mark
+    plan = run.plan
+    if ledger.get("appointment_programs"):
+        return
+    outside = plan("appointment_programs_count",
+                   lambda: n(appointments_outside_program_zero_sql(dst)))
+    if outside:
+        report("roles: {0} migrated appointment(s) carry a program id other "
+               "than 0. CARLOS's day schedule shows program 0 only, as "
+               "OSCAR 19's did, so these appear in the patient's "
+               "appointment history but not on the day view — in CARLOS "
+               "exactly as they did not in OSCAR 19. Nothing was changed."
+               .format(outside))
+    mark("appointment_programs", {"outside": outside})
+
+
 def roles_prevention_types(run: 'RolesRun') -> None:
     """Reconcile prevention type codes against the CARLOS set."""
     query = run.query
@@ -2180,6 +2217,7 @@ def run_roles(ctx, progress: Dict, save: Callable[[], None]) -> None:
     roles_privilege_diff(run)
     roles_prune_property_keys(run)
     roles_prune_encounter_forms(run)
+    roles_report_appointment_programs(run)
     roles_prevention_types(run)
     roles_rich_text_letter(run, ctx)
 

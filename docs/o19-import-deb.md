@@ -510,7 +510,20 @@ gate has no override.
    two imports or feeding a checklist. `report.txt` next to it is the
    running phase log — chronological, and the place to look for what a
    given phase did. Add manual spot checks and a UI smoke of the migrated
-   charts. The report is written to be shareable; the
+   charts. `npm run test:o19-migrated-smoke` is that UI smoke, committed:
+   it discovers its own fixtures from the migrated schema (the break-glass
+   administrator, the patient with the most notes, that patient's newest
+   note and signing provider, their appointment, prescription and lab) and
+   then asks the application to render them — the forced password reset
+   for the break-glass account and for a migrated clinician, patient
+   search, the e-chart, the appointment history, the Rx module, the lab
+   list, a preserved `import_archived_` column reconciled against its
+   `o19_archive` shadow, and no page returning an error status or a stack
+   trace. `scripts/migration/o19/rehearsal/ui-smoke.sh` drives it end to
+   end (build, Tomcat, deploy, run) on a rehearsal host. It rewrites the
+   `security` rows of the two accounts it logs in as and restores them, so
+   run it against a REHEARSAL copy of the migration, not the clinic's live
+   database after go-live. The report is written to be shareable; the
    per-patient lines of the spot check (which name patient identifiers) go
    to `verify-details.txt` next to it, root-only, as do `privilege-diff.txt`
    and `roles-details.txt`. When a value check finds rows that disagree, the
