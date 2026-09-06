@@ -642,7 +642,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function inboxhubItemElement(segmentId, labType) {
         if (!isInboxhubItemToken(segmentId)) { return jQuery(); }
         const candidates = jQuery('[id="labdoc_' + segmentId + '"]');
-        if (!isInboxhubItemToken(labType)) { return candidates; }
+        if (!isInboxhubItemToken(labType)) {
+            // No type given (a popup running a cached older script). One match is
+            // unambiguous; more than one means the id is shared across report types and
+            // picking either would remove a row and decrement a total at random, so this
+            // does nothing and leaves it to the list refresh.
+            return candidates.length === 1 ? candidates : jQuery();
+        }
         return candidates.filter('[data-lab-type="' + labType + '"]');
     }
 
@@ -698,12 +704,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         // removeReport stays defined after a switch to preview mode, so the table itself —
         // not the function — is what says which mode is on screen.
         if (jQuery('#inbox_table').length > 0 && typeof removeReport === 'function') {
-            // List mode: removeReport drops the DataTable row and the count together.
+            // List mode: drop the row. removeReport only counts when it removed one.
             removeReport(segmentId, resolvedType);
-            return;
         }
-        // Preview mode renders cards rather than table rows; the refresh re-renders them,
-        // so only the stored count needs correcting here.
+        // This is the acknowledged item itself, so its total moves whether or not a row was
+        // on screen — the clinician may have changed a filter while the popup was open. The
+        // per-item key above keeps this and removeReport from counting it twice.
         countAcknowledgedInboxhubItem(segmentId, resolvedType);
     }
 

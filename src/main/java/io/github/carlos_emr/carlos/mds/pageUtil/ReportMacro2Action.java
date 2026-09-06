@@ -108,7 +108,12 @@ public class ReportMacro2Action extends ActionSupport {
                 for (int x = 0; x < macros.size(); x++) {
                     ObjectNode macro = (ObjectNode) macros.get(x);
                     if (name.equals(macro.get("name").asText())) {
-                        outcome = runMacroOutcome(macro, request);
+                        // Nothing stops a provider defining two macros with the same name, and
+                        // every match runs. Combining the outcomes rather than keeping the last
+                        // one means an acknowledgement by an earlier entry is still reported —
+                        // otherwise a later non-acknowledging entry would hide it and the inbox
+                        // would keep showing a lab that had been acknowledged.
+                        outcome = outcome.combinedWith(runMacroOutcome(macro, request));
                     }
                 }
             }
@@ -146,6 +151,10 @@ public class ReportMacro2Action extends ActionSupport {
 
         static MacroOutcome ran(boolean acknowledged) {
             return new MacroOutcome(true, acknowledged);
+        }
+
+        MacroOutcome combinedWith(MacroOutcome other) {
+            return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged());
         }
     }
 

@@ -205,6 +205,29 @@ class InboxAcknowledgeNotificationRegressionTest {
     }
 
     @Test
+    @DisplayName("should count one inbox row once, not once per version in its chain")
+    void shouldCountOnce_forEachInboxRowNotEachChainVersion() throws IOException {
+        // Acknowledging calls removeReport once per id in the version chain, and the older
+        // versions have no row of their own — the inbox collapses the chain to one. Counting
+        // every call dropped the total by the number of versions for a single visible row.
+        assertThat(read(INBOXHUB_LIST_MODE_JSP))
+                .as("removeReport must count only when it actually removed a row")
+                .contains("if (rowEl.length === 0) { return; }");
+        assertThat(read(INBOXHUB_FORM_JSP))
+                .as("the acknowledged item is still counted whether or not its row was present")
+                .contains("countAcknowledgedInboxhubItem(segmentId, resolvedType);");
+    }
+
+    @Test
+    @DisplayName("should do nothing for an untyped id that two report types share")
+    void shouldSkipAmbiguousItem_whenTypeIsUnknown() throws IOException {
+        // One match is unambiguous; two means the id is shared across report types, and
+        // picking either would remove a row and decrement a total at random.
+        assertThat(read(INBOXHUB_FORM_JSP))
+                .contains("return candidates.length === 1 ? candidates : jQuery();");
+    }
+
+    @Test
     @DisplayName("should count an acknowledged item once when the opener already removed its row")
     void shouldNotDoubleCount_whenOpenerAlreadyRemovedTheRow() throws IOException {
         // A popup whose window.opener survived has already called removeReport by the time
@@ -236,7 +259,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         // inbox is showing; preview mode has cards and no #inbox_table, and reaching for the
         // DataTable API there would throw and take the counter update down with it.
         assertThat(read(INBOXHUB_LIST_MODE_JSP))
-                .contains("if (rowEl.length > 0 && jQuery('#inbox_table').length > 0) {");
+                .contains("if (jQuery('#inbox_table').length > 0) {");
     }
 
     @Test

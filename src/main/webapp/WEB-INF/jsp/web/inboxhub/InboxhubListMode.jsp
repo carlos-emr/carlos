@@ -251,14 +251,22 @@
      * in preview mode there are cards and no #inbox_table, and reaching for the DataTable
      * API there would throw and take the counter update down with it.
      *
+     * Counting is tied to a row ACTUALLY being removed. Acknowledging a lab calls this once
+     * per id in its version chain, and the older versions have no row of their own — the
+     * inbox collapses the chain to one. Counting every call therefore dropped the total by
+     * the number of versions for a single visible row. The acknowledged item is counted by
+     * dropAcknowledgedInboxhubItem instead, which does not need a row to be present, and the
+     * shared per-item key stops the two routes counting it twice.
+     *
      * @param {string} reportId segment id of the item to drop
      * @param {string} labType its report type; segment ids are not unique across types, so
      *                 without one this can only fall back to whatever row carries the id
      */
     function removeReport(reportId, labType) {
         const rowEl = inboxhubItemElement(reportId, labType);
-        const resolvedType = labType || (rowEl.length > 0 ? rowEl.data('labType') : null);
-        if (rowEl.length > 0 && jQuery('#inbox_table').length > 0) {
+        if (rowEl.length === 0) { return; }
+        const resolvedType = labType || rowEl.data('labType');
+        if (jQuery('#inbox_table').length > 0) {
             jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
         }
         countAcknowledgedInboxhubItem(reportId, resolvedType);

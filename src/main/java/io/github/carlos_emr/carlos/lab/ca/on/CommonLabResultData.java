@@ -434,8 +434,16 @@ public class CommonLabResultData {
     public static void updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                            String comment, String labType,
                                                            boolean skipCommentOnUpdate, String multiId) {
+        // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
+        // that fails after the reviewed row is already stamped, the caller reports a failure
+        // while the acknowledgement is half-applied: the lab is acknowledged, its older
+        // versions are still NEW, and the collapsed inbox row comes back. Failing here leaves
+        // nothing written. (These are still separate writes, not one transaction — a failure
+        // partway through the loop below can still file some versions and not others.)
+        List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
+
         updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
-        for (Integer olderLabNo : olderVersionsOf(labNo, labType, multiId)) {
+        for (Integer olderLabNo : olderLabNos) {
             updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
         }
     }

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyChar;
@@ -116,6 +117,32 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     169, "999998", 'F', "", "HL7"));
             commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
                     170, "999998", 'F', "", "HL7"));
+        }
+    }
+
+    @Test
+    @DisplayName("should write nothing when the version chain cannot be resolved")
+    void shouldWriteNothing_whenChainLookupFails() {
+        registerStaticInitializerMocks();
+
+        // Resolving the chain hits the database. If that fails after the reviewed row is
+        // already stamped, the caller reports a failure while the acknowledgement is
+        // half-applied — lab acknowledged, older versions still NEW, collapsed row back in
+        // the inbox. Failing before the first write leaves nothing behind.
+        try (MockedStatic<CommonLabResultData> commonLabResultData =
+                     mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7Results = mockStatic(Hl7textResultsData.class)) {
+            hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("171"))
+                    .thenThrow(new IllegalStateException("database unavailable"));
+            commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+
+            assertThatThrownBy(() -> CommonLabResultData.acknowledgeReport(
+                    171, "999998", "Reviewed", "HL7", false, "169,170,171"))
+                    .isInstanceOf(IllegalStateException.class);
+
+            commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean()), never());
         }
     }
 
