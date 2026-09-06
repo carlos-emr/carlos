@@ -3700,10 +3700,6 @@ class TestTheRunningWebappGuard(unittest.TestCase):
         self.assertIsNotNone(message)
         self.assertIn("maintenance", message)
 
-    def test_the_two_stopped_states_let_the_import_through(self):
-        for state in ("inactive", "failed"):
-            self.assertIsNone(self.refusal(state), state)
-
     def test_a_stopped_unit_lets_the_import_through(self):
         for state in ("inactive", "failed"):
             self.assertIsNone(self.refusal(state), state)

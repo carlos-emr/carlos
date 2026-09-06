@@ -9,6 +9,16 @@ Design and rationale: `docs/oscar19-to-carlos-migration-plan.md`.
 Development tooling (manifest generator, rehearsal fixtures):
 `scripts/migration/o19/README.md`.
 
+**On the podman deployment** (`carlos-emr/carlos-podman`) the same two verbs
+exist and run the SAME engine: that repository supplies a `Host`
+(`carlos_ctl/o19runtime.py`) and loads the importer from the CARLOS tree it
+pins, so the phase order, the ledger, the resume rules, the refusals and the
+verification report are this code, not a second copy. What differs there —
+where the workspace lives, how the client reaches a database with no
+published port, who takes the snapshot — is documented in that repository's
+README under "Migrating a clinic from OSCAR 19". This guide is the Debian
+package's.
+
 ## 1. Assess the clinic first (before any backup is shipped)
 
 Copy ONE file to the OSCAR 19 server and run it against the live database:

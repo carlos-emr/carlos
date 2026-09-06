@@ -477,8 +477,15 @@ cutover.
 > Superseded: the deb's `carlos-ctl import-o19` (§9a) is the shipped form —
 > `--admin-user` is mandatory, `--province` may only restate the host's
 > configured province, the application is never restarted by the import and
-> the properties fragment is applied by hand. The sketch below is kept as the
-> original design; the podman wrapper is still pending.
+> the properties fragment is applied by hand. The sketch below is kept as
+> the original design.
+>
+> The podman leg is now built, and NOT as the second wrapper sketched here.
+> carlos-podman supplies a `Host` (`carlos_ctl/o19runtime.py`) and takes the
+> engine itself from the CARLOS tree it already pins
+> (`carlos_ctl/o19source.py`), so the phase order, the ledger, the workspace
+> lock, the resume rules, the refusals and the validation report are the same
+> code on both deployments. See §9c.
 
 `carlos_ctl` already owns db provisioning, Flyway migrate, backup and dump
 (`dbops.py`, `backup.py`). New subcommand:
@@ -1147,8 +1154,62 @@ rulings are curated and pinned by the same integrity suite Ontario's are,
 and a full BC rehearsal (`build-o19-fixture.sh --province bc`, P0–P7 to a
 PASSED verification with row parity clean for 1196 tables and the MSP
 billing totals matching, then `--cleanup`) is what promoted `bc` into
-`SUPPORTED_PROVINCES`. Next step beyond this round: the carlos-podman
-`import-o19` catch-up.
+`SUPPORTED_PROVINCES`. The carlos-podman catch-up is done too — see §9c;
+its one open item is a LIVE rehearsal, which needs a host with a rootless
+podman engine.
+
+## 9c. The second deployment: carlos-podman
+
+`carlos-emr/carlos-podman` now ships the same two verbs. The engine is not
+copied there.
+
+**Why a `Host`, not a second orchestrator.** Everything a clinic's data
+depends on — the phase order, the ledger, the workspace lock, the resume
+rules, every refusal and the validation report — is identical on every
+deployment. A second implementation of those would drift from this one
+commit by commit. So the deb's `o19host.Host` (§9a) is the seam: it answers
+every substrate question, `Host` IS the deb's implementation, and
+carlos-podman subclasses it. `debian/assets/carlos_ctl/tests/test_host.py`
+pins both directions — the deb's own answers, and that every substrate
+question is actually ASKED of the host rather than read from a deb constant.
+
+**Why the engine is fetched, not vendored.** `o19map_schema.py` and
+`o19map_props.py` are generated from CARLOS's own Flyway migrations and the
+OSCAR 19 schema, so every ruling in them is correct for exactly one CARLOS
+version. carlos-podman already pins a CARLOS release *and its commit* and
+builds the WAR from that tree; its `o19source.py` takes the importer from
+the same commit — downloading that tarball, unpacking only
+`debian/assets/carlos_ctl/o19*.py`, verifying that every package sibling the
+engine imports is one podman can answer, and loading the twelve modules
+under a synthetic package. "The manifest matches the schema the application
+will read" becomes structural instead of a sync chore.
+
+**What differs there**, and nothing else does: the workspace is
+`$EMR_HOME/o19-import`; the documents tree is the pod's document-store
+volume; the client runs inside the db container through `runuser` →
+`podman exec` (MariaDB publishes no TCP port in that deployment) with
+`MYSQL_PWD` forwarded by name; the staging credential rides that same
+off-argv channel rather than a defaults file the container could not read;
+the document tree is chowned to the host id container uid 10001 maps to,
+resolved from podman's own id map; the pre-import snapshot is
+`carlos-ctl backup full` into the clinic's restic repository; the
+app-running gate wants the carlos container stopped and the db container
+up; and the province comes from `billregion` in `carlos.properties`, the
+value the application itself bills under.
+
+**The schema gate is weaker there, and says so.** There is no host-side
+Flyway runner on that deployment (the WAR is inside the image, and its
+documented path applies migrations as raw SQL through `carlos-ctl
+db-migrate`, which records nothing). A `flyway_schema_history` with a
+FAILED row, or missing a version the deployed image ships, is refused; no
+history table at all warns and defers to P0's pristine-seed floors.
+
+**Verification.** ruff, mypy, 868 pytest cases and the 432-assertion
+hermetic e2e suite are green there; the e2e leg serves a real source
+tarball with the CARLOS layout so the fetch → scoped extract → verification
+→ load path runs against the real `tar` and the real loader. Seventeen
+mutations were applied and confirmed red. A LIVE rehearsal has not been
+run: it needs a host with a rootless podman engine.
 
 ## 10. Implementation work breakdown
 
@@ -1165,7 +1226,9 @@ instead). §9a records what was actually built.*
 3. `carlos`: documents phase + reconciliation; archive/CSV export phase;
    `props` phase + `o19-properties-map.yaml` seed (§8.1).
 4. `carlos-podman`: `carlos-ctl import-o19` wrapper (snapshot, phases, restart,
-   report), `--dry-run`.
+   report), `--dry-run`. *(Done — M26-3, but not as a wrapper: carlos-podman
+   supplies a `Host` and loads the engine from the CARLOS tree it pins, so
+   there is one implementation of the phases, not two. See §9c.)*
 5. End-to-end rehearsal against a seeded O19 test database built from the
    Bitbucket init scripts + demo data; then against a real anonymized clinic dump.
 6. BC manifest variant. *(Done — M26-2. Delivered as a second profile in
