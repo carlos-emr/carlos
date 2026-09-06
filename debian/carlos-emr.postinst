@@ -322,6 +322,54 @@ case "$1" in
             : > "${CONSULT_SIG_SENTINEL}"
         fi
 
+        # One-time migration (2026.08), the twin of the signature one above:
+        # earlier packages shipped consultation_fax_enabled=false, install_once
+        # copied it into the persistent /etc override, and that override is the
+        # LAST source carlos-emr-tomcat loads — so the new stock default of true
+        # in the WAR's own carlos.properties cannot reach an upgraded install.
+        # Same conservative shape as the signature migration: flip ONLY the
+        # byte-exact old stock line, ONLY on upgrade, ONLY once (sentinel), and
+        # write the sentinel on fresh installs too so a false the operator sets
+        # after this release is never flipped back. An operator who hand-edited
+        # the line (any spacing, any other value) is left alone by the exact
+        # whole-line match.
+        # Faxing only APPEARS in the UI here; sending still needs an active fax
+        # account (Administration > Faxes > Configure Fax) and the _fax object,
+        # so a site that never configured a provider sees no change.
+        CONSULT_FAX_SENTINEL="${STATE}/.consult-fax-default-migrated"
+        if [ ! -e "${CONSULT_FAX_SENTINEL}" ]; then
+            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
+                && grep -qx 'consultation_fax_enabled=false' "${PROPERTIES}"; then
+                sed -i 's/^consultation_fax_enabled=false$/consultation_fax_enabled=true/' "${PROPERTIES}"
+                echo "carlos-emr: enabled consultation faxing (migrated the old stock default off -> on)"
+            fi
+            mkdir -p "${STATE}"
+            : > "${CONSULT_FAX_SENTINEL}"
+        fi
+
+        # Normalise the legacy yes/no spellings of the same key to true/false.
+        # Until this release the two buttons that start a consultation fax were
+        # rendered by a tag that compared the raw string against the literal
+        # "yes", so operators who wanted faxing were told to write yes/no while
+        # every other reader of the key took true/yes/on. Both spellings still
+        # work (CarlosProperties accepts true/yes/on), so this rewrite cannot
+        # change behaviour in either direction — it only makes the file say what
+        # the property now is, a boolean.
+        # Deliberately NOT sentinel-guarded: it is idempotent and semantics-
+        # preserving, so it may run on every configure and pick up a legacy
+        # spelling written later by hand. It runs AFTER the flip above so that an
+        # operator's explicit "no" is normalised to false and never seen by the
+        # exact-match flip (which by then has also written its sentinel).
+        if [ -f "${PROPERTIES}" ] && grep -Eqi \
+            '^[[:space:]]*consultation_fax_enabled[[:space:]]*=[[:space:]]*(yes|no|on|off)[[:space:]]*$' \
+            "${PROPERTIES}"; then
+            sed -i -E \
+                -e 's/^([[:space:]]*consultation_fax_enabled[[:space:]]*=[[:space:]]*)(yes|on)[[:space:]]*$/\1true/I' \
+                -e 's/^([[:space:]]*consultation_fax_enabled[[:space:]]*=[[:space:]]*)(no|off)[[:space:]]*$/\1false/I' \
+                "${PROPERTIES}"
+            echo "carlos-emr: normalised consultation_fax_enabled to a true/false value"
+        fi
+
         # Fold the debconf answers into the operator-owned settings file.
         # db_get returns 10 for an unregistered item; under set -e that would
         # abort configure. All these keys are registered (templates + config),
