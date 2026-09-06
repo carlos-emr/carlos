@@ -68,7 +68,11 @@
  * RUN THROUGH :443, on a loopback BASE_URL. Certificate verification is relaxed
  * only for loopback, where the packaged install serves its own self-signed cert;
  * a non-local target opted in with ALLOW_NON_LOCAL_BASE_URL must present a
- * trusted certificate, because this check submits credentials to it.
+ * trusted certificate, because this check submits credentials to it. Warns on
+ * stdout when BASE_URL is not HTTPS: against bare Tomcat the nginx and
+ * ModSecurity/CRS hop does not exist, and this check posts free clinical text
+ * (the reaction description) on two different forms -- exactly the shape that
+ * CRS has blocked before on other surfaces.
  *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN
@@ -138,6 +142,15 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
+    if (config.baseUrl.protocol !== 'https:') {
+      console.log(
+        '[warn] BASE_URL is not HTTPS, so this run does NOT go through nginx and '
+        + 'ModSecurity/CRS. The allergy reaction text this check posts is free clinical '
+        + 'prose, which is the shape CRS has blocked on other surfaces; that class of '
+        + 'failure cannot occur on this invocation.',
+      );
+    }
+
     // Certificate verification is only relaxed for loopback, where the packaged
     // install serves its own self-signed cert. A non-local target opted in via
     // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
