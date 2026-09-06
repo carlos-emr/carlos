@@ -383,6 +383,18 @@ Notes on the contract:
   and cleans nothing up. Driving fourteen prints through one open encounter
   outlives the note lock, so the eChart's own autosave answering 409 partway
   through is expected and tolerated; a 403 from any of them is not.
+- **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
+  the guard for package exclusions 1090-1170, which cover the clinician-facing
+  free-text arguments OUTSIDE the eChart. It opens the consultation request and
+  the demographic master record, serialises each real form (hidden fields and
+  the injected CSRF token included), and replays that body once per prose phrase
+  with only the free-text fields swapped — clicking through each form's own
+  required-field JS six times would measure that validation rather than the WAF.
+  Both replays are real saves, so a run rewrites demographic 1's Alert/Notes and
+  its open consultation request with the last phrase in the corpus; that is
+  harmless on a throwaway VM but is why it names `CLINICAL_DEMOGRAPHIC_NO`
+  (default 1) rather than assuming a patient. Against bare Tomcat the phrases
+  are ordinary notes and the check degrades to guarding the two save paths.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the

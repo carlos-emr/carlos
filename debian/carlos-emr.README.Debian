@@ -240,6 +240,22 @@ CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The package already ships
 clinical-workflow exclusions for the known free-text and base64 routes (see
 REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf, ids 1000-1999 — package-managed).
+
+Understand WHY that list exists, because it tells you what to expect. The CRS
+content signatures cannot distinguish a clinician's prose from an attack: at
+paranoia level 1 a sentence-ending semicolon ("Reviewed labs; find attached the
+CBC") scores 10 against a threshold of 5 on the Unix and Windows command-
+injection rules alone. The shipped exclusions unhook those signature families
+from the specific free-text arguments of the specific clinical workflows —
+encounter notes and the chart print, referrals, prescriptions, appointments, the
+patient Alert and Notes, preventions, lab-review comments, messages and
+ticklers. They do NOT cover the ENCOUNTER-FORM family (Rourke, BCAR, the
+mental-health assessments): those 52 forms post roughly 900 form-specific
+textarea names through one route, so no per-argument exclusion is maintainable
+and the only WAF-side option is to stop inspecting that route's bodies
+altogether. If your site uses those forms and a save returns 403, that is this
+gap; decide deliberately whether to add a site exclusion for the route below,
+and record why.
 For anything else, the supported response is: reproduce it, read
 `carlos-ctl waf tail` for the rule id and the matched variable, and add the
 NARROWEST exclusion that works to one of YOUR OWN exclusion files:

@@ -19,6 +19,7 @@
     "test:echart-playwright": "node scripts/echart-playwright-checks.js",
     "test:echart-new-patient-playwright": "node scripts/echart-new-patient-notes-playwright-checks.js",
     "test:echart-print-playwright": "node scripts/echart-print-playwright-checks.js",
+    "test:clinical-freetext-playwright": "node scripts/clinical-freetext-playwright-checks.js",
     "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
     "test:eform-admin-playwright": "node scripts/eform-admin-playwright-checks.js",
     "test:eform-admin-crud-playwright": "node scripts/eform-admin-crud-playwright-checks.js",
