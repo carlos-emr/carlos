@@ -162,6 +162,25 @@ class DocumentDelete2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep scheduleNav on the redirect when posted from the schedule shell")
+    void shouldKeepScheduleNav_whenPostedFromScheduleShell() throws Exception {
+        // documentReport.jsp's submitDocAction() already posts scheduleNav=1; the redirect back
+        // has to carry it or the report re-renders without the navigation header tabs.
+        mockRequest.addParameter("scheduleNav", "1");
+        action.setDelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).contains("scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should omit scheduleNav from the redirect outside the schedule shell")
+    void shouldOmitScheduleNav_whenNotInScheduleShell() throws Exception {
+        action.setDelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).doesNotContain("scheduleNav");
+    }
+
+    @Test
     @DisplayName("should redirect without deleting when delDocumentNo is empty")
     void shouldRedirectWithoutDeleting_whenEmpty() throws Exception {
         action.setDelDocumentNo("");

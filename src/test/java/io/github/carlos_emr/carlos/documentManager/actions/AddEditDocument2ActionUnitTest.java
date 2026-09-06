@@ -801,6 +801,74 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep scheduleNav on the add-document success redirect")
+    void shouldKeepScheduleNav_whenAddDocumentSucceedsInScheduleShell() throws Exception {
+        // The document list renders the shared navigation header only while the request carries
+        // scheduleNav=1. The success answer is a REDIRECT, so unless the flag is re-appended the
+        // provider lands back on eDoc with the header tabs gone.
+        assertThat(addDocumentAndCaptureRedirect(true))
+                .contains("&scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should not add scheduleNav to the redirect outside the schedule shell")
+    void shouldOmitScheduleNav_whenAddDocumentSucceedsOutsideScheduleShell() throws Exception {
+        assertThat(addDocumentAndCaptureRedirect(false))
+                .doesNotContain("scheduleNav");
+    }
+
+    /**
+     * Drives one successful add through {@code execute2()} and returns the redirect it sent,
+     * with the schedule-shell flag posted or not as {@code inScheduleShell} says.
+     */
+    private String addDocumentAndCaptureRedirect(boolean inScheduleShell) throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document-nav", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "test");
+        Path documentDir = Files.createTempDirectory("add-edit-document-nav-output");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        action.setMode("add");
+        action.setFunction("provider");
+        action.setFunctionId("123");
+        action.setDocDesc("Consult note");
+        action.setDocType("Consultant Report");
+        action.setDocCreator("999998");
+        action.setResponsibleId("999998");
+        action.setSource("local");
+        action.setDocPublic("0");
+        action.setObservationDate("2026-05-21");
+        action.setAppointmentNo("45");
+        bindDocFileUpload(tempUploadFile, "consult-note.txt", "text/plain");
+
+        if (inScheduleShell) {
+            request.addParameter("scheduleNav", "1");
+        }
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class, CALLS_REAL_METHODS)) {
+            eDocUtilMock.when(() -> EDocUtil.getDoctypes("provider"))
+                    .thenReturn(new ArrayList<>(List.of("Consultant Report")));
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenReturn("321");
+
+            assertThat(action.execute2()).isEqualTo(ActionSupport.NONE);
+            return response.getRedirectedUrl();
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            File[] writtenFiles = documentDir.toFile().listFiles();
+            if (writtenFiles != null) {
+                for (File writtenFile : writtenFiles) {
+                    Files.deleteIfExists(writtenFile.toPath());
+                }
+            }
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
     @DisplayName("should not expose direct upload file setters as Struts parameters")
     void shouldNotExposeDirectUploadFileSetters_asStrutsParameters() throws Exception {
         assertThatThrownBy(() -> AddEditDocument2Action.class.getMethod("setDocFile", File.class))

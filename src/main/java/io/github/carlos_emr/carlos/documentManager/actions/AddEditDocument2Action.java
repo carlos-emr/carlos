@@ -76,6 +76,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -358,6 +359,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 if (filled(this.getParentAjaxId())) {
                     appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
                     appendQueryParameter(redirect, "updateParent", "true");
+                }
+                // A redirect starts a new request, so the schedule-shell flag the add form
+                // posted is gone unless it is re-appended here. Without it the provider lands
+                // back on the document list with the navigation header tabs missing.
+                if (ScheduleNav.isActive(request)) {
+                    appendQueryParameter(redirect, ScheduleNav.PARAM, ScheduleNav.ENABLED);
                 }
                 try {
                     response.sendRedirect(redirect.toString());
