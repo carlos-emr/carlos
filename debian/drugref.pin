@@ -20,7 +20,14 @@
 # subsequent update. It also refuses to commit a rebuild that produced no drug
 # rows: a swallowed read failure used to yield an empty import that reported
 # success and then dropped the *_prev tables, destroying the only copy of the
-# drug data.
+# drug data. And the "refuse to start on an unresolvable swap" guard now
+# actually fires -- it was unreachable, because the undecidable-marker error
+# arrived through the same catch as "could not reach the database".
+#
+# This revision was verified on a packaged install (Ubuntu 26.04, MariaDB
+# 11.8.6): the four startup-repair cases, the empty-rebuild gate firing and
+# restoring, and a full 31-minute rebuild to 39198 products / 80065 search
+# entries with drug search answering afterwards.
 #
 # This is still a BRANCH HEAD. Advance it to that branch's merge commit once
 # carlos-emr/drugref2026#11 lands on master, before the CARLOS PR merges: a
@@ -35,4 +42,4 @@
 # surface. It also carries the earlier EntityManager-leak fix
 # (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
 # after one or two calls and permanently return "None found".
-ref=e6cf209cdd918e23af0c331804dedcf1db512ebc
+ref=97c5d64f462d80e3e59b425e9ef5cc4e11eef107
