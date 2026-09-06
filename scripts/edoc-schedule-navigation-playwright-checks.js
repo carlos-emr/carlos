@@ -75,12 +75,23 @@ const path = require('node:path');
  */
 const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
 
+/*
+ * Strictly this machine's own loopback interface. Deliberately NARROWER than EXACT_LOCAL_HOSTS,
+ * which also admits the compose service names: those resolve over a real network, so a
+ * certificate served on one has to be verified. Only this set may switch TLS checking off.
+ */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
 function normalizeHost(rawHost) {
   return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
 }
 
 function isExactLocalHost(rawHost) {
   return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
+}
+
+function isLoopbackHost(rawHost) {
+  return LOOPBACK_HOSTS.has(normalizeHost(rawHost));
 }
 
 /** Refuses to point the fixture teardown's DELETEs at a database that is not plainly local. */
@@ -131,7 +142,7 @@ function validateBaseUrl(rawBaseUrl) {
 
 /** True when BASE_URL points at this machine, the only case where a bad cert is expected. */
 function isLoopbackTarget() {
-  return isExactLocalHost(config.baseUrl.hostname);
+  return isLoopbackHost(config.baseUrl.hostname);
 }
 
 function appUrl(appPath) {
