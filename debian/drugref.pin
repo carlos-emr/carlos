@@ -14,7 +14,10 @@
 # CARLOS itself is correct. The same revision also fixes ATC class allergens,
 # which only ever matched a drug's leaf description, so an allergy to a class
 # name such as "BETA-LACTAMASE RESISTANT PENICILLINS" never warned on a drug
-# filed under it.
+# filed under it. Later commits close the remaining paths that answered "all
+# clear" without comparing anything: bad reference data, a failed query, a
+# prescription carrying no usable ATC code, and a failure opening the database
+# session. All of those now report the allergy as not checked.
 #
 # NOTE FOR THE MAINTAINER: this is a commit on the fix branch
 # (carlos-emr/drugref2026 claude/allergy-search-alert-bugs-q7pcu2), not a
@@ -33,4 +36,4 @@
 # EntityManager-leak fix (carlos-emr/drugref2026#8), without which drug searches
 # exhaust the JDBC pool after one or two calls and permanently return
 # "None found".
-ref=97663b3415cb15a9e7ba0dd3c2be84762e6baa88
+ref=b9ccca84a66db8ffe48577e3e8f23347ed63a3f9
