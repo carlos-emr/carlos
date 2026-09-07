@@ -34,3 +34,9 @@ national-encoding
 # match the carlos-podman tool); both resolve to the same binary and the man
 # page is carlos-ctl(8).
 no-manual-page usr/sbin/carlosctl
+
+# This guarded call is only `systemctl reset-failed`, for clearing the
+# application unit's package-driven restart counter. It does not start, stop,
+# enable or disable a service; those lifecycle operations use
+# deb-systemd-invoke so policy-rc.d remains authoritative.
+maintainer-script-calls-systemctl [postinst:62]
