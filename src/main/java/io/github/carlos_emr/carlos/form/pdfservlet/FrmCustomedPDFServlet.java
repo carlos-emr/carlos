@@ -239,8 +239,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 if (faxNumber != null) {
                     faxNumber = faxNumber.trim().replaceAll("\\D", "");
                 }
-                String demo = req.getParameter("demographic_no");
-
                 if (faxNo == null || faxNo.length() < 7 || faxNo.length() > MAX_FAX_DESTINATION_DIGITS) {
                     res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
@@ -290,7 +288,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         faxJob.setStamp(new Date());
                         faxJob.setStatus(FaxJob.STATUS.WAITING);
                         faxJob.setOscarUser(provider_no);
-                        faxJob.setDemographicNo(Integer.parseInt(demo));
+                        faxJob.setDemographicNo(prescription.getDemographicId());
                         faxJob.setSenderEmail(selectedFaxConfig.getSenderEmail());
                         faxJob.setDirection(Direction.OUT);
 
@@ -1441,11 +1439,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     LogSafe.sanitize(String.valueOf(scriptNo)), requiredRight);
             return null;
         }
-        // The caller-supplied demographic_no is what the fax branch stamps onto the FaxJob (its audit
-        // linkage). For a FAX it MUST be present, positive, and equal to the prescription's patient —
-        // an absent/invalid value would otherwise reach FaxJob.demographicNo unchecked, so it is
-        // required, not merely validated when present. For a print/preview the value is not
-        // persisted, so only a positive mismatch is rejected (an absent one is harmless).
+        // The caller-supplied demographic_no is validation input only; the fax branch stamps the
+        // loaded prescription's patient onto FaxJob for its audit linkage. For a FAX the parameter
+        // MUST still be present, positive, and equal to that patient so the submitted form cannot
+        // cross records. For a print/preview the value is not persisted, so only a positive mismatch
+        // is rejected (an absent one is harmless).
         int requestDemographic = parsePositiveInt(req.getParameter("demographic_no"));
         boolean badDemographic = isFax
                 ? (requestDemographic <= 0 || demographicId.intValue() != requestDemographic)

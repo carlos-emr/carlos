@@ -118,10 +118,15 @@ function isSevereConsoleMessage(message) {
   return /(ReferenceError|TypeError|SyntaxError|\$ is not defined|jQuery is not defined|Cannot read|Cannot set|is not defined)/i.test(text);
 }
 
-function wirePage(page, label, recorder) {
+function wirePage(page, label, recorder, dialogHandler = null) {
   page.on('dialog', async (dialog) => {
-    recorder.dialogs.push({ label, type: dialog.type(), text: dialog.message() });
-    await dialog.dismiss().catch(() => {});
+    const entry = { label, type: dialog.type(), text: dialog.message() };
+    if (dialogHandler) {
+      await dialogHandler(dialog, entry);
+    } else {
+      recorder.dialogs.push(entry);
+      await dialog.dismiss().catch(() => {});
+    }
   });
   page.on('response', async (response) => {
     const responseUrl = response.url();

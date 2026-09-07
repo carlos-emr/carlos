@@ -484,8 +484,7 @@ async function runPrescriptionSignatureCheck(context) {
 
     const result = await runPrescriptionSignatureCheck(context);
     console.log(JSON.stringify({ visited, result, findings }, null, 2));
-    const blockingFindings = findings.filter((finding) => finding.type !== 'dialog');
-    if (blockingFindings.length) {
+    if (findings.length) {
       process.exitCode = 1;
     }
   } finally {

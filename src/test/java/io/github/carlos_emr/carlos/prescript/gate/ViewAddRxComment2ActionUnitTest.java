@@ -93,38 +93,41 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject a malformed script id before looking up a prescription")
-    void shouldRejectMalformedId_beforeLookup() throws Exception {
+    @DisplayName("should reject a malformed script id after coarse authorization but before lookup")
+    void shouldRejectMalformedId_afterCoarseAuthorizationBeforeLookup() throws Exception {
         request.setParameter("scriptNo", "not-an-id");
 
         assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        verifyNoInteractions(prescriptionDao, securityInfoManager);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verifyNoInteractions(prescriptionDao);
     }
 
     @Test
-    @DisplayName("should check the coarse Rx role before revealing whether an id exists")
-    void shouldRejectMissingCoarsePrivilege_beforeLookup() {
+    @DisplayName("should check the coarse Rx role before parsing malformed parameters")
+    void shouldRejectMissingCoarsePrivilege_beforeMalformedParameterHandling() {
+        request.setParameter("scriptNo", "not-an-id");
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_rx"),
                 eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
 
         assertThatThrownBy(() -> new ViewAddRxComment2Action().execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_rx");
+                .hasMessage("missing required sec object (_rx)");
 
         verifyNoInteractions(prescriptionDao);
     }
 
     @Test
-    @DisplayName("should reject a missing session before privilege checks or prescription access")
-    void shouldRejectMissingSession_beforeManagerAndDaoInteractions() {
+    @DisplayName("should reject a missing session before parsing malformed parameters")
+    void shouldRejectMissingSession_beforeMalformedParameterHandling() {
+        request.setParameter("scriptNo", "not-an-id");
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(
                 any(jakarta.servlet.http.HttpServletRequest.class))).thenReturn(null);
 
         assertThatThrownBy(() -> new ViewAddRxComment2Action().execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_rx");
+                .hasMessage("missing required sec object (_rx)");
 
         verifyNoInteractions(securityInfoManager, prescriptionDao);
     }
@@ -148,7 +151,7 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> new ViewAddRxComment2Action().execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("owner");
+                .hasMessage("missing required sec object (_rx)");
 
         verify(prescriptionDao, never()).updatePrescriptionsByScriptNo(any(Integer.class), any());
     }
@@ -162,7 +165,7 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> new ViewAddRxComment2Action().execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("owner");
+                .hasMessage("missing required sec object (_rx)");
 
         verify(prescriptionDao, never()).updatePrescriptionsByScriptNo(any(Integer.class), any());
     }
