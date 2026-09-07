@@ -15,6 +15,8 @@ package io.github.carlos_emr.carlos.prescript.gate;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,15 +25,18 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+import java.util.Objects;
+
 /**
- * Mutation gate for {@code rx/AddRxComment.jsp}. Enforces {@code _rx} w
- * privilege AND POST-only before forwarding to the JSP. GET returns 405.
+ * Mutation gate for prescription Additional Notes. Enforces {@code _rx} w,
+ * prescription ownership, and POST-only. GET returns 405.
  *
  * @since 2026-04-13
  */
 public final class ViewAddRxComment2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -39,17 +44,52 @@ public final class ViewAddRxComment2Action extends ActionSupport {
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
-
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
-        return SUCCESS;
+        int scriptNo;
+        try {
+            scriptNo = Integer.parseInt(request.getParameter("scriptNo"));
+        } catch (NumberFormatException | NullPointerException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        String comment = request.getParameter("comment");
+        if (scriptNo <= 0 || comment == null || "null".equalsIgnoreCase(comment)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Check the coarse role before looking up an attacker-selected id. This keeps callers with
+        // no Rx write role from distinguishing a real prescription id from a missing one by the
+        // difference between the 404 below and the patient/owner authorization failure.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
+        Prescription prescription = prescriptionDao.find(scriptNo);
+        if (prescription == null || prescription.getDemographicId() == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
+        String loggedInProvider = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        // Additional Notes are rendered beneath the persisted prescriber's signature. Patient-level
+        // _rx write alone must not let a covering provider alter somebody else's signed document.
+        if (!Objects.equals(loggedInProvider, prescription.getProviderNo())
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE,
+                        String.valueOf(prescription.getDemographicId()))) {
+            throw new SecurityException("missing required sec object (_rx) for prescription owner");
+        }
+
+        if (prescriptionDao.updatePrescriptionsByScriptNo(scriptNo, comment) != 1) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        return NONE;
     }
 }

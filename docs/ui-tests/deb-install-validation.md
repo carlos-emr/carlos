@@ -13,7 +13,7 @@ dataset (the seeded `_site_access_privacy` grant was applied without multisite m
 `consultation-nullable-fields-playwright-checks.js` now asserts the list has rows). Last validated end-to-end 2026-08-31 with
 **41/41 scripts passing** on 2026.09.0~snapshot18.
 
-That 37/37 is also the cautionary tale for this document. A tester found six
+That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
 download failure, a false "0 error" banner on a successful delete, a DataTables
 warning, a drug search 502, and a document upload 500 — and the suite was green
@@ -90,11 +90,11 @@ lxc config device add carlos-test carlosrepo disk \
 
 ## 3. Install the packages (non-interactive)
 
-Preseed debconf so the install runs unattended. `reset-seed-admin=false` is the
-critical answer: it keeps the published dev credential
-(`carlosdoc` / `carlos2026` / PIN `2026`) that every check logs in with. Decline
-it **only** on a disposable machine that will never hold patient data — which
-this VM is.
+Preseed debconf so the install runs unattended. Release validation deliberately
+keeps `reset-seed-admin=true`, the package's secure default: it proves that a
+fresh install replaces the source-published seed password/PIN, creates the
+root-only handoff file, and enforces the first-login password reset. The suite
+consumes that credential once in section 6 and then uses the reset password.
 
 The preseed below answers the province question with `on`. To validate the
 `other` alias instead, substitute `carlos-emr/province select other` and assert
@@ -123,7 +123,7 @@ carlos-emr carlos-emr/province select on
 carlos-emr carlos-emr/tls-mode select selfsigned
 carlos-emr carlos-emr/acme-email string
 carlos-emr carlos-emr/java-heap string 2g
-carlos-emr carlos-emr/reset-seed-admin boolean false
+carlos-emr carlos-emr/reset-seed-admin boolean true
 carlos-emr carlos-emr/install-demo-data boolean true
 EOF
 lxc file push /tmp/carlos-preseed.txt carlos-test/root/
@@ -174,17 +174,9 @@ lxc exec carlos-test -- ls -la /var/lib/carlos-emr/CarlosDocument/carlos/documen
 # expect six *_LabReport.pdf and demo-hrm-diagnostic-imaging.xml
 ```
 
-One database tweak and three fixtures remain:
-
-```bash
-# The seed row ships forcePasswordReset=1; the checks need a direct login.
-# (login-playwright-checks.js exercises the forced-reset flow itself and
-# restores whatever state it changes.)
-lxc exec carlos-test -- mariadb -u root carlos \
-  -e "UPDATE security SET forcePasswordReset=0 WHERE user_name='carlosdoc';"
-```
-
-Fixtures the dataset alone does not provide:
+Three fixtures the dataset alone does not provide remain. Do not clear
+`forcePasswordReset` in SQL: section 6 exercises the package's real first-login
+handoff before the suite runs.
 
 ```bash
 # a) (Demo document files: seeded by carlos-ctl demo-data, see above. On a
@@ -238,7 +230,7 @@ lxc exec carlos-test -- carlos-ctl restart
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y nodejs npm
-  cd /root && npm init -y && npm install playwright
+  cd /root && npm init -y && npm install --save-exact playwright@1.60.0
   npx --yes playwright install --with-deps chromium'
 ```
 
@@ -252,15 +244,23 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
-# Devcontainer seed values. On a FRESH DEB INSTALL the package randomises the password and the
-# PIN for carlosdoc -- read both from /etc/carlos-emr/initial-admin.txt and use those instead,
-# starting with the one-time forced-reset step further down.
-export TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
+# A secure fresh install randomises both secrets. Read the root-only handoff file,
+# then perform the mandatory first-login reset once before any suite loop.
+test -r /etc/carlos-emr/initial-admin.txt
+export TEST_USER="$(sed -n 's/^ *user: *//p' /etc/carlos-emr/initial-admin.txt)"
+export TEST_PASSWORD="$(sed -n 's/^ *password: *//p' /etc/carlos-emr/initial-admin.txt)"
+export TEST_PIN="$(sed -n 's/^ *PIN: *//p' /etc/carlos-emr/initial-admin.txt)"
+test -n "$TEST_USER" && test -n "$TEST_PASSWORD" && printf '%s' "$TEST_PIN" | grep -Eq '^[0-9]{4}$'
+RESET_PASSWORD='Carlos2026!Verify' DRUGREF_UPDATE_REQUIRE_STATUS=true \
+  node scripts/drugref-update-playwright-checks.js
+export TEST_PASSWORD='Carlos2026!Verify'
 # DB-backed checks: root over the MariaDB unix socket (the password value is
 # ignored by unix_socket auth but the scripts require it to be set).
 export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=carlos
-# Published seed hash for carlos2026 (from database/mysql/migration/on/V1.0.2__on_data.sql)
-export TEST_PASSWORD_HASH='{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju'
+# login-playwright-checks mutates and restores this account; give it the hash of
+# the password that the forced-reset step above actually installed.
+export TEST_PASSWORD_HASH="$(mariadb -u root carlos -Nse \
+  "SELECT password FROM security WHERE user_name='${TEST_USER}' LIMIT 1")"
 # Record pointers into the demo dataset:
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
@@ -302,11 +302,12 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # section head reveals a cell that starts hidden, and that link only renders with `_rx` write
 # access. It tolerates one known pre-existing page error (issue #3578, expandPreview writing into
 # the preview iframe before it has parsed) and fails on any other.
-# Optional: RX_EXPECTED_BUILD_TAG makes the About-page assertion exact instead of merely
-# "looks like a version" — set it to the tag the packaged WAR should carry, which is
+# Required for a release gate: RX_EXPECTED_BUILD_TAG makes the About-page assertion exact.
+# Set it to the tag the packaged WAR should carry, which is
 # "<pom version> (carlos-emr-deb <debian/changelog version>)", e.g.
-#   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha11-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot18)'
-# Leave it unset when validating a WAR you did not build through the packaging.
+#   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha12 (carlos-emr-deb 2026.08.0~alpha12)'
+# Never leave it unset for promotion validation: that can accept a stale WAR/package pair.
+export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha12 (carlos-emr-deb 2026.08.0~alpha12)'
 # Rx fax record-binding check (rx-fax-record-binding-playwright-checks.js). Pins the
 # guarantees of PR #3606: a forged patient identity, prescription date, clinic block, reprint
 # annotation or satellite-clinic block on the fax POST never reaches the faxed PDF (the
@@ -342,58 +343,32 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
-# FRESH INSTALL ONLY: clear the forced password reset BEFORE the loop below, not inside it.
-#
-# The packaged admin credential (/etc/carlos-emr/initial-admin.txt) is flagged for a forced
-# reset, so TEST_PASSWORD alone cannot log in -- every check lands on /forcepasswordreset and
-# fails there before testing anything. Doing it inside the loop does not work, in both
-# directions: the loop runs scripts in glob order, so several run before drugref-update and
-# abort on the reset; and once one of them has reset the credential, every later script in the
-# same invocation is still using the OLD TEST_PASSWORD and fails too. The reset is a one-time,
-# persistent change to the account, so it belongs outside the loop entirely.
-#
-# The reset logs in with the CURRENT credential, so TEST_PASSWORD and TEST_PIN must be the
-# package-generated ones from /etc/carlos-emr/initial-admin.txt for this one command -- NOT the
-# carlos2026 / 2026 in the environment block above, which are the devcontainer seed values. The
-# package replaces both (the username stays carlosdoc; the password and the PIN are random per
-# install), so with the block's values the login fails on a wrong password before it ever
-# reaches /forcepasswordreset, and the reset silently does not happen. Set them inline so the
-# block's exports cannot shadow them:
-#
-#   sudo sed -n 's/^ *\(user\|password\|PIN\):/\1:/p' /etc/carlos-emr/initial-admin.txt
-#
-#   TEST_PASSWORD='<password from initial-admin.txt>' \
-#   TEST_PIN='<PIN from initial-admin.txt>' \
-#   RESET_PASSWORD='Carlos2026!Verify' \
-#     node scripts/drugref-update-playwright-checks.js      # completes the reset, then checks
-#
-# Then re-export both for the loop below and every rerun -- the PIN does not change during the
-# reset, so it keeps the generated value for the rest of the suite:
-#
-#   export TEST_PASSWORD='Carlos2026!Verify'
-#   export TEST_PIN='<PIN from initial-admin.txt>'
-#
-# Not needed on the devcontainer, whose carlosdoc is not flagged and does keep carlos2026/2026.
-
+suite_failed=0
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
   # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
   # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
   t=300; case "$s" in *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;; esac
-  timeout "$t" node "$s" && echo "PASS $s" || echo "FAIL $s"
+  if timeout "$t" node "$s"; then
+    echo "PASS $s"
+  else
+    rc=$?
+    echo "FAIL ($rc) $s"
+    suite_failed=1
+  fi
 done
+test "$suite_failed" -eq 0
 ```
 
 Notes on the contract:
 
 - **`BASE_URL` uses `127.0.0.1`, deliberately.** The scripts set
   `ignoreHTTPSErrors`, and Chromium is lenient about loopback certificates, so
-  every script works against the self-signed cert. The cost: a numeric-IP
-  `Host:` header trips CRS rule **920350** (+3 anomaly on every request), which
-  a production hostname never sees. When judging any WAF block found this way,
-  discount 920350 and look at the *other* matched rules. Using the real
-  `server_name` FQDN instead avoids 920350 but fails the handful of scripts
-  that create a browser context without `ignoreHTTPSErrors`.
+  every script works against the self-signed cert. A direct loopback/private
+  client with no forwarding headers is deliberately exempted from CRS rule
+  **920350**; seeing 920350 for this suite is a regression. The exemption must
+  disappear when `Forwarded`, `X-Forwarded-*`, `X-Real-IP`, or `Via` is present,
+  because a proxied/public numeric-host request still requires CRS inspection.
 - **`PRESCRIPTION_SCRIPT_ID` must point at a prescription that has `drugs`
   rows.** The demo dump contains drugless `prescription` rows (46+); a
   drugless script renders no preview and the check times out. Script 45 has

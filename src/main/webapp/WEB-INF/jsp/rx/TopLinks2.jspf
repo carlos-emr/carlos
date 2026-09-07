@@ -34,10 +34,13 @@
 
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="oscarRx.drugrefUnavailable" var="msgDrugrefUnavailableText"/>
+<fmt:message key="oscarRx.drugrefUnavailableContact" var="msgDrugrefUnavailableContactText"/>
+<fmt:message key="oscarRx.drugrefUpdating" var="msgDrugrefUpdatingText"/>
 <script type="text/javascript">
-const msgDrugrefUnavailable = '<fmt:message key="oscarRx.drugrefUnavailable"/>';
-const msgDrugrefUnavailableContact = '<fmt:message key="oscarRx.drugrefUnavailableContact"/>';
-const msgDrugrefUpdating = '<fmt:message key="oscarRx.drugrefUpdating"/>';
+const msgDrugrefUnavailable = '${carlos:forJavaScript(msgDrugrefUnavailableText)}';
+const msgDrugrefUnavailableContact = '${carlos:forJavaScript(msgDrugrefUnavailableContactText)}';
+const msgDrugrefUpdating = '${carlos:forJavaScript(msgDrugrefUpdatingText)}';
 
 function newWindow(url) {
     var newwin = window.open(url, 'name', 'height=700,width=1000');

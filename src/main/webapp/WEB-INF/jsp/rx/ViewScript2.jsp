@@ -197,7 +197,10 @@
                 java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 
                 SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-                List<Site> sites = siteDao.getActiveSitesByProviderNo((String) session.getAttribute("user"));
+                // A cross-provider reprint still shows and faxes the persisted prescriber's clinic
+                // identity. Offer that prescriber's sites so the preview and server-bound fax
+                // cannot diverge when a covering clinician sends it.
+                List<Site> sites = siteDao.getActiveSitesByProviderNo(bean.getProviderNo());
 
                 String encodedDoctorName = SafeEncode.forHtml(doctorName);
                 String encodedTelLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgTel"));
@@ -207,7 +210,7 @@
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
                     // One composer for this block on both ends: FrmCustomedPDFServlet parses the
-                    // chosen block back out of scAddress AND recomputes the blocks this provider was
+                    // chosen block back out of scAddress AND recomputes the blocks this prescriber was
                     // offered, so a fax cannot carry a clinic header the request made up.
                     String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, s.getName(), s.getAddress(),
                             s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
@@ -297,6 +300,7 @@
         <fmt:message key="ViewScript.js.signatureSent"     var="msg_signatureSent"/>
         <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
+        <fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="msg_noteSaveFailed"/>
 
         <script type="text/javascript">
             /*
@@ -350,7 +354,8 @@
              */
             var pendingNotesSave = Promise.resolve();
 
-            function onPrint2(method, scriptId) {
+            function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
+                              previousUnloadHandler) {
                 var useSC = false;
                 var scAddress = "";
                 var rxPageSize = document.getElementById('printPageSize').value;
@@ -379,7 +384,55 @@
                         // while this fax is still waiting on the notes save.
                         previewForm.target = "";
                         previewForm.action = action;
+                        previewForm.querySelector('#pdfId').value = faxDocumentId;
+                        var previewFrame = document.getElementById('preview');
+                        var faxResultHandler = function () {
+                            try {
+                                var faxSucceeded = frames['preview'].document.getElementById('fax-success');
+                                var faxFailed = frames['preview'].document.getElementById('fax-failure');
+                                // Access to #preview2Form can become possible just before the
+                                // iframe's initial load event. Ignore that unrelated event; only a
+                                // response from the fax POST carries one of these result markers.
+                                if (!faxSucceeded && !faxFailed) {
+                                    // A container-generated 4xx/5xx page has no fax marker, but it
+                                    // also cannot contain the prescription preview form. Treat that
+                                    // as a failed attempt. The real preview document does contain
+                                    // the form, including its possible late baseline load event.
+                                    if (!frames['preview'].document.getElementById('preview2Form')) {
+                                        previewFrame.removeEventListener('load', faxResultHandler);
+                                        resetFailedFaxSubmission(previousUnloadHandler);
+                                    }
+                                    return;
+                                }
+                                previewFrame.removeEventListener('load', faxResultHandler);
+                                if (faxSucceeded) {
+                                    if (pasteAfterSuccess) {
+                                        // The fax is already queued. Keep this page alive until the
+                                        // encounter write confirms success; closing earlier can abort
+                                        // the fetch and leave a fax with no chart note.
+                                        printPaste2Parent(false, true, true, capturedPasteText)
+                                                .then(function (pasted) {
+                                                    if (pasted) {
+                                                        setTimeout(function () { window.top.close(); }, 3000);
+                                                    }
+                                                });
+                                    } else {
+                                        setTimeout(function () { window.top.close(); }, 3000);
+                                    }
+                                } else {
+                                    resetFailedFaxSubmission(previousUnloadHandler);
+                                }
+                            } catch (e) {
+                                resetFailedFaxSubmission(previousUnloadHandler);
+                                console.error('Could not confirm fax result', e);
+                            }
+                        };
+                        previewFrame.addEventListener('load', faxResultHandler);
                         previewForm.submit();
+                    }).catch(function (e) {
+                        console.error('Additional notes save failed; fax cancelled', e);
+                        alert('${carlos:forJavaScript(msg_noteSaveFailed)}');
+                        resetFailedFaxSubmission(previousUnloadHandler);
                     });
                 } else {
                     previewForm.target = "_blank";
@@ -424,10 +477,12 @@
                 //
                 // A non-2xx is a failed save: fetch() only rejects on network errors, so a CSRF
                 // rejection or a 500 would otherwise resolve and let the fax race ahead silently.
-                // The trailing catch keeps the chain usable -- an unrecovered rejection would block
-                // every later fax on this page -- and a fax that proceeds after one carries the
-                // previously stored note, the same outcome as before this was made awaitable.
-                pendingNotesSave = pendingNotesSave.then(function () {
+                // Recover a previous rejected save only when a later edit actually retries it. If
+                // this save fails and the clinician clicks Fax, keep the rejection visible to
+                // onPrint2 so it cancels instead of sending the previously stored note.
+                pendingNotesSave = pendingNotesSave.catch(function () {
+                    return undefined;
+                }).then(function () {
                     return fetch(url, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
@@ -438,8 +493,6 @@
                             throw new Error('ViewAddRxComment returned HTTP ' + response.status);
                         }
                     });
-                }).catch(function (e) {
-                    console.warn('Additional notes save failed; faxing the stored note', e);
                 });
                 var additNotesEl = frames['preview'].document.getElementById('additNotes');
                 additNotesEl.style.whiteSpace = 'pre-wrap';
@@ -470,7 +523,7 @@
                 }
             }
 
-            function printPaste2Parent(print, fax, pasteRx) {
+            function printPaste2Parent(print, fax, pasteRx, capturedPasteText) {
                 //console.log("in printPaste2Parent");
                 try {
                     text = "";
@@ -496,13 +549,15 @@
                     }
 
                     if (pasteRx) {
-                        if (document.all) {
+                        if (typeof capturedPasteText === 'string') {
+                            text += capturedPasteText;
+                        } else if (document.all) {
                             text += preview.document.forms[0].rx_no_newlines.value
                         } else {
                             text += preview.document.forms[0].rx_no_newlines.value + "\n";
                         }
 
-                        if (document.getElementById('additionalNotes') !== null) {
+                        if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
                             text += document.getElementById('additionalNotes').value + "\n";
                         }
                     }
@@ -516,6 +571,7 @@
                     //we support pasting into orig encounter and new casemanagement
                     demographicNo = <%=bean.getDemographicNo()%>;
                     noteEditor = "noteEditor" + demographicNo;
+                    var pasteResult = Promise.resolve(true);
                     if (window.parent.opener) {
                         if (window.parent.opener.document.forms["caseManagementEntryForm"] != undefined &&
                             window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo &&
@@ -537,17 +593,18 @@
                                 printIframe();
                             }
                         } else if (pasteRx) {
-                            writeToEncounter(print, text);
+                            pasteResult = writeToEncounter(print, text);
                         }
                     } else {
-                        writeToEncounter(print, text);
+                        pasteResult = writeToEncounter(print, text);
                     }
-
+                    return pasteResult;
                 } catch (e) {
                     alert("ERROR: could not paste to EMR" + e);
                     if (print) {
                         printIframe();
                     }
+                    return Promise.resolve(false);
                 }
 
             }
@@ -556,7 +613,7 @@
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
 			var prefPharmacy = "<%=prefPharmacy != null ? SafeEncode.forJavaScriptBlock(prefPharmacy) : ""%>";
-			fetch(url, {
+			return fetch(url, {
 				method: 'POST',
 				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 				credentials: 'same-origin',
@@ -564,19 +621,24 @@
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			}).then(function(ret){
+				if (!ret.ok) {
+					throw new Error('WriteToEncounter returned HTTP ' + ret.status);
+				}
 				if (print) {
 					printIframe();
 				}
 				openEncounter();
+				return true;
 			}).catch(function(e) {
 				alert("ERROR: could not paste to EMR" + e);
 				if (print) {
 					printIframe();
 				}
-				openEncounter();
+				return false;
 			});
 		} catch (e) {
 			alert("ERROR: could not paste to EMR" + e);
+			return Promise.resolve(false);
 		}
 	}
 
@@ -687,9 +749,13 @@
                             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.PrescriptionDao.class)
                                     .find(Integer.parseInt(scriptIdForFax));
                     if (faxTarget != null && faxTarget.getDemographicId() != null) {
-                        canFaxScript = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
-                                .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
-                                        "_rx", "w", String.valueOf(faxTarget.getDemographicId()));
+                        io.github.carlos_emr.carlos.managers.SecurityInfoManager faxSecurityManager =
+                                SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+                        io.github.carlos_emr.carlos.utility.LoggedInInfo faxLoggedInInfo =
+                                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+                        canFaxScript = faxSecurityManager.hasPrivilege(faxLoggedInInfo,
+                                        "_rx", "w", String.valueOf(faxTarget.getDemographicId()))
+                                && faxSecurityManager.hasPrivilege(faxLoggedInInfo, "_fax", "w", null);
                         faxTargetSigned = faxTarget.getDigitalSignatureId() != null;
                     }
                 }
@@ -711,6 +777,16 @@
             // digits there, so the page would offer a Fax the server then refuses.
             boolean hasPharmacyFax = pharmacy != null && pharmacy.getFax() != null
                     && pharmacy.getFax().trim().replaceAll("\\D", "").length() >= 7;
+            List<FaxConfig> faxConfigs = java.util.Collections.emptyList();
+            if (CarlosProperties.getInstance().isRxFaxEnabled()) {
+                try {
+                    faxConfigs = SpringUtils.getBean(FaxManager.class).getFaxGatewayAccounts(loggedInInfo);
+                } catch (RuntimeException e) {
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                            .warn("Fax sender accounts could not be loaded; leaving Fax disabled", e);
+                }
+            }
+            boolean hasFaxSenderAccount = faxConfigs != null && !faxConfigs.isEmpty();
             // The fourth condition, and the reason it is a variable both halves of the gate read:
             // sendFax() reads frames['preview'].document, and the #preview iframe is only emitted
             // inside `if (bean.getStashSize() > 0)` further down. With an empty stash the buttons
@@ -724,6 +800,20 @@
             var POLL_TIME = 1500;
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
+            var faxSubmissionPending = false;
+
+            function setFaxControlsDisabled(disabled) {
+                ['faxButton', 'faxPasteButton'].forEach(function (id) {
+                    var control = document.getElementById(id);
+                    if (control) control.disabled = disabled;
+                });
+            }
+
+            function resetFailedFaxSubmission(previousUnloadHandler) {
+                faxSubmissionPending = false;
+                setFaxControlsDisabled(false);
+                window.onbeforeunload = previousUnloadHandler;
+            }
 
             function refreshImage() {
                 counter = counter + 1;
@@ -733,14 +823,44 @@
                 frames['preview'].document.getElementById('imgFile').value = '<%=System.getProperty("java.io.tmpdir").replaceAll("\\\\", "/")%>/signature_<%=signatureRequestId%>.jpg';
             }
 
-            function sendFax() {
-                if ('function' === typeof window.onbeforeunload) {
-                    window.onbeforeunload = null;
+            function sendFax(pasteAfterSuccess) {
+                if (faxSubmissionPending) {
+                    return false;
                 }
                 let faxNumber = document.getElementById('faxNumber');
+                if (!faxNumber || faxNumber.selectedIndex < 0) {
+                    return false;
+                }
+                var previousUnloadHandler = window.onbeforeunload;
+                window.onbeforeunload = null;
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
-                frames['preview'].document.getElementById('pdfId').value = '<%=signatureRequestId%>';
-                onPrint2('oscarRxFax', "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>");
+                // A signature-pad request id identifies a signature capture, not a fax attempt.
+                // Reusing it made a second click collide with the first attempt's clinical PDF.
+                // Give every fax submission a fresh path-safe identifier instead.
+                var faxDocumentId = '<%=signatureRequestId%>-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
+                // Bind Fax & Paste to the exact text visible at the click. The notes save may take
+                // time and the textarea remains editable; reading it in the later callback could
+                // paste text that was not part of the fax that just succeeded.
+                var capturedPasteText = null;
+                if (pasteAfterSuccess) {
+                    var previewForm = document.getElementById('preview').contentWindow.document.getElementById('preview2Form');
+                    capturedPasteText = previewForm.elements['rx_no_newlines'].value +
+                            (document.all ? '' : '\n');
+                    if (document.getElementById('additionalNotes') !== null) {
+                        capturedPasteText += document.getElementById('additionalNotes').value + '\n';
+                    }
+                }
+                faxSubmissionPending = true;
+                setFaxControlsDisabled(true);
+                try {
+                    onPrint2('oscarRxFax', "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>",
+                            faxDocumentId, Boolean(pasteAfterSuccess), capturedPasteText,
+                            previousUnloadHandler);
+                } catch (e) {
+                    resetFailedFaxSubmission(previousUnloadHandler);
+                    throw e;
+                }
+                return true;
 
             }
 
@@ -756,6 +876,7 @@
             var isSignatureSaved = false;
             <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
             var hasFaxNumber = <%= hasPharmacyFax ? "true" : "false" %>;
+            var hasFaxSenderAccount = <%= hasFaxSenderAccount ? "true" : "false" %>;
             var canFaxScript = <%= canFaxScript ? "true" : "false" %>;
             // The script already carries a stored signature (the prescriber's stamp applied on write,
             // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
@@ -771,7 +892,8 @@
                 isSignatureSaved = e.isSave;
                 e.target.onbeforeunload = null;
                 <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
-                let disabled = !hasPreview || !hasFaxNumber || !canFaxScript || !(e.isSave || hasStoredSignature);
+                let disabled = !hasPreview || !hasFaxNumber || !hasFaxSenderAccount || !canFaxScript
+                        || !(e.isSave || hasStoredSignature);
                 toggleFaxButtons(disabled);
                 <% } %>
                 if (e.isSave) {
@@ -1021,10 +1143,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                                                     onClick="printPaste2Parent(true, false, true);"/></span>
                                             </td>
                                         </tr>
-                                        <% if (CarlosProperties.getInstance().isRxFaxEnabled()) {
-                                            FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
-                                            List<FaxConfig> faxConfigs = faxManager.getFaxGatewayAccounts(loggedInInfo);
-                                        %>
+                                        <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
                                         <tr>
                                             <td style="padding-bottom: 0">
                                                 <span><fmt:message key="ViewScript.msgFromFaxNumber"/></span>
@@ -1051,19 +1170,20 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 						// read by both halves: enabling Fax requires BOTH a faxable record and the
 						// preview sendFax() depends on.
 						String isFaxDisabled =
-								(!canFaxScript || !faxTargetSigned || !hasPharmacyFax || !previewAvailable)
+								(!canFaxScript || !faxTargetSigned || !hasPharmacyFax
+										|| !hasFaxSenderAccount || !previewAvailable)
 										? "disabled" : "";
 					%>
                                         <tr>
 						<td style="padding-top: 0; padding-bottom: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFax"/>"
 										 class="btn btn-outline-secondary" id="faxButton" style="width: 210px"
-										 onClick="sendFax();" <%=isFaxDisabled%>/></span>
+										 onClick="sendFax(false);" <%=isFaxDisabled%>/></span>
                                             </td>
                                         </tr>
                                         <tr>
                             <td style="padding-top: 0"><span><input type=button value="<fmt:message key="ViewScript.msgFaxAndPaste"/>"
                                     class="btn btn-outline-primary" id="faxPasteButton" style="width: 210px"
-                                    onClick="printPaste2Parent(false, true, true);sendFax();" <%=isFaxDisabled%>/></span>
+                                    onClick="sendFax(true);" <%=isFaxDisabled%>/></span>
 
                                             </td>
                                         </tr>

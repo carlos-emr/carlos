@@ -623,11 +623,11 @@
                                 <%}%>
                             </td>
                             <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                                <% if (urgency.equals("1")) { %>
+                                <% if ("1".equals(urgency)) { %>
                                 <span class="urgency-urgent"><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyUrgent"/></span>
-                                <% } else if (urgency.equals("2")) { %>
+                                <% } else if ("2".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyNonUrgent"/>
-                                <% } else if (urgency.equals("3")) { %>
+                                <% } else if ("3".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyReturn"/>
                                 <% } %>
                             </td>

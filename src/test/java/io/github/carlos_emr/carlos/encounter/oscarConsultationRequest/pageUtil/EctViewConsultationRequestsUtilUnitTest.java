@@ -121,7 +121,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         consult.setServiceId(0);
         consult.setDemographicId(DEMO_ID);
         consult.setStatus("1");
-        consult.setUrgency("2");
+        consult.setUrgency(null);
         // The row the widened query newly returns: no ordering provider at all.
         consult.setProviderNo(null);
         consult.setReferralDate(null);
@@ -154,6 +154,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         // The row survives and degrades to "N/A" rather than taking the whole tab down with it.
         assertThat(util.provider).containsExactly("N/A");
         assertThat(util.patient).containsExactly("Doe, Jane");
+        assertThat(util.urgency).containsExactly("");
     }
 
     @Test
@@ -225,6 +226,9 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(util.patient).containsExactly("Doe, Jane");
         // A null referral date renders blank instead of NPE-ing the whole page.
         assertThat(util.date).containsExactly("");
+        // A null urgency likewise renders as an empty label, rather than reaching
+        // the JSP as null and blanking the complete consultation inbox.
+        assertThat(util.urgency).containsExactly("");
     }
 
     @Test

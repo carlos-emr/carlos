@@ -512,6 +512,46 @@ function addProbeLineToRecord(scriptId) {
 let submittedClinicHeader = null;
 let headerComposedByServlet = false;
 
+async function assertFailedNotesSaveBlocksFax(page, modalFrame) {
+  let saveRequested = false;
+  let faxRequests = 0;
+  let dialogSeen = false;
+  const faxRequestListener = (request) => {
+    if (/form\/createcustomedpdf/.test(request.url()) && /__method=oscarRxFax/.test(request.url())) {
+      faxRequests += 1;
+    }
+  };
+  page.on('request', faxRequestListener);
+  page.once('dialog', async (dialog) => {
+    dialogSeen = true;
+    await dialog.accept();
+  });
+  await page.route(/\/rx\/ViewAddRxComment/, async (route) => {
+    saveRequested = true;
+    await route.fulfill({ status: 500, contentType: 'text/plain', body: 'fixture save failure' });
+  });
+
+  try {
+    await modalFrame.locator('#additionalNotes').fill(`${noteText}-must-not-fax`);
+    await modalFrame.locator('#faxButton').click();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  } finally {
+    page.off('request', faxRequestListener);
+    await page.unroute(/\/rx\/ViewAddRxComment/).catch(() => {});
+  }
+
+  visited.push({ label: 'notes-save-failure', saveRequested, dialogSeen, faxRequests });
+  if (!saveRequested) {
+    findings.push({ label: 'notes-save-failure', type: 'save-not-triggered', text: 'the failed-save fixture did not receive an Additional Notes request' });
+  }
+  if (!dialogSeen) {
+    findings.push({ label: 'notes-save-failure', type: 'no-warning', text: 'a failed Additional Notes save did not warn the clinician' });
+  }
+  if (faxRequests !== 0) {
+    findings.push({ label: 'notes-save-failure', type: 'fax-proceeded', text: 'the page submitted a fax after the current Additional Notes failed to save' });
+  }
+}
+
 async function faxThroughUi(page, modalFrame, scriptId) {
   // Deterministic race: hold the notes save so the fax POST can only carry the note if the page
   // waited for it. The route covers the modal iframe's requests too.
@@ -781,6 +821,11 @@ async function runChecks(context) {
     const { modalFrame, scriptId } = await writeCustomRxThroughUi(page);
     visited.push({ label: 'prescription', created: true });
     addProbeLineToRecord(scriptId);
+
+    // A record-bound fax must never silently send the previously stored note when the
+    // clinician's current note failed to persist. The following successful attempt also
+    // proves that a later edit can recover the promise chain after the rejected save.
+    await assertFailedNotesSaveBlocksFax(page, modalFrame);
 
     // B + C on one real click.
     const uiPdfId = await faxThroughUi(page, modalFrame, scriptId);

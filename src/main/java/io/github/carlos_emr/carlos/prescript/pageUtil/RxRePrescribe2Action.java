@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -40,7 +41,10 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -320,7 +324,8 @@ public String saveDigitalSignature() throws IOException {
     // scriptId is request-supplied, and the check above is a GLOBAL _rx write check (null target).
     // Without this, any user holding _rx write could attach or clear a signature on any patient's
     // prescription by walking script ids. Resolve the row first and re-check the right against the
-    // patient it actually belongs to. (Verifying the signature's own ownership is tracked in #3581.)
+    // patient it actually belongs to. The signature itself is bound to that patient and prescriber
+    // below before its id may be attached.
     // Fully qualified: this file's unqualified `Prescription` is RxPrescriptionData.Prescription,
     // while the manager returns the persisted model type.
     io.github.carlos_emr.carlos.commn.model.Prescription targetPrescription =
@@ -333,6 +338,23 @@ public String saveDigitalSignature() throws IOException {
     if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", PRIVILEGE_WRITE,
             String.valueOf(targetPrescription.getDemographicId()))) {
         throw new SecurityException("missing required sec object (_rx)");
+    }
+    // Signing and clearing are prescriber acts, not merely patient-chart mutations. A covering
+    // provider with patient Rx write must not replay this prescriber's existing signature onto a
+    // different script, or clear the prescriber's signed link, even when the patient is the same.
+    if (!Objects.equals(loggedInInfo.getLoggedInProviderNo(), targetPrescription.getProviderNo())) {
+        throw new SecurityException("only the prescription's prescriber may change its signature");
+    }
+    if (digitalSignatureId != null) {
+        DigitalSignature signature = SpringUtils.getBean(DigitalSignatureManager.class)
+                .getDigitalSignatureMetadata(digitalSignatureId);
+        if (signature == null || signature.getModuleType() != ModuleType.PRESCRIPTION
+                || !Objects.equals(signature.getDemographicId(), targetPrescription.getDemographicId())
+                || !Objects.equals(signature.getProviderNo(), targetPrescription.getProviderNo())) {
+            logger.warn("Digital signature not linked: it does not belong to the prescription's patient and prescriber");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
     }
     // The link is what makes the script "signed" for the fax gate. If the row does not exist the
     // manager returns false; report that as a failure rather than a 200, otherwise the page would
