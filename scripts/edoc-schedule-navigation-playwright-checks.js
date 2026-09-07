@@ -117,6 +117,19 @@ const config = {
 };
 
 const NAV_SELECTOR = '#firstTable #navlist';
+
+/*
+ * Uncaught script errors, collected across every page. This matters more than it looks: the
+ * delete and undelete handlers live in one <script> block on documentReport.jsp, so a single
+ * syntax error (an unescaped apostrophe in a translated string, say) wipes out submitDocAction
+ * entirely. Clicking a dead handler then does nothing -- the page does not navigate, so the URL
+ * and the header still look right and the delete leg passes without deleting anything.
+ */
+const pageErrors = [];
+
+function watchForPageErrors(page, label) {
+  page.on('pageerror', (error) => pageErrors.push(`${label}: ${error.message}`));
+}
 const docDescription = `carlos-nav-probe-${Date.now()}`;
 const docTypeName = 'CARLOS Nav Probe';
 
@@ -248,6 +261,7 @@ async function screenshot(page, name) {
 
 async function login(context) {
   const page = await context.newPage();
+  watchForPageErrors(page, 'schedule');
   await gotoApp(page, '/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
@@ -367,11 +381,13 @@ async function run() {
     // Negative control first: without the flag there must be no header, so a
     // green run cannot mean "the header is now unconditional".
     page = await context.newPage();
+    watchForPageErrors(page, 'eDoc without scheduleNav');
     await gotoApp(page, edocPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await assertNavHeader(page, false, 'eDoc without scheduleNav');
     await page.close();
 
     page = await context.newPage();
+    watchForPageErrors(page, 'eDoc');
     const shellPath = `${edocPath}${edocPath.includes('?') ? '&' : '?'}scheduleNav=1`;
     await gotoApp(page, shellPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await assertNavHeader(page, true, 'eDoc entry');
@@ -390,8 +406,16 @@ async function run() {
     await deleteDocument(page);
     assertScheduleNavRetained(page, 'after deleting a document');
     await assertNavHeader(page, true, 'after deleting a document');
+    // The document must be GONE from the active list. Without this the leg passes when the click
+    // did nothing at all -- which is exactly what a broken script block looks like from outside.
+    assert(
+      (await page.locator(`a[title="${docDescription}"]`).count()) === 0,
+      `The document "${docDescription}" is still listed after the delete; the delete did not happen`,
+    );
     await screenshot(page, 'after-delete');
     console.log(`document "${docDescription}" deleted; navigation header intact`);
+
+    assert(!pageErrors.length, `Uncaught script errors on the page: ${pageErrors.join(' | ')}`);
 
     console.log('PASS: eDoc keeps its navigation header tabs across add and delete');
   } catch (error) {

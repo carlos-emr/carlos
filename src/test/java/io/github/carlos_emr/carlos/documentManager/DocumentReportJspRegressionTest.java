@@ -94,7 +94,10 @@ class DocumentReportJspRegressionTest {
         assertThat(documentReport)
                 .contains("if (!csrfEl || !csrfEl.value) {")
                 .contains("showListAlert(msgCsrfTokenMissing);")
-                .contains("var msgCsrfTokenMissing = '<fmt:message"
-                        + " key=\"dms.documentReport.msgCsrfTokenMissing\"/>';");
+                // Through forJavaScript, not raw: a translated apostrophe would otherwise close
+                // the string literal and break every handler in this script block.
+                .contains("<fmt:message key=\"dms.documentReport.msgCsrfTokenMissing\""
+                        + " var=\"csrfTokenMissingText\"/>")
+                .contains("var msgCsrfTokenMissing = '${carlos:forJavaScript(csrfTokenMissingText)}';");
     }
 }

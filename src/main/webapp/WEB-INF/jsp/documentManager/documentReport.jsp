@@ -304,7 +304,11 @@
             }
 
             var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
-            var msgCsrfTokenMissing = '<fmt:message key="dms.documentReport.msgCsrfTokenMissing"/>';
+            <%-- Emitted through forJavaScript: a translation containing an apostrophe or a
+                 backslash would otherwise terminate this string literal and break the whole
+                 script block, taking the delete/undelete handlers down with it. --%>
+            <fmt:message key="dms.documentReport.msgCsrfTokenMissing" var="csrfTokenMissingText"/>
+            var msgCsrfTokenMissing = '${carlos:forJavaScript(csrfTokenMissingText)}';
 
             /**
              * Displays a dismissable Bootstrap alert-danger in the document list alert container.
