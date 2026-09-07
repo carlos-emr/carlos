@@ -100,11 +100,19 @@ override_dh_auto_configure:
 	mkdir -p $(BUILDDIR) $(MVN_REPO)
 
 override_dh_auto_build:
+	# Both copies below glob, because the WAR name carries the project version.
+	# A WAR left in target/ by an earlier build at a different version therefore
+	# gives the glob two matches, and cp reads its last argument as a destination
+	# directory and fails with a misleading "No such file or directory" naming
+	# carlos.war -- after the full compile has already run. Clearing just the WAR
+	# keeps the rest of target/ warm; this is deliberately not `mvn clean`. The
+	# prebuilt-WAR branches skip it: they copy the one file they were handed.
 	set -e; \
 	if [ -n "$$CARLOS_WAR" ]; then \
 	  echo "using prebuilt CARLOS WAR: $$CARLOS_WAR"; \
 	  cp -f "$$CARLOS_WAR" $(BUILDDIR)/carlos.war; \
 	else \
+	  rm -f target/carlos-*.war; \
 	  JOB_NAME=carlos-emr-deb BUILD_NUMBER="$$(dpkg-parsechangelog -SVersion)" \
 	    $(MVN) $(MVN_FLAGS) package; \
 	  cp -f target/carlos-*.war $(BUILDDIR)/carlos.war; \
@@ -125,6 +133,7 @@ ifeq ($(SKIP_DRUGREF),)
 	    $(CURDIR)/debian/fetch-drugref.sh "$(DRUGREF_REF)" $(BUILDDIR)/drugref-src; \
 	    src=$(BUILDDIR)/drugref-src; \
 	  fi; \
+	  rm -f "$$src"/target/drugref2*.war; \
 	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true package; \
 	  cp -f "$$src"/target/drugref2*.war $(BUILDDIR)/drugref2.war; \
 	fi
