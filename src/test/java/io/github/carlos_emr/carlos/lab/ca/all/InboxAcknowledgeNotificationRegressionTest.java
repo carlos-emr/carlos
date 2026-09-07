@@ -325,12 +325,21 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .as("and re-fetching as the listener does, since preview mode draws cards, not rows")
                 .contains("if (typeof inbox.fetchInboxhubData === 'function') {\n"
                         + "                inbox.fetchInboxhubData();")
-                .as("with a last rung for an Inboxhub loaded before this release")
-                .contains("} else if (self.opener && typeof self.opener.removeReport !== 'undefined') {\n"
+                .as("with a legacy rung for an Inboxhub loaded before this release — for BOTH "
+                        + "window shapes, since such an inbox can be showing preview cards in an "
+                        + "iframe just as readily as it can have opened this window")
+                .contains("} else if (self.opener && typeof self.opener.removeReport === 'function') {\n"
                         + "                inbox = self.opener;\n"
+                        + "                legacyInbox = true;\n"
+                        + "            } else if (window.parent !== window\n"
+                        + "                    && typeof window.parent.removeReport === 'function') {\n"
+                        + "                inbox = window.parent;\n"
                         + "                legacyInbox = true;")
                 .contains("            if (legacyInbox) {\n"
-                        + "                inbox.removeReport(segmentId, labType);");
+                        + "                inbox.removeReport(segmentId, labType);")
+                .as("and every guard on a function this code CALLS tests for a function")
+                .doesNotContain("typeof self.opener.removeReport !== 'undefined') {\n"
+                        + "                    self.opener.removeReport(segmentId, labType);");
         assertThat(labDisplay)
                 .as("the close path is row-only again, so closeOnSuccess no longer gates counting")
                 .contains("closeLabAfterMacro(formid, json.acknowledged);")
@@ -362,12 +371,15 @@ class InboxAcknowledgeNotificationRegressionTest {
         // removeInboxhubRow only exists on the Inboxhub. An opener without it must still be
         // told to drop the row: over-counting a badge by one is corrected by the next page
         // load, whereas an acknowledged lab left visible reads as "the acknowledgement failed".
+        //
+        // === 'function', not !== 'undefined': these branches CALL what they find, so a value
+        // that merely exists would throw where a missing one degrades quietly.
         assertThat(read(OSCAR_MDS_INDEX_JS))
                 .contains("if (typeof self.opener.removeInboxhubRow === 'function') {")
-                .contains("} else if (typeof self.opener.removeReport !== 'undefined') {");
+                .contains("} else if (typeof self.opener.removeReport === 'function') {");
         assertThat(read(LAB_DISPLAY_JSP))
                 .contains("if (typeof self.opener.removeInboxhubRow === 'function') {")
-                .contains("} else if (typeof self.opener.removeReport !== 'undefined') {");
+                .contains("} else if (typeof self.opener.removeReport === 'function') {");
     }
 
     @Test

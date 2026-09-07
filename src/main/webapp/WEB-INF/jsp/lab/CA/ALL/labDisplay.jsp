@@ -1201,7 +1201,7 @@ input[id^='acklabel_']{
             if (acknowledged && self.opener && segmentId.length > 0) {
                 if (typeof self.opener.removeInboxhubRow === 'function') {
                     self.opener.removeInboxhubRow(segmentId, labType);
-                } else if (typeof self.opener.removeReport !== 'undefined') {
+                } else if (typeof self.opener.removeReport === 'function') {
                     self.opener.removeReport(segmentId, labType);
                 }
             }
@@ -1282,11 +1282,13 @@ input[id^='acklabel_']{
      * two routes remove the row AND move the counters by the server's count — the whole job,
      * once, guarded against a repeat by the same per-item key.
      *
-     * The last rung is best-effort compatibility: an Inboxhub loaded before this release has
-     * removeReport but none of the newer functions, and it cannot be told how many routing
-     * rows were cleared — it drops the row and takes one off the badge. That leaves the badge
-     * possibly short of the server's figure until the next page load, which is a great deal
-     * better than leaving an acknowledged lab on screen.
+     * The last two rungs are best-effort compatibility: an Inboxhub loaded before this
+     * release has removeReport but none of the newer functions, and it cannot be told how many
+     * routing rows were cleared — it drops the row and takes one off the badge. That leaves
+     * the badge possibly short of the server's figure until the next page load, which is a
+     * great deal better than leaving an acknowledged lab on screen. Both window shapes get
+     * that rung: an older inbox can be showing preview cards in an iframe just as readily as
+     * it can have opened this window.
      *
      * @return {boolean} whether an inbox window was actually reached
      */
@@ -1300,8 +1302,12 @@ input[id^='acklabel_']{
             } else if (window.parent !== window
                     && typeof window.parent.dropAcknowledgedInboxhubItem === 'function') {
                 inbox = window.parent;
-            } else if (self.opener && typeof self.opener.removeReport !== 'undefined') {
+            } else if (self.opener && typeof self.opener.removeReport === 'function') {
                 inbox = self.opener;
+                legacyInbox = true;
+            } else if (window.parent !== window
+                    && typeof window.parent.removeReport === 'function') {
+                inbox = window.parent;
                 legacyInbox = true;
             }
             if (!inbox) { return false; }

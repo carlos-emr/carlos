@@ -2141,7 +2141,7 @@ function removeOpenerInboxRow(segmentId, labType) {
     if (!self.opener) { return; }
     if (typeof self.opener.removeInboxhubRow === 'function') {
         self.opener.removeInboxhubRow(segmentId, labType);
-    } else if (typeof self.opener.removeReport !== 'undefined') {
+    } else if (typeof self.opener.removeReport === 'function') {
         self.opener.removeReport(segmentId, labType);
     }
 }
