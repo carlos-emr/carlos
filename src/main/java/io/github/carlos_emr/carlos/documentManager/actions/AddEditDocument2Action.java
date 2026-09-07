@@ -76,6 +76,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -348,19 +349,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } else if (this.getMode().equals("add")) {
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
-                String contextPath = request.getContextPath();
-                StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
-                redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
-                appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
-                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
-                // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (filled(this.getParentAjaxId())) {
-                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
-                    appendQueryParameter(redirect, "updateParent", "true");
-                }
                 try {
-                    response.sendRedirect(redirect.toString());
+                    response.sendRedirect(buildAddSuccessRedirect());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -376,6 +366,36 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } else {
             return editDocument(request);
         }
+    }
+
+    /**
+     * Builds the post-add redirect back to the document report.
+     *
+     * <p>Extracted from {@link #execute2()} to keep that method's cognitive complexity within the
+     * project's limit; the query it assembles is unchanged. Every value goes through
+     * {@link #appendQueryParameter} so it is URI-component encoded.
+     *
+     * @return an application-relative redirect target
+     */
+    private String buildAddSuccessRedirect() {
+        StringBuilder redirect = new StringBuilder(
+                request.getContextPath() + "/documentManager/ViewDocumentReport");
+        redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
+        appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
+        appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
+        appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
+        // if we're called with parent ajax id inform jsp that parent needs to be updated
+        if (filled(this.getParentAjaxId())) {
+            appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
+            appendQueryParameter(redirect, "updateParent", "true");
+        }
+        // A redirect starts a new request, so the schedule-shell flag the add form posted is gone
+        // unless it is re-appended here. Without it the provider lands back on the document list
+        // with the navigation header tabs missing.
+        if (ScheduleNav.isActive(request)) {
+            appendQueryParameter(redirect, ScheduleNav.PARAM, ScheduleNav.ENABLED);
+        }
+        return redirect.toString();
     }
 
     /**

@@ -9,6 +9,14 @@ Description: Host name clinicians will use to reach CARLOS EMR:
  you intend to use a Let's Encrypt certificate, this name must resolve in
  public DNS to this machine before you run "carlos-ctl cert acme".
  .
+ Reaching this server by IP address instead of by name is supported for
+ clients on the practice LAN, and the packaged firewall rules allow for it.
+ It is NOT suitable from outside that network: a client arriving from a public
+ address starts every request part-way to the firewall's blocking threshold,
+ and clinicians will see occasional unexplained 403 errors on ordinary work
+ with nothing in the application log. If people will reach this server from
+ outside the practice network, give it a DNS name and have them use the name.
+ .
  You can change it later in /etc/carlos-emr/carlos-emr.env followed by
  "carlos-ctl init-config".
 

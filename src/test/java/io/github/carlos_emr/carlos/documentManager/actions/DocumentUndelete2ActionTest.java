@@ -121,6 +121,27 @@ class DocumentUndelete2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep scheduleNav on the redirect when posted from the schedule shell")
+    void shouldKeepScheduleNav_whenPostedFromScheduleShell() throws Exception {
+        grantAdmin(true);
+        grantEdocWrite(false);
+        mockRequest.addParameter("scheduleNav", "1");
+        action.setUndelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).contains("scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should omit scheduleNav from the redirect outside the schedule shell")
+    void shouldOmitScheduleNav_whenNotInScheduleShell() throws Exception {
+        grantAdmin(true);
+        grantEdocWrite(false);
+        action.setUndelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).doesNotContain("scheduleNav");
+    }
+
+    @Test
     @DisplayName("should allow creator with _edoc w to undelete own document")
     void shouldAllowCreator_toUndeleteOwnDoc() throws Exception {
         grantAdmin(false);
