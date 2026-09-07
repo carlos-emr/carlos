@@ -404,8 +404,8 @@ public final class Login2Action extends ActionSupport {
 
             userName = cached.getUserName();
 
-            // Username is only letters and numbers
-            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            // Username is only letters and numbers; 30 matches security.user_name varchar(30)
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,30}", userName)) {
                 userName = "Invalid Username";
             }
 
@@ -510,8 +510,8 @@ public final class Login2Action extends ActionSupport {
             // Standard login attempt.
             userName = this.getUsername();
 
-            // Username is only letters and numbers
-            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            // Username is only letters and numbers; 30 matches security.user_name varchar(30)
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,30}", userName)) {
                 userName = "Invalid Username";
             }
             password = this.getPassword();
@@ -1514,7 +1514,7 @@ public final class Login2Action extends ActionSupport {
      * </ul>
      *
      * @param request HttpServletRequest to access the session
-     * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
+     * @param userName String the username (must match [a-zA-Z0-9]{1,30} pattern)
      * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
      * @param nextPage String the relative URL to redirect to after password reset (validated before caching)

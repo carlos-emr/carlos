@@ -21,15 +21,13 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.pageUtil;
 
-import java.util.Properties;
-
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.util.plugin.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -45,8 +43,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * {@code ca.on.web.ViewBillingOn2Action}, respectively.</p>
  *
  * <p>Region resolution: prefer the {@code billRegion} request parameter; fall
- * back to the deployment-wide {@code billregion} property. Anything not
- * exactly {@code "ON"} is treated as BC, preserving the historical default.</p>
+ * back to the deployment-wide {@code billregion} property in
+ * {@code carlos.properties} (written by {@code carlos-ctl} at install time from
+ * the configured province). Anything not exactly {@code "ON"} is treated as BC,
+ * preserving the historical default.</p>
+ *
+ * <p>The property fall-back reads {@link CarlosProperties}, the singleton backed
+ * by {@code carlos.properties}. It previously read a same-named holder in
+ * {@code carlos.util.plugin} whose static field was never populated by any code
+ * path, so the fall-back always evaluated to {@code null} and every caller that
+ * omitted {@code billRegion} was silently routed to BC. On an Ontario install
+ * that lands on {@code billingBC.jsp}, which queries BC-only tables that the
+ * Ontario schema does not have — surfacing as "CARLOS Error: 500". The Ontario
+ * bill-entry form reaches this router without {@code billRegion} whenever the
+ * billing-type dropdown is switched to a type that re-opens the form
+ * (3rd Party / Bonus Codes), which is how the defect was reported.</p>
  *
  * @since 2026-04-27
  */
@@ -72,8 +83,23 @@ public final class Billing2Action extends ActionSupport {
 
         String region = request.getParameter("billRegion");
         if (region == null || region.isEmpty()) {
-            Properties props = CarlosProperties.getProperties();
-            region = props == null ? null : props.getProperty("billregion");
+            CarlosProperties props = CarlosProperties.getInstance();
+            // Raw Hashtable read, not getProperty(): the CarlosProperties
+            // override builds and logs a WARN for every key it cannot find.
+            // `billregion` is legitimately absent on an install that never set
+            // it, and this is the fall-back path, so a miss is expected rather
+            // than exceptional — going through getProperty() would turn each
+            // such request into log noise.
+            //
+            // The two reads agree for THIS key only. getProperty() also
+            // substitutes a PROPERTY_DEFAULTS entry on a miss, and screens the
+            // stored value against the deprecated-namespace blacklist; neither
+            // applies to `billregion` (no default is registered for it, and a
+            // province code cannot be blacklisted). Do not copy this pattern to
+            // a key that has a registered default — there get() and
+            // getProperty() genuinely differ.
+            Object configured = props == null ? null : props.get("billregion");
+            region = configured instanceof String stored ? stored : null;
         }
         return "ON".equals(region) ? "ON" : "BC";
     }

@@ -209,11 +209,11 @@ class CarlosdocPrivilegeSeedRegressionTest {
         assertThat(databaseDockerfile).contains(
                 "COPY ./.devcontainer/db/scripts/development_privileges.sql /scripts/development_privileges.sql");
         assertThat(populateScript)
-                .contains("$SQL oscar < /scripts/development_privileges.sql")
+                .contains("$SQL carlos < /scripts/development_privileges.sql")
                 .satisfies(script -> assertThat(script.indexOf("/scripts/development_privileges.sql"))
                         .isGreaterThan(script.indexOf("/scripts/development.sql")));
         assertThat(devcontainerSeed).contains(
-                "mariadb -h db -u root oscar \\\n"
+                "mariadb -h db -u root carlos \\\n"
                         + "    < /workspace/.devcontainer/db/scripts/development_privileges.sql");
     }
 

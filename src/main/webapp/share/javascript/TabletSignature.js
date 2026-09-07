@@ -277,6 +277,16 @@ function saveCanvas() {
             success: function (data) {
                 var savedId = jQuery(jQuery(data.trim())[0]).val();
                 OnSignEvent(true, false, savedId);
+            },
+            // Without an error handler, any non-2xx (a WAF 403 on the base64 image,
+            // a CSRF rejection, a 400/500) was swallowed and the pad simply did
+            // nothing — the "signature not saved, no message" symptom. Surface it so
+            // the clinician knows the signature was not captured and can retry.
+            error: function (xhr) {
+                var status = xhr && xhr.status ? xhr.status : "unknown";
+                alert("The signature could not be saved (server responded " + status
+                    + "). Please try again; if it keeps failing, contact your administrator.");
+                OnSignEvent(false, false);
             }
         });
         return false;

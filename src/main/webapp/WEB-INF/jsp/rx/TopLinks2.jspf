@@ -37,6 +37,7 @@
 <script type="text/javascript">
 const msgDrugrefUnavailable = '<fmt:message key="oscarRx.drugrefUnavailable"/>';
 const msgDrugrefUnavailableContact = '<fmt:message key="oscarRx.drugrefUnavailableContact"/>';
+const msgDrugrefUpdating = '<fmt:message key="oscarRx.drugrefUpdating"/>';
 
 function newWindow(url) {
     var newwin = window.open(url, 'name', 'height=700,width=1000');
@@ -62,9 +63,20 @@ function getDrugRefStatus() {
 	})
 		.then(response => response.json())
 		.then(json => {
-			if (!json || json.lastUpdate === 'updating' ) {
+			// !json.lastUpdate, not === 'updating'. RxUpdateDrugref2Action.verify()
+			// answers HTTP 200 with lastUpdate null when the DrugRef lookup itself
+			// failed, so the old test never matched a real outage: it fell through
+			// to the else branch and rendered new Date(null), i.e. a 1969 date,
+			// while the "unavailable" banner stayed unreachable except via the
+			// .catch below. 'updating' is still covered -- it is truthy and is
+			// handled by the same banner.
+			if (!json || !json.lastUpdate || json.lastUpdate === 'updating' ) {
+				// 'updating' is a rebuild in progress (Administration > Update Drugref), not an
+				// outage: say so, because the two call for different reactions from the desk.
 				let statusDisplay = document.getElementById('statusDisplay');
-				statusDisplay.innerHTML = msgDrugrefUnavailable;
+				// textContent, not innerHTML: these are plain-text bundle strings, and a
+				// translation that ever picked up markup should render as text, not HTML.
+				statusDisplay.textContent = (json && json.lastUpdate === 'updating') ? msgDrugrefUpdating : msgDrugrefUnavailable;
 				statusDisplay.style.color = 'red';
 				statusDisplay.style.fontWeight = 'bold';
 			} else {
@@ -81,7 +93,7 @@ function getDrugRefStatus() {
 		})
 		.catch(error => {
 			let statusDisplay = document.getElementById('statusDisplay');
-			statusDisplay.innerHTML = msgDrugrefUnavailableContact;
+			statusDisplay.textContent = msgDrugrefUnavailableContact;
 			statusDisplay.style.color = 'red';
 			statusDisplay.style.fontWeight = 'bold';
 		});

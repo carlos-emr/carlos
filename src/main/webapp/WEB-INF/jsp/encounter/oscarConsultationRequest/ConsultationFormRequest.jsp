@@ -2602,11 +2602,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (props.isConsultationFaxEnabled()) { %>
                                     <input id="fax_button" name="updateAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
                                            onclick="return checkForm('Update And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } else { %>
                                 <input name="submitSaveOnly" type="button" class="btn btn-primary btn-sm"
@@ -2616,11 +2617,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndPrint"/>"
                                        onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (props.isConsultationFaxEnabled()) { %>
                                     <input id="fax_button" name="submitAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } %>
                                 </div>

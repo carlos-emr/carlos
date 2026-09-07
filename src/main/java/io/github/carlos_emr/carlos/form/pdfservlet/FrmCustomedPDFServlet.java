@@ -39,12 +39,15 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
@@ -53,6 +56,22 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
+import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.Prescription;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
+import io.github.carlos_emr.carlos.prescript.data.RxSatelliteClinicAddress;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
+import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.Direction;
@@ -64,6 +83,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 
@@ -102,6 +122,39 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
+    private final PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
+    private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+
+    /** Every request parameter that names or locates the patient on the rendered page. */
+    private static final List<String> IDENTITY_PARAMETERS = List.of(
+            "patientName", "patientDOB", "patientAddress", "patientCityPostal",
+            "patientHIN", "patientPhone", "patientChartNo");
+
+    /** Parses a positive script number (prescription.script_no is a signed int); -1 when invalid. */
+    private static int parsePositiveInt(String value) {
+        if (value == null || !value.matches("\\d{1,10}")) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** True when the bytes decode as an image OpenPDF can render; guards against a non-image upload. */
+    private static boolean isRenderableImage(byte[] image) {
+        try {
+            org.openpdf.text.Image.getInstance(image);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     /**
      * Main entry point for prescription PDF generation and fax submission.
@@ -122,7 +175,61 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
         boolean responseOutputStreamOpened = false;
-        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext())) {
+
+        // The fax path is a mutation with an outbound side effect: it writes the PDF under
+        // DOCUMENT_DIR, persists a FaxJob and hands a signed prescription to the fax provider at a
+        // caller-chosen number. This servlet answers every HTTP method through service(), and
+        // CSRFGuard protects POST only (ProtectedMethods=POST,PUT,DELETE,PATCH), so a GET carrying
+        // __method=oscarRxFax would be a token-free, cross-site-triggerable fax of a real patient's
+        // prescription to an attacker's number. Refuse anything but POST before any of that runs.
+        // The page's own Fax button submits a POST form, so nothing legitimate is turned away.
+        // Method tokens are case-sensitive (RFC 9110) and every browser sends "POST"; no case fold.
+        if (isFax && !"POST".equals(req.getMethod())) {
+            res.setHeader("Allow", "POST");
+            res.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Faxing a prescription requires POST");
+            return;
+        }
+
+        // The prescription named by scriptId is loaded ONCE here and shared by the privilege
+        // pre-check, the signature gate and the fax content binding below.
+        Prescription prescription = requestedPrescription(req);
+
+        // An authorization refusal must be reported as one. resolveSignatureImage withholds the
+        // signature for a caller without _rx write on the patient, and reporting that as "not
+        // signed" would send a read-only user to sign a script that IS signed (and that they could
+        // not sign anyway). Only a caller who may already READ the script gets that specific
+        // message. A caller WITHOUT read falls through to the "not signed" reply below — the very
+        // same answer an id that matches no prescription produces — so the wording cannot be used
+        // to tell an existing script from one that does not exist.
+        if (isFax && isFaxDeniedByPrivilege(prescription, loggedInInfo)) {
+            res.setContentType("text/html");
+            res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
+            return;
+        }
+
+        // Resolve the prescriber's signature before touching the document: a fax is an outbound
+        // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
+        byte[] signatureImage = resolveSignatureImage(req, loggedInInfo, prescription);
+        if (isFax && signatureImage == null) {
+            res.setContentType("text/html");
+            res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription is not signed. Sign it before faxing.</h3></div>");
+            return;
+        }
+
+        // A fax is rendered from the prescription RECORD, never from the request body: the stored
+        // signature drawn on it belongs to that record, so the drug lines above it and the signing
+        // name must be the record's too (see bindFaxContentToRecord).
+        HttpServletRequest pdfRequest = req;
+        if (isFax) {
+            pdfRequest = bindFaxContentToRecord(req, prescription);
+            if (pdfRequest == null) {
+                res.setContentType("text/html");
+                res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription record has no drugs to fax.</h3></div>");
+                return;
+            }
+        }
+
+        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(pdfRequest, this.getServletContext(), signatureImage)) {
 
             if (isFax) {
                 // this fax method shouldn't be here and will be removed in future edits.
@@ -349,7 +456,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         private String promoText;
         private String origPrintDate = null;
         private String numPrint = null;
-        private String imgPath;
+        private byte[] signatureImage;
         Locale locale = null;
         private String billingNumber;
 
@@ -364,7 +471,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
          */
         public EndPage(String clinicName, String clinicTel, String clinicFax, String patientPhone, String patientCityPostal, String patientAddress,
                        String patientName, String patientDOB, String sigDoctorName, String rxDate, String origPrintDate, String numPrint,
-                       String imgPath, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
+                       byte[] signatureImage, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
             this.clinicName = clinicName == null ? "" : clinicName;
             this.clinicTel = clinicTel == null ? "" : clinicTel;
             this.clinicFax = clinicFax == null ? "" : clinicFax;
@@ -381,7 +488,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             if (promoText == null) {
                 promoText = "";
             }
-            this.imgPath = imgPath;
+            this.signatureImage = signatureImage;
             this.patientHIN = patientHIN == null ? "" : patientHIN;
             this.patientChartNo = patientChartNo == null ? "" : patientChartNo;
             this.pracNo = pracNo == null ? "" : pracNo;
@@ -602,8 +709,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                  *  with the bottom left corner located at X: 75f Y: -31f
                  *  Also need to account for the height of the signature
                  */
-                if (this.imgPath != null) {
-                    Image img = Image.getInstance(this.imgPath);
+                if (this.signatureImage != null && this.signatureImage.length > 0) {
+                    Image img = Image.getInstance(this.signatureImage);
                     float imageWidth = 185f;
                     float imageHeight = 40f;
                     // scale the origin image to fix these exact parameters width x height
@@ -655,16 +762,17 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @param s String the HTML-formatted satellite clinic address
      * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
      */
-    private HashMap<String, String> parseSCAddress(String s) {
+    static HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
         String[] ar = s.split("</b>");
         String[] ar2 = ar[1].split("<br>");
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
         lst.remove(0);
-        String tel = lst.get(3);
-        tel = tel.replace("Tel: ", "");
-        String fax = lst.get(4);
-        fax = fax.replace("Fax: ", "");
+        // The block carries the page's LOCALIZED labels ("Tel", "Tél", "Telefone"...) and the header
+        // adds its own localized label when it prints these, so strip whatever label precedes the
+        // first colon rather than the English ones only -- the French page used to fax "Tél: Tél: ...".
+        String tel = lst.get(3).replaceFirst("^[^:]*:\\s*", "");
+        String fax = lst.get(4).replaceFirst("^[^:]*:\\s*", "");
         String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
         logger.debug("tel: {}", LogSafe.sanitize(tel));
         logger.debug("fax: {}", LogSafe.sanitize(fax));
@@ -678,23 +786,682 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     /**
+     * Binds an outbound fax to the prescription RECORD named by {@code scriptId}. The drug lines
+     * are regenerated from the script's drugs rows (the same {@code getFullOutLine} text
+     * Preview2.jsp built the request from) and the signing name from the script's prescriber, so
+     * the stored signature the fax is drawn with can only ever appear above that prescriber's own
+     * prescription. Every other field (pharmacy, clinic, patient header) is still taken from the
+     * request as before. When the request body is exactly a reordering of the record, its order is
+     * kept so an honest fax is what the prescriber previewed; anything else is replaced by the
+     * record and logged, because {@code scriptId} and the body are independent request parameters
+     * and a caller with {@code _rx} write on the patient could otherwise fax arbitrary text under
+     * another prescriber's stored signature.
+     *
+     * @return the request to render the fax from, or {@code null} when the record has no drugs
+     *         (nothing legitimate to fax) or cannot be loaded
+     */
+    HttpServletRequest bindFaxContentToRecord(HttpServletRequest req) {
+        return bindFaxContentToRecord(req, requestedPrescription(req));
+    }
+
+    /** As {@link #bindFaxContentToRecord(HttpServletRequest)} with the prescription already loaded. */
+    HttpServletRequest bindFaxContentToRecord(HttpServletRequest req, Prescription prescription) {
+        if (prescription == null || prescription.getDemographicId() == null) {
+            return null;
+        }
+        // The row was loaded by this very id (requestedPrescription), so it is the script number.
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        String newline = System.getProperty("line.separator");
+        List<String> recordLines = new ArrayList<>();
+        List<RxPrescriptionData.Prescription> recordDrugs =
+                new RxPrescriptionData().getPrescriptionsByScriptNo(scriptNo, prescription.getDemographicId());
+        for (RxPrescriptionData.Prescription drug : recordDrugs) {
+            String line = recordBlock(drug, newline);
+            if (line != null && !line.isBlank()) {
+                recordLines.add(line);
+            }
+        }
+        if (recordLines.isEmpty()) {
+            logger.warn("Refusing to fax prescription {}: its record has no drug lines", LogSafe.sanitize(String.valueOf(scriptNo)));
+            return null;
+        }
+
+        // Keep the prescriber's preview order where the request is a reordering of the record.
+        List<String> remaining = new ArrayList<>(recordLines);
+        List<String> ordered = new ArrayList<>();
+        List<String> requestBlocks = splitRxBlocks(req.getParameter("rx"), newline);
+        for (String block : requestBlocks) {
+            String wanted = normalizeRxBlock(block);
+            for (Iterator<String> it = remaining.iterator(); it.hasNext(); ) {
+                String candidate = it.next();
+                if (normalizeRxBlock(candidate).equals(wanted)) {
+                    ordered.add(candidate);
+                    it.remove();
+                    break;
+                }
+            }
+        }
+        if (!remaining.isEmpty() || ordered.size() != requestBlocks.size()) {
+            // Anything but an exact reordering of the record is discarded wholesale: the fax is the
+            // record in the record's own order, never a partially request-shaped body.
+            logger.warn("Fax body for prescription {} did not match its record; faxing the record instead",
+                    LogSafe.sanitize(String.valueOf(scriptNo)));
+            ordered = new ArrayList<>(recordLines);
+        }
+        StringBuilder body = new StringBuilder();
+        for (String line : ordered) {
+            // Emit the block structure directly. generatePDFDocumentBytes splits rx on the platform
+            // separator and starts a new block on an empty or one-character line, so a blank line
+            // between drugs is all that is needed. Do NOT join with ";;" and then substitute every
+            // ';' for a newline: this body is built from the record's own text, and a semicolon a
+            // prescriber typed inside an instruction ("1 tab PO BID; hold if SBP<100") would become
+            // a line break — and a one-character remainder a spurious block separator. Ordering was
+            // already matched above through normalizeRxBlock, which ignores semicolons, so nothing
+            // downstream depends on this body reproducing the page's ';'-encoded wire format.
+            body.append(line.replace("\r\n", "\n").replace("\n", newline)).append(newline).append(newline);
+        }
+
+        String prescriber = prescription.getProviderNo();
+        String signingName = "";
+        String collegeId = "";
+        String billingNo = "";
+        if (prescriber != null && !prescriber.isBlank()) {
+            ProSignatureData signatureData = new ProSignatureData();
+            Provider provider = providerDao.getProvider(prescriber);
+            if (signatureData.hasSignature(prescriber)) {
+                signingName = signatureData.getSignature(prescriber);
+            } else if (provider != null) {
+                signingName = ((provider.getFirstName() == null ? "" : provider.getFirstName()) + " "
+                        + (provider.getLastName() == null ? "" : provider.getLastName())).trim();
+            }
+            if (provider != null) {
+                collegeId = provider.getPractitionerNo() == null ? "" : provider.getPractitionerNo();
+                billingNo = provider.getBillingNo() == null ? "" : provider.getBillingNo();
+            }
+        }
+        // EVERY field the fax renders must come from the record, not just the drug lines. The PDF
+        // also prints additNotes immediately above the signature line, and the College ID and
+        // billing number beside the prescriber's name — all read straight from the request. Binding
+        // only "rx" and "sigDoctorName" left the control bypassable through a sibling parameter: a
+        // caller with _rx write on the patient could post arbitrary additNotes and have it render
+        // above another prescriber's stored signature, under that prescriber's name. Each of these
+        // has a record source, so bind them the same way.
+        Map<String, String> bound = new HashMap<>();
+        bound.put("rx", body.toString());
+        bound.put("sigDoctorName", signingName == null ? "" : signingName);
+        bound.put("additNotes", prescription.getComments() == null ? "" : prescription.getComments());
+        bound.put("pracNo", collegeId);
+        bound.put("billingNumber", billingNo);
+        bindPatientIdentity(req, prescription.getDemographicId(), bound);
+        bindFaxHeaderToRecord(req, prescription, recordDrugs, bound);
+        return new RecordBoundRequest(req, bound);
+    }
+
+    /**
+     * Binds the remaining printed header of the fax to the record: the prescription date, the clinic
+     * block (name, address, telephone) and the reprint annotation.
+     *
+     * <p>With the drugs, prescriber, patient identity and notes already record-bound, these were the
+     * last rendered values still read straight from the request. Each is text on a document that
+     * goes out under the prescriber's stored signature: a forged {@code rxDate} back- or post-dates a
+     * controlled-substance script, a forged clinic block routes the pharmacy's call-back to a phone
+     * the caller chose, and {@code rxReprint}/{@code origPrintDate}/{@code numPrints} print verbatim
+     * as "Orig printed: ...; times printed: ..." above the signature. Each has the record source
+     * {@code rx/Preview2.jsp} itself renders from, so bind them the same way.</p>
+     *
+     * <ul>
+     *   <li>{@code rxDate}: the latest {@code rx_date} among the script's drugs, in the page's
+     *       {@code "MMMM d, yyyy"} format — the same "latest in the stash" rule the preview uses.</li>
+     *   <li>Clinic block: the prescriber's clinic as {@code RxProviderData} resolves it (clinic
+     *       table, overridden by the prescriber's own rxAddress/rxPhone/faxnumber preferences),
+     *       composed as the preview composes its {@code clinicName}; the printed fax is the
+     *       clinic's official number, never the outgoing line the request names in
+     *       {@code clinicFax} (that value still selects the sending line in {@code service()}). The preview's other branch — a program
+     *       address from an {@code infirmaryView_programAddress} attribute — has no remaining
+     *       setter in CARLOS, so it is not reproduced here. A satellite clinic ({@code useSC=true})
+     *       is honoured only when the posted {@code scAddress}
+     *       is one of the blocks the page could have offered this provider
+     *       ({@link RxSatelliteClinicAddress#blocksFor}); anything else falls back to the main
+     *       clinic and is logged, because {@code parseSCAddress} would otherwise print whatever the
+     *       caller sent as the clinic.</li>
+     *   <li>Reprint annotation: present only when this session is reprinting (the same session flag
+     *       the preview keys on) and the record has a print history, with the record's own first
+     *       print date and count; blank otherwise.</li>
+     * </ul>
+     */
+    private void bindFaxHeaderToRecord(HttpServletRequest req, Prescription prescription,
+                                       List<RxPrescriptionData.Prescription> recordDrugs, Map<String, String> bound) {
+        Date latest = null;
+        for (RxPrescriptionData.Prescription drug : recordDrugs) {
+            Date rxDate = drug.getRxDate();
+            if (rxDate != null && (latest == null || rxDate.after(latest))) {
+                latest = rxDate;
+            }
+        }
+        bound.put("rxDate", latest == null ? "" : RxUtil.DateToString(latest, "MMMM d, yyyy"));
+
+        String prescriber = prescription.getProviderNo();
+        HttpSession session = req.getSession(false);
+        RxProviderData.Provider clinic = prescriber == null ? null : new RxProviderData().getProvider(prescriber);
+        // The preview strips the "(nnnnnn)" clinic-number suffix from the name and joins name,
+        // address and "city   postal" with line breaks; RxProviderData has already applied the
+        // prescriber's rxAddress/rxPhone preferences to the clinic values.
+        String clinicName = clinic == null ? "" : nz(clinic.getClinicName()).replaceAll("\\(\\d{6}\\)", "") + "\n"
+                + nz(clinic.getClinicAddress()) + "\n"
+                + nz(clinic.getClinicCity()) + "   " + nz(clinic.getClinicPostal());
+        bound.put("clinicName", clinicName);
+        bound.put("clinicPhone", clinic == null ? "" : nz(clinic.getClinicPhone()));
+        // The header's "Fax:" is the clinic's OFFICIAL fax number -- the clinic row's fax, or the
+        // prescriber's own "faxnumber" preference, exactly as RxProviderData resolves it for the
+        // preview -- not the outgoing line. The request's clinicFax is the fax_config line the fax
+        // is SENT from; service() still reads that from the original request to pick the line, but
+        // an outgoing line is only that, and it must not print as the pharmacy's call-back number.
+        bound.put("clinicFax", clinic == null ? "" : nz(clinic.getClinicFax()));
+
+        // useSC/scAddress select a satellite clinic block that generatePDFDocumentBytes parses INSTEAD
+        // of clinicName/clinicPhone/clinicFax. The flag is ALWAYS rebound, never read: it is true
+        // exactly when scAddress is a block this provider's page could have sent, so neither a
+        // differently-cased flag nor a made-up block can reach parseSCAddress. Anything else renders
+        // the main clinic bound above.
+        String offeredBlock = null;
+        if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+            String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+            String tel = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel"));
+            String fax = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgFax"));
+            offeredBlock = RxSatelliteClinicAddress.offeredBlock(RxSatelliteClinicAddress.blocksFor(user, tel, fax), req.getParameter("scAddress"));
+            if (offeredBlock == null) {
+                logger.warn("Fax for prescription {} named a satellite clinic block this provider is not offered; using the main clinic header",
+                        LogSafe.sanitize(String.valueOf(prescription.getId())));
+            }
+        }
+        // Render the OFFERED block, not the request's copy of it: the match decodes entities on both
+        // sides, so the request may spell the same clinic with entity text that parseSCAddress would
+        // otherwise print verbatim.
+        bound.put("useSC", offeredBlock != null ? "true" : "false");
+        bound.put("scAddress", offeredBlock != null ? offeredBlock : "");
+
+        // Reprint annotation. The preview decides "is this a reprint" from the session flag the
+        // reprint action sets, and prints the first drug's stored print date and count.
+        // RxRePrescribe2Action stores the literal "true"; an exact compare needs no case fold.
+        boolean reprinting = session != null && "true".equals(session.getAttribute("rePrint"));
+        RxPrescriptionData.Prescription first = recordDrugs.isEmpty() ? null : recordDrugs.get(0);
+        if (reprinting && first != null && first.getPrintDate() != null) {
+            bound.put("rxReprint", "true");
+            bound.put("origPrintDate", String.valueOf(first.getPrintDate()));
+            bound.put("numPrints", String.valueOf(first.getNumPrints()));
+        } else {
+            bound.put("rxReprint", "false");
+            bound.put("origPrintDate", "");
+            bound.put("numPrints", "");
+        }
+    }
+
+    private static String nz(String value) {
+        return value == null ? "" : value;
+    }
+
+    /**
+     * Binds the patient block of the fax to the prescription's own demographic.
+     *
+     * <p>The drugs, the signing name and the prescriber's numbers are already taken from the
+     * record, and {@link #resolveSignatureImage} has established that the caller holds {@code _rx}
+     * write for the prescription's patient and that {@code demographic_no} names that same patient.
+     * The identity PRINTED on the page was still whatever the request said: {@code patientName},
+     * {@code patientDOB}, {@code patientHIN}, {@code patientAddress}, {@code patientCityPostal} and
+     * {@code patientPhone} were read straight from parameters. A stale preview, or a tampered post
+     * from a caller who legitimately holds {@code _rx} write on the patient, could therefore send
+     * the verified drugs under the prescriber's stored signature while heading the page with a
+     * different person's name, date of birth and health number — a correctly signed prescription
+     * for the wrong patient. Bind them the same way as everything else.</p>
+     *
+     * <p>The formats reproduce what {@code rx/Preview2.jsp} posts for a legitimate render, so a
+     * bound fax is byte-identical to an untampered one: the city/province/postal line uses the
+     * page's own spacing rules, and the phone carries the localized {@code RxPreview.msgTel} label
+     * the page prefixes. {@code showPatientDOB} is deliberately NOT bound — it selects whether the
+     * clinic prints dates of birth at all, which is a display preference rather than identity, and
+     * the value it gates is now the record's either way.</p>
+     *
+     * <p>{@code patientChartNo} is bound to empty because the Rx preview never populates it: the
+     * faxed script has never shown a chart number, so the only thing the parameter could carry is
+     * text an attacker chose. Leaving it caller-controlled would reopen the same hole in the one
+     * identity slot that has no record source here.</p>
+     */
+    private void bindPatientIdentity(HttpServletRequest req, Integer demographicId, Map<String, String> bound) {
+        // Every identity slot is overridden, including the ones that come back empty. A field left
+        // unbound is a field the request still controls, so the blanks are part of the control:
+        // absent demographic data must print as absent, never as whatever the caller supplied.
+        for (String field : IDENTITY_PARAMETERS) {
+            bound.put(field, "");
+        }
+        // rx/Preview2.jsp reaches the same row through RxPatientData, which is a pass-through over
+        // DemographicManager; going straight to the manager keeps the consent and audit behaviour
+        // of the preview without RxPatientData's static bean plumbing.
+        Demographic demographic;
+        try {
+            demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(req), demographicId);
+        } catch (PatientDirectiveException e) {
+            // The manager's read is gated by its own privilege check, which surfaces a consent directive
+            // as PatientDirectiveException. resolveSignatureImage has already authorized this caller for
+            // this patient on the same check, so this is defence in depth rather than an expected path;
+            // when it does fire, the heading stays blank -- the same outcome as a missing row, and never
+            // the request's values. ONLY that exception is absorbed: a database or wiring failure must
+            // abort the fax loudly, not send a prescription with no patient on it.
+            logger.warn("Faxing prescription for demographic {} with a blank patient heading: a directive refused the demographic read",
+                    LogSafe.sanitize(String.valueOf(demographicId)), e);
+            return;
+        }
+        if (demographic == null) {
+            logger.warn("Faxing prescription for demographic {} with a blank patient heading: its demographic row is missing",
+                    LogSafe.sanitize(String.valueOf(demographicId)));
+            return;
+        }
+        String first = demographic.getFirstName() == null ? "" : demographic.getFirstName();
+        String surname = demographic.getLastName() == null ? "" : demographic.getLastName();
+        String city = demographic.getCity() == null ? "" : demographic.getCity();
+        String province = demographic.getProvince() == null ? "" : demographic.getProvince();
+        String postal = demographic.getPostal() == null ? "" : demographic.getPostal();
+        String phone = demographic.getPhone() == null ? "" : demographic.getPhone();
+        Date dob = demographic.getBirthDay() == null ? null : demographic.getBirthDay().getTime();
+
+        bound.put("patientName", (first + " " + surname).trim());
+        bound.put("patientDOB", RxUtil.DateToString(dob, "MMM d, yyyy"));
+        bound.put("patientAddress", demographic.getAddress() == null ? "" : demographic.getAddress());
+        bound.put("patientCityPostal", formatCityPostal(city, province, postal));
+        bound.put("patientHIN", demographic.getHin() == null ? "" : demographic.getHin());
+        bound.put("patientPhone", LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel") + ": " + phone);
+    }
+
+    /**
+     * The city/province/postal line exactly as {@code rx/Preview2.jsp} composes it, separator
+     * chosen by which of the two parts are present:
+     *
+     * <ul>
+     *   <li>both city and province: {@code ", "} — {@code "Hamilton, ON L8S 4L8"};</li>
+     *   <li>province only: nothing, so the line starts at the province — {@code "ON L8S 4L8"};</li>
+     *   <li>city only (or neither): a single space, which the empty province leaves as a double
+     *       space before the postal code — {@code "Hamilton  L8S 4L8"}.</li>
+     * </ul>
+     *
+     * <p>That last case looks like a typo and is not: it is what the page emits today, and the
+     * point of reproducing the rule rather than tidying it is that binding this field must not
+     * visibly change a legitimate fax. Fix it in {@code Preview2.jsp} and here together, or not at
+     * all.</p>
+     */
+    static String formatCityPostal(String city, String province, String postal) {
+        int check = (city.trim().isEmpty() ? 0 : 1) | (province.trim().isEmpty() ? 0 : 2);
+        String separator = check == 3 ? ", " : check == 2 ? "" : " ";
+        return String.format("%s%s%s %s", city, separator, province, postal);
+    }
+
+
+    /**
+     * One drug's fax block, with the record's own line breaks restored.
+     *
+     * <p>{@code getFullOutLine()} flattens {@code special + "\n" + extra} by joining every line
+     * with {@code "; "}, which makes a structural separator indistinguishable from a semicolon a
+     * prescriber typed inside an instruction. Un-substituting semicolons therefore cannot be
+     * correct in both directions: it either breaks "1 tab PO BID; hold if SBP&lt;100" across lines,
+     * or leaves a genuinely multi-line direction collapsed onto one.</p>
+     *
+     * <p>So this rebuilds from the same source rather than decoding the flattened form: the
+     * {@code special} field still carries its real line breaks, and whatever {@code getFullOutLine}
+     * appended beyond it (refill and substitution notes) is recovered as the trailing remainder. A
+     * shape that does not match falls back to the canonical single line, which is never wrong —
+     * only less pretty.</p>
+     */
+    static String recordBlock(RxPrescriptionData.Prescription drug, String newline) {
+        String flat = drug.getFullOutLine();
+        if (flat == null || flat.isBlank()) {
+            return flat;
+        }
+        String special = drug.getSpecial();
+        if (special == null || special.isBlank()) {
+            return flat;
+        }
+        String flatSpecial = RxPrescriptionData.getFullOutLine(special);
+        if (flatSpecial.isEmpty() || !flat.startsWith(flatSpecial)) {
+            return flat;
+        }
+        List<String> lines = new ArrayList<>();
+        for (String specialLine : special.split("\n")) {
+            if (!specialLine.isBlank()) {
+                lines.add(specialLine.trim());
+            }
+        }
+        String extra = flat.substring(flatSpecial.length()).replaceFirst("^;\\s*", "").trim();
+        if (!extra.isEmpty()) {
+            lines.add(extra);
+        }
+        return lines.isEmpty() ? flat : String.join(newline, lines);
+    }
+
+    /**
+     * The blank-line-separated blocks of a posted {@code rx} body. Only a blank or whitespace-only
+     * line (which includes a stray {@code \r} from CRLF input) separates blocks; a one-character
+     * line such as a quantity of "1" is content and stays inside its block.
+     */
+    static List<String> splitRxBlocks(String rx, String newline) {
+        List<String> blocks = new ArrayList<>();
+        if (rx == null) {
+            return blocks;
+        }
+        StringBuilder current = new StringBuilder();
+        for (String s : rx.split(newline)) {
+            if (s.isBlank()) {
+                if (current.length() > 0) {
+                    blocks.add(current.toString());
+                }
+                current.setLength(0);
+            } else {
+                current.append(s).append(newline);
+            }
+        }
+        if (current.length() > 0) {
+            blocks.add(current.toString());
+        }
+        return blocks;
+    }
+
+    /** Whitespace- and separator-insensitive form of a drug block ("; " and line breaks both collapse). */
+    static String normalizeRxBlock(String block) {
+        return block == null ? "" : block.replace(";", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    /** A request whose {@code rx} and {@code sigDoctorName} come from the prescription record. */
+    private static final class RecordBoundRequest extends HttpServletRequestWrapper {
+        private final Map<String, String> overrides;
+
+        RecordBoundRequest(HttpServletRequest request, Map<String, String> overrides) {
+            super(request);
+            this.overrides = overrides;
+        }
+
+        @Override
+        public String getParameter(String name) {
+            return overrides.containsKey(name) ? overrides.get(name) : super.getParameter(name);
+        }
+
+        @Override
+        public String[] getParameterValues(String name) {
+            return overrides.containsKey(name) ? new String[] {overrides.get(name)} : super.getParameterValues(name);
+        }
+
+        @Override
+        public Map<String, String[]> getParameterMap() {
+            Map<String, String[]> merged = new LinkedHashMap<>(super.getParameterMap());
+            overrides.forEach((key, value) -> merged.put(key, new String[] {value}));
+            return Collections.unmodifiableMap(merged);
+        }
+    }
+
+    /**
+     * True only when the prescription named by {@code scriptId} exists with a patient and the
+     * caller may READ it but lacks {@code _rx} WRITE for that patient. A missing session,
+     * malformed id, absent row, or a caller without READ is NOT reported as a privilege denial
+     * (it returns {@code false}) and is left to the signature gate, which reports those as
+     * "not signed" exactly as before.
+     */
+    boolean isFaxDeniedByPrivilege(HttpServletRequest req, LoggedInInfo loggedInInfo) {
+        return isFaxDeniedByPrivilege(requestedPrescription(req), loggedInInfo);
+    }
+
+    /**
+     * As {@link #isFaxDeniedByPrivilege(HttpServletRequest, LoggedInInfo)} with the prescription
+     * already loaded. True only for a caller who holds {@code _rx} READ but not WRITE for the
+     * prescription's patient.
+     *
+     * <p>A caller without READ answers {@code false} here and is therefore told the prescription is
+     * "not signed" — identical to the answer for a {@code scriptId} that matches no prescription at
+     * all, since both reach that reply with no signature resolved. That collision is deliberate: it
+     * is what stops the permission wording from revealing whether a script id exists.</p>
+     */
+    boolean isFaxDeniedByPrivilege(Prescription prescription, LoggedInInfo loggedInInfo) {
+        if (loggedInInfo == null || prescription == null || prescription.getDemographicId() == null) {
+            return false;
+        }
+        String patient = String.valueOf(prescription.getDemographicId());
+        try {
+            // The fax heads the page with the patient's name, date of birth and health number read
+            // from the demographic record (bindPatientIdentity), so faxing needs _demographic READ
+            // on the patient as well as _rx WRITE. Deciding that here, before any side effect, turns
+            // what would otherwise surface as DemographicManager's bare RuntimeException — a 500
+            // half-way through the fax — into the same deliberate permission refusal.
+            return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, patient)
+                    && (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient)
+                        || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, patient));
+        } catch (PatientDirectiveException e) {
+            // hasPrivilege rethrows PatientDirectiveException (SecurityInfoManagerImpl); unguarded it
+            // would crash the servlet instead of refusing the fax. Answer "not denied HERE" so the
+            // request falls through to resolveSignatureImage, whose own guard withholds the signature
+            // and produces the generic "not signed" reply. Nothing is authorized by this answer — it
+            // only declines to emit the specific permission wording, which is right under a directive:
+            // that wording would confirm the script exists. ONLY the directive is absorbed: a database
+            // or wiring failure in the privilege lookup must abort the request, not let it proceed to
+            // the later gates as if the caller had simply lacked a privilege.
+            logger.warn("A directive refused the fax permission check; deferring to the signature gate", e);
+            return false;
+        }
+    }
+
+    /**
+     * Splits the {@code rx} body the PDF renders into one entry per drug block.
+     *
+     * <p>A block ends at an empty line, a line that is just the separator, or a one-character line —
+     * the last of those because a browser-posted body is CRLF-normalised on submit, so each
+     * separator arrives as a lone {@code \r}.</p>
+     *
+     * <p><strong>The tail must be flushed explicitly.</strong> {@code String.split} drops TRAILING
+     * empty strings, so a body ending with its own separator loses that separator from the array
+     * entirely and the final block would never be added: a one-drug script would render with no
+     * drug lines at all, above a real signature. The browser body hides this because its trailing
+     * separator survives as that lone {@code \r}; the record-bound fax body is built server-side
+     * with plain newlines and has no such sentinel. {@link #splitRxBlocks} flushes its tail the
+     * same way.</p>
+     *
+     * @param rx      the body to split
+     * @param newline the platform line separator the body was written with
+     * @return one entry per block, in order; empty when {@code rx} holds no content
+     */
+    static List<String> splitRenderedRxBlocks(String rx, String newline) {
+        List<String> listRx = new ArrayList<String>();
+        if (rx == null) {
+            return listRx;
+        }
+        String listElem = "";
+        for (String s : rx.split(newline)) {
+            // ONLY the lone carriage return is a separator, never any one-character line. The
+            // sentinel this looks for is the "\r" left behind when a browser-submitted CRLF body is
+            // split on a "\n" platform separator; a bare one-character line cannot occur that way,
+            // because every line of such a body still carries its own trailing "\r". The
+            // record-bound fax body (bindFaxContentToRecord) is built server-side with plain
+            // newlines and has no sentinel at all, so under the old "s.length() == 1" test a
+            // genuine one-character prescription line -- a standalone dose such as "1" -- was
+            // treated as a block break and silently dropped from the faxed script.
+            //
+            // The former "s.equals(newline)" branch is gone with it: split(newline) never yields a
+            // segment equal to its own delimiter, so it was unreachable and only made the separator
+            // contract read as though a literal newline token could arrive here.
+            if (s.isEmpty() || s.equals("\r")) {
+                listRx.add(listElem);
+                listElem = "";
+            } else {
+                listElem = listElem + s;
+                listElem += newline;
+            }
+        }
+        if (!listElem.isEmpty()) {
+            listRx.add(listElem);
+        }
+        return listRx;
+    }
+
+    /** The prescription named by the request's {@code scriptId}, or {@code null} when absent or malformed. */
+    Prescription requestedPrescription(HttpServletRequest req) {
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        return scriptNo > 0 ? prescriptionDao.find(scriptNo) : null;
+    }
+
+    /**
+     * Resolves the prescriber's signature image for the PDF.
+     *
+     * <p>Authorization comes first and is derived from the prescription itself: the script named by
+     * {@code scriptId} is loaded, and everything below is released only to a caller holding
+     * {@code _rx} read for THAT prescription's patient — the same gate {@code ImageRenderingServlet}
+     * applies to the on-screen preview. Neither the caller-supplied {@code demographic_no} nor the
+     * caller-supplied {@code imgFile} can widen that: the patient context is the prescription's.</p>
+     *
+     * <p>With that established, the image is, in priority order:</p>
+     * <ol>
+     *   <li>the signature-pad capture named by {@code imgFile} — only THIS provider's capture
+     *       ({@code signature_<loggedInProviderNo><digits>.jpg}) inside {@code java.io.tmpdir}, and
+     *       only if it decodes as an image;</li>
+     *   <li>the {@link DigitalSignature} stored on the prescription: a hand-drawn signature saved
+     *       earlier, or the stamp applied on write. This is also what a reprint renders. It is used
+     *       only when it is a prescription signature for the same patient.</li>
+     * </ol>
+     *
+     * @return decoded image bytes, or {@code null} when no signature applies or the caller is not
+     *         authorized for the prescription's patient
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the pad file name is reduced to its base name and confined to java.io.tmpdir by PathValidationUtils.validatePath")
+    byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo) {
+        return resolveSignatureImage(req, loggedInInfo, loggedInInfo == null ? null : requestedPrescription(req));
+    }
+
+    /** As {@link #resolveSignatureImage(HttpServletRequest, LoggedInInfo)} with the prescription already loaded. */
+    byte[] resolveSignatureImage(HttpServletRequest req, LoggedInInfo loggedInInfo, Prescription prescription) {
+        if (loggedInInfo == null || prescription == null) {
+            return null;
+        }
+        // The row was loaded by this very id (requestedPrescription), so it is the script number.
+        int scriptNo = parsePositiveInt(req.getParameter("scriptId"));
+        Integer demographicId = prescription.getDemographicId();
+        // Authorize once, up front, by the prescription's OWN patient. Both the pad capture and the
+        // stored signature are gated behind this, so a caller cannot fax another patient's (or a
+        // stray) signature by supplying a different demographic_no or imgFile. Faxing persists a
+        // FaxJob (an outbound mutation), so it requires _rx WRITE; a print/preview requires READ.
+        boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
+        String requiredRight = isFax ? SecurityInfoManager.WRITE : SecurityInfoManager.READ;
+        boolean authorized;
+        try {
+            authorized = demographicId != null
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_rx", requiredRight, String.valueOf(demographicId));
+        } catch (RuntimeException e) {
+            // hasPrivilege rethrows PatientDirectiveException; unguarded it would abort PDF generation
+            // with a 500 instead of the deliberate refusal below. Any failure to establish the right
+            // means the signature is not released — the same outcome as lacking it outright.
+            logger.warn("Privilege check failed while resolving the signature for prescription {}; withholding it",
+                    LogSafe.sanitize(String.valueOf(scriptNo)), e);
+            authorized = false;
+        }
+        if (!authorized) {
+            logger.debug("Denied signature render for prescription {}: caller lacks _rx {} for its patient",
+                    LogSafe.sanitize(String.valueOf(scriptNo)), requiredRight);
+            return null;
+        }
+        // The caller-supplied demographic_no is what the fax branch stamps onto the FaxJob (its audit
+        // linkage). For a FAX it MUST be present, positive, and equal to the prescription's patient —
+        // an absent/invalid value would otherwise reach FaxJob.demographicNo unchecked, so it is
+        // required, not merely validated when present. For a print/preview the value is not
+        // persisted, so only a positive mismatch is rejected (an absent one is harmless).
+        int requestDemographic = parsePositiveInt(req.getParameter("demographic_no"));
+        boolean badDemographic = isFax
+                ? (requestDemographic <= 0 || demographicId.intValue() != requestDemographic)
+                : (requestDemographic > 0 && demographicId.intValue() != requestDemographic);
+        if (badDemographic) {
+            logger.debug("Denied signature render for prescription {}: demographic_no missing or does not match its patient",
+                    LogSafe.sanitize(String.valueOf(scriptNo)));
+            return null;
+        }
+
+        // 1. the signature-pad capture written for this signing session.
+        // The pad is only honoured for the prescriber's OWN script. The rendered document names the
+        // persisted prescriber (bindFaxContentToRecord takes the name from the record), so accepting
+        // another provider's fresh capture here would put provider B's ink under provider A's name.
+        // A non-prescriber falls through to the stored signature, which is the designed
+        // reprint/refax path: it renders the signature the prescriber themselves left on the script.
+        String imgFile = req.getParameter("imgFile");
+        String signingProviderNo = loggedInInfo.getLoggedInProviderNo();
+        String prescribingProviderNo = prescription.getProviderNo();
+        if (imgFile != null && !imgFile.isBlank() && signingProviderNo != null && !signingProviderNo.isBlank()
+                && signingProviderNo.equals(prescribingProviderNo)) {
+            try {
+                File tempDir = PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir");
+                File padFile = PathValidationUtils.validatePath(imgFile, tempDir);
+                // Only THIS provider's signature-pad capture is honoured. The pad writes
+                // signature_<requestId>.jpg into the shared java.io.tmpdir, and the request id is
+                // <providerNo><millis> (DigitalSignatureUtils.generateSignatureRequestId), where
+                // millis is System.currentTimeMillis() — exactly 13 digits from 2001 to 2286.
+                // Requiring EXACTLY 13 trailing digits gives an unambiguous boundary between the
+                // provider number and the timestamp, so a shorter provider number cannot prefix-match
+                // a longer provider's capture (e.g. "99999" claiming "999998"'s file) and fax a
+                // prescription under someone else's freshly drawn signature.
+                String padPattern = "signature_" + Pattern.quote(signingProviderNo) + "\\d{13}\\.jpg";
+                if (padFile.getName().matches(padPattern) && padFile.isFile()) {
+                    byte[] image = Files.readAllBytes(padFile.toPath());
+                    if (image.length > 0 && isRenderableImage(image)) {
+                        return image;
+                    }
+                    logger.debug("Signature pad file is empty or not a readable image; falling back to the stored prescription signature");
+                } else {
+                    logger.debug("Signature pad file not present or not a pad capture; falling back to the stored prescription signature");
+                }
+            } catch (SecurityException e) {
+                logger.warn("Blocked signature pad file path; falling back to the stored prescription signature", e);
+            } catch (IOException e) {
+                logger.warn("Unable to read signature pad file; falling back to the stored prescription signature", e);
+            }
+        }
+
+        // 2. the stored signature on the prescription (hand-drawn earlier, or the stamp).
+        if (prescription.getDigitalSignatureId() == null) {
+            return null;
+        }
+        int signatureId = prescription.getDigitalSignatureId();
+        DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(signatureId);
+        if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
+                || metadata.getDemographicId() == null
+                || !metadata.getDemographicId().equals(demographicId)) {
+            logger.debug("Stored signature does not belong to prescription {}; not rendering it", LogSafe.sanitize(String.valueOf(scriptNo)));
+            return null;
+        }
+        DigitalSignature signature = digitalSignatureManager.getDigitalSignature(signatureId);
+        if (signature == null || signature.getSignatureImage() == null || signature.getSignatureImage().length == 0) {
+            return null;
+        }
+        // Same bar as the pad capture: a stored blob that OpenPDF cannot decode would pass the
+        // "signed" gate here and then be dropped silently in EndPage, sending a fax reported as
+        // signed with a blank signature line. Treat undecodable bytes as no signature at all.
+        if (!isRenderableImage(signature.getSignatureImage())) {
+            logger.warn("Stored signature {} for prescription {} is not a readable image; treating the script as unsigned",
+                    LogSafe.sanitize(String.valueOf(signatureId)), LogSafe.sanitize(String.valueOf(scriptNo)));
+            return null;
+        }
+        return signature.getSignatureImage();
+    }
+
+    /**
      * Generates the prescription PDF document as a byte array output stream.
      *
      * <p>Extracts all prescription parameters from the HTTP request (clinic info, patient
-     * demographics, prescription text, signature image path, QR code settings), constructs
+     * demographics, prescription text, QR code settings), constructs
      * an OpenPDF {@link Document} with the appropriate page size and margins, and writes
      * prescription entries as paragraphs with an {@link EndPage} event handler for the
      * page frame rendering.
      *
      * @param req HttpServletRequest containing all prescription form parameters
      * @param ctx ServletContext for resource resolution
+     * @param signatureImage decoded signature image bytes to draw above the signature line, or
+     *                       {@code null} to leave the line blank (see {@link #resolveSignatureImage})
      * @return ByteArrayOutputStream containing the generated PDF bytes
      * @throws DocumentException if an OpenPDF document error occurs during PDF generation
      * @throws IOException if an I/O error occurs during PDF generation
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx) throws DocumentException, IOException {
+    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, final byte[] signatureImage) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
@@ -737,7 +1504,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String rx = req.getParameter("rx");
         String patientDOB = req.getParameter("patientDOB");
         String showPatientDOB = req.getParameter("showPatientDOB");
-        String imgFile = req.getParameter("imgFile");
         String patientHIN = req.getParameter("patientHIN");
         String patientChartNo = req.getParameter("patientChartNo");
         String pracNo = req.getParameter("pracNo");
@@ -766,20 +1532,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
 
         // parse prescript and put into a list of prescript;
-        String[] rxA = rx.split(newline);
-        List<String> listRx = new ArrayList<String>();
-        String listElem = "";
-
-        for (String s : rxA) {
-
-            if (s.equals("") || s.equals(newline) || s.length() == 1) {
-                listRx.add(listElem);
-                listElem = "";
-            } else {
-                listElem = listElem + s;
-                listElem += newline;
-            }
-        }
+        List<String> listRx = splitRenderedRxBlocks(rx, newline);
 
         // A0-A10, LEGAL, LETTER, HALFLETTER, _11x17, LEDGER, NOTE, B0-B5, ARCH_A-ARCH_E, FLSA
         // and FLSE
@@ -807,7 +1560,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
         document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
-        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
+        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
         document.addTitle(title);
         document.addSubject("");
         document.addKeywords("pdf");

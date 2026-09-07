@@ -601,8 +601,11 @@
             }
             console.log("pdfName " + pdfName);
             if (pdfName.length === 0) {
+                // No viewable document is selected (or its name failed path validation).
+                // Show a clear message rather than an empty <iframe src=""> that just
+                // renders as a blank right-hand pane with no explanation.
                 document.getElementById('pgnum') ? document.getElementById('pgnum').innerHTML = '' : '';
-                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<iframe	src=""  width="800" height="900" ></iframe>' : '';
+                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<div style="padding:16px;color:#555;">No document is available to preview.</div>' : '';
             } else {
                 document.getElementById('pgnum').innerHTML = pn + ' of <span class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">' + totalPage + '</span>';
 

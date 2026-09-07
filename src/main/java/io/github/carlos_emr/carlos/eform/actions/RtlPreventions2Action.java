@@ -68,8 +68,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * into the RTL editor iframe via the {@code doHtml()} JavaScript function.</p>
  *
  * <h3>Struts Mapping</h3>
- * <p>Mapped as {@code eform/rtlPreventions} in {@code struts.xml}. The RTL
- * eForm calls it via {@code $.ajax({url: "../eform/rtlPreventions", ...})}.</p>
+ * <p>Mapped as {@code eform/rtlPreventions} in {@code struts-eform.xml}, with an
+ * {@code eform/rtlPreventions.do} compatibility alias: the shipped Rich Text Letter
+ * form_html calls {@code $.ajax({url: "../eform/rtlPreventions.do", ...})}, and that
+ * HTML lives in every installed database, so the alias is what the button actually hits.</p>
  *
  * @see io.github.carlos_emr.carlos.managers.PreventionManager#getPreventionsByDemographicNo
  * @since 2026-03-22

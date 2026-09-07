@@ -41,7 +41,24 @@ published WAR byte for byte. Verify, then install:
 
   sha256sum -c carlos-emr_<version>_all.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb
+  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
+      ./carlos-emr-eform-renderer_<version>_amd64.deb
+
+carlos-emr-eform-renderer is optional but strongly recommended: it carries the
+browser that renders saved eForms to PDF, and eForm print, fax and archive do
+not work without it. Leave it out only if the site does not use eForms.
+
+apt normally prints this while installing a local .deb, and it is harmless:
+
+  Notice: Download is performed unsandboxed as root as file '...deb'
+  couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+
+apt drops to the unprivileged '_apt' user to fetch packages. Ubuntu creates
+home directories mode 0750, so '_apt' cannot traverse yours to reach a .deb
+sitting in it; apt says so and copies the file as root instead. Nothing is
+downloaded from the network by that step — the file is already on disk and you
+have already checksummed it — and the install is unaffected. To avoid the
+notice entirely, install from a world-traversable directory such as /tmp.
 
 Building from source instead: see debian/rules (the header documents the
 inputs, including how to skip the Maven compile with a prebuilt WAR).
@@ -55,6 +72,8 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
   /usr/lib/carlos-emr/                   the administrative helpers
+  /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
+                                         chromedriver (carlos-emr-eform-renderer)
   /usr/sbin/carlos-ctl                    the administration command
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
@@ -67,7 +86,7 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /etc/nginx/sites-available/carlos-emr  the front door (conffile)
   /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf   MariaDB settings (conffile)
 
-  /var/lib/carlos-emr/OscarDocument/     PATIENT DOCUMENTS
+  /var/lib/carlos-emr/CarlosDocument/     PATIENT DOCUMENTS
   /var/lib/carlos-emr/catalina/          Tomcat's writable state
   /var/lib/carlos-emr/heapdumps/         JVM heap dumps (PHI — see below)
   /var/log/carlos-emr/tomcat/            application, container and access logs
@@ -217,17 +236,84 @@ request or response bodies (SecAuditLogParts ABFHZ). That is the PHI decision
 described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
 
+Reaching the server by IP address, and when you must not
+
+Most clinics run this on their own LAN and reach it at its address on the
+practice subnet. That is supported, and the package makes it work: CRS rule
+920350 ("Host header is a numeric IP address") would otherwise score 3 of the
+5-point inbound threshold on EVERY request from such a client, leaving 2 points
+of headroom in which a single further rule match blocks ordinary clinical work
+with a bare 403 and no application log line. Packaged rule 1090 removes 920350
+for a request that BOTH arrives from a SOURCE address in a private, loopback or
+link-local range (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1,
+fc00::/7, fe80::/10) AND carries no forwarding header, so a LAN-local
+deployment starts each request with the full 5 points. The source address is
+the peer nginx accepted the connection from, not a header, so an off-network
+client cannot claim it.
+
+Carrier-grade NAT space (100.64/10) is deliberately NOT in that list: RFC 6598
+shared address space belongs to the ISP and unrelated subscribers can sit in
+it, so it is not a private-network trust boundary. A site that deliberately
+runs a mesh VPN in that range and wants the exemption should add it in its own
+local-exclusions-before-crs.conf, as its own decision.
+
+A request arriving from a PUBLIC source address is deliberately NOT exempt:
+that is the case 920350 exists for (an internet scanner sweeping a range by
+IP), and the exemption would be worthless if it could be claimed from outside.
+
+  So: if this server is reachable from outside the practice network and people
+  reach it BY IP ADDRESS, give it a DNS name and have them use the name.
+
+An internet-exposed install used by public IP keeps the standing 3 points and
+the 2-point headroom, and its users will see occasional unexplained 403s on
+ordinary clinical work — a saved form or a refreshed panel failing with no
+error in the application log. A DNS name removes the whole class of problem,
+and you need one anyway for a real (non-self-signed) TLS certificate: see
+section 4.
+
+IF YOU FRONT THIS DEPLOYMENT WITH ANOTHER PROXY, CDN OR LOAD BALANCER, read
+this. That hop connects from its own address, which in the usual layout is
+RFC1918 — so REMOTE_ADDR stops being the client and becomes the proxy. Rule
+1090 requires the absence of any forwarding header precisely so the standard
+case cannot launder internet clients into the exemption. It matches header
+NAMES by prefix — ANY X-Forwarded-* header, plus X-Real-IP, Forwarded and Via
+— rather than a fixed list, because the family is open-ended in practice
+(X-Forwarded-Prefix, -Scheme, -Ssl, -Uri and vendor variants are all in live
+use) and a proxy falling outside a list would be read as a direct connection.
+A front end that sets NONE of those headers is the case this does NOT catch:
+its public clients would still reach the exemption, and closing that is your
+job, below. The same test means a clinic running its own internal proxy that
+stamps those headers on LAN traffic loses the exemption; that errs toward more
+inspection, and such a site can restore it deliberately in its own
+local-exclusions file. This is the same premise the packaged rate limits
+already depend on — they key on the TCP peer and collapse into one shared
+bucket behind an unconfigured front end (see conf.d/carlos-emr-limits.conf).
+Either way the answer is the same: configure set_real_ip_from/real_ip_header
+for the front end, confirm with "carlos-ctl waf tail" that 920350 behaves as
+you expect, and if in doubt disable this exemption in your own
+local-exclusions file.
+
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
-may trip a rule the packaged exclusions do not cover. The supported response
-is: reproduce it, read `carlos-ctl waf tail` for the rule id and the matched
-variable, and add the NARROWEST exclusion that works to
+may trip a rule the packaged exclusions do not cover. The package already ships
+clinical-workflow exclusions for the known free-text and base64 routes (see
+REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf, ids 1000-1999 — package-managed).
+For anything else, the supported response is: reproduce it, read
+`carlos-ctl waf tail` for the rule id and the matched variable, and add the
+NARROWEST exclusion that works to one of YOUR OWN exclusion files:
 
-  /etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+  /etc/carlos-emr/modsecurity/local-exclusions-before-crs.conf  (ids 5000-5999;
+      request-keyed ctl:ruleRemove* that must act before the rules load)
+  /etc/carlos-emr/modsecurity/local-exclusions-after-crs.conf   (SecRuleUpdate*
+      that modifies an already-loaded rule)
 
-which is a conffile, so your entries survive upgrades. Prefer
+These two files are shipped empty and are never changed by the package, so your
+entries survive upgrades AND never trigger a dpkg merge prompt (do not edit the
+package-managed REQUEST-900/RESPONSE-999 files for site tuning). Prefer
 `SecRuleUpdateTargetById 942100 "!ARGS:fieldname"` over
 `SecRuleRemoveById 942100`: the first unhooks one field from one rule, the
-second turns the rule off for the whole application.
+second turns the rule off for the whole application. After editing, run
+`sudo carlos-ctl waf reload` and then `sudo carlos-ctl check` to confirm the
+SQL-injection probe is still blocked.
 
 Do not leave a system holding patient data in detect-only mode.
 
@@ -284,6 +370,23 @@ coerced rather than rejected, and zero dates are accepted. Enabling
 STRICT_TRANS_TABLES is a genuine data-integrity improvement and a genuine
 application-compatibility risk; validate it on a copy of your data first.
 
+The billing province decides which migrations run. The carlos-emr/province
+debconf question takes `on`, `bc` or `other`, and CARLOS_PROVINCE in
+/etc/carlos-emr/carlos-emr.env records the answer. `on` and `bc` apply
+common + their own province location and render billregion=ON / BC.
+
+`other` is an ALIAS for `on`, for a clinic in a province CARLOS does not
+implement billing for: it applies exactly the Ontario migrations and renders
+billregion=ON, so the deployment is an Ontario one in every respect. It is a
+separate answer only so the installer does not make such a clinic claim to be
+in Ontario; nothing downstream distinguishes the two.
+
+The province is fixed at FIRST INSTALL. `dpkg-reconfigure carlos-emr` still
+shows the question, but the answer is not written back — pointing Flyway at a
+different province's migrations against an existing schema would create a
+different set of tables and leave the application failing its boot-time
+validation. Changing province means a fresh database.
+
 Adopting an existing pre-Flyway (OSCAR 19 / OpenO) database is a two-step
 operation and NOT what `db-migrate` does on its own:
 
@@ -293,6 +396,26 @@ operation and NOT what `db-migrate` does on its own:
 The baseline is stamped at 1.0.2, not 1. Stamping at 1 would make Flyway re-run
 the province migrations, and those DROP and recreate province tables — data
 loss.
+
+The demonstration dataset. Answering yes to the carlos-emr/install-demo-data
+debconf question (default: no) loads a fictitious practice into the freshly
+migrated database — about 3000 fake patients whose names all carry a FAKE-
+prefix, demonstration providers, appointments, notes, labs, prescriptions,
+and 60 clearly-fake referral specialists. The postinst runs the same verb an
+administrator can run by hand:
+
+  sudo carlos-ctl demo-data
+
+It refuses to run against any database that already holds a demographic
+record (no force flag), only ADDS to the reference data the migrations
+install — with one exception: on a British Columbia install it REPLACES the
+seeded provincial specialist directory (billingreferral,
+professionalSpecialists and their serviceSpecialists links) with the fake
+demonstration list — and a completed load leaves a marker table
+(_carlos_demo_seed_complete) that makes re-runs no-ops. The only supported
+removal is `carlos-ctl destroy-data` and re-provisioning. A system holding
+this dataset carries publicly-known demonstration content and must NEVER
+hold real patient information.
 
 
 7. Backups and restore   (DECIDE THIS)
@@ -354,7 +477,7 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo systemctl stop carlos-emr-backup.service carlos-emr-backup-verify.service
   # 0. ON A REBUILT/REPLACEMENT HOST ONLY (skip if you are restoring in place
   #    and the documents + /etc/carlos-emr are intact): restore the FILES
-  #    snapshot — the scanned patient documents under OscarDocument AND
+  #    snapshot — the scanned patient documents under CarlosDocument AND
   #    /etc/carlos-emr/carlos.properties, which carries encryption.util.secret.key.
   #    This MUST precede the database load: the DB holds third-party credentials
   #    encrypted under that AES key, so a fresh key (which the package generates
@@ -364,9 +487,9 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo carlos-ctl backup restic restore latest --tag files \
       --target /var/backups/carlos-emr/dr-files
   #    Move the documents into place (owned by the application user):
-  sudo rsync -a /var/backups/carlos-emr/dr-files/var/lib/carlos-emr/OscarDocument/ \
-      /var/lib/carlos-emr/OscarDocument/
-  sudo chown -R carlos:carlos /var/lib/carlos-emr/OscarDocument
+  sudo rsync -a /var/backups/carlos-emr/dr-files/var/lib/carlos-emr/CarlosDocument/ \
+      /var/lib/carlos-emr/CarlosDocument/
+  sudo chown -R carlos:carlos /var/lib/carlos-emr/CarlosDocument
   #    Restore the AES key line into the freshly-generated carlos.properties
   #    (copy encryption.util.secret.key from the restored copy, or restore the
   #    whole file if this host has no newer local settings):
@@ -386,13 +509,13 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    CREATE DATABASE (it is scoped to the schema's contents), so after a
   #    DROP DATABASE this step fails with "Unknown database" without it —
   #    live-tested:
-  sudo mariadb -e "CREATE DATABASE oscar
+  sudo mariadb -e "CREATE DATABASE carlos
       CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
   #    SET SESSION sql_log_bin=0 matters: without it the recovery itself is
   #    written into the binary log and becomes part of the very chain the
   #    next backup ships.
-  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
-      < /var/backups/carlos-emr/dr/.../oscar.sql"
+  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' carlos \
+      < /var/backups/carlos-emr/dr/.../carlos.sql"
   #    (sudo bash -c, not a bare redirect: YOUR shell opens the file before
   #    sudo elevates, and /var/backups/carlos-emr is 0700 carlos-backup.)
   # 3. Roll forward past the dump, if recovering to later than last night.
@@ -409,9 +532,9 @@ sequence has been exercised end to end (DROP DATABASE and back):
   sudo carlos-ctl backup restic snapshots --tag binlog
   sudo carlos-ctl backup restic restore <each-id> \
       --target /var/backups/carlos-emr/dr
-  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' oscar \
+  sudo bash -c "mariadb --init-command='SET SESSION sql_log_bin=0' carlos \
       < /var/backups/carlos-emr/dr/.../binlog.0000MM.sql"  # each MM >= NN
-  #    Shipped logs are decoded SQL scoped to the oscar database, so they
+  #    Shipped logs are decoded SQL scoped to the carlos database, so they
   #    replay cleanly onto it. Rare edge: if the anchor position P is larger
   #    than the first event offset in NN's decoded SQL (a transaction slipped
   #    in between the rotation and the dump taking its snapshot), the slice of
@@ -432,10 +555,10 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    often UTC on cloud images) — NOT necessarily the clinic's CARLOS_TZ;
   #    convert your target time before cutting.
   #    One caveat on the shipped logs themselves: they are decoded with
-  #    --database=oscar, which keeps every row change but can only keep
+  #    --database=carlos, which keeps every row change but can only keep
   #    statement-logged events (DDL such as ALTER/TRUNCATE) when the issuing
-  #    session had oscar as its default database. carlos-ctl db-migrate does;
-  #    run any manual DDL as `mariadb oscar` (not cross-schema) or it will be
+  #    session had carlos as its default database. carlos-ctl db-migrate does;
+  #    run any manual DDL as `mariadb carlos` (not cross-schema) or it will be
   #    absent from the replay.
   sudo carlos-ctl db-validate
   # If drugref2 is also gone (a decommissioned host, a fresh rebuild): it has
@@ -468,6 +591,21 @@ are available that your files predate.
 If a migration fails, the service will not start (the boot-time validate gate
 is doing its job). Fix the cause, run `carlos-ctl db-migrate`, then
 `systemctl start carlos-emr`.
+
+One-time default rename (2026.09.0~snapshot4): the default database name
+changed from the inherited `oscar` to `carlos`. Upgrading an install that was
+still on the old default renames the schema in place (atomic RENAME TABLE of
+every table, migration history included) and updates CARLOS_DB_NAME /
+CARLOS_BACKUP_DB_NAME. An explicitly configured name — anything other than the
+old stock `oscar` — is never touched. If MariaDB was down during the upgrade
+the rename is deferred; catch up with
+
+  sudo dpkg-reconfigure carlos-emr        # or, by hand:
+  sudo carlos-ctl db-rename-schema oscar carlos
+
+Grants on the old `oscar` schema are left behind by the rename (harmless —
+db-users grants on the new name during the same configure); drop them by hand
+if you want a tidy grant table.
 
 
 9. Log retention   (DECIDE THIS)
@@ -502,6 +640,9 @@ and in backup.env, to your own obligations.
   - It does not configure a host firewall. Ubuntu ships ufw and nftables;
     which one a site uses, and what else the machine serves, is not something
     a package should decide. Allow 22, 80 and 443 and deny the rest.
+  - It does not load demonstration data unless you explicitly answer yes to
+    the carlos-emr/install-demo-data debconf question (default: no), and
+    even then only into a database with no patients in it (section 6).
   - It does not set up an observability stack. Use the journal
     (`carlos-ctl logs`), or the carlos-podman deployment if you want metrics
     and log search.
@@ -519,15 +660,70 @@ and in backup.env, to your own obligations.
 
   sudo carlos-ctl check                start here; it names the failure
   sudo carlos-ctl logs -n 200          application server log
-  sudo journalctl -u nginx -n 100     front door
+  sudo carlos-ctl logs -f              follow it live
+  sudo journalctl -u nginx -n 100      front door
+  sudo journalctl -u carlos-emr-chromedriver -n 100
+                                       the eForm render browser (its OWN unit —
+                                       it does not log to the application log)
+  sudo journalctl -u mariadb -n 100    the database
   sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log
+
+Which log holds what
+  The application, its container and the WAF write to three different places,
+  and looking in the wrong one is the most common way to conclude "nothing is
+  logged".
+
+    carlos-ctl logs                    CARLOS itself and Tomcat. This is the
+                                       journal for carlos-emr.service; the same
+                                       content is on disk under
+                                       /var/log/carlos-emr/tomcat/.
+    journalctl -u carlos-emr-chromedriver
+                                       the browser that renders eForms to PDF.
+                                       Separate service, separate journal — a
+                                       render failure often leaves nothing in the
+                                       application log at all.
+    /var/log/carlos-emr/modsec/        the WAF. A blocked request never reaches
+                                       the application, so it appears here and
+                                       nowhere else.
+    journalctl -u nginx                TLS and the front door, before either.
+
+  Everything the JVM writes to stdout is in the journal, so `carlos-ctl logs`
+  and `journalctl -u carlos-emr` are the same stream. Raising a log level for
+  troubleshooting is fine; put it back afterwards, because DEBUG on this
+  application can put request parameters — which is to say PHI — into the log.
+
+eForm print, fax or archive fails
+  Those three are the only workflows that need a browser, and it runs as its own
+  service. Check, in this order:
+
+    sudo systemctl status carlos-emr-chromedriver
+    sudo journalctl -u carlos-emr-chromedriver -n 50
+    sudo carlos-ctl logs | grep -i "renderer"
+
+  At startup the application probes the browser once and says so. Look for
+  "eForm browser renderer startup check passed." Anything else — most often
+  "Chromium session creation exceeded the 30s startup budget" — means the
+  application could not drive the browser, and the browser's own journal is
+  where the reason will be.
+
+  Note the application logs at ERROR by default (LOG_VERBOSITY). The renderer's
+  own messages are exempted from that so the probe result is visible without
+  turning up logging everywhere; nothing else in the application is.
+
+  If the renderer package is not installed at all, that is expected and the
+  application says so once at startup rather than failing a print later.
 
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the
   migration state; `systemctl status mariadb` shows the database.
 
 A page returns 403 and the application log shows nothing
-  That is the WAF, not the application. `carlos-ctl waf tail` shows why.
+  That is the WAF, not the application. `carlos-ctl waf tail` shows why. If it
+  happens intermittently on ordinary clinical work, check how clinicians reach
+  this server: rule 920350 spends 3 of the 5-point budget on every request that
+  arrives by IP from off the practice network, leaving little room before an
+  unrelated signature blocks. See "Reaching the server by IP address, and when
+  you must not" under section 5.
 
 Login redirects to http:// or the session is lost
   Tomcat's RemoteIpValve has stopped trusting nginx, so the application no

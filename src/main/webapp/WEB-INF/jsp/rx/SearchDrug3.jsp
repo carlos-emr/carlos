@@ -891,13 +891,18 @@ function renderRxStage() {
                                                             <label for="naturalRemedy"><fmt:message key="SearchDrug.drugCategory.natural"/></label>
                                                         </fieldset>
                                                         <fieldset id="searchParamSet">
+                                                            <%-- The default is deliberately "Any" (wildcard=false: each word matched
+                                                                 anywhere, so "ramip 10" finds RAMIPRIL 10MG). "Exact" (wildcard=true)
+                                                                 anchors the query to the start of the drug name. A prior label/i18n
+                                                                 rework left checked on the Exact radio, regressing partial-name
+                                                                 searches. --%>
                                                             <input type="radio" id="wildCardRight" name="wildcard"
-                                                                   value="true" checked="checked" />
+                                                                   value="true" />
                                                             <label title="<fmt:message key="SearchDrug.searchParam.exactTitle"/>"
                                                                    for="wildCardRight"><fmt:message key="SearchDrug.searchParam.exact"/></label>
 
                                                             <input type="radio" id="wildCardBoth" name="wildcard"
-                                                                   value="false" />
+                                                                   value="false" checked="checked" />
                                                             <label title="<fmt:message key="SearchDrug.searchParam.anyTitle"/>"
                                                                    for="wildCardBoth"><fmt:message key="SearchDrug.searchParam.any"/></label>
                                                         </fieldset>
@@ -1894,6 +1899,42 @@ function popForm2(scriptId){
 					}
 				});
 
+				// Show or clear a drug-search failure notice.
+				//
+				// #statusDisplay is the CONTAINER of the DrugRef name/version/date
+				// spans (TopLinks2.jspf), so assigning to its innerHTML deletes all
+				// three -- and since getDrugRefStatus() only runs on DOMContentLoaded,
+				// nothing ever puts them back short of a full page reload. Append a
+				// dedicated node instead, reuse it on repeated failures, and remove it
+				// once a search succeeds.
+				function setDrugSearchAlert(text) {
+					var panel = document.getElementById('statusDisplay');
+					if (!panel) {
+						return;
+					}
+					var alertNode = document.getElementById('drugSearchAlert');
+					if (!text) {
+						if (alertNode) {
+							alertNode.remove();
+						}
+						return;
+					}
+					if (!alertNode) {
+						alertNode = document.createElement('div');
+						alertNode.id = 'drugSearchAlert';
+						alertNode.style.color = 'red';
+						alertNode.style.fontWeight = 'bold';
+						// #statusDisplay is a right-aligned flex ROW holding the
+						// database/version/date items. Without a full-width basis the
+						// message becomes a fourth column and squeezes them; this makes
+						// it wrap onto its own line and read as an alert.
+						alertNode.style.flexBasis = '100%';
+						alertNode.style.textAlign = 'right';
+						panel.appendChild(alertNode);
+					}
+					alertNode.textContent = text;
+				}
+
 				var cache = {};
 				jQuery("#searchString").autocomplete({
 					source: function (request, response) {
@@ -1920,6 +1961,10 @@ function popForm2(scriptId){
 						});
 
 						if (foundInCache) {
+							// A cache hit is a successful search too, so clear any
+							// alert left by an earlier failure -- otherwise it stays
+							// on screen while results are being returned normally.
+							setDrugSearchAlert(null);
 							return;
 						}
 
@@ -1936,6 +1981,7 @@ function popForm2(scriptId){
 							success: function (data) {
 								cache[term] = data;
 								element.data('autocompleteCache', cache);
+								setDrugSearchAlert(null);
 
 								response(jQuery.map(data.results, function (item) {
 									return {
@@ -1946,6 +1992,30 @@ function popForm2(scriptId){
 										keyword: request.term
 									};
 								}))
+							},
+							// Without this the search failed silently: dataType "json" means any
+							// non-JSON reply -- a 502 from nginx, the 500.jsp this action forwards
+							// to on a DrugRef error, a WAF block, a session-expiry redirect -- is a
+							// parse failure that never reaches success(), so the autocomplete list
+							// simply never opened. A tester reported it as "it posts but nothing
+							// returns", with no way to tell a failure from a drug that genuinely
+							// has no matches.
+							error: function (xhr, textStatus) {
+								// Close the pending autocomplete request so the widget is not left
+								// spinning, then say so where the user is already looking for
+								// DrugRef status. msgDrugrefUnavailableContact and #statusDisplay
+								// both come from TopLinks2.jspf, included by this page, so the
+								// wording is the already-translated oscarRx.drugrefUnavailableContact
+								// rather than a new hardcoded English string.
+								response([]);
+								console.error('drug search failed', xhr.status, textStatus);
+								// An aborted request is the page being navigated away from or the
+								// widget superseding an in-flight search; nothing failed, so do not
+								// accuse DrugRef of being down.
+								if (xhr.statusText === 'abort' || (xhr.status === 0 && textStatus === 'abort')) {
+									return;
+								}
+								setDrugSearchAlert(msgDrugrefUnavailableContact);
 							}
 						})
 					},

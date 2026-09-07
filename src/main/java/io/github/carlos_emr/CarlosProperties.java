@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr;
 
+import io.github.carlos_emr.carlos.utility.BuildInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -360,12 +361,26 @@ public class CarlosProperties extends Properties {
         return getProperty("db_driver");
     }
 
+    /**
+     * Build date of the deployed WAR. Read from the in-WAR build stamp via
+     * {@link BuildInfo}, never from a properties override: a {@code buildDate} key in an
+     * operator's carlos.properties copy is ignored so it cannot mask a WAR upgrade.
+     *
+     * @return the build date, or empty when the artifact carries no stamp
+     */
     public static String getBuildDate() {
-        return carlosProperties.getProperty("buildDate");
+        return BuildInfo.getInstance().getBuildDate();
     }
 
+    /**
+     * Build tag of the deployed WAR (project version plus optional CI job / build number).
+     * Read from the in-WAR build stamp via {@link BuildInfo}, never from a properties
+     * override: a {@code buildVersion} key in an operator's carlos.properties copy is ignored.
+     *
+     * @return the build tag as described by {@link BuildInfo#getBuildTag()}
+     */
     public static String getBuildTag() {
-        return carlosProperties.getProperty("buildVersion");
+        return BuildInfo.getInstance().getBuildTag();
     }
 
     public boolean faxEnabled() {

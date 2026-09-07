@@ -31,6 +31,27 @@ Never commit real values. Source them from a file outside the repo:
     set -a; . /secure/path/srfax.env; set +a
     node scripts/e2e/fax/backbone-loopback.js
 
+## Configure Fax page check (no fax pages used)
+
+`scripts/fax-configure-playwright-checks.js` (`npm run test:fax-configure-playwright`)
+is the committed browser check for the admin page itself: it walks
+Administration > Faxes > Configure Fax, asserts the field guidance (account
+number vs. login email, sender/notification email, 10-digit fax number,
+password mask), clicks **Test SRFax connection**, saves, and re-reads the row.
+It runs with fake defaults anywhere; export the same `SRFAX_*` variables and
+`SRFAX_LIVE=true` to assert the live connection test succeeds against a real
+development account. Its save step overwrites the single fax account row, so by
+default it only saves when no account is configured yet or the stored account is
+its own fake test account (otherwise the step is reported as SKIP).
+`SRFAX_LIVE=true` saves the real values you supplied and, like any save, leaves the
+gateway enabled with inbound polling on; set
+`FAX_CONFIG_ALLOW_OVERWRITE=true` to force the save on a shared dev instance.
+Screenshots follow the same rule, and additionally require that the values the
+run types are the built-in fake ones; they are never captured in live mode or
+with real `SRFAX_*` values exported unless `FAX_CONFIG_SCREENSHOTS=always` is
+set, so credential-bearing images do not land in shared artifact directories by
+accident.
+
 ## Loopback
 
 A fax sent to the account's own `SRFAX_FAX_NUMBER` is delivered back to the
@@ -48,7 +69,7 @@ only):
 | Variable             | Meaning                                                           |
 |----------------------|------------------------------------------------------------------|
 | `MARIADB`            | mariadb launcher, e.g. `sudo mariadb` (default `mariadb`)         |
-| `CARLOS_DB_NAME`     | application schema (default `oscar`)                              |
+| `CARLOS_DB_NAME`     | application schema (default `carlos`)                              |
 | `CARLOS_DOCUMENT_DIR`| document dir for staged outbound PDFs                             |
 | `STAGE_AS`           | launcher to write into a dir the runner does not own, e.g. `sudo -u carlos` |
 | `DEDUP_WAIT_MS`      | how long `dedup-no-reimport.js` watches for a re-import (default 150000) |
@@ -58,7 +79,7 @@ only):
 Run them in this order against a freshly provisioned deployment with
 `fixtures.sql` loaded:
 
-    sudo mariadb oscar < scripts/e2e/fax/fixtures.sql
+    sudo mariadb carlos < scripts/e2e/fax/fixtures.sql
     set -a; . /secure/path/srfax.env; set +a
     export MARIADB="sudo mariadb" STAGE_AS="sudo -u carlos"
 

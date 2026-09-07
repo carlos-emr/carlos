@@ -79,16 +79,28 @@
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp</result>
         </action>
         <action name="mcedt/autoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
+            <!-- "input": the multipart layer rejects before the action runs (empty part,
+                 maxStringLength, maxFiles, maxSize, parse failure). Without a mapping the
+                 request falls through to errorpage.jsp as a raw 500. The shared page is
+                 used rather than this action's own view because that view reports a
+                 completed upload. -->
+            <result name="input">/WEB-INF/jsp/common/uploadRejected.jsp</result>
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp?connection=failed</result>
             <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/upload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
+            <!-- "input": see mcedt/autoUpload above. Same action class, same gap. -->
+            <result name="input">/WEB-INF/jsp/common/uploadRejected.jsp</result>
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
             <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/addUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
             <result name="cancel">/mcedt/kaimcedt</result>

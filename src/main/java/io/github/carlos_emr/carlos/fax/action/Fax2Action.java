@@ -738,7 +738,9 @@ public class Fax2Action extends ActionSupport {
                         request.setAttribute("providerStampMissing", rendered.completeness().providerStampMissing());
                         request.setAttribute("timerCompatibilityFailure", rendered.completeness().timerCompatibilityFailure());
                         request.setAttribute("severeConsoleErrors", rendered.completeness().severeConsoleErrors());
+                        request.setAttribute("severeConsoleErrorDetails", rendered.severeConsoleDetails());
                         request.setAttribute("containedInteractions", rendered.completeness().containedInteractions());
+                        request.setAttribute("decorativeExcludedElements", rendered.completeness().decorativeExcludedElements());
                         request.setAttribute("stabilizationCapped", rendered.completeness().stabilizationCapped());
                         request.setAttribute("labDecisionSupportStubbed", rendered.completeness().labDecisionSupportStubbed());
                         logger.info("Fax eForm warning prepared: fdid={} prepareMs={} blockingIssues={}",

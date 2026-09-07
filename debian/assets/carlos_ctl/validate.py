@@ -10,7 +10,7 @@ import time
 
 from . import config, dbops, util
 from .util import (
-    BACKUP_ENV, CONF_DIR, GREEN, LIB, RED, RESET, YELLOW, need_root, out, run,
+    BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
 )
 
 _failures = 0
@@ -79,10 +79,20 @@ def cmd_check(argv) -> int:
             _ok(f"{unit} is running")
         else:
             _bad(f"{unit} is NOT running (systemctl status {unit})")
-    for unit in ("carlos-emr-backup.timer", "carlos-emr-backup-verify.timer",
-                 "carlos-emr-cert-renew.timer"):
+    # carlos-emr.service is checked for ENABLED as well as running. A unit can be
+    # active now and still disabled — which is exactly the state the postinst
+    # leaves behind when the seeded administrator credential could not be
+    # replaced. Without this the EMR passes every check today and silently fails
+    # to come back at the next reboot.
+    for unit in ("carlos-emr.service", "carlos-emr-backup.timer",
+                 "carlos-emr-backup-verify.timer", "carlos-emr-cert-renew.timer"):
         if run(["systemctl", "is-enabled", "--quiet", unit], capture_output=True).returncode == 0:
             _ok(f"{unit} is enabled")
+        elif unit == "carlos-emr.service" and os.path.exists(
+                os.path.join("/var/lib/carlos-emr", ".seed-credential-live")):
+            _bad(f"{unit} is DISABLED because the seeded administrator credential is still "
+                 "live — it will NOT start at the next boot. Run 'carlos-ctl bootstrap-admin' "
+                 "(it re-enables the unit), then 'systemctl start carlos-emr'")
         else:
             _bad(f"{unit} is NOT enabled")
 
@@ -141,6 +151,89 @@ def cmd_check(argv) -> int:
             _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
                  "MariaDB drop-in documents is missing")
 
+    # The eForm render browser is optional (Recommends:), so probe it only when its
+    # env file says it is installed. Every check here maps to a way it silently breaks:
+    # the unit not running, the AppArmor userns grant missing on a kernel that enforces
+    # apparmor_restrict_unprivileged_userns (Chromium aborts "No usable sandbox!" and
+    # every eForm print/fax/archive fails closed), or carlos.properties pointing the
+    # JVM at a different port/token than the driver actually serves.
+    # Gate on the chromedriver BINARY, which a plain `apt remove` deletes — not on
+    # render-browser.env, which survives until purge: keying on the env file made check
+    # report a broken renderer on hosts where the operator deliberately removed the
+    # package. Binary-present-but-env-missing IS a fault (postinst never completed).
+    render_env = "/etc/carlos-emr/render-browser.env"
+    render_driver = "/usr/lib/carlos-emr/chromium/chromedriver"
+    if os.path.exists(render_driver) and not os.path.exists(render_env):
+        print("\neForm render browser")
+        _bad("the renderer package is installed but render-browser.env is missing — its "
+             "postinst never completed (sudo apt install --reinstall carlos-emr-eform-renderer)")
+    elif not os.path.exists(render_driver) and os.path.exists(render_env):
+        print("\neForm render browser")
+        _note("render-browser.env is left over from a removed carlos-emr-eform-renderer "
+              "(it holds the url-base token and is deleted on purge); the renderer itself "
+              "is not installed, so its checks are skipped")
+    elif os.path.exists(render_driver):
+        print("\neForm render browser")
+        if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
+            _ok("carlos-emr-chromedriver is running")
+        else:
+            _bad("carlos-emr-chromedriver is NOT running "
+                 "(systemctl status carlos-emr-chromedriver)")
+        try:
+            with open(profiles, encoding="utf-8", errors="replace") as fh:
+                entries = fh.read()
+        except OSError:
+            entries = ""
+        restricted = "0"
+        try:
+            with open("/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
+                      encoding="ascii") as fh:
+                restricted = fh.read().strip()
+        except OSError:
+            pass
+        if re.search(r"^carlos-emr-chromium ", entries, re.M):
+            _ok("AppArmor profile carlos-emr-chromium is loaded (userns grant for the sandbox)")
+        elif restricted == "1":
+            _bad("AppArmor profile carlos-emr-chromium is NOT loaded and this kernel "
+                 "restricts unprivileged user namespaces — the sandboxed browser cannot "
+                 "start and eForm PDF rendering fails closed "
+                 "(sudo apparmor_parser -r /etc/apparmor.d/carlos-emr-chromium)")
+        else:
+            _note("AppArmor profile carlos-emr-chromium is not loaded; the sandbox works "
+                  "anyway because this kernel does not restrict unprivileged user namespaces")
+        port, url_base = config._render_browser_endpoint()
+        prop_url = None
+        try:
+            with open(PROPERTIES, encoding="utf-8", errors="replace") as fh:
+                # prop_set writes "key = value"; tolerate any spacing around "=" and an
+                # unspaced hand edit alike, or this check reports every healthy install
+                # as misconfigured.
+                m = re.search(r"^eform_pdf_browser_service_url\s*=\s*(\S+)", fh.read(), re.M)
+                prop_url = m.group(1) if m else None
+        except OSError:
+            pass
+        # Mirror config.py's composition exactly, including the empty-url-base shape it
+        # deliberately writes mid-install: a base-less URL is then EXPECTED, and the broken
+        # thing is the missing token — whose fix is the renderer postinst, not init-config.
+        expected = None
+        if port:
+            expected = f"http://127.0.0.1:{port}/{url_base}" if url_base else f"http://127.0.0.1:{port}"
+        if prop_url and expected and prop_url == expected:
+            if url_base:
+                _ok("eform_pdf_browser_service_url matches render-browser.env")
+            else:
+                _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
+                     "unit refuses to start without the token; reinstall the renderer package "
+                     "(its postinst regenerates it): sudo apt install --reinstall "
+                     "carlos-emr-eform-renderer")
+        elif prop_url is None:
+            _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
+                 "reach the render browser (sudo carlos-ctl init-config)")
+        else:
+            _bad("eform_pdf_browser_service_url does not match render-browser.env — the JVM "
+                 "and chromedriver disagree on port or url-base token "
+                 "(sudo carlos-ctl init-config, then systemctl restart carlos-emr)")
+
     print("\nTLS")
     run([os.path.join(LIB, "carlos-emr-cert"), "status"])
     fullchain = os.path.join(CONF_DIR, "tls", "fullchain.pem")
@@ -197,6 +290,71 @@ def cmd_check(argv) -> int:
         _ok("DrugRef is not reachable through the front door")
     else:
         _bad("the front door exposes /drugref2 — it is an unauthenticated service")
+
+    # /ws/** (CXF SOAP/REST) is exempt from the login filter: every service is
+    # expected to authenticate itself (OAuth 1.0a / WS-Security). Prove two
+    # invariants at runtime rather than trusting the config — the service-list
+    # catalog is not handed to an anonymous client, and a PHI data service
+    # refuses an unauthenticated call.
+    # CXF serves the service-list catalog from the SERVLET ROOT. The trailing
+    # slash is required: LoginFilter's exemption list holds "/ws/" and only
+    # prefix-matches an entry ending in "/", so a GET to /carlos/ws would be
+    # redirected to the login page and the probe would see no markers and pass
+    # for the wrong reason. (The old /carlos/ws/services probe was blind because
+    # applicationContextREST.xml registers a real jaxrs:server at address
+    # "/services", so CXF dispatches there instead of rendering the catalog.)
+    #
+    # The STATUS is asserted, not just the body: without it a 502 during a Tomcat
+    # restart, a 429 from limit_req, a redirect, or a curl timeout (empty stdout)
+    # would every one of them print "catalog is not exposed".
+    ws_list = _curl(resolve + ["-w", "\n%{http_code}",
+                               f"https://{s.server_name}/carlos/ws/"], timeout=10).stdout
+    ws_list_body, _, ws_list_code = ws_list.rpartition("\n")
+    ws_list_code = ws_list_code.strip()
+    if "Available SOAP services" in ws_list_body or "Available RESTful services" in ws_list_body:
+        _bad("the CXF service-list catalog is served at /carlos/ws/ — set "
+             "hide-service-list-page=true on the CXFServlet (WEB-INF/web.xml)")
+    elif ws_list_code == "404":
+        # CXF's own "No service was found." 404 is the healthy hidden-catalog shape.
+        _ok("the CXF service-list catalog is not exposed")
+    else:
+        _note(f"could not confirm the CXF catalog is hidden: /carlos/ws/ returned "
+              f"{ws_list_code or '000'} (expected 404; a 502, 429 or redirect masks this check)")
+    # A gated data service must reject an unauthenticated call. The body is a
+    # REAL operation, not an empty envelope: WS-Security runs at PRE_PROTOCOL,
+    # strictly before unmarshalling, so a well-formed request still yields 400
+    # while the gate is present — but if the interceptor is ever removed, an
+    # empty envelope would die later in unmarshalling with a 500 and land in the
+    # inconclusive bucket below, i.e. the probe would MISS the exact regression
+    # it exists to catch. With a real operation the ungated case returns 200 and
+    # trips the _bad branch.
+    ws_body = ('<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>'
+               '<getDemographic xmlns="http://ws.oscarehr.org/"><arg0>1</arg0></getDemographic>'
+               '</s:Body></s:Envelope>')
+    ws_code = _curl(resolve + ["-o", "/dev/null", "-w", "%{http_code}", "-X", "POST",
+                               "-H", "Content-Type: text/xml", "-d", ws_body,
+                               f"https://{s.server_name}/carlos/ws/DemographicService"],
+                    timeout=10).stdout.strip()
+    if ws_code == "200":
+        _bad("an unauthenticated SOAP call to /carlos/ws/DemographicService returned 200 — "
+             "the WS-Security authentication gate is not enforcing")
+    elif ws_code in ("400", "401"):
+        _ok(f"an unauthenticated web-service call is rejected by the auth gate ({ws_code})")
+    else:
+        _note(f"could not confirm the /ws auth gate: /carlos/ws/DemographicService returned "
+              f"{ws_code or '000'} (a WAF 403, a 404, or a redirect can mask the auth check)")
+    # Pin the path-normalisation guard: nginx and Tomcat normalise in different
+    # orders, so a dot segment carrying a matrix parameter used to slip past every
+    # path-scoped rule (rate limits and the DrugRef/SystemInfoService 404s alike)
+    # and still reach the servlet. Anything but 400 means that guard is gone.
+    for probe in ("/carlos/.;x/login", "/carlos/..;x/drugref2/DrugrefService"):
+        code = _curl(resolve + ["-o", "/dev/null", "-w", "%{http_code}",
+                                f"https://{s.server_name}{probe}"], timeout=10).stdout.strip()
+        if code == "400":
+            _ok(f"a dot-segment path-normalisation bypass is rejected ({probe})")
+        else:
+            _bad(f"{probe} returned {code or '000'}, expected 400 — the path-normalisation "
+                 "guard in the nginx site config is missing or was reordered")
 
     print("\nWAF")
     engine = ""

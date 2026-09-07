@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@ page import="io.github.carlos_emr.carlos.admin.support.AssignableRoles" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -126,17 +127,21 @@
 // get role from database
     List<String> vecRoleName = new ArrayList<String>();
 
-    String omit = "";
-    if (isSiteAccessPrivacy) {
-        omit = CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "");
+    List<String> allRoleNames = new ArrayList<String>();
+    for (SecRole secRole : secRoleDao.findAllOrderByRole()) {
+        allRoleNames.add(secRole.getName());
     }
 
-    List<SecRole> secRoles = secRoleDao.findAllOrderByRole();
-    for (SecRole secRole : secRoles) {
-        if (!secRole.getName().equals(omit)) {
-            vecRoleName.add(secRole.getName());
-        }
-    }
+    // Withholding the multisite super-root role is a multisite concern only. The seeded
+    // `admin` role itself holds `_site_access_privacy`, so without the multisites gate a
+    // standalone install drops `admin` from this dropdown and the last administrator can
+    // never hand the role over before being deactivated.
+    vecRoleName.addAll(AssignableRoles.filter(
+            allRoleNames,
+            isSiteAccessPrivacy,
+            IsPropertiesOn.isMultisitesEnable(),
+            CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "")));
+
     java.util.ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources", request.getLocale());
 //set the primary role
     if (request.getParameter("buttonSetPrimaryRole") != null && request.getParameter("buttonSetPrimaryRole").length() > 0) {

@@ -86,6 +86,10 @@
             <result name="success" type="chain">form/setupSelect</result>
         </action>
         <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
             <result name="success">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>
             <result name="error">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
         </action>

@@ -272,9 +272,28 @@
                             } else {
                                 setTimeout(function () {
                                     if (xhr.readyState === 4) {
-                                        if (xhr.status == 500 && isFunction(handler.onerror)) {
+                                        // Any 4xx/5xx is a failed upload, not a completed one.
+                                        // This used to test xhr.status == 500 alone, because the
+                                        // server reported every handled upload failure as 500 with
+                                        // an oscar_error header. Now that a recoverable condition
+                                        // (a name collision) correctly answers 409, a status-500
+                                        // test would hand that response to onload and the user
+                                        // would be told the upload succeeded.
+                                        // status 0 means the request never produced an HTTP
+                                        // response at all — the transfer was aborted, the
+                                        // connection dropped, or it was blocked before reaching
+                                        // the server. Nothing was stored, so it must not fall
+                                        // through to onload: doing so reported an upload that
+                                        // never happened as "Upload complete".
+                                        if ((xhr.status === 0 || xhr.status >= 400) && isFunction(handler.onerror)) {
                                             var errortext = xhr.getResponseHeader('oscar_error');
-                                            handler.onerror(errortext);
+                                            // Older/other error paths (a WAF 403, a container 413,
+                                            // a proxy 502) carry no oscar_error header, so fall
+                                            // back to something that still names the failure.
+                                            handler.onerror(errortext
+                                                || (xhr.status === 0
+                                                    ? 'Upload failed (the connection was interrupted)'
+                                                    : 'Upload failed (' + xhr.status + ')'));
                                         } else if (isFunction(handler.onload))
                                             handler.onload(rpe, xhr);
                                     } else
@@ -329,15 +348,16 @@
                     }
                     if (formdata) {
                         xhr.send(formdata);
-                    } else if (handler.file.getAsBinary) {
-                        var boundary = "AjaxUploadBoundary" + (new Date).getTime();
-                        xhr.setRequestHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
-                        xhr[xhr.sendAsBinary ? "sendAsBinary" : "send"](multipart(boundary, handler.name, handler.file));
                     } else {
-                        xhr.setRequestHeader("Content-Type", "multipart/form-data");
-                        xhr.setRequestHeader("X-Name", handler.name);
-                        xhr.setRequestHeader("X-Filename", handler.file.fileName);
-                        xhr.send(handler.file);
+                        // FormData is available in every browser CARLOS supports, so this
+                        // path is only reached if FormData construction itself failed.
+                        // The former fallbacks hand-built a multipart body; one set
+                        // Content-Type: multipart/form-data with NO boundary and sent the
+                        // raw File, which nginx/ModSecurity rejects as a malformed multipart
+                        // body (HTTP 400). Never emit an invalid request — fail loudly.
+                        if (isFunction(handler.onerror)) {
+                            handler.onerror("This browser is not supported for file upload.");
+                        }
                     }
                     ;
                     return handler;

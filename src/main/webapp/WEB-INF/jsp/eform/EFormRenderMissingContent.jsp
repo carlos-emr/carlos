@@ -33,6 +33,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
@@ -66,7 +67,30 @@
             <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <carlos:encode value="${providerStampMissing}"/></li>
             <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <carlos:encode value="${timerCompatibilityFailure}"/></li>
             <li><fmt:message key="eform.renderIssue.severeConsoleErrors"/>: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <c:if test="${not empty severeConsoleErrorDetails}">
+                <%-- PHI-safe per-error descriptions (script error type + source location only, no
+                     page-authored message text) so the clinician can judge the errors before
+                     approving the override. --%>
+                <li><fmt:message key="eform.renderIssue.severeConsoleErrorDetails"/>:
+                    <ul>
+                        <c:forEach var="severeConsoleErrorDetail" items="${severeConsoleErrorDetails}">
+                            <li><carlos:encode value="${severeConsoleErrorDetail}"/></li>
+                        </c:forEach>
+                        <%-- The detail list is deduplicated and capped (10 mirrors the renderer's
+                             MAX_CONSOLE_DETAILS / packet MAX_PACKET_CONSOLE_DETAILS). Show the
+                             overflow line only when the cap actually truncated the list: below the
+                             cap, a count above the list size means repeats of the shown lines, not
+                             hidden distinct errors. --%>
+                        <c:if test="${fn:length(severeConsoleErrorDetails) ge 10 and severeConsoleErrors > fn:length(severeConsoleErrorDetails)}">
+                            <li><fmt:message key="eform.renderIssue.severeConsoleErrorsMore">
+                                <fmt:param value="${severeConsoleErrors - fn:length(severeConsoleErrorDetails)}"/>
+                            </fmt:message></li>
+                        </c:if>
+                    </ul>
+                </li>
+            </c:if>
             <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
+            <li><fmt:message key="eform.renderIssue.decorativeExcludedElements"/>: <carlos:encode value="${decorativeExcludedElements}"/></li>
             <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
             <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
@@ -76,6 +100,12 @@
                 <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
                 <input type="hidden" name="parentAjaxId" value="eforms">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <%-- A "Submit & PDF" submission closes its window after the download; the approved
+                     download must still do so, so the intent travels with the retry. Display-only:
+                     it is not bound into the approval digest. --%>
+                <c:if test="${approvalAutoClose == 'true'}">
+                    <input type="hidden" name="autoClose" value="true">
+                </c:if>
                 <button type="submit" class="btn btn-warning">
                     <fmt:message key="${approvalButtonLabelKey}"/>
                 </button>

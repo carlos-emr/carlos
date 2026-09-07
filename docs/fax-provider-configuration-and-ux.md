@@ -20,11 +20,56 @@ in CARLOS, with emphasis on SRFax behavior and admin configuration UX.
 - Pages (internal, behind gate actions): `src/main/webapp/WEB-INF/jsp/admin/configureFax.jsp`,
   `src/main/webapp/WEB-INF/jsp/admin/manageFaxes.jsp`
 - Gate actions (extensionless routes): `/admin/ViewConfigureFax`, `/admin/ViewManageFaxes`
-- AJAX endpoints: `/admin/ManageFax?method=configure|getFaxSchedularStatus|restartFaxScheduler|getPendingIncomingFaxes`
+- AJAX endpoints: `/admin/ManageFax?method=configure|testConnection|getFaxSchedularStatus|restartFaxScheduler|getPendingIncomingFaxes`
   and `/admin/ManageFaxes?method=fetchFaxStatus|viewFax|CancelFax|ResendFax|SetCompleted`
 - All mutating methods (`configure`, `restartFaxScheduler`, `CancelFax`, `ResendFax`,
   `SetCompleted`) reject GET/HEAD with 405 and are registered in the mutator GET-rejection
-  contract test.
+  contract test. `testConnection` persists nothing but forwards submitted credentials to the
+  provider, so it is held to the same POST-only rule.
+
+## Admin Setup Walkthrough (SRFax)
+
+An SRFax account gives you three things: a **login email**, a **password**, and a numeric
+**account number**. Only two of them authenticate CARLOS to the SRFax API. On
+**Administration > Faxes > Configure Fax** (Fax Gateway Configuration card):
+
+| SRFax value | Configure Fax field | Stored as | Used for |
+|---|---|---|---|
+| Account number (SRFax portal: Account > Account Details) | **SRFax Account Number** (`faxUser`) | `fax_config.faxUser` | `access_id` on every API call |
+| Account password | **SRFax Password** (`faxPassword`) | `fax_config.faxPasswd` (AES) | `access_pwd` on every API call |
+| Login email | **Sender / Notification Email** (`senderEmail`) | `fax_config.senderEmail` | `sSenderEmail` on `Queue_Fax` (delivery notifications); never used to authenticate |
+| Fax number assigned to the account | **Your SRFax Fax Number** (`faxNumber`) | `fax_config.faxNumber` (10 digits) | `sCallerID` on outbound sends; join key to `faxes.faxline` |
+| (your choice) | **Account Name** | `fax_config.accountName` | display label inside CARLOS |
+
+Steps:
+1. Enter the account number, password, fax number and sender email. Entering the login email
+   in the account-number field is the classic mistake: SRFax rejects it and, before the
+   connection test existed, the failure only surfaced minutes later as a scheduler error.
+2. Click **Test SRFax connection**. It POSTs the form values as entered (nothing is saved) to
+   `/admin/ManageFax?method=testConnection`, which runs a read-only `Get_Fax_Inbox` probe
+   through `FaxProviderClient.verifyConnection`. A wrong account number/password comes back
+   as `Connection failed: SRFax rejected the account number or password (SRFax API returned
+   HTTP 403: Forbidden). Check both values in your SRFax portal; a proxy or firewall blocking
+   the SRFax API produces the same response.` when SRFax answers with a bare HTTP 401/403 (its
+   usual response to a bad `access_id`/`access_pwd` pair; the proxy/firewall sentence appears
+   only for 403, which an egress block also yields); when SRFax instead returns a JSON `Failed`
+   body, the message
+   is `Connection failed: SRFax connection test failed: ` followed by SRFax's own reason text
+   (for example `Invalid Access Code / Password`). A non-numeric account number (for example the login email) is refused
+   before anything is sent to SRFax, on both the test and the save. When the
+   password field still shows the mask (`**********`), the stored password for that config is
+   tested instead; with no stored config the page asks you to enter the password.
+3. Set **Enable Fax Gateway** to Enabled and tick **Poll for incoming faxes**, then click
+   **Save Configuration**. Saving an active account auto-starts the scheduler; the Scheduler
+   Health block should read **Scheduler Running** with no last error after the next poll.
+4. Password field semantics: the page never shows the stored password. Leaving the stars
+   unchanged keeps the saved password; typing a new value replaces it on save.
+
+Inbound faxes land in the configured Inbox Queue (document review); outbound sends use the
+clinician `_fax` entry points (eForm, consultation, prescription, document). The committed
+browser check for this page is `scripts/fax-configure-playwright-checks.js`
+(`npm run test:fax-configure-playwright`); the live loopback send/receive harness is
+`scripts/e2e/fax/` (see its README).
 
 ## Required Permissions
 - Fax configuration view/edit requires `_admin.fax` with write rights (`w`).
@@ -60,7 +105,8 @@ unrecognized statuses raise `FaxProviderException`.
 ## Number Normalization Policy
 - `fax_config.faxNumber` stores exactly **10 digits** (Configure Fax strips formatting and drops a
   leading `1` from an 11-digit entry; anything else is rejected with a row-level error). The
-  10-digit value is also the join key between `FaxConfig.faxNumber` and `FaxJob.fax_line`.
+  10-digit value is also the join key between `FaxConfig.faxNumber` and `faxes.faxline`
+  (entity field `FaxJob.fax_line`).
 - At send time the SRFax client derives `sCallerID` (10-digit) and `sToFaxNumber` (11-digit,
   `1` prepended to a 10-digit destination).
 
@@ -91,7 +137,8 @@ that is intentional, and pre-import error rows do not suppress the retry.
 ## Configuration Expectations
 When provider type is `SRFAX`:
 - `faxUrl` is ignored; the fixed API endpoint is used automatically (see `srfax.api.url` above).
-- `faxUser`/`faxPassword` are the SRFax `access_id`/`access_pwd`.
+- `faxUser`/`faxPassword` are the SRFax `access_id`/`access_pwd` — the UI labels them
+  "SRFax Account Number" / "SRFax Password"; `senderEmail` is the notification address only.
 - "Poll incoming faxes" maps to `FaxConfig.download`; the Inbox Queue selects the document
   review queue incoming faxes are filed into.
 

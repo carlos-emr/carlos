@@ -445,6 +445,10 @@
         </action>
 
         <action name="oscarBilling/DocumentErrorReportUpload" class="io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/billing/CA/ON/billingOBECEA.jsp</result>
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingEAreport.jsp</result>
             <!-- Chain through the BillingLegacyReport2Action gate so the file
                  read + XSL-name resolution happens server-side, not in the
@@ -470,6 +474,10 @@
         </action>
 
         <action name="billing/CA/ON/benefitScheduleUpload" class="io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/billing/CA/ON/ScheduleOfBenefitsUpload.jsp</result>
             <result name="view" type="redirectAction">
                 <param name="actionName">billing/CA/ON/ViewBenefitScheduleUpload</param>
             </result>

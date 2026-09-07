@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.pageUtil;
 
-import java.util.Properties;
-
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ServletActionContext;
@@ -36,9 +34,9 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.util.plugin.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,8 +51,18 @@ import static org.mockito.Mockito.when;
  * Unit tests for the cross-province billing entry router. The router is
  * deliberately tiny: privilege check + decide BC vs ON. These tests pin
  * exactly that contract, including the fall-back to the deployment-wide
- * {@code billregion} property and the null-safe handling when
- * {@link CarlosProperties#getProperties()} returns null.
+ * {@code billregion} property and the router's defensive guard against a null
+ * {@link CarlosProperties#getInstance()}. That guard never fires in production
+ * — the singleton is eagerly initialized — so the case is reachable only by
+ * stubbing the static accessor, which is what the corresponding test does; it
+ * is pinned so a future move to lazy initialization cannot NPE the router.
+ *
+ * <p>The property fall-back is stubbed on {@link CarlosProperties} — the
+ * singleton actually backed by {@code carlos.properties}. The action previously
+ * read a same-named holder in {@code carlos.util.plugin} that nothing ever
+ * populated, so the fall-back was dead in production while these tests passed
+ * against the stub; every request without an explicit {@code billRegion} was
+ * routed to BC, and on an Ontario install that ends in "CARLOS Error: 500".</p>
  *
  * @since 2026-04-27
  */
@@ -62,6 +70,8 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("billing")
 class Billing2ActionUnitTest extends CarlosUnitTestBase {
+
+    private static final String BILLREGION = "billregion";
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -74,6 +84,11 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
     private AutoCloseable mockitoCloseable;
+
+    /** The real singleton, captured before the static mock is installed. */
+    private CarlosProperties realProperties;
+    /** Whatever {@code billregion} the suite found configured, restored on teardown. */
+    private Object originalBillRegion;
 
     @BeforeEach
     void setUp() {
@@ -90,10 +105,24 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
 
+        // Capture the real singleton BEFORE stubbing the static accessor, then
+        // hand that same object back from getInstance(). The action reads
+        // billregion straight out of this object's Hashtable storage, so the
+        // tests seed and clear that same storage and exercise the real lookup
+        // rather than a mock that cannot go stale against it.
+        realProperties = CarlosProperties.getInstance();
+        // Hashtable.get, not getProperty: the override logs a WARN for every
+        // missing key, and substitutes a default only for keys registered in
+        // PROPERTY_DEFAULTS. billregion has none, so getProperty() would return
+        // the same null here — the reason to read raw is the WARN noise, and to
+        // match how the production code reads this key.
+        originalBillRegion = realProperties.get(BILLREGION);
+
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
+        carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(realProperties);
         // Default: no deployment-wide billregion configured. Individual tests
-        // override this to exercise the fall-back path.
-        carlosPropertiesMock.when(CarlosProperties::getProperties).thenReturn(new Properties());
+        // set one to exercise the fall-back path.
+        withoutBillRegion();
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -101,6 +130,13 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        if (realProperties != null) {
+            if (originalBillRegion == null) {
+                realProperties.remove(BILLREGION);
+            } else {
+                realProperties.put(BILLREGION, originalBillRegion);
+            }
+        }
         if (carlosPropertiesMock != null) carlosPropertiesMock.close();
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
@@ -131,11 +167,15 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new Billing2Action().execute()).isEqualTo("BC");
     }
 
+    /**
+     * Also the regression guard for the Ontario 3rd-Party / Bonus-Codes 500:
+     * the bill-type dropdown on billingON.jsp re-opens the billing form through
+     * this router, and if the deployment-wide fall-back does not resolve, an
+     * Ontario install is handed billingBC.jsp and dies on BC-only tables.
+     */
     @Test
     void shouldFallBackToProperty_whenBillRegionParamIsAbsent() {
-        Properties props = new Properties();
-        props.setProperty("billregion", "ON");
-        carlosPropertiesMock.when(CarlosProperties::getProperties).thenReturn(props);
+        withBillRegion("ON");
 
         assertThat(new Billing2Action().execute()).isEqualTo("ON");
     }
@@ -143,9 +183,7 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldFallBackToProperty_whenBillRegionParamIsEmptyString() {
         mockRequest.setParameter("billRegion", "");
-        Properties props = new Properties();
-        props.setProperty("billregion", "ON");
-        carlosPropertiesMock.when(CarlosProperties::getProperties).thenReturn(props);
+        withBillRegion("ON");
 
         assertThat(new Billing2Action().execute()).isEqualTo("ON");
     }
@@ -153,17 +191,18 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDefaultToBC_whenNoParamAndPropertyMissing() {
         // Properties present but billregion key absent.
-        carlosPropertiesMock.when(CarlosProperties::getProperties).thenReturn(new Properties());
+        withoutBillRegion();
 
         assertThat(new Billing2Action().execute()).isEqualTo("BC");
     }
 
     @Test
     void shouldDefaultToBC_whenCarlosPropertiesReturnsNull() {
-        // Real-world scenario observed in dev: getProperties() returns null
-        // before configuration is loaded. The original action NPE'd here;
-        // the new router handles it gracefully and falls back to BC.
-        carlosPropertiesMock.when(CarlosProperties::getProperties).thenReturn(null);
+        // Contract check, not a production state: the real singleton is eagerly
+        // initialized and never null, so this is reachable only through the
+        // static stub. It pins the router's defensive guard against a future
+        // lazy-init change.
+        carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(null);
 
         assertThat(new Billing2Action().execute()).isEqualTo("BC");
     }
@@ -173,5 +212,13 @@ class Billing2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("billRegion", "AB");
 
         assertThat(new Billing2Action().execute()).isEqualTo("BC");
+    }
+
+    private void withBillRegion(String value) {
+        realProperties.setProperty(BILLREGION, value);
+    }
+
+    private void withoutBillRegion() {
+        realProperties.remove(BILLREGION);
     }
 }
