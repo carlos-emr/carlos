@@ -153,6 +153,8 @@ const forged = {
 const findings = [];
 const visited = [];
 let expectingCustomDrugConfirm = false;
+let expectingNotesSaveFailureDialog = false;
+let notesSaveFailureDialogSeen = false;
 const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
 
@@ -430,6 +432,12 @@ function wirePage(page, label) {
       await dialog.accept().catch(() => {});
       return;
     }
+    if (dialog.type() === 'alert' && expectingNotesSaveFailureDialog && !notesSaveFailureDialogSeen) {
+      notesSaveFailureDialogSeen = true;
+      expectingNotesSaveFailureDialog = false;
+      await dialog.accept().catch(() => {});
+      return;
+    }
     // Type only: a dialog's text can quote page content, and findings reach stderr and the artifact.
     findings.push({ label, type: 'unexpected-dialog', text: `unexpected ${dialog.type()} dialog` });
     await dialog.dismiss().catch(() => dialog.accept().catch(() => {}));
@@ -522,20 +530,24 @@ async function assertFailedNotesSaveBlocksFax(page, modalFrame) {
     }
   };
   page.on('request', faxRequestListener);
-  page.once('dialog', async (dialog) => {
-    dialogSeen = true;
-    await dialog.accept();
-  });
-  await page.route(/\/rx\/ViewAddRxComment/, async (route) => {
-    saveRequested = true;
-    await route.fulfill({ status: 500, contentType: 'text/plain', body: 'fixture save failure' });
-  });
+  notesSaveFailureDialogSeen = false;
 
   try {
+    await page.route(/\/rx\/ViewAddRxComment/, async (route) => {
+      saveRequested = true;
+      expectingNotesSaveFailureDialog = true;
+      await route.fulfill({ status: 500, contentType: 'text/plain', body: 'fixture save failure' });
+    });
     await modalFrame.locator('#additionalNotes').fill(`${noteText}-must-not-fax`);
+    const expectedDialog = page.waitForEvent('dialog', {
+      predicate: (dialog) => dialog.type() === 'alert',
+      timeout: 5000,
+    }).catch(() => null);
     await modalFrame.locator('#faxButton').click();
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await expectedDialog;
+    dialogSeen = notesSaveFailureDialogSeen;
   } finally {
+    expectingNotesSaveFailureDialog = false;
     page.off('request', faxRequestListener);
     await page.unroute(/\/rx\/ViewAddRxComment/).catch(() => {});
   }

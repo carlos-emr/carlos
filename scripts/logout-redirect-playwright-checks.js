@@ -148,14 +148,21 @@ function safeGoto(page, label, appPath, options = {}) {
 }
 
 function isExpectedMissingAsset(status, responseUrl) {
-  return status === 404 && (/\/imageRenderingServlet\?/.test(responseUrl) || /\/favicon\.ico$/.test(responseUrl));
+  return status === 404 && (
+    /\/imageRenderingServlet\?/.test(responseUrl)
+    || responseUrl === `${baseUrl.origin}/favicon.ico`
+  );
 }
 
 function isExpectedConsoleNoise(message) {
   const text = message.text();
+  const location = message.location ? message.location() : {};
   return /Content Security Policy.*report-only/i.test(text)
     || /Master token \[CSRF-TOKEN\]/.test(text)
-    || /Hidden token fields .* were updated with new token value/.test(text);
+    || /Hidden token fields .* were updated with new token value/.test(text)
+    || (message.type() === 'error'
+      && /Failed to load resource.*404/i.test(text)
+      && isExpectedMissingAsset(404, location.url || ''));
 }
 
 function isSevereConsoleMessage(message) {
@@ -164,7 +171,7 @@ function isSevereConsoleMessage(message) {
   }
   const text = message.text();
   if (message.type() === 'error') {
-    return !/imageRenderingServlet\?|favicon\.ico/i.test(text);
+    return true;
   }
   return /(ReferenceError|TypeError|SyntaxError|DataTable is not a function|Cannot read|Cannot set|is not defined)/i.test(text);
 }
