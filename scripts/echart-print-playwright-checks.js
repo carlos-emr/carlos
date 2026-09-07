@@ -193,7 +193,7 @@ async function openEchart(page) {
  * clicks, without depending on the popup's absolute placement.
  */
 async function printChart(page, noteText, flags) {
-  await page.evaluate(({ text, selectedFlags, flagIds }) => {
+  await page.evaluate(({ text, selectedFlags, flagIds }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal, and every argument is a structured-cloned constant from this file (note text, print-flag ids), never interpolated into page script
     const textareas = document.getElementsByName('caseNote_note');
     if (textareas.length) {
       textareas[0].value = text;
@@ -280,9 +280,11 @@ async function printChart(page, noteText, flags) {
     assert(printResults.length === NOTE_BODIES.length + PRINT_SELECTIONS.length,
       `only ${printResults.length} of ${NOTE_BODIES.length + PRINT_SELECTIONS.length} print cases ran`);
 
-    // The eChart's own autosave and save-note AJAX carry the same note text under
-    // ARGS:note and ARGS:noteTxt, so a WAF regression on those shows up here even
-    // though no assertion above drives them directly.
+    // The eChart's draft autosave timer posts the same note text under ARGS:note
+    // while these cases run, so a WAF regression on that argument shows up here even
+    // though no assertion above drives it directly. ARGS:noteTxt is NOT covered: it
+    // rides on ajaxSaveNote, which only fires on an explicit save/sign, and this
+    // check deliberately never saves a note.
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);
     assert(wafBlocked.length === 0,
       'an eChart request carrying the note text was rejected with HTTP 403 — on a packaged install this is the WAF: '

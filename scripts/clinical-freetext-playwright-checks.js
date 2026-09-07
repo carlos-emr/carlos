@@ -35,6 +35,7 @@
  *   TEST_PIN=2026
  *   CLINICAL_DEMOGRAPHIC_NO=1
  *   CLINICAL_PROVIDER_NO=999998
+ *   CLINICAL_CONSULT_SERVICE_ID=1
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -189,7 +190,7 @@ const WORKFLOWS = [
  * Serialises the named form in the page, exactly as the browser would on submit.
  */
 async function captureForm(page, formName) {
-  return page.evaluate((name) => {
+  return page.evaluate((name) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal and `name` is a form name constant from WORKFLOWS, structured-cloned rather than interpolated into page script
     const form = document.forms[name];
     if (!form) return null;
     return Array.from(new FormData(form).entries())
@@ -202,7 +203,7 @@ async function captureForm(page, formName) {
  * inside the page so the request uses the same session and origin.
  */
 async function replay(page, workflow, entries, phrase) {
-  return page.evaluate(async ({ pairs, action, fields, text, overrides }) => {
+  return page.evaluate(async ({ pairs, action, fields, text, overrides }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal; the arguments are the form body this same page just rendered plus constants from this file, structured-cloned rather than interpolated into page script
     const body = new URLSearchParams();
     const replaced = new Set(fields);
     for (const [key, value] of pairs) {

@@ -393,8 +393,12 @@ Notes on the contract:
   Both replays are real saves, so a run rewrites demographic 1's Alert/Notes and
   its open consultation request with the last phrase in the corpus; that is
   harmless on a throwaway VM but is why it names `CLINICAL_DEMOGRAPHIC_NO`
-  (default 1) rather than assuming a patient. Against bare Tomcat the phrases
-  are ordinary notes and the check degrades to guarding the two save paths.
+  (default 1) rather than assuming a patient. `CLINICAL_PROVIDER_NO` (default
+  `999998`, the seeded `carlosdoc`) and `CLINICAL_CONSULT_SERVICE_ID` (default
+  `1`) name the other two records it assumes; override the service id if the
+  install's `consultationServices` table does not start at 1. Against bare
+  Tomcat the phrases are ordinary notes and the check degrades to guarding the
+  two save paths.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
