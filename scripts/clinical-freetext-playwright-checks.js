@@ -36,7 +36,8 @@
  *   CLINICAL_DEMOGRAPHIC_NO=1
  *   CLINICAL_PROVIDER_NO=999998
  *   CLINICAL_CONSULT_SERVICE_ID=1
- *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not this
+ *     machine — this check writes, so a private LAN address needs the opt-in too
  */
 
 const { chromium } = require('playwright');
@@ -65,17 +66,27 @@ const PROSE_CORPUS = [
   { label: 'wound measurement', text: 'Wound <2cm, clean. <?> follow up in 1 week.', crs: '933100 attack-injection-php' },
 ];
 
+/*
+ * Deliberately NARROWER than the guard the read-only checks share: this one
+ * admits only hosts that are unambiguously this machine or its compose network,
+ * and not the private IPv4 ranges the shared guard also allows. Both of this
+ * check's workflows perform REAL writes — a run rewrites the patient's Alert and
+ * Notes with a corpus phrase and files six consultation requests — and RFC1918
+ * is exactly where a real clinic's server lives. Same reasoning, and the same
+ * opt-in, as the fixture-teardown guards in edoc-schedule-navigation and
+ * assign-role.
+ */
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  const exactLocalHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!exactLocalHosts.has(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${host}: this check overwrites clinical free text and files `
+      + 'consultation requests. Set ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test install');
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
@@ -128,7 +139,7 @@ function wirePage(page, label) {
 async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to this machine unless explicitly opted out of
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   await page.locator('#pin').fill(testPin);
@@ -232,10 +243,15 @@ async function replay(page, workflow, entries, phrase) {
       body: body.toString(),
       redirect: 'manual',
     });
-    // A save that succeeds usually answers with a redirect, and fetch reports an
-    // opaque-redirect response as status 0. A WAF rejection is never opaque: it is
-    // always a real 403 from nginx, so 0 is reported as the redirect it is.
-    return response.type === 'opaqueredirect' ? 'redirect' : response.status;
+    // A save that succeeds usually answers with a redirect. `redirect: 'manual'`
+    // normally surfaces that as an opaque-redirect response (type
+    // 'opaqueredirect', status 0), but report a plain 3xx as the same redirect
+    // rather than as a failure, so a change in how the browser filters manual
+    // redirects cannot turn a successful save into a spurious FAIL. A WAF
+    // rejection is never either of those: it is always a real 403 from nginx.
+    if (response.type === 'opaqueredirect') return 'redirect';
+    if (response.status >= 300 && response.status < 400) return 'redirect';
+    return response.status;
   }, {
     pairs: entries,
     action: new URL(appUrlForPage(workflow.action)).pathname,
@@ -253,14 +269,32 @@ async function runWorkflow(context, workflow) {
   const page = await context.newPage();
   wirePage(page, workflow.name);
   try {
-    await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
+    await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to this machine unless explicitly opted out of
     await page.locator(workflow.ready).first().waitFor({ state: 'attached', timeout: 30000 });
+    // CSRFGuard's client script fills the hidden input after the page loads, so wait
+    // for a populated token rather than racing it; a still-empty one is reported by
+    // the assertion below rather than as a timeout.
+    await page.waitForFunction( // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal and `name` is a form name constant from WORKFLOWS, structured-cloned rather than interpolated into page script
+      (name) => {
+        const form = document.forms[name];
+        if (!form) return false;
+        const inputs = form.querySelectorAll('input[name="CSRF-TOKEN"]');
+        return inputs.length > 0 && Array.from(inputs).every((input) => input.value !== '');
+      },
+      workflow.formName,
+      { timeout: 15000 },
+    ).catch(() => {});
 
     const entries = await captureForm(page, workflow.formName);
     assert(entries && entries.length,
       `${workflow.name}: form ${workflow.formName} was not on the page, so nothing was measured`);
-    assert(entries.some(([key]) => key === 'CSRF-TOKEN'),
-      `${workflow.name}: form ${workflow.formName} carried no CSRF token, so a 403 could not be attributed to the WAF`);
+    // The token has to be POPULATED, not merely present: CSRFGuard's client script
+    // fills the hidden input after the page loads, and an empty one would answer
+    // the replay with a CSRF 403 that this check would report as a WAF block.
+    const csrfToken = entries.find(([key]) => key === 'CSRF-TOKEN');
+    assert(csrfToken && csrfToken[1].trim() !== '',
+      `${workflow.name}: form ${workflow.formName} carried no populated CSRF token `
+      + `(${csrfToken ? 'the field is empty' : 'the field is absent'}), so a 403 could not be attributed to the WAF`);
 
     // Fail loudly rather than quietly measuring something else: each workflow's
     // overrides assume a particular render of its page, and a hidden field is the

@@ -462,7 +462,11 @@ Notes on the contract:
   that patient (the consultation page renders the new-request form, so each
   replay creates a record rather than editing one). That is harmless on a
   throwaway VM but is why it names `CLINICAL_DEMOGRAPHIC_NO`
-  (default 1) rather than assuming a patient. `CLINICAL_PROVIDER_NO` (default
+  (default 1) rather than assuming a patient, and why its `BASE_URL` guard is
+  narrower than the other checks': it admits only this machine (loopback or a
+  compose service name) and refuses anything else — a private LAN address
+  included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is set deliberately.
+  `CLINICAL_PROVIDER_NO` (default
   `999998`, the seeded `carlosdoc`) and `CLINICAL_CONSULT_SERVICE_ID` (default
   `1`) name the other two records it assumes; override the service id if the
   install's `consultationServices` table does not start at 1. Against bare
