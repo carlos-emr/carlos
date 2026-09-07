@@ -79,8 +79,6 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         return executemain();
     }
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String executemain() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
@@ -177,6 +175,8 @@ public class ReportStatusUpdate2Action extends ActionSupport {
      * acknowledgement failed when it did not. The inbox counter is corrected by the next page
      * load in that case.
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeClearedCount(int clearedCount) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("clearedCount", clearedCount);
