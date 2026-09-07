@@ -25,14 +25,19 @@
  * Browser regression check for adding a prescription signature.
  *
  * The script logs in, initializes the prescription session for an existing
- * prescription, clears any existing signature association for the duration of
- * the run, uploads a new signature using the production upload endpoint, saves
- * it through /rx/saveDigitalSignature, verifies the live preview reloads the
- * signature image, then rebuilds the prescription view and verifies the stored
- * signature is persisted on the preview.
+ * unsigned prescription, uploads a new signature using the production upload
+ * endpoint, saves it through /rx/saveDigitalSignature, verifies the live
+ * preview reloads the signature image, then rebuilds the prescription view and
+ * verifies the stored signature is persisted on the preview. The uploaded
+ * association is cleared after the check.
  *
  * Required fixture:
  *   PRESCRIPTION_SCRIPT_ID=123 npm run test:prescription-signature-playwright
+ *
+ * The fixture must have at least one drugs row and must be unsigned
+ * (prescription.digital_signature_id IS NULL). Use a disposable local fixture;
+ * for the standard throwaway VM, script 45 can be reset with:
+ *   UPDATE prescription SET digital_signature_id = NULL WHERE script_no = 45;
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -406,14 +411,18 @@ async function refreshLivePreview(page) {
 async function runPrescriptionSignatureCheck(context) {
   const page = await context.newPage();
   wirePage(page, 'prescription-signature');
-  let originalSignatureId = '';
   let uploadedSignatureId = '';
   let associationCleared = false;
 
   try {
     await openPrescriptionView(page, 'initial-prescription-view');
     const initialPreview = await readPreviewSignature(page, { requireLoaded: false });
-    originalSignatureId = initialPreview.storedSignatureId;
+    if (initialPreview.storedSignatureId) {
+      throw new Error(
+        `PRESCRIPTION_SCRIPT_ID ${prescriptionScriptId} must be an unsigned disposable fixture; `
+        + `found digital signature id ${initialPreview.storedSignatureId}`,
+      );
+    }
 
     await savePrescriptionSignatureAssociation(page, null);
     associationCleared = true;
@@ -438,7 +447,6 @@ async function runPrescriptionSignatureCheck(context) {
       scriptId: prescriptionScriptId,
       demographicNo: prescriptionDemographicNo,
       pharmacyId: prescriptionPharmacyId,
-      originalSignatureId,
       uploadedSignatureId,
       livePreview,
       storedPreview,
@@ -446,7 +454,7 @@ async function runPrescriptionSignatureCheck(context) {
   } finally {
     if (associationCleared || uploadedSignatureId) {
       try {
-        await savePrescriptionSignatureAssociation(page, originalSignatureId || null);
+        await savePrescriptionSignatureAssociation(page, null);
       } catch (error) {
         findings.push({
           label: 'prescription-signature:restore',
