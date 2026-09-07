@@ -76,10 +76,8 @@ class DocumentReportJspRegressionTest {
         int helperCall = documentReport.indexOf("if (!appendCsrfToken(form)) {");
         int submit = documentReport.indexOf("form.submit();");
         assertThat(helperCall)
-                .as("submitDocAction must call appendCsrfToken")
-                .isGreaterThan(0);
-        assertThat(helperCall)
-                .as("the token must be appended before the form is submitted")
+                .as("submitDocAction must call appendCsrfToken, before the form is submitted")
+                .isGreaterThan(0)
                 .isLessThan(submit);
     }
 
