@@ -1275,12 +1275,18 @@ input[id^='acklabel_']{
      *
      * The inbox is either the window that opened this popup, or — in preview mode — the one
      * this iframe sits in. Both are same-origin; the guard is that window.parent is this
-     * window for a top-level page, and that a severed opener (COOP, which is the reason the
-     * broadcast exists at all) leaves nothing to call.
+     * window for a top-level page, and that an opener severed by COOP (which is why the
+     * broadcast is the primary channel) leaves nothing to call.
      *
-     * dropAcknowledgedInboxhubItem is the same function the broadcast listener runs, so this
-     * route removes the row AND moves the counters by the server's count — the whole job,
+     * dropAcknowledgedInboxhubItem is the same function the broadcast listener runs, so those
+     * two routes remove the row AND move the counters by the server's count — the whole job,
      * once, guarded against a repeat by the same per-item key.
+     *
+     * The last rung is best-effort compatibility: an Inboxhub loaded before this release has
+     * removeReport but none of the newer functions, and it cannot be told how many routing
+     * rows were cleared — it drops the row and takes one off the badge. That leaves the badge
+     * possibly short of the server's figure until the next page load, which is a great deal
+     * better than leaving an acknowledged lab on screen.
      *
      * @return {boolean} whether an inbox window was actually reached
      */
@@ -1288,14 +1294,22 @@ input[id^='acklabel_']{
         if (!segmentId || segmentId.length === 0) { return false; }
         try {
             var inbox = null;
+            var legacyInbox = false;
             if (self.opener && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
                 inbox = self.opener;
             } else if (window.parent !== window
                     && typeof window.parent.dropAcknowledgedInboxhubItem === 'function') {
                 inbox = window.parent;
+            } else if (self.opener && typeof self.opener.removeReport !== 'undefined') {
+                inbox = self.opener;
+                legacyInbox = true;
             }
             if (!inbox) { return false; }
-            inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+            if (legacyInbox) {
+                inbox.removeReport(segmentId, labType);
+            } else {
+                inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+            }
             // The same re-fetch the broadcast listener does. dropAcknowledgedInboxhubItem
             // moves the counters and drops a LIST row, but preview mode draws cards and no
             // table, so without this the acknowledged card stays on screen — and a macro with

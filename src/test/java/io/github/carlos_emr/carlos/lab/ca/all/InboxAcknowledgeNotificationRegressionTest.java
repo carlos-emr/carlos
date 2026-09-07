@@ -324,7 +324,13 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .contains("} else if (window.parent !== window")
                 .as("and re-fetching as the listener does, since preview mode draws cards, not rows")
                 .contains("if (typeof inbox.fetchInboxhubData === 'function') {\n"
-                        + "                inbox.fetchInboxhubData();");
+                        + "                inbox.fetchInboxhubData();")
+                .as("with a last rung for an Inboxhub loaded before this release")
+                .contains("} else if (self.opener && typeof self.opener.removeReport !== 'undefined') {\n"
+                        + "                inbox = self.opener;\n"
+                        + "                legacyInbox = true;")
+                .contains("            if (legacyInbox) {\n"
+                        + "                inbox.removeReport(segmentId, labType);");
         assertThat(labDisplay)
                 .as("the close path is row-only again, so closeOnSuccess no longer gates counting")
                 .contains("closeLabAfterMacro(formid, json.acknowledged);")
