@@ -1151,7 +1151,29 @@
             if (!response.ok) {
                 console.error('Macro execution failed: ' + response.status + ' ' + response.statusText);
                 alert('Macro execution failed. Please try again.');
+                return null;
+            }
+            // RunMacro reports a LOGICAL failure — the macro was deleted after this page
+            // loaded, the segment id was rejected — as HTTP 200 with {"success": false}.
+            // Checking response.ok alone would tell the inbox to drop a document that was
+            // never acknowledged, and its counters would stay wrong until a page reload.
+            return response.json();
+        })
+        .then(function(json) {
+            if (!json) { return; }
+            if (!json.success) {
+                alert(json.error ? json.error : 'Macro execution failed. Please try again.');
                 return;
+            }
+            // Tell the Inboxhub whenever the macro ACKNOWLEDGED, whether or not the macro
+            // closes the window: without it the acknowledged document stays in the inbox list
+            // and its counters until the clinician reloads the page.
+            //
+            // Gated on json.acknowledged rather than json.success, because a macro need not
+            // acknowledge anything — one that only files a tickler succeeds and leaves the
+            // document NEW, and dropping it from the inbox would hide unfinished work.
+            if (json.acknowledged) {
+                notifyInboxhubAfterDocMacro(formEl, json.clearedCount);
             }
             if (closeOnSuccess) {
                 window.close();
@@ -1161,6 +1183,39 @@
             console.error('Error executing macro:', err);
             alert('Macro execution failed. Please try again.');
         });
+    }
+
+    /**
+     * Asks the Inboxhub to refresh, naming the document that was just acknowledged.
+     *
+     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action
+     * responses, which nulls window.opener on popups opened from the Inboxhub, so
+     * BroadcastChannel is the only reliable same-origin channel back to it. The id lets the
+     * inbox drop this document from its counters, which a plain list re-fetch does not touch.
+     *
+     * clearedCount is passed through for the same reason as on the lab page: the counters
+     * count routing rows. A document has no version chain, so the server reports one — but
+     * the inbox is told the number rather than left to assume it.
+     *
+     * @param {Element} formEl the acknowledge form the macro was run against
+     * @param {number} clearedCount routing rows the server reported clearing
+     */
+    function notifyInboxhubAfterDocMacro(formEl, clearedCount) {
+        var elements = (formEl && formEl.elements) ? formEl.elements : null;
+        var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
+        var labType = (elements && elements.labType) ? elements.labType.value : 'DOC';
+        try {
+            var bc = new BroadcastChannel('inboxhub-refresh');
+            bc.postMessage({
+                action: 'refresh',
+                segmentID: segmentId,
+                labType: labType,
+                clearedCount: clearedCount
+            });
+            bc.close();
+        } catch (e) {
+            // BroadcastChannel unsupported — the clinician must refresh the inbox by hand.
+        }
     }
 
     // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs

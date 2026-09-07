@@ -99,7 +99,7 @@ public class ReportMacro2Action extends ActionSupport {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty up = upDao.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), UserProperty.LAB_MACRO_JSON);
 
-        boolean success = false;
+        MacroOutcome outcome = MacroOutcome.notRun();
 
         //find and run specific macro
         if (up != null && !StringUtils.isEmpty(up.getValue())) {
@@ -108,7 +108,12 @@ public class ReportMacro2Action extends ActionSupport {
                 for (int x = 0; x < macros.size(); x++) {
                     ObjectNode macro = (ObjectNode) macros.get(x);
                     if (name.equals(macro.get("name").asText())) {
-                        success = runMacro(macro, request);
+                        // Nothing stops a provider defining two macros with the same name, and
+                        // every match runs. Combining the outcomes rather than keeping the last
+                        // one means an acknowledgement by an earlier entry is still reported —
+                        // otherwise a later non-acknowledging entry would hide it and the inbox
+                        // would keep showing a lab that had been acknowledged.
+                        outcome = outcome.combinedWith(runMacroOutcome(macro, request));
                     }
                 }
             }
@@ -120,12 +125,65 @@ public class ReportMacro2Action extends ActionSupport {
         }
 
 
-        result.put("success", success);
+        result.put("success", outcome.success());
+        // Reported separately from success because a macro need not acknowledge anything: one
+        // that only files a tickler runs perfectly and leaves the lab NEW. The inbox uses this
+        // flag, not success, to decide whether to drop the item from its list and counters.
+        result.put("acknowledged", outcome.acknowledged());
+        result.put("clearedCount", outcome.clearedCount());
         response.getWriter().write(result.toString());
         return null;
     }
 
+    /**
+     * What running one macro did.
+     *
+     * @param success      the macro ran to completion
+     * @param acknowledged it contained an acknowledge action AND that action was applied
+     * @param clearedCount how many routing rows the acknowledgement took out of the NEW state —
+     *                     the reviewed lab plus each older version filed with it. The inbox
+     *                     counters count routing rows, so the browser needs this number rather
+     *                     than assuming one per acknowledged item.
+     */
+    protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
+        static MacroOutcome notRun() {
+            return new MacroOutcome(false, false, 0);
+        }
+
+        static MacroOutcome failed() {
+            return new MacroOutcome(false, false, 0);
+        }
+
+        static MacroOutcome ran(boolean acknowledged, int clearedCount) {
+            return new MacroOutcome(true, acknowledged, clearedCount);
+        }
+
+        /**
+         * Folds in another entry that ran under the same macro name in the same request.
+         *
+         * clearedCount takes the larger rather than the sum: every entry acts on the one
+         * segmentID this request named, so two acknowledging entries clear the SAME routing
+         * rows and the second only re-stamps what the first already took out of NEW. Adding
+         * them would tell the browser to move the badge twice for one chain.
+         */
+        MacroOutcome combinedWith(MacroOutcome other) {
+            return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged(),
+                    Math.max(clearedCount, other.clearedCount()));
+        }
+    }
+
+    /**
+     * Retained for callers that only care whether the macro ran.
+     *
+     * @deprecated use {@link #runMacroOutcome(ObjectNode, HttpServletRequest)}; the inbox needs
+     *             to know whether the macro ACKNOWLEDGED, which a bare success cannot say.
+     */
+    @Deprecated
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
+        return runMacroOutcome(macro, request).success();
+    }
+
+    protected MacroOutcome runMacroOutcome(ObjectNode macro, HttpServletRequest request) {
         logger.info("running macro {}", LogSafe.sanitize(macro.get("name").asText("")));
         String segmentID = request.getParameter("segmentID");
         String labType = request.getParameter("labType");
@@ -135,27 +193,37 @@ public class ReportMacro2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        boolean acknowledged = false;
+        int clearedCount = 0;
+
         if (macro.has("acknowledge")) {
             logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
             if (StringUtils.isBlank(segmentID)) {
                 logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                return false;
+                return MacroOutcome.failed();
             }
             final int segmentInt;
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
                 logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
-                return false;
+                return MacroOutcome.failed();
             }
-            CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));
+            // Acknowledge the reviewed version AND file the older versions of the same lab.
+            // Filing the older versions is what removes the collapsed row from the inbox: the
+            // inbox shows one row per accession chain, so a macro that only stamped the newest
+            // version left the row behind pointing at the previous version, and the lab looked
+            // like the macro had done nothing. Same routine as the Acknowledge button.
+            clearedCount = CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
+                    skipComment(providerNo), request.getParameter("multiID"));
 
             // Audit log for lab acknowledgment
             LogAction.addLogSynchronous(providerNo, LogConst.ACK,
                 "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
                 LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            acknowledged = true;
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
             ObjectNode jTickler = (ObjectNode) macro.get("tickler");
@@ -234,7 +302,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         }
 
-        return true;
+        return MacroOutcome.ran(acknowledged, clearedCount);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

@@ -236,18 +236,31 @@
         }
     });
 
-    function removeReport(reportId) {
-        const rowEl = jQuery("#labdoc_" + reportId);
-        if (rowEl.length > 0) {
-            const labType = rowEl.data('labType');
-            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
-            const countStatId = labType === 'DOC' ? 'totalDocsCountStat' :
-                                labType === 'HRM' ? 'totalHRMsCountStat' : 'totalLabsCountStat';
-            const current = parseInt(jQuery('#' + countStatId).text()) || 0;
-            if (current > 0) {
-                jQuery('#' + countStatId).text(current - 1);
-            }
-        }
+    /**
+     * Drops one acknowledged/signed-off item from the inbox table and from its counters.
+     *
+     * This is the legacy window.opener entry point: popups call it once per id they cleared.
+     * Each call therefore means exactly one routing row, which is the unit the counters
+     * count — so it counts one, whether or not a row was on screen to remove. Acknowledging
+     * a lab calls it once per version in the chain, and the older versions have no row of
+     * their own (the inbox collapses a chain to one row) but do each hold a routing row that
+     * the badge is counting. Tying the count to a row being removed left those behind.
+     *
+     * The count is taken off the STORED total (see countAcknowledgedInboxhubItem in
+     * InboxhubForm.jsp), not off the rendered badge: the badges are repainted from those
+     * hidden inputs on every list draw, so a badge-only edit is undone by the next refresh
+     * and the acknowledged item keeps being counted until a full page reload. That helper
+     * also keeps the count to once per item, since a popup calls this directly AND
+     * broadcasts, and the row may already be gone by the time the broadcast lands.
+     *
+     * @param {string} reportId segment id of the item to drop
+     * @param {string} labType its report type; segment ids are not unique across types, so
+     *                 without one this can only fall back to whatever row carries the id
+     */
+    function removeReport(reportId, labType) {
+        const resolvedType = labType || inboxhubItemElement(reportId, labType).data('labType');
+        removeInboxhubRow(reportId, resolvedType);
+        countAcknowledgedInboxhubItem(reportId, resolvedType);
     }
 </script>
 </c:if>

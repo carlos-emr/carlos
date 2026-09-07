@@ -1,3 +1,25 @@
+carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
+
+  * Acknowledged labs now leave the inbox. A lab arrives as a chain of versions
+    sharing one accession number and the inbox shows a single row for the newest
+    of them, so an acknowledgement has to file the older versions or the row
+    simply comes back pointing at the previous version. The Acknowledge button
+    did that; a lab macro did not, so a macro-acknowledged lab stayed in the
+    inbox. Both paths now go through one routine, which also re-derives the
+    version chain server side when the browser did not post a usable one and no
+    longer throws an ArrayIndexOutOfBoundsException (reported as a failed
+    acknowledgement) when the posted chain describes a different lab.
+  * A lab macro that is not configured to close its window now tells the inbox
+    what it did. Previously it acknowledged the lab silently and the inbox was
+    never refreshed. Document macros gained the same notification, which they
+    never had.
+  * The inbox Documents/Labs/HRMs counters now drop an acknowledged item
+    straight away. They are painted from hidden fields that only a full page
+    reload refreshed, so the badges kept counting labs the clinician had already
+    acknowledged.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 06 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
 
   * Consultation faxing is enabled by default and its flag is a real boolean.

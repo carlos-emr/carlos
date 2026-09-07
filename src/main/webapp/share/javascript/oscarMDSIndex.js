@@ -1927,7 +1927,9 @@ function updateDocumentAndNext(eleId) {//save doc info
 
             if (typeof _in_window !== 'undefined' && _in_window) {
                 if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                    self.opener.removeReport(num);
+                    // Typed: segment ids are not unique across report types, and an untyped
+                    // call can remove another type's row and decrement its total instead.
+                    self.opener.removeReport(num, 'DOC');
                 }
                 window.close();
             } else {
@@ -1989,7 +1991,8 @@ function updateDocument(eleId) {
 
                 if (typeof _in_window !== 'undefined' && _in_window) {
                     if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                        self.opener.removeReport(num);
+                        // Typed, for the same reason as updateDocumentAndNext above.
+                        self.opener.removeReport(num, 'DOC');
                         success = true;
                     }
                 } else {
@@ -2057,6 +2060,113 @@ function checkObservationDate(formid) {
     return true;
 }
 
+/**
+ * Notifies the Inboxhub that one inbox item has been acknowledged.
+ *
+ * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action
+ * responses, which nulls window.opener on popups opened from the Inboxhub, so
+ * self.opener.removeReport() cannot be relied on. BroadcastChannel is same-origin
+ * messaging that COOP does not break.
+ *
+ * The acknowledged id travels with the message because the Inboxhub's refresh re-fetches
+ * only the result LIST: its Documents/Labs/HRMs counters come from the surrounding form
+ * page and would otherwise keep counting the acknowledged item until a full page reload.
+ *
+ * The report type travels with it because segment ids are NOT unique across types —
+ * documents, HRM reports and HL7 labs have independent key sequences, and all render as
+ * id="labdoc_<id>" — so an id alone can name another type's row and decrement its total.
+ *
+ * The cleared-row count travels with it because those counters count ROUTING rows, one per
+ * lab VERSION, while the list collapses a version chain to a single row. Acknowledging a
+ * two-version lab therefore removes one row but clears two of the rows the badge counts.
+ *
+ * @param {string} doclabid segment id of the acknowledged lab or document
+ * @param {string} labType report type of that item, e.g. 'HL7' or 'DOC'
+ * @param {number} clearedCount routing rows the acknowledgement cleared; omit for items with
+ *                 no version chain (documents, HRM reports), which always clear one
+ */
+function notifyInboxhubAcknowledged(doclabid, labType, clearedCount) {
+    try {
+        const bc = new BroadcastChannel('inboxhub-refresh');
+        bc.postMessage({
+            action: 'refresh',
+            segmentID: String(doclabid),
+            labType: labType,
+            clearedCount: clearedCount
+        });
+        bc.close();
+    } catch (e) {
+        // BroadcastChannel unsupported — user must manually refresh the inbox
+    }
+}
+
+/**
+ * The lab versions an acknowledgement of doclabid files away: itself and everything older.
+ *
+ * Used for ROW REMOVAL ONLY. The count comes from the server, because this chain is the one
+ * the page was rendered with: the server ignores it for HL7 and re-derives the chain from the
+ * accession number, so a page left open while a new version arrived carries a stale list here,
+ * and it says nothing about which of those versions were still NEW. Removing a row that is
+ * already gone is a no-op; counting from a stale chain is a wrong badge.
+ *
+ * Mirrors the server's selection rule for the ids it does report, including the case where
+ * doclabid is absent from the chain — then only doclabid itself is affected, rather than the
+ * whole chain. Non-numeric tokens are dropped, as LabVersionChain.parse drops them.
+ *
+ * @param {string} multiID comma-separated version chain, oldest first
+ * @param {string} doclabid the acknowledged version
+ * @return {Array<string>} ids whose rows should go, in chain order
+ */
+function acknowledgedVersionIds(multiID, doclabid) {
+    const target = String(doclabid);
+    const chain = String(multiID || '').split(',')
+        .map(function (id) { return id.trim(); })
+        .filter(function (id) { return /^\d+$/.test(id); });
+    const at = chain.indexOf(target);
+    return at < 0 ? [target] : chain.slice(0, at + 1);
+}
+
+/**
+ * Drops one inbox row through window.opener, without counting it.
+ *
+ * The Inboxhub exposes removeInboxhubRow, which removes without touching a counter — the
+ * counters are moved by the broadcast, which is the only party carrying the server's cleared
+ * count. removeReport is the fallback for an opener that predates that API, so a row is never
+ * left behind merely because the newer function was missing.
+ *
+ * @param {string} segmentId segment id of the acknowledged item
+ * @param {string} labType its report type
+ */
+function removeOpenerInboxRow(segmentId, labType) {
+    if (!self.opener) { return; }
+    if (typeof self.opener.removeInboxhubRow === 'function') {
+        self.opener.removeInboxhubRow(segmentId, labType);
+    } else if (typeof self.opener.removeReport !== 'undefined') {
+        self.opener.removeReport(segmentId, labType);
+    }
+}
+
+/**
+ * Reads the cleared-routing-row count out of an acknowledge response, or null if it has none.
+ *
+ * Deliberately forgiving: this runs after the status change has already been persisted, so a
+ * body that is not the JSON expected must not turn a successful acknowledgement into an error.
+ * Returning null means the inbox falls back to assuming one row, which the next page load
+ * corrects.
+ *
+ * @param {string|Object} responseBody the acknowledge response
+ * @return {number|null} routing rows the server cleared, or null when it did not say
+ */
+function serverClearedCount(responseBody) {
+    try {
+        const parsed = (typeof responseBody === 'string') ? JSON.parse(responseBody) : responseBody;
+        const count = parsed ? parseInt(parsed.clearedCount, 10) : NaN;
+        return isNaN(count) ? null : count;
+    } catch (e) {
+        return null;
+    }
+}
+
 function updateStatus(formid) {//acknowledge
     const num = formid.split("_");
     const doclabid = num[1];
@@ -2079,39 +2189,42 @@ function updateStatus(formid) {//acknowledge
             const url = contextpath + "/oscarMDS/UpdateStatus";
             const formEl = document.getElementById(formid);
             const data = serializeFormToObject(formEl);
+            // Every caller here posts by XHR and throws away any page the action forwards to,
+            // so ask for the AJAX response shape whether or not the form declares it — that is
+            // what carries the cleared-routing-row count back. Some acknowledge forms already
+            // have the hidden field (showDocument, MultiPageDocDisplay, labDisplayAjax); the
+            // lab display's does not, and its acknowledgement is the multi-version case.
+            data.ajaxcall = 'yes';
             console.log("Updating status. URL: " + url);
             console.log(data);
 
-            jQuery.post(url, data).done(function () {
+            jQuery.post(url, data).done(function (responseBody) {
                 updateDocStatusInQueue(doclabid);
+				// How many routing rows the server took out of NEW. Only it knows: it derives
+				// the HL7 version chain itself rather than trusting the posted multiID, and it
+				// alone can see which of those rows were still NEW. Absent — an older server,
+				// or a body that is not JSON — means "fall back to one", which is what the
+				// inbox assumes when no count travels with the message.
+				const clearedCount = serverClearedCount(responseBody);
 				if (window.frameElement) {
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
+					// The card is hidden, but the surrounding inbox still counts this item in its
+					// Documents/Labs/HRMs totals until it is told the item is gone — and it
+					// counts one row per lab version, not one per card.
+					notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-						/**
-						 * When a user acknowledges any lab version, it automatically files away older versions
-						 * as well as the acknowledged version. This function removes those versions from the
-						 * inbox results by calling the jQuery `removeReport` function on IDs up to and including
-						 * the doclabid.
-						 */
-						const multiIds = data.multiID.split(",");
-						for (const id of multiIds) {
-							self.opener.removeReport(id);
-							if (id === doclabid) break;
-						}
-                    }
-                    // Notify the Inboxhub to refresh its data after acknowledge.
-                    // Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action responses,
-                    // which nulls window.opener on popups opened from Inboxhub. BroadcastChannel provides
-                    // reliable same-origin cross-window messaging that is unaffected by COOP.
-                    try {
-                        const bc = new BroadcastChannel('inboxhub-refresh');
-                        bc.postMessage('refresh');
-                        bc.close();
-                    } catch (e) {
-                        // BroadcastChannel unsupported — user must manually refresh the inbox
-                    }
+					/**
+					 * Acknowledging any lab version also files away the versions older than it,
+					 * so every one of them has to leave the inbox. Normally only the newest has
+					 * a row — the inbox collapses a version chain — but removing a row that is
+					 * not there is a no-op, and this covers a view that did render one.
+					 * Removal only: the broadcast below carries the count.
+					 */
+					for (const id of acknowledgedVersionIds(data.multiID, doclabid)) {
+						removeOpenerInboxRow(id, data.labType);
+					}
+                    notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);
                     window.close();
                 } else {
                     //Hide document
@@ -2146,7 +2259,8 @@ function fileDoc(docId) {
 
                             if (typeof _in_window !== 'undefined' && _in_window) {
                                 if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                                    self.opener.removeReport(docId);
+                                    // 'type' is the labType this filing was posted under.
+                                    self.opener.removeReport(docId, type);
                                 }
 
                                 window.close();

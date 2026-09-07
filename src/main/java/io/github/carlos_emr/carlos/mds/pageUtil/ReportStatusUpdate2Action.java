@@ -79,6 +79,8 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         return executemain();
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String executemain() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
@@ -87,7 +89,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
         int labNo = Integer.parseInt(request.getParameter("segmentID"));
         String multiID = request.getParameter("multiID");
-        String providerNo = request.getParameter("providerNo");
+        // Session-derived, NOT the posted providerNo: this writes the acknowledgement into the
+        // clinical audit trail, and a posted value let any user with _lab write record it
+        // against a colleague. Every real caller already posts the logged-in provider (the
+        // inbox builds its links from the session), so nothing legitimate changes; the macro
+        // path in ReportMacro2Action has always done it this way.
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         char status = request.getParameter("status").charAt(0);
         String comment = request.getParameter("comment");
         String lab_type = request.getParameter("labType");
@@ -102,22 +109,22 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             // A real acknowledgement failure throws (handled below); updateReportStatus otherwise
             // persists the status. Its boolean is not an ack-success signal — do not gate the
             // response on it.
-            CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
-            if (multiID != null) {
-                String[] id = multiID.split(",");
-                int i = 0;
-                int idNum = Integer.parseInt(id[i]);
-                while (idNum != labNo) {
-                    CommonLabResultData.updateReportStatus(idNum, providerNo, 'F', "", lab_type);
-                    i++;
-                    idNum = Integer.parseInt(id[i]);
-                }
-
+            // Whatever the status, the older versions of the same lab are filed with it: that
+            // is what actually clears the collapsed inbox row, and it is what this endpoint has
+            // always done. Shared with the macro path so the two ways of acknowledging a lab
+            // cannot drift apart again.
+            int clearedCount = CommonLabResultData.updateReportStatusWithOlderVersions(
+                    labNo, providerNo, status, comment, lab_type, false, multiID);
+            if (ajaxcall != null && ajaxcall.equals("yes")) {
+                // The browser cannot work this number out for itself. It walks the posted
+                // multiID, which the server ignores for HL7 in favour of the chain it derives
+                // from the accession number, and which says nothing about which of those
+                // versions were still NEW. Reporting it is what keeps the inbox badge in step
+                // with the figure the next page load computes.
+                writeClearedCount(clearedCount);
+                return NONE;
             }
-            if (ajaxcall != null && ajaxcall.equals("yes"))
-                return null;
-            else
-                return SUCCESS;
+            return SUCCESS;
         } catch (Exception e) {
             logger.error("exception in ReportStatusUpdate2Action", e);
             return "failure";
@@ -131,7 +138,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
         int labNo = Integer.parseInt(request.getParameter("segmentID"));
-        String providerNo = request.getParameter("providerNo");
+        // Session-derived for the same reason as executemain(): a comment on a lab is signed
+        // by the provider it is recorded against.
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         char status = request.getParameter("status").charAt(0);
         String comment = request.getParameter("comment");
         String lab_type = request.getParameter("labType");
@@ -158,6 +167,26 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }
 
         return null;
+    }
+
+    /**
+     * Writes the acknowledge/file response for the AJAX callers, and only for them.
+     *
+     * <p>A failure to write it is logged and swallowed: the status change is already
+     * persisted, and turning a delivery problem into an error would tell the clinician their
+     * acknowledgement failed when it did not. The inbox counter is corrected by the next page
+     * load in that case.
+     */
+    private void writeClearedCount(int clearedCount) {
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("clearedCount", clearedCount);
+        response.setContentType("application/json; charset=UTF-8");
+        try {
+            response.getWriter().write(json.toString());
+            response.flushBuffer();
+        } catch (IOException e) {
+            logger.error("failed to return the cleared routing row count", e);
+        }
     }
 
     private static String getDemographicIdFromLab(String labType, int labNo) {

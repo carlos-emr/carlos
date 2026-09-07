@@ -1136,8 +1136,24 @@ input[id^='acklabel_']{
         })
         .then(function(json) {
             if (json && json.success) {
+                // Tell the Inboxhub on EVERY macro that ACKNOWLEDGED, not only when the macro
+                // is configured to close the window: a macro that acknowledges without
+                // closeOnSuccess used to leave the inbox untouched, so the lab it had just
+                // acknowledged sat in the list until the clinician reloaded the page.
+                //
+                // Gated on json.acknowledged rather than json.success, because a macro need
+                // not acknowledge anything — one that only files a tickler succeeds and leaves
+                // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
+                // dealt with.
+                // Whether the inbox was actually told. The broadcast is the only channel
+                // that survives COOP, but it is not universal, and when it does not go the
+                // opener call below has to move the counters instead of just the row.
+                var inboxNotified = false;
+                if (json.acknowledged) {
+                    inboxNotified = notifyInboxhubAfterMacro(formid, json.clearedCount);
+                }
                 if (closeOnSuccess) {
-                    closeLabAfterMacro(formid);
+                    closeLabAfterMacro(formid, json.acknowledged, inboxNotified, json.clearedCount);
                 }
             } else {
                 var message = json && json.error ? json.error : 'Macro execution failed. Please try again.';
@@ -1150,29 +1166,61 @@ input[id^='acklabel_']{
         });
     }
 
-    function closeLabAfterMacro(formid) {
+    /**
+     * Closes or hides the lab window a macro was run from.
+     *
+     * closeOnSuccess is about this window, not about the inbox: taking the lab out of the
+     * inbox is gated on the macro having ACKNOWLEDGED it. A macro that only files a tickler
+     * closes its window and leaves the lab in the inbox, where it still belongs — hiding it
+     * there would make an unacknowledged result look dealt with.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {boolean} acknowledged whether the macro actually acknowledged the lab
+     * @param {boolean} inboxNotified whether the broadcast reached the inbox; when it did not,
+     *                  the opener call below is the only thing that can move the counters
+     * @param {number} clearedCount routing rows the server reported clearing
+     */
+    function closeLabAfterMacro(formid, acknowledged, inboxNotified, clearedCount) {
         var formEl = document.getElementById(formid);
-        var segmentId = formEl && formEl.elements && formEl.elements.segmentID ? formEl.elements.segmentID.value : '';
-
-        notifyInboxhubAfterMacro();
+        var elements = (formEl && formEl.elements) ? formEl.elements : null;
+        var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
+        var labType = (elements && elements.labType) ? elements.labType.value : 'HL7';
 
         if (window.frameElement) {
-            var card = window.frameElement.closest('.document-card.card');
-            if (card) {
-                card.style.display = 'none';
+            if (acknowledged) {
+                var card = window.frameElement.closest('.document-card.card');
+                if (card) {
+                    card.style.display = 'none';
+                }
             }
             return;
         }
 
         if (typeof _in_window !== 'undefined' && _in_window) {
-            if (self.opener && typeof self.opener.removeReport !== 'undefined' && segmentId.length > 0) {
-                self.opener.removeReport(segmentId);
+            // Normally the row only: the counters are the broadcast's job, because it is the
+            // party carrying clearedCount — a macro form has no multiID to walk, so this
+            // window cannot work out how many routing rows the acknowledgement cleared, and a
+            // counting call would assume one and undercount a multi-version lab.
+            //
+            // When the broadcast did NOT go, this is the only channel left, so it has to move
+            // the counters too — with the server's count, which the row-only call cannot pass.
+            // removeReport is the last resort for an opener with neither newer function: an
+            // acknowledged row left on screen reads as "the acknowledgement did nothing",
+            // which is worse than a badge one out that the next page load corrects.
+            if (acknowledged && self.opener && segmentId.length > 0) {
+                if (!inboxNotified && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
+                    self.opener.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+                } else if (typeof self.opener.removeInboxhubRow === 'function') {
+                    self.opener.removeInboxhubRow(segmentId, labType);
+                } else if (typeof self.opener.removeReport !== 'undefined') {
+                    self.opener.removeReport(segmentId, labType);
+                }
             }
             window.close();
             return;
         }
 
-        if (segmentId.length > 0) {
+        if (acknowledged && segmentId.length > 0) {
             var inlineCard = document.getElementById('labdoc_' + segmentId);
             if (inlineCard) {
                 inlineCard.style.display = 'none';
@@ -1180,13 +1228,55 @@ input[id^='acklabel_']{
         }
     }
 
-    function notifyInboxhubAfterMacro() {
+    /**
+     * Asks the Inboxhub to refresh, naming the lab that was just acknowledged.
+     *
+     * The id matters: the inbox re-fetches only the result LIST, while the
+     * Documents/Labs/HRMs counters come from the surrounding form page. Without the id
+     * the counters keep counting the acknowledged lab until a full page reload, which
+     * reads to a clinician as "the acknowledgement did nothing".
+     *
+     * The type travels with it because segment ids are NOT unique across report types —
+     * documents, HRM reports and HL7 labs have independent key sequences — so an id on
+     * its own can name a document's inbox row as readily as this lab's.
+     *
+     * The server's clearedCount travels with it because those counters count ROUTING rows,
+     * one per lab VERSION, while the list shows one collapsed row per chain. Acknowledging
+     * a two-version lab removes one row and clears two counted rows, and only the server
+     * knows the chain — this page never sees it.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {number} clearedCount routing rows the server reported clearing
+     * @return {boolean} whether the message was actually posted; false means the inbox has not
+     *         been told anything and something else has to tell it
+     */
+    function notifyInboxhubAfterMacro(formid, clearedCount) {
+        var segmentId = '';
+        var labType = 'HL7';
+        if (formid) {
+            var formEl = document.getElementById(formid);
+            var elements = (formEl && formEl.elements) ? formEl.elements : null;
+            if (elements && elements.segmentID) {
+                segmentId = elements.segmentID.value;
+            }
+            if (elements && elements.labType) {
+                labType = elements.labType.value;
+            }
+        }
         try {
             var bc = new BroadcastChannel('inboxhub-refresh');
-            bc.postMessage('refresh');
+            bc.postMessage({
+                action: 'refresh',
+                segmentID: segmentId,
+                labType: labType,
+                clearedCount: clearedCount
+            });
             bc.close();
+            return true;
         } catch (e) {
-            // BroadcastChannel unsupported — the acknowledged item is still hidden locally.
+            // BroadcastChannel unsupported. The caller falls back to window.opener; the item
+            // is hidden locally either way.
+            return false;
         }
     }
 

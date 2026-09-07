@@ -29,7 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 </c:if>
     <c:if test="${page ge 1}">
     <c:forEach var="labResult" items="${labDocs}" varStatus="loopStatus">
-        <div class="document-card card mb-1 shadow-sm" id="labdoc_${labResult.segmentID}" style="height: 100%;">
+        <div class="document-card card mb-1 shadow-sm" id="labdoc_${labResult.segmentID}" data-lab-type="${carlos:forHtmlAttribute(labResult.labType)}" style="height: 100%;">
             <div class="card-body">
                 <div class="card-title fw-bold">
                     ${carlos:forHtml(labResult.labType)}:
