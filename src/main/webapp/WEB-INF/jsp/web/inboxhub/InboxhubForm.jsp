@@ -616,6 +616,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      *                 because one acknowledgement can clear several (see clearedCount)
      */
     function decrementInboxhubStatFor(labType, rows) {
+        // Zero is a real answer, not a missing one: the server reports it when the item's
+        // routing rows had already left NEW, and moving the badge then would take off a row
+        // nobody cleared.
+        if (!(rows > 0)) { return; }
         const countInputId = labType === 'DOC' ? 'totalDocsCount' :
                              labType === 'HRM' ? 'totalHRMCount' : 'totalLabsCount';
         const typeInput = jQuery('#' + countInputId);
@@ -727,8 +731,27 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         const key = labType + ':' + segmentId;
         if (countedAcknowledgedItems[key]) { return; }
         countedAcknowledgedItems[key] = true;
+        decrementInboxhubStatFor(labType, clearedRowsFrom(clearedCount));
+    }
+
+    /**
+     * How many rows a message says were cleared: its own number, or one when it did not say.
+     *
+     * The distinction matters because ZERO is a real answer. The server reports it when the
+     * item's routing rows had already left NEW — a second window acknowledging a lab the
+     * clinician has already dealt with, a popup left open from before, or an inbox being
+     * viewed on another provider's behalf, where the acknowledgement writes the session
+     * provider's row and the badge is counting somebody else's. Reading zero as "the sender
+     * did not say" and moving the badge by one drops a row nobody cleared, and only a full
+     * page reload puts it back.
+     *
+     * Absent is still one: documents, HRM reports and a popup running a cached older script
+     * all send nothing, and for them one item is one row.
+     */
+    function clearedRowsFrom(clearedCount) {
+        if (clearedCount === null || clearedCount === undefined) { return 1; }
         const rows = parseInt(clearedCount, 10);
-        decrementInboxhubStatFor(labType, (isNaN(rows) || rows < 1) ? 1 : rows);
+        return isNaN(rows) ? 1 : Math.max(0, rows);
     }
 
     /**

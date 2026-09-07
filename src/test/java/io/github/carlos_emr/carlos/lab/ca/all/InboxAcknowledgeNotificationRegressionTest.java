@@ -228,7 +228,7 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .contains("result.put(\"clearedCount\", outcome.clearedCount());");
         assertThat(read(INBOXHUB_FORM_JSP))
                 .as("the listener must move the totals by the reported count, not by one")
-                .contains("decrementInboxhubStatFor(labType, (isNaN(rows) || rows < 1) ? 1 : rows);");
+                .contains("decrementInboxhubStatFor(labType, clearedRowsFrom(clearedCount));");
     }
 
     @Test
@@ -316,6 +316,25 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .contains("if (!inboxNotified "
                         + "&& typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {")
                 .contains("self.opener.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);");
+    }
+
+    @Test
+    @DisplayName("should move nothing when the server reports no rows were cleared")
+    void shouldNotDecrement_whenServerReportsZeroClearedRows() throws IOException {
+        // Zero is a real answer, not an absent one. The server reports it when the item's
+        // routing rows had already left NEW — a second window acknowledging a lab already
+        // dealt with, or an inbox viewed on another provider's behalf. Reading it as "the
+        // sender did not say" and moving the badge by one drops a row nobody cleared.
+        String inboxhubForm = read(INBOXHUB_FORM_JSP);
+
+        assertThat(inboxhubForm)
+                .as("only an absent count falls back to one")
+                .contains("if (clearedCount === null || clearedCount === undefined) { return 1; }")
+                .contains("return isNaN(rows) ? 1 : Math.max(0, rows);");
+        assertThat(inboxhubForm)
+                .as("a zero count must not reach the stored totals")
+                .contains("if (!(rows > 0)) { return; }")
+                .doesNotContain("(isNaN(rows) || rows < 1) ? 1 : rows");
     }
 
     @Test
