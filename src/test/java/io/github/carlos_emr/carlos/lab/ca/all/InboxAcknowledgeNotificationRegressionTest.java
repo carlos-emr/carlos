@@ -56,6 +56,8 @@ class InboxAcknowledgeNotificationRegressionTest {
             "src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "InboxhubForm.jsp");
     private static final Path INBOXHUB_LIST_MODE_JSP = Path.of(
             "src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "InboxhubListMode.jsp");
+    private static final Path INBOXHUB_VIEW_MODE_JSP = Path.of(
+            "src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "InboxhubViewMode.jsp");
     private static final Path OSCAR_MDS_INDEX_JS = Path.of(
             "src", "main", "webapp", "share", "javascript", "oscarMDSIndex.js");
     private static final Path REPORT_MACRO_ACTION = Path.of(
@@ -380,6 +382,24 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(read(LAB_DISPLAY_JSP))
                 .contains("if (typeof self.opener.removeInboxhubRow === 'function') {")
                 .contains("} else if (typeof self.opener.removeReport === 'function') {");
+    }
+
+    @Test
+    @DisplayName("should encode the id and type it renders into inbox row attributes")
+    void shouldEncodeRowAttributes_forBothInboxModes() throws IOException {
+        // segmentID is a String on LabResultData, not a numeric type, and both values land in
+        // HTML attributes — and the id is then rebuilt into a jQuery attribute selector. The
+        // repo standard is the null-safe CARLOS wrapper for every attribute context.
+        assertThat(read(INBOXHUB_VIEW_MODE_JSP))
+                .contains("id=\"labdoc_${carlos:forHtmlAttribute(labResult.segmentID)}\"")
+                .contains("data-lab-type=\"${carlos:forHtmlAttribute(labResult.labType)}\"");
+        assertThat(read(INBOXHUB_LIST_MODE_JSP))
+                .contains("id=\"labdoc_${carlos:forHtmlAttribute(labResult.segmentID)}\"")
+                .contains("data-lab-type=\"${carlos:forHtmlAttribute(labResult.labType)}\"");
+        assertThat(read(INBOXHUB_VIEW_MODE_JSP) + read(INBOXHUB_LIST_MODE_JSP))
+                .as("no raw interpolation of either value into an attribute survives")
+                .doesNotContain("labdoc_${labResult.segmentID}")
+                .doesNotContain("data-lab-type=\"${labResult.labType}\"");
     }
 
     @Test
