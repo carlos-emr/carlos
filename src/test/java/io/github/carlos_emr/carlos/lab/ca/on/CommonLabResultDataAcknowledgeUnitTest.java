@@ -32,12 +32,15 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 
 import org.junit.jupiter.api.DisplayName;
+import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
@@ -51,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -174,6 +178,60 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     171, "999998", "Reviewed", "HL7", false, "169,170,171");
 
             assertThat(cleared).isEqualTo(2);
+        }
+    }
+
+    @Test
+    @DisplayName("should count only the provider's routing rows still in the new state")
+    void shouldCountOnlyNewRows_whenInspectingOneLabVersion() {
+        registerStaticInitializerMocks();
+
+        // The heart of the cleared-row count: a row already filed by hand is not in a total
+        // the inbox badge is counting, so it must not be counted as cleared. The routing DAO
+        // is reached through a static field bound at class-initialisation, so the instance the
+        // production code actually holds is read back rather than assumed.
+        ProviderLabRoutingDao boundDao = staticRoutingDao();
+        Mockito.reset(boundDao);
+        when(boundDao.findByLabNoAndLabTypeAndProviderNo(170, "HL7", "999998"))
+                .thenReturn(List.of(routingRow("N"), routingRow("A"), routingRow("N")));
+        when(boundDao.findByLabNoAndLabTypeAndProviderNo(171, "HL7", "999998"))
+                .thenReturn(List.of(routingRow("F")));
+        when(boundDao.findByLabNoAndLabTypeAndProviderNo(172, "HL7", "999998"))
+                .thenReturn(null);
+
+        assertThat(CommonLabResultData.countNewRoutingRows(170, "HL7", "999998"))
+                .as("two of the three rows are new")
+                .isEqualTo(2);
+        assertThat(CommonLabResultData.countNewRoutingRows(171, "HL7", "999998"))
+                .as("a row somebody already filed is not a row this clears")
+                .isZero();
+        assertThat(CommonLabResultData.countNewRoutingRows(172, "HL7", "999998"))
+                .as("no rows at all is not an error")
+                .isZero();
+    }
+
+    private static ProviderLabRoutingModel routingRow(String status) {
+        ProviderLabRoutingModel row = new ProviderLabRoutingModel();
+        row.setStatus(status);
+        return row;
+    }
+
+    /**
+     * The ProviderLabRoutingDao instance CommonLabResultData actually holds.
+     *
+     * <p>It resolves its DAOs in a static initializer, so the field binds to whichever mock was
+     * registered when the class first loaded in this Surefire fork — not to whatever a later
+     * registerMock() call supplies. Reading the field is the only way to stub the instance the
+     * production code will really use.
+     */
+    private static ProviderLabRoutingDao staticRoutingDao() {
+        try {
+            java.lang.reflect.Field field =
+                    CommonLabResultData.class.getDeclaredField("providerLabRoutingDao");
+            field.setAccessible(true);
+            return (ProviderLabRoutingDao) field.get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("could not read the bound routing DAO", e);
         }
     }
 
