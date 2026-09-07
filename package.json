@@ -26,6 +26,7 @@
     "test:pr-hardening-playwright": "node scripts/pr-hardening-playwright-checks.js",
     "test:error-sanitization-playwright": "node scripts/error-sanitization-playwright-checks.js",
     "test:eform-admin-schedule-nav-playwright": "node scripts/eform-admin-schedule-navigation-playwright-checks.js",
+    "test:edoc-schedule-nav-playwright": "node scripts/edoc-schedule-navigation-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
