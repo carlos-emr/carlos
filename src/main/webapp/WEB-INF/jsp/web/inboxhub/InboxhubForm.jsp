@@ -565,10 +565,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     /**
      * Listens for refresh requests from lab/HRM popup windows after acknowledge or sign-off.
      *
-     * Popup windows cannot call fetchInboxhubData() directly via window.opener because
-     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on all action
-     * responses, which nulls window.opener on popups opened from this page. BroadcastChannel
-     * provides reliable same-origin cross-window messaging that is unaffected by COOP.
+     * A popup cannot be relied on to call fetchInboxhubData() through window.opener: a
+     * deployment that sends Cross-Origin-Opener-Policy severs the opener, and a lab shown in
+     * an iframe has none to begin with. Nothing in this repository sets that header, and on
+     * the packaged install measured for this change the opener was reachable — so it is a
+     * useful route, not a dependable one. BroadcastChannel provides same-origin cross-window
+     * messaging that works in either case.
      *
      * Senders: oscarMDSIndex.js updateStatus(), hrmActions.js doSignOff()
      * Channel: 'inboxhub-refresh'

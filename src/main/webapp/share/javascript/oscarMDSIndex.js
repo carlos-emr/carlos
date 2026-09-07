@@ -2063,10 +2063,12 @@ function checkObservationDate(formid) {
 /**
  * Notifies the Inboxhub that one inbox item has been acknowledged.
  *
- * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action
- * responses, which nulls window.opener on popups opened from the Inboxhub, so
- * self.opener.removeReport() cannot be relied on. BroadcastChannel is same-origin
- * messaging that COOP does not break.
+ * BroadcastChannel rather than window.opener, because opener access cannot be relied on:
+ * a deployment that sends Cross-Origin-Opener-Policy severs it, and the lab can also be
+ * open in an iframe with no opener at all. Nothing in this repository sets that header, and
+ * on the packaged install measured for this change window.opener was in fact reachable —
+ * so treat a live opener as likely but never as guaranteed. BroadcastChannel is same-origin
+ * messaging that survives either case.
  *
  * The acknowledged id travels with the message because the Inboxhub's refresh re-fetches
  * only the result LIST: its Documents/Labs/HRMs counters come from the surrounding form

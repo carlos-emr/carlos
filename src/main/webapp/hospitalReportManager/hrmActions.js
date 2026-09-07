@@ -38,8 +38,9 @@ function doSignOff(reportId, view, isSign) {
         success: function (data) {
             if (view) {
                 // Remove the signed-off report from the opener's table if accessible.
-                // window.opener is null when Inboxhub is the opener due to Struts 7's
-                // CoopInterceptor setting Cross-Origin-Opener-Policy: same-origin.
+                // Guarded because opener access cannot be relied on: a deployment that sends
+                // Cross-Origin-Opener-Policy severs it. The broadcast below is what always
+                // reaches the Inboxhub; this is the direct route when it is available.
                 if (self.opener && typeof self.opener.removeReport === 'function') {
                     self.opener.removeReport(reportId, 'HRM');
                 }

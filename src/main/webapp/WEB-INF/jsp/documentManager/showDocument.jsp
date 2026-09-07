@@ -1188,10 +1188,11 @@
     /**
      * Asks the Inboxhub to refresh, naming the document that was just acknowledged.
      *
-     * Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action
-     * responses, which nulls window.opener on popups opened from the Inboxhub, so
-     * BroadcastChannel is the only reliable same-origin channel back to it. The id lets the
-     * inbox drop this document from its counters, which a plain list re-fetch does not touch.
+     * BroadcastChannel rather than window.opener, because opener access cannot be relied on:
+     * a deployment that sends Cross-Origin-Opener-Policy severs it, and the document can also
+     * be open in an iframe with no opener at all. Nothing in this repository sets that header.
+     * The id lets the inbox drop this document from its counters, which a plain list re-fetch
+     * does not touch.
      *
      * clearedCount is passed through for the same reason as on the lab page: the counters
      * count routing rows. A document has no version chain, so the server reports one — but
