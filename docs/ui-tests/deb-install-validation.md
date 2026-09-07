@@ -447,13 +447,14 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
-- **`allergy-rx-alert-playwright-checks.js` leaves two allergies on its patient
-  per run**, by design: it records one allergen from the allergy search results
-  and a second through "Custom Allergy", then prescribes against the second. The
-  allergy list is append-only from the UI (rows are archived, never removed), so
-  repeat runs accumulate; that is harmless for the check but clear the strays on
-  a demo box with
-  `UPDATE allergies SET archived=1 WHERE reaction LIKE '%allergen check%';`
+- **`allergy-rx-alert-playwright-checks.js` cleans up both allergies it records.**
+  Each run uses cryptographically unique reaction markers and, in `finally`,
+  inactivates every active row carrying one of those exact markers through the
+  product's supported UI path. Rows remain archived because that is the allergy
+  list's normal audit-preserving semantics, but repeat runs do not accumulate
+  active clinical data. A process killed before `finally` can still leave a row;
+  clear only those generated markers on a disposable demo box with
+  `UPDATE allergies SET archived=1 WHERE archived=0 AND (reaction LIKE 'Rash typed check %' OR reaction LIKE 'Rash free-text check %');`
   Run it on a **loopback** `BASE_URL`: like `billing-on-third-party`, it relaxes
   certificate verification only for loopback, so a host opted in with
   `ALLOW_NON_LOCAL_BASE_URL` must present a certificate the browser trusts.
