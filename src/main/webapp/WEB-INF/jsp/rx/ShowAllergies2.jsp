@@ -311,10 +311,19 @@
                  addCustomAllergy() percent-encode the name, while the NKDA button passes paramNKDA
                  verbatim. Decode before matching so both spellings are caught. --%>
             function paramHasNKDA(param) {
+                const raw = String(param);
+                if (raw.indexOf(paramNKDA) >= 0) {
+                    return true;
+                }
+                // Only decode when the payload actually looks URL-encoded; other requests
+                // (e.g., jsonData=...) may legitimately contain a literal '%'.
+                if (!/%[0-9A-Fa-f]{2}|\+/.test(raw)) {
+                    return false;
+                }
                 try {
-                    return decodeURIComponent(String(param).replace(/\+/g, " ")).indexOf(paramNKDA) >= 0;
+                    return decodeURIComponent(raw.replace(/\+/g, " ")).indexOf(paramNKDA) >= 0;
                 } catch (e) {
-                    return String(param).indexOf(paramNKDA) >= 0;
+                    return false;
                 }
             }
 
