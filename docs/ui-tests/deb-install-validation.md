@@ -390,9 +390,11 @@ Notes on the contract:
   the injected CSRF token included), and replays that body once per prose phrase
   with only the free-text fields swapped — clicking through each form's own
   required-field JS six times would measure that validation rather than the WAF.
-  Both replays are real saves, so a run rewrites demographic 1's Alert/Notes and
-  its open consultation request with the last phrase in the corpus; that is
-  harmless on a throwaway VM but is why it names `CLINICAL_DEMOGRAPHIC_NO`
+  Both replays are real saves: a run rewrites demographic 1's Alert/Notes with
+  the last phrase in the corpus, and files six new consultation requests against
+  that patient (the consultation page renders the new-request form, so each
+  replay creates a record rather than editing one). That is harmless on a
+  throwaway VM but is why it names `CLINICAL_DEMOGRAPHIC_NO`
   (default 1) rather than assuming a patient. `CLINICAL_PROVIDER_NO` (default
   `999998`, the seeded `carlosdoc`) and `CLINICAL_CONSULT_SERVICE_ID` (default
   `1`) name the other two records it assumes; override the service id if the
