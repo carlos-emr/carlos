@@ -238,8 +238,12 @@
              * CSRFGuard injects into forms that exist when its script runs; a form created and
              * submitted in the same tick misses that (its injectIntoDynamicNodes observer has not
              * fired yet), so the POST arrives with no token and CSRFGuard answers 403 -- which is
-             * what deleting a document from this page did. Same helper as
-             * MultiPageDocDisplay.jsp.
+             * what deleting a document from this page did.
+             *
+             * Adapted from MultiPageDocDisplay.jsp's helper of the same name, not identical to
+             * it: that one warns and lets the caller submit regardless, while this one returns
+             * false on a missing or empty token so submitDocAction can abort and tell the user
+             * to reload. Keep the two in mind together if either changes.
              */
             function appendCsrfToken(form) {
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');

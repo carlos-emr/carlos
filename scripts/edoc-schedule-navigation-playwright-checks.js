@@ -179,11 +179,28 @@ function gotoApp(page, appPath, options) {
   return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
+/*
+ * MySQL option files treat an unquoted '#' as a comment and a backslash as an escape, so a
+ * perfectly valid password containing either is silently corrupted and the teardown then fails
+ * "Access denied" -- leaving the probe rows it was meant to remove. Quote and escape, as
+ * assign-role-playwright-checks.js and login-playwright-checks.js do.
+ */
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 let mysqlDefaults = null;
 function initMysqlDefaults() {
+  if (/[\r\n]/.test(config.mysqlPassword)) {
+    throw new Error('MYSQL_PASSWORD must not contain newline characters');
+  }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'edoc-nav-sql-'));
   const file = path.join(dir, 'mysql-defaults.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${config.mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(
+    file,
+    `[client]\npassword=${encodeOptionFileValue(config.mysqlPassword)}\n`,
+    { mode: 0o600 },
+  );
   mysqlDefaults = { dir, file };
 }
 
