@@ -51,6 +51,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -325,7 +326,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
             verify(faxConfigDao).getActiveConfigByNumber("4165553434");
-            verify(faxManager).persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(-1));
+            ArgumentCaptor<FaxJob> faxJobCaptor = ArgumentCaptor.forClass(FaxJob.class);
+            verify(faxManager).persistAndLogFaxJob(any(), faxJobCaptor.capture(), eq(TransactionType.RX), eq(-1));
+            assertThat(faxJobCaptor.getValue().getDemographicNo()).isEqualTo(DEMOGRAPHIC_NO);
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);

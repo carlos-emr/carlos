@@ -237,6 +237,40 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should accept the maximum signed-int digital signature id")
+    void shouldAcceptDigitalSignatureId_atSignedIntMaximum() throws Exception {
+        int tenDigitSignatureId = Integer.MAX_VALUE;
+        DigitalSignature signature = new DigitalSignature();
+        signature.setProviderNo("999998");
+        signature.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        signature.setModuleType(ModuleType.PRESCRIPTION);
+        when(mockDigitalSignatureManager.getDigitalSignatureMetadata(tenDigitSignatureId)).thenReturn(signature);
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(tenDigitSignatureId));
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verify(mockPrescriptionManager)
+                .setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, tenDigitSignatureId);
+    }
+
+    @Test
+    @DisplayName("should reject the first digital signature id above the signed-int range")
+    void shouldRejectDigitalSignatureId_aboveSignedIntMaximum() throws Exception {
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", "2147483648");
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(mockDigitalSignatureManager, never()).getDigitalSignatureMetadata(any(Integer.class));
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
+    @Test
     @DisplayName("should report not found when the prescription row does not exist")
     void shouldReturnNotFound_whenPrescriptionMissing() throws Exception {
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));

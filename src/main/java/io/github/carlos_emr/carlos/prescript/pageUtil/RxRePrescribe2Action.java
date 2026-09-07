@@ -284,14 +284,14 @@ public String saveDigitalSignature() throws IOException {
     // ViewScript2's faxTargetSigned lights the Fax button, while resolveSignatureImage looks up
     // signature 0, finds no metadata, and refuses the fax as unsigned — after having overwritten
     // whatever stamp the row carried.
-    boolean signatureIdMalformed = digitalSignatureIdParam != null
-            && (!digitalSignatureIdParam.matches("\\d{1,9}") || Integer.parseInt(digitalSignatureIdParam) <= 0);
-    if (signatureIdMalformed) {
+    int parsedDigitalSignatureId = digitalSignatureIdParam == null
+            ? 0 : parsePositiveInt(digitalSignatureIdParam);
+    if (digitalSignatureIdParam != null && parsedDigitalSignatureId <= 0) {
         logger.warn("Invalid digitalSignatureId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         return NONE;
     }
-    Integer digitalSignatureId = digitalSignatureIdParam == null ? null : Integer.valueOf(digitalSignatureIdParam);
+    Integer digitalSignatureId = digitalSignatureIdParam == null ? null : parsedDigitalSignatureId;
 
     // Extract and validate required script ID parameter.
     //
@@ -301,14 +301,7 @@ public String saveDigitalSignature() throws IOException {
     // defensively even so: 10 digits can still overflow an int (9999999999), and that must be a
     // 400 like any other malformed id, never a 500.
     String scriptId = request.getParameter("scriptId");
-    int scriptNo = 0;
-    if (scriptId != null && scriptId.matches("\\d{1,10}")) {
-        try {
-            scriptNo = Integer.parseInt(scriptId);
-        } catch (NumberFormatException ignored) {
-            scriptNo = 0;
-        }
-    }
+    int scriptNo = parsePositiveInt(scriptId);
     if (scriptNo <= 0) {
         logger.warn("Invalid scriptId rejected");
         response.sendError(HttpServletResponse.SC_BAD_REQUEST);
@@ -673,6 +666,19 @@ public String saveDigitalSignature() throws IOException {
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
             throw new RuntimeException("missing required sec object (_rx)");
+        }
+    }
+
+    /** Parses a positive signed database identifier, returning -1 for malformed or overflow input. */
+    private static int parsePositiveInt(String value) {
+        if (value == null || !value.matches("\\d{1,10}")) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : -1;
+        } catch (NumberFormatException ignored) {
+            return -1;
         }
     }
 

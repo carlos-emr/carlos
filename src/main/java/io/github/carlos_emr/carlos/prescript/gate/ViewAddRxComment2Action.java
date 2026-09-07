@@ -49,6 +49,16 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             return NONE;
         }
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        // Establish the coarse role before parsing attacker-controlled parameters. Unauthorized
+        // callers must receive the same denial whether those parameters are valid or malformed.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         int scriptNo;
         try {
             scriptNo = Integer.parseInt(request.getParameter("scriptNo"));
@@ -60,17 +70,6 @@ public final class ViewAddRxComment2Action extends ActionSupport {
         if (scriptNo <= 0 || comment == null || "null".equalsIgnoreCase(comment)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
-        // Check the coarse role before looking up an attacker-selected id. This keeps callers with
-        // no Rx write role from distinguishing a real prescription id from a missing one by the
-        // difference between the 404 below and the patient/owner authorization failure.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_rx)");
         }
 
         Prescription prescription = prescriptionDao.find(scriptNo);
@@ -85,7 +84,7 @@ public final class ViewAddRxComment2Action extends ActionSupport {
         if (!Objects.equals(loggedInProvider, prescription.getProviderNo())
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE,
                         String.valueOf(prescription.getDemographicId()))) {
-            throw new SecurityException("missing required sec object (_rx) for prescription owner");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         if (prescriptionDao.updatePrescriptionsByScriptNo(scriptNo, comment) != 1) {
