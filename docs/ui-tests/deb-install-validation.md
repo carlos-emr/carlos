@@ -447,7 +447,10 @@ Notes on the contract:
   phrase measured to trip a different CRS family; against bare Tomcat they are
   just ordinary notes and the check degrades to covering the print path itself.
   It types into the open encounter note but never saves it, so it seeds nothing
-  and cleans nothing up. Driving fourteen prints through one open encounter
+  and cleans nothing up. Run it on a **loopback** `BASE_URL`: like
+  `billing-on-third-party`, it relaxes certificate verification only for
+  loopback, so a host opted in with `ALLOW_NON_LOCAL_BASE_URL` must present a
+  certificate the browser trusts. Driving fourteen prints through one open encounter
   outlives the note lock, so the eChart's own autosave answering 409 partway
   through is expected and tolerated; a 403 from any of them is not.
 - **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
@@ -465,7 +468,9 @@ Notes on the contract:
   (default 1) rather than assuming a patient, and why its `BASE_URL` guard is
   narrower than the other checks': it admits only this machine (loopback or a
   compose service name) and refuses anything else — a private LAN address
-  included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is set deliberately.
+  included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is set deliberately. Like
+  `echart-print`, it relaxes certificate verification only for loopback, so such
+  a target must present a certificate the browser trusts.
   `CLINICAL_PROVIDER_NO` (default
   `999998`, the seeded `carlosdoc`) and `CLINICAL_CONSULT_SERVICE_ID` (default
   `1`) name the other two records it assumes; override the service id if the

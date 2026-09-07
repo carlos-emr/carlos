@@ -81,6 +81,11 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would travel into Playwright navigations and can
+  // surface in request or failure logging, so reject them outright.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
 
   const exactLocalHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
@@ -142,7 +147,10 @@ async function login(context) {
   await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to this machine unless explicitly opted out of
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
+  // login/index.jsp renders #pin only when MfaManager.isOscarLegacyPinEnabled(); filling it
+  // unconditionally throws on an install with the legacy PIN disabled and the check never runs.
+  const pin = page.locator('#pin');
+  if ((await pin.count()) > 0) await pin.fill(testPin);
   await Promise.all([
     page.waitForURL(/providercontrol/, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
@@ -319,7 +327,16 @@ async function runWorkflow(context, workflow) {
 
 (async () => {
   const browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
-  const context = await browser.newContext({ ignoreHTTPSErrors: true, acceptDownloads: true });
+  // Certificate verification is only relaxed for loopback, where the packaged
+  // install serves its own self-signed cert. A target opted in with
+  // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
+  // check logs in with real credentials. Same contract as
+  // billing-on-third-party and allergy-rx-alert.
+  const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: loopback.has(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    acceptDownloads: true,
+  });
 
   try {
     await login(context);

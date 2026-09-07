@@ -82,15 +82,34 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would travel into Playwright navigations and can
+  // surface in request or failure logging, so reject them outright.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
 
-  const host = parsed.hostname.toLowerCase();
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!localHosts.has(host) && !isPrivateIpv4(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+/**
+ * A private address has to be a real four-octet IPv4 literal. Matching a numeric
+ * prefix instead would admit a DNS name like `10.attacker.example`, which is a
+ * remote host this check would then log in to.
+ */
+function isPrivateIpv4(host) {
+  const octets = host.split('.');
+  if (octets.length !== 4) return false;
+  if (!octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)) return false;
+  const [first, second] = octets.map(Number);
+  return first === 10
+    || (first === 192 && second === 168)
+    || (first === 172 && second >= 16 && second <= 31);
 }
 
 function requireDigits(value, name) {
@@ -154,7 +173,10 @@ async function login(context) {
   await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
+  // login/index.jsp renders #pin only when MfaManager.isOscarLegacyPinEnabled(); filling it
+  // unconditionally throws on an install with the legacy PIN disabled and the check never runs.
+  const pin = page.locator('#pin');
+  if ((await pin.count()) > 0) await pin.fill(testPin);
   await Promise.all([
     page.waitForURL(/providercontrol/, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
@@ -225,7 +247,16 @@ async function printChart(page, noteText, flags) {
 
 (async () => {
   const browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
-  const context = await browser.newContext({ ignoreHTTPSErrors: true, acceptDownloads: true });
+  // Certificate verification is only relaxed for loopback, where the packaged
+  // install serves its own self-signed cert. A target opted in with
+  // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
+  // check logs in with real credentials. Same contract as
+  // billing-on-third-party and allergy-rx-alert.
+  const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: loopback.has(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    acceptDownloads: true,
+  });
 
   try {
     const page = await login(context);
