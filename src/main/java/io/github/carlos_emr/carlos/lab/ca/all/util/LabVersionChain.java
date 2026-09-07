@@ -49,6 +49,9 @@ public final class LabVersionChain {
     private LabVersionChain() {
     }
 
+    /** Lab numbers are unsigned; see the skip in {@link #parse(String)} for why that matters. */
+    private static final Pattern DIGITS = Pattern.compile("\\d+");
+
     /**
      * Parses a chain into lab numbers, preserving order (oldest version first).
      *
@@ -59,8 +62,6 @@ public final class LabVersionChain {
      * @param chain comma-separated lab numbers; may be null, blank or malformed
      * @return the lab numbers in the order given, empty if there are none
      */
-    private static final Pattern DIGITS = Pattern.compile("\\d+");
-
     public static List<Integer> parse(String chain) {
         if (StringUtils.isBlank(chain)) {
             return Collections.emptyList();
