@@ -496,6 +496,11 @@ async function writeCustomRxThroughUi(page) {
   await page.locator('#saveButton').click();
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
+  // The outer page can render its Fax button before ViewPreview2 has finished
+  // loading in the nested iframe. Both fax attempts below synchronously read
+  // #preview2Form, so establish that shared precondition before returning.
+  await modalFrame.frameLocator('#preview').locator('#preview2Form')
+    .waitFor({ state: 'attached', timeout: faxRoundTripTimeoutMs });
 
   const created = sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo} AND script_no>${rangeStart};`)
     .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
@@ -575,11 +580,6 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   });
 
   await modalFrame.locator('#additionalNotes').waitFor({ state: 'visible', timeout: 30000 });
-  // The Fax button's handler writes into the preview iframe (finalFax, pdfId) before it submits the
-  // iframe's form, so a click that lands before ViewPreview2 has rendered throws inside the page and
-  // no request is ever made. A clinician cannot click that fast on a warm server; a headless run
-  // against a cold one can, so wait for the form the click needs.
-  await modalFrame.frameLocator('#preview').locator('#preview2Form').waitFor({ state: 'attached', timeout: faxRoundTripTimeoutMs });
   await modalFrame.locator('#additionalNotes').fill(noteText);
 
   const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: faxRoundTripTimeoutMs });

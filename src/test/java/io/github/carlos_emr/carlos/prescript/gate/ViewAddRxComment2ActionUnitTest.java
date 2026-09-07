@@ -117,6 +117,19 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a missing session before privilege checks or prescription access")
+    void shouldRejectMissingSession_beforeManagerAndDaoInteractions() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(
+                any(jakarta.servlet.http.HttpServletRequest.class))).thenReturn(null);
+
+        assertThatThrownBy(() -> new ViewAddRxComment2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_rx");
+
+        verifyNoInteractions(securityInfoManager, prescriptionDao);
+    }
+
+    @Test
     @DisplayName("should return not found when an authorized caller names no prescription")
     void shouldReturnNotFound_whenPrescriptionMissing() throws Exception {
         when(prescriptionDao.find(SCRIPT_NO)).thenReturn(null);
@@ -165,6 +178,20 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NO_CONTENT);
+        verify(prescriptionDao).updatePrescriptionsByScriptNo(SCRIPT_NO, "Take with food");
+    }
+
+    @Test
+    @DisplayName("should return conflict when the authorized prescription disappears before update")
+    void shouldReturnConflict_whenAuthorizedUpdateAffectsNoRows() throws Exception {
+        when(prescriptionDao.find(SCRIPT_NO)).thenReturn(prescription(PROVIDER_NO));
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_rx"),
+                eq(SecurityInfoManager.WRITE), eq(String.valueOf(DEMOGRAPHIC_NO)))).thenReturn(true);
+        when(prescriptionDao.updatePrescriptionsByScriptNo(SCRIPT_NO, "Take with food")).thenReturn(0);
+
+        assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
         verify(prescriptionDao).updatePrescriptionsByScriptNo(SCRIPT_NO, "Take with food");
     }
 

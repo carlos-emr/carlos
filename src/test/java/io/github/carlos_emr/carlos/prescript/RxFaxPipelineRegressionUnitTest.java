@@ -77,6 +77,10 @@ class RxFaxPipelineRegressionUnitTest {
             "<servlet-mapping>\\s*<servlet-name>pdfCustomedCreator</servlet-name>\\s*"
                     + "<url-pattern>/form/createcustomedpdf</url-pattern>\\s*</servlet-mapping>",
             Pattern.DOTALL);
+    private static final Pattern FAX_DISABLED_PREDICATE = Pattern.compile(
+            "function\\s+shouldDisableFaxControls\\(\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
+    private static final Pattern FAILED_FAX_RESET = Pattern.compile(
+            "function\\s+resetFailedFaxSubmission\\([^)]*\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
 
     @Test
     @DisplayName("should exclude the prescription PDF servlet URL from Struts action mapping")
@@ -128,6 +132,34 @@ class RxFaxPipelineRegressionUnitTest {
                 .contains("value='<%= pharmaName %>' context=\"htmlAttribute\"")
                 .doesNotContain("name=\"pharmaFax\" value=\"<%=pharmaFax%>\"")
                 .doesNotContain("name=\"pharmaName\" value=\"<%=pharmaName%>\"");
+    }
+
+    @Test
+    @DisplayName("should reapply every current fax prerequisite after a failed submission")
+    void shouldReapplyFaxPrerequisites_afterFailedSubmission() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+
+        Matcher predicateMatcher = FAX_DISABLED_PREDICATE.matcher(viewScript2);
+        assertThat(predicateMatcher.find()).isTrue();
+        assertThat(predicateMatcher.group(1))
+                .contains("faxSubmissionPending")
+                .contains("typeof hasPreview === 'undefined'")
+                .contains("!hasPreview")
+                .contains("!hasFaxNumber")
+                .contains("!hasFaxSenderAccount")
+                .contains("!canFaxScript")
+                .contains("!(isSignatureSaved || hasStoredSignature)");
+
+        Matcher resetMatcher = FAILED_FAX_RESET.matcher(viewScript2);
+        assertThat(resetMatcher.find()).isTrue();
+        assertThat(resetMatcher.group(1))
+                .contains("faxSubmissionPending = false")
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls())")
+                .doesNotContain("setFaxControlsDisabled(false)");
+
+        assertThat(viewScript2).contains(
+                "function signatureHandler(e)",
+                "setFaxControlsDisabled(shouldDisableFaxControls());");
     }
 
     private static Path resolveProjectPath(Path relativePath) {

@@ -253,13 +253,23 @@ export BASE_URL=https://127.0.0.1/carlos
 export CHROME_PATH=/usr/lib/carlos-emr/chromium/chrome
 # A secure fresh install randomises both secrets. Read the root-only handoff file,
 # then perform the mandatory first-login reset once before any suite loop.
-test -r /etc/carlos-emr/initial-admin.txt
+if [ ! -r /etc/carlos-emr/initial-admin.txt ]; then
+  echo "FAIL initial administrator handoff file is not readable"
+  exit 1
+fi
 export TEST_USER="$(sed -n 's/^ *user: *//p' /etc/carlos-emr/initial-admin.txt)"
 export TEST_PASSWORD="$(sed -n 's/^ *password: *//p' /etc/carlos-emr/initial-admin.txt)"
 export TEST_PIN="$(sed -n 's/^ *PIN: *//p' /etc/carlos-emr/initial-admin.txt)"
-test -n "$TEST_USER" && test -n "$TEST_PASSWORD" && printf '%s' "$TEST_PIN" | grep -Eq '^[0-9]{4}$'
-RESET_PASSWORD='Carlos2026!Verify' DRUGREF_UPDATE_REQUIRE_STATUS=true \
-  node scripts/drugref-update-playwright-checks.js
+if [ -z "$TEST_USER" ] || [ -z "$TEST_PASSWORD" ] \
+    || ! printf '%s' "$TEST_PIN" | grep -Eq '^[0-9]{4}$'; then
+  echo "FAIL initial administrator handoff credentials are incomplete or invalid"
+  exit 1
+fi
+if ! RESET_PASSWORD='Carlos2026!Verify' DRUGREF_UPDATE_REQUIRE_STATUS=true \
+    node scripts/drugref-update-playwright-checks.js; then
+  echo "FAIL mandatory first-login password reset"
+  exit 1
+fi
 export TEST_PASSWORD='Carlos2026!Verify'
 # DB-backed checks: root over the MariaDB unix socket (the password value is
 # ignored by unix_socket auth but the scripts require it to be set).
@@ -268,6 +278,10 @@ export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=
 # the password that the forced-reset step above actually installed.
 export TEST_PASSWORD_HASH="$(mariadb -u root carlos -Nse \
   "SELECT password FROM security WHERE user_name='${TEST_USER}' LIMIT 1")"
+if [ -z "$TEST_PASSWORD_HASH" ]; then
+  echo "FAIL could not read the reset administrator password hash"
+  exit 1
+fi
 # Record pointers into the demo dataset:
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
@@ -401,7 +415,13 @@ if [ "$login_phase_ready" -ne 1 ]; then
   echo "FAIL carlos-emr did not become ready for the isolated login phase"
   exit 1
 fi
-timeout 300 node scripts/login-playwright-checks.js
+if timeout 300 node scripts/login-playwright-checks.js; then
+  echo "PASS isolated login Playwright phase"
+else
+  rc=$?
+  echo "FAIL ($rc) isolated login Playwright phase"
+  exit 1
+fi
 ```
 
 Notes on the contract:

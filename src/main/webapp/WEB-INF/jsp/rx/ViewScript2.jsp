@@ -809,9 +809,19 @@
                 });
             }
 
+            function shouldDisableFaxControls() {
+                return faxSubmissionPending
+                        || typeof hasPreview === 'undefined'
+                        || !hasPreview
+                        || !hasFaxNumber
+                        || !hasFaxSenderAccount
+                        || !canFaxScript
+                        || !(isSignatureSaved || hasStoredSignature);
+            }
+
             function resetFailedFaxSubmission(previousUnloadHandler) {
                 faxSubmissionPending = false;
-                setFaxControlsDisabled(false);
+                setFaxControlsDisabled(shouldDisableFaxControls());
                 window.onbeforeunload = previousUnloadHandler;
             }
 
@@ -892,9 +902,7 @@
                 isSignatureSaved = e.isSave;
                 e.target.onbeforeunload = null;
                 <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
-                let disabled = !hasPreview || !hasFaxNumber || !hasFaxSenderAccount || !canFaxScript
-                        || !(e.isSave || hasStoredSignature);
-                toggleFaxButtons(disabled);
+                setFaxControlsDisabled(shouldDisableFaxControls());
                 <% } %>
                 if (e.isSave) {
                     <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>

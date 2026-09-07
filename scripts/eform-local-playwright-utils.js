@@ -170,15 +170,17 @@ async function login(context, config, recorder) {
   await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
-  if (await page.locator('#pin').count()) {
-    await page.locator('#pin').fill(config.testPin);
+  const pinInput = page.locator('#pin');
+  const hasPin = await pinInput.count() > 0;
+  if (hasPin) {
+    await pinInput.fill(config.testPin);
   }
   assert(await page.locator('#username').inputValue() === config.testUser,
     'login username field changed before submit');
   assert(await page.locator('#password').inputValue() === config.testPassword,
     'login password field changed before submit');
-  if (await page.locator('#pin').count()) {
-    assert(await page.locator('#pin').inputValue() === config.testPin,
+  if (hasPin) {
+    assert(await pinInput.inputValue() === config.testPin,
       'login PIN field changed before submit');
   }
   await Promise.all([

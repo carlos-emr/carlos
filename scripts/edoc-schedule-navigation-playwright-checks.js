@@ -313,7 +313,12 @@ async function readEdocPath(schedulePage) {
   // \x26 (and non-ASCII as \uXXXX). Decode before parsing or the whole query string collapses
   // into one parameter named "function".
   const url = new URL(decodeJsEscapes(match[1]), schedulePage.url());
-  return `${url.pathname.replace(config.baseUrl.pathname, '')}${url.search}`;
+  const expectedPath = new URL(appUrl('/documentManager/ViewDocumentReport')).pathname;
+  assert(url.origin === config.baseUrl.origin,
+    `The eDoc menu link points at a different origin (${url.origin})`);
+  assert(url.pathname === expectedPath,
+    `The eDoc menu link points outside the configured application context (${url.pathname})`);
+  return `/documentManager/ViewDocumentReport${url.search}`;
 }
 
 async function assertNavHeader(page, present, label) {
@@ -380,8 +385,9 @@ async function addDocument(page, pdfPath) {
   ]);
   assert(postResponse.status() < 400,
     `Add Document POST returned HTTP ${postResponse.status()} (${postResponse.url()})`);
+  const expectedReportPath = new URL(appUrl('/documentManager/ViewDocumentReport')).pathname;
   await page.waitForURL((url) => (
-    url.pathname.endsWith('/documentManager/ViewDocumentReport')
+    url.pathname === expectedReportPath
       && url.searchParams.get('docerrors') === 'docerrors'
       && url.searchParams.get('function') === expectedFunction
       && url.searchParams.get('functionid') === expectedFunctionId

@@ -40,6 +40,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
+  appUrl,
   assert,
   assertNotErrorPage,
   buildFailureDetails,
@@ -128,14 +129,33 @@ function sqlValue(value) {
     // The request id lives in the row's onclick handler (not in an anchor).
     // Require the exact staged row to render so direct form navigation cannot
     // hide a consultation-list failure such as a NULL urgency dereference.
-    const requestRow = listPage.locator(`table.consult-table tbody tr[onclick*='requestId=${requestId}']`).first();
-    assert(await requestRow.count(), `consultation list did not render staged request ${requestId}`);
+    const requestRows = listPage.locator("table.consult-table tbody tr[onclick*='requestId=']");
+    const matchingRowIndexes = await requestRows.evaluateAll((rows, targetRequestId) => rows.flatMap((row, index) => {
+      const onclick = row.getAttribute('onclick') || '';
+      const targetMatch = /['"]([^'"]*\/encounter\/ViewRequest\?[^'"]*)['"]/.exec(onclick);
+      if (!targetMatch) return [];
+      try {
+        const targetUrl = new URL(targetMatch[1], window.location.href);
+        return targetUrl.searchParams.get('requestId') === targetRequestId ? [index] : [];
+      } catch {
+        return [];
+      }
+    }), requestId);
+    assert(matchingRowIndexes.length === 1,
+      `consultation list rendered ${matchingRowIndexes.length} exact rows for staged request ${requestId}`);
+    const requestRow = requestRows.nth(matchingRowIndexes[0]);
     const consultPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
     await requestRow.click();
     const consultPage = await consultPopup;
     assert(consultPage, `consultation row ${requestId} did not open its request form`);
     wirePage(consultPage, 'consultation-form', recorder);
     await consultPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const consultUrl = new URL(consultPage.url());
+    const expectedConsultPath = new URL(appUrl(config.baseUrl, '/encounter/ViewRequest')).pathname;
+    assert(consultUrl.origin === config.baseUrl.origin
+      && consultUrl.pathname === expectedConsultPath
+      && consultUrl.searchParams.get('requestId') === requestId,
+    `consultation row ${requestId} opened an unexpected destination (${consultUrl.pathname})`);
 
     // Regression 1: the form must render despite providerNo/urgency NULL.
     await assertNotErrorPage(consultPage, `consultation ${requestId} with NULL providerNo/urgency`);

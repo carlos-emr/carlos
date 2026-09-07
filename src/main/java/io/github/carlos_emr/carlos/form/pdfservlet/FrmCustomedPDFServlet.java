@@ -50,8 +50,6 @@ import jakarta.servlet.http.HttpSession;
 
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
-import org.apache.commons.io.FileUtils;
-
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
@@ -116,6 +114,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final int MAX_FAX_DESTINATION_DIGITS = 11;
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
@@ -242,7 +241,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 }
                 String demo = req.getParameter("demographic_no");
 
-                if (faxNo == null || faxNo.length() < 7) {
+                if (faxNo == null || faxNo.length() < 7 || faxNo.length() > MAX_FAX_DESTINATION_DIGITS) {
+                    res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
                 } else {
                     // write to file
@@ -267,34 +267,54 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     String pdfFile = "prescription_" + pdfid + ".pdf";
                     String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
-                    Path filepath = prepareValidatedFaxFilesOrReportFailure(document_dir, pdfid, pdfFile, faxNo,
+                    PreparedFaxFiles preparedFiles = prepareValidatedFaxFilesOrReportFailure(document_dir, pdfid, pdfFile, faxNo,
                             baosPDF, res, writer);
-                    if (filepath == null) {
+                    if (preparedFiles == null) {
                         return;
                     }
 
-                    String provider_no = LoggedInInfo.getLoggedInInfoFromSession(req).getLoggedInProviderNo();
-                    int numPages;
-                    try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
-                        numPages = pdfReader.getNumberOfPages();
+                    String provider_no = loggedInInfo.getLoggedInProviderNo();
+                    try {
+                        int numPages;
+                        try (PdfReader pdfReader = new PdfReader(preparedFiles.getDocumentPdf().toString())) {
+                            numPages = pdfReader.getNumberOfPages();
+                        }
+
+                        FaxJob faxJob = new FaxJob();
+                        faxJob.setDestination(faxNo);
+                        faxJob.setFax_line(faxNumber);
+                        faxJob.setFile_name(pdfFile);
+                        faxJob.setUser(selectedFaxConfig.getFaxUser());
+                        faxJob.setRecipient(pharmaName);
+                        faxJob.setNumPages(numPages);
+                        faxJob.setStamp(new Date());
+                        faxJob.setStatus(FaxJob.STATUS.WAITING);
+                        faxJob.setOscarUser(provider_no);
+                        faxJob.setDemographicNo(Integer.parseInt(demo));
+                        faxJob.setSenderEmail(selectedFaxConfig.getSenderEmail());
+                        faxJob.setDirection(Direction.OUT);
+
+                        // This call returns only after the FaxJob and its FaxClientLog transaction
+                        // commits. Until then every filesystem artifact is owned solely by this
+                        // request and must be removed if inspection, job construction or persistence
+                        // fails, so the same unique attempt id remains retryable.
+                        faxManager.persistAndLogFaxJob(loggedInInfo, faxJob, TransactionType.RX, -1);
+                    } catch (IOException | RuntimeException e) {
+                        preparedFiles.cleanupAfterFailure(e);
+                        reportFaxFailure(res, writer, "Prescription fax queueing failed", e);
+                        return;
                     }
 
-                    FaxJob faxJob = new FaxJob();
-                    faxJob.setDestination(faxNo);
-                    faxJob.setFax_line(faxNumber);
-                    faxJob.setFile_name(pdfFile);
-                    faxJob.setUser(selectedFaxConfig.getFaxUser());
-                    faxJob.setRecipient(pharmaName);
-                    faxJob.setNumPages(numPages);
-                    faxJob.setStamp(new Date());
-                    faxJob.setStatus(FaxJob.STATUS.WAITING);
-                    faxJob.setOscarUser(provider_no);
-                    faxJob.setDemographicNo(Integer.parseInt(demo));
-                    faxJob.setSenderEmail(selectedFaxConfig.getSenderEmail());
-                    faxJob.setDirection(Direction.OUT);
-
-                    faxManager.persistAndLogFaxJob(loggedInInfo, faxJob, TransactionType.RX, -1);
-                    LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "PRESCRIPTION " + pdfFile);
+                    // The fax is committed and queueable now. A secondary legacy audit failure must
+                    // not turn the response into a failure (which would invite a duplicate retry),
+                    // and its document must not be removed out from under FaxSender. The
+                    // transaction above already wrote the correlated FaxClientLog audit row.
+                    try {
+                        LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "PRESCRIPTION " + pdfFile);
+                    } catch (RuntimeException e) {
+                        logger.error("Prescription fax was queued, but the legacy SENT audit entry failed: file={}",
+                                LogSafe.sanitize(pdfFile), e);
+                    }
 					writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + Encode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close after follow-up processing completes.</p></div>");
                 }
                 writer.flush();
@@ -355,58 +375,118 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     }
 
-    private Path prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
+    private PreparedFaxFiles prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
             String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
         try {
             return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
-        } catch (SecurityException | IOException e) {
-            logger.warn("Prescription fax file preparation failed: type={}, message={}",
-                    e.getClass().getSimpleName(), LogSafe.sanitize(e.getMessage(), 1024), e);
-            res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
-            writer.flush();
+        } catch (IOException | RuntimeException e) {
+            reportFaxFailure(res, writer, "Prescription fax file preparation failed", e);
             return null;
         }
     }
 
-    private Path prepareValidatedFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
+    private PreparedFaxFiles prepareValidatedFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
             ByteArrayOutputStream baosPDF) throws IOException {
-        // Use PathValidationUtils for proper path validation
+        // Resolve and validate EVERY target before the first write. A bad spool directory must not
+        // leave a valid-looking orphan in DOCUMENT_DIR that rejects a retry of the same attempt id.
         File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(documentDir, "DOCUMENT_DIR");
         File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
         Path filepath = validatedPdfFile.toPath();
 
-        writeNewPdfFile(filepath, baosPDF);
-
-        // write to temporary file
         String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
         File tempDirFile = PathValidationUtils.resolveConfiguredDirectory(tempPath, "fax_file_location");
         File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
         Path tempPdf = validatedTempPdf.toPath();
-
-        // Copying the fax pdf.
-        if (Files.exists(filepath) && !Files.exists(tempPdf)) {
-            FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
-        }
-
         File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
-        writeFaxTrackingFile(validatedTxtFile, faxNo);
-        return filepath;
+        Path trackingFile = validatedTxtFile.toPath();
+
+        List<Path> createdFiles = new ArrayList<>(3);
+        try {
+            writeNewPdfFile(filepath, baosPDF, createdFiles);
+            if (!sameFileTarget(filepath, tempPdf)) {
+                copyToNewFile(filepath, tempPdf, createdFiles);
+            }
+            writeFaxTrackingFile(trackingFile, faxNo, createdFiles);
+            return new PreparedFaxFiles(filepath, createdFiles);
+        } catch (IOException | RuntimeException e) {
+            cleanupCreatedFiles(createdFiles, e);
+            throw e;
+        }
     }
 
-    private void writeNewPdfFile(Path filepath, ByteArrayOutputStream baosPDF) throws IOException {
-        try (java.io.OutputStream fileOut = Files.newOutputStream(filepath,
+    private boolean sameFileTarget(Path first, Path second) throws IOException {
+        if (first.toAbsolutePath().normalize().equals(second.toAbsolutePath().normalize())) {
+            return true;
+        }
+        return first.getFileName().equals(second.getFileName())
+                && Files.isSameFile(first.getParent(), second.getParent());
+    }
+
+    private void writeNewPdfFile(Path filepath, ByteArrayOutputStream baosPDF, List<Path> createdFiles)
+            throws IOException {
+        try (OutputStream fileOut = Files.newOutputStream(filepath,
                 StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            createdFiles.add(filepath);
             baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
         }
     }
 
-    private void writeFaxTrackingFile(File trackingFile, String faxNo) throws IOException {
-        try (BufferedWriter out = Files.newBufferedWriter(trackingFile.toPath(), StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+    private void copyToNewFile(Path source, Path destination, List<Path> createdFiles) throws IOException {
+        try (InputStream in = Files.newInputStream(source);
+                OutputStream out = Files.newOutputStream(destination,
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            createdFiles.add(destination);
+            in.transferTo(out);
+        }
+    }
+
+    private void writeFaxTrackingFile(Path trackingFile, String faxNo, List<Path> createdFiles) throws IOException {
+        try (BufferedWriter out = Files.newBufferedWriter(trackingFile, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            createdFiles.add(trackingFile);
             if (faxNo != null) {
                 out.write(faxNo);
             }
+        }
+    }
+
+    private void reportFaxFailure(HttpServletResponse res, PrintWriter writer, String stage, Exception failure) {
+        logger.warn("{}: type={}, message={}", stage, failure.getClass().getSimpleName(),
+                LogSafe.sanitize(failure.getMessage(), 1024), failure);
+        res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
+        writer.flush();
+    }
+
+    private static void cleanupCreatedFiles(List<Path> createdFiles, Throwable originalFailure) {
+        ListIterator<Path> iterator = createdFiles.listIterator(createdFiles.size());
+        while (iterator.hasPrevious()) {
+            Path createdFile = iterator.previous();
+            try {
+                Files.deleteIfExists(createdFile);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                originalFailure.addSuppressed(cleanupFailure);
+                logger.warn("Unable to clean up failed prescription fax artifact {}",
+                        LogSafe.sanitize(createdFile.toString()), cleanupFailure);
+            }
+        }
+    }
+
+    private static final class PreparedFaxFiles {
+        private final Path documentPdf;
+        private final List<Path> createdFiles;
+
+        private PreparedFaxFiles(Path documentPdf, List<Path> createdFiles) {
+            this.documentPdf = documentPdf;
+            this.createdFiles = List.copyOf(createdFiles);
+        }
+
+        private Path getDocumentPdf() {
+            return documentPdf;
+        }
+
+        private void cleanupAfterFailure(Throwable failure) {
+            cleanupCreatedFiles(createdFiles, failure);
         }
     }
 
