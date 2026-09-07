@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.admin.gate;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateDrugref2Action;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -44,6 +45,14 @@ public final class ViewUpdateDrugref2Action extends ActionSupport {
         if (!authorized) {
             throw new SecurityException("missing required sec object (_admin or _admin.misc)");
         }
+
+        // Read opens the page; only write may start a rebuild. The two are deliberately
+        // different, so the page has to know which one it is looking at: rendering an Update
+        // button for a view-only administrator would produce a trigger that RxUpdateDrugref2Action
+        // then refuses with an HTML 500, which is exactly the broken state this page exists to
+        // report on. Server-side, and advisory only -- the refusal in the action is the control.
+        request.setAttribute("canTriggerUpdate",
+                RxUpdateDrugref2Action.canTriggerUpdate(securityInfoManager, loggedInInfo));
 
         return SUCCESS;
     }
