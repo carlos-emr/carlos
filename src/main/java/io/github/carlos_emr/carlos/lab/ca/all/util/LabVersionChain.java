@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.util;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -58,6 +59,8 @@ public final class LabVersionChain {
      * @param chain comma-separated lab numbers; may be null, blank or malformed
      * @return the lab numbers in the order given, empty if there are none
      */
+    private static final Pattern DIGITS = Pattern.compile("\\d+");
+
     public static List<Integer> parse(String chain) {
         if (StringUtils.isBlank(chain)) {
             return Collections.emptyList();
@@ -69,9 +72,19 @@ public final class LabVersionChain {
             if (trimmed.isEmpty()) {
                 continue;
             }
+            // Digits only, so a token like "-1" is skipped rather than parsed. Integer.valueOf
+            // accepts a sign, and for the report types whose chain is still the POSTED multiID
+            // that let a client name a lab id no lab can have — which updateReportStatus does
+            // not merely fail to find, it CREATES a routing row for. Matches the same rule in
+            // acknowledgedVersionIds on the browser side, so the two chain walks agree.
+            if (!DIGITS.matcher(trimmed).matches()) {
+                skipped++;
+                continue;
+            }
             try {
                 labNos.add(Integer.valueOf(trimmed));
             } catch (NumberFormatException e) {
+                // Digits that do not fit an int.
                 skipped++;
             }
         }

@@ -1296,6 +1296,13 @@ input[id^='acklabel_']{
             }
             if (!inbox) { return false; }
             inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+            // The same re-fetch the broadcast listener does. dropAcknowledgedInboxhubItem
+            // moves the counters and drops a LIST row, but preview mode draws cards and no
+            // table, so without this the acknowledged card stays on screen — and a macro with
+            // closeOnSuccess:false never closes the window that would have hidden it either.
+            if (typeof inbox.fetchInboxhubData === 'function') {
+                inbox.fetchInboxhubData();
+            }
             return true;
         } catch (e) {
             // No reachable inbox window; the item is hidden locally either way.

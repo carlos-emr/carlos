@@ -321,7 +321,10 @@ class InboxAcknowledgeNotificationRegressionTest {
                 .as("the direct route does the whole job: row and counters, by the server's count")
                 .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);")
                 .as("reaching the inbox in preview mode as well as from a popup")
-                .contains("} else if (window.parent !== window");
+                .contains("} else if (window.parent !== window")
+                .as("and re-fetching as the listener does, since preview mode draws cards, not rows")
+                .contains("if (typeof inbox.fetchInboxhubData === 'function') {\n"
+                        + "                inbox.fetchInboxhubData();");
         assertThat(labDisplay)
                 .as("the close path is row-only again, so closeOnSuccess no longer gates counting")
                 .contains("closeLabAfterMacro(formid, json.acknowledged);")

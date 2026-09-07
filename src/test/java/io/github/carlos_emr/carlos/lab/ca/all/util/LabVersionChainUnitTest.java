@@ -56,6 +56,20 @@ class LabVersionChainUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a signed token, because no lab has an id that shape")
+    void shouldSkipSignedTokens_whenParsingChain() {
+        // Integer.valueOf accepts a sign, and for the report types whose chain is still the
+        // POSTED multiID this let a client name a lab id no lab can have. That is not a
+        // harmless miss downstream: updateReportStatus does not merely fail to find such a
+        // row, it CREATES one.
+        assertThat(LabVersionChain.parse("-1,170")).containsExactly(170);
+        assertThat(LabVersionChain.parse("+170")).isEmpty();
+        assertThat(LabVersionChain.olderThan(170, "-1,170"))
+                .as("a rejected token is not a version, so nothing precedes 170 here")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("should return nothing when the chain is null, blank or has no lab numbers")
     void shouldReturnEmpty_forMissingChain() {
         assertThat(LabVersionChain.parse(null)).isEmpty();
