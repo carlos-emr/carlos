@@ -174,15 +174,13 @@ async function login(context, config, recorder) {
   const hasPin = await pinInput.count() > 0;
   if (hasPin) {
     await pinInput.fill(config.testPin);
+    assert(await pinInput.inputValue() === config.testPin,
+      'login PIN field changed before submit');
   }
   assert(await page.locator('#username').inputValue() === config.testUser,
     'login username field changed before submit');
   assert(await page.locator('#password').inputValue() === config.testPassword,
     'login password field changed before submit');
-  if (hasPin) {
-    assert(await pinInput.inputValue() === config.testPin,
-      'login PIN field changed before submit');
-  }
   await Promise.all([
     // forcepasswordreset is a legitimate destination, not a failure: the carlos-emr package
     // generates its first-login credential already flagged for a reset, so on a freshly

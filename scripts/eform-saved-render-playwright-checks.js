@@ -208,12 +208,10 @@ async function login(context) {
   const hasPin = await pinInput.count() > 0;
   if (hasPin) {
     await pinInput.fill(testPin);
+    assert(await pinInput.inputValue() === testPin, 'login PIN field changed before submit');
   }
   assert(await page.locator('#username').inputValue() === testUser, 'login username field changed before submit');
   assert(await page.locator('#password').inputValue() === testPassword, 'login password field changed before submit');
-  if (hasPin) {
-    assert(await pinInput.inputValue() === testPin, 'login PIN field changed before submit');
-  }
   await Promise.all([
     page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),

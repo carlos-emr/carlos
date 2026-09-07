@@ -135,6 +135,15 @@ class RxFaxPipelineRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should gate stored pharmacy fax numbers to the database destination width")
+    void shouldGatePharmacyFax_toDestinationWidth() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        assertThat(viewScript2)
+                .contains("normalizedPharmacyFaxLength >= 7")
+                .contains("normalizedPharmacyFaxLength <= 11");
+    }
+
+    @Test
     @DisplayName("should reapply every current fax prerequisite after a failed submission")
     void shouldReapplyFaxPrerequisites_afterFailedSubmission() throws IOException {
         String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
@@ -157,9 +166,12 @@ class RxFaxPipelineRegressionUnitTest {
                 .contains("setFaxControlsDisabled(shouldDisableFaxControls())")
                 .doesNotContain("setFaxControlsDisabled(false)");
 
-        assertThat(viewScript2).contains(
-                "function signatureHandler(e)",
-                "setFaxControlsDisabled(shouldDisableFaxControls());");
+        int signatureHandlerStart = viewScript2.indexOf("function signatureHandler(e)");
+        int signatureSaveBranch = viewScript2.indexOf("if (e.isSave)", signatureHandlerStart);
+        assertThat(signatureHandlerStart).isGreaterThanOrEqualTo(0);
+        assertThat(signatureSaveBranch).isGreaterThan(signatureHandlerStart);
+        assertThat(viewScript2.substring(signatureHandlerStart, signatureSaveBranch))
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls());");
     }
 
     private static Path resolveProjectPath(Path relativePath) {
