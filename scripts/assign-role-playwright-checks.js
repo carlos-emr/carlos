@@ -71,12 +71,13 @@ const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'db', 'carlos']);
 
 /*
- * Hosts that are unambiguously this machine or its compose network. Narrower
- * still than LOCAL_HOSTS, and two things key off it: the database target,
- * because this check WRITES a provider row and an `admin` role grant, and
- * whether http is acceptable, because anything else must prove a certificate.
+ * Hosts that are unambiguously this machine or its compose network. The
+ * database target keys off this set because the check WRITES a provider row
+ * and an `admin` role grant. Browser transport is deliberately stricter below:
+ * only a real loopback destination may use HTTP or relax certificate checks.
  */
 const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 function normalizeHost(rawHost) {
   return rawHost.toLowerCase().replace(/^\[|\]$/g, '');
@@ -88,6 +89,10 @@ function isLocalHost(rawHost) {
 
 function isExactLocalHost(rawHost) {
   return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
+}
+
+function isLoopbackHost(rawHost) {
+  return LOOPBACK_HOSTS.has(normalizeHost(rawHost));
 }
 
 function validateBaseUrl(rawBaseUrl) {
@@ -105,7 +110,7 @@ function validateBaseUrl(rawBaseUrl) {
   }
   // This script logs in with real credentials, so anything that is not plainly
   // loopback has to prove its certificate.
-  if (!isExactLocalHost(parsed.hostname) && parsed.protocol !== 'https:') {
+  if (!isLoopbackHost(parsed.hostname) && parsed.protocol !== 'https:') {
     throw new Error(`Non-loopback BASE_URL host ${parsed.hostname} must use https`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
@@ -353,10 +358,10 @@ async function run() {
     const page = await browser.newPage({
       baseURL: playwrightBaseUrl(),
       // The packaged standalone install intentionally starts with a
-      // self-signed certificate. Relax verification only for the exact local
-      // targets accepted above; an opted-in remote target must still prove its
+      // self-signed certificate. Relax verification only for loopback; compose
+      // service names and opted-in remote targets must still prove their
       // certificate before this privileged, DB-writing check logs in.
-      ignoreHTTPSErrors: baseUrl.protocol === 'https:' && isExactLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: baseUrl.protocol === 'https:' && isLoopbackHost(baseUrl.hostname),
       viewport: { width: 1400, height: 1000 },
     });
 

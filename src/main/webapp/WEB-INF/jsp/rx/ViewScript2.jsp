@@ -772,11 +772,13 @@
             // fires and a click in that window submits a fax the servlet rejects.
             //
             // Mirror the servlet's own test EXACTLY (FrmCustomedPDFServlet: pharmaFax is trimmed,
-            // stripped to digits, and refused below 7). A merely non-blank value is not enough: a
-            // pharmacy fax recorded as "N/A" or "555-12" is non-blank here but has fewer than seven
-            // digits there, so the page would offer a Fax the server then refuses.
-            boolean hasPharmacyFax = pharmacy != null && pharmacy.getFax() != null
-                    && pharmacy.getFax().trim().replaceAll("\\D", "").length() >= 7;
+            // stripped to digits, and refused outside 7..11). A merely non-blank value is not
+            // enough: "N/A", "555-12", or a value wider than faxes.destination would offer a Fax
+            // the server then refuses.
+            int normalizedPharmacyFaxLength = pharmacy == null || pharmacy.getFax() == null ? 0
+                    : pharmacy.getFax().trim().replaceAll("\\D", "").length();
+            boolean hasPharmacyFax = normalizedPharmacyFaxLength >= 7
+                    && normalizedPharmacyFaxLength <= 11;
             List<FaxConfig> faxConfigs = java.util.Collections.emptyList();
             if (CarlosProperties.getInstance().isRxFaxEnabled()) {
                 try {
@@ -809,9 +811,19 @@
                 });
             }
 
+            function shouldDisableFaxControls() {
+                return faxSubmissionPending
+                        || typeof hasPreview === 'undefined'
+                        || !hasPreview
+                        || !hasFaxNumber
+                        || !hasFaxSenderAccount
+                        || !canFaxScript
+                        || !(isSignatureSaved || hasStoredSignature);
+            }
+
             function resetFailedFaxSubmission(previousUnloadHandler) {
                 faxSubmissionPending = false;
-                setFaxControlsDisabled(false);
+                setFaxControlsDisabled(shouldDisableFaxControls());
                 window.onbeforeunload = previousUnloadHandler;
             }
 
@@ -892,9 +904,7 @@
                 isSignatureSaved = e.isSave;
                 e.target.onbeforeunload = null;
                 <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
-                let disabled = !hasPreview || !hasFaxNumber || !hasFaxSenderAccount || !canFaxScript
-                        || !(e.isSave || hasStoredSignature);
-                toggleFaxButtons(disabled);
+                setFaxControlsDisabled(shouldDisableFaxControls());
                 <% } %>
                 if (e.isSave) {
                     <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>

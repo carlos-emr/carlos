@@ -158,7 +158,16 @@ override_dh_clean:
 
 override_dh_auto_test:
 	# Application tests are the app repo's own CI concern; a package build
-	# must not require a live database.
+	# must not require a live database. The man page is checked separately
+	# because Ubuntu 26.04's lintian/man-db pipeline itself exits non-zero even
+	# for known-good compressed system pages. groff returns zero for warnings,
+	# so capture diagnostics and explicitly make any warning a package failure.
+	set -e; \
+	warnings="$$(groff -ww -z -Tutf8 -man debian/carlos-ctl.8 2>&1)"; \
+	if [ -n "$$warnings" ]; then \
+		printf '%s\n' "$$warnings" >&2; \
+		exit 1; \
+	fi
 
 override_dh_auto_clean:
 	rm -rf $(BUILDDIR)

@@ -77,6 +77,10 @@ class RxFaxPipelineRegressionUnitTest {
             "<servlet-mapping>\\s*<servlet-name>pdfCustomedCreator</servlet-name>\\s*"
                     + "<url-pattern>/form/createcustomedpdf</url-pattern>\\s*</servlet-mapping>",
             Pattern.DOTALL);
+    private static final Pattern FAX_DISABLED_PREDICATE = Pattern.compile(
+            "function\\s+shouldDisableFaxControls\\(\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
+    private static final Pattern FAILED_FAX_RESET = Pattern.compile(
+            "function\\s+resetFailedFaxSubmission\\([^)]*\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
 
     @Test
     @DisplayName("should exclude the prescription PDF servlet URL from Struts action mapping")
@@ -128,6 +132,46 @@ class RxFaxPipelineRegressionUnitTest {
                 .contains("value='<%= pharmaName %>' context=\"htmlAttribute\"")
                 .doesNotContain("name=\"pharmaFax\" value=\"<%=pharmaFax%>\"")
                 .doesNotContain("name=\"pharmaName\" value=\"<%=pharmaName%>\"");
+    }
+
+    @Test
+    @DisplayName("should gate stored pharmacy fax numbers to the database destination width")
+    void shouldGatePharmacyFax_toDestinationWidth() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        assertThat(viewScript2)
+                .contains("normalizedPharmacyFaxLength >= 7")
+                .contains("normalizedPharmacyFaxLength <= 11");
+    }
+
+    @Test
+    @DisplayName("should reapply every current fax prerequisite after a failed submission")
+    void shouldReapplyFaxPrerequisites_afterFailedSubmission() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+
+        Matcher predicateMatcher = FAX_DISABLED_PREDICATE.matcher(viewScript2);
+        assertThat(predicateMatcher.find()).isTrue();
+        assertThat(predicateMatcher.group(1))
+                .contains("faxSubmissionPending")
+                .contains("typeof hasPreview === 'undefined'")
+                .contains("!hasPreview")
+                .contains("!hasFaxNumber")
+                .contains("!hasFaxSenderAccount")
+                .contains("!canFaxScript")
+                .contains("!(isSignatureSaved || hasStoredSignature)");
+
+        Matcher resetMatcher = FAILED_FAX_RESET.matcher(viewScript2);
+        assertThat(resetMatcher.find()).isTrue();
+        assertThat(resetMatcher.group(1))
+                .contains("faxSubmissionPending = false")
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls())")
+                .doesNotContain("setFaxControlsDisabled(false)");
+
+        int signatureHandlerStart = viewScript2.indexOf("function signatureHandler(e)");
+        int signatureSaveBranch = viewScript2.indexOf("if (e.isSave)", signatureHandlerStart);
+        assertThat(signatureHandlerStart).isGreaterThanOrEqualTo(0);
+        assertThat(signatureSaveBranch).isGreaterThan(signatureHandlerStart);
+        assertThat(viewScript2.substring(signatureHandlerStart, signatureSaveBranch))
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls());");
     }
 
     private static Path resolveProjectPath(Path relativePath) {

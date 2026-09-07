@@ -22,6 +22,10 @@ Build-Depends:
 # debhelper 13.6; compat 13 alone is satisfied by older versions that would
 # silently build a package with no system accounts declared.
  debhelper (>= 13.6~),
+# The package test gate renders the carlos-ctl(8) source with every groff
+# warning enabled before lintian's Ubuntu-specific man-db false positive is
+# overridden.
+ groff-base,
  maven,
  openjdk-21-jdk-headless,
  tomcat11,

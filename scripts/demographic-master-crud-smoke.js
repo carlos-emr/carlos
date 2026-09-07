@@ -6,7 +6,7 @@
  * Prerequisites:
  *   - CARLOS is running locally, usually at http://localhost:8080/carlos
  *   - Playwright is available in node_modules or globally
- *   - A Chromium executable exists at CHROMIUM_PATH or Playwright's default browser
+ *   - A Chromium executable exists at CHROME_PATH (legacy: CHROMIUM_PATH) or Playwright's default browser
  *
  * Useful env vars:
  *   BASE_URL=http://localhost:8080/carlos
@@ -29,8 +29,9 @@ const config = {
   pin: process.env.TEST_PIN || process.env.CARLOS_PIN || '2026',
   // Empty by default so Playwright uses its own bundled chromium; a pinned
   // build path (e.g. the devcontainer's) would break on any other install
-  // (deb, CI) where that exact revision is not present. Override CHROMIUM_PATH
-  // only to force a specific binary (e.g. the packaged eForm-render chromium).
+  // (deb, CI) where that exact revision is not present. Override CHROME_PATH
+  // (or legacy CHROMIUM_PATH) only to force a specific binary, such as the
+  // packaged eForm-render Chromium.
   chromiumPath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
   headless: process.env.HEADLESS !== 'false',
   keepOpen: process.env.KEEP_OPEN === 'true',

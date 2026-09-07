@@ -63,6 +63,9 @@ public final class ViewAddRxComment2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
         // Check the coarse role before looking up an attacker-selected id. This keeps callers with
         // no Rx write role from distinguishing a real prescription id from a missing one by the
         // difference between the 404 below and the patient/owner authorization failure.
@@ -76,7 +79,7 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             return NONE;
         }
 
-        String loggedInProvider = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        String loggedInProvider = loggedInInfo.getLoggedInProviderNo();
         // Additional Notes are rendered beneath the persisted prescriber's signature. Patient-level
         // _rx write alone must not let a covering provider alter somebody else's signed document.
         if (!Objects.equals(loggedInProvider, prescription.getProviderNo())

@@ -44,6 +44,7 @@ maintainer-script-calls-systemctl [postinst:62]
 # Ubuntu 26.04's man-db exits 3 with this status-only pipeline message for
 # compressed manual pages under lintian's `man -l -Tutf8 -Z` invocation; the
 # same command also fails for /usr/share/man/man1/ls.1.gz. The uncompressed
-# source is separately checked with groff -ww so real roff diagnostics remain
-# release failures.
+# package test gate separately checks the uncompressed source with groff -ww
+# and explicitly fails on any diagnostic (groff warnings normally exit zero),
+# so real roff problems remain release failures.
 groff-message command exited with status 1: * [usr/share/man/man8/carlos-ctl.8.gz:1]
