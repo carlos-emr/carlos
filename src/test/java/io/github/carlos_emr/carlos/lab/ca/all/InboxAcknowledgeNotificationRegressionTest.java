@@ -79,7 +79,7 @@ class InboxAcknowledgeNotificationRegressionTest {
     void shouldNotifyInbox_whenLabMacroDoesNotCloseWindow() throws IOException {
         String labDisplay = read(LAB_DISPLAY_JSP);
 
-        int notifyCall = labDisplay.indexOf("inboxNotified = notifyInboxhubAfterMacro(formid, json.clearedCount);");
+        int notifyCall = labDisplay.indexOf("notifyInboxhubAfterMacro(formid, json.clearedCount);");
         int closeCall = labDisplay.indexOf("if (closeOnSuccess) {");
         assertThat(notifyCall)
                 .as("lab macro success handler must notify the Inboxhub")
@@ -99,7 +99,7 @@ class InboxAcknowledgeNotificationRegressionTest {
         assertThat(labDisplay).contains("if (json.acknowledged) {");
         assertThat(labDisplay)
                 .as("closing the window must not take an unacknowledged lab out of the inbox")
-                .contains("closeLabAfterMacro(formid, json.acknowledged, inboxNotified, json.clearedCount);")
+                .contains("closeLabAfterMacro(formid, json.acknowledged);")
                 .contains("if (acknowledged && self.opener && segmentId.length > 0) {");
         assertThat(read(SHOW_DOCUMENT_JSP)).contains("if (json.acknowledged) {");
         assertThat(read(REPORT_MACRO_ACTION))
@@ -300,22 +300,32 @@ class InboxAcknowledgeNotificationRegressionTest {
     }
 
     @Test
-    @DisplayName("should move the counters through the opener when the broadcast did not go")
-    void shouldCountThroughOpener_whenBroadcastChannelIsUnavailable() throws IOException {
-        // BroadcastChannel is the channel that survives COOP, but it is not universal. When the
-        // post throws there is nothing else to tell the inbox, so the opener call has to carry
-        // the count as well as remove the row — and with the server's number, which the
-        // row-only call has no way to pass.
+    @DisplayName("should reach the inbox directly when the broadcast could not be posted")
+    void shouldReachInboxDirectly_whenBroadcastChannelIsUnavailable() throws IOException {
+        // BroadcastChannel is the channel that survives COOP, but it is not universal. The
+        // fallback belongs in the notifier, NOT on the window-closing path: a macro with
+        // closeOnSuccess:false never closes its window, so hanging it off the close path left
+        // exactly the macros this PR exists to fix with a stale row and a stale badge.
         String labDisplay = read(LAB_DISPLAY_JSP);
 
+        // Anchored to the notifier's own body. A bare contains("return true;") passes on
+        // unrelated handlers elsewhere in this file and pins nothing.
         assertThat(labDisplay)
-                .as("the sender must say whether the message actually went")
-                .contains("return true;")
-                .contains("return false;");
+                .as("posting the message reports success from inside the notifier")
+                .contains("            bc.close();\n"
+                        + "            return true;\n"
+                        + "        } catch (e) {")
+                .as("and a failed post falls through to the direct route, not to a bare false")
+                .contains("return dropFromInboxhubDirectly(segmentId, labType, clearedCount);");
         assertThat(labDisplay)
-                .contains("if (!inboxNotified "
-                        + "&& typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {")
-                .contains("self.opener.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);");
+                .as("the direct route does the whole job: row and counters, by the server's count")
+                .contains("inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);")
+                .as("reaching the inbox in preview mode as well as from a popup")
+                .contains("} else if (window.parent !== window");
+        assertThat(labDisplay)
+                .as("the close path is row-only again, so closeOnSuccess no longer gates counting")
+                .contains("closeLabAfterMacro(formid, json.acknowledged);")
+                .doesNotContain("inboxNotified");
     }
 
     @Test

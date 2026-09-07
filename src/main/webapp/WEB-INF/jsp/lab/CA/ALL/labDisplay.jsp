@@ -1145,15 +1145,11 @@ input[id^='acklabel_']{
                 // not acknowledge anything — one that only files a tickler succeeds and leaves
                 // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
                 // dealt with.
-                // Whether the inbox was actually told. The broadcast is the only channel
-                // that survives COOP, but it is not universal, and when it does not go the
-                // opener call below has to move the counters instead of just the row.
-                var inboxNotified = false;
                 if (json.acknowledged) {
-                    inboxNotified = notifyInboxhubAfterMacro(formid, json.clearedCount);
+                    notifyInboxhubAfterMacro(formid, json.clearedCount);
                 }
                 if (closeOnSuccess) {
-                    closeLabAfterMacro(formid, json.acknowledged, inboxNotified, json.clearedCount);
+                    closeLabAfterMacro(formid, json.acknowledged);
                 }
             } else {
                 var message = json && json.error ? json.error : 'Macro execution failed. Please try again.';
@@ -1176,11 +1172,8 @@ input[id^='acklabel_']{
      *
      * @param {string} formid id of the acknowledge form the macro was run against
      * @param {boolean} acknowledged whether the macro actually acknowledged the lab
-     * @param {boolean} inboxNotified whether the broadcast reached the inbox; when it did not,
-     *                  the opener call below is the only thing that can move the counters
-     * @param {number} clearedCount routing rows the server reported clearing
      */
-    function closeLabAfterMacro(formid, acknowledged, inboxNotified, clearedCount) {
+    function closeLabAfterMacro(formid, acknowledged) {
         var formEl = document.getElementById(formid);
         var elements = (formEl && formEl.elements) ? formEl.elements : null;
         var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
@@ -1197,20 +1190,16 @@ input[id^='acklabel_']{
         }
 
         if (typeof _in_window !== 'undefined' && _in_window) {
-            // Normally the row only: the counters are the broadcast's job, because it is the
-            // party carrying clearedCount — a macro form has no multiID to walk, so this
-            // window cannot work out how many routing rows the acknowledgement cleared, and a
-            // counting call would assume one and undercount a multi-version lab.
+            // The row only. The counters were already dealt with by notifyInboxhubAfterMacro,
+            // which ran before this and falls back to the opener itself when the broadcast
+            // could not be posted — closing the window is not the right thing to hang that on,
+            // since a macro with closeOnSuccess:false never gets here at all.
             //
-            // When the broadcast did NOT go, this is the only channel left, so it has to move
-            // the counters too — with the server's count, which the row-only call cannot pass.
             // removeReport is the last resort for an opener with neither newer function: an
             // acknowledged row left on screen reads as "the acknowledgement did nothing",
             // which is worse than a badge one out that the next page load corrects.
             if (acknowledged && self.opener && segmentId.length > 0) {
-                if (!inboxNotified && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
-                    self.opener.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
-                } else if (typeof self.opener.removeInboxhubRow === 'function') {
+                if (typeof self.opener.removeInboxhubRow === 'function') {
                     self.opener.removeInboxhubRow(segmentId, labType);
                 } else if (typeof self.opener.removeReport !== 'undefined') {
                     self.opener.removeReport(segmentId, labType);
@@ -1247,8 +1236,7 @@ input[id^='acklabel_']{
      *
      * @param {string} formid id of the acknowledge form the macro was run against
      * @param {number} clearedCount routing rows the server reported clearing
-     * @return {boolean} whether the message was actually posted; false means the inbox has not
-     *         been told anything and something else has to tell it
+     * @return {boolean} whether the inbox was reached, by either route
      */
     function notifyInboxhubAfterMacro(formid, clearedCount) {
         var segmentId = '';
@@ -1274,8 +1262,43 @@ input[id^='acklabel_']{
             bc.close();
             return true;
         } catch (e) {
-            // BroadcastChannel unsupported. The caller falls back to window.opener; the item
-            // is hidden locally either way.
+            // BroadcastChannel unsupported. Reach the inbox window directly instead, HERE
+            // rather than in the caller: a macro with closeOnSuccess:false never closes this
+            // window, so hanging the fallback off the close path left exactly the macros this
+            // PR exists to fix with a stale row and a stale badge.
+            return dropFromInboxhubDirectly(segmentId, labType, clearedCount);
+        }
+    }
+
+    /**
+     * Tells the inbox window directly, for browsers with no BroadcastChannel.
+     *
+     * The inbox is either the window that opened this popup, or — in preview mode — the one
+     * this iframe sits in. Both are same-origin; the guard is that window.parent is this
+     * window for a top-level page, and that a severed opener (COOP, which is the reason the
+     * broadcast exists at all) leaves nothing to call.
+     *
+     * dropAcknowledgedInboxhubItem is the same function the broadcast listener runs, so this
+     * route removes the row AND moves the counters by the server's count — the whole job,
+     * once, guarded against a repeat by the same per-item key.
+     *
+     * @return {boolean} whether an inbox window was actually reached
+     */
+    function dropFromInboxhubDirectly(segmentId, labType, clearedCount) {
+        if (!segmentId || segmentId.length === 0) { return false; }
+        try {
+            var inbox = null;
+            if (self.opener && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
+                inbox = self.opener;
+            } else if (window.parent !== window
+                    && typeof window.parent.dropAcknowledgedInboxhubItem === 'function') {
+                inbox = window.parent;
+            }
+            if (!inbox) { return false; }
+            inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+            return true;
+        } catch (e) {
+            // No reachable inbox window; the item is hidden locally either way.
             return false;
         }
     }
