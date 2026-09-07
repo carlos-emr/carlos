@@ -167,10 +167,19 @@ async function login(context, config, recorder) {
   const page = await context.newPage();
   wirePage(page, 'login', recorder);
   await gotoApp(page, config.baseUrl, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
   if (await page.locator('#pin').count()) {
     await page.locator('#pin').fill(config.testPin);
+  }
+  assert(await page.locator('#username').inputValue() === config.testUser,
+    'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === config.testPassword,
+    'login password field changed before submit');
+  if (await page.locator('#pin').count()) {
+    assert(await page.locator('#pin').inputValue() === config.testPin,
+      'login PIN field changed before submit');
   }
   await Promise.all([
     // forcepasswordreset is a legitimate destination, not a failure: the carlos-emr package

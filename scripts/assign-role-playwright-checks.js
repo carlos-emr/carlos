@@ -352,6 +352,11 @@ async function run() {
     });
     const page = await browser.newPage({
       baseURL: playwrightBaseUrl(),
+      // The packaged standalone install intentionally starts with a
+      // self-signed certificate. Relax verification only for the exact local
+      // targets accepted above; an opted-in remote target must still prove its
+      // certificate before this privileged, DB-writing check logs in.
+      ignoreHTTPSErrors: baseUrl.protocol === 'https:' && isExactLocalHost(baseUrl.hostname),
       viewport: { width: 1400, height: 1000 },
     });
 

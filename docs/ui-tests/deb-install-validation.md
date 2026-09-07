@@ -231,8 +231,14 @@ lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y nodejs npm
   cd /root && npm init -y && npm install --save-exact playwright@1.60.0
-  npx --yes playwright install --with-deps chromium'
+  /usr/lib/carlos-emr/chromium/chrome --version'
 ```
+
+Do not run `playwright install` on Ubuntu 26.04 with Playwright 1.60.0: that
+Playwright release does not recognise the `ubuntu26.04-x64` host platform. The
+`carlos-emr-eform-renderer` package already supplies the release-pinned Chromium
+and its runtime dependencies. Using it also makes the suite exercise the exact
+browser shipped to operators instead of a second downloaded browser.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
 paths resolve; Node still finds Playwright via `/root/node_modules`.
@@ -244,6 +250,7 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+export CHROME_PATH=/usr/lib/carlos-emr/chromium/chrome
 # A secure fresh install randomises both secrets. Read the root-only handoff file,
 # then perform the mandatory first-login reset once before any suite loop.
 test -r /etc/carlos-emr/initial-admin.txt
@@ -343,9 +350,16 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
+# A browser failure may be the first symptom of the JVM being killed and
+# restarted. Record the service counter so the suite cannot finish green after
+# silently testing two different application processes.
+service_restarts_before="$(systemctl show carlos-emr -p NRestarts --value)"
 suite_failed=0
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
-  case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
+  case "$s" in
+    *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
+    *login-playwright-checks*) continue ;; # run its deliberate failed-login probes last
+  esac
   # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
   # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
   t=300; case "$s" in *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;; esac
@@ -357,7 +371,37 @@ for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js
     suite_failed=1
   fi
 done
-test "$suite_failed" -eq 0
+service_restarts_after="$(systemctl show carlos-emr -p NRestarts --value)"
+if [ "$service_restarts_after" != "$service_restarts_before" ]; then
+  echo "FAIL carlos-emr restarted during suite ($service_restarts_before -> $service_restarts_after)"
+  suite_failed=1
+fi
+if [ "$suite_failed" -ne 0 ]; then
+  echo "FAIL positive Playwright suite; refusing to mask it with the isolated login phase"
+  exit 1
+fi
+
+# This security check deliberately submits two bad passwords. Run it after the
+# positive suite against a freshly started process so a prior harness mistake
+# cannot supply the third failure that locks the shared test account, and leave
+# it last so its own negative probes cannot affect another check.
+if ! systemctl restart carlos-emr; then
+  echo "FAIL could not restart carlos-emr before the isolated login phase"
+  exit 1
+fi
+login_phase_ready=0
+for attempt in $(seq 1 90); do
+  if curl -skf --max-time 5 -o /dev/null https://127.0.0.1/carlos/; then
+    login_phase_ready=1
+    break
+  fi
+  sleep 2
+done
+if [ "$login_phase_ready" -ne 1 ]; then
+  echo "FAIL carlos-emr did not become ready for the isolated login phase"
+  exit 1
+fi
+timeout 300 node scripts/login-playwright-checks.js
 ```
 
 Notes on the contract:
