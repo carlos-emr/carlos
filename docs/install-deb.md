@@ -96,6 +96,18 @@ does not.
 
 ![Host name question](images/install/01-server-name.png)
 
+> **Reaching the server by IP address.** Clients on the practice LAN may use the
+> server's IP instead of a name — that is the common clinic setup and the
+> packaged WAF rules account for it (rule 1090 exempts private-range clients
+> from CRS 920350, which would otherwise spend 3 of the 5-point anomaly budget
+> on every request). Clients arriving from a **public** address get no such
+> exemption, by design: they start each request part-way to the blocking
+> threshold, so users see occasional unexplained `403` errors on ordinary
+> clinical work with nothing in the application log. **If anyone will reach this
+> server from outside the practice network, give it a DNS name and have them use
+> the name** — which is also what a real TLS certificate is issued for. See
+> "The web application firewall" in `README.Debian` for the full reasoning.
+
 **2. Listen address** — `0.0.0.0` serves every interface (the usual clinic
 setup); `127.0.0.1` keeps it local while staging or behind a separate proxy.
 The application server and database always listen on loopback only.
