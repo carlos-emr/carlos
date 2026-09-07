@@ -10,9 +10,11 @@
  *
  * Useful env vars:
  *   BASE_URL=http://localhost:8080/carlos
- *   CARLOS_USER=carlosdoc
- *   CARLOS_PASSWORD=carlos2026
- *   CARLOS_PIN=2026
+ *   TEST_USER=carlosdoc
+ *   TEST_PASSWORD=carlos2026
+ *   TEST_PIN=2026
+ *   CARLOS_USER / CARLOS_PASSWORD / CARLOS_PIN remain accepted as legacy aliases
+ *   CHROME_PATH=/path/to/chrome-or-chromium
  *   HEADLESS=false
  *   KEEP_OPEN=true
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
@@ -22,14 +24,14 @@ const { chromium } = require('playwright');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://localhost:8080/carlos'),
-  username: process.env.CARLOS_USER || 'carlosdoc',
-  password: process.env.CARLOS_PASSWORD || 'carlos2026',
-  pin: process.env.CARLOS_PIN || '2026',
+  username: process.env.TEST_USER || process.env.CARLOS_USER || 'carlosdoc',
+  password: process.env.TEST_PASSWORD || process.env.CARLOS_PASSWORD || 'carlos2026',
+  pin: process.env.TEST_PIN || process.env.CARLOS_PIN || '2026',
   // Empty by default so Playwright uses its own bundled chromium; a pinned
   // build path (e.g. the devcontainer's) would break on any other install
   // (deb, CI) where that exact revision is not present. Override CHROMIUM_PATH
   // only to force a specific binary (e.g. the packaged eForm-render chromium).
-  chromiumPath: process.env.CHROMIUM_PATH || '',
+  chromiumPath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
   headless: process.env.HEADLESS !== 'false',
   keepOpen: process.env.KEEP_OPEN === 'true',
   timeout: Number(process.env.PLAYWRIGHT_TIMEOUT || 30000),

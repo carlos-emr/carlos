@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
+import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
@@ -457,6 +458,26 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                 "createAndSaveFaxJob", LoggedInInfo.class, Map.class);
 
         assertThat(createAndSaveFaxJob.isAnnotationPresent(Transactional.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should persist and audit one pre-built fax job inside a transaction")
+    void shouldPersistAndAuditPrebuiltFaxJob_insideTransaction() throws Exception {
+        Method method = FaxManagerImpl.class.getMethod("persistAndLogFaxJob",
+                LoggedInInfo.class, FaxJob.class, FaxManager.TransactionType.class, int.class);
+        assertThat(method.isAnnotationPresent(Transactional.class)).isTrue();
+
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+        FaxJob faxJob = new FaxJob();
+        Mockito.doNothing().when(manager)
+                .logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+
+        manager.persistAndLogFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+
+        org.mockito.InOrder ordered = Mockito.inOrder(faxJobDao, manager);
+        ordered.verify(faxJobDao).persist(faxJob);
+        ordered.verify(manager).logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
     }
 
     @Test

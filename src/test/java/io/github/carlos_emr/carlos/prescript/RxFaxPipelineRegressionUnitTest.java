@@ -119,6 +119,17 @@ class RxFaxPipelineRegressionUnitTest {
         assertThat(viewScript2).doesNotContain("'CSRF-TOKEN': csrfToken");
     }
 
+    @Test
+    @DisplayName("should HTML-attribute encode stored pharmacy fields in the fax form")
+    void shouldEncodePharmacyFields_inFaxFormAttributes() throws IOException {
+        String preview2 = Files.readString(PREVIEW2_JSP);
+        assertThat(preview2)
+                .contains("value='<%= pharmaFax %>' context=\"htmlAttribute\"")
+                .contains("value='<%= pharmaName %>' context=\"htmlAttribute\"")
+                .doesNotContain("name=\"pharmaFax\" value=\"<%=pharmaFax%>\"")
+                .doesNotContain("name=\"pharmaName\" value=\"<%=pharmaName%>\"");
+    }
+
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir")))
                 .toAbsolutePath()

@@ -125,22 +125,16 @@ function sqlValue(value) {
     const listRows = await listPage.locator('table.consult-table tbody tr').count();
     assert(listRows > 0, 'consultation list rendered no rows for the demo dataset');
 
-    // Open the staged request from the list the way a user would; the list
-    // links carry requestId=<id>. Fall back to direct navigation only if the
-    // list pagination/filters hide this request.
-    const rowLink = listPage.locator(`a[href*='requestId=${requestId}'], a[onclick*='requestId=${requestId}']`).first();
-    let consultPage = listPage;
-    if (await rowLink.count()) {
-      const consultPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
-      await rowLink.click();
-      const popped = await consultPopup;
-      if (popped) {
-        consultPage = popped;
-        wirePage(consultPage, 'consultation-form', recorder);
-      }
-    } else {
-      await listPage.goto(`${config.baseUrl.href.replace(/\/$/, '')}/encounter/ViewRequest?requestId=${requestId}`, { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep // validateBaseUrl restricts hosts to loopback by default; requestId is digits-only.
-    }
+    // The request id lives in the row's onclick handler (not in an anchor).
+    // Require the exact staged row to render so direct form navigation cannot
+    // hide a consultation-list failure such as a NULL urgency dereference.
+    const requestRow = listPage.locator(`table.consult-table tbody tr[onclick*='requestId=${requestId}']`).first();
+    assert(await requestRow.count(), `consultation list did not render staged request ${requestId}`);
+    const consultPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
+    await requestRow.click();
+    const consultPage = await consultPopup;
+    assert(consultPage, `consultation row ${requestId} did not open its request form`);
+    wirePage(consultPage, 'consultation-form', recorder);
     await consultPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
     // Regression 1: the form must render despite providerNo/urgency NULL.

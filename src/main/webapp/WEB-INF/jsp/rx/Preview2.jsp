@@ -413,8 +413,8 @@
                                        value="<%= SafeEncode.forHtmlAttribute(patient.getFirstName())+ " " +SafeEncode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
                                        value="<carlos:encode value='<%= patientDOBStr %>' context="htmlAttribute"/>"/>
-                                <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
-                                <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
+                                <input type="hidden" name="pharmaFax" value="<carlos:encode value='<%= pharmaFax %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="pharmaName" value="<carlos:encode value='<%= pharmaName %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="pracNo" value="<carlos:encode value='<%= pracNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>

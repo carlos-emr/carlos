@@ -40,6 +40,10 @@ class FlowSheetEditorJspRegressionTest {
 
     private static final Path EDIT_FLOWSHEET_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp");
+    private static final Path PRINT_FLOWSHEET_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp");
+    private static final Path PACKAGED_FAVICON =
+            Path.of("src/main/webapp/images/favicon.ico");
 
     @Test
     @DisplayName("dynamic customization forms should copy the CSRF token before submission")
@@ -53,5 +57,18 @@ class FlowSheetEditorJspRegressionTest {
                 .contains("if (!appendCsrfToken(form))")
                 .contains("The security token is unavailable. Reload this page and try again.")
                 .containsSubsequence("if (!appendCsrfToken(form))", "return;", "form.submit();");
+    }
+
+    @Test
+    @DisplayName("flowsheet pages should reference the packaged context-relative favicon")
+    void flowsheetPagesShouldReferencePackagedFavicon() throws IOException {
+        assertThat(PACKAGED_FAVICON).isRegularFile();
+
+        for (Path jspPath : new Path[] {EDIT_FLOWSHEET_JSP, PRINT_FLOWSHEET_JSP}) {
+            assertThat(Files.readString(jspPath, StandardCharsets.UTF_8))
+                    .as(jspPath.toString())
+                    .contains("${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico")
+                    .doesNotContain("href=\"ico/");
+        }
     }
 }

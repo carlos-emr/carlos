@@ -779,6 +779,14 @@ public class FaxManagerImpl implements FaxManager {
 
     @Transactional
     @Override
+    public void persistAndLogFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob,
+            TransactionType transactionType, int transactionId) {
+        faxJobDao.persist(faxJob);
+        logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
+    }
+
+    @Transactional
+    @Override
     public List<FaxJob> persistAndLogFaxJobs(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap,
             TransactionType transactionType, Integer transactionId) {
         // Self-invocation of createAndSaveFaxJob joins THIS transaction (its own @Transactional advice

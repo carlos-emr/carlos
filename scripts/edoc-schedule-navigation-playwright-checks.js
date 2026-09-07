@@ -359,12 +359,34 @@ async function addDocument(page, pdfPath) {
   await chooseDocType(page);
   await page.locator('#docDesc').fill(docDescription);
   await page.locator('#docFile').setInputFiles(pdfPath);
+  const observationDate = await page.locator('#observationDate').inputValue();
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(observationDate),
+    `The Add Document form has an invalid observation date: ${observationDate}`);
+  const validObservationDate = await page.evaluate(() => (
+    typeof validDate === 'function' && validDate('observationDate')
+  ));
+  assert(validObservationDate, `validDate rejected observationDate=${observationDate}`);
 
-  await Promise.all([
-    page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {}),
+  const expectedFunction = await page.locator('#addDocDiv input[name="function"]').inputValue();
+  const expectedFunctionId = await page.locator('#addDocDiv input[name="functionId"]').inputValue();
+
+  const [postResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) => response.url().includes('/documentManager/addEditDocument')
+        && response.request().method() === 'POST',
+      { timeout: 60000 },
+    ),
     page.locator('#addDocDiv input[name="Submit"]').click(),
   ]);
-  await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  assert(postResponse.status() < 400,
+    `Add Document POST returned HTTP ${postResponse.status()} (${postResponse.url()})`);
+  await page.waitForURL((url) => (
+    url.pathname.endsWith('/documentManager/ViewDocumentReport')
+      && url.searchParams.get('docerrors') === 'docerrors'
+      && url.searchParams.get('function') === expectedFunction
+      && url.searchParams.get('functionid') === expectedFunctionId
+      && url.searchParams.get('scheduleNav') === '1'
+  ), { waitUntil: 'domcontentloaded', timeout: 60000 });
 }
 
 async function deleteDocument(page) {
@@ -413,10 +435,7 @@ async function run() {
     await addDocument(page, pdfPath);
     assertScheduleNavRetained(page, 'after adding a document');
     await assertNavHeader(page, true, 'after adding a document');
-    assert(
-      await page.locator(`a[title="${docDescription}"]`).count(),
-      `The added document "${docDescription}" is not listed after the redirect`,
-    );
+    await page.locator(`a[title="${docDescription}"]`).waitFor({ state: 'attached', timeout: 30000 });
     await screenshot(page, 'after-add');
     console.log(`document "${docDescription}" added; navigation header intact`);
 

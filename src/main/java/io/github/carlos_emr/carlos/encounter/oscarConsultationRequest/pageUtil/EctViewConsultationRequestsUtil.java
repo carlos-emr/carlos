@@ -176,7 +176,7 @@ public class EctViewConsultationRequestsUtil {
               provider.add(providerName);
               service.add(serviceDescription);
               vSpecialist.add(specialistName);
-              urgency.add(consult.getUrgency());
+              urgency.add(consult.getUrgency() != null ? consult.getUrgency() : "");
               siteName.add(consult.getSiteName());
               teams.add(consult.getSendTo());
               eReferral.add(isEReferral);
@@ -285,7 +285,7 @@ public class EctViewConsultationRequestsUtil {
               provider.add(providerName);
               service.add(serviceDescription);
               vSpecialist.add(specialistName);
-              urgency.add(consult.getUrgency());
+              urgency.add(consult.getUrgency() != null ? consult.getUrgency() : "");
               patientWillBook.add(""+consult.isPatientWillBook());
               // The whole loop shares one catch, so a single null here (legacy/imported
               // consults can carry a null referralDate or providerNo) would NPE and hide
