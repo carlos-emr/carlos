@@ -246,7 +246,9 @@ class PatientPortalHttpClientExchangeUnitTest {
     void acceptsResponseExactlyAtLimit() throws Exception {
         String body = "x".repeat(PatientPortalHttpClientExchange.MAX_RESPONSE_CHARS);
         respond("/exact", 200, body);
-        try (PatientPortalHttpClientExchange transport = exchange()) {
+        // This checks body size, not timing. Allow scheduling delays on a loaded build host.
+        try (PatientPortalHttpClientExchange transport = new PatientPortalHttpClientExchange(
+                Duration.ofSeconds(5), Duration.ofSeconds(10))) {
             assertThat(transport.send(get("/exact")).body()).isEqualTo(body);
         }
     }

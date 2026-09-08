@@ -155,11 +155,9 @@ public class PatientPortalService implements Closeable {
      * <p>The returned token is issued once. CARLOS owns delivery and must record the delivery
      * outcome in its own durable messaging workflow.
      *
-     * <p><b>Calling this twice for one patient is not idempotent and not a no-op.</b> Verified
-     * against the portal: a second create returns {@code 201} with a new invite and silently moves
-     * every earlier pending invite to {@code revoked}, so a token already emailed to the patient
-     * stops working. It does not return a conflict. A UI that lets staff click "invite" twice will
-     * strand the first email, so callers should list existing invites and confirm before creating.
+     * <p>Issuance is disabled at the staff action boundary until durable delivery and atomic
+     * replacement exist. Reading a list and confirming in CARLOS cannot make replacement atomic
+     * across concurrent callers; that guarantee must be enforced by the portal.
      *
      * @param demographicNo CARLOS demographic number
      * @param email patient email from the demographic record
@@ -225,7 +223,13 @@ public class PatientPortalService implements Closeable {
     public PatientPortalInviteDto revokeInvite(long inviteId, PatientPortalStaffContext staff) {
         return fetch(
                 POST, INVITE_REVOKE_PATH, null, staff,
-                PatientPortalInviteDto::fromJson, inviteId);
+                node -> {
+                    PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(node);
+                    if (invite.id() != inviteId || !"revoked".equals(invite.status())) {
+                        throw new PortalContractException("portal did not confirm the selected invitation was revoked");
+                    }
+                    return invite;
+                }, inviteId);
     }
 
     /**
@@ -272,7 +276,15 @@ public class PatientPortalService implements Closeable {
                 ACCESS_PATH,
                 body.toString(),
                 staff,
-                PatientPortalAccountAcknowledgementDto::fromAccessJson,
+                node -> {
+                    PatientPortalAccountAcknowledgementDto account =
+                            PatientPortalAccountAcknowledgementDto.fromAccessJson(node);
+                    String expected = enabled ? "active" : "disabled";
+                    if (!expected.equals(account.status())) {
+                        throw new PortalContractException("portal did not confirm the requested account access state");
+                    }
+                    return account;
+                },
                 demographicNo);
     }
 

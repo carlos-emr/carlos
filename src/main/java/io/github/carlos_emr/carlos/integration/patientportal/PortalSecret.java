@@ -42,9 +42,9 @@ import java.util.Objects;
  *       day someone returns it from a REST service. A loud failure is the correct outcome there.
  *       Two limits worth knowing: with {@code FAIL_ON_EMPTY_BEANS} disabled it emits {@code {}}
  *       instead of throwing — still safe, since the value cannot come out either way — and a
- *       serializer that reflects over private fields, Gson among them, would defeat this entirely.
- *       Neither is on the classpath today. OGNL reaches {@link #toString()} for {@code ${secret}},
- *       but can call {@code expose()} explicitly, so this is not a guarantee on a value stack.
+ *       serializers with custom access rules can still expose private fields. The backing value
+ *       is transient so Gson, which is on the classpath, omits it with its default configuration.
+ *       OGNL can call {@code expose()} explicitly, so this is not a guarantee on a value stack.
  *   <li><b>Reading it is greppable.</b> {@link #expose()} is the single audit surface. {@code
  *       secret()} and {@code inviteToken()} looked like every other accessor; {@code expose()} does
  *       not, and it gives a static-analysis rule one anchor to match on.
@@ -63,7 +63,7 @@ public final class PortalSecret {
 
     private static final String DESCRIPTION = "PortalSecret[REDACTED]";
 
-    private final String value;
+    private final transient String value;
 
     private PortalSecret(String value) {
         this.value = value;

@@ -103,7 +103,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                     new ScriptedExchange()
                             .reply(
                                     200,
-                                    "{\"id\":5,\"locked_at\":null,\"force_password_reset\":true}");
+                                    "{\"id\":5,\"clinic_id\":\"maplecreek\",\"demographic_no\":123,\"locked_at\":null,\"force_password_reset\":true}");
 
             PatientPortalAccountAcknowledgementDto account =
                     service(exchange)
@@ -287,7 +287,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
 
             assertThat(secret.toString()).doesNotContain(PASSPHRASE);
             assertThat(secret.toString()).contains("REDACTED");
-            assertThat(secret.toString()).contains("doc-42");
+            assertThat(secret.toString()).doesNotContain("doc-42");
         }
     }
 
