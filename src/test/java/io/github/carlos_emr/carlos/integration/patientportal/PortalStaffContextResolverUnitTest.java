@@ -203,4 +203,20 @@ class PortalStaffContextResolverUnitTest {
         assertThat(staff.permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
     }
+    @Test
+    void patientScopeDoesNotInheritGlobalGrantOverScopedDenial() {
+        grant(PortalStaffContextResolver.OBJECT_INVITE);
+        assertThatThrownBy(() -> resolver.resolveForPatient(loggedInInfo,
+                Set.of(PortalStaffContextResolver.OBJECT_INVITE), 123))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void patientScopeUsesOnlyPermissionsGrantedForThatPatient() {
+        grant(PortalStaffContextResolver.OBJECT_SECRET);
+        when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
+                eq("r"), eq("123"))).thenReturn(true);
+        assertThat(resolver.resolveForPatient(loggedInInfo, ALL_OBJECTS, 123).permissions())
+                .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
+    }
 }

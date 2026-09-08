@@ -359,12 +359,12 @@ class PatientPortalSettingsUnitTest {
             Map<String, String> properties = validProperties();
             properties.put(
                     PatientPortalSettings.CERTIFICATE_PINS_KEY,
-                    "sha256/AAAA1111, sha256/BBBB2222");
+                    "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=, sha256/AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=");
 
             PatientPortalSettings settings = PatientPortalSettings.fromProperties(properties);
 
             assertThat(settings.certificatePins())
-                    .containsExactlyInAnyOrder("sha256/AAAA1111", "sha256/BBBB2222");
+                    .containsExactlyInAnyOrder("sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "sha256/AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=");
         }
 
         /**
@@ -398,7 +398,7 @@ class PatientPortalSettingsUnitTest {
                     .isEmpty();
 
             Map<String, String> blank = validProperties();
-            blank.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, " , ");
+            blank.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, "   ");
             assertThat(PatientPortalSettings.fromProperties(blank).certificatePins()).isEmpty();
         }
     }

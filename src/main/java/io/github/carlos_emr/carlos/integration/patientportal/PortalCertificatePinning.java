@@ -120,7 +120,16 @@ final class PortalCertificatePinning implements X509TrustManager {
 
     /** Whether a configured value has the documented shape, so settings can reject a typo early. */
     static boolean isWellFormed(String pin) {
-        return pin != null && pin.startsWith(PIN_PREFIX) && pin.length() > PIN_PREFIX.length();
+        if (pin == null || !pin.startsWith(PIN_PREFIX)) {
+            return false;
+        }
+        try {
+            String encoded = pin.substring(PIN_PREFIX.length());
+            byte[] digest = Base64.getDecoder().decode(encoded);
+            return digest.length == 32 && Base64.getEncoder().encodeToString(digest).equals(encoded);
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     /** The JVM's own trust manager, so the standard checks are kept rather than replaced. */

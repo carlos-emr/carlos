@@ -68,11 +68,11 @@ public record PatientPortalUnlockSecretDto(
 
     static PatientPortalUnlockSecretDto fromJson(JsonNode node) {
         return new PatientPortalUnlockSecretDto(
-                PortalJson.requiredLong(node, "id"),
+                PortalJson.positiveLong(node, "id"),
                 PortalJson.requiredBool(node, "created"),
-                PortalSecret.ofNullable(PortalJson.text(node, "secret")),
+                PortalSecret.of(PortalJson.requiredText(node, "secret")),
                 PortalJson.text(node, "source_reference"),
-                PortalJson.text(node, "status"));
+                PortalJson.requiredText(node, "status"));
     }
 
     /** Renders the record without the passphrase, which unlocks patient correspondence. */

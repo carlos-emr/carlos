@@ -121,20 +121,8 @@ public record PatientPortalSettings(
     }
 
     /**
-     * Reports whether a portal is configured at all, without throwing.
-     *
-     * <p>Distinct from construction on purpose. Most CARLOS deployments will never use the portal,
-     * and for them "unconfigured" is the normal state rather than an error — the panel should not
-     * render and the actions should say so plainly. Construction stays fail-closed for the case
-     * where someone <em>has</em> configured it and got it wrong, which is the dangerous one.
-     *
-     * <p>This checks <em>presence</em> only, and the distinction matters more than it looks. A key
-     * that is present but malformed — a plaintext base URL, a non-numeric timeout — reports as
-     * configured here and throws on construction, which is the intended fail-closed path. A key
-     * that is present but <em>blank</em> does not: a portal with a base URL and a clinic id but an
-     * empty service token reports as absent, and the actions answer "no portal on this server"
-     * rather than naming the missing credential. That is the textbook half-configured deployment,
-     * and it is the one case this method does not distinguish.
+     * Reports whether any connection setting is present. Partial configurations proceed to
+     * validation so they produce a configuration error instead of looking like an absent portal.
      */
     public static boolean isConfigured() {
         return isConfigured(key -> CarlosProperties.getInstance().getProperty(key));
@@ -143,11 +131,11 @@ public record PatientPortalSettings(
     static boolean isConfigured(Function<String, String> lookup) {
         for (String key : new String[] {BASE_URL_KEY, CLINIC_ID_KEY, SERVICE_TOKEN_KEY}) {
             String value = lookup.apply(key);
-            if (value == null || value.isBlank()) {
-                return false;
+            if (value != null && !value.isBlank()) {
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     /**
@@ -198,16 +186,7 @@ public record PatientPortalSettings(
         }
     }
 
-    /**
-     * Splits the optional pin list.
-     *
-     * <p>An absent, blank, or all-separator value means no pinning, and that is a real hazard
-     * rather than a neutral default: a misspelled key or a value blanked during a config merge
-     * downgrades a deployment that believes it is pinned to CA-only TLS. Every such path lands
-     * here, so nothing downstream can tell "no pins were asked for" from "the pins went missing".
-     * {@code PatientPortalService} logs which mode is active at construction so the difference is
-     * at least visible in the log.
-     */
+    /** Blank means optional pinning is off; a nonblank list must contain valid pins. */
     private static Set<String> pins(Function<String, String> lookup) {
         String configured = lookup.apply(CERTIFICATE_PINS_KEY);
         if (configured == null || configured.isBlank()) {
@@ -219,6 +198,10 @@ public record PatientPortalSettings(
             if (!trimmed.isEmpty()) {
                 parsed.add(trimmed);
             }
+        }
+        if (parsed.isEmpty()) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, BAD_PIN_MESSAGE, CERTIFICATE_PINS_KEY));
         }
         return Set.copyOf(parsed);
     }

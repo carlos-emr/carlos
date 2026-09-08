@@ -112,7 +112,7 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                                     staff(PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK));
 
             assertThat(account.forcePasswordReset()).isTrue();
-            assertThat(account.locked()).isFalse();
+            assertThat(account.lockedAt()).isNull();
             assertThat(exchange.sent.get(0).getRequestUri())
                     .contains("/internal/carlos/patients/123/unlock");
         }

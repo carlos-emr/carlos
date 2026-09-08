@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
@@ -78,7 +77,6 @@ public class PortalPanel2Action extends PortalJsonAction {
     private static final long serialVersionUID = 1L;
 
     private static final String READ = "r";
-    private static final String NO_ACCOUNT = "no_portal_account";
     private static final String SECTION_UNAVAILABLE = "unavailable";
     private static final String SECTION_FAILED_LOG =
             "patient portal panel section %s could not be read: kind=%s";
@@ -111,52 +109,29 @@ public class PortalPanel2Action extends PortalJsonAction {
     }
 
     @Override
-    public String execute() throws IOException {
-        try {
-            return handle();
-        } catch (SecurityException exception) {
-            return forbidden(ServletActionContext.getResponse(), exception);
-        }
-    }
-
-    // FindSecBugs IMPROPER_UNICODE: this compares an HTTP method token, matching
-    // HttpMethodGuardFilter, which fronts these actions and uses equalsIgnoreCase for the
-    // same purpose. String.equalsIgnoreCase is locale-independent, so the Turkish-I class the
-    // detector is named for does not arise; and it is informational regardless of Locale, so
-    // it cannot be cleared by adding Locale.ROOT. It is a gate rather than a display value, so
-    // the boilerplate "not a security decision" justification would be untrue here: a
-    // permissive fold would admit an oddly-cased token as the method. That grants nothing --
-    // hasPrivilege runs on every path below regardless -- and the request still has to have
-    // arrived as a mutation. See docs/static-analysis-workflows.md.
-    @SuppressFBWarnings(
-            value = "IMPROPER_UNICODE",
-            justification =
-                    "HTTP method token comparison, consistent with HttpMethodGuardFilter;"
-                            + " equalsIgnoreCase is locale-independent and every path below"
-                            + " still runs its own hasPrivilege check")
-    private String handle() throws IOException {
+    protected String handleRequest() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
         String method = request.getMethod();
-        if (!"GET".equalsIgnoreCase(method) && !"POST".equalsIgnoreCase(method)) {
+        if (!"GET".equals(method) && !"POST".equals(method)) {
             return methodNotAllowed(response);
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        boolean mayReadInvites =
-                securityInfoManager.hasPrivilege(
-                        loggedInInfo, PortalStaffContextResolver.OBJECT_INVITE, READ, null);
-        boolean mayReadAccount =
-                securityInfoManager.hasPrivilege(
-                        loggedInInfo, PortalStaffContextResolver.OBJECT_ACCOUNT, READ, null);
-        if (!mayReadInvites && !mayReadAccount) {
-            throw new SecurityException("missing required sec object (_portal.account)");
-        }
-
         int demographicNo = positiveInt(request.getParameter("demographicNo"));
         if (demographicNo <= 0) {
             return badRequest(response, "a patient must be selected");
+        }
+        requirePatientAccess(securityInfoManager, loggedInInfo, demographicNo);
+        boolean mayReadInvites =
+                securityInfoManager.hasPrivilege(
+                        loggedInInfo, PortalStaffContextResolver.OBJECT_INVITE, READ, String.valueOf(demographicNo));
+        boolean mayReadAccount =
+                securityInfoManager.hasPrivilege(
+                        loggedInInfo, PortalStaffContextResolver.OBJECT_ACCOUNT, READ, String.valueOf(demographicNo));
+        if (!mayReadInvites && !mayReadAccount) {
+            throw new SecurityException("missing required sec object (_portal.account)");
         }
 
         PatientPortalService portal = portalService();
@@ -173,7 +148,7 @@ public class PortalPanel2Action extends PortalJsonAction {
         if (mayReadAccount) {
             scope.add(PortalStaffContextResolver.OBJECT_ACCOUNT);
         }
-        PatientPortalStaffContext staff = staffContextResolver.resolve(loggedInInfo, scope);
+        PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(loggedInInfo, scope, demographicNo);
         ObjectNode payload = objectMapper().createObjectNode();
         boolean complete = true;
         if (mayReadInvites) {
@@ -230,14 +205,7 @@ public class PortalPanel2Action extends PortalJsonAction {
         }
     }
 
-    /**
-     * Adds account status, distinguishing "no account yet" from "could not read".
-     *
-     * <p>A {@code 404} here is the routine case — most patients have never activated — so it is
-     * reported as {@code no_portal_account} rather than as an error. Every other failure is reported
-     * as unavailable, because presenting a portal outage as "this patient has no account" would
-     * invite staff to issue an invitation the patient does not need.
-     */
+    /** A 404 cannot distinguish an absent account from rejected service credentials. */
     private boolean addAccount(
             PatientPortalService portal, ObjectNode payload, int demographicNo,
             PatientPortalStaffContext staff) {
@@ -255,18 +223,6 @@ public class PortalPanel2Action extends PortalJsonAction {
             node.put("disabledReason", account.disabledReason());
             return true;
         } catch (PatientPortalException exception) {
-            if (exception.kind() == PatientPortalException.Kind.NOT_FOUND_OR_UNAUTHENTICATED) {
-                payload.put("account", (String) null);
-                payload.put("accountState", NO_ACCOUNT);
-                // Logged even though this is the routine reading, because 404 is three-way: it is
-                // also what a rejected service identity looks like. A rotated token that nobody
-                // updated in carlos.properties reports every patient as having no account, and
-                // without this line a clinic-wide credential outage leaves no trace at all.
-                logger.info(
-                        String.format(
-                                Locale.ROOT, SECTION_FAILED_LOG, "account", exception.kind()));
-                return true;
-            }
             payload.put("accountError", SECTION_UNAVAILABLE);
             payload.put("accountErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
             logger.error(

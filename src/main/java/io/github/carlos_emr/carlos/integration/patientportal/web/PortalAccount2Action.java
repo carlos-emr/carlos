@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
@@ -71,21 +70,6 @@ public class PortalAccount2Action extends PortalJsonAction {
             The lockout is cleared. The patient must complete a password reset before they can \
             sign in again.""";
 
-    /**
-     * A 404 here almost always means the patient never activated, not a broken connection.
-     *
-     * <p>Found by running against a live portal: unlocking a patient with no account returned the
-     * generic "the portal connection needs checking", which sends staff to debug infrastructure
-     * over the most ordinary situation there is. Every route on this action is patient-scoped, so
-     * the patient reading is the right default; a genuine configuration fault shows up as every
-     * call failing, which the panel makes obvious.
-     */
-    private static final String NO_ACCOUNT_MESSAGE =
-            """
-            This patient does not have a patient portal account, so there is nothing to unlock or \
-            disable. Send them an invitation first. If every patient reports this, the portal \
-            connection needs checking rather than an invitation.""";
-
     private static final String ENABLED_REQUIRED =
             "This request must state enabled=true or enabled=false.";
     private static final String UNKNOWN_METHOD = "unsupported portal account action";
@@ -113,40 +97,12 @@ public class PortalAccount2Action extends PortalJsonAction {
     }
 
     @Override
-    String notFoundMessage() {
-        return NO_ACCOUNT_MESSAGE;
-    }
-
-    @Override
-    public String execute() throws IOException {
-        try {
-            return handle();
-        } catch (SecurityException exception) {
-            return forbidden(ServletActionContext.getResponse(), exception);
-        }
-    }
-
-    // FindSecBugs IMPROPER_UNICODE: this compares an HTTP method token, matching
-    // HttpMethodGuardFilter, which fronts these actions and uses equalsIgnoreCase for the
-    // same purpose. String.equalsIgnoreCase is locale-independent, so the Turkish-I class the
-    // detector is named for does not arise; and it is informational regardless of Locale, so
-    // it cannot be cleared by adding Locale.ROOT. It is a gate rather than a display value, so
-    // the boilerplate "not a security decision" justification would be untrue here: a
-    // permissive fold would admit an oddly-cased token as the method. That grants nothing --
-    // hasPrivilege runs on every path below regardless -- and the request still has to have
-    // arrived as a mutation. See docs/static-analysis-workflows.md.
-    @SuppressFBWarnings(
-            value = "IMPROPER_UNICODE",
-            justification =
-                    "HTTP method token comparison, consistent with HttpMethodGuardFilter;"
-                            + " equalsIgnoreCase is locale-independent and every path below"
-                            + " still runs its own hasPrivilege check")
-    private String handle() throws IOException {
+    protected String handleRequest() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
         // Before anything else: both routes here mutate.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             return methodNotAllowed(response);
         }
 
@@ -157,7 +113,12 @@ public class PortalAccount2Action extends PortalJsonAction {
                 METHOD_UNLOCK.equals(method)
                         ? PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK
                         : PortalStaffContextResolver.OBJECT_ACCOUNT;
-        requirePrivilege(securityInfoManager, loggedInInfo, securityObject);
+        int demographicNo = positiveInt(request.getParameter("demographicNo"));
+        if (demographicNo <= 0) {
+            return badRequest(response, "a patient must be selected");
+        }
+        requirePatientAccess(securityInfoManager, loggedInInfo, demographicNo);
+        requirePatientPrivilege(securityInfoManager, loggedInInfo, securityObject, "w", demographicNo);
 
         PatientPortalService portal = portalService();
         if (portal == null) {
@@ -167,11 +128,7 @@ public class PortalAccount2Action extends PortalJsonAction {
         // Scoped to the object this route gated on, so an unlock does not also arrive at the
         // portal carrying authority to manage passphrases.
         PatientPortalStaffContext staff =
-                staffContextResolver.resolve(loggedInInfo, Set.of(securityObject));
-        int demographicNo = positiveInt(request.getParameter("demographicNo"));
-        if (demographicNo <= 0) {
-            return badRequest(response, "a patient must be selected");
-        }
+                staffContextResolver.resolveForPatient(loggedInInfo, Set.of(securityObject), demographicNo);
         try {
             return switch (method == null ? "" : method) {
                 case METHOD_UNLOCK -> unlock(portal, response, demographicNo, staff);
@@ -192,19 +149,12 @@ public class PortalAccount2Action extends PortalJsonAction {
         ObjectNode payload = objectMapper().createObjectNode();
         payload.put("ok", true);
         payload.put("accountId", account.id());
-        payload.put("locked", account.locked());
+        payload.put("locked", account.lockedAt() != null);
         payload.put("forcePasswordReset", account.forcePasswordReset());
         payload.put("note", UNLOCK_NOTE);
         return write(response, HttpServletResponse.SC_OK, payload);
     }
 
-    /**
-     * Enables or disables the account.
-     *
-     * <p>A reason is required when disabling. The portal records it against the account, and
-     * "disabled, no stated reason" is the state a later reviewer cannot interpret; asking at the
-     * point of action costs one field and saves reconstructing intent from an audit trail.
-     */
     /**
      * Reads the {@code enabled} flag, or {@code null} when the caller did not state one.
      *

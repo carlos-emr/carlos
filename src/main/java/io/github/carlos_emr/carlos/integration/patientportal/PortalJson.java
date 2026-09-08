@@ -44,9 +44,7 @@ import java.util.Locale;
  *       {@code 0} or {@code false} and turn a portal contract change into confidently wrong data.
  * </ul>
  *
- * <p>These readers do not attempt to be strict about coercion beyond what is stated: {@link #text}
- * renders any non-null node through {@code asText()}, so a field that changed from string to number
- * yields its text form rather than an error.
+ * <p>Present values must have the documented JSON type; optional means nullable, not coercible.
  *
  * @since 2026-08-19
  */
@@ -61,17 +59,56 @@ final class PortalJson {
 
     static String text(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asText();
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isTextual()) {
+            throw new PortalContractException(String.format(Locale.ROOT, WRONG_TYPE, field));
+        }
+        return value.textValue();
+    }
+
+    /** Required contract strings must not be absent, blank, or coerced from another JSON type. */
+    static String requiredText(JsonNode node, String field) {
+        String value = text(node, field);
+        if (value == null || value.isBlank()) {
+            throw new PortalContractException(String.format(Locale.ROOT, MISSING_FIELD, field));
+        }
+        return value;
+    }
+
+    static long positiveLong(JsonNode node, String field) {
+        long value = requiredLong(node, field);
+        if (value <= 0) {
+            throw new PortalContractException(String.format(Locale.ROOT, OUT_OF_RANGE, field));
+        }
+        return value;
+    }
+
+    static int positiveInt(JsonNode node, String field) {
+        int value = requiredInt(node, field);
+        if (value <= 0) {
+            throw new PortalContractException(String.format(Locale.ROOT, OUT_OF_RANGE, field));
+        }
+        return value;
+    }
+
+    static int nonnegativeInt(JsonNode node, String field) {
+        int value = requiredInt(node, field);
+        if (value < 0) {
+            throw new PortalContractException(String.format(Locale.ROOT, OUT_OF_RANGE, field));
+        }
+        return value;
     }
 
     static Long optionalLong(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asLong();
+        return value == null || value.isNull() ? null : requiredLong(node, field);
     }
 
     static Integer optionalInt(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asInt();
+        return value == null || value.isNull() ? null : requiredInt(node, field);
     }
 
     /**
@@ -81,10 +118,13 @@ final class PortalJson {
      */
     static long requiredLong(JsonNode node, String field) {
         JsonNode value = present(node, field);
-        if (!value.isNumber()) {
+        if (!value.isIntegralNumber()) {
             throw new PortalContractException(String.format(Locale.ROOT, WRONG_TYPE, field));
         }
-        return value.asLong();
+        if (!value.canConvertToLong()) {
+            throw new PortalContractException(String.format(Locale.ROOT, OUT_OF_RANGE, field));
+        }
+        return value.longValue();
     }
 
     /**

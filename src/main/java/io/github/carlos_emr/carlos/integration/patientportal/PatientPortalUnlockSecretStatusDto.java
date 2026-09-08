@@ -43,6 +43,6 @@ public record PatientPortalUnlockSecretStatusDto(long id, String status) {
 
     static PatientPortalUnlockSecretStatusDto fromJson(JsonNode node) {
         return new PatientPortalUnlockSecretStatusDto(
-                PortalJson.requiredLong(node, "id"), PortalJson.text(node, "status"));
+                PortalJson.positiveLong(node, "id"), PortalJson.requiredText(node, "status"));
     }
 }
