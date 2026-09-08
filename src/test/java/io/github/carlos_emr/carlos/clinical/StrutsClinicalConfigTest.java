@@ -272,6 +272,14 @@ class StrutsClinicalConfigTest {
         return text == null ? "" : text.trim();
     }
 
+    @Test
+    void shouldKeepAiSummaryPrototypeBehindItsDedicatedGate() throws Exception {
+        Element action = findAction(CLINICAL_CONFIG, "clinical/AiSummaryPrototype");
+        assertThat(action.getAttribute("class")).isEqualTo(
+                "io.github.carlos_emr.carlos.clinical.summary.web.AiClinicalSummaryPrototype2Action");
+        assertThat(resultPath(action, "success")).isEqualTo("/WEB-INF/jsp/clinical/aiSummaryPrototype.jsp");
+    }
+
     private List<String> collectActionNames(String configPath) throws Exception {
         Document doc = parse(configPath);
         NodeList actions = doc.getElementsByTagName("action");
