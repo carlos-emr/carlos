@@ -7,7 +7,7 @@ import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryRequest;
 import io.github.carlos_emr.carlos.clinical.summary.SyntheticClinicalSummaryProvider;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryArtifact;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
-import io.github.carlos_emr.carlos.clinical.summary.LocalClinicalSummaryGenerator;
+import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationService;
 import io.github.carlos_emr.carlos.clinical.summary.SyntheticSummaryScope;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -150,7 +150,7 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
     private void enableGeneration() {
         when(request.getMethod()).thenReturn("POST");
         when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
-        when(properties.getProperty(LocalClinicalSummaryGenerator.ENABLED_PROPERTY, "false")).thenReturn("true");
+        when(properties.getProperty(ClinicalSummaryGenerationService.ENABLED_PROPERTY, "false")).thenReturn("true");
         when(request.getParameterValues("demographicNo")).thenReturn(new String[]{"42"});
     }
 
@@ -158,7 +158,7 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
     void discardsDraftWhenSourcesChangeDuringGeneration() throws Exception {
         enableGeneration();
         ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
-        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryGenerationService generator = mock(ClinicalSummaryGenerationService.class);
         ClinicalSummaryArtifact original = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
         com.fasterxml.jackson.databind.node.ObjectNode changed = new com.fasterxml.jackson.databind.ObjectMapper()
                 .valueToTree(original.getView());
@@ -207,7 +207,7 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
     void generationRejectsUnverifiedChartsWithoutModelCalls() throws Exception {
         enableGeneration();
         ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
-        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryGenerationService generator = mock(ClinicalSummaryGenerationService.class);
         when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(
                 new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic()));
         assertThat(new AiClinicalSummaryPrototype2Action(charts, generator).generate()).isEqualTo(ActionSupport.NONE);
@@ -219,7 +219,7 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
     void generationRechecksChartBeforeRendering() throws Exception {
         enableGeneration();
         ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
-        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryGenerationService generator = mock(ClinicalSummaryGenerationService.class);
         ClinicalSummaryArtifact fixture = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
         when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(fixture);
         when(generator.generate(fixture)).thenReturn(fixture);
@@ -235,7 +235,7 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
     void generationFailureRetainsOnlyFreshAuthorizedEvidence() throws Exception {
         enableGeneration();
         ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
-        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryGenerationService generator = mock(ClinicalSummaryGenerationService.class);
         ClinicalSummaryArtifact fixture = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
         when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(fixture);
         when(generator.generate(fixture)).thenThrow(new ClinicalSummaryGenerationException("Local model unavailable"));
@@ -253,7 +253,7 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
     void revokedPatientAccessDuringGenerationPreventsRendering() throws Exception {
         enableGeneration();
         ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
-        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryGenerationService generator = mock(ClinicalSummaryGenerationService.class);
         ClinicalSummaryArtifact fixture = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
         when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(fixture).thenThrow(new SecurityException("Access revoked"));
         when(generator.generate(fixture)).thenReturn(fixture);

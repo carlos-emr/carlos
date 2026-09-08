@@ -42,7 +42,7 @@ const path = require("node:path");
         });
         const navigation = page.waitForNavigation({waitUntil: "domcontentloaded", timeout: 1860000});
         await button.click({noWaitAfter: true});
-        console.log("Submitted synthetic fixture; waiting for local inference.");
+        console.log("Submitted synthetic fixture; waiting for the configured agent.");
         const response = await navigation;
         assert.equal(pendingChecked, true);
         assert.equal(response.status(), 200);
@@ -57,7 +57,8 @@ const path = require("node:path");
             assert.equal(await page.locator(".generation-error").count(), 0,
                 await page.locator(".generation-error").allTextContents());
             assert.match(await page.locator(".synthetic-banner").innerText(), /Unverified AI draft/i);
-            assert.match(await page.locator(".artifact-footer").innerText(), /qwen3\.5:.*local Ollama/);
+            const agentLabel = process.env.AI_SUMMARY_AGENT_LABEL || "qwen3.5:2b via local Ollama";
+            assert.ok((await page.locator(".artifact-footer").innerText()).includes(agentLabel));
             assert.ok(await page.locator(".claim").count() > 0);
         }
         for (const width of [1440, 390, 320]) {
