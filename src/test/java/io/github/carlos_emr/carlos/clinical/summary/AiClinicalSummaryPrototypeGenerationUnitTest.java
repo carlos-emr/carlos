@@ -91,8 +91,8 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
         scope.close();
     }
 
-    private LocalClinicalSummaryGenerator generator() {
-        return new LocalClinicalSummaryGenerator(server.getAddress().getPort(), MODEL, 2000);
+    private ClinicalSummaryGenerationService generator() {
+        return new ClinicalSummaryGenerationService(new OllamaClinicalSummaryAgent(server.getAddress().getPort(), MODEL, 2000));
     }
 
     @Test
@@ -122,7 +122,7 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     @Test
     void rejectsCloudBackedModelBeforeSendingSourceText() {
         show = "{\"remote_model\":\"cloud-model\",\"remote_host\":\"https://example.invalid\"}";
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("Cloud-backed");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("configured agent is unavailable");
         assertThat(generations.get()).isZero();
     }
 
@@ -136,7 +136,7 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     @Test
     void rejectsIncompleteModelOutput() {
         doneReason = "length";
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("did not finish");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("incomplete response");
     }
 
     @Test
@@ -162,20 +162,20 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
     @Test
     void timesOutWithoutDisplayingModelText() {
         delayMs = 300;
-        assertThatThrownBy(() -> new LocalClinicalSummaryGenerator(server.getAddress().getPort(), MODEL, 50)
+        assertThatThrownBy(() -> new ClinicalSummaryGenerationService(new OllamaClinicalSummaryAgent(server.getAddress().getPort(), MODEL, 50))
                 .generate(chart)).hasMessageContaining("timed out");
     }
 
     @Test
     void rejectsOversizedResponse() {
         rawResponse = "x".repeat(4 * 1024 * 1024 + 1);
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("unreadable response");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("unreadable");
     }
 
     @Test
     void rejectsDuplicateJsonKeys() {
         rawResponse = "{\"done\":true,\"done\":false}";
-        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("unreadable response");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("unreadable");
     }
 
     @Test
@@ -190,17 +190,17 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
 
     @Test
     void allowsOnlyLocalModelTagsAndValidPorts() {
-        assertThatThrownBy(() -> new LocalClinicalSummaryGenerator(11434, "qwen3.5:cloud", 1000))
+        assertThatThrownBy(() -> new OllamaClinicalSummaryAgent(11434, "qwen3.5:cloud", 1000))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new LocalClinicalSummaryGenerator(0, MODEL, 1000))
+        assertThatThrownBy(() -> new OllamaClinicalSummaryAgent(0, MODEL, 1000))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void timeoutConfigurationIsBoundedWithoutIntegerOverflow() {
-        assertThat(LocalClinicalSummaryGenerator.timeoutMillis("1800")).isEqualTo(1800000);
+        assertThat(ClinicalSummaryAgentProtocol.timeoutMillis("1800")).isEqualTo(1800000);
         for (String invalid : new String[]{"0", "-1", "1801", "2147483647", "invalid"}) {
-            assertThatThrownBy(() -> LocalClinicalSummaryGenerator.timeoutMillis(invalid))
+            assertThatThrownBy(() -> ClinicalSummaryAgentProtocol.timeoutMillis(invalid))
                     .isInstanceOf(IllegalArgumentException.class);
         }
     }

@@ -41,6 +41,8 @@ checks: a recorded pass is not independent evidence of clinical correctness.
 Sources, ledger, patient context and provenance are host-owned during generation.
 Neither generator accepts these fields or validation findings from the model.
 The rendering contract does not depend on Qwen, Ollama, prompts or model response envelopes.
+The runtime [agent API](AGENT_API.md) applies this same host-owned validation to
+the default Ollama adapter, HTTP agents and in-process Java implementations.
 No patient chart selector, model endpoint or filesystem path is part of the
 rendering artifact's authority.
 
