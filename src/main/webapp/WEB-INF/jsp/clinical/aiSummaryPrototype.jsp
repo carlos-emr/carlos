@@ -3,6 +3,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,7 +24,10 @@
     </form>
 </header>
 <div class="synthetic-banner">
-    <c:choose><c:when test="${summaryArtifact.patient_context.synthetic}">
+    <c:choose><c:when test="${summaryGenerated}">
+        <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Unverified AI draft / Synthetic testing only</strong>
+        <span>Local inference. Not saved to the chart.</span>
+    </c:when><c:when test="${summaryArtifact.patient_context.synthetic}">
         <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Synthetic patient / Not for clinical use</strong>
         <span>Unverified draft. No live chart data.</span>
     </c:when><c:otherwise>
@@ -43,6 +47,22 @@
         <span class="generated-at"><carlos:encode value="${summaryArtifact.generated_at}"/></span>
     </div>
 </header>
+<c:if test="${summaryGenerationEnabled}">
+    <div class="generation-toolbar">
+        <form id="generate-summary" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/clinical/GenerateAiSummary">
+            <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(summaryDemographicNo)}">
+            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
+            <c:choose><c:when test="${summaryGenerationAllowed}">
+                <button type="submit" class="generate-button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> <span><c:choose><c:when test="${summaryGenerated}">Regenerate draft</c:when><c:otherwise>Generate AI draft</c:otherwise></c:choose></span></button>
+            </c:when><c:otherwise>
+                <button type="button" class="generate-button" disabled title="Requires a complete, unmodified NHS synthetic fixture and authorized note access"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Generate AI draft</button>
+            </c:otherwise></c:choose>
+        </form>
+        <p id="generation-status" role="status" aria-live="polite"><c:choose><c:when test="${summaryGenerationAllowed}">Verified NHS synthetic fixture. Local model only.</c:when><c:otherwise>Generation unavailable: a complete, unmodified NHS fixture and eChart note access are required.</c:otherwise></c:choose></p>
+        <c:if test="${summaryGenerated}"><a class="chart-extract-link" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}">Recorded chart facts</a></c:if>
+    </div>
+    <c:if test="${not empty summaryGenerationError}"><p class="generation-error notice error" role="alert"><carlos:encode value="${summaryGenerationError}"/></p></c:if>
+</c:if>
 <main class="workspace" id="workspace">
     <div class="draft">
         <div class="panel-top">
@@ -71,7 +91,7 @@
                         <p class="record-limit"><strong>Record limitation</strong>Only the sources listed here are represented. Missing information is not a negative clinical finding.</p>
                     </aside>
                     <div class="clinical-overview">
-                        <h2><c:choose><c:when test="${summaryArtifact.patient_context.synthetic}">Clinical summary</c:when><c:otherwise>Recorded chart facts</c:otherwise></c:choose></h2>
+                        <h2><c:choose><c:when test="${summaryGenerated}">AI clinical draft</c:when><c:when test="${summaryArtifact.patient_context.synthetic}">Clinical summary</c:when><c:otherwise>Recorded chart facts</c:otherwise></c:choose></h2>
                         <c:if test="${not summaryArtifact.patient_context.synthetic}">
                             <details class="chart-scope" open><summary>Included records and limitations</summary>
                                 <c:forEach items="${summaryArtifact.validation}" var="finding"><p><carlos:encode value="${finding.message}"/></p></c:forEach>

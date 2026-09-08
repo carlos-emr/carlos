@@ -4,6 +4,7 @@ import csv
 import hashlib
 import importlib.util
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -32,7 +33,7 @@ class SeedTest(unittest.TestCase):
             "synthetic_clinical_notes.csv": [self.note],
         }
 
-    def generate(self):
+    def generate(self, manifest=None):
         checksums = {}
         for name, rows in self.rows.items():
             with (self.root / name).open("w", encoding="utf-8-sig", newline="") as stream:
@@ -41,7 +42,22 @@ class SeedTest(unittest.TestCase):
                 writer.writerows(rows)
             checksums[name] = hashlib.sha256((self.root / name).read_bytes()).hexdigest()
         with patch.object(seed, "CHECKSUMS", checksums), patch.object(seed, "PATIENTS", ((self.person, "NHSSYN001", 1),)):
-            return seed.build(self.root)
+            return seed.build(self.root, manifest)
+
+    def test_manifest_pins_identity_and_exact_seeded_note(self):
+        manifest = []
+        sql = self.generate(manifest)
+        self.assertEqual(sql, self.generate())
+        self.assertEqual(len(manifest), 1)
+        self.assertEqual(manifest[0]["chart_no"], "NHSSYN001")
+        self.assertEqual(manifest[0]["label"], "FAKE-NHS Patient, Example")
+        self.assertEqual(manifest[0]["alias"], "NHS synthetic " + self.person)
+        self.assertEqual(manifest[0]["notes"][0]["date"], "2026-01-07")
+        note_literals = re.findall(r"CONVERT\(0x([0-9a-f]+) USING utf8mb4\)", sql)
+        bodies = [bytes.fromhex(value) for value in note_literals
+                  if b"SYNTHETIC NHS TEST PATIENT" in bytes.fromhex(value)]
+        self.assertEqual(len(bodies), 1)
+        self.assertEqual(manifest[0]["notes"][0]["sha256"], hashlib.sha256(bodies[0]).hexdigest())
 
     def test_deterministic_transactional_additive_seed(self):
         sql = self.generate()

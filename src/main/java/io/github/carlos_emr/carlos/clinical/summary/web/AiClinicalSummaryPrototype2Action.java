@@ -7,6 +7,10 @@ import io.github.carlos_emr.carlos.clinical.summary.ChartClinicalSummaryProvider
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryArtifactProvider;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryRequest;
 import io.github.carlos_emr.carlos.clinical.summary.SyntheticClinicalSummaryProvider;
+import io.github.carlos_emr.carlos.clinical.summary.SyntheticSummaryScope;
+import io.github.carlos_emr.carlos.clinical.summary.LocalClinicalSummaryGenerator;
+import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,23 +26,38 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final ClinicalSummaryArtifactProvider provider = new SyntheticClinicalSummaryProvider();
     private final ClinicalSummaryArtifactProvider chartProvider;
+    private final LocalClinicalSummaryGenerator generator;
 
     public AiClinicalSummaryPrototype2Action() {
         this(null);
     }
 
     AiClinicalSummaryPrototype2Action(ClinicalSummaryArtifactProvider chartProvider) {
+        this(chartProvider, null);
+    }
+
+    AiClinicalSummaryPrototype2Action(ClinicalSummaryArtifactProvider chartProvider, LocalClinicalSummaryGenerator generator) {
         this.chartProvider = chartProvider;
+        this.generator = generator;
     }
 
     @Override
     public String execute() throws Exception {
+        return render(false);
+    }
+
+    public String generate() throws Exception {
+        return render(true);
+    }
+
+    private String render(boolean generate) throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("Referrer-Policy", "no-referrer");
-        if (!"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod())) {
-            response.setHeader("Allow", "GET, HEAD");
+        if (generate ? !"POST".equals(request.getMethod())
+                : !"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod())) {
+            response.setHeader("Allow", generate ? "POST" : "GET, HEAD");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -50,9 +69,19 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
+        boolean generationEnabled = "true".equals(CarlosProperties.getInstance()
+                .getProperty(LocalClinicalSummaryGenerator.ENABLED_PROPERTY, "false"));
+        if (generate && !generationEnabled) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         ClinicalSummaryArtifact artifact;
         String[] demographicValues = request.getParameterValues("demographicNo");
         if (demographicValues == null) {
+            if (generate) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
             artifact = provider.load(user, ClinicalSummaryRequest.synthetic());
         } else {
             int demographicNo;
@@ -70,6 +99,40 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
                 ClinicalSummaryArtifactProvider selected = chartProvider == null
                         ? new ChartClinicalSummaryProvider() : chartProvider;
                 artifact = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
+                boolean eligible = SyntheticSummaryScope.isEligible(artifact);
+                request.setAttribute("summaryGenerationEnabled", generationEnabled);
+                request.setAttribute("summaryGenerationAllowed", generationEnabled && eligible);
+                if (generate) {
+                    if (!eligible) {
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                        return NONE;
+                    }
+                    LogAction.addLogSynchronous(user, "ClinicalSummary.generate", "demographicNo=" + demographicNo);
+                    try {
+                        ClinicalSummaryArtifact draft = (generator == null ? new LocalClinicalSummaryGenerator() : generator)
+                                .generate(artifact);
+                        // Recheck access and freshness after the potentially long-running model request.
+                        ClinicalSummaryArtifact fresh = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
+                        if (!SyntheticSummaryScope.isEligible(fresh)
+                                || !artifact.getView().get("sources").equals(fresh.getView().get("sources"))
+                                || !artifact.getView().get("patient_context").equals(fresh.getView().get("patient_context"))) {
+                            artifact = fresh;
+                            request.setAttribute("summaryGenerationAllowed", false);
+                            throw new ClinicalSummaryGenerationException("The chart changed during generation. The draft was discarded; review the refreshed evidence.");
+                        }
+                        artifact = draft;
+                        request.setAttribute("summaryGenerated", true);
+                    } catch (ClinicalSummaryGenerationException rejected) {
+                        // Even a failed request must not render a stale snapshot after access has changed.
+                        artifact = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
+                        request.setAttribute("summaryGenerationAllowed", SyntheticSummaryScope.isEligible(artifact));
+                        request.setAttribute("summaryGenerationError", rejected.getMessage());
+                        LogAction.addLogSynchronous(user, "ClinicalSummary.generateRejected", "demographicNo=" + demographicNo);
+                    } catch (IllegalArgumentException configuration) {
+                        artifact = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
+                        request.setAttribute("summaryGenerationError", "Local generation is not configured correctly. The chart extract is unchanged.");
+                    }
+                }
             } catch (NoSuchElementException missing) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return NONE;
