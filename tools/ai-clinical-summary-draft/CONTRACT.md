@@ -3,14 +3,16 @@
 The authoritative rendering example is
 `src/main/resources/clinical/summary/synthetic-overview.json`.
 Java `ClinicalSummaryArtifact` and Python `validate_artifact.py` enforce the
-same rendering invariants. `output-schema.json` constrains the **model-owned
+same structural rendering invariants, except that Java also accepts explicitly
+non-synthetic chart extracts. The Python tooling remains synthetic-only.
+`output-schema.json` constrains the **model-owned
 subset only**, not the full artifact.
 
 | Field | Shape |
 | --- | --- |
 | schema_version | Integer 1 |
 | artifact_id, generated_at, model, workflow | Nonempty text; generated_at is an ISO timestamp with timezone |
-| patient_context | id, label, synthetic: true |
+| patient_context | id, label, synthetic: boolean (Python and fixture provider require true) |
 | sections | Array of id, title, claim_ids |
 | claims | Array of id, text, source_ids |
 | sources | Array of id, patient_id, title, date, text |

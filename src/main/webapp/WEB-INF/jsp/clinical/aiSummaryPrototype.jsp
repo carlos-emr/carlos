@@ -15,11 +15,21 @@
 </head>
 <body>
 <header class="app-header">
-    <strong>CARLOS EMR</strong><span class="current-workspace">Patient overview</span><span class="app-context">Clinical research</span>
+    <strong>CARLOS EMR</strong><span class="current-workspace">Patient overview</span>
+    <form class="demographic-picker" method="get" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/clinical/AiSummaryPrototype">
+        <label for="demographic-no">Demographic #</label>
+        <input id="demographic-no" name="demographicNo" type="number" min="1" max="2147483647" step="1" required value="${carlos:forHtmlAttribute(summaryDemographicNo)}">
+        <button class="icon-button" type="submit" title="Open demographic" aria-label="Open demographic"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+    </form>
 </header>
 <div class="synthetic-banner">
-    <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Synthetic patient / Not for clinical use</strong>
-    <span>Unverified draft. No live chart data.</span>
+    <c:choose><c:when test="${summaryArtifact.patient_context.synthetic}">
+        <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Synthetic patient / Not for clinical use</strong>
+        <span>Unverified draft. No live chart data.</span>
+    </c:when><c:otherwise>
+        <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Partial chart extract / Verify against the chart</strong>
+        <span>Read-only. No AI generation.</span>
+    </c:otherwise></c:choose>
 </div>
 <header class="patient-header">
     <div class="patient-main">
@@ -58,10 +68,15 @@
                                 <li><a href="#source-${carlos:forHtmlAttribute(source.id)}" class="citation"><carlos:encode value="${source.title}"/></a><span><carlos:encode value="${source.date}"/></span></li>
                             </c:forEach>
                         </ul>
-                        <p class="record-limit"><strong>Record limitation</strong>Only this synthetic bundle is represented. Missing information is not a negative clinical finding.</p>
+                        <p class="record-limit"><strong>Record limitation</strong>Only the sources listed here are represented. Missing information is not a negative clinical finding.</p>
                     </aside>
                     <div class="clinical-overview">
-                        <h2>Clinical summary</h2>
+                        <h2><c:choose><c:when test="${summaryArtifact.patient_context.synthetic}">Clinical summary</c:when><c:otherwise>Recorded chart facts</c:otherwise></c:choose></h2>
+                        <c:if test="${not summaryArtifact.patient_context.synthetic}">
+                            <details class="chart-scope" open><summary>Included records and limitations</summary>
+                                <c:forEach items="${summaryArtifact.validation}" var="finding"><p><carlos:encode value="${finding.message}"/></p></c:forEach>
+                            </details>
+                        </c:if>
                         <c:choose>
                             <c:when test="${not summaryRenderable}">
                                 <p class="notice error">Summary withheld: this artifact contains validation errors.</p>
@@ -73,7 +88,7 @@
                                 <c:forEach items="${summaryArtifact.sections}" var="section">
                                     <section class="summary-section">
                                         <h3><carlos:encode value="${section.title}"/></h3>
-                                        <c:if test="${empty section.claim_ids}"><p>No claims in this section.</p></c:if>
+                                        <c:if test="${empty section.claim_ids}"><p>No records included in this section. This does not establish absence of a condition or treatment.</p></c:if>
                                         <c:forEach items="${section.claim_ids}" var="claimId">
                                             <c:set var="claim" value="${summaryClaims[claimId]}"/>
                                             <div class="claim-row">
@@ -108,7 +123,7 @@
             </section>
             <section id="coverage" class="view-panel">
                 <h2>Source coverage</h2>
-                <p class="record-limit">Coverage describes this synthetic bundle only.</p>
+                <p class="record-limit">Coverage describes the included sources only, not the complete patient chart.</p>
                 <c:forEach items="${summaryArtifact.coverage}" var="entry">
                     <article class="coverage-entry">
                         <div><a href="#source-${carlos:forHtmlAttribute(entry.source_id)}" class="citation"><carlos:encode value="${entry.source_id}"/></a>
@@ -136,7 +151,7 @@
     <div id="pane-splitter" class="pane-splitter js-control" role="separator" tabindex="0" aria-label="Resize source evidence" aria-orientation="vertical" aria-controls="evidence" aria-valuemin="24" aria-valuemax="55" aria-valuenow="28" hidden><i class="fa-solid fa-grip-lines-vertical" aria-hidden="true"></i></div>
     <aside id="evidence" class="evidence-panel" aria-labelledby="evidence-heading">
         <div class="panel-top">
-            <div class="evidence-heading"><h2 id="evidence-heading">Source evidence</h2><p id="evidence-subtitle">Complete synthetic source documents</p></div>
+            <div class="evidence-heading"><h2 id="evidence-heading">Source evidence</h2><p id="evidence-subtitle"><c:choose><c:when test="${summaryArtifact.patient_context.synthetic}">Complete synthetic source documents</c:when><c:otherwise>Recorded fields and full included note text</c:otherwise></c:choose></p></div>
             <div class="evidence-controls js-control" hidden>
                 <button type="button" id="previous-claim" class="icon-button" title="Previous statement" aria-label="Previous statement" disabled><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
                 <button type="button" id="next-claim" class="icon-button" title="Next statement" aria-label="Next statement" disabled><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
