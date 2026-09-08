@@ -55,8 +55,7 @@ public final class ClinicalSummaryArtifact {
             throw new IllegalArgumentException("Invalid generation timestamp", e);
         }
         JsonNode patient = artifact.path("patient_context");
-        require(patient.path("synthetic").isBoolean() && patient.path("synthetic").booleanValue(),
-                "Prototype requires synthetic data");
+        require(patient.path("synthetic").isBoolean(), "Explicit synthetic data flag required");
         String patientId = text(patient, "id");
         text(patient, "label");
         Map<String, JsonNode> sources = index("sources");

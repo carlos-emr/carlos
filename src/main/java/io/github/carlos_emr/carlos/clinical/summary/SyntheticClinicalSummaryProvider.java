@@ -21,7 +21,11 @@ public final class SyntheticClinicalSummaryProvider implements ClinicalSummaryAr
             if (input == null) {
                 throw new IOException("Synthetic clinical summary fixture is missing");
             }
-            return new ClinicalSummaryArtifact(new ObjectMapper().readTree(input));
+            var artifact = new ObjectMapper().readTree(input);
+            if (!artifact.path("patient_context").path("synthetic").asBoolean(false)) {
+                throw new IllegalArgumentException("Synthetic provider requires synthetic data");
+            }
+            return new ClinicalSummaryArtifact(artifact);
         }
     }
 

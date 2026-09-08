@@ -3,10 +3,11 @@
 This self-contained draft follows issue #3455 and the discussion/evaluation work
 in PRs #3504 and #3553. It does not depend on either PR being merged.
 
-CARLOS renders one committed, **hand-authored synthetic fixture**, not a Qwen
-generation. The separate Python runner can generate candidate artifacts locally.
-There are no chart reads, writes, uploads, runtime model calls, database migrations,
-or clinical workflow navigation changes.
+CARLOS renders either the committed **hand-authored synthetic fixture** or a
+read-only extract for an explicitly selected, authorized demographic. The chart
+view reproduces recorded fields and note excerpts; it is **not an AI-generated
+summary**. There are no chart writes, uploads, runtime model calls, persisted
+artifacts or database migrations. The separate Python runner remains synthetic-only.
 
 ## CARLOS view
 
@@ -17,10 +18,33 @@ clinical.ai_summary_prototype.enabled=true
 ```
 
 After rebuilding/deploying CARLOS, open
-`<context>/clinical/AiSummaryPrototype.do` with an authenticated account holding
+`<context>/clinical/AiSummaryPrototype` with an authenticated account holding
 `_eChart r`. The property defaults to false (404); other HTTP methods receive 405
 with `Allow: GET, HEAD`. Responses are marked `Cache-Control: no-store`.
 The JSP is under `WEB-INF`; direct access is unavailable.
+
+For a patient, open **Patient overview** in the eChart header, or use
+`<context>/clinical/AiSummaryPrototype?demographicNo=<positive-integer>`.
+The demographic-number field switches to another explicitly selected patient.
+No demographic parameter retains the synthetic demonstration; malformed or
+duplicate values return 400, missing records return 404, and denied access never
+falls back to the fixture. The route and eChart link are feature-flagged off by default.
+
+Chart reads additionally require patient-specific `_eChart r`, `_demographic r`,
+`isAllowedAccessToPatientRecord`, and the existing program-domain policy. Medication
+and allergy reads use their managers only with the corresponding patient-specific
+read privilege. Notes require the server-side `case_program_id` and pass through
+`CaseManagementManager.filterNotes` (program/role and configured facility policy).
+Missing program context excludes notes rather than displaying unfiltered records.
+The view audits patient access, uses `no-store` and `no-referrer`, and does not log
+chart text. Source patient identity is checked before rendering.
+
+Included scope: unarchived, nondeleted prescription records (not proof of current
+use), active allergy records, and eligible signed notes from the latest 50 note
+revisions. Unsigned, archived, locked, blank and unclassified-role notes are omitted.
+Note excerpts retain the full source text in evidence. Labs, documents, forms,
+integrated records and other chart sections are not included. Limits and inaccessible
+modules are shown explicitly; empty sections are not negative clinical findings.
 
 The view follows the compact CARLOS patient-overview mock: a patient strip,
 record-context rail, and Overview, Fact ledger, Coverage and Validation tabs.
@@ -73,7 +97,7 @@ omission, fabricated fact, dosage error, conflict, or inappropriate recommendati
 Generated text remains unverified research output requiring source-by-source review.
 The broader evaluation harness in #3553 remains separate work.
 
-## Artifact review and future chart integration
+## Artifact review and chart integration
 
 See [CONTRACT.md](CONTRACT.md). To inspect a generated artifact:
 
@@ -88,16 +112,11 @@ rebuild/redeploy. Keep `sample-input.json` aligned with its immutable source bun
 
 `ClinicalSummaryArtifactProvider` and `ClinicalSummarySourceProvider` receive the
 authenticated user plus a request containing optional demographic/encounter scope.
-The current action always requests the fixed synthetic scope; query parameters
-and encounter session context do not select a patient. The synthetic provider
-rejects chart scope and arbitrary artifact IDs.
-
-A future provider must implement patient-level authorization and consent checks
-**before** retrieving any chart material, scope source IDs to the artifact/patient,
-and add provenance, freshness, audit and clinical validation appropriate to real
-data. Replace the provider composition in the action and introduce explicit,
-authorized request binding then. The current global `_eChart r` check is not a
-complete authorization model for chart extraction.
+The action binds only one strictly validated demographic number, not encounter,
+artifact paths, model names or endpoints. `ChartClinicalSummaryProvider` builds a
+fresh, request-local artifact after patient authorization. The synthetic provider
+still rejects chart scope and arbitrary artifact IDs. Chart data never enters the
+offline runner. Connecting model inference to patient data is separate work.
 
 ## Verification
 
@@ -106,7 +125,9 @@ mvn -Dtest=AiClinicalSummaryPrototype*Test,StrutsClinicalConfigTest test
 python3 -m unittest discover -s tools/ai-clinical-summary-draft/tests -v
 ```
 
-Tests cover method/privilege/default-disable gates, source identity and references,
+Tests cover method/privilege/default-disable gates, demographic validation and
+patient-level denial, module omission, program note filtering, cross-patient source
+rejection, source identity and references,
 section membership, coverage consistency, validation states, dry-run, local-runner
 success/failure, protected input fields, cloud/redirect rejection, and ignored runs.
 
@@ -115,7 +136,7 @@ synthetic prototype with the committed fixture. Use an authenticated Playwright
 storage-state file for a CARLOS deployment, or omit it for an isolated JSP preview:
 
 ```bash
-AI_SUMMARY_URL=http://127.0.0.1:8080/carlos/clinical/AiSummaryPrototype.do \
+AI_SUMMARY_URL=http://127.0.0.1:8080/carlos/clinical/AiSummaryPrototype \
 AI_SUMMARY_STORAGE_STATE=/tmp/carlos-test-session.json \
 node tools/ai-clinical-summary-draft/tests/browser-checks.cjs
 ```
@@ -126,3 +147,17 @@ no-JavaScript fallback. Screenshots are written to a temporary directory. The
 optional `AI_SUMMARY_PREVIEW_STATES=true` also exercises the `error`, `empty`, and
 `xss` modes supplied by the isolated development JSP harness; these modes are not
 part of the CARLOS action.
+
+To verify chart selection in a deployed CARLOS instance, use an authenticated
+storage state and at least two accessible **invented test demographics**:
+
+```bash
+AI_SUMMARY_URL=http://127.0.0.1:8080/carlos/clinical/AiSummaryPrototype \
+AI_SUMMARY_STORAGE_STATE=/tmp/carlos-test-session.json \
+AI_SUMMARY_DEMOGRAPHICS=1,2 \
+node tools/ai-clinical-summary-draft/tests/chart-browser-checks.cjs
+```
+
+This submits the demographic selector, checks scoped identity and source evidence,
+checks desktop/mobile layouts, and verifies invalid demographic rejection. It writes
+screenshots to a temporary local directory; do not run it against real patient data.

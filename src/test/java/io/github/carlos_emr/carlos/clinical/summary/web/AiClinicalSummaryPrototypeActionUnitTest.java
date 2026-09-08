@@ -2,6 +2,9 @@
 package io.github.carlos_emr.carlos.clinical.summary.web;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryArtifactProvider;
+import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryRequest;
+import io.github.carlos_emr.carlos.clinical.summary.SyntheticClinicalSummaryProvider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -95,6 +98,47 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
         when(properties.getProperty(AiClinicalSummaryPrototype2Action.ENABLED_PROPERTY, "false")).thenReturn("false");
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(404);
+        verify(request, never()).setAttribute(anyString(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0", "-1", "1.0", " 1", "2147483648", "abc", "1 OR 1=1"})
+    void rejectsMalformedDemographic(String input) throws Exception {
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
+        when(request.getParameterValues("demographicNo")).thenReturn(new String[]{input});
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(400);
+        verify(request, never()).setAttribute(anyString(), any());
+    }
+
+    @Test
+    void rejectsAmbiguousDemographic() throws Exception {
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
+        when(request.getParameterValues("demographicNo")).thenReturn(new String[]{"1", "2"});
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(400);
+    }
+
+    @Test
+    void routesExplicitDemographicToChartProvider() throws Exception {
+        ClinicalSummaryArtifactProvider chart = mock(ClinicalSummaryArtifactProvider.class);
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
+        when(request.getParameterValues("demographicNo")).thenReturn(new String[]{"42"});
+        when(chart.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(
+                new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic()));
+        assertThat(new AiClinicalSummaryPrototype2Action(chart).execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(chart).load(user, ClinicalSummaryRequest.chart(42));
+        verify(request).setAttribute("summaryDemographicNo", 42);
+    }
+
+    @Test
+    void missingPatientDoesNotFallBackToFixture() throws Exception {
+        ClinicalSummaryArtifactProvider chart = mock(ClinicalSummaryArtifactProvider.class);
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
+        when(request.getParameterValues("demographicNo")).thenReturn(new String[]{"42"});
+        when(chart.load(user, ClinicalSummaryRequest.chart(42))).thenThrow(new java.util.NoSuchElementException());
+        assertThat(new AiClinicalSummaryPrototype2Action(chart).execute()).isEqualTo(ActionSupport.NONE);
         verify(response).sendError(404);
         verify(request, never()).setAttribute(anyString(), any());
     }
