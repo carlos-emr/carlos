@@ -21,30 +21,22 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
-/**
- * A raw portal reply, before it is mapped onto a typed outcome.
- *
- * <p>The body is deliberately left unparsed here: success bodies vary per endpoint, so parsing
- * belongs with the endpoint that knows the shape. {@link PatientPortalService} reads only the
- * {@code detail} string out of an error body, and only when that field is a plain string.
- *
- * @param statusCode HTTP status the portal returned
- * @param body response body, possibly empty; never {@code null}
- * @since 2026-08-19
- */
-record PatientPortalHttpResponse(int statusCode, String body) {
+import java.io.IOException;
+import java.io.Serial;
 
-    PatientPortalHttpResponse {
-        body = body == null ? "" : body;
+/** The peer sent invalid UTF-8; only its status is retained. */
+final class PortalResponseDecodingException extends IOException {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private final int statusCode;
+
+    PortalResponseDecodingException(int statusCode) {
+        super("portal response is not valid UTF-8");
+        this.statusCode = statusCode;
     }
 
-    boolean isSuccess() {
-        return statusCode >= 200 && statusCode < 300;
-    }
-
-    /** Raw JSON can contain patient details and credentials before DTO redaction applies. */
-    @Override
-    public String toString() {
-        return "PatientPortalHttpResponse[statusCode=" + statusCode + ", body=REDACTED]";
+    int statusCode() {
+        return statusCode;
     }
 }

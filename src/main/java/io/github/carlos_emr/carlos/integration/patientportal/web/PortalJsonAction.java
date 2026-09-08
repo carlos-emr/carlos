@@ -132,7 +132,9 @@ public abstract class PortalJsonAction extends ActionSupport {
             connection needs checking.""";
     private static final String THROTTLED =
             "The portal is rate limiting requests. Try again shortly.";
-    private static final String UNREACHABLE = "The patient portal could not be reached.";
+    private static final String UNREACHABLE =
+            "The patient portal call could not complete. A requested change may have been applied; "
+                    + "check the current state before retrying.";
     private static final String MALFORMED =
             """
             The portal replied in a form CARLOS could not read. The change may or may not have been \
@@ -285,14 +287,7 @@ public abstract class PortalJsonAction extends ActionSupport {
         return write(response, status, payload);
     }
 
-    /**
-     * What a {@code 404} means for this action.
-     *
-     * <p>The status is three-way, and which reading is likely depends entirely on the caller. For a
-     * patient-scoped action the overwhelmingly common case is that the patient simply has no portal
-     * account, so an action that knows this should say so rather than send staff to check the
-     * portal connection.
-     */
+    /** A 404 does not distinguish an absent account from rejected service credentials. */
     String notFoundMessage() {
         return NOT_FOUND;
     }

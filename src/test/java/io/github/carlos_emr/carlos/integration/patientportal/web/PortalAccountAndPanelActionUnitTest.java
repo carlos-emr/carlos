@@ -57,6 +57,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -245,18 +247,22 @@ class PortalAccountAndPanelActionUnitTest {
                     .contains("connection needs checking");
         }
 
-        @Test
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
         @DisplayName("should re-enable without demanding a reason")
-        void shouldEnableAccount_withoutARequiredReason() throws Exception {
+        void shouldEnableAccount_withoutARequiredReason(boolean forcePasswordReset) throws Exception {
             request.setParameter("method", "access");
             request.setParameter("enabled", "true");
             when(patientPortalService.setAccountAccess(
                             eq(DEMOGRAPHIC_NO), eq(true), anyString(), any()))
-                    .thenReturn(acknowledgement());
+                    .thenReturn(new PatientPortalAccountAcknowledgementDto(5L, "active", forcePasswordReset, null));
 
             accountAction().execute();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+            assertThat(payload.has("forcePasswordReset")).isTrue();
+            assertThat(payload.get("forcePasswordReset").booleanValue()).isEqualTo(forcePasswordReset);
         }
     }
 

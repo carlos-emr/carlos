@@ -526,6 +526,9 @@ public class PatientPortalService implements Closeable {
         } catch (PortalResponseTooLargeException exception) {
             throw PatientPortalException.ofMalformedResponse(
                     exception.statusCode(), template, new PortalContractException("portal response exceeds size limit"));
+        } catch (PortalResponseDecodingException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    exception.statusCode(), template, new PortalContractException("portal response is not valid UTF-8"));
         } catch (IOException exception) {
             throw PatientPortalException.ofTransportFailure(template, exception);
         }

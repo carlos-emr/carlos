@@ -34,9 +34,8 @@ import java.util.Locale;
  *   <li>{@code 404} is <b>ambiguous by design</b>, and three-way. The portal fails closed on a bad
  *       service token, missing identity headers, or a clinic mismatch, and returns the same {@code
  *       404} it returns for an unknown record and for a patient who simply has no portal account
- *       yet. An unauthenticated caller must not learn which. The last of those is the routine case,
- *       so staff-facing copy should read as "no portal account" rather than as an error, while a
- *       {@code 404} on every call points at configuration.
+ *       yet. Staff-facing copy must preserve this ambiguity; a {@code 404} on every call can
+ *       indicate a configuration problem.
  *   <li>{@code 409} is a real business outcome, not a transport error. The patient already has an
  *       account, or a contact review moved on. Retrying is wrong; re-reading state and
  *       re-presenting it to the user is right.
@@ -92,7 +91,7 @@ public class PatientPortalException extends RuntimeException {
          * <p>A mutating call that fails this way may already have taken effect.
          */
         MALFORMED_RESPONSE,
-        /** The call never produced a response: connect failure, timeout, or TLS failure. */
+        /** No complete response: connection failure, timeout, TLS failure, or interrupted body. */
         TRANSPORT_FAILURE
     }
 
@@ -136,7 +135,7 @@ public class PatientPortalException extends RuntimeException {
         return new PatientPortalException(message, kind, statusCode, detail);
     }
 
-    /** Builds the failure for a call that never produced a response. */
+    /** The transport did not complete; a mutation may already have taken effect. */
     public static PatientPortalException ofTransportFailure(String endpointTemplate, Throwable cause) {
         return new PatientPortalException(
                 String.format(Locale.ROOT, TRANSPORT_MESSAGE, endpointTemplate),
@@ -171,7 +170,7 @@ public class PatientPortalException extends RuntimeException {
     }
 
     /**
-     * @return the HTTP status the portal returned, or {@code 0} when no response was received
+     * @return the HTTP status the portal returned, or {@code 0} when the transport did not complete
      */
     public int statusCode() {
         return statusCode;

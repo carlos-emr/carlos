@@ -123,6 +123,16 @@ class PortalFailureStatusUnitTest {
     }
 
     @Test
+    void shouldPreserveMutationUncertainty_whenTransportDoesNotComplete() throws IOException {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        new TestAction().portalFailure(response, PatientPortalException.ofTransportFailure(
+                "/internal/carlos/patients/{id}/unlock", new java.net.SocketTimeoutException("read timed out")));
+
+        assertThat(response.getStatus()).isEqualTo(504);
+        assertThat(response.getContentAsString()).contains("may have been applied", "before retrying");
+    }
+
+    @Test
     @DisplayName("should answer 502 when the portal replied in an unreadable shape")
     void shouldAnswerBadGateway_whenTheResponseCouldNotBeRead() throws IOException {
         assertThat(statusFor(PatientPortalException.ofMalformedResponse(200, "/x/{id}", new IOException("no body"))))

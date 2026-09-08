@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
@@ -186,7 +188,9 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         StringBuilder collected = new StringBuilder();
         char[] buffer = new char[READ_BUFFER_CHARS];
         try (InputStream content = response.getEntity().getContent();
-                Reader reader = new InputStreamReader(content, StandardCharsets.UTF_8)) {
+                Reader reader = new InputStreamReader(content, StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(CodingErrorAction.REPORT))) {
             try {
                 int read;
                 while ((read = reader.read(buffer, 0,
@@ -201,6 +205,9 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                 // a normal close drains the body for reuse and could wait on an endless tail.
                 if (response instanceof ModalCloseable closeable) {
                     closeable.close(CloseMode.IMMEDIATE);
+                }
+                if (exception instanceof CharacterCodingException) {
+                    throw new PortalResponseDecodingException(response.getCode());
                 }
                 throw exception;
             }
