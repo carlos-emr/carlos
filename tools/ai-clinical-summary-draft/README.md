@@ -6,8 +6,9 @@ in PRs #3504 and #3553. It does not depend on either PR being merged.
 CARLOS renders either the committed **hand-authored synthetic fixture** or a
 read-only extract for an explicitly selected, authorized demographic. The chart
 view reproduces recorded fields and note excerpts; it is **not an AI-generated
-summary**. There are no chart writes, uploads, runtime model calls, persisted
-artifacts or database migrations. The separate Python runner remains synthetic-only.
+summary**. Optional local AI generation is limited to the three checksum-verified
+NHS development fixtures. There are no chart writes, external uploads, persisted
+runtime drafts or database migrations. The separate Python runner remains synthetic-only.
 
 ## CARLOS view
 
@@ -57,7 +58,52 @@ Without JavaScript, all views remain readable. An artifact with an error finding
 withholds the summary, while evidence and findings remain inspectable.
 Malformed reference structure fails before the JSP receives any artifact.
 
-## Local generation
+## Generate from CARLOS
+
+Install Ollama in the same environment as CARLOS, then run:
+
+```bash
+sh tools/ai-clinical-summary-draft/serve-local-model.sh
+# In another terminal:
+ollama pull qwen3.5:2b
+```
+
+The launcher binds numeric loopback and disables cloud features. Model downloads
+are explicit operator actions; CARLOS never downloads or starts models. Enable in
+the development CARLOS properties file and restart:
+
+```properties
+clinical.ai_summary_prototype.enabled=true
+clinical.ai_summary_generation.enabled=true
+clinical.ai_summary_generation.ollama.port=11434
+clinical.ai_summary_generation.ollama.model=qwen3.5:2b
+# Optional for slow CPU development machines (default 600; maximum 1800):
+clinical.ai_summary_generation.ollama.timeoutSeconds=1800
+```
+
+Open a seeded NHS synthetic patient's eChart, then **Patient overview** and
+**Generate AI draft**. The CSRF-protected POST displays a pending state while
+waiting for local inference. Errors retain a freshly authorized chart extract.
+Successful drafts show model/timestamp metadata and use the existing citation and
+evidence controls. **Recorded facts** returns to the deterministic GET view.
+Drafts are request-local: no database, file or session persistence. Refreshing the
+POST result may prompt the browser to resubmit.
+
+Both flags default off. Patient permissions are checked before reading sources and
+again after inference. Generation additionally requires exact fixture identity,
+all original note text/date hashes, and no additional source types. Missing,
+inaccessible, edited or extra notes fail closed. This does not enable inference
+for arbitrary demographics or real patient records.
+
+Only local Qwen 3.5 tags `0.8b`, `2b`, `4b` and `9b` are accepted. Requests use
+numeric loopback with proxies and redirects disabled; cloud-backed model metadata
+is rejected before source transmission. One generation runs at a time, with a
+configurable read timeout (10 minutes by default, 30 maximum), 60,000-byte request
+limit, 4 MiB response limit, 65,536-token
+context and 4,096-token output limit. Truncated, malformed or inconsistent output
+is withheld. These are structural checks, not clinical accuracy verification.
+
+## Offline local generation
 
 Python 3.10+ is sufficient; there are no Python package dependencies.
 Install Ollama and a **local** Qwen 3.5 model yourself; the runner never pulls models.
@@ -105,7 +151,7 @@ See [CONTRACT.md](CONTRACT.md). To inspect a generated artifact:
 python3 tools/ai-clinical-summary-draft/validate_artifact.py tools/ai-clinical-summary-draft/runs/<run>/artifact.json
 ```
 
-CARLOS does not import generated artifacts automatically. To change the rendered
+CARLOS does not import offline-runner artifacts automatically. To change the rendered
 fixture, review a synthetic candidate, keep the fixed artifact ID/workflow, replace
 `src/main/resources/clinical/summary/synthetic-overview.json`, run the tests, and
 rebuild/redeploy. Keep `sample-input.json` aligned with its immutable source bundle.
@@ -116,7 +162,8 @@ The action binds only one strictly validated demographic number, not encounter,
 artifact paths, model names or endpoints. `ChartClinicalSummaryProvider` builds a
 fresh, request-local artifact after patient authorization. The synthetic provider
 still rejects chart scope and arbitrary artifact IDs. Chart data never enters the
-offline runner. Connecting model inference to patient data is separate work.
+offline runner. The runtime generator accepts only checksum-verified NHS fixtures;
+real patient model integration remains separate work.
 
 ## Verification
 
@@ -161,3 +208,23 @@ node tools/ai-clinical-summary-draft/tests/chart-browser-checks.cjs
 This submits the demographic selector, checks scoped identity and source evidence,
 checks desktop/mobile layouts, and verifies invalid demographic rejection. It writes
 screenshots to a temporary local directory; do not run it against real patient data.
+
+For an end-to-end runtime generation check, first open the NHS fixture's eChart
+with the same session so its authorized program context is established. Use only
+one of the seeded NHS demographics and a running local model:
+
+```bash
+AI_SUMMARY_URL=http://127.0.0.1:8080/carlos/clinical/AiSummaryPrototype \
+AI_SUMMARY_STORAGE_STATE=/tmp/carlos-test-session.json \
+AI_SUMMARY_DEMOGRAPHIC=3003 \
+node tools/ai-clinical-summary-draft/tests/generation-browser-checks.cjs
+```
+
+The example number is allocated locally; select the actual seeded demographic.
+This check exercises method/CSRF rejection, pending state, real generation,
+unchanged evidence, citations, three viewport sizes and return to recorded facts.
+Use `AI_SUMMARY_EXPECT=error` with an unavailable configured model to check the
+failure state. It sends synthetic sources to loopback and writes only temporary
+synthetic-chart screenshots. Full-fixture generation on a slow CPU can exceed
+10 minutes; use the bounded development timeout above. A GPU is preferable for
+interactive turnaround. No model-quality benchmark is implied by a smoke test.

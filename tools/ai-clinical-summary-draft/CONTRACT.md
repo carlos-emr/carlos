@@ -39,7 +39,16 @@ the summary. The UI labels artifact findings separately from runtime structural
 checks: a recorded pass is not independent evidence of clinical correctness.
 
 Sources, ledger, patient context and provenance are host-owned during generation.
-The runner never accepts these fields or validation findings from the model.
-The runtime does not know Qwen, Ollama, prompts or model response envelopes.
+Neither generator accepts these fields or validation findings from the model.
+The rendering contract does not depend on Qwen, Ollama, prompts or model response envelopes.
 No patient chart selector, model endpoint or filesystem path is part of the
 rendering artifact's authority.
+
+The optional runtime generator adds a stricter requirement: generated claims must
+not be empty. Its output accepts exactly sections, claims and coverage and must
+pass this contract before rendering. Chart-derived patient context may contain a
+host-assigned `generation_fixture` marker; that marker alone is not authorization.
+The generator checks it against pinned identity and every source note text/date
+hash, then the action reloads authorized chart evidence after inference. Generated
+drafts retain the chart context's `synthetic: false` provenance flag; the UI labels
+them explicitly as verified-fixture synthetic testing and unverified AI output.

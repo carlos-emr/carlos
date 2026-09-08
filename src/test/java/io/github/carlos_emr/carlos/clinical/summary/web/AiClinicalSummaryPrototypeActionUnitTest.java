@@ -5,6 +5,10 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryArtifactProvider;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryRequest;
 import io.github.carlos_emr.carlos.clinical.summary.SyntheticClinicalSummaryProvider;
+import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryArtifact;
+import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
+import io.github.carlos_emr.carlos.clinical.summary.LocalClinicalSummaryGenerator;
+import io.github.carlos_emr.carlos.clinical.summary.SyntheticSummaryScope;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -141,5 +145,124 @@ class AiClinicalSummaryPrototypeActionUnitTest extends CarlosUnitTestBase {
         assertThat(new AiClinicalSummaryPrototype2Action(chart).execute()).isEqualTo(ActionSupport.NONE);
         verify(response).sendError(404);
         verify(request, never()).setAttribute(anyString(), any());
+    }
+
+    private void enableGeneration() {
+        when(request.getMethod()).thenReturn("POST");
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
+        when(properties.getProperty(LocalClinicalSummaryGenerator.ENABLED_PROPERTY, "false")).thenReturn("true");
+        when(request.getParameterValues("demographicNo")).thenReturn(new String[]{"42"});
+    }
+
+    @Test
+    void discardsDraftWhenSourcesChangeDuringGeneration() throws Exception {
+        enableGeneration();
+        ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
+        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryArtifact original = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
+        com.fasterxml.jackson.databind.node.ObjectNode changed = new com.fasterxml.jackson.databind.ObjectMapper()
+                .valueToTree(original.getView());
+        ((com.fasterxml.jackson.databind.node.ObjectNode) changed.get("sources").get(0)).put("text", "Changed note");
+        ClinicalSummaryArtifact fresh = new ClinicalSummaryArtifact(changed);
+        when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(original, fresh);
+        when(generator.generate(original)).thenReturn(original);
+        try (MockedStatic<SyntheticSummaryScope> scope = mockStatic(SyntheticSummaryScope.class)) {
+            scope.when(() -> SyntheticSummaryScope.isEligible(original)).thenReturn(true);
+            scope.when(() -> SyntheticSummaryScope.isEligible(fresh)).thenReturn(true);
+            assertThat(new AiClinicalSummaryPrototype2Action(charts, generator).generate()).isEqualTo(ActionSupport.SUCCESS);
+        }
+        verify(request, never()).setAttribute(eq("summaryGenerated"), any());
+        verify(request).setAttribute("summaryArtifact", fresh.getView());
+        verify(request).setAttribute(eq("summaryGenerationError"), contains("chart changed"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void generationRequiresPost(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        assertThat(action.generate()).isEqualTo(ActionSupport.NONE);
+        verify(response).setHeader("Allow", "POST");
+        verify(response).sendError(405);
+        verifyNoInteractions(security);
+    }
+
+    @Test
+    void generationIsSeparatelyDisabledByDefault() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
+        assertThat(action.generate()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(404);
+        verify(request, never()).getParameterValues(anyString());
+    }
+
+    @Test
+    void generationRequiresExplicitPatient() throws Exception {
+        enableGeneration();
+        when(request.getParameterValues("demographicNo")).thenReturn(null);
+        assertThat(action.generate()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(400);
+    }
+
+    @Test
+    void generationRejectsUnverifiedChartsWithoutModelCalls() throws Exception {
+        enableGeneration();
+        ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
+        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(
+                new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic()));
+        assertThat(new AiClinicalSummaryPrototype2Action(charts, generator).generate()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(403);
+        verifyNoInteractions(generator);
+    }
+
+    @Test
+    void generationRechecksChartBeforeRendering() throws Exception {
+        enableGeneration();
+        ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
+        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryArtifact fixture = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
+        when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(fixture);
+        when(generator.generate(fixture)).thenReturn(fixture);
+        try (MockedStatic<SyntheticSummaryScope> scope = mockStatic(SyntheticSummaryScope.class)) {
+            scope.when(() -> SyntheticSummaryScope.isEligible(fixture)).thenReturn(true);
+            assertThat(new AiClinicalSummaryPrototype2Action(charts, generator).generate()).isEqualTo(ActionSupport.SUCCESS);
+        }
+        verify(charts, times(2)).load(user, ClinicalSummaryRequest.chart(42));
+        verify(request).setAttribute("summaryGenerated", true);
+    }
+
+    @Test
+    void generationFailureRetainsOnlyFreshAuthorizedEvidence() throws Exception {
+        enableGeneration();
+        ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
+        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryArtifact fixture = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
+        when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(fixture);
+        when(generator.generate(fixture)).thenThrow(new ClinicalSummaryGenerationException("Local model unavailable"));
+        try (MockedStatic<SyntheticSummaryScope> scope = mockStatic(SyntheticSummaryScope.class)) {
+            scope.when(() -> SyntheticSummaryScope.isEligible(fixture)).thenReturn(true);
+            assertThat(new AiClinicalSummaryPrototype2Action(charts, generator).generate()).isEqualTo(ActionSupport.SUCCESS);
+        }
+        verify(charts, times(2)).load(user, ClinicalSummaryRequest.chart(42));
+        verify(request).setAttribute("summaryGenerationError", "Local model unavailable");
+        verify(request, never()).setAttribute("summaryGenerated", true);
+        verify(request).setAttribute("summaryArtifact", fixture.getView());
+    }
+
+    @Test
+    void revokedPatientAccessDuringGenerationPreventsRendering() throws Exception {
+        enableGeneration();
+        ClinicalSummaryArtifactProvider charts = mock(ClinicalSummaryArtifactProvider.class);
+        LocalClinicalSummaryGenerator generator = mock(LocalClinicalSummaryGenerator.class);
+        ClinicalSummaryArtifact fixture = new SyntheticClinicalSummaryProvider().load(user, ClinicalSummaryRequest.synthetic());
+        when(charts.load(user, ClinicalSummaryRequest.chart(42))).thenReturn(fixture).thenThrow(new SecurityException("Access revoked"));
+        when(generator.generate(fixture)).thenReturn(fixture);
+        try (MockedStatic<SyntheticSummaryScope> scope = mockStatic(SyntheticSummaryScope.class)) {
+            scope.when(() -> SyntheticSummaryScope.isEligible(fixture)).thenReturn(true);
+            assertThatThrownBy(() -> new AiClinicalSummaryPrototype2Action(charts, generator).generate())
+                    .isInstanceOf(SecurityException.class);
+        }
+        verify(request, never()).setAttribute(eq("summaryArtifact"), any());
+        verify(request, never()).setAttribute("summaryGenerated", true);
     }
 }
