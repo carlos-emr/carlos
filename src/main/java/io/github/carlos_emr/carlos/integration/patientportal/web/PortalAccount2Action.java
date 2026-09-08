@@ -202,6 +202,7 @@ public class PortalAccount2Action extends PortalJsonAction {
         payload.put("accountId", account.id());
         payload.put("status", account.status());
         payload.put("enabled", enabled.booleanValue());
+        payload.put("forcePasswordReset", account.forcePasswordReset());
         return write(response, HttpServletResponse.SC_OK, payload);
     }
 }
