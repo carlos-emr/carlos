@@ -50,7 +50,13 @@ public record PatientPortalAccountAcknowledgementDto(
         if (!node.has("locked_at")) {
             throw new PortalContractException("portal unlock response is missing lockout state");
         }
-        return fromJson(node);
+        PortalJson.requiredText(node, "clinic_id");
+        PortalJson.positiveInt(node, "demographic_no");
+        PatientPortalAccountAcknowledgementDto account = fromJson(node);
+        if (account.lockedAt() != null || !account.forcePasswordReset()) {
+            throw new PortalContractException("portal did not confirm lockout clearance and forced reset");
+        }
+        return account;
     }
 
     static PatientPortalAccountAcknowledgementDto fromAccessJson(JsonNode node) {

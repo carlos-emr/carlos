@@ -73,6 +73,11 @@ public class PortalInviteIdentityValidator {
         public boolean isUsable() {
             return missingFields.isEmpty();
         }
+
+        @Override
+        public String toString() {
+            return "PortalInviteIdentityValidator.Result[identity=REDACTED, usable=" + isUsable() + "]";
+        }
     }
 
     /**

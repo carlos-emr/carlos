@@ -89,6 +89,7 @@ public record PatientPortalSettings(
                     + " plaintext";
     private static final String MALFORMED_MESSAGE = "%s is not a valid URL";
     private static final String NO_HOST_MESSAGE = "%s must name a host";
+    private static final String PORT_MESSAGE = "%s must use a port between 1 and 65535";
     private static final String USER_INFO_MESSAGE = "%s must not embed credentials";
     private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
     private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
@@ -260,6 +261,10 @@ public record PatientPortalSettings(
         if (uri.getHost() == null) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, NO_HOST_MESSAGE, BASE_URL_KEY));
+        }
+        if (uri.getPort() == 0 || uri.getPort() > 65535) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, PORT_MESSAGE, BASE_URL_KEY));
         }
         if (uri.getUserInfo() != null) {
             throw new PatientPortalConfigurationException(

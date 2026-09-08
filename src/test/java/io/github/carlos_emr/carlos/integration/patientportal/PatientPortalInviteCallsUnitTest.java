@@ -275,7 +275,7 @@ class PatientPortalInviteCallsUnitTest {
         @Test
         @DisplayName("should post to the revoke endpoint")
         void shouldPostToRevokeEndpoint_whenInviteIsRevoked() {
-            RecordingExchange exchange = new RecordingExchange(200, INVITE_JSON);
+            RecordingExchange exchange = new RecordingExchange(200, INVITE_JSON.replace("pending", "revoked"));
             PatientPortalService service = new PatientPortalService(settings(), exchange);
 
             PatientPortalInviteDto invite = service.revokeInvite(7L, staff());

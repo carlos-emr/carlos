@@ -115,4 +115,10 @@ class PortalSecretUnitTest {
         assertThat(PortalSecret.of(VALUE).equals(VALUE)).isFalse();
         assertThat(PortalSecret.of(VALUE).equals(null)).isFalse();
     }
+    @Test
+    void shouldNotExposeCredentialThroughDefaultGsonSerialization() {
+        PortalSecret secret = PortalSecret.of("synthetic-gson-credential");
+        assertThat(new com.google.gson.Gson().toJson(secret)).doesNotContain("synthetic-gson-credential");
+        assertThat(secret.expose()).isEqualTo("synthetic-gson-credential");
+    }
 }

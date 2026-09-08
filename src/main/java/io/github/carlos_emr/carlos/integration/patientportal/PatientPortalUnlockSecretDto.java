@@ -64,7 +64,7 @@ public record PatientPortalUnlockSecretDto(
         String status) {
 
     private static final String DESCRIPTION =
-            "PatientPortalUnlockSecretDto[id=%d, created=%s, source=%s, status=%s, secret=%s]";
+            "PatientPortalUnlockSecretDto[id=%d, created=%s, source=REDACTED, status=%s, secret=%s]";
 
     static PatientPortalUnlockSecretDto fromJson(JsonNode node) {
         return new PatientPortalUnlockSecretDto(
@@ -79,6 +79,6 @@ public record PatientPortalUnlockSecretDto(
     @Override
     public String toString() {
         return String.format(
-                Locale.ROOT, DESCRIPTION, id, created, sourceReference, status, secret);
+                Locale.ROOT, DESCRIPTION, id, created, status, secret);
     }
 }

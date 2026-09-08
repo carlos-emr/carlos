@@ -402,4 +402,22 @@ class PatientPortalSettingsUnitTest {
             assertThat(PatientPortalSettings.fromProperties(blank).certificatePins()).isEmpty();
         }
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 65536, 2147483647})
+    void rejectsInvalidEndpointPortAsConfigurationFailure(int port) {
+        Map<String, String> properties = validProperties();
+        properties.put(BASE_URL_KEY, "https://portal.example:" + port);
+        assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                .isInstanceOf(PatientPortalConfigurationException.class)
+                .hasMessageContaining(BASE_URL_KEY);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 443, 65535})
+    void acceptsValidExplicitEndpointPorts(int port) {
+        Map<String, String> properties = validProperties();
+        String url = "https://portal.example:" + port;
+        properties.put(BASE_URL_KEY, url);
+        assertThat(PatientPortalSettings.fromProperties(properties).baseUrl()).isEqualTo(url);
+    }
 }
