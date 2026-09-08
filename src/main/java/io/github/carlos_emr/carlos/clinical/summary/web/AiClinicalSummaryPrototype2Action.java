@@ -8,7 +8,7 @@ import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryArtifactProvi
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryRequest;
 import io.github.carlos_emr.carlos.clinical.summary.SyntheticClinicalSummaryProvider;
 import io.github.carlos_emr.carlos.clinical.summary.SyntheticSummaryScope;
-import io.github.carlos_emr.carlos.clinical.summary.LocalClinicalSummaryGenerator;
+import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationService;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -26,7 +26,7 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final ClinicalSummaryArtifactProvider provider = new SyntheticClinicalSummaryProvider();
     private final ClinicalSummaryArtifactProvider chartProvider;
-    private final LocalClinicalSummaryGenerator generator;
+    private final ClinicalSummaryGenerationService generator;
 
     public AiClinicalSummaryPrototype2Action() {
         this(null);
@@ -36,7 +36,7 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
         this(chartProvider, null);
     }
 
-    AiClinicalSummaryPrototype2Action(ClinicalSummaryArtifactProvider chartProvider, LocalClinicalSummaryGenerator generator) {
+    AiClinicalSummaryPrototype2Action(ClinicalSummaryArtifactProvider chartProvider, ClinicalSummaryGenerationService generator) {
         this.chartProvider = chartProvider;
         this.generator = generator;
     }
@@ -70,7 +70,7 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
             return NONE;
         }
         boolean generationEnabled = "true".equals(CarlosProperties.getInstance()
-                .getProperty(LocalClinicalSummaryGenerator.ENABLED_PROPERTY, "false"));
+                .getProperty(ClinicalSummaryGenerationService.ENABLED_PROPERTY, "false"));
         if (generate && !generationEnabled) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
@@ -109,7 +109,7 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
                     }
                     LogAction.addLogSynchronous(user, "ClinicalSummary.generate", "demographicNo=" + demographicNo);
                     try {
-                        ClinicalSummaryArtifact draft = (generator == null ? new LocalClinicalSummaryGenerator() : generator)
+                        ClinicalSummaryArtifact draft = (generator == null ? new ClinicalSummaryGenerationService() : generator)
                                 .generate(artifact);
                         // Recheck access and freshness after the potentially long-running model request.
                         ClinicalSummaryArtifact fresh = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
@@ -130,7 +130,8 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
                         LogAction.addLogSynchronous(user, "ClinicalSummary.generateRejected", "demographicNo=" + demographicNo);
                     } catch (IllegalArgumentException configuration) {
                         artifact = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
-                        request.setAttribute("summaryGenerationError", "Local generation is not configured correctly. The chart extract is unchanged.");
+                        request.setAttribute("summaryGenerationAllowed", SyntheticSummaryScope.isEligible(artifact));
+                        request.setAttribute("summaryGenerationError", "The summary agent is not configured correctly. The chart extract is unchanged.");
                     }
                 }
             } catch (NoSuchElementException missing) {

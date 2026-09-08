@@ -26,7 +26,7 @@
 <div class="synthetic-banner">
     <c:choose><c:when test="${summaryGenerated}">
         <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Unverified AI draft / Synthetic testing only</strong>
-        <span>Local inference. Not saved to the chart.</span>
+        <span>Agent-generated. Not saved to the chart.</span>
     </c:when><c:when test="${summaryArtifact.patient_context.synthetic}">
         <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Synthetic patient / Not for clinical use</strong>
         <span>Unverified draft. No live chart data.</span>
@@ -58,7 +58,7 @@
                 <button type="button" class="generate-button" disabled title="Requires a complete, unmodified NHS synthetic fixture and authorized note access"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Generate AI draft</button>
             </c:otherwise></c:choose>
         </form>
-        <p id="generation-status" role="status" aria-live="polite"><c:choose><c:when test="${summaryGenerationAllowed}">Verified NHS synthetic fixture. Local model only.</c:when><c:otherwise>Generation unavailable: a complete, unmodified NHS fixture and eChart note access are required.</c:otherwise></c:choose></p>
+        <p id="generation-status" role="status" aria-live="polite"><c:choose><c:when test="${summaryGenerationAllowed}">Verified NHS synthetic fixture.</c:when><c:otherwise>Generation unavailable: a complete, unmodified NHS fixture and eChart note access are required.</c:otherwise></c:choose></p>
         <c:if test="${summaryGenerated}"><a class="chart-extract-link" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}">Recorded chart facts</a></c:if>
     </div>
     <c:if test="${not empty summaryGenerationError}"><p class="generation-error notice error" role="alert"><carlos:encode value="${summaryGenerationError}"/></p></c:if>

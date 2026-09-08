@@ -6,9 +6,11 @@ in PRs #3504 and #3553. It does not depend on either PR being merged.
 CARLOS renders either the committed **hand-authored synthetic fixture** or a
 read-only extract for an explicitly selected, authorized demographic. The chart
 view reproduces recorded fields and note excerpts; it is **not an AI-generated
-summary**. Optional local AI generation is limited to the three checksum-verified
-NHS development fixtures. There are no chart writes, external uploads, persisted
-runtime drafts or database migrations. The separate Python runner remains synthetic-only.
+summary**. Optional agent generation is limited to the three checksum-verified
+NHS development fixtures. Ollama is the default; a versioned HTTP interface also
+supports replaceable agents. There are no chart writes, CARLOS-persisted runtime
+drafts or database migrations. HTTP agents control their own downstream data
+handling. The separate Python runner remains synthetic-only.
 
 ## CARLOS view
 
@@ -60,6 +62,9 @@ Malformed reference structure fails before the JSP receives any artifact.
 
 ## Generate from CARLOS
 
+For a different agent framework, see [the pluggable agent API](AGENT_API.md).
+The instructions below use the default local Ollama adapter.
+
 Install Ollama in the same environment as CARLOS, then run:
 
 ```bash
@@ -75,6 +80,7 @@ the development CARLOS properties file and restart:
 ```properties
 clinical.ai_summary_prototype.enabled=true
 clinical.ai_summary_generation.enabled=true
+clinical.ai_summary_generation.agent=ollama
 clinical.ai_summary_generation.ollama.port=11434
 clinical.ai_summary_generation.ollama.model=qwen3.5:2b
 # Optional for slow CPU development machines (default 600; maximum 1800):
@@ -95,7 +101,7 @@ all original note text/date hashes, and no additional source types. Missing,
 inaccessible, edited or extra notes fail closed. This does not enable inference
 for arbitrary demographics or real patient records.
 
-Only local Qwen 3.5 tags `0.8b`, `2b`, `4b` and `9b` are accepted. Requests use
+The Ollama adapter accepts only local Qwen 3.5 tags `0.8b`, `2b`, `4b` and `9b`. Requests use
 numeric loopback with proxies and redirects disabled; cloud-backed model metadata
 is rejected before source transmission. One generation runs at a time, with a
 configurable read timeout (10 minutes by default, 30 maximum), 60,000-byte request
@@ -221,9 +227,11 @@ node tools/ai-clinical-summary-draft/tests/generation-browser-checks.cjs
 ```
 
 The example number is allocated locally; select the actual seeded demographic.
-This check exercises method/CSRF rejection, pending state, real generation,
+This check exercises method/CSRF rejection, pending state, agent generation,
 unchanged evidence, citations, three viewport sizes and return to recorded facts.
-Use `AI_SUMMARY_EXPECT=error` with an unavailable configured model to check the
+Set `AI_SUMMARY_AGENT_LABEL` to the configured adapter's display name when using
+an HTTP agent; by default the check expects `qwen3.5:2b via local Ollama`.
+Use `AI_SUMMARY_EXPECT=error` with an unavailable configured agent to check the
 failure state. It sends synthetic sources to loopback and writes only temporary
 synthetic-chart screenshots. Full-fixture generation on a slow CPU can exceed
 10 minutes; use the bounded development timeout above. A GPU is preferable for
