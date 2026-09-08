@@ -4,6 +4,16 @@ This build exists only to answer whether Tauri is a credible cross-platform shel
 patient-held records product. It is not a pilot, beta, clinical system, or foundation that should
 be promoted directly to production.
 
+## Decision outcome
+
+Tauri v2 has been selected as the MyVitalHistory application shell for the next development phase.
+See [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md) for the decision and constraints.
+
+The current PR remains **DO NOT MERGE**. It stays in CARLOS as evaluation evidence until a dedicated
+MyVitalHistory repository is created, after which the PR should be closed with a link to the new
+repository. The remaining tasks below are promotion and production-readiness gates, not a reason to
+maintain a parallel Electron/Capacitor implementation.
+
 ## Safety boundary
 
 - Use synthetic PDF files only. Never enter or select real patient information.
@@ -50,7 +60,8 @@ Record evidence for these questions rather than treating a successful build as a
 
 ## Exit criteria
 
-This evaluation can support a decision to run a deeper spike when:
+The framework evaluation supports continuing with Tauri in a dedicated repository. Before a
+production decision, the deeper spike must establish that:
 
 - browser, desktop, Android, and iOS checks pass on representative devices;
 - accessibility findings and platform differences are recorded;

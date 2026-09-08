@@ -3,12 +3,17 @@
 > **Evaluation only — do not use real patient files.** This app does not encrypt, persist, copy,
 > upload, or render selected files. It is not connected to CARLOS EMR.
 
-This directory is a small vertical slice for evaluating Tauri v2 as an alternative application
-shell for the patient-held record proposed in
+This directory is the framework-selection proof of concept for the patient-held record proposed in
 [`carlos-emr/carlos#3474`](https://github.com/carlos-emr/carlos/issues/3474). It uses one responsive
 React/TypeScript web UI with a narrow Rust boundary and Tauri's native document picker.
 
-Use [`EVALUATION.md`](EVALUATION.md) to run the evaluation and record decision evidence. The UI
+**Tauri v2 is the selected application shell for the next development phase.** This is a framework
+decision, not production approval. [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md) records the
+decision, its limits, and the handoff to a future dedicated MyVitalHistory repository. This PR must
+remain unmerged in CARLOS until that repository exists, and should then be closed with a link to it.
+
+Use [`EVALUATION.md`](EVALUATION.md) to reproduce the evaluation evidence and record remaining
+platform findings. The UI
 follows the filing-cabinet visual direction proposed in
 [`carlos-emr/carlos#3479`](https://github.com/carlos-emr/carlos/pull/3479), while retaining an
 always-visible evaluation warning so screenshots and test sessions cannot be mistaken for evidence
