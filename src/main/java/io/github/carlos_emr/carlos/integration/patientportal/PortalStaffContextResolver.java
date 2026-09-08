@@ -119,11 +119,25 @@ public class PortalStaffContextResolver {
      *     authorization refusal it is.
      */
     public PatientPortalStaffContext resolve(LoggedInInfo loggedInInfo, Set<String> objects) {
+        return resolve(loggedInInfo, objects, null);
+    }
+
+    /** Patient-specific overrides must be evaluated before claiming portal permissions. */
+    public PatientPortalStaffContext resolveForPatient(
+            LoggedInInfo loggedInInfo, Set<String> objects, int demographicNo) {
+        if (demographicNo <= 0) {
+            throw new IllegalArgumentException("a patient must be selected");
+        }
+        return resolve(loggedInInfo, objects, String.valueOf(demographicNo));
+    }
+
+    private PatientPortalStaffContext resolve(
+            LoggedInInfo loggedInInfo, Set<String> objects, String demographicNo) {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Set<String> granted = new LinkedHashSet<>();
         for (Map.Entry<String, String> entry : PERMISSION_BY_OBJECT.entrySet()) {
             if (objects.contains(entry.getKey())
-                    && securityInfoManager.hasPrivilege(loggedInInfo, entry.getKey(), READ, null)) {
+                    && securityInfoManager.hasPrivilege(loggedInInfo, entry.getKey(), READ, demographicNo)) {
                 granted.add(entry.getValue());
             }
         }

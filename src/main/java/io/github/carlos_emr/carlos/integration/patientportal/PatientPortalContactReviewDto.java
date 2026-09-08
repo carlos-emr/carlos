@@ -65,15 +65,15 @@ public record PatientPortalContactReviewDto(
 
     static PatientPortalContactReviewDto fromJson(JsonNode node) {
         return new PatientPortalContactReviewDto(
-                PortalJson.requiredLong(node, "id"),
-                PortalJson.text(node, "clinic_id"),
-                PortalJson.requiredInt(node, "demographic_no"),
+                PortalJson.positiveLong(node, "id"),
+                PortalJson.requiredText(node, "clinic_id"),
+                PortalJson.positiveInt(node, "demographic_no"),
                 PortalJson.text(node, "email_before"),
                 PortalJson.text(node, "email_after"),
                 PortalJson.text(node, "phone_number_before"),
                 PortalJson.text(node, "phone_number_after"),
                 PortalJson.timestamp(node, "requested_at"),
-                PortalJson.text(node, "revision"));
+                PortalJson.requiredText(node, "revision"));
     }
 
     /** Renders the review without the patient contact details, all of which are PHI. */

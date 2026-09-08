@@ -128,15 +128,10 @@ class PatientPortalHttpClientExchangeUnitTest {
         assertThat(targetHits.get()).isZero();
     }
 
-    /**
-     * Pins the defect this class was missing a test for. Before the fix the configured value was
-     * applied to the pool lease and the real connect timeout was the library default of three
-     * minutes, so this would have taken minutes rather than under a second.
-     */
+    /** Network smoke test only: routing may refuse TEST-NET before a connect timeout elapses. */
     @Test
-    @DisplayName("should bound a stalled TCP connect by the configured connect timeout")
-    void shouldApplyConnectTimeout_whenTheHostNeverCompletesTheHandshake() throws Exception {
-        // TEST-NET-1 (RFC 5737): routable-looking, guaranteed not to answer.
+    @DisplayName("should fail promptly for an unreachable endpoint")
+    void shouldFailPromptly_whenTheEndpointIsUnreachable() throws Exception {
         ClassicHttpRequest request = ClassicRequestBuilder.get("http://192.0.2.1:9/blackhole").build();
 
         try (PatientPortalHttpClientExchange transport =
@@ -198,10 +193,8 @@ class PatientPortalHttpClientExchangeUnitTest {
                 });
 
         try (PatientPortalHttpClientExchange transport = exchange()) {
-            PatientPortalHttpResponse response = transport.send(get("/flood"));
-
-            assertThat(response.body().length())
-                    .isEqualTo(PatientPortalHttpClientExchange.MAX_RESPONSE_CHARS);
+            assertThatThrownBy(() -> transport.send(get("/flood")))
+                    .isInstanceOf(PortalResponseTooLargeException.class);
         }
     }
 
@@ -235,11 +228,26 @@ class PatientPortalHttpClientExchangeUnitTest {
     @Test
     @DisplayName("should reuse one client across calls rather than reconnecting each time")
     void shouldReuseTheClient_acrossSequentialCalls() throws Exception {
-        respond("/twice", 200, "{}");
+        java.util.Set<Integer> ports = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        server.createContext("/twice", connection -> {
+            ports.add(connection.getRemoteAddress().getPort());
+            byte[] body = "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            connection.sendResponseHeaders(200, body.length);
+            try (var output = connection.getResponseBody()) { output.write(body); }
+        });
 
         try (PatientPortalHttpClientExchange transport = exchange()) {
             assertThat(transport.send(get("/twice")).statusCode()).isEqualTo(200);
             assertThat(transport.send(get("/twice")).statusCode()).isEqualTo(200);
+            assertThat(ports).hasSize(1);
+        }
+    }
+    @Test
+    void acceptsResponseExactlyAtLimit() throws Exception {
+        String body = "x".repeat(PatientPortalHttpClientExchange.MAX_RESPONSE_CHARS);
+        respond("/exact", 200, body);
+        try (PatientPortalHttpClientExchange transport = exchange()) {
+            assertThat(transport.send(get("/exact")).body()).isEqualTo(body);
         }
     }
 }

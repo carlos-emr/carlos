@@ -63,13 +63,13 @@ public record PatientPortalInviteDto(
 
     static PatientPortalInviteDto fromJson(JsonNode node) {
         return new PatientPortalInviteDto(
-                PortalJson.requiredLong(node, "id"),
-                PortalJson.text(node, "clinic_id"),
-                PortalJson.requiredInt(node, "demographic_no"),
-                PortalJson.text(node, "status"),
+                PortalJson.positiveLong(node, "id"),
+                PortalJson.requiredText(node, "clinic_id"),
+                PortalJson.positiveInt(node, "demographic_no"),
+                PortalJson.requiredText(node, "status"),
                 PortalJson.text(node, "created_by_id"),
                 PortalJson.text(node, "created_by"),
-                PortalJson.requiredInt(node, "issued_count"),
+                PortalJson.nonnegativeInt(node, "issued_count"),
                 PortalJson.timestamp(node, "last_issued_at"),
                 PortalJson.text(node, "last_issued_by"),
                 PortalJson.timestamp(node, "expires_at"),

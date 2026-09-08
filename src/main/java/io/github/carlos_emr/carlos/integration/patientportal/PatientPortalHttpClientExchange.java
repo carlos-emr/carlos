@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,7 +29,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Set;
@@ -45,41 +45,17 @@ import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ssl.TLS;
+import org.apache.hc.core5.io.CloseMode;
+import org.apache.hc.core5.io.ModalCloseable;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Sends portal requests over Apache HttpClient 5, the client CARLOS already uses for outbound HTTP.
- *
- * <p>Four settings here are security-relevant rather than tuning:
- *
- * <ul>
- *   <li><b>Redirects are disabled.</b> Following one would replay the {@code Authorization} header
- *       at whatever host the response named, handing the portal service token to it. A redirect
- *       from the portal is a misconfiguration, and failing is the correct response.
- *   <li><b>Both timeouts are set where HttpClient 5 actually reads them.</b> The socket connect
- *       timeout lives on {@link ConnectionConfig} and the read timeout on {@link RequestConfig}.
- *       This distinction is not cosmetic: {@code RequestConfig.setConnectionRequestTimeout} is the
- *       <em>pool-lease</em> wait, and an earlier revision set only that, leaving the real connect
- *       timeout at the library default of three minutes. A portal host that accepted SYN and never
- *       completed the handshake would then pin a Tomcat worker for three minutes per call — the
- *       EMR-wide availability failure this control exists to prevent.
- *   <li><b>The response body is capped.</b> A compromised or malfunctioning portal should not be
- *       able to exhaust heap through a reply CARLOS reads into memory.
- *   <li><b>The portal's public key can be pinned.</b> When pins are configured, the socket factory
- *       requires the leaf key to match one of them <em>in addition to</em> normal validation. Note
- *       what happens when they are not: pinning is simply skipped, so a misspelled property key or
- *       a value blanked during a config merge downgrades a deployment that believes it is pinned to
- *       CA-only TLS, with nothing logged or rejected. See {@code PortalCertificatePinning} for the
- *       threat that makes pinning worth configuring.
- * </ul>
- *
- * <p>The client is built once per instance rather than per request. A per-request client meant a
- * fresh TLS handshake and a fresh empty connection pool on every staff action, and it also made the
- * pool-lease timeout structurally unreachable. Callers that own an instance should {@link #close()}
- * it.
- *
- * @since 2026-08-19
+ * Pooled HTTP transport with TLS 1.2/1.3, standard certificate validation and optional leaf-key pins.
+ * Redirects and automatic retries are disabled. Connect, pool-lease and read waits are bounded;
+ * the read timeout is an inactivity timeout, not an overall request deadline.
+ * Oversized decoded responses abort their connection rather than draining it for reuse.
+ * Owners must close the client when it is no longer needed.
  */
 class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Closeable {
 
@@ -134,30 +110,12 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
         PoolingHttpClientConnectionManagerBuilder connectionManagerBuilder =
                 PoolingHttpClientConnectionManagerBuilder.create()
                         .setDefaultConnectionConfig(connectionConfig);
-        // Said out loud once, at construction. Whether this deployment is pinned is a security
-        // property that otherwise has no observable trace: with pinning on, nothing announces it;
-        // with pinning off through a misspelled property key, nothing complains either, and the
-        // clinic-proxy impersonation the pins exist to stop is quietly back in scope.
+        // Record whether optional pinning is active without logging configuration values.
         logger.info(
                 certificatePins == null || certificatePins.isEmpty()
                         ? PINNING_OFF
                         : String.format(Locale.ROOT, PINNING_ON, certificatePins.size()));
-        // States the TLS floor rather than inheriting it. This is deliberately NOT a fix for a
-        // hole: httpcore5's TLS.excludeWeak strips TLSv1 and TLSv1.1 from whatever the JVM
-        // enables, and HttpClient applies it by default, so this client already offered only
-        // 1.2/1.3 -- verified by driving the pre-change code on a JVM whose
-        // jdk.tls.disabledAlgorithms had TLSv1/TLSv1.1 removed and reading the ClientHello off
-        // the wire. Semgrep's two findings here (weak-ssl-context, disallow-old-tls-versions1)
-        // are false positives on this stack.
-        //
-        // Naming the versions anyway makes the guarantee ours instead of a transitive
-        // dependency's default, and clears the findings without a suppression. The floor is set
-        // on both paths because a socket factory was previously installed only when pins were
-        // configured, which left the property stated in one branch and implicit in the other.
-        //
-        // No hostname verifier is passed. The builder keeps HttpClient's default, and supplying
-        // one here is the second classic way to disable a TLS check while appearing to configure
-        // one -- the first being a permissive trust manager.
+        // Keep the default hostname verifier and explicitly require modern TLS on both paths.
         SSLConnectionSocketFactoryBuilder socketFactoryBuilder =
                 SSLConnectionSocketFactoryBuilder.create()
                         .setTlsVersions(TLS.V_1_2, TLS.V_1_3);
@@ -180,6 +138,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                         // per-request flag are independent paths to the same guarantee, and a
                         // redirect must never replay the bearer token at another host.
                         .disableRedirectHandling()
+                        .disableAutomaticRetries()
                         .setDefaultRequestConfig(requestConfig)
                         .build();
     }
@@ -218,29 +177,32 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     private static PatientPortalHttpResponse toResponse(ClassicHttpResponse response)
             throws IOException {
         HttpEntity entity = response.getEntity();
-        String body = entity == null ? "" : readCapped(entity);
+        String body = entity == null ? "" : readCapped(response);
         return new PatientPortalHttpResponse(response.getCode(), body);
     }
 
-    /**
-     * Reads the body, stopping once {@link #MAX_RESPONSE_CHARS} characters have been collected.
-     *
-     * <p>Truncation is not signalled to the caller, and callers must not assume a truncated body
-     * will fail to parse. It usually will — a document cut mid-token raises a Jackson EOF — but
-     * Jackson does not reject trailing content by default, so a reply whose first complete JSON
-     * value ends inside the cap parses cleanly and the truncation is invisible. That is acceptable
-     * only because the cap exists to bound memory, not to validate the peer: every documented portal
-     * reply is far smaller, so reaching the cap already means the peer is not the portal.
-     */
-    private static String readCapped(HttpEntity entity) throws IOException {
+    /** Rejects oversize replies and discards their connection before stream close can drain it. */
+    private static String readCapped(ClassicHttpResponse response) throws IOException {
         StringBuilder collected = new StringBuilder();
         char[] buffer = new char[READ_BUFFER_CHARS];
-        try (InputStream content = entity.getContent();
+        try (InputStream content = response.getEntity().getContent();
                 Reader reader = new InputStreamReader(content, StandardCharsets.UTF_8)) {
-            int read;
-            while (collected.length() < MAX_RESPONSE_CHARS && (read = reader.read(buffer)) >= 0) {
-                int remaining = MAX_RESPONSE_CHARS - collected.length();
-                collected.append(buffer, 0, Math.min(read, remaining));
+            try {
+                int read;
+                while ((read = reader.read(buffer, 0,
+                        Math.min(buffer.length, MAX_RESPONSE_CHARS - collected.length() + 1))) >= 0) {
+                    if (read > MAX_RESPONSE_CHARS - collected.length()) {
+                        throw new PortalResponseTooLargeException(response.getCode());
+                    }
+                    collected.append(buffer, 0, read);
+                }
+            } catch (IOException | RuntimeException exception) {
+                // HttpClient returns a ModalCloseable response. Abort before closing its entity:
+                // a normal close drains the body for reuse and could wait on an endless tail.
+                if (response instanceof ModalCloseable closeable) {
+                    closeable.close(CloseMode.IMMEDIATE);
+                }
+                throw exception;
             }
         }
         return collected.toString();

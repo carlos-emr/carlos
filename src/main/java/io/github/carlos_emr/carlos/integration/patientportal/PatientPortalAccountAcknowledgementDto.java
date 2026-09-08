@@ -40,24 +40,30 @@ import java.time.Instant;
  * @param id portal account id
  * @param status portal account status where the endpoint reports one, otherwise {@code null}
  * @param forcePasswordReset whether the patient must reset before their next sign-in
- * @param lockedAt when lockout took effect, or {@code null} when no lockout is in force
+ * @param lockedAt when lockout took effect; null also covers endpoints that omit lockout state
  * @since 2026-08-19
  */
 public record PatientPortalAccountAcknowledgementDto(
         long id, String status, boolean forcePasswordReset, Instant lockedAt) {
 
+    static PatientPortalAccountAcknowledgementDto fromUnlockJson(JsonNode node) {
+        if (!node.has("locked_at")) {
+            throw new PortalContractException("portal unlock response is missing lockout state");
+        }
+        return fromJson(node);
+    }
+
+    static PatientPortalAccountAcknowledgementDto fromAccessJson(JsonNode node) {
+        PortalJson.requiredText(node, "status");
+        return fromJson(node);
+    }
+
     static PatientPortalAccountAcknowledgementDto fromJson(JsonNode node) {
         return new PatientPortalAccountAcknowledgementDto(
-                PortalJson.requiredLong(node, "id"),
+                PortalJson.positiveLong(node, "id"),
                 PortalJson.text(node, "status"),
                 PortalJson.requiredBool(node, "force_password_reset"),
                 PortalJson.timestamp(node, "locked_at"));
     }
 
-    /**
-     * @return {@code true} when lockout is currently in force
-     */
-    public boolean locked() {
-        return lockedAt != null;
-    }
 }

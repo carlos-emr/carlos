@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -33,6 +34,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Function;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ContentType;
@@ -77,7 +79,16 @@ public class PatientPortalService implements Closeable {
     private static final String BEARER_PREFIX = "Bearer %s";
     private static final String INVALID_PATH = "portal endpoint path is not a valid URI: %s";
     private static final String EMPTY_BODY = "portal returned an empty or non-JSON body";
-    private static final int MAX_DETAIL_LENGTH = 200;
+    // Only established protocol messages may cross the logging/browser boundary.
+    private static final Set<String> SAFE_DETAILS = Set.of(
+            "permission denied", "not found", "demographic scope mismatch",
+            "portal account already exists", "pending invite already exists", "invite not found",
+            "invite cannot be resent", "accepted invite cannot be revoked",
+            "superseded invite cannot be revoked", "source reference was already published",
+            "source reference was revoked", "source reference belongs to another patient",
+            "unlock secret cannot be published", "contact review not found",
+            "contact review revision conflict", "invalid account access request",
+            "unlock secret is temporarily unavailable");
     private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
 
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
@@ -108,7 +119,7 @@ public class PatientPortalService implements Closeable {
 
     private final PatientPortalSettings settings;
     private final PatientPortalHttpExchange exchange;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     public PatientPortalService(PatientPortalSettings settings) {
         this(settings, settings == null ? null : new PatientPortalHttpClientExchange(settings));
@@ -217,7 +228,6 @@ public class PatientPortalService implements Closeable {
                 PatientPortalInviteDto::fromJson, inviteId);
     }
 
-
     /**
      * Clears a patient lockout.
      *
@@ -231,7 +241,7 @@ public class PatientPortalService implements Closeable {
             int demographicNo, PatientPortalStaffContext staff) {
         return fetch(
                 POST, UNLOCK_PATH, null, staff,
-                PatientPortalAccountAcknowledgementDto::fromJson, demographicNo);
+                PatientPortalAccountAcknowledgementDto::fromUnlockJson, demographicNo);
     }
 
     /**
@@ -262,7 +272,7 @@ public class PatientPortalService implements Closeable {
                 ACCESS_PATH,
                 body.toString(),
                 staff,
-                PatientPortalAccountAcknowledgementDto::fromJson,
+                PatientPortalAccountAcknowledgementDto::fromAccessJson,
                 demographicNo);
     }
 
@@ -417,10 +427,34 @@ public class PatientPortalService implements Closeable {
             Object... args) {
         Parsed parsed = send(method, pathFormat, jsonBody, staff, args);
         try {
+            validateScope(parsed.payload(), pathFormat, args);
             return factory.apply(parsed.payload());
         } catch (PortalContractException exception) {
             throw PatientPortalException.ofMalformedResponse(
                     parsed.statusCode(), templateOf(pathFormat), exception);
+        }
+    }
+
+    private void validateScope(JsonNode payload, String pathFormat, Object[] args) {
+        if (payload.isArray()) {
+            for (JsonNode item : payload) {
+                validateScope(item, pathFormat, args);
+            }
+            return;
+        }
+        if (payload.has("invite")) {
+            validateScope(payload.get("invite"), pathFormat, args);
+        }
+        if (payload.has("items")) {
+            validateScope(payload.get("items"), pathFormat, args);
+        }
+        if (payload.has("clinic_id")
+                && !settings.clinicId().equals(PortalJson.requiredText(payload, "clinic_id"))) {
+            throw new PortalContractException("portal response has a different clinic scope");
+        }
+        if (pathFormat.startsWith("/internal/carlos/patients/") && payload.has("demographic_no")
+                && PortalJson.positiveInt(payload, "demographic_no") != ((Number) args[0]).intValue()) {
+            throw new PortalContractException("portal response has a different patient scope");
         }
     }
 
@@ -437,7 +471,7 @@ public class PatientPortalService implements Closeable {
 
     private static PatientPortalContactReviewDecision contactReviewDecision(JsonNode payload) {
         return new PatientPortalContactReviewDecision(
-                PortalJson.requiredLong(payload, "id"),
+                PortalJson.positiveLong(payload, "id"),
                 PortalJson.text(payload, "status"),
                 PortalJson.text(payload, "decision"));
     }
@@ -477,6 +511,9 @@ public class PatientPortalService implements Closeable {
         PatientPortalHttpResponse response;
         try {
             response = exchange.send(buildRequest(method, path, jsonBody, staff));
+        } catch (PortalResponseTooLargeException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    exception.statusCode(), template, new PortalContractException("portal response exceeds size limit"));
         } catch (IOException exception) {
             throw PatientPortalException.ofTransportFailure(template, exception);
         }
@@ -528,14 +565,7 @@ public class PatientPortalService implements Closeable {
         return payload;
     }
 
-    /**
-     * Extracts the portal's {@code detail} string when it is safe to carry.
-     *
-     * <p>Only a plain JSON string is kept. The portal's validation layer answers a {@code 422} with
-     * a list of objects that can echo the offending input — a patient email or health card number —
-     * so that shape is dropped rather than parsed. Losing the detail on {@code 422} is the correct
-     * trade for never copying PHI into an error message that reaches logs and error pages.
-     */
+    /** Only fixed contract messages may cross the logging boundary; all other detail is withheld. */
     private String safeDetail(String body) {
         if (body == null || body.isBlank()) {
             return null;
@@ -547,9 +577,7 @@ public class PatientPortalService implements Closeable {
                 return null;
             }
             String text = detail.asText();
-            return text.length() > MAX_DETAIL_LENGTH
-                    ? text.substring(0, MAX_DETAIL_LENGTH)
-                    : text;
+            return SAFE_DETAILS.contains(text) ? text : null;
         } catch (IOException exception) {
             return null;
         }

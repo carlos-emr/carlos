@@ -46,15 +46,7 @@ public record PatientPortalContactReviewPageDto(
         int total,
         Integer nextOffset) {
 
-    /**
-     * Copies the item list, matching every sibling record in this package.
-     *
-     * <p>{@code fromJson} already passed {@code List.copyOf}, but the canonical constructor is
-     * public, so a caller building this directly handed over a list it could still mutate — and
-     * the accessor handed that same list back. {@code PatientPortalStaffContext},
-     * {@code PatientPortalSettings} and {@code PortalInviteIdentityValidator.Result} all copy in
-     * a compact constructor; this record was the one that relied on its factory instead.
-     */
+    /** Keep response items immutable even when constructed directly. */
     public PatientPortalContactReviewPageDto {
         items = items == null ? List.of() : List.copyOf(items);
     }
@@ -70,11 +62,15 @@ public record PatientPortalContactReviewPageDto(
         for (JsonNode item : itemNodes) {
             items.add(PatientPortalContactReviewDto.fromJson(item));
         }
+        Integer next = PortalJson.optionalInt(node, "next_offset");
+        if (next != null && next < 0) {
+            throw new PortalContractException("portal review page has a negative next offset");
+        }
         return new PatientPortalContactReviewPageDto(
                 List.copyOf(items),
-                PortalJson.requiredInt(node, "limit"),
-                PortalJson.requiredInt(node, "offset"),
-                PortalJson.requiredInt(node, "total"),
-                PortalJson.optionalInt(node, "next_offset"));
+                PortalJson.positiveInt(node, "limit"),
+                PortalJson.nonnegativeInt(node, "offset"),
+                PortalJson.nonnegativeInt(node, "total"),
+                next);
     }
 }

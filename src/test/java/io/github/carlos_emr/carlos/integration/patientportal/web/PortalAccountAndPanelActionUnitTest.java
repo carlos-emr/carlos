@@ -66,7 +66,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
  *
  * <p>The behaviours worth protecting here are the ones that would mislead staff rather than fail
  * loudly: unlock gating on its own narrower object, the forced-reset note travelling with the
- * unlock response, and the panel distinguishing "no portal account" from "could not read".
+ * unlock response, and the panel preserving ambiguous failures as unavailable.
  */
 @Tag("unit")
 @Tag("patient-portal")
@@ -104,9 +104,10 @@ class PortalAccountAndPanelActionUnitTest {
                 .when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
 
-        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull()))
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
-        when(staffContextResolver.resolve(any(), any()))
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(true);
+        when(staffContextResolver.resolveForPatient(any(), any(), anyInt()))
                 .thenReturn(
                         new PatientPortalStaffContext(
                                 "999998",
@@ -170,7 +171,7 @@ class PortalAccountAndPanelActionUnitTest {
                             any(),
                             eq(PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK),
                             anyString(),
-                            isNull()))
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
                     .thenReturn(false);
             request.setParameter("method", "unlock");
 
@@ -229,27 +230,18 @@ class PortalAccountAndPanelActionUnitTest {
                     .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("left_practice"), any());
         }
 
-        /**
-         * Found by running against a live portal. A patient who never activated is the most
-         * ordinary case there is, and the generic 404 copy sent staff to check the portal
-         * connection over it.
-         */
         @Test
-        @DisplayName("should read a 404 as no portal account, not as a broken connection")
-        void shouldReportNoPortalAccount_whenUnlockingAPatientWhoNeverActivated() throws Exception {
+        @DisplayName("should preserve ambiguous account lookup failures")
+        void shouldPreserveAmbiguity_whenUnlockReturns404() throws Exception {
             request.setParameter("method", "unlock");
             when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
                     .thenThrow(PatientPortalException.ofStatus(404, "/x", null));
 
             accountAction().execute();
 
-            // Leads with the patient reading, because for a patient-scoped action that is the
-            // overwhelmingly common one — but no longer only that. A 404 is three-way and also
-            // covers a rejected service identity, so a rotated token that nobody updated makes
-            // every patient report this and told staff to send invitations to patients who already
-            // have working accounts. The clause is what lets them notice.
             assertThat(response.getContentAsString())
-                    .contains("does not have a patient portal account")
+                    .doesNotContain("does not have a patient portal account")
+                    .contains("not_found_or_unauthenticated")
                     .contains("connection needs checking");
         }
 
@@ -319,7 +311,7 @@ class PortalAccountAndPanelActionUnitTest {
             request.setMethod("GET");
             when(securityInfoManager.hasPrivilege(
                             any(), eq(PortalStaffContextResolver.OBJECT_INVITE), anyString(),
-                            isNull()))
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
                     .thenReturn(false);
             when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
 
@@ -334,7 +326,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should refuse a provider holding neither portal object")
         void shouldRefuseInJson_whenProviderMayReadNeitherSection() throws Exception {
             request.setMethod("GET");
-            when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), isNull()))
+            when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
                     .thenReturn(false);
 
             panelAction().execute();
@@ -343,15 +335,9 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(response.getContentAsString()).contains("not_permitted");
         }
 
-        /**
-         * Most patients have never activated, so a 404 on the account lookup is the routine case
-         * and must not read as an error. The distinction matters in the other direction too:
-         * reporting an outage as "no account" would invite staff to issue an invitation the
-         * patient does not need.
-         */
         @Test
-        @DisplayName("should report an absent account as a state, not an error")
-        void shouldReportNoPortalAccount_whenTheLookupIsNotFound() throws Exception {
+        @DisplayName("should mark an ambiguous account lookup unavailable")
+        void shouldReportUnavailable_whenTheLookupIsNotFound() throws Exception {
             request.setMethod("GET");
             when(patientPortalService.listInvites(anyInt(), anyInt(), any())).thenReturn(List.of());
             when(patientPortalService.findAccount(anyInt(), any()))
@@ -361,8 +347,9 @@ class PortalAccountAndPanelActionUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsString())
-                    .contains("no_portal_account")
-                    .doesNotContain("accountError");
+                    .contains("accountError")
+                    .contains("\"ok\":false")
+                    .doesNotContain("no_portal_account");
         }
 
         @Test
@@ -449,13 +436,9 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(response.getContentAsString()).contains("\"ok\":true");
         }
 
-        /**
-         * A patient who never activated is the routine case, not a failure, so it must not drag
-         * {@code ok} down with it.
-         */
         @Test
-        @DisplayName("should stay ok when the patient simply has no portal account")
-        void shouldReportOk_whenTheAccountLookupIsA404() throws Exception {
+        @DisplayName("should report incomplete data when account absence is ambiguous")
+        void shouldReportIncomplete_whenTheAccountLookupIsA404() throws Exception {
             request.setMethod("GET");
             when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
                     .thenReturn(java.util.List.of());
@@ -465,8 +448,8 @@ class PortalAccountAndPanelActionUnitTest {
             panelAction().execute();
 
             assertThat(response.getContentAsString())
-                    .contains("\"ok\":true")
-                    .contains("no_portal_account");
+                    .contains("\"ok\":false")
+                    .contains("accountError");
         }
 
         /**
@@ -478,7 +461,7 @@ class PortalAccountAndPanelActionUnitTest {
             request.setMethod("GET");
             when(securityInfoManager.hasPrivilege(
                             any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT), anyString(),
-                            isNull()))
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
                     .thenReturn(false);
             when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
                     .thenReturn(java.util.List.of());
@@ -516,7 +499,7 @@ class PortalAccountAndPanelActionUnitTest {
         void shouldRefuse_whenTheAccountObjectIsAbsentOnTheAccessRoute() throws Exception {
             when(securityInfoManager.hasPrivilege(
                             any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT), anyString(),
-                            isNull()))
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
                     .thenReturn(false);
             request.setParameter("method", "access");
             request.setParameter("enabled", "false");

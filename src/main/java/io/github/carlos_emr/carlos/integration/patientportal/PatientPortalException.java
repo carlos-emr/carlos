@@ -142,7 +142,17 @@ public class PatientPortalException extends RuntimeException {
                 String.format(Locale.ROOT, TRANSPORT_MESSAGE, endpointTemplate),
                 Kind.TRANSPORT_FAILURE,
                 0,
-                cause);
+                sanitizedTransportCause(cause));
+    }
+
+    private static Throwable sanitizedTransportCause(Throwable cause) {
+        if (cause == null) {
+            return null;
+        }
+        // HTTP parser exceptions can embed raw status lines/headers just as JSON errors embed values.
+        String category = cause instanceof java.net.SocketTimeoutException ? "timeout"
+                : cause instanceof javax.net.ssl.SSLException ? "TLS handshake" : "HTTP exchange";
+        return new java.io.IOException("portal transport failed: " + category);
     }
 
     /** Builds the failure for a success status whose body CARLOS could not read. */
@@ -152,7 +162,8 @@ public class PatientPortalException extends RuntimeException {
                 String.format(Locale.ROOT, MALFORMED_MESSAGE, endpointTemplate, statusCode),
                 Kind.MALFORMED_RESPONSE,
                 statusCode,
-                cause);
+                cause instanceof PortalContractException ? cause
+                        : new PortalContractException("portal response is not valid JSON"));
     }
 
     public Kind kind() {
@@ -166,17 +177,7 @@ public class PatientPortalException extends RuntimeException {
         return statusCode;
     }
 
-    /**
-     * The portal's {@code detail} string, when it was safe to carry.
-     *
-     * <p>Only a plain JSON string is kept. A {@code 422} from the portal's validation layer answers
-     * with a list of objects that can echo the offending input — patient email or health card number
-     * — so that shape is discarded rather than parsed. The result is that {@code 422} is the one
-     * status where no detail is available, which is the correct trade for not copying PHI into an
-     * error message.
-     *
-     * @return the detail string, or {@code null} when absent or withheld
-     */
+    /** @return an allowlisted contract detail, or null when absent or withheld */
     public String detail() {
         return detail;
     }

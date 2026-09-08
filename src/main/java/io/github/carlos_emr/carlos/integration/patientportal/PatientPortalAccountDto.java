@@ -55,10 +55,10 @@ public record PatientPortalAccountDto(
 
     static PatientPortalAccountDto fromJson(JsonNode node) {
         return new PatientPortalAccountDto(
-                PortalJson.requiredLong(node, "id"),
-                PortalJson.text(node, "clinic_id"),
-                PortalJson.requiredInt(node, "demographic_no"),
-                PortalJson.text(node, "status"),
+                PortalJson.positiveLong(node, "id"),
+                PortalJson.requiredText(node, "clinic_id"),
+                PortalJson.positiveInt(node, "demographic_no"),
+                PortalJson.requiredText(node, "status"),
                 PortalJson.requiredBool(node, "locked"),
                 PortalJson.requiredBool(node, "force_password_reset"),
                 PortalJson.timestamp(node, "disabled_at"),

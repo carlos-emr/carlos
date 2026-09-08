@@ -25,6 +25,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import org.springframework.beans.factory.BeanCreationException;
+import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -53,7 +56,7 @@ import org.apache.struts2.ActionSupport;
  *
  * @since 2026-08-19
  */
-abstract class PortalJsonAction extends ActionSupport {
+public abstract class PortalJsonAction extends ActionSupport {
 
     private static final long serialVersionUID = 1L;
 
@@ -68,6 +71,49 @@ abstract class PortalJsonAction extends ActionSupport {
 
     PortalJsonAction(PatientPortalService injectedService) {
         this.injectedService = injectedService;
+    }
+
+    /** All JSON actions translate only known access/configuration failures at the same boundary. */
+    @Override
+    public final String execute() throws IOException {
+        try {
+            return handleRequest();
+        } catch (SecurityException exception) {
+            return forbidden(ServletActionContext.getResponse(), exception);
+        } catch (PatientPortalConfigurationException exception) {
+            return configurationFailure(ServletActionContext.getResponse());
+        } catch (BeanCreationException exception) {
+            if (!exception.contains(PatientPortalConfigurationException.class)) {
+                throw exception;
+            }
+            return configurationFailure(ServletActionContext.getResponse());
+        }
+    }
+
+    protected String handleRequest() throws IOException {
+        return NONE;
+    }
+
+    private String configurationFailure(HttpServletResponse response) throws IOException {
+        // BeanCreationException may contain configured values in a nested cause. Never log it.
+        logger.error("patient portal configuration is invalid; check deployment settings");
+        return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "portal_configuration_invalid",
+                "The patient portal connection is not configured correctly. Contact an administrator.");
+    }
+
+    static void requirePatientAccess(SecurityInfoManager security, LoggedInInfo session, int patient) {
+        if (!security.hasPrivilege(session, "_demographic", "r", String.valueOf(patient))
+                || !security.isAllowedAccessToPatientRecord(session, patient)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+    }
+
+    static void requirePatientPrivilege(SecurityInfoManager security, LoggedInInfo session,
+            String object, String level, int patient) {
+        if (!security.hasPrivilege(session, object, level, String.valueOf(patient))) {
+            throw new SecurityException(String.format(Locale.ROOT, MISSING_PRIVILEGE, object));
+        }
     }
 
     private static final String JSON = "application/json;charset=UTF-8";
@@ -94,8 +140,8 @@ abstract class PortalJsonAction extends ActionSupport {
     private static final String REJECTED = "The portal rejected this request.";
     private static final String VALIDATION_REJECTED =
             """
-            The portal rejected the details CARLOS sent. The field it named is in the CARLOS server \
-            log; it is withheld here because it can echo patient data.""";
+            The portal rejected the details CARLOS sent. Check the patient record and try again; \
+            the portal's response details are withheld to protect patient information.""";
     private static final String PORTAL_FAULT =
             """
             The patient portal returned an error. This is a fault at the portal rather than a \
@@ -138,6 +184,12 @@ abstract class PortalJsonAction extends ActionSupport {
         return SpringUtils.getBean(PatientPortalService.class);
     }
 
+    String invitationUnavailable(HttpServletResponse response) throws IOException {
+        return failure(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "portal_invitation_unavailable",
+                "Sending patient portal invitations is not available yet. No invitation was issued.");
+    }
+
     /** Answers a request made against a CARLOS server that has no portal configured. */
     String portalNotConfigured(HttpServletResponse response) throws IOException {
         return failure(
@@ -145,19 +197,6 @@ abstract class PortalJsonAction extends ActionSupport {
                 HttpServletResponse.SC_SERVICE_UNAVAILABLE,
                 "portal_not_configured",
                 NOT_CONFIGURED);
-    }
-
-    /**
-     * @throws SecurityException naming the object, in the paren form CARLOS standardises on
-     */
-    static void requirePrivilege(
-            SecurityInfoManager securityInfoManager,
-            LoggedInInfo loggedInInfo,
-            String securityObject) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, securityObject, "w", null)) {
-            throw new SecurityException(
-                    String.format(Locale.ROOT, MISSING_PRIVILEGE, securityObject));
-        }
     }
 
     // FindSecBugs XSS_SERVLET: the body is produced by Jackson, so a hostile value is a JSON
@@ -205,7 +244,7 @@ abstract class PortalJsonAction extends ActionSupport {
     /**
      * Answers an authorization refusal in JSON instead of letting it become an HTML error page.
      *
-     * <p>{@code requirePrivilege} throws {@link SecurityException}, which CLAUDE.md requires and the
+     * <p>The patient privilege gate throws {@link SecurityException}, which CLAUDE.md requires and the
      * mutator contract test accepts, but an uncaught one leaves these endpoints answering with a
      * full HTML document — so the caller's {@code response.json()} throws on {@code <!DOCTYPE} and
      * the receptionist gets a spinner that never resolves, for what is a clean and explainable
