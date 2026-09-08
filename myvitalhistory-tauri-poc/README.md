@@ -19,6 +19,13 @@ follows the filing-cabinet visual direction proposed in
 always-visible evaluation warning so screenshots and test sessions cannot be mistaken for evidence
 of production readiness.
 
+## Initial platform scope
+
+The planned initial supported platforms are **Windows, macOS, Android, and iOS**. Linux is deferred
+until the `glib` advisory below is resolved and the updated dependency graph passes security review.
+The Linux CI job is retained only as a compatibility monitor; its debug package is unsupported
+evaluation evidence and must not be distributed to patients.
+
 ## What it demonstrates
 
 - The same responsive, mock-aligned filing-cabinet screen in a browser, desktop webview, Android
@@ -84,7 +91,8 @@ runners. Android debug builds run on Linux; the unsigned iOS simulator build run
 
 - The current Tauri v2 Linux dependency graph resolves `glib` 0.18.5. GitHub's dependency review
   flags [GHSA-wrw7-89jp-8q8g](https://github.com/advisories/GHSA-wrw7-89jp-8q8g), which is patched
-  only in `glib` 0.20.0. This is a merge blocker to reassess upstream, not an alert to waive.
+  only in `glib` 0.20.0. Linux therefore remains outside the initial supported platform set. The
+  alert must not be waived; Linux can be reconsidered after the dependency is patched and reviewed.
 - Hosted CI produced a 48 MB Linux debug `.deb`, a 131 MB Android debug APK, and a 92 MB unsigned
   iOS simulator `.app`. These unoptimized artifacts are useful feasibility evidence, not release
   size estimates.

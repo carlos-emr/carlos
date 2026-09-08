@@ -9,6 +9,10 @@ be promoted directly to production.
 Tauri v2 has been selected as the MyVitalHistory application shell for the next development phase.
 See [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md) for the decision and constraints.
 
+The initial supported platforms are Windows, macOS, Android, and iOS. Linux is deferred until the
+documented `glib` advisory is resolved and the updated dependency graph passes security review. The
+Linux CI job remains only as an unsupported compatibility monitor.
+
 The current PR remains **DO NOT MERGE**. It stays in CARLOS as evaluation evidence until a dedicated
 MyVitalHistory repository is created, after which the PR should be closed with a link to the new
 repository. The remaining tasks below are promotion and production-readiness gates, not a reason to
@@ -56,19 +60,21 @@ Record evidence for these questions rather than treating a successful build as a
 | Secure vault | Can records be encrypted, recovered, backed up, and deleted safely? | Not evaluated |
 | Mobile APIs | Do biometrics, notifications, deep links, and background work meet requirements? | Not evaluated |
 | Operations | Can the app be signed, observed safely, updated, and supported? | Not evaluated |
-| Dependency risk | Are all target dependency graphs acceptable? | No; the documented Linux `glib` advisory remains open |
+| Dependency risk | Are all initial-target dependency graphs acceptable? | Linux is deferred; the remaining target graphs still require production review |
 
 ## Exit criteria
 
 The framework evaluation supports continuing with Tauri in a dedicated repository. Before a
 production decision, the deeper spike must establish that:
 
-- browser, desktop, Android, and iOS checks pass on representative devices;
+- browser, Windows, macOS, Android, and iOS checks pass on representative devices;
 - accessibility findings and platform differences are recorded;
 - required native capabilities and missing plugins are listed;
 - artifact sizes, build times, and developer setup friction are recorded; and
-- the Linux dependency advisory has an accepted resolution or Linux is removed from the intended
-  product scope.
+- no release or support surface includes Linux while its dependency advisory remains unresolved.
+
+Before adding Linux to the supported platform set, its dependency advisory must be resolved and the
+updated package must pass the same security, device, signing, and release-readiness gates.
 
 It cannot support a production decision until a separate security and data-lifecycle spike proves
 encrypted local storage, key handling and recovery, authentication, secure deletion, backup/sync,
