@@ -66,6 +66,9 @@
     String popupPatientAge = demographic == null ? "" : String.valueOf(demographic.getAge());
     pageContext.setAttribute("popupPatientSex", popupPatientSex);
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
+    pageContext.setAttribute("summaryDemographicNo", Integer.parseInt(demoNo));
+    pageContext.setAttribute("summaryPrototypeEnabled", "true".equals(CarlosProperties.getInstance()
+            .getProperty("clinical.ai_summary_prototype.enabled", "false")));
 
 %>
 
@@ -113,6 +116,9 @@ function fallbackCopy(text) {
 </div>
 
 <div id="header-bottom-row">
+    <c:if test="${summaryPrototypeEnabled}">
+        <div><a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(ctx)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}">Patient overview</a></div>
+    </c:if>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
         <div>
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>

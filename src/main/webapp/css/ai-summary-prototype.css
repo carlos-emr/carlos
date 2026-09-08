@@ -12,6 +12,14 @@ p, a, strong, span, td, th { overflow-wrap: anywhere; }
 .app-header strong { font-size: 13px; }
 .current-workspace { padding: 5px 10px; align-self: stretch; background: #e5e8ea; font-weight: bold; }
 .app-context { margin-left: auto; }
+.app-header { flex-wrap: wrap; }
+.demographic-picker { margin-left: auto; display: flex; align-items: center; gap: 7px; padding: 4px 0; }
+.demographic-picker input { width: 100px; min-width: 0; height: 32px; border: 1px solid #aab7bf; border-radius: 3px; font: inherit; padding: 4px 6px; }
+.demographic-picker .icon-button { width: 32px; height: 32px; flex-basis: 32px; }
+.chart-scope { margin-bottom: 24px; padding: 10px 12px; border-left: 3px solid #b8892d; background: #fff8e8; font-size: 13px; }
+.chart-scope summary { cursor: pointer; font-weight: bold; }
+.chart-scope p { margin-top: 10px; }
+.claim-text, .ledger-table td:nth-child(2) { white-space: pre-line; }
 .synthetic-banner { padding: 8px 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; border-bottom: 1px solid #e5d497; color: #674300; background: #fff3cd; font-size: 13px; }
 .synthetic-banner strong { font-size: 12px; text-transform: uppercase; }
 .synthetic-banner i { margin-right: 6px; }
