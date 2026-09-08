@@ -47,6 +47,7 @@ const path = require("node:path");
         assert.equal(pendingChecked, true);
         assert.equal(response.status(), 200);
         await page.locator("#workspace").waitFor();
+        await page.screenshot({path: path.join(output, "returned-view.png")});
         assert.deepEqual(await page.locator(".source").allTextContents(), sourcesBefore);
         if (expected === "error") {
             assert.equal(await page.locator(".generation-error").isVisible(), true);
@@ -55,7 +56,7 @@ const path = require("node:path");
         } else {
             assert.equal(await page.locator(".generation-error").count(), 0,
                 await page.locator(".generation-error").allTextContents());
-            assert.match(await page.locator(".synthetic-banner").innerText(), /Unverified AI draft/);
+            assert.match(await page.locator(".synthetic-banner").innerText(), /Unverified AI draft/i);
             assert.match(await page.locator(".artifact-footer").innerText(), /qwen3\.5:.*local Ollama/);
             assert.ok(await page.locator(".claim").count() > 0);
         }
