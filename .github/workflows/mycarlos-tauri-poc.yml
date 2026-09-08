@@ -1,22 +1,22 @@
-name: MyVitalHistory Tauri POC
+name: myCarlos Tauri POC
 
 on:
   pull_request:
     paths:
-      - "myvitalhistory-tauri-poc/**"
-      - ".github/workflows/myvitalhistory-tauri-poc.yml"
+      - "mycarlos-tauri-poc/**"
+      - ".github/workflows/mycarlos-tauri-poc.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: myvitalhistory-tauri-poc-${{ github.event.pull_request.number || github.ref }}
+  group: mycarlos-tauri-poc-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 defaults:
   run:
-    working-directory: myvitalhistory-tauri-poc
+    working-directory: mycarlos-tauri-poc
 
 jobs:
   web:
@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22.14.0
           cache: npm
-          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
       - run: npm ci
       - run: npm run check
       - run: npm test
@@ -42,10 +42,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: myvitalhistory-browser-evidence
+          name: mycarlos-browser-evidence
           path: |
-            myvitalhistory-tauri-poc/test-results
-            myvitalhistory-tauri-poc/playwright-report
+            mycarlos-tauri-poc/test-results
+            mycarlos-tauri-poc/playwright-report
           if-no-files-found: ignore
           retention-days: 7
 
@@ -68,7 +68,7 @@ jobs:
         with:
           node-version: 22.14.0
           cache: npm
-          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
       - name: Install pinned Rust toolchain
         run: >-
           rustup toolchain install 1.98.0 --profile minimal
@@ -82,8 +82,8 @@ jobs:
         run: find src-tauri/target/debug/bundle -type f -printf '%p %k KB\n' | sort
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: myvitalhistory-linux-evaluation-debug
-          path: myvitalhistory-tauri-poc/src-tauri/target/debug/bundle
+          name: mycarlos-linux-evaluation-debug
+          path: mycarlos-tauri-poc/src-tauri/target/debug/bundle
           retention-days: 7
 
   android:
@@ -98,7 +98,7 @@ jobs:
         with:
           node-version: 22.14.0
           cache: npm
-          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
         with:
           distribution: temurin
@@ -118,8 +118,8 @@ jobs:
         run: find src-tauri/gen/android -type f -name '*.apk' -printf '%p %k KB\n' | sort
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: myvitalhistory-android-debug
-          path: myvitalhistory-tauri-poc/src-tauri/gen/android/app/build/outputs/apk
+          name: mycarlos-android-debug
+          path: mycarlos-tauri-poc/src-tauri/gen/android/app/build/outputs/apk
           retention-days: 7
 
   ios:
@@ -134,7 +134,7 @@ jobs:
         with:
           node-version: 22.14.0
           cache: npm
-          cache-dependency-path: myvitalhistory-tauri-poc/package-lock.json
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
       - name: Install pinned Rust toolchain and iOS simulator target
         run: >-
           rustup toolchain install 1.98.0 --profile minimal
@@ -146,7 +146,7 @@ jobs:
         run: find src-tauri/gen/apple/build -type d -name '*.app' -exec du -sh {} \;
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: myvitalhistory-ios-simulator-debug
-          path: myvitalhistory-tauri-poc/src-tauri/gen/apple/build/**/*.app
+          name: mycarlos-ios-simulator-debug
+          path: mycarlos-tauri-poc/src-tauri/gen/apple/build/**/*.app
           if-no-files-found: error
           retention-days: 7

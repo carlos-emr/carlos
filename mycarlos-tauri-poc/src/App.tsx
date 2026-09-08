@@ -512,10 +512,10 @@ export default function App({ bridge = defaultBridge }: AppProps) {
       </div>
 
       <div className="page-wrap">
-        <section className="app-window" aria-label="MyVitalHistory record library evaluation">
+        <section className="app-window" aria-label="myCarlos record library evaluation">
           <header className="titlebar">
             <span className="window-dots" aria-hidden="true"><i /><i /><i /></span>
-            <span className="window-title">MyVitalHistory</span>
+            <span className="window-title">myCarlos</span>
             <span className="unlock-pill"><Icon name="lock-open" /> Unlocked</span>
           </header>
 
@@ -540,7 +540,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
               <div className="brand">
                 <span className="brand-mark"><Icon name="activity" /></span>
                 <span>
-                  <strong>MyVitalHistory</strong>
+                  <strong>myCarlos</strong>
                   <small>Sample patient</small>
                 </span>
               </div>

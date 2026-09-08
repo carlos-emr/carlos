@@ -29,7 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![runtime_info])
         .run(tauri::generate_context!())
-        .expect("error while running MyVitalHistory Tauri evaluation");
+        .expect("error while running myCarlos Tauri evaluation");
 }
 
 #[cfg(test)]

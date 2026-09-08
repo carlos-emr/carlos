@@ -1,4 +1,4 @@
-# MyVitalHistory Tauri evaluation
+# myCarlos Tauri evaluation
 
 > **Evaluation only — do not use real patient files.** This app does not encrypt, persist, copy,
 > upload, or render selected files. It is not connected to CARLOS EMR.
@@ -9,8 +9,12 @@ React/TypeScript web UI with a narrow Rust boundary and Tauri's native document 
 
 **Tauri v2 is the selected application shell for the next development phase.** This is a framework
 decision, not production approval. [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md) records the
-decision, its limits, and the handoff to a future dedicated MyVitalHistory repository. This PR must
+decision, its limits, and the handoff to a future dedicated myCarlos repository. This PR must
 remain unmerged in CARLOS until that repository exists, and should then be closed with a link to it.
+
+[`THREAT_MODEL.md`](THREAT_MODEL.md) defines the assets, trust boundaries, credible threats,
+required controls, blocking security decisions, and the Secure Vault v0.1 acceptance gate. It is a
+draft design artifact and does not describe security already implemented by this proof of concept.
 
 Use [`EVALUATION.md`](EVALUATION.md) to reproduce the evaluation evidence and record remaining
 platform findings. The UI

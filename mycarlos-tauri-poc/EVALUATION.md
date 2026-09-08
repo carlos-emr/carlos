@@ -1,4 +1,4 @@
-# MyVitalHistory Tauri evaluation guide
+# myCarlos Tauri evaluation guide
 
 This build exists only to answer whether Tauri is a credible cross-platform shell for a future
 patient-held records product. It is not a pilot, beta, clinical system, or foundation that should
@@ -6,15 +6,16 @@ be promoted directly to production.
 
 ## Decision outcome
 
-Tauri v2 has been selected as the MyVitalHistory application shell for the next development phase.
+Tauri v2 has been selected as the myCarlos application shell for the next development phase.
 See [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md) for the decision and constraints.
+See [`THREAT_MODEL.md`](THREAT_MODEL.md) for the security boundaries and Secure Vault v0.1 gate.
 
 The initial supported platforms are Windows, macOS, Android, and iOS. Linux is deferred until the
 documented `glib` advisory is resolved and the updated dependency graph passes security review. The
 Linux CI job remains only as an unsupported compatibility monitor.
 
 The current PR remains **DO NOT MERGE**. It stays in CARLOS as evaluation evidence until a dedicated
-MyVitalHistory repository is created, after which the PR should be closed with a link to the new
+myCarlos repository is created, after which the PR should be closed with a link to the new
 repository. The remaining tasks below are promotion and production-readiness gates, not a reason to
 maintain a parallel Electron/Capacitor implementation.
 

@@ -1828,7 +1828,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "myvitalhistory-tauri-poc"
+name = "mycarlos-tauri-poc"
 version = "0.1.0"
 dependencies = [
  "serde",

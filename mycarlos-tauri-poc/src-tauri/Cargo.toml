@@ -1,13 +1,13 @@
 [package]
-name = "myvitalhistory-tauri-poc"
+name = "mycarlos-tauri-poc"
 version = "0.1.0"
-description = "A non-production Tauri evaluation for the proposed MyVitalHistory app"
+description = "A non-production Tauri evaluation for the proposed myCarlos app"
 authors = ["CARLOS EMR contributors"]
 edition = "2021"
 license = "GPL-2.0-or-later"
 
 [lib]
-name = "myvitalhistory_tauri_poc_lib"
+name = "mycarlos_tauri_poc_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

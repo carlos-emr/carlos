@@ -18,7 +18,7 @@ function bridge(overrides: Partial<PlatformBridge> = {}): PlatformBridge {
   };
 }
 
-describe("MyVitalHistory Tauri evaluation", () => {
+describe("myCarlos Tauri evaluation", () => {
   it("shows the mock-aligned record library and native runtime information", async () => {
     const user = userEvent.setup();
     render(<App bridge={bridge()} />);

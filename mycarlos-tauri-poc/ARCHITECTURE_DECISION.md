@@ -2,12 +2,12 @@
 
 - **Status:** Accepted for the next development phase
 - **Date:** 2026-09-08
-- **Scope:** MyVitalHistory desktop and mobile application framework
+- **Scope:** myCarlos desktop and mobile application framework
 
 ## Decision
 
 Use **Tauri v2 with a shared React/TypeScript interface** as the application shell for
-MyVitalHistory. The initial supported platforms are Windows, macOS, Android, and iOS.
+myCarlos. The initial supported platforms are Windows, macOS, Android, and iOS.
 
 Linux is explicitly deferred while the Tauri Linux dependency graph contains the documented
 `glib` vulnerability. Linux compatibility may continue to be built in CI so the dependency and
@@ -19,7 +19,7 @@ the current proof of concept for production use and does not establish that the 
 to store personal health information.
 
 The proof of concept in this CARLOS repository remains a **DO NOT MERGE** draft. It is retained as
-framework-selection evidence until a dedicated MyVitalHistory repository is created. Development
+framework-selection evidence until a dedicated myCarlos repository is created. Development
 will continue in that repository; this PR should then be closed with a link to the new location
 rather than merged into CARLOS.
 
@@ -62,12 +62,12 @@ Build a security-focused local-vault vertical slice using synthetic PDFs:
 4. unlock and render the document through a constrained viewer; and
 5. delete it without leaving recoverable plaintext application artifacts.
 
-The milestone must include a threat model, key and recovery decision, failure-path tests, and
-on-device verification. Cloud synchronization and CARLOS integration follow only after the local
-vault lifecycle passes review.
+The milestone must satisfy the gates in [`THREAT_MODEL.md`](THREAT_MODEL.md), including the key and
+recovery decisions, failure-path tests, and on-device verification. Cloud synchronization and
+CARLOS integration follow only after the local vault lifecycle passes review.
 
 ## Superseded direction
 
 Electron plus Capacitor remains useful historical design analysis, but it is no longer the active
-implementation direction for MyVitalHistory. Reconsidering it requires new evidence and a new
+implementation direction for myCarlos. Reconsidering it requires new evidence and a new
 architecture decision.
