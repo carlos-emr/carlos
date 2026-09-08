@@ -22,8 +22,13 @@ After rebuilding/deploying CARLOS, open
 with `Allow: GET, HEAD`. Responses are marked `Cache-Control: no-store`.
 The JSP is under `WEB-INF`; direct access is unavailable.
 
-The view contains Summary, Fact ledger, Coverage and Validation tabs, with the
-full source text in Evidence. Citation links open and focus the source.
+The view follows the compact CARLOS patient-overview mock: a patient strip,
+record-context rail, and Overview, Fact ledger, Coverage and Validation tabs.
+Selecting a statement opens its linked documents in Source evidence. A source
+selector and previous/next controls expose every cited document. The desktop
+divider supports pointer and keyboard resizing; the evidence pane can be closed
+and reopened. On mobile, the clinical summary precedes the record-context rail.
+Citation links open and focus the source.
 Without JavaScript, all views remain readable. An artifact with an error finding
 withholds the summary, while evidence and findings remain inspectable.
 Malformed reference structure fails before the JSP receives any artifact.
@@ -104,3 +109,20 @@ python3 -m unittest discover -s tools/ai-clinical-summary-draft/tests -v
 Tests cover method/privilege/default-disable gates, source identity and references,
 section membership, coverage consistency, validation states, dry-run, local-runner
 success/failure, protected input fields, cloud/redirect rejection, and ignored runs.
+
+The browser check requires the repository's Playwright dependency and a running
+synthetic prototype with the committed fixture. Use an authenticated Playwright
+storage-state file for a CARLOS deployment, or omit it for an isolated JSP preview:
+
+```bash
+AI_SUMMARY_URL=http://127.0.0.1:8080/carlos/clinical/AiSummaryPrototype.do \
+AI_SUMMARY_STORAGE_STATE=/tmp/carlos-test-session.json \
+node tools/ai-clinical-summary-draft/tests/browser-checks.cjs
+```
+
+It checks five viewport sizes, tabs and keyboard navigation, source selection,
+statement navigation, evidence resizing and close/reopen behavior, and the
+no-JavaScript fallback. Screenshots are written to a temporary directory. The
+optional `AI_SUMMARY_PREVIEW_STATES=true` also exercises the `error`, `empty`, and
+`xss` modes supplied by the isolated development JSP harness; these modes are not
+part of the CARLOS action.
