@@ -58,13 +58,17 @@ temporary directory, then run:
 ```bash
 python3 .devcontainer/db/scripts/build_nhs_synthetic_seed.py \
   --source-dir /tmp/nhs-synthetic-source \
-  --output .devcontainer/db/scripts/nhs-synthetic/patients.sql
+  --output .devcontainer/db/scripts/nhs-synthetic/patients.sql \
+  --manifest-output src/main/resources/clinical/summary/nhs-generation-fixtures.json
 ```
 
 The generator verifies all three SHA-256 hashes, parses CSV with UTF-8 BOM support,
 validates patient/admission ownership and note counts, and deterministically
 encodes text as UTF-8 SQL hex literals. The SQL contains the original licensed
 note text plus CARLOS-specific provenance headers.
+The companion manifest pins fixture identity and every note text/date hash for
+the optional local AI generation gate. It contains no note text. Edited or
+incomplete seeded charts are intentionally ineligible for runtime generation.
 
 Run generator unit tests without database access or network access:
 

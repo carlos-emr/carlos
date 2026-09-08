@@ -6,6 +6,7 @@ import argparse
 import csv
 from datetime import datetime
 import hashlib
+import json
 from pathlib import Path
 import uuid
 
@@ -40,7 +41,7 @@ def timestamp(value):
     return datetime.strptime(value, "%d/%m/%Y %H:%M").strftime("%Y-%m-%d %H:%M:%S")
 
 
-def build(directory):
+def build(directory, manifest=None):
     patients = read_source(directory, "patients.csv")
     admissions = read_source(directory, "admissions.csv")
     notes = read_source(directory, "synthetic_clinical_notes.csv")
@@ -79,6 +80,10 @@ def build(directory):
         dob = datetime.strptime(patient["date_of_birth"], "%d/%m/%Y")
         marker = "NHS synthetic " + person_id
         chart, alias = literal(chart_no), literal(marker)
+        fixture = {"chart_no": chart_no, "alias": marker,
+                   "label": last_name + ", " + first_name, "notes": []}
+        if manifest is not None:
+            manifest.append(fixture)
         sql += [
             "-- " + chart_no + ": " + patient["full_name"] + " (" + str(expected_count) + " source notes)",
             "INSERT INTO nhs_seed_guard SELECT 'chart marker collision', IF("
@@ -114,6 +119,8 @@ def build(directory):
                 + note["clean_note_text"]
             )
             uid = literal(note_uuid)
+            fixture["notes"].append({"sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                                     "date": timestamp(note["creation_timestamp"])[:10]})
             sql += [
                 "-- Source note " + source_id,
                 "INSERT INTO nhs_seed_guard SELECT 'note UUID belongs to another chart', IF(NOT EXISTS "
@@ -140,6 +147,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--manifest-output", type=Path)
     args = parser.parse_args()
-    result = build(args.source_dir)
+    manifest = []
+    result = build(args.source_dir, manifest)
     args.output.write_text(result, encoding="utf-8")
+    if args.manifest_output:
+        args.manifest_output.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

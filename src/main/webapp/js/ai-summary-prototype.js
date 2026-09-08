@@ -1,6 +1,35 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 "use strict";
 (() => {
+    const generationForm = document.getElementById("generate-summary");
+    if (generationForm) {
+        let submitting = false;
+        const button = generationForm.querySelector("button");
+        const originalButton = button.innerHTML;
+        const status = document.getElementById("generation-status");
+        const originalStatus = status.textContent;
+        generationForm.addEventListener("submit", event => {
+            if (submitting) {
+                event.preventDefault();
+                return;
+            }
+            submitting = true;
+            button.disabled = true;
+            button.querySelector("i").className = "fa-solid fa-spinner fa-spin";
+            button.querySelector("span").textContent = "Generating draft...";
+            generationForm.setAttribute("aria-busy", "true");
+            status.textContent = "Generating locally. This may take several minutes; no chart changes will be made.";
+        });
+        window.addEventListener("pageshow", event => {
+            if (event.persisted && submitting) {
+                submitting = false;
+                button.disabled = false;
+                button.innerHTML = originalButton;
+                generationForm.removeAttribute("aria-busy");
+                status.textContent = originalStatus;
+            }
+        });
+    }
     const workspace = document.getElementById("workspace");
     const nav = document.querySelector(".view-tabs");
     const tabs = [...nav.querySelectorAll("a")];
@@ -189,7 +218,7 @@
         workspace.style.setProperty("--header-height", workspace.offsetTop + "px");
     }
     const observer = new ResizeObserver(measureHeader);
-    document.querySelectorAll(".app-header, .synthetic-banner, .patient-header")
+    document.querySelectorAll(".app-header, .synthetic-banner, .patient-header, .generation-toolbar, .generation-error")
         .forEach(header => observer.observe(header));
     window.addEventListener("resize", measureHeader);
 

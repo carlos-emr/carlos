@@ -65,6 +65,10 @@ public final class ChartClinicalSummaryProvider implements ClinicalSummaryArtifa
                 .put("model", "CARLOS chart extract; no model inference");
         artifact.putObject("patient_context").put("id", patientId)
                 .put("label", value(patient.getDisplayName())).put("synthetic", false);
+        String generationFixture = SyntheticSummaryScope.fixtureId(patient);
+        if (!generationFixture.isEmpty()) {
+            ((ObjectNode) artifact.get("patient_context")).put("generation_fixture", generationFixture);
+        }
         for (String key : List.of("sources", "claims", "fact_ledger", "sections", "coverage", "validation")) {
             artifact.putArray(key);
         }
