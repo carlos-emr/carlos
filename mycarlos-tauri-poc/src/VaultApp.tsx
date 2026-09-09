@@ -264,7 +264,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
       <fieldset><legend>Import into folders (optional)</legend>
         {folders.length ? folders.map((folder) => <label key={folder.id} className="vault-check"><input type="checkbox" checked={selectedFolders.includes(folder.id)} onChange={() => toggleImportFolder(folder.id)} />{folder.name}</label>) : <small>No folders yet</small>}
       </fieldset>
-      <button className="button primary" disabled={busy || !profileId} onClick={importFiles}>Choose files to import</button>
+      <button className="button primary" disabled={busy || !profileId} onClick={() => void importFiles()}>Choose files to import</button>
     </section>
 
     <section className="vault-records" aria-labelledby="records-title">
