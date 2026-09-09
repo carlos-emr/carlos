@@ -85,7 +85,8 @@ public record PatientPortalSettings(
     private static final String REQUIRED_SCHEME_PREFIX = "https://";
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000L;
     private static final long DEFAULT_READ_TIMEOUT_MS = 15000L;
-    private static final int MAX_CLINIC_ID_LENGTH = 64;
+    private static final int MAX_CLINIC_ID_LENGTH = 20;
+    private static final int MIN_SERVICE_TOKEN_LENGTH = 32;
 
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
@@ -100,7 +101,9 @@ public record PatientPortalSettings(
     private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
     private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
     private static final String CLINIC_ID_MESSAGE =
-            "%s must be at most 64 characters and contain no control characters";
+            "%s must contain 1 to 20 ASCII letters, digits, dots, underscores, or hyphens";
+    private static final String SERVICE_TOKEN_MESSAGE =
+            "%s must contain at least 32 characters and no control characters";
     private static final String DESCRIPTION =
             "PatientPortalSettings[baseUrl=%s, clinicId=%s, token=%s, assertionKey=%s,"
                     + " connect=%s, read=%s]";
@@ -189,10 +192,7 @@ public record PatientPortalSettings(
         baseUrl = validatedBaseUrl(requireValue(baseUrl, BASE_URL_KEY));
         clinicId = requireValue(clinicId, CLINIC_ID_KEY);
         validateClinicId(clinicId);
-        if (serviceToken == null) {
-            throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, MISSING_MESSAGE, SERVICE_TOKEN_KEY));
-        }
+        serviceToken = validatedServiceToken(serviceToken);
         if (staffAssertionPrivateKey == null) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, MISSING_MESSAGE, STAFF_ASSERTION_KEY));
@@ -257,10 +257,34 @@ public record PatientPortalSettings(
 
     private static void validateClinicId(String clinicId) {
         if (clinicId.length() > MAX_CLINIC_ID_LENGTH
-                || clinicId.chars().anyMatch(Character::isISOControl)) {
+                || clinicId.chars().anyMatch(character -> !isClinicIdCharacter(character))) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, CLINIC_ID_MESSAGE, CLINIC_ID_KEY));
         }
+    }
+
+    private static boolean isClinicIdCharacter(int character) {
+        return character >= 'A' && character <= 'Z'
+                || character >= 'a' && character <= 'z'
+                || character >= '0' && character <= '9'
+                || character == '.'
+                || character == '_'
+                || character == '-';
+    }
+
+    /** Mirrors the portal's minimum and normalizes direct record construction like the factory. */
+    private static PortalSecret validatedServiceToken(PortalSecret serviceToken) {
+        if (serviceToken == null) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, MISSING_MESSAGE, SERVICE_TOKEN_KEY));
+        }
+        String value = serviceToken.expose().strip();
+        if (value.codePointCount(0, value.length()) < MIN_SERVICE_TOKEN_LENGTH
+                || value.chars().anyMatch(Character::isISOControl)) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, SERVICE_TOKEN_MESSAGE, SERVICE_TOKEN_KEY));
+        }
+        return value.equals(serviceToken.expose()) ? serviceToken : PortalSecret.of(value);
     }
 
     private static String required(Function<String, String> lookup, String key) {
@@ -288,9 +312,11 @@ public record PatientPortalSettings(
         URI uri;
         try {
             uri = new URI(configured);
-        } catch (URISyntaxException exception) {
+        } catch (URISyntaxException ignored) {
+            // URISyntaxException repeats the complete input, including malformed user-info. Keep a
+            // bad URL from carrying an embedded password into a later log through its cause chain.
             throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, MALFORMED_MESSAGE, BASE_URL_KEY), exception);
+                    String.format(Locale.ROOT, MALFORMED_MESSAGE, BASE_URL_KEY));
         }
         if (uri.getHost() == null) {
             throw new PatientPortalConfigurationException(

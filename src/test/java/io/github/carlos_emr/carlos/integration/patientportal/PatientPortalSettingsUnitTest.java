@@ -139,6 +139,22 @@ class PatientPortalSettingsUnitTest {
             assertThat(settings.clinicId()).isEqualTo("maplecreek");
             assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
         }
+
+        @Test
+        @DisplayName("should normalize the service token through direct construction too")
+        void shouldTrimServiceToken_whenCanonicalConstructorReceivesPadding() {
+            PatientPortalSettings settings =
+                    new PatientPortalSettings(
+                            "https://portal.clinic.example",
+                            "maplecreek",
+                            PortalSecret.of("  " + TOKEN + "  "),
+                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                            Duration.ofSeconds(5),
+                            Duration.ofSeconds(15),
+                            java.util.Set.of());
+
+            assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
+        }
     }
 
     @Nested
@@ -252,6 +268,21 @@ class PatientPortalSettingsUnitTest {
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
+
+        @Test
+        @DisplayName("should not retain credentials from a malformed base URL")
+        void shouldOmitEmbeddedCredential_whenBaseUrlIsMalformed() {
+            String syntheticCredential = "synthetic-url-password";
+            Map<String, String> properties = validProperties();
+            properties.put(
+                    BASE_URL_KEY,
+                    "https://user:" + syntheticCredential + "@portal.clinic.example/bad path");
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageNotContaining(syntheticCredential)
+                    .hasNoCause();
+        }
     }
 
     @Nested
@@ -312,6 +343,22 @@ class PatientPortalSettingsUnitTest {
         }
 
         @Test
+        @DisplayName("should reject service tokens outside the portal contract")
+        void shouldThrow_whenServiceTokenIsShortOrContainsControls() {
+            Map<String, String> shortToken = validProperties();
+            shortToken.put(SERVICE_TOKEN_KEY, "x".repeat(31));
+            Map<String, String> control = validProperties();
+            control.put(SERVICE_TOKEN_KEY, "x".repeat(16) + "\n" + "x".repeat(16));
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(shortToken))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(SERVICE_TOKEN_KEY);
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(control))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(SERVICE_TOKEN_KEY);
+        }
+
+        @Test
         @DisplayName("should fail when the staff assertion private key is absent")
         void shouldThrow_whenStaffAssertionPrivateKeyIsMissing() {
             Map<String, String> properties = validProperties();
@@ -358,16 +405,16 @@ class PatientPortalSettingsUnitTest {
 
         @Test
         @DisplayName("should reject a clinic id outside the portal contract")
-        void shouldThrow_whenClinicIdIsTooLongOrContainsControls() {
+        void shouldThrow_whenClinicIdIsTooLongOrContainsUnsupportedCharacters() {
             Map<String, String> tooLong = validProperties();
-            tooLong.put(CLINIC_ID_KEY, "c".repeat(65));
-            Map<String, String> control = validProperties();
-            control.put(CLINIC_ID_KEY, "clinic\nother");
+            tooLong.put(CLINIC_ID_KEY, "c".repeat(21));
+            Map<String, String> unsupported = validProperties();
+            unsupported.put(CLINIC_ID_KEY, "clinic/other");
 
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(tooLong))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CLINIC_ID_KEY);
-            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(control))
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(unsupported))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CLINIC_ID_KEY);
         }
