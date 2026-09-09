@@ -103,7 +103,8 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     static void requirePatientAccess(SecurityInfoManager security, LoggedInInfo session, int patient) {
-        if (!security.hasPrivilege(session, "_demographic", "r", String.valueOf(patient))
+        if (!security.hasPrivilege(
+                        session, "_demographic", SecurityInfoManager.READ, String.valueOf(patient))
                 || !security.isAllowedAccessToPatientRecord(session, patient)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
@@ -254,11 +255,14 @@ public abstract class PortalJsonAction extends ActionSupport {
      * having already fixed once; it was fixed for the method check and not for the authorization
      * check, which is by far the more frequent path.
      *
-     * <p>The object name goes to the log rather than to the browser. Which security object a
-     * provider is missing is an administrator's business, and the staff member cannot act on it.
+     * <p>The caught type is broad enough to include exceptions raised below the explicit privilege
+     * checks. Its message is therefore not logged: an implementation detail or patient value in a
+     * nested authorization failure must not cross the logging boundary.
      */
     String forbidden(HttpServletResponse response, SecurityException exception) throws IOException {
-        logger.warn(exception.getMessage());
+        logger.warn(
+                "patient portal action forbidden by CARLOS access controls: {}",
+                exception.getClass().getSimpleName());
         return failure(
                 response, HttpServletResponse.SC_FORBIDDEN, "not_permitted", PERMISSION_DENIED);
     }

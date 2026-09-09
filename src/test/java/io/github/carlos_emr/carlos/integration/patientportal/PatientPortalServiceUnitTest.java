@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,7 +54,7 @@ class PatientPortalServiceUnitTest {
     private static final String INVITE_PATH = "/internal/carlos/patients/123/invites";
 
     private PatientPortalService service() {
-        return new PatientPortalService(
+        PatientPortalSettings settings =
                 PatientPortalSettings.fromProperties(
                         Map.of(
                                 PatientPortalSettings.BASE_URL_KEY,
@@ -63,7 +64,11 @@ class PatientPortalServiceUnitTest {
                                 PatientPortalSettings.SERVICE_TOKEN_KEY,
                                 TOKEN,
                                 PatientPortalSettings.STAFF_ASSERTION_KEY,
-                                PortalTestKeys.PRIVATE_KEY)));
+                                PortalTestKeys.PRIVATE_KEY));
+        // Request-building tests do not need a real pooled client that every test must remember to
+        // close. The exchange is never called here.
+        return new PatientPortalService(
+                settings, request -> new PatientPortalHttpResponse(200, "{}"));
     }
 
     private PatientPortalStaffContext staff() {
@@ -165,6 +170,30 @@ class PatientPortalServiceUnitTest {
 
             assertThat(request.getUri().toString())
                     .isEqualTo("https://portal.clinic.example/internal/carlos/patients/123/invites");
+        }
+
+        @Test
+        @DisplayName("should keep an invalid interpolated path out of the exception chain")
+        void shouldOmitPatientIdentifier_whenARequestPathIsInvalid() {
+            String syntheticPatient = "8675309";
+
+            Throwable failure =
+                    catchThrowable(
+                            () ->
+                                    service()
+                                            .buildRequest(
+                                                    "GET",
+                                                    "/internal/carlos/patients/"
+                                                            + syntheticPatient
+                                                            + "/bad path",
+                                                    null,
+                                                    staff()));
+
+            assertThat(failure)
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessage("portal endpoint path is not a valid URI")
+                    .hasNoCause();
+            assertThat(failure.getMessage()).doesNotContain(syntheticPatient);
         }
 
         @Test

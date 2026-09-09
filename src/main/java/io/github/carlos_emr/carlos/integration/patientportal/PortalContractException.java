@@ -46,7 +46,4 @@ class PortalContractException extends RuntimeException {
         super(message);
     }
 
-    PortalContractException(String message, Throwable cause) {
-        super(message, cause);
-    }
 }

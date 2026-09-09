@@ -95,6 +95,22 @@ class PortalFailureLoggingUnitTest {
                 .doesNotContain(HEALTH_CARD);
     }
 
+    @Test
+    @DisplayName("should not log an arbitrary authorization exception message")
+    void shouldOmitAuthorizationExceptionMessage_fromTheLog() throws IOException {
+        try (LogCapture capture = LogCapture.forLogger(PortalJsonAction.class)) {
+            new TestAction()
+                    .forbidden(
+                            new MockHttpServletResponse(),
+                            new SecurityException("denied for " + PATIENT_EMAIL));
+
+            assertThat(capture.events())
+                    .isNotEmpty()
+                    .extracting(event -> event.getMessage().getFormattedMessage())
+                    .allSatisfy(message -> assertThat(message).doesNotContain(PATIENT_EMAIL));
+        }
+    }
+
     private PatientPortalException jsonFailure() {
         String body =
                 String.format(
