@@ -56,7 +56,7 @@ def run_agent(request):
         ids.add(source_id)
         patient_ids.add(source["patient_id"])
         claims.append({"id": f"demo-{index + 1}",
-                       "text": f"Source received: {source['title']} ({source['date']}).",
+                       "text": f"The contract demonstration received {source['title']} dated {source['date']}.",
                        "source_ids": [source_id]})
     if len(patient_ids) != 1:
         raise ValueError("Mixed patient sources")
@@ -65,11 +65,11 @@ def run_agent(request):
         "request_id": request["request_id"],
         "status": "completed",
         "output": {
-            "sections": [{"id": "contract-demo", "title": "Contract demonstration (no AI)",
+            "sections": [{"id": "clinical_overview", "title": "Clinical overview",
                           "claim_ids": [claim["id"] for claim in claims]}],
             "claims": claims,
             "coverage": [{"source_id": source["id"], "status": "cited",
-                          "reason": "Source metadata listed by deterministic contract example; no clinical analysis."}
+                          "reason": f"Contract demonstration listed {source['id']}; no clinical analysis."}
                          for source in sources],
         },
     }

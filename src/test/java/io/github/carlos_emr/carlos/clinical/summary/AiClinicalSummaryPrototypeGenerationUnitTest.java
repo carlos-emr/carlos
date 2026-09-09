@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.clinical.summary;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
@@ -40,9 +41,13 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
         chart = new SyntheticClinicalSummaryProvider().load(null, ClinicalSummaryRequest.synthetic());
         ObjectNode fixture = MAPPER.valueToTree(chart.getView());
         generated = MAPPER.createObjectNode();
-        for (String key : new String[]{"sections", "claims", "coverage"}) {
-            generated.set(key, fixture.get(key));
-        }
+        ArrayNode sections = generated.putArray("sections");
+        sections.addObject().put("id", "clinical_overview").put("title", "Clinical overview")
+                .putArray("claim_ids").add("claim-1");
+        sections.addObject().put("id", "medications_allergies").put("title", "Medications and allergies")
+                .putArray("claim_ids").add("claim-2").add("claim-3");
+        generated.set("claims", fixture.get("claims"));
+        generated.set("coverage", fixture.get("coverage"));
         scope = mockStatic(SyntheticSummaryScope.class);
         scope.when(() -> SyntheticSummaryScope.isEligible(chart)).thenReturn(true);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -145,6 +150,40 @@ class AiClinicalSummaryPrototypeGenerationUnitTest {
                 .putArray("source_ids").add("wrong-patient-note");
         assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation")
                 .hasMessageNotContaining("sensitive diagnostic");
+    }
+
+    @Test
+    void rejectsDuplicateClaimsEvenWhenIdsAreUnique() {
+        ObjectNode duplicate = ((ObjectNode) generated.get("claims").get(0)).deepCopy();
+        duplicate.put("id", "claim-duplicate");
+        ((ArrayNode) generated.get("claims")).add(duplicate);
+        ((ArrayNode) generated.get("sections").get(0).get("claim_ids")).add("claim-duplicate");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+    }
+
+    @Test
+    void rejectsMetadataClaimsAndUngroundedCitations() {
+        for (String metadata : new String[]{"Source note ID: imported-note-1", "Demographic number: 3003",
+                "Subject: GP contact for discharge planning", "Type: Medicine Inpatients"}) {
+            ((ObjectNode) generated.get("claims").get(0)).put("text", metadata);
+            assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+        }
+
+        ((ObjectNode) generated.get("claims").get(0)).put("text", "Migraine with photophobia is worsening.");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+    }
+
+    @Test
+    void rejectsUncontrolledSectionsAndRepeatedCoverageReasons() {
+        ((ObjectNode) generated.get("sections").get(0)).put("id", "patient_identity")
+                .put("title", "Patient Identity");
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
+
+        ((ObjectNode) generated.get("sections").get(0)).put("id", "clinical_overview")
+                .put("title", "Clinical overview");
+        String repeated = generated.get("coverage").get(0).get("reason").asText();
+        ((ObjectNode) generated.get("coverage").get(1)).put("reason", repeated);
+        assertThatThrownBy(() -> generator().generate(chart)).hasMessageContaining("failed validation");
     }
 
     @Test

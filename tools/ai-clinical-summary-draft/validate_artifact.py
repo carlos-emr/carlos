@@ -5,6 +5,25 @@ from datetime import datetime
 import json
 from pathlib import Path
 import re
+import unicodedata
+
+SECTION_TITLES = {
+    "clinical_overview": "Clinical overview",
+    "active_problems": "Active problems",
+    "medications_allergies": "Medications and allergies",
+    "results_observations": "Results and observations",
+    "plan_follow_up": "Plan and follow-up",
+}
+SOURCE_METADATA = re.compile(
+    r"(?:\b(source (?:note|admission|patient) id|demographic (?:number|id)|recorded gender identity|"
+    r"synthetic nhs test patient|imported development fixture|silver data|nmc number|gmc number|"
+    r"fixture revision)\b|\b(?:subject|type)\s*:)", re.IGNORECASE)
+COMMON_WORDS = {
+    "about", "after", "also", "and", "are", "been", "being", "clinical", "current", "for",
+    "from", "had", "has", "have", "into", "more", "new", "noted", "patient", "recorded",
+    "report", "reported", "source", "that", "the", "their", "there", "this", "was", "were",
+    "with", "without",
+}
 
 
 def require(condition, message):
@@ -43,6 +62,73 @@ def references(item, key, known, nonempty=True):
                 "Unknown or duplicate reference")
         result.add(value)
     return result
+
+
+def normalized(value):
+    return " ".join(re.findall(r"[^\W_]+", unicodedata.normalize("NFKC", value).lower(), re.UNICODE))
+
+
+def words(value):
+    return {word for word in re.findall(r"[^\W_]+", unicodedata.normalize("NFKC", value).lower(), re.UNICODE)
+            if len(word) >= 3}
+
+
+def validate_generated(generated, sources, allow_empty=False):
+    require(isinstance(generated, dict) and set(generated) == {"sections", "claims", "coverage"},
+            "Model output must contain only sections, claims, and coverage")
+    sections = array(generated, "sections")
+    claims = array(generated, "claims")
+    coverage = array(generated, "coverage")
+    require(len(sections) <= len(SECTION_TITLES) and len(claims) <= 20 and 1 <= len(coverage) <= 60,
+            "Invalid generated collection size")
+    require(allow_empty or bool(claims), "Empty agent draft")
+    require(bool(sections) == bool(claims), "Clinical sections and claims must both be present")
+
+    section_ids = set()
+    for section in sections:
+        require(isinstance(section, dict) and set(section) == {"id", "title", "claim_ids"},
+                "Invalid section fields")
+        section_id = text(section, "id")
+        require(SECTION_TITLES.get(section_id) == text(section, "title")
+                and section_id not in section_ids, "Invalid clinical section")
+        section_ids.add(section_id)
+        require(1 <= len(array(section, "claim_ids")) <= 20, "Clinical sections must not be empty")
+
+    source_words = {}
+    for source in sources:
+        source_words[text(source, "id")] = words(" ".join(
+            text(source, key) for key in ("title", "date", "text")))
+    unique_claims = set()
+    for claim in claims:
+        require(isinstance(claim, dict) and set(claim) == {"id", "text", "source_ids"},
+                "Invalid claim fields")
+        claim_text = text(claim, "text").strip()
+        normalized_claim = normalized(claim_text)
+        require(len(claim_text) <= 240 and "\n" not in claim_text and "\r" not in claim_text
+                and not SOURCE_METADATA.search(claim_text) and normalized_claim not in unique_claims,
+                "Unreadable or duplicate clinical claim")
+        unique_claims.add(normalized_claim)
+        cited = array(claim, "source_ids")
+        require(1 <= len(cited) <= 8, "Invalid claim citations")
+        cited_words = set()
+        for source_id in cited:
+            require(isinstance(source_id, str) and source_id in source_words,
+                    "Unknown claim citation")
+            cited_words.update(source_words[source_id])
+        claim_words = words(claim_text) - COMMON_WORDS
+        require(bool(claim_words) and bool(claim_words & cited_words),
+                "Claim lacks lexical support in cited sources")
+
+    reasons = set()
+    for entry in coverage:
+        require(isinstance(entry, dict) and set(entry) == {"source_id", "status", "reason"},
+                "Invalid coverage fields")
+        reason = text(entry, "reason").strip()
+        normalized_reason = normalized(reason)
+        require(len(reason) <= 160 and "\n" not in reason and "\r" not in reason
+                and normalized_reason not in reasons, "Unreadable or duplicate coverage reason")
+        reasons.add(normalized_reason)
+    return generated
 
 
 def validate(artifact):

@@ -23,7 +23,16 @@ class RunnerTest(unittest.TestCase):
     def setUp(self):
         self.artifact = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.bundle = json.loads((ROOT / "sample-input.json").read_text(encoding="utf-8"))
-        self.generated = {key: self.artifact[key] for key in ("sections", "claims", "coverage")}
+        self.generated = {
+            "sections": [
+                {"id": "clinical_overview", "title": "Clinical overview",
+                 "claim_ids": ["claim-1"]},
+                {"id": "medications_allergies", "title": "Medications and allergies",
+                 "claim_ids": ["claim-2", "claim-3"]},
+            ],
+            "claims": copy.deepcopy(self.artifact["claims"]),
+            "coverage": copy.deepcopy(self.artifact["coverage"]),
+        }
 
     def test_example_and_input_are_consistent(self):
         validate(self.artifact)
@@ -57,6 +66,35 @@ class RunnerTest(unittest.TestCase):
             generated = dict(self.generated, **{field: []})
             with self.subTest(field=field), self.assertRaises(ValueError):
                 run.build_artifact(self.bundle, generated, "qwen3.5:4b", "run-1", "2026-09-08T00:00:00Z")
+
+    def test_generated_quality_failures_are_rejected(self):
+        duplicate = copy.deepcopy(self.generated)
+        repeated = copy.deepcopy(duplicate["claims"][0])
+        repeated["id"] = "claim-duplicate"
+        duplicate["claims"].append(repeated)
+        duplicate["sections"][0]["claim_ids"].append("claim-duplicate")
+
+        ungrounded = copy.deepcopy(self.generated)
+        ungrounded["claims"][0]["text"] = "Migraine with photophobia is worsening."
+
+        bad_section = copy.deepcopy(self.generated)
+        bad_section["sections"][0] = {
+            "id": "patient_identity", "title": "Patient Identity", "claim_ids": ["claim-1"]}
+
+        repeated_reason = copy.deepcopy(self.generated)
+        repeated_reason["coverage"][1]["reason"] = repeated_reason["coverage"][0]["reason"]
+
+        invalid = [duplicate, ungrounded, bad_section, repeated_reason]
+        for text in ("Source note ID: imported-note-1", "Demographic number: 3003",
+                     "Subject: GP contact for discharge planning", "Type: Medicine Inpatients"):
+            metadata = copy.deepcopy(self.generated)
+            metadata["claims"][0]["text"] = text
+            invalid.append(metadata)
+
+        for generated in invalid:
+            with self.subTest(generated=generated), self.assertRaises(ValueError):
+                run.build_artifact(self.bundle, generated, "qwen3.5:4b",
+                                   "run-1", "2026-09-08T00:00:00Z")
 
     def test_contract_rejects_bad_provenance(self):
         mutations = [

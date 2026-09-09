@@ -89,7 +89,7 @@ Return exactly these four envelope fields, echoing version and request ID:
   "status": "completed",
   "output": {
     "sections": [
-      { "id": "overview", "title": "Overview", "claim_ids": ["claim-1"] }
+      { "id": "clinical_overview", "title": "Clinical overview", "claim_ids": ["claim-1"] }
     ],
     "claims": [
       { "id": "claim-1", "text": "<source-supported statement>", "source_ids": ["note-123"] }
@@ -101,16 +101,22 @@ Return exactly these four envelope fields, echoing version and request ID:
 }
 ```
 
-Every claim needs a valid source citation and belongs to exactly one section.
-Coverage must account for every supplied source exactly once and match actual
-claim citations. Return at least one claim, at most 100 claims, 20 sections and
-60 coverage entries. See [CONTRACT.md](CONTRACT.md) for all rendering invariants.
+Every claim needs a valid source citation and belongs to exactly one non-empty
+section. Sections use one of the five fixed ID/title pairs in the supplied schema:
+Clinical overview, Active problems, Medications and allergies, Results and
+observations, or Plan and follow-up. Omit empty sections. Coverage must account
+for every supplied source exactly once and match actual claim citations. Return
+1-20 short single-paragraph claims, 1-5 sections and 1-60 coverage entries.
+Coverage reasons are source-specific and at most 160 characters. See
+[CONTRACT.md](CONTRACT.md) for all rendering invariants.
 
 Do not return sources, model names, timestamps, patient context, fact ledger or
 validation findings. CARLOS rejects extra fields, duplicate JSON keys, wrong
 request IDs/versions, non-completed statuses, invalid references, oversized output
-and malformed responses. Agent exception messages and HTTP error bodies are not
-shown to the user. Failure preserves a newly authorized deterministic chart view.
+malformed responses, duplicate normalized claim prose or coverage reasons,
+fixture metadata presented as clinical claims, and claims without basic lexical
+overlap with their cited evidence. Agent exception messages and HTTP error bodies
+are not shown to the user. Failure preserves a newly authorized deterministic chart view.
 After generation, CARLOS reloads chart authorization and evidence; a changed source
 snapshot invalidates the draft. No draft is saved to the chart or session.
 

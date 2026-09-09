@@ -60,6 +60,8 @@ const path = require("node:path");
             const agentLabel = process.env.AI_SUMMARY_AGENT_LABEL || "qwen3.5:2b via local Ollama";
             assert.ok((await page.locator(".artifact-footer").innerText()).includes(agentLabel));
             assert.ok(await page.locator(".claim").count() > 0);
+            assert.equal(await page.locator(".source-count").count(), 0);
+            assert.equal(await page.locator(".claim-source-links:visible").count(), 0);
         }
         for (const width of [1440, 390, 320]) {
             await page.setViewportSize({width, height: 1000});
