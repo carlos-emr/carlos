@@ -151,7 +151,7 @@ public class PortalAccount2Action extends PortalJsonAction {
             throws IOException {
         PatientPortalAccountAcknowledgementDto account =
                 portal.unlockAccount(demographicNo, staff);
-        ObjectNode payload = objectMapper().createObjectNode();
+        ObjectNode payload = newPayload();
         payload.put("ok", true);
         payload.put("accountId", account.id());
         payload.put("locked", account.lockedAt() != null);
@@ -202,7 +202,7 @@ public class PortalAccount2Action extends PortalJsonAction {
                         enabled.booleanValue(),
                         reasonMissing ? "staff_action" : reason.strip(),
                         staff);
-        ObjectNode payload = objectMapper().createObjectNode();
+        ObjectNode payload = newPayload();
         payload.put("ok", true);
         payload.put("accountId", account.id());
         payload.put("status", account.status());

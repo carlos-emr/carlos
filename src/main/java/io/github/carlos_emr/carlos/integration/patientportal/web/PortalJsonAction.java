@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Locale;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
@@ -158,10 +159,10 @@ public abstract class PortalJsonAction extends ActionSupport {
             The patient portal is not configured on this CARLOS server. An administrator needs to \
             set the portal connection before these actions can be used.""";
 
-    private final transient ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    ObjectMapper objectMapper() {
-        return objectMapper;
+    ObjectNode newPayload() {
+        return OBJECT_MAPPER.createObjectNode();
     }
 
     /**
@@ -216,8 +217,9 @@ public abstract class PortalJsonAction extends ActionSupport {
     String write(HttpServletResponse response, int status, ObjectNode payload) throws IOException {
         response.setStatus(status);
         response.setContentType(JSON);
-        response.getWriter().write(objectMapper.writeValueAsString(payload));
-        response.getWriter().flush();
+        PrintWriter writer = response.getWriter();
+        writer.write(OBJECT_MAPPER.writeValueAsString(payload));
+        writer.flush();
         return NONE;
     }
 
@@ -284,7 +286,7 @@ public abstract class PortalJsonAction extends ActionSupport {
     private String failure(
             HttpServletResponse response, int status, String reason, String message)
             throws IOException {
-        ObjectNode payload = objectMapper.createObjectNode();
+        ObjectNode payload = newPayload();
         payload.put("ok", false);
         payload.put("reason", reason);
         payload.put("message", message);
