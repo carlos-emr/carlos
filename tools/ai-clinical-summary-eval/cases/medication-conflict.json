@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "case_id": "medication-conflict",
+  "description": "A later patient report conflicts with an active medication list.",
+  "bundle": {
+    "patient_context": {"id": "eval-medication-conflict", "label": "Synthetic medication conflict", "synthetic": true},
+    "sources": [
+      {"id": "visit-1", "patient_id": "eval-medication-conflict", "title": "Synthetic visit note", "date": "2026-09-01", "text": "The patient reports intermittent left knee pain for two weeks and no injury. They report stopping amlodipine one week ago. Medication reconciliation remains pending."},
+      {"id": "meds-1", "patient_id": "eval-medication-conflict", "title": "Synthetic medication list", "date": "2026-08-15", "text": "Amlodipine 5 mg orally daily. Status: active. This list predates the visit note."},
+      {"id": "allergy-1", "patient_id": "eval-medication-conflict", "title": "Synthetic allergy record", "date": "2026-08-15", "text": "Penicillin: rash. Reaction date not recorded."},
+      {"id": "admin-1", "patient_id": "eval-medication-conflict", "title": "Synthetic scheduling note", "date": "2026-08-30", "text": "Appointment time confirmed. No clinical content."}
+    ],
+    "fact_ledger": [
+      {"id": "ledger-knee", "category": "Symptoms", "text": "Intermittent left knee pain for two weeks; no injury reported.", "source_ids": ["visit-1"]},
+      {"id": "ledger-medication", "category": "Medication conflict", "text": "Amlodipine is listed active, but the patient reports stopping it.", "source_ids": ["visit-1", "meds-1"]},
+      {"id": "ledger-allergy", "category": "Allergies", "text": "Penicillin caused a rash.", "source_ids": ["allergy-1"]}
+    ]
+  },
+  "expectations": {
+    "facts": [
+      {"id": "knee-pain", "critical": false, "section_ids": ["clinical_overview", "active_problems"], "pattern_groups": [["knee pain"], ["two weeks|2 weeks"]], "required_source_ids": ["visit-1"]},
+      {"id": "no-injury", "critical": false, "section_ids": ["clinical_overview", "active_problems"], "pattern_groups": [["no (?:reported )?injury|without (?:reported )?injury|denies injury"]], "required_source_ids": ["visit-1"]},
+      {"id": "amlodipine-conflict", "critical": true, "section_ids": ["medications_allergies"], "pattern_groups": [["amlodipine"], ["stop|not taking|discontinu"], ["active|list"]], "required_source_ids": ["visit-1", "meds-1"]},
+      {"id": "penicillin-rash", "critical": true, "section_ids": ["medications_allergies"], "pattern_groups": [["penicillin"], ["rash"]], "required_source_ids": ["allergy-1"]},
+      {"id": "reconciliation-pending", "required": false, "critical": false, "section_ids": ["medications_allergies", "plan_follow_up"], "pattern_groups": [["medication reconciliation"], ["pending|not complete"]], "required_source_ids": ["visit-1"]}
+    ],
+    "forbidden_patterns": ["demographic (?:number|id)", "source (?:note|patient|admission) id"],
+    "excluded_source_ids": [],
+    "coverage": {
+      "visit-1": ["cited"],
+      "meds-1": ["cited"],
+      "allergy-1": ["cited"],
+      "admin-1": ["reviewed_not_cited", "excluded"]
+    }
+  }
+}
