@@ -105,6 +105,7 @@
                                 <p class="empty-state">No summary claims available.</p>
                             </c:when>
                             <c:otherwise>
+                                <p class="claim-instruction">Select a statement to view its source evidence.</p>
                                 <c:forEach items="${summaryArtifact.sections}" var="section">
                                     <section class="summary-section">
                                         <h3><carlos:encode value="${section.title}"/></h3>
@@ -112,8 +113,8 @@
                                         <c:forEach items="${section.claim_ids}" var="claimId">
                                             <c:set var="claim" value="${summaryClaims[claimId]}"/>
                                             <div class="claim-row">
-                                                <a href="#source-${carlos:forHtmlAttribute(claim.source_ids[0])}" class="claim" data-claim-id="${carlos:forHtmlAttribute(claimId)}"><span class="claim-text"><carlos:encode value="${claim.text}"/></span> <span class="source-count">${fn:length(claim.source_ids)} <c:choose><c:when test="${fn:length(claim.source_ids) eq 1}">source</c:when><c:otherwise>sources</c:otherwise></c:choose></span></a>
-                                                <span class="citations">
+                                                <a href="#source-${carlos:forHtmlAttribute(claim.source_ids[0])}" class="claim" data-claim-id="${carlos:forHtmlAttribute(claimId)}" title="View source evidence"><span class="claim-text"><carlos:encode value="${claim.text}"/></span></a>
+                                                <span class="claim-source-links" hidden>
                                                     <c:forEach items="${claim.source_ids}" var="sourceId">
                                                         <a href="#source-${carlos:forHtmlAttribute(sourceId)}" class="citation"><carlos:encode value="${sourceId}"/></a>
                                                     </c:forEach>

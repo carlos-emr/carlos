@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.clinical.summary;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -32,7 +33,13 @@ class AiClinicalSummaryPrototypeAgentUnitTest {
         chart = new SyntheticClinicalSummaryProvider().load(null, ClinicalSummaryRequest.synthetic());
         JsonNode fixture = JSON.valueToTree(chart.getView());
         output = JSON.createObjectNode();
-        for (String key : Set.of("sections", "claims", "coverage")) output.set(key, fixture.get(key));
+        ArrayNode sections = output.putArray("sections");
+        sections.addObject().put("id", "clinical_overview").put("title", "Clinical overview")
+                .putArray("claim_ids").add("claim-1");
+        sections.addObject().put("id", "medications_allergies").put("title", "Medications and allergies")
+                .putArray("claim_ids").add("claim-2").add("claim-3");
+        output.set("claims", fixture.get("claims"));
+        output.set("coverage", fixture.get("coverage"));
         scope = mockStatic(SyntheticSummaryScope.class);
         scope.when(() -> SyntheticSummaryScope.isEligible(chart)).thenReturn(true);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);

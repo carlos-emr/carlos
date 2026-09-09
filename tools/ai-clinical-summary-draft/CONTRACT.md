@@ -46,9 +46,15 @@ the default Ollama adapter, HTTP agents and in-process Java implementations.
 No patient chart selector, model endpoint or filesystem path is part of the
 rendering artifact's authority.
 
-The optional runtime generator adds a stricter requirement: generated claims must
-not be empty. Its output accepts exactly sections, claims and coverage and must
-pass this contract before rendering. Chart-derived patient context may contain a
+The optional generators add stricter readability requirements. Generated output
+uses a fixed set of five clinical sections, omits empty sections, contains 1-20
+single-paragraph claims of at most 240 characters, and keeps coverage reasons to
+160 characters. Normalized duplicate claims and reasons, fixture metadata posed
+as clinical claims, and claims without basic lexical overlap with their cited
+sources are rejected. These checks reduce obvious low-quality output but do not
+prove that prose is clinically supported or correct. Generated output accepts
+exactly sections, claims and coverage and must pass this contract before rendering.
+Chart-derived patient context may contain a
 host-assigned `generation_fixture` marker; that marker alone is not authorization.
 The generator checks it against pinned identity and every source note text/date
 hash, then the action reloads authorized chart evidence after inference. Generated
