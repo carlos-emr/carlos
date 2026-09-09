@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -84,6 +85,14 @@ class PortalFailureLoggingUnitTest {
         }
     }
 
+    private Level levelOf(PatientPortalException exception) throws IOException {
+        try (LogCapture capture = LogCapture.forLogger(PortalJsonAction.class)) {
+            new TestAction().portalFailure(new MockHttpServletResponse(), exception);
+            assertThat(capture.events()).hasSize(1);
+            return capture.events().get(0).getLevel();
+        }
+    }
+
     @Test
     @DisplayName("should not log the response body a JSON parse choked on")
     void shouldOmitTheBody_whenTheResponseIsNotValidJson() throws IOException {
@@ -109,6 +118,20 @@ class PortalFailureLoggingUnitTest {
                     .extracting(event -> event.getMessage().getFormattedMessage())
                     .allSatisfy(message -> assertThat(message).doesNotContain(PATIENT_EMAIL));
         }
+    }
+
+    @Test
+    @DisplayName("should warn for an expected portal conflict")
+    void shouldWarn_whenThePortalRejectsABusinessTransition() throws IOException {
+        assertThat(levelOf(PatientPortalException.ofStatus(409, "/x/{id}", null)))
+                .isEqualTo(Level.WARN);
+    }
+
+    @Test
+    @DisplayName("should log transport failures as errors")
+    void shouldLogAnError_whenThePortalDidNotCompleteTheExchange() throws IOException {
+        assertThat(levelOf(PatientPortalException.ofTransportFailure("/x/{id}", null)))
+                .isEqualTo(Level.ERROR);
     }
 
     private PatientPortalException jsonFailure() {

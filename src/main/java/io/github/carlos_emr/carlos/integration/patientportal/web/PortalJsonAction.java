@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Locale;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 
@@ -342,10 +343,25 @@ public abstract class PortalJsonAction extends ActionSupport {
                             HttpServletResponse.SC_BAD_GATEWAY;
                     case VALIDATION_FAILED, BAD_REQUEST -> HttpServletResponse.SC_BAD_REQUEST;
                 };
-        logger.error(
-                String.format(Locale.ROOT, FAILURE_LOG, exception.kind(), status), exception);
+        logger.log(
+                failureLogLevel(exception),
+                String.format(Locale.ROOT, FAILURE_LOG, exception.kind(), status),
+                exception);
         return failure(
                 response, status, exception.kind().name().toLowerCase(Locale.ROOT), message);
+    }
+
+    /** Keeps expected portal rejections visible without making them indistinguishable from outages. */
+    static Level failureLogLevel(PatientPortalException exception) {
+        return switch (exception.kind()) {
+            case BAD_REQUEST,
+                    PERMISSION_DENIED,
+                    NOT_FOUND_OR_UNAUTHENTICATED,
+                    CONFLICT,
+                    VALIDATION_FAILED,
+                    THROTTLED -> Level.WARN;
+            case UNEXPECTED_STATUS, MALFORMED_RESPONSE, TRANSPORT_FAILURE -> Level.ERROR;
+        };
     }
 
     static int positiveInt(String value) {

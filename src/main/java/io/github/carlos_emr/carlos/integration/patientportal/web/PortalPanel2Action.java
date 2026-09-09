@@ -201,7 +201,8 @@ public class PortalPanel2Action extends PortalJsonAction {
             payload.remove("invites");
             payload.put("invitesError", SECTION_UNAVAILABLE);
             payload.put("invitesErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
-            logger.error(
+            logger.log(
+                    failureLogLevel(exception),
                     String.format(Locale.ROOT, SECTION_FAILED_LOG, "invites", exception.kind()),
                     exception);
             return false;
@@ -228,7 +229,8 @@ public class PortalPanel2Action extends PortalJsonAction {
         } catch (PatientPortalException exception) {
             payload.put("accountError", SECTION_UNAVAILABLE);
             payload.put("accountErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
-            logger.error(
+            logger.log(
+                    failureLogLevel(exception),
                     String.format(Locale.ROOT, SECTION_FAILED_LOG, "account", exception.kind()),
                     exception);
             return false;
