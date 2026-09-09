@@ -104,7 +104,7 @@ public class PortalInvite2Action extends PortalJsonAction {
                 return portalFailure(response, PatientPortalException.ofMalformedResponse(200,
                         "/internal/carlos/invites/{id}/revoke", null));
             }
-            ObjectNode payload = objectMapper().createObjectNode();
+            ObjectNode payload = newPayload();
             payload.put("ok", true);
             payload.put("inviteId", invite.id());
             payload.put("status", invite.status());

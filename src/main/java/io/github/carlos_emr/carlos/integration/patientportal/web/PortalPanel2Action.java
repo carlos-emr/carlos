@@ -154,7 +154,7 @@ public class PortalPanel2Action extends PortalJsonAction {
             scope.add(PortalStaffContextResolver.OBJECT_ACCOUNT);
         }
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(loggedInInfo, scope, demographicNo);
-        ObjectNode payload = objectMapper().createObjectNode();
+        ObjectNode payload = newPayload();
         boolean complete = true;
         if (mayReadInvites) {
             complete &= addInvites(portal, payload, demographicNo, staff);
