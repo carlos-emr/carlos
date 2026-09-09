@@ -201,17 +201,18 @@ public record PatientPortalSettings(
         PortalStaffAssertionSigner.validate(staffAssertionPrivateKey);
         requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
         requirePositive(readTimeout, READ_TIMEOUT_KEY);
-        certificatePins = certificatePins == null ? Set.of() : Set.copyOf(certificatePins);
+        Set<String> configuredPins = certificatePins == null ? Set.of() : certificatePins;
         // Format is checked here rather than only where the socket factory is built, so a typo in
         // carlos.properties fails when the settings are read — with the deployment's other
         // configuration errors — instead of surviving until the first handshake and surfacing as
         // "did not match any configured pin", which reads like a rotated key rather than a typo.
-        for (String pin : certificatePins) {
+        for (String pin : configuredPins) {
             if (!PortalCertificatePinning.isWellFormed(pin)) {
                 throw new PatientPortalConfigurationException(
                         String.format(Locale.ROOT, BAD_PIN_MESSAGE, CERTIFICATE_PINS_KEY));
             }
         }
+        certificatePins = Set.copyOf(configuredPins);
     }
 
     /** Blank means optional pinning is off; a nonblank list must contain valid pins. */
@@ -253,6 +254,15 @@ public record PatientPortalSettings(
         if (duration == null || duration.isZero() || duration.isNegative()) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, TIMEOUT_MESSAGE, key));
+        }
+        try {
+            if (duration.toMillis() == 0) {
+                throw new PatientPortalConfigurationException(
+                        String.format(Locale.ROOT, TIMEOUT_MESSAGE, key));
+            }
+        } catch (ArithmeticException exception) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, TIMEOUT_MESSAGE, key), exception);
         }
     }
 
