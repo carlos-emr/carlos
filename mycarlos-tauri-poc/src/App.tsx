@@ -10,7 +10,7 @@ type Category = "Test results" | "Letters" | "Imaging" | "Prescriptions" | "Othe
 type Filter = "All" | Category;
 type ViewMode = "list" | "grid";
 type AppSection = "records" | "recent" | "starred" | "trash" | "security" | "health";
-type IconName =
+export type IconName =
   | "activity"
   | "camera"
   | "clock"
@@ -144,7 +144,7 @@ const sampleRecentIds = ["sample-cardiology", "sample-bloodwork", "sample-xray"]
 
 const filters: Filter[] = ["All", "Test results", "Letters", "Imaging"];
 
-function Icon({ name }: { name: IconName }) {
+export function Icon({ name }: { name: IconName }) {
   let content: ReactNode;
 
   switch (name) {

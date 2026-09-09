@@ -35,11 +35,16 @@ evaluation evidence and must not be distributed to patients.
 
 - The same responsive, mock-aligned filing-cabinet screen in a browser, desktop webview, Android
   webview, and iOS webview.
-- Working search, record-kind filters, list/grid views, bulk record actions, and session-only sample
-  folders.
+- A durable native filing cabinet aligned with the discussion mocks in PR #3479: patient-profile
+  switching, nested folder navigation, location search, list/grid views, sorting, bulk moves, and
+  plain-language document details and save-copy actions.
+- A browser evaluation demo with record-kind filters, Recent, Starred, Trash, Restore, and
+  session-only sample folders. Those concepts remain deliberately separate from durable storage
+  until their data model and retention rules are implemented.
 - A synthetic document preview and connected Recent → Starred → Trash → Restore workflow. Actions
   update all affected library sections in memory until refresh, close, or reset.
-- A separate browser-only demo with synthetic library, Security & backup, and Health data screens.
+- Browser-only Security & backup and Health data concept screens, alongside a native Security
+  screen for the implemented vault lock, passphrase, profile, and reset operations.
 - A typed `runtime_info` command crossing from TypeScript to Rust.
 - Native multi-file import and explicit export dialogs owned by Rust; filesystem paths and file
   bytes are never accepted from or returned to React.

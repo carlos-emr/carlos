@@ -70,6 +70,39 @@ describe("durable vault UI", () => {
     expect(bridge.importFiles).toHaveBeenCalledWith("profile-1", []);
   });
 
+  it("presents durable records as a navigable filing cabinet", async () => {
+    const user = userEvent.setup();
+    const filingSnapshot: VaultSnapshot = {
+      profiles: [{ id: "profile-1", displayName: "FAKE Avery Patient", createdAtMs: 1 }],
+      folders: [{ id: "folder-1", profileId: "profile-1", parentId: null, name: "FAKE Test Results", createdAtMs: 2 }],
+      records: [
+        { id: "record-root", profileId: "profile-1", folderIds: [], displayName: "FAKE_Root_Letter.pdf", sourceLabel: "Manual import — unverified", mediaType: "application/octet-stream", plaintextSize: 1024, importedAtMs: 3 },
+        { id: "record-folder", profileId: "profile-1", folderIds: ["folder-1"], displayName: "FAKE_Bloodwork.pdf", sourceLabel: "Manual import — unverified", mediaType: "application/octet-stream", plaintextSize: 2048, importedAtMs: 4 },
+      ],
+    };
+    const bridge = nativeBridge({
+      status: vi.fn().mockResolvedValue("unlocked"),
+      snapshot: vi.fn().mockResolvedValue(filingSnapshot),
+    });
+    render(<VaultApp bridge={bridge} />);
+
+    expect(await screen.findByRole("heading", { name: "My records" })).toBeVisible();
+    expect(screen.getByText("FAKE_Root_Letter.pdf")).toBeVisible();
+    expect(screen.queryByText("FAKE_Bloodwork.pdf")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Open FAKE Test Results" }));
+    expect(screen.getByRole("heading", { name: "FAKE Test Results" })).toBeVisible();
+    expect(screen.getByText("FAKE_Bloodwork.pdf")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Select FAKE_Bloodwork.pdf" }));
+    await user.selectOptions(screen.getByLabelText("Move selected to"), "");
+    await user.click(screen.getByRole("button", { name: "Move" }));
+    await waitFor(() => expect(bridge.assignFolders).toHaveBeenCalledWith("record-folder", []));
+
+    await user.click(screen.getByText("FAKE_Bloodwork.pdf"));
+    expect(screen.getByRole("button", { name: "Save a copy to this computer" })).toBeVisible();
+  });
+
   it("finishes an active native import before locking a backgrounded app", async () => {
     const user = userEvent.setup();
     let finishImport!: (value: { imported: string[]; skippedDuplicates: string[] }) => void;

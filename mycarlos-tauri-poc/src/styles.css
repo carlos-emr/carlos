@@ -611,6 +611,88 @@ h1, h2, p { margin: 0; }
   .file-grid { grid-template-columns: 1fr; }
 }
 
+/* The native vault uses the mock-aligned filing-cabinet shell with durable data. */
+.native-vault-page .page-wrap { max-width: 1440px; }
+.native-vault-page .app-window { min-height: calc(100vh - 76px); }
+.native-vault-page .app-body { min-height: calc(100vh - 122px); }
+.native-auth-wrap { max-width: 760px !important; }
+.native-auth-window { min-height: calc(100vh - 76px); }
+.native-auth-window .vault-auth { min-height: calc(100vh - 123px); }
+.native-auth-state { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.native-auth-state .icon { width: 15px; height: 15px; color: var(--teal); }
+.native-lock-button { cursor: pointer; font: inherit; }
+.native-lock-button:disabled { cursor: default; }
+.native-nav-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.native-sidebar-empty { padding: 5px 10px; color: var(--ink-faint); }
+.native-profile-row { display: flex; align-items: center; gap: 7px; min-height: 35px; margin-bottom: 4px; color: var(--ink-faint); font-size: 13px; }
+.native-breadcrumb { margin: 0; padding: 3px 7px; border: 0; background: transparent; color: var(--teal-dark); font: inherit; font-weight: 700; }
+.native-breadcrumb:hover { text-decoration: underline; }
+.native-profile-select { display: flex; align-items: center; gap: 7px; margin-left: auto; color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.native-profile-select select, .native-sort select, .native-move-actions select, .native-dialog-actions select {
+  min-height: 35px;
+  padding: 6px 28px 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+.native-inline-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  align-items: end;
+  gap: 9px;
+  margin: -5px 0 14px;
+  padding: 12px;
+  border: 1px solid var(--teal-line);
+  border-radius: var(--radius);
+  background: var(--teal-soft);
+}
+.native-inline-form label, .native-setting-form label, .native-danger-setting label, .native-dialog-actions label { display: grid; gap: 5px; color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.native-inline-form input, .native-setting-form input, .native-danger-setting input {
+  min-height: 39px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font: inherit;
+}
+.native-location-chip { padding: 5px 10px; border-radius: 999px; background: var(--canvas-2); color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.native-sort { display: flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+.native-sort .icon { width: 16px; height: 16px; }
+.native-move-actions { align-items: center; }
+.native-move-actions select { max-width: 220px; min-height: 31px; border-color: rgb(255 255 255 / 32%); background: var(--paper); color: var(--ink); }
+.native-file-open { width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.native-setting-form { align-items: start; }
+.native-setting-form form { display: grid; min-width: min(100%, 330px); gap: 9px; }
+.native-danger-setting { align-items: start; }
+.native-danger-setting details { width: min(100%, 330px); }
+.native-danger-setting summary { margin-bottom: 10px; cursor: pointer; font-weight: 700; }
+.native-danger-setting .button { margin-top: 9px; }
+.native-dialog-actions { align-items: end; }
+.native-dialog-actions label { margin-right: auto; }
+
+@media (max-width: 900px) {
+  .native-vault-page .page-wrap { padding: 12px; }
+  .native-vault-page .app-window { min-height: calc(100vh - 60px); }
+  .native-vault-page .app-body { min-height: calc(100vh - 150px); }
+}
+
+@media (max-width: 640px) {
+  .native-profile-row { flex-wrap: wrap; }
+  .native-profile-select { width: 100%; margin-left: 0; }
+  .native-profile-select select { flex: 1; min-width: 0; }
+  .native-inline-form { grid-template-columns: 1fr 1fr; }
+  .native-inline-form label { grid-column: 1 / -1; }
+  .native-move-actions { flex-wrap: wrap; width: 100%; margin-left: 0; }
+  .native-move-actions select { flex: 1; min-width: 130px; }
+  .native-setting-form { display: grid; }
+  .native-setting-form form, .native-danger-setting details { width: 100%; min-width: 0; }
+  .native-dialog-actions { grid-template-columns: 1fr; }
+  .native-dialog-actions label { width: 100%; }
+  .native-dialog-actions select { width: 100%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
 }
