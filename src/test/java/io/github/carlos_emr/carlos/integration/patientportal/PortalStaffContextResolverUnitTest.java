@@ -71,7 +71,8 @@ class PortalStaffContextResolverUnitTest {
     private void grant(String... objects) {
         when(securityInfoManager.hasPrivilege(any(), any(), any(), isNull())).thenReturn(false);
         for (String object : objects) {
-            when(securityInfoManager.hasPrivilege(any(), eq(object), eq("r"), isNull()))
+            when(securityInfoManager.hasPrivilege(
+                            any(), eq(object), eq(SecurityInfoManager.READ), isNull()))
                     .thenReturn(true);
         }
     }
@@ -84,6 +85,14 @@ class PortalStaffContextResolverUnitTest {
                     PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK,
                     PortalStaffContextResolver.OBJECT_SECRET,
                     PortalStaffContextResolver.OBJECT_CONTACT_REVIEW);
+
+    @Test
+    @DisplayName("should reject a missing security manager at construction")
+    void shouldThrow_whenSecurityManagerIsMissing() {
+        assertThatThrownBy(() -> new PortalStaffContextResolver(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("security manager");
+    }
 
     @Test
     @DisplayName("should grant only the permission behind the object the provider holds")
@@ -203,6 +212,31 @@ class PortalStaffContextResolverUnitTest {
         assertThat(staff.permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
     }
+
+    @Test
+    @DisplayName("should reject an empty permission scope")
+    void shouldThrow_whenPermissionScopeIsEmpty() {
+        assertThatThrownBy(() -> resolver.resolve(loggedInInfo, Set.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scope");
+    }
+
+    @Test
+    @DisplayName("should reject unknown objects instead of silently omitting them")
+    void shouldThrow_whenPermissionScopeContainsAnUnknownObject() {
+        grant(PortalStaffContextResolver.OBJECT_INVITE);
+
+        assertThatThrownBy(
+                        () ->
+                                resolver.resolve(
+                                        loggedInInfo,
+                                        Set.of(
+                                                PortalStaffContextResolver.OBJECT_INVITE,
+                                                "_portal.invite_typo")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsupported security object");
+    }
+
     @Test
     void patientScopeDoesNotInheritGlobalGrantOverScopedDenial() {
         grant(PortalStaffContextResolver.OBJECT_INVITE);
@@ -215,7 +249,7 @@ class PortalStaffContextResolverUnitTest {
     void patientScopeUsesOnlyPermissionsGrantedForThatPatient() {
         grant(PortalStaffContextResolver.OBJECT_SECRET);
         when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
-                eq("r"), eq("123"))).thenReturn(true);
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
         assertThat(resolver.resolveForPatient(loggedInInfo, ALL_OBJECTS, 123).permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
     }

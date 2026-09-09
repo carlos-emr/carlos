@@ -61,6 +61,14 @@ public record PatientPortalStaffContext(
     /** Review patient contact changes. */
     public static final String PERMISSION_CONTACT_REVIEW = "portal.contact.review";
 
+    private static final Set<String> SUPPORTED_PERMISSIONS =
+            Set.of(
+                    PERMISSION_INVITE_MANAGE,
+                    PERMISSION_ACCOUNT_UNLOCK,
+                    PERMISSION_ACCOUNT_MANAGE,
+                    PERMISSION_SECRET_MANAGE,
+                    PERMISSION_CONTACT_REVIEW);
+
     /** Matches {@code MAX_PERMISSION_COUNT} in the portal's {@code staff_identity.py}. */
     public static final int MAX_PERMISSION_COUNT = 32;
 
@@ -79,6 +87,8 @@ public record PatientPortalStaffContext(
     private static final String INVALID_PERMISSION =
             "portal permission may contain only lowercase ASCII letters, digits, dots, underscores,"
                     + " and hyphens";
+    private static final String UNSUPPORTED_PERMISSION =
+            "portal permission is not supported by this CARLOS build";
     private static final String ACTOR_TOO_LONG = "portal staff identity exceeds %d characters";
     private static final String CONTROL_CHARACTER =
             "portal staff identity must not contain control characters";
@@ -134,6 +144,9 @@ public record PatientPortalStaffContext(
             rejectControlCharacters(stripped);
             if (!isPortalPermission(stripped)) {
                 throw new IllegalArgumentException(INVALID_PERMISSION);
+            }
+            if (!SUPPORTED_PERMISSIONS.contains(stripped)) {
+                throw new IllegalArgumentException(UNSUPPORTED_PERMISSION);
             }
             normalized.add(stripped);
         }
