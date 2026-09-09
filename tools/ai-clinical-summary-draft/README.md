@@ -54,7 +54,8 @@ record-context rail, and Overview, Fact ledger, Coverage and Validation tabs.
 Selecting a statement opens its linked documents in Source evidence. A source
 selector and previous/next controls expose every cited document. The desktop
 divider supports pointer and keyboard resizing; the evidence pane can be closed
-and reopened. On mobile, the clinical summary precedes the record-context rail.
+and reopened. Citation counts and IDs are not shown inline with summary prose;
+select the statement to inspect its evidence. On mobile, the clinical summary precedes the record-context rail.
 Citation links open and focus the source.
 Without JavaScript, all views remain readable. An artifact with an error finding
 withholds the summary, while evidence and findings remain inspectable.
@@ -107,7 +108,10 @@ is rejected before source transmission. One generation runs at a time, with a
 configurable read timeout (10 minutes by default, 30 maximum), 60,000-byte request
 limit, 4 MiB response limit, 65,536-token
 context and 4,096-token output limit. Truncated, malformed or inconsistent output
-is withheld. These are structural checks, not clinical accuracy verification.
+is withheld. Generated drafts also use fixed clinical sections and bounded prose;
+duplicate claims or coverage reasons, fixture metadata presented as claims, and
+claims without basic lexical overlap with cited evidence are withheld. These checks
+do not establish clinical accuracy or citation support.
 
 ## Offline local generation
 

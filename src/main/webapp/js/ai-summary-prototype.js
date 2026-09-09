@@ -143,7 +143,7 @@
             if (item === claim) item.setAttribute("aria-current", "true");
             else item.removeAttribute("aria-current");
         });
-        const links = [...claim.closest(".claim-row").querySelectorAll(".citations a")];
+        const links = [...claim.closest(".claim-row").querySelectorAll(".claim-source-links a")];
         selectSources(links.map(link => link.hash.slice(1)), claim.querySelector(".claim-text").textContent, focus);
     }
 

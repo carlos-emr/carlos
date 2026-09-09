@@ -9,7 +9,7 @@ import uuid
 from urllib.error import URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from validate_artifact import require, validate
+from validate_artifact import require, validate, validate_generated
 
 ROOT = Path(__file__).resolve().parent
 LOCAL_MODELS = ("qwen3.5:0.8b", "qwen3.5:2b", "qwen3.5:4b", "qwen3.5:9b",
@@ -34,9 +34,8 @@ def request_json(port, endpoint, payload):
     return json.loads(body)
 
 
-def build_artifact(bundle, generated, model, artifact_id, timestamp):
-    require(isinstance(generated, dict) and set(generated) == {"sections", "claims", "coverage"},
-            "Model output must contain only sections, claims, and coverage")
+def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty=False):
+    validate_generated(generated, bundle["sources"], allow_empty)
     artifact = {
         "schema_version": 1, "artifact_id": artifact_id, "generated_at": timestamp,
         "model": model, "workflow": "patient-overview",
@@ -72,10 +71,11 @@ def main(argv=None):
         run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
         # Validate the immutable bundle before constructing any network request.
         empty = {"sections": [], "claims": [], "coverage": [
-            {"source_id": source["id"], "status": "reviewed_not_cited", "reason": "Input preflight only"}
+            {"source_id": source["id"], "status": "reviewed_not_cited",
+             "reason": "Input preflight only: " + source["id"]}
             for source in bundle["sources"]
         ]}
-        build_artifact(bundle, empty, args.model, run_id, timestamp)
+        build_artifact(bundle, empty, args.model, run_id, timestamp, allow_empty=True)
         schema = json.loads((ROOT / "output-schema.json").read_text(encoding="utf-8"))
         prompt = (ROOT / "prompt.txt").read_text(encoding="utf-8")
         payload = {"model": args.model, "system": prompt,

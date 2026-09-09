@@ -65,15 +65,14 @@ p, a, strong, span, td, th { overflow-wrap: anywhere; }
 .context-rail .record-limit { margin: 18px 0 0; padding: 0 0 0 10px; background: transparent; }
 .clinical-overview { min-width: 0; }
 .clinical-overview > h2 { font-size: 18px; margin-bottom: 25px; }
+.claim-instruction { margin: -12px 0 22px; color: var(--muted); font-size: 12px; }
 .summary-section { margin-bottom: 32px; }
 .summary-section h3 { font-size: 16px; padding-bottom: 9px; margin-bottom: 14px; border-bottom: 2px solid #344650; }
 .claim-row { margin-bottom: 14px; line-height: 1.75; font-size: 16px; }
 .claim { color: #17242b; text-decoration: none; border-bottom: 1px solid #98a7af; padding: 2px 1px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .claim:hover { background: #f0f4f6; border-color: #536e7d; }
 .claim.active { background: #e8f1f7; border-color: #4d7f9d; }
-.source-count { background: #e8edef; font-size: 11px; font-weight: bold; padding: 3px 5px; white-space: nowrap; }
 .citation { display: inline-block; color: #245b83; font-size: 12px; margin-right: 7px; }
-.enhanced .claim-row .citations { display: none; }
 .reading-footnote { margin-top: 24px; padding-top: 14px; border-top: 1px solid #d2dade; font-size: 12px; color: var(--muted); }
 .artifact-footer { padding: 12px 24px; border-top: 1px solid #d2dade; font-size: 11px; color: var(--muted); }
 .table-scroll { overflow-x: auto; }

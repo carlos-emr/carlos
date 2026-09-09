@@ -28,6 +28,9 @@ const previewStates = process.env.AI_SUMMARY_PREVIEW_STATES === "true";
             await page.evaluate(() => document.fonts.ready);
             assert.equal(await page.locator("#empty-evidence").isVisible(), true);
             assert.equal(await page.locator("#ledger").isVisible(), false);
+            assert.equal(await page.locator(".source-count").count(), 0);
+            assert.equal(await page.locator(".claim-source-links:visible").count(), 0);
+            assert.doesNotMatch(await page.locator("[data-claim-id='claim-2']").innerText(), /\bsources?\b/i);
             await page.screenshot({path: path.join(screenshots, "overview-" + width + ".png"), fullPage: true});
             for (const [name, id] of [["Fact ledger", "ledger"], ["Coverage", "coverage"], ["Validation", "validation"]]) {
                 await page.getByRole("tab", {name, exact: true}).click();

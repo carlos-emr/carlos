@@ -3,10 +3,14 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import sys
 import unittest
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from validate_artifact import validate_generated
+
 SPEC = importlib.util.spec_from_file_location("example_agent", ROOT / "example_agent.py")
 agent = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(agent)
@@ -32,7 +36,8 @@ class ExampleAgentTest(unittest.TestCase):
         self.assertEqual(len(response["output"]["claims"]), len(self.request["sources"]))
         self.assertEqual({c["source_id"] for c in response["output"]["coverage"]},
                          {s["id"] for s in self.request["sources"]})
-        self.assertIn("no AI", response["output"]["sections"][0]["title"])
+        self.assertEqual("Clinical overview", response["output"]["sections"][0]["title"])
+        validate_generated(response["output"], self.request["sources"])
         self.assertEqual(original, self.request)
 
     def test_rejects_unknown_contracts_and_non_synthetic_data(self):
