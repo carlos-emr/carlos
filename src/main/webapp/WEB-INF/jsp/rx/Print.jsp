@@ -1,4 +1,5 @@
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %><%--
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ include file="rxContext.jspf" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.

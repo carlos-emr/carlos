@@ -112,7 +112,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
                 // demoNoParam validated as numeric at method entry
                 request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
-            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
+            String contextId = request.getAttribute(RxSessionFilter.CONTEXT_REQUEST_ATTRIBUTE).toString();
+            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo="
+                    + Encode.forUriComponent(demoNoParam) + "&rxContextId="
+                    + Encode.forUriComponent(contextId));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -179,19 +182,15 @@ public final class RxShowAllergy2Action extends ActionSupport {
             return "failure";
         }
         int demographicNoInt = Integer.parseInt(demo_no);
-        RxSessionBean bean = RxSessionBean.getFromSession(request.getSession(), demographicNoInt);
-
-        if (bean == null) {
-            bean = new RxSessionBean();
-            bean.setDemographicNo(demographicNoInt);
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null || bean.getDemographicNo() != demographicNoInt) {
+            throw new ServletException("Prescription workspace demographic mismatch");
         }
 
         bean.setProviderNo(user_no);
         if (view != null) {
             bean.setView(view);
         }
-
-        RxSessionBean.saveToSession(request.getSession(), bean);
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 

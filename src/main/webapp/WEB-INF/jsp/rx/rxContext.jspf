@@ -1,0 +1,4 @@
+<%@ taglib uri="carlos" prefix="rxcontext" %>
+<meta name="rx-context-id" content="<rxcontext:encode value='${requestScope.rxContextId}' context='htmlAttribute'/>" />
+<meta name="rx-context-path" content="<rxcontext:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>" />
+<script type="text/javascript" src="<rxcontext:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/oscarRx/js/rxSessionInterceptor.js"></script>

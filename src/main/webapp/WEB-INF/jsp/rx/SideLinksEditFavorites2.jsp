@@ -31,6 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ include file="rxContext.jspf" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
@@ -69,7 +70,7 @@
         <p class="PropSheetLevel1CurrentItem<%=alle%>">
             <fmt:message key="oscarRx.sideLinks.msgAllergies"/>
             <a href="javascript:void(0);" name="cmdAllergies"
-               onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="javaScriptAttribute"/>';"
+               onclick="window.location.href=RxContext.addToUrl('<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="javaScriptAttribute"/>');"
                style="width: 200px">+</a>
         </p>
         <p class="PropSheetMenuItemLevel1">
@@ -165,6 +166,6 @@
     // Pulled from function in SearchDrug3.jsp - function needs to be defined here
     // for ShowAllergies2.jsp for favorite staging in allergies page
     function useFav2(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + encodeURIComponent(favoriteId);
+        location.href = RxContext.addToUrl("<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + encodeURIComponent(favoriteId));
     }
 </script>

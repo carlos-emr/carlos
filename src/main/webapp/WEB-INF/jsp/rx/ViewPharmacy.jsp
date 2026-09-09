@@ -34,6 +34,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page
         import="io.github.carlos_emr.carlos.rx.pageUtil.*,io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 

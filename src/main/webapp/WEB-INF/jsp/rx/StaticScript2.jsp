@@ -49,6 +49,7 @@
 
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -155,7 +156,7 @@
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
-                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>';
+                        window.location.href = RxContext.addToUrl("${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>');
                     });
                 }
             }
@@ -179,7 +180,7 @@
                     credentials: 'same-origin',
                     body: data
                 });
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                location.href = RxContext.addToUrl("${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?");
             }
 
         </script>
@@ -355,7 +356,7 @@
             <td><br/>
                 <br/>
                 <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/></td>
+                       onclick="window.location.href=RxContext.addToUrl('<%= request.getContextPath() %>/rx/searchDrug');"/></td>
         </tr>
         <!----End new rows here-->
         <tr height="100%">

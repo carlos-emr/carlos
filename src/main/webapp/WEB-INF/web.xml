@@ -53,8 +53,7 @@
 			<dispatcher>ASYNC</dispatcher>
         </filter-mapping>
 
-    <!-- RxSessionFilter: Selects the per-patient prescription session before
-         current Struts Rx, case-management, and messenger actions execute. -->
+    <!-- RxSessionFilter: Selects the per-window prescription workspace. -->
     <filter>
         <filter-name>RxSessionFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionFilter</filter-class>
@@ -195,19 +194,6 @@
         <filter-name>RxSessionFilter</filter-name>
         <url-pattern>/rx/*</url-pattern>
     </filter-mapping>
-    <filter-mapping>
-        <filter-name>RxSessionFilter</filter-name>
-        <url-pattern>/CaseManagementView</url-pattern>
-    </filter-mapping>
-    <filter-mapping>
-        <filter-name>RxSessionFilter</filter-name>
-        <url-pattern>/messenger/PreviewPDF</url-pattern>
-    </filter-mapping>
-    <filter-mapping>
-        <filter-name>RxSessionFilter</filter-name>
-        <url-pattern>/messenger/Doc2PDF</url-pattern>
-    </filter-mapping>
-
 	<filter>
 		<filter-name>struts2-prepare</filter-name>
 		<filter-class>org.apache.struts2.dispatcher.filter.StrutsPrepareFilter</filter-class>

@@ -1,3 +1,4 @@
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
@@ -234,7 +235,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                                                onClick="window.location.href=RxContext.addToUrl('<%= request.getContextPath() %>/rx/searchDrug');"/>
                             </div>
                         </td>
                     </tr>
@@ -410,7 +411,7 @@
                             <div class=DivContentPadding><input type=button
                                                                 value="Back to Search For Drug"
                                                                 class="ControlPushButton"
-                                                                onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                                                onClick="window.location.href=RxContext.addToUrl('<%= request.getContextPath() %>/rx/searchDrug');"/>
                             </div>
                         </td>
                     </tr>

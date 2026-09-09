@@ -41,6 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptForm" %>

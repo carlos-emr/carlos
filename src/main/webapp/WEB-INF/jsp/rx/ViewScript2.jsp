@@ -49,7 +49,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
@@ -58,6 +57,7 @@
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
@@ -132,7 +132,7 @@
             String createAnewRx;
             if (reprint.equalsIgnoreCase("true")) {
                 bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug'";
+                createAnewRx = "window.location.href = RxContext.addToUrl('" + request.getContextPath() + "/rx/searchDrug')";
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
@@ -285,9 +285,8 @@
 
         <%-- RxSessionInterceptor: Enables multi-patient tab support by adding demographicNo to AJAX calls --%>
         <script type="text/javascript">
-            var currentDemographicNo = '<%= Encode.forJavaScript(Integer.toString(bean.getDemographicNo())) %>';
+            var currentDemographicNo = '<%= SafeEncode.forJavaScript(Integer.toString(bean.getDemographicNo())) %>';
         </script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/oscarRx/js/rxSessionInterceptor.js"></script>
 
         <script type="text/javascript">
             /*
@@ -761,14 +760,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-								src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>&demographicNo=<%=Encode.forUriComponent(Integer.toString(bean.getDemographicNo()))%>"
+								src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>&demographicNo=<%=SafeEncode.forUriComponent(Integer.toString(bean.getDemographicNo()))%>&rxContextId=<%=SafeEncode.forUriComponent(String.valueOf(request.getAttribute("rxContextId")))%>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>
 
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
-                                    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(Integer.toString(bean.getDemographicNo()))%>"/>
+                                    <input type="hidden" name="demographicNo" value="<%=SafeEncode.forHtmlAttribute(Integer.toString(bean.getDemographicNo()))%>"/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>

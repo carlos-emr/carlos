@@ -37,6 +37,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
@@ -419,7 +420,7 @@
 
             function openPharmacyModal(url) {
                 var iframe = document.getElementById('pharmacyModalIframe');
-                iframe.src = url;
+                iframe.src = RxContext.addToUrl(url);
                 var modal = new bootstrap.Modal(document.getElementById('pharmacyModal'));
                 modal.show();
             }
@@ -444,7 +445,7 @@
                     opener.window.refresh();
                     window.close();
                 } else {
-                    window.location.href = "<%= request.getContextPath() %>/rx/searchDrug";
+                    window.location.href = RxContext.addToUrl("<%= request.getContextPath() %>/rx/searchDrug");
                 }
             }
 

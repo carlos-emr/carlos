@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
+<%@ include file="rxContext.jspf" %>
 <%
     FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
     FavoritesPrivilegeDao favoritesPrivilegeDao = SpringUtils.getBean(FavoritesPrivilegeDao.class);
@@ -121,7 +122,7 @@
                             <tr>
                                 <td>
                                     <div class="DivContentPadding">
-                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="window.location.href=RxContext.addToUrl('<%= request.getContextPath() %>/rx/searchDrug');"/>
                                     </div>
                                 </td>
                             </tr>
