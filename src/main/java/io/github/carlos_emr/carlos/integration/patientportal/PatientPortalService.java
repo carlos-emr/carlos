@@ -44,8 +44,8 @@ import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 /**
  * Outbound channel to the patient portal's {@code /internal/carlos/**} API.
  *
- * <p>This owns the authenticated envelope every portal call shares: the service bearer token and
- * the four {@code X-CARLOS-*} identity headers. Timeouts and redirect policy belong to {@link
+ * <p>This owns the authenticated envelope every portal call shares: the service bearer token and a
+ * short-lived, Ed25519-signed provider assertion. Timeouts and redirect policy belong to {@link
  * PatientPortalHttpClientExchange}; the status-to-outcome mapping belongs to {@link
  * PatientPortalException}.
  *
@@ -71,10 +71,7 @@ import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 public class PatientPortalService implements Closeable {
 
     static final String AUTHORIZATION_HEADER = "Authorization";
-    static final String PROVIDER_ID_HEADER = "X-CARLOS-Provider-ID";
-    static final String PROVIDER_NAME_HEADER = "X-CARLOS-Provider-Name";
-    static final String CLINIC_ID_HEADER = "X-CARLOS-Clinic-ID";
-    static final String PERMISSIONS_HEADER = "X-CARLOS-Permissions";
+    static final String STAFF_ASSERTION_HEADER = PortalStaffAssertionSigner.HEADER;
 
     private static final String BEARER_PREFIX = "Bearer %s";
     private static final String INVALID_PATH = "portal endpoint path is not a valid URI: %s";
@@ -119,22 +116,46 @@ public class PatientPortalService implements Closeable {
 
     private final PatientPortalSettings settings;
     private final PatientPortalHttpExchange exchange;
+    private final PortalStaffAssertionSigner assertionSigner;
     private final ObjectMapper objectMapper = new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     public PatientPortalService(PatientPortalSettings settings) {
-        this(settings, settings == null ? null : new PatientPortalHttpClientExchange(settings));
+        this(
+                settings,
+                settings == null ? null : new PatientPortalHttpClientExchange(settings),
+                settings == null
+                        ? null
+                        : PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()));
     }
 
     /** Test seam: lets the authenticated envelope be asserted without a socket. */
     PatientPortalService(PatientPortalSettings settings, PatientPortalHttpExchange exchange) {
+        this(
+                settings,
+                exchange,
+                settings == null
+                        ? null
+                        : PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()));
+    }
+
+    /** Test seam: allows deterministic assertion time and identifiers. */
+    PatientPortalService(
+            PatientPortalSettings settings,
+            PatientPortalHttpExchange exchange,
+            PortalStaffAssertionSigner assertionSigner) {
         if (settings == null) {
             throw new PatientPortalConfigurationException("patient portal settings are required");
         }
         if (exchange == null) {
             throw new PatientPortalConfigurationException("patient portal transport is required");
         }
+        if (assertionSigner == null) {
+            throw new PatientPortalConfigurationException(
+                    "patient portal staff assertion signer is required");
+        }
         this.settings = settings;
         this.exchange = exchange;
+        this.assertionSigner = assertionSigner;
     }
 
     /** Releases the pooled connections held by the transport, when it owns any. */
@@ -609,7 +630,7 @@ public class PatientPortalService implements Closeable {
      * @param path portal endpoint path beginning with {@code /internal/carlos/}
      * @param jsonBody request body, or {@code null} for a request without one
      * @param staff the authenticated CARLOS provider this call acts for
-     * @return a request carrying the bearer token and all four identity headers
+     * @return a request carrying the bearer token and signed provider assertion
      */
     ClassicHttpRequest buildRequest(
             String method, String path, String jsonBody, PatientPortalStaffContext staff) {
@@ -623,12 +644,12 @@ public class PatientPortalService implements Closeable {
                                         Locale.ROOT,
                                         BEARER_PREFIX,
                                         settings.serviceToken().expose()))
-                        .setHeader(PROVIDER_ID_HEADER, staff.providerId())
-                        .setHeader(PROVIDER_NAME_HEADER, staff.providerName())
-                        // From configuration, never from the caller: a caller must not be able to
-                        // claim it is acting for a different clinic.
-                        .setHeader(CLINIC_ID_HEADER, settings.clinicId())
-                        .setHeader(PERMISSIONS_HEADER, staff.permissionHeaderValue());
+                        // The clinic comes from configuration, never from the browser. Provider
+                        // identity and permissions were derived from the authenticated CARLOS
+                        // session before reaching this service.
+                        .setHeader(
+                                STAFF_ASSERTION_HEADER,
+                                assertionSigner.sign(staff, settings.clinicId()));
         if (jsonBody != null) {
             builder.setEntity(new StringEntity(jsonBody, ContentType.APPLICATION_JSON));
         }

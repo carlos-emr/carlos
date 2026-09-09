@@ -77,7 +77,9 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                         Map.of(
                                 PatientPortalSettings.BASE_URL_KEY, "https://portal.clinic.example",
                                 PatientPortalSettings.CLINIC_ID_KEY, "maplecreek",
-                                PatientPortalSettings.SERVICE_TOKEN_KEY, TOKEN)),
+                                PatientPortalSettings.SERVICE_TOKEN_KEY, TOKEN,
+                                PatientPortalSettings.STAFF_ASSERTION_KEY,
+                                PortalTestKeys.PRIVATE_KEY)),
                 exchange);
     }
 

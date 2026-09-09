@@ -35,8 +35,9 @@ import java.util.function.Function;
  * Deployment configuration for the CARLOS to patient-portal channel.
  *
  * <p>The portal's {@code /internal/carlos/**} API grants clinic-wide staff powers — issuing invite
- * tokens, unlocking accounts, revealing passphrases — to any caller holding the service token. That
- * makes this class a security boundary, not plumbing, and it enforces three properties:
+ * tokens, unlocking accounts, revealing passphrases — to a workload holding the service token and
+ * a provider identity signed by CARLOS. That makes this class a security boundary, not plumbing,
+ * and it enforces these properties:
  *
  * <ul>
  *   <li><b>TLS only.</b> The base URL must be {@code https://}. The token is a bearer credential, so
@@ -58,6 +59,7 @@ public record PatientPortalSettings(
         String baseUrl,
         String clinicId,
         PortalSecret serviceToken,
+        PortalSecret staffAssertionPrivateKey,
         Duration connectTimeout,
         Duration readTimeout,
         Set<String> certificatePins) {
@@ -65,6 +67,8 @@ public record PatientPortalSettings(
     public static final String BASE_URL_KEY = "patient_portal.base_url";
     public static final String CLINIC_ID_KEY = "patient_portal.clinic_id";
     public static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
+    public static final String STAFF_ASSERTION_KEY =
+            "patient_portal.staff_assertion.private_key";
     public static final String CONNECT_TIMEOUT_KEY = "patient_portal.timeout.connect.ms";
     public static final String READ_TIMEOUT_KEY = "patient_portal.timeout.read.ms";
 
@@ -80,6 +84,7 @@ public record PatientPortalSettings(
     private static final String REQUIRED_SCHEME_PREFIX = "https://";
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000L;
     private static final long DEFAULT_READ_TIMEOUT_MS = 15000L;
+    private static final int MAX_CLINIC_ID_LENGTH = 64;
 
     private static final String BAD_PIN_MESSAGE =
             "%s entries must look like sha256/<base64 sha-256 of the public key>";
@@ -93,8 +98,11 @@ public record PatientPortalSettings(
     private static final String USER_INFO_MESSAGE = "%s must not embed credentials";
     private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
     private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
+    private static final String CLINIC_ID_MESSAGE =
+            "%s must be at most 64 characters and contain no control characters";
     private static final String DESCRIPTION =
-            "PatientPortalSettings[baseUrl=%s, clinicId=%s, token=%s, connect=%s, read=%s]";
+            "PatientPortalSettings[baseUrl=%s, clinicId=%s, token=%s, assertionKey=%s,"
+                    + " connect=%s, read=%s]";
 
     /**
      * Reads and validates the channel configuration.
@@ -130,7 +138,8 @@ public record PatientPortalSettings(
     }
 
     static boolean isConfigured(Function<String, String> lookup) {
-        for (String key : new String[] {BASE_URL_KEY, CLINIC_ID_KEY, SERVICE_TOKEN_KEY}) {
+        for (String key :
+                new String[] {BASE_URL_KEY, CLINIC_ID_KEY, SERVICE_TOKEN_KEY, STAFF_ASSERTION_KEY}) {
             String value = lookup.apply(key);
             if (value != null && !value.isBlank()) {
                 return true;
@@ -152,6 +161,8 @@ public record PatientPortalSettings(
                 required(lookup, BASE_URL_KEY),
                 required(lookup, CLINIC_ID_KEY),
                 PortalSecret.of(requireValue(required(lookup, SERVICE_TOKEN_KEY), SERVICE_TOKEN_KEY)),
+                PortalSecret.of(
+                        requireValue(required(lookup, STAFF_ASSERTION_KEY), STAFF_ASSERTION_KEY)),
                 timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS),
                 timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS),
                 pins(lookup));
@@ -168,10 +179,16 @@ public record PatientPortalSettings(
     public PatientPortalSettings {
         baseUrl = validatedBaseUrl(requireValue(baseUrl, BASE_URL_KEY));
         clinicId = requireValue(clinicId, CLINIC_ID_KEY);
+        validateClinicId(clinicId);
         if (serviceToken == null) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, MISSING_MESSAGE, SERVICE_TOKEN_KEY));
         }
+        if (staffAssertionPrivateKey == null) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, MISSING_MESSAGE, STAFF_ASSERTION_KEY));
+        }
+        PortalStaffAssertionSigner.validate(staffAssertionPrivateKey);
         requirePositive(connectTimeout, CONNECT_TIMEOUT_KEY);
         requirePositive(readTimeout, READ_TIMEOUT_KEY);
         certificatePins = certificatePins == null ? Set.of() : Set.copyOf(certificatePins);
@@ -226,6 +243,14 @@ public record PatientPortalSettings(
         if (duration == null || duration.isZero() || duration.isNegative()) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, TIMEOUT_MESSAGE, key));
+        }
+    }
+
+    private static void validateClinicId(String clinicId) {
+        if (clinicId.length() > MAX_CLINIC_ID_LENGTH
+                || clinicId.chars().anyMatch(Character::isISOControl)) {
+            throw new PatientPortalConfigurationException(
+                    String.format(Locale.ROOT, CLINIC_ID_MESSAGE, CLINIC_ID_KEY));
         }
     }
 
@@ -315,7 +340,13 @@ public record PatientPortalSettings(
     @Override
     public String toString() {
         return String.format(
-                Locale.ROOT, DESCRIPTION, baseUrl, clinicId, serviceToken, connectTimeout,
+                Locale.ROOT,
+                DESCRIPTION,
+                baseUrl,
+                clinicId,
+                serviceToken,
+                staffAssertionPrivateKey,
+                connectTimeout,
                 readTimeout);
     }
 }

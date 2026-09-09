@@ -32,10 +32,10 @@ import java.util.Locale;
  *
  * <ul>
  *   <li>{@code 404} is <b>ambiguous by design</b>, and three-way. The portal fails closed on a bad
- *       service token, missing identity headers, or a clinic mismatch, and returns the same {@code
- *       404} it returns for an unknown record and for a patient who simply has no portal account
- *       yet. Staff-facing copy must preserve this ambiguity; a {@code 404} on every call can
- *       indicate a configuration problem.
+ *       service token, missing or invalid staff assertion, or a clinic mismatch, and returns the
+ *       same {@code 404} it returns for an unknown record and for a patient who simply has no
+ *       portal account yet. Staff-facing copy must preserve this ambiguity; a {@code 404} on every
+ *       call can indicate a configuration problem.
  *   <li>{@code 409} is a real business outcome, not a transport error. The patient already has an
  *       account, or a contact review moved on. Retrying is wrong; re-reading state and
  *       re-presenting it to the user is right.

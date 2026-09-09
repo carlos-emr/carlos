@@ -94,7 +94,7 @@ class PortalStaffContextResolverUnitTest {
 
         assertThat(staff.permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
-        assertThat(staff.permissionHeaderValue()).isEqualTo("portal.invite.manage");
+        assertThat(staff.sortedPermissions()).containsExactly("portal.invite.manage");
     }
 
     /**

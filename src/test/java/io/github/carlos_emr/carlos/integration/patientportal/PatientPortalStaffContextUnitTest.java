@@ -35,8 +35,8 @@ import org.junit.jupiter.api.Test;
  * The caller identity that the portal authorizes every call against.
  *
  * <p>These guards had no coverage at all, which meant the header-integrity checks could have been
- * deleted with the whole suite still green. They are not hygiene: each one turns a value that would
- * corrupt the {@code X-CARLOS-*} headers into a CARLOS-side failure.
+ * deleted with the whole suite still green. Each one turns a value the portal would reject after
+ * signature verification into a clear CARLOS-side failure before the assertion is created.
  */
 @Tag("unit")
 @Tag("patient-portal")
@@ -49,13 +49,13 @@ class PatientPortalStaffContextUnitTest {
             Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
 
     @Nested
-    @DisplayName("header integrity")
-    class HeaderIntegrity {
+    @DisplayName("assertion integrity")
+    class AssertionIntegrity {
 
         /**
-         * {@code permissionHeaderValue} joins on commas, so a permission containing one would
-         * arrive at the portal as two claimed permissions — privilege escalation through a
-         * malformed CARLOS value rather than through the portal.
+         * The old unsigned contract joined permissions on commas. The signed contract uses an
+         * array, but retaining this rejection also prevents an accidental downgrade from turning
+         * one local permission into two claims.
          */
         @Test
         @DisplayName("should reject a permission containing a comma")
@@ -71,9 +71,8 @@ class PatientPortalStaffContextUnitTest {
         }
 
         /**
-         * A newline in any of the three values would let a caller append headers of its own,
-         * including a second X-CARLOS-Permissions claiming privileges the provider does not hold.
-         * An earlier revision guarded commas in permissions and wrote provider id and name raw.
+         * These values no longer become independent headers, but the portal rejects controls after
+         * verifying the assertion. CARLOS should reject the malformed identity before signing it.
          */
         @Test
         @DisplayName("should reject a newline in the provider id")
@@ -141,6 +140,20 @@ class PatientPortalStaffContextUnitTest {
         }
 
         @Test
+        @DisplayName("should reject provider identities longer than the portal accepts")
+        void shouldThrow_whenProviderIdentityIsTooLong() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalStaffContext(
+                                            "p".repeat(
+                                                    PatientPortalStaffContext.MAX_ACTOR_LENGTH + 1),
+                                            PROVIDER_NAME,
+                                            ONE_PERMISSION))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("exceeds");
+        }
+
+        @Test
         @DisplayName("should trim surrounding whitespace from the identity")
         void shouldTrimIdentity_whenValuesArePadded() {
             PatientPortalStaffContext staff =
@@ -195,13 +208,34 @@ class PatientPortalStaffContextUnitTest {
         }
 
         @Test
+        @DisplayName("should reject permission characters the portal does not accept")
+        void shouldThrow_whenPermissionIsNotLowercaseAscii() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalStaffContext(
+                                            PROVIDER_ID,
+                                            PROVIDER_NAME,
+                                            Set.of("Portal.Invite.Manage")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("lowercase ASCII");
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalStaffContext(
+                                            PROVIDER_ID,
+                                            PROVIDER_NAME,
+                                            Set.of("portal.invite.mänage")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("lowercase ASCII");
+        }
+
+        @Test
         @DisplayName("should strip whitespace so the portal parser sees a clean permission")
         void shouldStripPermissions_whenValuesArePadded() {
             PatientPortalStaffContext staff =
                     new PatientPortalStaffContext(
                             PROVIDER_ID, PROVIDER_NAME, Set.of("  portal.invite.manage  "));
 
-            assertThat(staff.permissionHeaderValue()).isEqualTo("portal.invite.manage");
+            assertThat(staff.sortedPermissions()).containsExactly("portal.invite.manage");
         }
 
         @Test
@@ -216,8 +250,11 @@ class PatientPortalStaffContextUnitTest {
                                     PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK,
                                     PatientPortalStaffContext.PERMISSION_INVITE_MANAGE));
 
-            assertThat(staff.permissionHeaderValue())
-                    .isEqualTo("portal.account.unlock,portal.invite.manage,portal.secret.manage");
+            assertThat(staff.sortedPermissions())
+                    .containsExactly(
+                            "portal.account.unlock",
+                            "portal.invite.manage",
+                            "portal.secret.manage");
         }
 
         @Test
@@ -230,7 +267,7 @@ class PatientPortalStaffContextUnitTest {
             mutable.add(PatientPortalStaffContext.PERMISSION_SECRET_MANAGE);
 
             assertThat(staff.permissions()).hasSize(1);
-            assertThat(staff.permissionHeaderValue()).isEqualTo("portal.invite.manage");
+            assertThat(staff.sortedPermissions()).containsExactly("portal.invite.manage");
         }
 
         /**

@@ -24,7 +24,11 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException.Kind;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
 import org.apache.hc.core5.http.ClassicHttpRequest;
@@ -57,7 +61,9 @@ class PatientPortalServiceUnitTest {
                                 PatientPortalSettings.CLINIC_ID_KEY,
                                 "maplecreek",
                                 PatientPortalSettings.SERVICE_TOKEN_KEY,
-                                TOKEN)));
+                                TOKEN,
+                                PatientPortalSettings.STAFF_ASSERTION_KEY,
+                                PortalTestKeys.PRIVATE_KEY)));
     }
 
     private PatientPortalStaffContext staff() {
@@ -88,18 +94,33 @@ class PatientPortalServiceUnitTest {
         }
 
         @Test
-        @DisplayName("should send all four CARLOS identity headers")
-        void shouldSendIdentityHeaders_forTheActingProvider() {
+        @DisplayName("should send the signed CARLOS staff assertion")
+        void shouldSendSignedAssertion_forTheActingProvider() throws Exception {
             ClassicHttpRequest request =
                     service().buildRequest("POST", INVITE_PATH, "{}", staff());
 
-            assertThat(header(request, PatientPortalService.PROVIDER_ID_HEADER)).isEqualTo("999998");
-            assertThat(header(request, PatientPortalService.PROVIDER_NAME_HEADER))
-                    .isEqualTo("Dr Example");
-            assertThat(header(request, PatientPortalService.CLINIC_ID_HEADER))
-                    .isEqualTo("maplecreek");
-            assertThat(header(request, PatientPortalService.PERMISSIONS_HEADER))
+            JsonNode assertion = assertionPayload(request);
+            assertThat(assertion.get("provider_id").asText()).isEqualTo("999998");
+            assertThat(assertion.get("provider_name").asText()).isEqualTo("Dr Example");
+            assertThat(assertion.get("clinic_id").asText()).isEqualTo("maplecreek");
+            assertThat(assertion.get("permissions").get(0).asText())
                     .isEqualTo("portal.invite.manage");
+            assertThat(header(request, "X-CARLOS-Provider-ID")).isNull();
+            assertThat(header(request, "X-CARLOS-Provider-Name")).isNull();
+            assertThat(header(request, "X-CARLOS-Clinic-ID")).isNull();
+            assertThat(header(request, "X-CARLOS-Permissions")).isNull();
+        }
+
+        @Test
+        @DisplayName("should create a fresh assertion for every portal call")
+        void shouldNotReuseAssertion_betweenRequests() {
+            PatientPortalService portal = service();
+
+            ClassicHttpRequest first = portal.buildRequest("GET", INVITE_PATH, null, staff());
+            ClassicHttpRequest second = portal.buildRequest("GET", INVITE_PATH, null, staff());
+
+            assertThat(header(first, PatientPortalService.STAFF_ASSERTION_HEADER))
+                    .isNotEqualTo(header(second, PatientPortalService.STAFF_ASSERTION_HEADER));
         }
 
         /**
@@ -110,17 +131,17 @@ class PatientPortalServiceUnitTest {
          */
         @Test
         @DisplayName("should take the clinic id from configuration, not from the caller")
-        void shouldUseConfiguredClinicId_ratherThanCallerSuppliedValue() {
+        void shouldUseConfiguredClinicId_ratherThanCallerSuppliedValue() throws Exception {
             ClassicHttpRequest request =
                     service().buildRequest("GET", INVITE_PATH, null, staff());
 
-            assertThat(header(request, PatientPortalService.CLINIC_ID_HEADER))
+            assertThat(assertionPayload(request).get("clinic_id").asText())
                     .isEqualTo("maplecreek");
         }
 
         @Test
         @DisplayName("should send only the permissions the provider actually holds")
-        void shouldSendGrantedPermissionsOnly_whenProviderHoldsASubset() {
+        void shouldSendGrantedPermissionsOnly_whenProviderHoldsASubset() throws Exception {
             PatientPortalStaffContext limited =
                     new PatientPortalStaffContext(
                             "999998",
@@ -131,9 +152,8 @@ class PatientPortalServiceUnitTest {
 
             ClassicHttpRequest request = service().buildRequest("GET", INVITE_PATH, null, limited);
 
-            assertThat(header(request, PatientPortalService.PERMISSIONS_HEADER))
-                    .isEqualTo("portal.account.unlock,portal.invite.manage");
-            assertThat(header(request, PatientPortalService.PERMISSIONS_HEADER))
+            assertThat(assertionPayload(request).get("permissions").toString())
+                    .isEqualTo("[\"portal.account.unlock\",\"portal.invite.manage\"]")
                     .doesNotContain(PatientPortalStaffContext.PERMISSION_SECRET_MANAGE);
         }
 
@@ -164,6 +184,15 @@ class PatientPortalServiceUnitTest {
             assertThat(request.getEntity()).isNotNull();
             assertThat(request.getEntity().getContentType()).contains("application/json");
         }
+    }
+
+    private JsonNode assertionPayload(ClassicHttpRequest request) throws Exception {
+        String assertion = header(request, PatientPortalService.STAFF_ASSERTION_HEADER);
+        assertThat(assertion).isNotBlank();
+        String[] parts = assertion.split("\\.", -1);
+        assertThat(parts).hasSize(2);
+        byte[] payload = Base64.getUrlDecoder().decode(parts[0]);
+        return new ObjectMapper().readTree(new String(payload, StandardCharsets.UTF_8));
     }
 
     @Nested
@@ -198,9 +227,9 @@ class PatientPortalServiceUnitTest {
         }
 
         /**
-         * The portal answers a bad service token, missing identity headers, or a clinic mismatch
-         * with the same 404 it uses for an unknown record, so an unauthenticated caller cannot
-         * probe which. CARLOS must not present this to staff as "no such patient".
+         * The portal answers a bad service token, invalid staff assertion, or clinic mismatch with
+         * the same 404 it uses for an unknown record, so an unauthenticated caller cannot probe
+         * which. CARLOS must not present this to staff as "no such patient".
          */
         @Test
         @DisplayName("should treat 404 as ambiguous between missing and unauthenticated")
