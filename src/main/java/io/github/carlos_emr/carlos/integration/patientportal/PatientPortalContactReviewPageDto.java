@@ -63,14 +63,15 @@ public record PatientPortalContactReviewPageDto(
             items.add(PatientPortalContactReviewDto.fromJson(item));
         }
         Integer next = PortalJson.optionalInt(node, "next_offset");
-        if (next != null && next < 0) {
-            throw new PortalContractException("portal review page has a negative next offset");
-        }
-        return new PatientPortalContactReviewPageDto(
+        PatientPortalContactReviewPageDto page = new PatientPortalContactReviewPageDto(
                 List.copyOf(items),
                 PortalJson.positiveInt(node, "limit"),
                 PortalJson.nonnegativeInt(node, "offset"),
                 PortalJson.nonnegativeInt(node, "total"),
                 next);
+        if (next != null && next <= page.offset()) {
+            throw new PortalContractException("portal review page has a non-advancing next offset");
+        }
+        return page;
     }
 }

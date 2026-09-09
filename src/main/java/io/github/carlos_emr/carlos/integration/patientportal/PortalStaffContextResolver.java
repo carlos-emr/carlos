@@ -79,7 +79,6 @@ public class PortalStaffContextResolver {
 
     private static final Map<String, String> PERMISSION_BY_OBJECT = permissionByObject();
 
-    private static final String READ = "r";
     private static final String NO_PRIVILEGE =
             "provider holds no patient portal privilege; refusing to build a portal identity";
 
@@ -106,7 +105,7 @@ public class PortalStaffContextResolver {
      * permanent record of who acted, so it must be the durable CARLOS identifier rather than a
      * display name or a session key.
      *
-     * <p>Scoping matters because the portal authorises on this header alone. Sending every
+     * <p>Scoping matters because the portal authorises on this assertion alone. Sending every
      * permission a provider happens to hold makes a read of the demographic panel arrive at the
      * portal carrying authority to reveal message passphrases, which no part of that request needs.
      *
@@ -137,7 +136,11 @@ public class PortalStaffContextResolver {
         Set<String> granted = new LinkedHashSet<>();
         for (Map.Entry<String, String> entry : PERMISSION_BY_OBJECT.entrySet()) {
             if (objects.contains(entry.getKey())
-                    && securityInfoManager.hasPrivilege(loggedInInfo, entry.getKey(), READ, demographicNo)) {
+                    && securityInfoManager.hasPrivilege(
+                            loggedInInfo,
+                            entry.getKey(),
+                            SecurityInfoManager.READ,
+                            demographicNo)) {
                 granted.add(entry.getValue());
             }
         }

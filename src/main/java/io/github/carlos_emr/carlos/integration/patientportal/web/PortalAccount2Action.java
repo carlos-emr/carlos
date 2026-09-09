@@ -118,7 +118,12 @@ public class PortalAccount2Action extends PortalJsonAction {
             return badRequest(response, "a patient must be selected");
         }
         requirePatientAccess(securityInfoManager, loggedInInfo, demographicNo);
-        requirePatientPrivilege(securityInfoManager, loggedInInfo, securityObject, "w", demographicNo);
+        requirePatientPrivilege(
+                securityInfoManager,
+                loggedInInfo,
+                securityObject,
+                SecurityInfoManager.WRITE,
+                demographicNo);
 
         PatientPortalService portal = portalService();
         if (portal == null) {

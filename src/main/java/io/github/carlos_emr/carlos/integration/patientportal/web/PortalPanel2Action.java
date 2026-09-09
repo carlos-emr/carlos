@@ -76,7 +76,6 @@ public class PortalPanel2Action extends PortalJsonAction {
 
     private static final long serialVersionUID = 1L;
 
-    private static final String READ = "r";
     private static final String SECTION_UNAVAILABLE = "unavailable";
     private static final String SECTION_FAILED_LOG =
             "patient portal panel section %s could not be read: kind=%s";
@@ -126,10 +125,16 @@ public class PortalPanel2Action extends PortalJsonAction {
         requirePatientAccess(securityInfoManager, loggedInInfo, demographicNo);
         boolean mayReadInvites =
                 securityInfoManager.hasPrivilege(
-                        loggedInInfo, PortalStaffContextResolver.OBJECT_INVITE, READ, String.valueOf(demographicNo));
+                        loggedInInfo,
+                        PortalStaffContextResolver.OBJECT_INVITE,
+                        SecurityInfoManager.READ,
+                        String.valueOf(demographicNo));
         boolean mayReadAccount =
                 securityInfoManager.hasPrivilege(
-                        loggedInInfo, PortalStaffContextResolver.OBJECT_ACCOUNT, READ, String.valueOf(demographicNo));
+                        loggedInInfo,
+                        PortalStaffContextResolver.OBJECT_ACCOUNT,
+                        SecurityInfoManager.READ,
+                        String.valueOf(demographicNo));
         if (!mayReadInvites && !mayReadAccount) {
             throw new SecurityException("missing required sec object (_portal.account)");
         }

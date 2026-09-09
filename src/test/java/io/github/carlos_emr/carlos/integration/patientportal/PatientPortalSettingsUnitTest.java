@@ -114,6 +114,18 @@ class PatientPortalSettingsUnitTest {
         }
 
         @Test
+        @DisplayName("should retain a path prefix for a portal mounted below its origin")
+        void shouldRetainPathPrefix_whenPortalUsesOne() {
+            Map<String, String> properties = validProperties();
+            properties.put(BASE_URL_KEY, "https://portal.clinic.example/patient-portal/");
+
+            PatientPortalSettings settings = PatientPortalSettings.fromProperties(properties);
+
+            assertThat(settings.baseUrl())
+                    .isEqualTo("https://portal.clinic.example/patient-portal");
+        }
+
+        @Test
         @DisplayName("should trim surrounding whitespace from configured values")
         void shouldTrimValues_whenPropertiesCarryWhitespace() {
             Map<String, String> properties = validProperties();
@@ -245,6 +257,20 @@ class PatientPortalSettingsUnitTest {
     @Nested
     @DisplayName("fail closed")
     class FailClosed {
+
+        @Test
+        @DisplayName("should recognize optional-only values as an attempted configuration")
+        void shouldTreatOptionalSettingAsConfigured_whenRequiredValuesAreMissing() {
+            for (String key : java.util.List.of(
+                    CONNECT_TIMEOUT_KEY,
+                    READ_TIMEOUT_KEY,
+                    PatientPortalSettings.CERTIFICATE_PINS_KEY)) {
+                assertThat(PatientPortalSettings.isConfigured(candidate ->
+                                candidate.equals(key) ? "configured" : null))
+                        .as(key)
+                        .isTrue();
+            }
+        }
 
         @Test
         @DisplayName("should fail when nothing is configured at all")
