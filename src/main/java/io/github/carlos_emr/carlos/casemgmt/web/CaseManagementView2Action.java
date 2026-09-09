@@ -68,7 +68,6 @@ import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDi
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
-import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
@@ -466,22 +465,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
             request.setAttribute("Prescriptions", prescriptions);
 
-            // Setup RX bean start - use per-patient session key
-            int demographicNoInt;
-            try {
-                demographicNoInt = Integer.parseInt(demoNo);
-            } catch (NumberFormatException e) {
-                logger.error("Invalid demographicNo for RxSessionBean setup");
-                return "domain-error";
-            }
-            RxSessionBean bean = RxSessionBean.getFromSession(request, demographicNoInt);
-            if (bean == null) {
-                bean = new RxSessionBean();
-                bean.setDemographicNo(demographicNoInt);
-            }
-            bean.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            RxSessionBean.saveToSession(request, bean);
-            // Setup RX end
+            // Prescription state is initialized only when an Rx window is opened.
         }
 
         /* tickler */

@@ -93,14 +93,11 @@ public final class RxChoosePatient2Action extends ActionSupport {
             return redirect;
         }
 
-        RxSessionBean bean = RxSessionBean.getFromSession(request, demographicNoInt);
-        if (bean == null) {
-            bean = new RxSessionBean();
-            bean.setDemographicNo(demographicNoInt);
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null || bean.getDemographicNo() != demographicNoInt) {
+            throw new ServletException("Prescription workspace demographic mismatch");
         }
         bean.setProviderNo(user_no);
-
-        RxSessionBean.saveToSession(request, bean);
 
         RxPatientData rx = null;
         RxPatientData.Patient patient = null;

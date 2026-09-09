@@ -48,6 +48,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
@@ -70,33 +71,7 @@
             return; // Ensure no further JSP processing
         }
 
-        // Get demographicNo from request parameter first (for multi-tab support)
-        // This ensures we show the correct patient's drugs when multiple tabs are open
-        String demoParam = request.getParameter("demographicNo");
-        int demographicNo = 0;
-        if (demoParam != null && !demoParam.isEmpty()) {
-            try {
-                demographicNo = Integer.parseInt(demoParam);
-            } catch (NumberFormatException e) {
-                // Fall through to use bean's demographicNo
-            }
-        }
-
-        // Fall back to bean's demographicNo if not in parameter
-        if (demographicNo <= 0 && bean != null) {
-            demographicNo = bean.getDemographicNo();
-        }
-
-        // Get patient data using demographicNo (not from session's Patient attribute)
-        if (demographicNo > 0) {
-            LoggedInInfo loggedInInfoForPatient = LoggedInInfo.getLoggedInInfoFromSession(request);
-            patient = RxPatientData.getPatient(loggedInInfoForPatient, demographicNo);
-        }
-
-        // Final fallback to session's Patient attribute (legacy behavior)
-        if (patient == null) {
-            patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
-        }
+        patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
     %>
 </c:if>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>

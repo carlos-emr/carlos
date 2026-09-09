@@ -74,7 +74,8 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%
@@ -259,9 +260,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
         <%-- RxSessionInterceptor: Enables multi-patient tab support by adding demographicNo to AJAX calls --%>
         <script type="text/javascript">
-            var currentDemographicNo = '<%= Encode.forJavaScript(Integer.toString(rxSessionBean.getDemographicNo())) %>';
+            var currentDemographicNo = '<%= SafeEncode.forJavaScript(Integer.toString(rxSessionBean.getDemographicNo())) %>';
         </script>
-        <script type="text/javascript" src="${ctx}/oscarRx/js/rxSessionInterceptor.js"></script>
 
         <script type="text/javascript">
             let selectedReRxIDs = [];
@@ -849,7 +849,7 @@ function renderRxStage() {
                             <td>
 							<%if(securityManager.hasWriteAccess("_rx",roleName2$,true)) {%>
                                 <form action="${pageContext.request.contextPath}/rx/searchDrug"  onsubmit="return checkEnterSendRx();" style="display: inline; margin-bottom:0;" id="drugForm" name="drugForm" method="post">
-                                    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(Integer.toString(demoNo))%>" />
+                                    <input type="hidden" name="demographicNo" value="<%=SafeEncode.forHtmlAttribute(Integer.toString(demoNo))%>" />
                                     <table>
                                         <tr id="prescriptionStageRow">
                                             <td colspan="2">
@@ -862,7 +862,7 @@ function renderRxStage() {
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
 
                                                     <input type="hidden" id="deleteOnCloseRxBox" value="false"/>
-                                                    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(Integer.toString(demoNo))%>"/>
+                                                    <input type="hidden" name="demographicNo" value="<%=SafeEncode.forHtmlAttribute(Integer.toString(demoNo))%>"/>
 
                                                 </div>
                                                 <input type="hidden" id="rxPharmacyId" name="rxPharmacyId" value="" />
@@ -1825,7 +1825,7 @@ function popForm2(scriptId){
             modalBody.textContent = '';
             var iframe = document.createElement('iframe');
             iframe.style.cssText = 'width:100%;height:890px;border:none;display:block;';
-            iframe.src = url;
+            iframe.src = RxContext.addToUrl(url);
             modalBody.appendChild(iframe);
             var modalDialog = document.querySelector('#carlosModal .modal-dialog');
             modalDialog.style.maxWidth = '980px';
@@ -2018,7 +2018,7 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              window.location.href = ctx + "/rx/searchDrug";
+              window.location.href = RxContext.addToUrl(ctx + "/rx/searchDrug");
    }
 					})
 }

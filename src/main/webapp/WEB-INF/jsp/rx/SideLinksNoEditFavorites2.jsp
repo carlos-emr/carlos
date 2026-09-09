@@ -31,6 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ include file="rxContext.jspf" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -90,7 +91,7 @@
 <script type="text/javascript">
 
     function goSD3(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + favoriteId;
+        location.href = RxContext.addToUrl("<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + favoriteId);
     }
 
 </script>

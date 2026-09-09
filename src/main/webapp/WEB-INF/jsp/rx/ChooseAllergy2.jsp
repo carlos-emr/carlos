@@ -48,6 +48,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="java.util.*" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <html>
     <head>
@@ -317,7 +318,7 @@
                                         <%
                                             String sBack = request.getContextPath() + "/rx/showAllergy";
                                         %> <input type=button class="ControlPushButton"
-                                                  onclick="javascript:window.location.href='<%=sBack%>';"
+                                                  onclick="window.location.href=RxContext.addToUrl('<%=sBack%>');"
                                                   value="Back to View Allergies"/></td>
                                 </tr>
                             </table>
@@ -426,4 +427,3 @@
 <%--</html:html>--%>
 
 </html>
-

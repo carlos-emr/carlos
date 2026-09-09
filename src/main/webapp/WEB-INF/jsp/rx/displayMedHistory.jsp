@@ -57,6 +57,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <html>
