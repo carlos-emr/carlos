@@ -285,7 +285,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should permit GET, being read-only")
         void shouldAllowGet_forAReadOnlyPanel() throws Exception {
             request.setMethod("GET");
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+            when(patientPortalService.listInvites(anyInt(), any()))
                     .thenReturn(List.of(invite()));
             when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
 
@@ -325,7 +325,7 @@ class PortalAccountAndPanelActionUnitTest {
 
             assertThat(response.getContentAsString()).doesNotContain("invites");
             assertThat(response.getContentAsString()).contains("account");
-            verify(patientPortalService, never()).listInvites(anyInt(), anyInt(), any());
+            verify(patientPortalService, never()).listInvites(anyInt(), any());
         }
 
         @Test
@@ -345,7 +345,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should mark an ambiguous account lookup unavailable")
         void shouldReportUnavailable_whenTheLookupIsNotFound() throws Exception {
             request.setMethod("GET");
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
             when(patientPortalService.findAccount(anyInt(), any()))
                     .thenThrow(PatientPortalException.ofStatus(404, "/x", null));
 
@@ -362,7 +362,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should report a portal outage as unavailable, not as an absent account")
         void shouldReportUnavailable_whenTheAccountLookupFailsForAnotherReason() throws Exception {
             request.setMethod("GET");
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
             when(patientPortalService.findAccount(anyInt(), any()))
                     .thenThrow(PatientPortalException.ofTransportFailure("/x", null));
 
@@ -377,7 +377,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should still return invitations when the account lookup fails")
         void shouldKeepInvites_whenOnlyTheAccountSectionFails() throws Exception {
             request.setMethod("GET");
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+            when(patientPortalService.listInvites(anyInt(), any()))
                     .thenReturn(List.of(invite()));
             when(patientPortalService.findAccount(anyInt(), any()))
                     .thenThrow(PatientPortalException.ofTransportFailure("/x", null));
@@ -410,7 +410,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should report not-ok when a section could not be read")
         void shouldReportNotOk_whenThePortalIsUnreachable() throws Exception {
             request.setMethod("GET");
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+            when(patientPortalService.listInvites(anyInt(), any()))
                     .thenThrow(
                             PatientPortalException.ofTransportFailure(
                                     "/x/{id}", new java.io.IOException("down")));
@@ -433,7 +433,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should still report ok when every requested section was read")
         void shouldReportOk_whenBothSectionsLoad() throws Exception {
             request.setMethod("GET");
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+            when(patientPortalService.listInvites(anyInt(), any()))
                     .thenReturn(java.util.List.of());
             when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
 
@@ -446,7 +446,7 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should report incomplete data when account absence is ambiguous")
         void shouldReportIncomplete_whenTheAccountLookupIsA404() throws Exception {
             request.setMethod("GET");
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+            when(patientPortalService.listInvites(anyInt(), any()))
                     .thenReturn(java.util.List.of());
             when(patientPortalService.findAccount(anyInt(), any()))
                     .thenThrow(PatientPortalException.ofStatus(404, "/y/{id}", null));
@@ -469,7 +469,7 @@ class PortalAccountAndPanelActionUnitTest {
                             any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT), anyString(),
                             eq(String.valueOf(DEMOGRAPHIC_NO))))
                     .thenReturn(false);
-            when(patientPortalService.listInvites(anyInt(), anyInt(), any()))
+            when(patientPortalService.listInvites(anyInt(), any()))
                     .thenReturn(java.util.List.of());
 
             panelAction().execute();

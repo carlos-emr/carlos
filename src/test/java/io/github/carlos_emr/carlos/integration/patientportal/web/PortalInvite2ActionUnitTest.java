@@ -124,7 +124,7 @@ class PortalInvite2ActionUnitTest {
     }
 
     @Test void rejectsForeignInvitationBeforeMutation() throws Exception {
-        when(portal.listInvites(eq(123), eq(100), same(staff)))
+        when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 456, "pending")));
         execute();
         assertThat(response.getStatus()).isEqualTo(404);
@@ -132,7 +132,7 @@ class PortalInvite2ActionUnitTest {
     }
 
     @Test void revokesVerifiedInvitationWithScopedStaffIdentity() throws Exception {
-        when(portal.listInvites(eq(123), eq(100), same(staff)))
+        when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 123, "pending")));
         when(portal.revokeInvite(eq(7L), same(staff))).thenReturn(invite(7, 123, "revoked"));
         execute();
@@ -145,7 +145,7 @@ class PortalInvite2ActionUnitTest {
     @Test void revokesVerifiedInvitationBeyondIntegerIdRange() throws Exception {
         long id = Integer.MAX_VALUE + 1L;
         request.setParameter("inviteId", String.valueOf(id));
-        when(portal.listInvites(eq(123), eq(100), same(staff)))
+        when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(id, 123, "pending")));
         when(portal.revokeInvite(eq(id), same(staff))).thenReturn(invite(id, 123, "revoked"));
         execute();
@@ -154,7 +154,7 @@ class PortalInvite2ActionUnitTest {
     }
 
     @Test void lookupFailureCannotAuthorizeMutation() throws Exception {
-        when(portal.listInvites(eq(123), eq(100), same(staff)))
+        when(portal.listInvites(eq(123), same(staff)))
                 .thenThrow(PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/invites", null));
         execute();
         assertThat(response.getStatus()).isEqualTo(504);
@@ -162,18 +162,18 @@ class PortalInvite2ActionUnitTest {
     }
 
     @Test void unexpectedReturnedIdentityIsNotReportedAsSuccess() throws Exception {
-        when(portal.listInvites(eq(123), eq(100), same(staff)))
+        when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 123, "pending")));
         when(portal.revokeInvite(eq(7L), same(staff))).thenReturn(invite(8, 123, "revoked"));
         execute();
         assertThat(response.getStatus()).isEqualTo(502);
     }
     @Test void failsClosedWhenFullListingDoesNotContainSelectedInvitation() throws Exception {
-        when(portal.listInvites(eq(123), eq(100), same(staff)))
+        when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(Collections.nCopies(100, invite(1, 123, "revoked")));
         execute();
         assertThat(response.getStatus()).isEqualTo(404);
-        verify(portal, times(1)).listInvites(eq(123), eq(100), same(staff));
+        verify(portal, times(1)).listInvites(eq(123), same(staff));
         verify(portal, never()).revokeInvite(anyLong(), any());
     }
 }

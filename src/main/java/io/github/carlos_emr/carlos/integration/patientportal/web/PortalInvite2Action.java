@@ -118,8 +118,7 @@ public class PortalInvite2Action extends PortalJsonAction {
             PatientPortalStaffContext staff) {
         // The current portal contract exposes only its latest 100 invites, without pagination.
         // Never authorize an ID absent from that patient-scoped response.
-        List<PatientPortalInviteDto> invites = portal.listInvites(
-                patient, PatientPortalService.MAX_INVITE_PAGE_SIZE, staff);
+        List<PatientPortalInviteDto> invites = portal.listInvites(patient, staff);
         return invites.stream().anyMatch(invite -> invite.id() == id && invite.demographicNo() == patient);
     }
 }

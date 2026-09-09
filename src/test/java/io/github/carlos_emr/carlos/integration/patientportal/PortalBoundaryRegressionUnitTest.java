@@ -134,7 +134,7 @@ class PortalBoundaryRegressionUnitTest {
     }
 
     @Test void rejectsTrailingContent() {
-        assertThatThrownBy(() -> service("[] {} ").listInvites(123, 100, staff()))
+        assertThatThrownBy(() -> service("[] {} ").listInvites(123, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
 
@@ -145,7 +145,7 @@ class PortalBoundaryRegressionUnitTest {
                 Duration.ofSeconds(1), Set.of());
         var client = new PatientPortalService(settings, request -> new PatientPortalHttpResponse(
                 409, "{\"detail\":\"SyntheticSecretToken123\"}"));
-        var failure = catchThrowableOfType(() -> client.listInvites(123, 100, staff()), PatientPortalException.class);
+        var failure = catchThrowableOfType(() -> client.listInvites(123, staff()), PatientPortalException.class);
         assertThat(failure.detail()).isNull();
         assertThat(failure).hasMessageNotContaining("SyntheticSecretToken123");
     }
@@ -177,7 +177,7 @@ class PortalBoundaryRegressionUnitTest {
             "{\"id\":1,\"clinic_id\":\"other-clinic\",\"demographic_no\":123,\"status\":\"pending\",\"issued_count\":1}",
             "{\"id\":1,\"clinic_id\":\"clinic\",\"demographic_no\":456,\"status\":\"pending\",\"issued_count\":1}"})
     void rejectsInvitationWithWrongResponseScope(String invite) {
-        assertThatThrownBy(() -> service("[" + invite + "]").listInvites(123, 100, staff()))
+        assertThatThrownBy(() -> service("[" + invite + "]").listInvites(123, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
     @Test void redactsMalformedHttpStatusFromTransportExceptionChain() throws Exception {

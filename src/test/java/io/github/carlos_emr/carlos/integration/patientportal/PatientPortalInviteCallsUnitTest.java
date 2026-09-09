@@ -225,7 +225,7 @@ class PatientPortalInviteCallsUnitTest {
             PatientPortalService service =
                     new PatientPortalService(settings(), new RecordingExchange(200, listJson));
 
-            List<PatientPortalInviteDto> invites = service.listInvites(123, 10, staff());
+            List<PatientPortalInviteDto> invites = service.listInvites(123, staff());
 
             assertThat(invites).hasSize(1);
             assertThat(invites.get(0).demographicNo()).isEqualTo(123);
@@ -233,25 +233,16 @@ class PatientPortalInviteCallsUnitTest {
         }
 
         @Test
-        @DisplayName("should clamp the page size to the portal's maximum")
-        void shouldClampLimit_whenCallerAsksForMoreThanPortalAllows() throws Exception {
+        @DisplayName("should not send pagination the portal does not support")
+        void shouldUseFixedListingContract_withoutFictitiousPagination() throws Exception {
             RecordingExchange exchange = new RecordingExchange(200, "[]");
             PatientPortalService service = new PatientPortalService(settings(), exchange);
 
-            service.listInvites(123, 5000, staff());
+            service.listInvites(123, staff());
 
-            assertThat(exchange.captured.getUri().getQuery()).isEqualTo("limit=100");
-        }
-
-        @Test
-        @DisplayName("should ask for at least one record when given a nonsense page size")
-        void shouldClampLimit_whenCallerAsksForZero() throws Exception {
-            RecordingExchange exchange = new RecordingExchange(200, "[]");
-            PatientPortalService service = new PatientPortalService(settings(), exchange);
-
-            service.listInvites(123, 0, staff());
-
-            assertThat(exchange.captured.getUri().getQuery()).isEqualTo("limit=1");
+            assertThat(exchange.captured.getUri().getPath())
+                    .isEqualTo("/internal/carlos/patients/123/invites");
+            assertThat(exchange.captured.getUri().getQuery()).isNull();
         }
     }
 
