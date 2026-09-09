@@ -156,7 +156,9 @@ class PatientPortalSpringWiringUnitTest {
         Map<String, String> properties = new HashMap<>();
         properties.put(PatientPortalSettings.BASE_URL_KEY, "http://portal.clinic.example");
         properties.put(PatientPortalSettings.CLINIC_ID_KEY, "maplecreek");
-        properties.put(PatientPortalSettings.SERVICE_TOKEN_KEY, "token-value-0000000000000001");
+        properties.put(
+                PatientPortalSettings.SERVICE_TOKEN_KEY,
+                "synthetic-service-token-0000000001");
         properties.put(PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY);
 
         assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
@@ -180,7 +182,9 @@ class PatientPortalSpringWiringUnitTest {
         Map<String, String> present = new HashMap<>();
         present.put(PatientPortalSettings.BASE_URL_KEY, "http://not-https.example");
         present.put(PatientPortalSettings.CLINIC_ID_KEY, "maplecreek");
-        present.put(PatientPortalSettings.SERVICE_TOKEN_KEY, "token-value-0000000000000001");
+        present.put(
+                PatientPortalSettings.SERVICE_TOKEN_KEY,
+                "synthetic-service-token-0000000001");
         present.put(PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY);
 
         assertThat(PatientPortalSettings.isConfigured(present::get)).isTrue();

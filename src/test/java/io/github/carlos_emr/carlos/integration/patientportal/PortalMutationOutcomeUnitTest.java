@@ -44,7 +44,7 @@ class PortalMutationOutcomeUnitTest {
 
     private PatientPortalService service(String body) {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
-                PortalSecret.of("synthetic-token"),
+                PortalSecret.of("synthetic-service-token-0000000001"),
                 PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(1),
                 Duration.ofSeconds(1), Set.of());
         return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(200, body));
