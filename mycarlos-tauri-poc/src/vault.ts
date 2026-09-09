@@ -48,6 +48,7 @@ export interface VaultBridge {
   changePassphrase(currentPassphrase: string, newPassphrase: string): Promise<void>;
   createProfile(displayName: string): Promise<string>;
   createFolder(profileId: string, parentId: string | null, name: string): Promise<string>;
+  updateFolder(folderId: string, parentId: string | null, name: string): Promise<void>;
   assignFolders(recordId: string, folderIds: string[]): Promise<void>;
   importFiles(profileId: string, folderIds: string[]): Promise<ImportOutcome>;
   exportFile(recordId: string, suggestedName: string): Promise<boolean>;
@@ -89,6 +90,8 @@ export function createVaultBridge(): VaultBridge {
       invoke<string>("vault_create_profile", { request: { displayName } }),
     createFolder: (profileId, parentId, name) =>
       invoke<string>("vault_create_folder", { request: { profileId, parentId, name } }),
+    updateFolder: (folderId, parentId, name) =>
+      invoke<void>("vault_update_folder", { request: { folderId, parentId, name } }),
     assignFolders: (recordId, folderIds) =>
       invoke<void>("vault_assign_folders", { request: { recordId, folderIds } }),
     importFiles: (profileId, folderIds) =>

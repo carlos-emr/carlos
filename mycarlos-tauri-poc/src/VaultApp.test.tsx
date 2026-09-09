@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import VaultApp from "./VaultApp";
@@ -21,11 +21,22 @@ function nativeBridge(overrides: Partial<VaultBridge> = {}): VaultBridge {
     changePassphrase: vi.fn().mockResolvedValue(undefined),
     createProfile: vi.fn().mockResolvedValue("profile-2"),
     createFolder: vi.fn().mockResolvedValue("folder-1"),
+    updateFolder: vi.fn().mockResolvedValue(undefined),
     assignFolders: vi.fn().mockResolvedValue(undefined),
     importFiles: vi.fn().mockResolvedValue({ imported: [], skippedDuplicates: [] }),
     exportFile: vi.fn().mockResolvedValue(false),
     reset: vi.fn().mockResolvedValue(undefined),
     ...overrides,
+  };
+}
+
+function dragTransfer() {
+  let payload = "";
+  return {
+    effectAllowed: "none",
+    dropEffect: "none",
+    setData: vi.fn((_type: string, value: string) => { payload = value; }),
+    getData: vi.fn(() => payload),
   };
 }
 
@@ -74,7 +85,10 @@ describe("durable vault UI", () => {
     const user = userEvent.setup();
     const filingSnapshot: VaultSnapshot = {
       profiles: [{ id: "profile-1", displayName: "FAKE Avery Patient", createdAtMs: 1 }],
-      folders: [{ id: "folder-1", profileId: "profile-1", parentId: null, name: "FAKE Test Results", createdAtMs: 2 }],
+      folders: [
+        { id: "folder-1", profileId: "profile-1", parentId: null, name: "FAKE Test Results", createdAtMs: 2 },
+        { id: "folder-2", profileId: "profile-1", parentId: null, name: "FAKE Letters", createdAtMs: 2 },
+      ],
       records: [
         { id: "record-root", profileId: "profile-1", folderIds: [], displayName: "FAKE_Root_Letter.pdf", sourceLabel: "Manual import — unverified", mediaType: "application/octet-stream", plaintextSize: 1024, importedAtMs: 3 },
         { id: "record-folder", profileId: "profile-1", folderIds: ["folder-1"], displayName: "FAKE_Bloodwork.pdf", sourceLabel: "Manual import — unverified", mediaType: "application/octet-stream", plaintextSize: 2048, importedAtMs: 4 },
@@ -89,6 +103,18 @@ describe("durable vault UI", () => {
     expect(await screen.findByRole("heading", { name: "My records" })).toBeVisible();
     expect(screen.getByText("FAKE_Root_Letter.pdf")).toBeVisible();
     expect(screen.queryByText("FAKE_Bloodwork.pdf")).not.toBeInTheDocument();
+
+    const recordTransfer = dragTransfer();
+    fireEvent.dragStart(screen.getByRole("article", { name: "FAKE_Root_Letter.pdf document" }), { dataTransfer: recordTransfer });
+    fireEvent.dragOver(screen.getByRole("article", { name: "FAKE Test Results folder" }), { dataTransfer: recordTransfer });
+    fireEvent.drop(screen.getByRole("article", { name: "FAKE Test Results folder" }), { dataTransfer: recordTransfer });
+    await waitFor(() => expect(bridge.assignFolders).toHaveBeenCalledWith("record-root", ["folder-1"]));
+
+    const folderTransfer = dragTransfer();
+    fireEvent.dragStart(screen.getByRole("article", { name: "FAKE Test Results folder" }), { dataTransfer: folderTransfer });
+    fireEvent.dragOver(screen.getByRole("article", { name: "FAKE Letters folder" }), { dataTransfer: folderTransfer });
+    fireEvent.drop(screen.getByRole("article", { name: "FAKE Letters folder" }), { dataTransfer: folderTransfer });
+    await waitFor(() => expect(bridge.updateFolder).toHaveBeenCalledWith("folder-1", "folder-2", "FAKE Test Results"));
 
     await user.click(screen.getByRole("button", { name: "Open FAKE Test Results" }));
     expect(screen.getByRole("heading", { name: "FAKE Test Results" })).toBeVisible();

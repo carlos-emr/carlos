@@ -658,6 +658,11 @@ h1, h2, p { margin: 0; }
   font: inherit;
 }
 .native-location-chip { padding: 5px 10px; border-radius: 999px; background: var(--canvas-2); color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.native-drag-hint { color: var(--ink-faint); font-size: 12px; }
+.native-draggable { cursor: grab; transition: opacity 120ms ease, box-shadow 120ms ease, background-color 120ms ease; }
+.native-draggable:active { cursor: grabbing; }
+.native-dragging { opacity: .45; }
+.native-drop-target { background: var(--teal-soft) !important; box-shadow: inset 0 0 0 2px var(--teal) !important; }
 .native-sort { display: flex; align-items: center; gap: 6px; color: var(--ink-soft); }
 .native-sort .icon { width: 16px; height: 16px; }
 .native-move-actions { align-items: center; }
@@ -682,6 +687,7 @@ h1, h2, p { margin: 0; }
   .native-profile-row { flex-wrap: wrap; }
   .native-profile-select { width: 100%; margin-left: 0; }
   .native-profile-select select { flex: 1; min-width: 0; }
+  .native-drag-hint { width: 100%; }
   .native-inline-form { grid-template-columns: 1fr 1fr; }
   .native-inline-form label { grid-column: 1 / -1; }
   .native-move-actions { flex-wrap: wrap; width: 100%; margin-left: 0; }

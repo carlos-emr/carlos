@@ -37,7 +37,7 @@ evaluation evidence and must not be distributed to patients.
   webview, and iOS webview.
 - A durable native filing cabinet aligned with the discussion mocks in PR #3479: patient-profile
   switching, nested folder navigation, location search, list/grid views, sorting, bulk moves, and
-  plain-language document details and save-copy actions.
+  drag-and-drop document/folder moves, plus plain-language document details and save-copy actions.
 - A browser evaluation demo with record-kind filters, Recent, Starred, Trash, Restore, and
   session-only sample folders. Those concepts remain deliberately separate from durable storage
   until their data model and retention rules are implemented.

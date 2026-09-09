@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type FormEvent, type ReactNode } from "react";
 import App, { Icon, type IconName } from "./App";
 import {
   createVaultBridge,
@@ -24,6 +24,7 @@ function bytes(value: number): string {
 type NativeSection = "records" | "security";
 type NativeView = "list" | "grid";
 type NativeSort = "newest" | "name";
+type DragItem = { kind: "records"; ids: string[] } | { kind: "folder"; id: string };
 
 function recordKind(name: string): { icon: IconName; label: string } {
   const normalized = name.toLocaleLowerCase();
@@ -262,6 +263,8 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
   const [moveFolderId, setMoveFolderId] = useState("");
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const [showFolderForm, setShowFolderForm] = useState(false);
+  const [dragItem, setDragItem] = useState<DragItem | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("");
   const [folderName, setFolderName] = useState("");
   const [currentPassphrase, setCurrentPassphrase] = useState("");
@@ -350,6 +353,76 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
     setNotice(`${selectedRecords.length} document${selectedRecords.length === 1 ? "" : "s"} moved.`);
   });
 
+  const startDrag = (event: ReactDragEvent, item: DragItem) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-mycarlos-item", JSON.stringify(item));
+    setDragItem(item);
+  };
+
+  const readDragItem = (event: ReactDragEvent): DragItem | null => {
+    if (dragItem) return dragItem;
+    try {
+      const value = JSON.parse(event.dataTransfer.getData("application/x-mycarlos-item")) as DragItem;
+      if (value.kind === "folder" && typeof value.id === "string") return value;
+      if (value.kind === "records" && Array.isArray(value.ids) && value.ids.every((id) => typeof id === "string")) return value;
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
+  const dragOver = (event: ReactDragEvent, folderId: string | null) => {
+    if (!readDragItem(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropTarget(folderId ?? "root");
+  };
+
+  const dropInto = (event: ReactDragEvent, folderId: string | null) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = readDragItem(event);
+    setDropTarget(null);
+    setDragItem(null);
+    if (!item) return;
+    void run(async () => {
+      if (item.kind === "records") {
+        for (const id of item.ids) await bridge.assignFolders(id, folderId ? [folderId] : []);
+        setSelectedIds([]);
+        setNotice(`${item.ids.length} document${item.ids.length === 1 ? "" : "s"} moved to ${folderId ? folderNameById.get(folderId) : "My records"}.`);
+      } else {
+        const folder = folders.find((candidate) => candidate.id === item.id);
+        if (!folder || folder.id === folderId) {
+          setNotice("A folder cannot be moved into itself.");
+          return;
+        }
+        await bridge.updateFolder(folder.id, folderId, folder.name);
+        setNotice(`${folder.name} moved to ${folderId ? folderNameById.get(folderId) : "My records"}.`);
+      }
+      await refresh();
+    });
+  };
+
+  const dragEnd = () => {
+    setDragItem(null);
+    setDropTarget(null);
+  };
+
+  const recordDragItem = (recordId: string): DragItem => ({
+    kind: "records",
+    ids: selectedIds.includes(recordId) ? selectedRecords.map((record) => record.id) : [recordId],
+  });
+
+  const dragClass = (base: string, item: DragItem) => {
+    const dragging = item.kind === "folder"
+      ? dragItem?.kind === "folder" && dragItem.id === item.id
+      : dragItem?.kind === "records" && item.ids.some((id) => dragItem.ids.includes(id));
+    return `${base} native-draggable${dragging ? " native-dragging" : ""}`;
+  };
+
+  const dropClass = (base: string, folderId: string | null) =>
+    `${base}${dropTarget === (folderId ?? "root") ? " native-drop-target" : ""}`;
+
   const exportRecord = (record: VaultRecord) => {
     if (!window.confirm("Saving a copy creates a readable file outside the encrypted vault. Continue?")) return;
     void run(async () => setNotice(await bridge.exportFile(record.id, record.displayName)
@@ -390,11 +463,11 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
               <span><strong>myCarlos</strong><small>{profile?.displayName ?? "Private vault"}</small></span>
             </div>
             <nav className="side-nav" aria-label="Record library">
-              <button className={section === "records" && !currentFolderId ? "selected" : ""} type="button" onClick={() => { setSection("records"); setCurrentFolderId(null); }}>
+              <button className={dropClass(section === "records" && !currentFolderId ? "selected" : "", null)} type="button" onClick={() => { setSection("records"); setCurrentFolderId(null); }} onDragOver={(event) => dragOver(event, null)} onDrop={(event) => dropInto(event, null)}>
                 <Icon name="folder" /> My records <span className="nav-count">{records.filter((record) => !record.folderIds.length).length}</span>
               </button>
               <span className="nav-label">Folders</span>
-              {folders.filter((folder) => !folder.parentId).map((folder) => <button className={currentFolderId === folder.id ? "selected" : ""} type="button" key={folder.id} onClick={() => { setSection("records"); setCurrentFolderId(folder.id); }}>
+              {folders.filter((folder) => !folder.parentId).map((folder) => <button className={dropClass(dragClass(currentFolderId === folder.id ? "selected" : "", { kind: "folder", id: folder.id }), folder.id)} type="button" key={folder.id} draggable={!busy} onDragStart={(event) => startDrag(event, { kind: "folder", id: folder.id })} onDragEnd={dragEnd} onDragOver={(event) => dragOver(event, folder.id)} onDrop={(event) => dropInto(event, folder.id)} onClick={() => { setSection("records"); setCurrentFolderId(folder.id); }}>
                 <Icon name="folder" /> <span className="native-nav-name">{folder.name}</span><span className="nav-count">{folderCount(folder.id)}</span>
               </button>)}
               {!folders.length && <small className="native-sidebar-empty">No folders yet</small>}
@@ -410,7 +483,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
 
           {section === "records" && <main className="library-main">
             <div className="native-profile-row">
-              <button className="breadcrumb native-breadcrumb" type="button" onClick={() => setCurrentFolderId(null)}>My records</button>
+              <button className={dropClass("breadcrumb native-breadcrumb", null)} type="button" onDragOver={(event) => dragOver(event, null)} onDrop={(event) => dropInto(event, null)} onClick={() => setCurrentFolderId(null)}>My records</button>
               {currentFolder && <><span aria-hidden="true">/</span><strong>{currentFolder.name}</strong></>}
               <label className="native-profile-select"><span>Patient</span><select value={profileId} onChange={(event) => setProfileId(event.target.value)}>{snapshot.profiles.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}</select></label>
             </div>
@@ -431,6 +504,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
             <label className="search"><Icon name="search" /><span className="sr-only">Search this location</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search this location" /></label>
             <div className="viewbar">
               <span className="native-location-chip">{currentFolder ? "Inside folder" : "Top level"}</span>
+              <span className="native-drag-hint">Hold and drag a document or folder to move it</span>
               <div className="view-controls">
                 <label className="native-sort"><Icon name="sort" /><span className="sr-only">Sort records</span><select value={sort} onChange={(event) => setSort(event.target.value as NativeSort)}><option value="newest">Newest first</option><option value="name">Name A–Z</option></select></label>
                 <span className="segment" aria-label="Choose record view">
@@ -448,13 +522,13 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
 
             {view === "list" ? <div className="filelist native-filelist" aria-label={`${visibleFolders.length + visibleRecords.length} visible library items`}>
               <div className="file-head" aria-hidden="true"><span /><span className="sorted">Name</span><span className="column">Source</span><span className="column">Date added</span><span /></div>
-              {visibleFolders.map((folder) => <article className="file-row" key={folder.id}>
+              {visibleFolders.map((folder) => <article aria-label={`${folder.name} folder`} className={dropClass(dragClass("file-row", { kind: "folder", id: folder.id }), folder.id)} key={folder.id} draggable={!busy} onDragStart={(event) => startDrag(event, { kind: "folder", id: folder.id })} onDragEnd={dragEnd} onDragOver={(event) => dragOver(event, folder.id)} onDrop={(event) => dropInto(event, folder.id)}>
                 <span />
                 <button className="file-name native-file-open" type="button" onClick={() => setCurrentFolderId(folder.id)}><span className="document-icon folder"><Icon name="folder" /></span><span className="name-copy"><strong>{folder.name}</strong><small>{folderCount(folder.id)} items</small></span></button>
                 <span className="column">—</span><span className="column">Folder</span>
                 <button className="more-button" type="button" aria-label={`Open ${folder.name}`} onClick={() => setCurrentFolderId(folder.id)}><Icon name="more" /></button>
               </article>)}
-              {visibleRecords.map((record) => { const kind = recordKind(record.displayName); return <article className="file-row" key={record.id}>
+              {visibleRecords.map((record) => { const kind = recordKind(record.displayName); const item = recordDragItem(record.id); return <article aria-label={`${record.displayName} document`} className={dragClass("file-row", item)} key={record.id} draggable={!busy} onDragStart={(event) => startDrag(event, item)} onDragEnd={dragEnd}>
                 <button className={`check ${selectedIds.includes(record.id) ? "checked" : ""}`} type="button" aria-label={`Select ${record.displayName}`} aria-pressed={selectedIds.includes(record.id)} onClick={() => toggleSelected(record.id)} />
                 <div className="file-name"><span className={`document-icon ${kind.icon}`}><Icon name={kind.icon} /></span><span className="name-copy"><button className="record-open" type="button" onClick={() => setActiveRecordId(record.id)}>{record.displayName}</button><small>{bytes(record.plaintextSize)} · {kind.label}</small></span></div>
                 <span className="column">{record.sourceLabel}</span><span className="column">{new Date(record.importedAtMs).toLocaleDateString()}</span>
@@ -462,8 +536,8 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
               </article>; })}
               {!visibleFolders.length && !visibleRecords.length && <div className="empty-state"><Icon name="folder" /><strong>{query ? "No matching records" : "This location is empty"}</strong><span>{query ? "Try another search." : "Add a folder or import a document here."}</span></div>}
             </div> : <div className="file-grid" aria-label={`${visibleFolders.length + visibleRecords.length} visible library items`}>
-              {visibleFolders.map((folder) => <article className="file-tile" key={folder.id}><button className="tile-open" type="button" onClick={() => setCurrentFolderId(folder.id)}><span className="tile-preview folder"><Icon name="folder" /></span><span className="tile-caption"><span><strong>{folder.name}</strong><small>{folderCount(folder.id)} items</small></span></span></button></article>)}
-              {visibleRecords.map((record) => { const kind = recordKind(record.displayName); return <article className="file-tile" key={record.id}><button className="tile-open" type="button" onClick={() => setActiveRecordId(record.id)}><span className="tile-preview paper-preview"><i /><i /><i /><i /></span><span className="tile-caption"><span className={`document-icon ${kind.icon}`}><Icon name={kind.icon} /></span><span><strong>{record.displayName}</strong><small>{new Date(record.importedAtMs).toLocaleDateString()}</small></span></span></button></article>; })}
+              {visibleFolders.map((folder) => <article aria-label={`${folder.name} folder`} className={dropClass(dragClass("file-tile", { kind: "folder", id: folder.id }), folder.id)} key={folder.id} draggable={!busy} onDragStart={(event) => startDrag(event, { kind: "folder", id: folder.id })} onDragEnd={dragEnd} onDragOver={(event) => dragOver(event, folder.id)} onDrop={(event) => dropInto(event, folder.id)}><button className="tile-open" type="button" onClick={() => setCurrentFolderId(folder.id)}><span className="tile-preview folder"><Icon name="folder" /></span><span className="tile-caption"><span><strong>{folder.name}</strong><small>{folderCount(folder.id)} items</small></span></span></button></article>)}
+              {visibleRecords.map((record) => { const kind = recordKind(record.displayName); const item = recordDragItem(record.id); return <article aria-label={`${record.displayName} document`} className={dragClass("file-tile", item)} key={record.id} draggable={!busy} onDragStart={(event) => startDrag(event, item)} onDragEnd={dragEnd}><button className="tile-open" type="button" onClick={() => setActiveRecordId(record.id)}><span className="tile-preview paper-preview"><i /><i /><i /><i /></span><span className="tile-caption"><span className={`document-icon ${kind.icon}`}><Icon name={kind.icon} /></span><span><strong>{record.displayName}</strong><small>{new Date(record.importedAtMs).toLocaleDateString()}</small></span></span></button></article>; })}
               {!visibleFolders.length && !visibleRecords.length && <div className="empty-state"><Icon name="folder" /><strong>{query ? "No matching records" : "This location is empty"}</strong><span>{query ? "Try another search." : "Add a folder or import a document here."}</span></div>}
             </div>}
           </main>}
