@@ -81,7 +81,6 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
     for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
       window.addEventListener(event, restart, { passive: true });
     }
-    window.addEventListener("blur", requestLock);
     document.addEventListener("visibilitychange", onVisibility);
     if (document.visibilityState === "hidden") requestLock();
     return () => {
@@ -89,7 +88,6 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
       for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
         window.removeEventListener(event, restart);
       }
-      window.removeEventListener("blur", requestLock);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [requestLock, status]);

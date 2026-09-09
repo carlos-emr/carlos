@@ -96,6 +96,25 @@ describe("durable vault UI", () => {
     visibility.mockRestore();
   });
 
+  it("ignores window blur and locks after 15 minutes of inactivity", async () => {
+    vi.useFakeTimers();
+    try {
+      const bridge = nativeBridge({ status: vi.fn().mockResolvedValue("unlocked") });
+      render(<VaultApp bridge={bridge} />);
+      await act(async () => undefined);
+      expect(screen.getByRole("heading", { name: "My records" })).toBeVisible();
+
+      window.dispatchEvent(new Event("blur"));
+      await act(async () => undefined);
+      expect(bridge.lock).not.toHaveBeenCalled();
+
+      await act(async () => vi.advanceTimersByTime(15 * 60 * 1000));
+      expect(bridge.lock).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("requires the exact destructive reset phrase", async () => {
     const user = userEvent.setup();
     const bridge = nativeBridge();
