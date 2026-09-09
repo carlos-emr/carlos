@@ -56,6 +56,7 @@ import org.apache.logging.log4j.Logger;
  * Pooled HTTP transport with TLS 1.2/1.3, standard certificate validation and optional leaf-key pins.
  * Redirects and automatic retries are disabled. Connect, pool-lease and read waits are bounded;
  * the read timeout is an inactivity timeout, not an overall request deadline.
+ * Cookie management is disabled so a response cannot add shared state to later staff requests.
  * Oversized decoded responses abort their connection rather than draining it for reuse.
  * Owners must close the client when it is no longer needed.
  */
@@ -141,6 +142,10 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                         // redirect must never replay the bearer token at another host.
                         .disableRedirectHandling()
                         .disableAutomaticRetries()
+                        // The singleton transport serves unrelated staff and patients. The internal
+                        // API authenticates every call with explicit bearer/assertion headers, so a
+                        // response cookie is both unnecessary and unsafe shared request state.
+                        .disableCookieManagement()
                         .setDefaultRequestConfig(requestConfig)
                         .build();
     }
