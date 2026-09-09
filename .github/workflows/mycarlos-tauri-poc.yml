@@ -87,6 +87,8 @@ jobs:
           retention-days: 7
 
   windows:
+    # Installer signing and release packaging are separate gates. This job validates the native
+    # application and vault on Windows without presenting an unsigned NSIS installer as evidence.
     name: Windows native build
     runs-on: windows-2025
     timeout-minutes: 35
@@ -102,7 +104,8 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.98.0 --profile minimal
       - run: npm ci
-      - run: npm run tauri build -- --debug --bundles nsis
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: npm run tauri build -- --debug --no-bundle
 
   macos:
     name: macOS native build

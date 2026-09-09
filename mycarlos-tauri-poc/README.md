@@ -103,7 +103,9 @@ runners. Android debug builds run on Linux; the unsigned iOS simulator build run
 - The current Tauri v2 Linux dependency graph resolves `glib` 0.18.5. GitHub's dependency review
   flags [GHSA-wrw7-89jp-8q8g](https://github.com/advisories/GHSA-wrw7-89jp-8q8g), which is patched
   only in `glib` 0.20.0. Linux therefore remains outside the initial supported platform set. The
-  alert must not be waived; Linux can be reconsidered after the dependency is patched and reviewed.
+  target-unaware dependency review has an exception restricted to this unmerged POC branch. That
+  exception is not a resolution and must not be generalized or copied to the dedicated app repo;
+  Linux can be reconsidered only after the dependency is patched and reviewed.
 - Hosted CI produced a 48 MB Linux debug `.deb`, a 131 MB Android debug APK, and a 92 MB unsigned
   iOS simulator `.app`. These unoptimized artifacts are useful feasibility evidence, not release
   size estimates.

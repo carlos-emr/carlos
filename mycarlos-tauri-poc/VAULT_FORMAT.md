@@ -36,8 +36,9 @@ vault-v1/
 The encrypted manifest contains profiles, nested folders, folder assignments, immutable imported
 filenames, sizes, timestamps, unverified-source labels, per-record fingerprints, opaque object
 names, and wrapped content keys. Mutations write and sync the inactive generation slot before it
-becomes current. Unlock authenticates both slots and selects the highest valid generation whose
-objects exist.
+becomes current using a cross-platform atomic replacement primitive. Unlock authenticates both
+slots, selects the highest valid generation whose objects exist, removes incomplete staging jobs,
+and removes ciphertext objects that were never committed to a manifest.
 
 Imports stream arbitrary files in 1 MiB chunks. XChaCha20-Poly1305 authenticates every chunk with
 the vault ID, record ID, chunk index, and final-chunk marker as associated data. Files are encrypted

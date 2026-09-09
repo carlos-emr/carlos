@@ -1,4 +1,5 @@
 use argon2::{Algorithm, Argon2, Params, Version};
+use atomicwrites::{AllowOverwrite, AtomicFile};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chacha20poly1305::{
     aead::{Aead, KeyInit, Payload},
@@ -268,6 +269,7 @@ impl VaultStore {
         let master_key = unwrap_master_key(&header, passphrase)?;
         let manifest = read_latest_manifest(&self.root, &master_key, header.vault_id)?;
         remove_staging(&self.root);
+        remove_orphan_objects(&self.root, &manifest);
         *self.unlocked.lock().expect("vault mutex poisoned") = Some(UnlockedVault {
             master_key,
             manifest,
@@ -495,7 +497,8 @@ impl VaultStore {
             }
 
             for (path, record) in &staged {
-                fs::rename(path, self.root.join("objects").join(&record.object_name))?;
+                let destination = self.root.join("objects").join(&record.object_name);
+                fs::rename(path, &destination)?;
             }
             let mut next = unlocked.manifest.clone();
             next.generation += 1;
@@ -1013,21 +1016,14 @@ fn atomic_json(path: &Path, value: &impl Serialize) -> Result<(), VaultError> {
 }
 
 fn atomic_bytes(path: &Path, data: &[u8]) -> Result<(), VaultError> {
-    let temp = path.with_extension(format!("tmp-{}", Uuid::new_v4()));
-    let mut file = open_private_new(&temp)?;
-    let result = (|| {
-        file.write_all(data)?;
-        file.sync_all()?;
-        fs::rename(&temp, path)?;
-        if let Some(parent) = path.parent() {
-            sync_parent(parent);
-        }
-        Ok(())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(temp);
-    }
-    result
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    AtomicFile::new(path, AllowOverwrite)
+        .write_with_options(|file| file.write_all(data), options)
+        .map_err(io::Error::from)?;
+    Ok(())
 }
 
 fn create_private_dir(path: &Path) -> Result<(), VaultError> {
@@ -1063,6 +1059,26 @@ fn remove_staging(root: &Path) {
     if let Ok(entries) = fs::read_dir(&staging) {
         for entry in entries.flatten() {
             let _ = fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+fn remove_orphan_objects(root: &Path, manifest: &Manifest) {
+    let referenced: HashSet<&str> = manifest
+        .records
+        .iter()
+        .map(|record| record.object_name.as_str())
+        .collect();
+    if let Ok(entries) = fs::read_dir(root.join("objects")) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let is_referenced = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| referenced.contains(name));
+            if path.is_file() && !is_referenced {
+                let _ = fs::remove_file(path);
+            }
         }
     }
 }
@@ -1349,6 +1365,21 @@ mod tests {
                 .windows(b"recognizable medical canary".len())
                 .any(|value| value == b"recognizable medical canary"));
         }
+    }
+
+    #[test]
+    fn unlock_removes_uncommitted_ciphertext_objects() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let orphan = root.join("objects").join("interrupted-import.mcobj");
+        fs::write(&orphan, b"synthetic orphan ciphertext").unwrap();
+        store.lock();
+
+        store.unlock(PASSWORD).unwrap();
+
+        assert!(!orphan.exists());
     }
 
     #[test]

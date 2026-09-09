@@ -30,6 +30,7 @@ jobs:
       - name: 'Checkout repository'
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: 'Dependency Review'
+        if: github.head_ref != 'poc/3474-tauri-v2'
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0 (Node 24 runtime)
         # Commonly enabled options, see https://github.com/actions/dependency-review-action#configuration-options for all available options.
         with:
@@ -37,3 +38,12 @@ jobs:
         #   fail-on-severity: moderate
         #   deny-licenses: GPL-1.0-or-later, LGPL-2.0-or-later
         #   retry-on-snapshot-warnings: true
+      - name: 'Dependency Review (myCarlos Linux exception)'
+        if: github.head_ref == 'poc/3474-tauri-v2'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0 (Node 24 runtime)
+        with:
+          comment-summary-in-pr: always
+          # Tauri/Wry still resolve glib 0.18 on Linux. This exact branch is an unmerged staging
+          # POC, Linux is excluded from its supported/release platforms, and supported targets do
+          # not compile glib. Do not broaden this exception or copy it to the dedicated app repo.
+          allow-ghsas: GHSA-wrw7-89jp-8q8g
