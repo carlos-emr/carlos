@@ -56,7 +56,13 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
             //set lefthand module heading and link
             String winName = "Rx" + bean.demographicNo;
-            String rxPath = request.getContextPath() + "/rx/choosePatient?providerNo=" + bean.providerNo + "&demographicNo=" + bean.demographicNo;
+            Object programId = request.getSession().getAttribute("case_program_id");
+            String rxPath = request.getContextPath() + "/rx/choosePatient?providerNo="
+                    + Encode.forUriComponent(bean.providerNo) + "&demographicNo="
+                    + Encode.forUriComponent(bean.demographicNo);
+            if (programId != null && !programId.toString().isBlank()) {
+                rxPath += "&programId=" + Encode.forUriComponent(programId.toString());
+            }
             Dao.setLeftHeading(getText("encounter.NavBar.Medications"));
             Dao.setLeftPopup(580, 1027, winName, rxPath);
 

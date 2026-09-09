@@ -603,6 +603,12 @@ popup.focus();
 }
 
 function popupWithApptNo(vheight,vwidth,varpage,name,apptNo) {
+if (name=='rx') {
+var separator = varpage.indexOf('?') === -1 ? '?' : '&';
+var rxPage = apptNo ? varpage + separator + 'appointmentNo=' + encodeURIComponent(apptNo) : varpage;
+popupOscarRx(vheight,vwidth,rxPage);
+return;
+}
 if (apptNo) storeApptNo(apptNo);
 if (name=='master')
 popup(vheight,vwidth,varpage,name);

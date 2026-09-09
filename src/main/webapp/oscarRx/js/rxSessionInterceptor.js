@@ -4,9 +4,15 @@
 
     var contextMeta = document.querySelector('meta[name="rx-context-id"]');
     var pathMeta = document.querySelector('meta[name="rx-context-path"]');
+    var demographicMeta = document.querySelector('meta[name="rx-demographic-no"]');
+    var appointmentMeta = document.querySelector('meta[name="rx-appointment-no"]');
+    var programMeta = document.querySelector('meta[name="rx-program-id"]');
+    var ownerMeta = document.querySelector('meta[name="rx-context-owner"]');
     var contextId = contextMeta ? contextMeta.getAttribute('content') : '';
     var contextPath = pathMeta ? pathMeta.getAttribute('content') : '';
     if (!contextId) return;
+    if (window.__carlosRxContextInterceptorLoaded) return;
+    window.__carlosRxContextInterceptorLoaded = true;
     if (window.RxContext && window.RxContext.id === contextId) return;
 
     function rxUrl(value) {
@@ -86,6 +92,140 @@
         addToUrl: addToUrl,
         addToParameters: addToParameters
     });
+
+    function metaValue(meta) {
+        return meta ? (meta.getAttribute('content') || '').trim() : '';
+    }
+
+    function freshWorkspaceUrl() {
+        var url = new URL(contextPath + '/rx/choosePatient', window.location.origin);
+        url.searchParams.set('demographicNo', metaValue(demographicMeta));
+        if (metaValue(appointmentMeta)) {
+            url.searchParams.set('appointmentNo', metaValue(appointmentMeta));
+        }
+        if (metaValue(programMeta) && metaValue(programMeta) !== '0') {
+            url.searchParams.set('programId', metaValue(programMeta));
+        }
+        url.searchParams.set('rxDuplicate', '1');
+        return url.href;
+    }
+
+    function showDuplicateNotice() {
+        var current = new URL(window.location.href);
+        if (current.searchParams.get('rxDuplicate') !== '1') return;
+        current.searchParams.delete('rxDuplicate');
+        window.history.replaceState(window.history.state, '', current.href);
+        window.alert('This duplicated prescription tab was opened as a new, independent draft.');
+    }
+
+    function ownerId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    }
+
+    function markOwnerCheckPending() {
+        if (!document.documentElement) return;
+        document.documentElement.setAttribute('data-rx-owner-check', 'pending');
+        var style = document.createElement('style');
+        style.setAttribute('data-rx-owner-style', 'true');
+        style.textContent = 'html[data-rx-owner-check="pending"] body{pointer-events:none;opacity:.65}';
+        document.documentElement.appendChild(style);
+    }
+
+    function finishOwnerCheck() {
+        if (document.documentElement) document.documentElement.removeAttribute('data-rx-owner-check');
+    }
+
+    function reopenDuplicate() {
+        window.location.replace(freshWorkspaceUrl());
+    }
+
+    function claimWithLocalStorage(id) {
+        var key = 'carlos.rx.owner.' + contextId;
+        var leaseDuration = 5000;
+        var existing = null;
+        try {
+            existing = JSON.parse(window.localStorage.getItem(key));
+        } catch (e) {
+            existing = null;
+        }
+        if (existing && existing.id !== id && Date.now() - existing.updatedAt < leaseDuration) {
+            reopenDuplicate();
+            return;
+        }
+
+        function refreshLease() {
+            try {
+                window.localStorage.setItem(key, JSON.stringify({id: id, updatedAt: Date.now()}));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        if (!refreshLease()) {
+            finishOwnerCheck();
+            return;
+        }
+        var interval = window.setInterval(refreshLease, 2000);
+        window.addEventListener('pagehide', function () {
+            window.clearInterval(interval);
+            try {
+                var lease = JSON.parse(window.localStorage.getItem(key));
+                if (lease && lease.id === id) window.localStorage.removeItem(key);
+            } catch (e) {
+                try {
+                    window.localStorage.removeItem(key);
+                } catch (ignored) {
+                    // Storage is unavailable; the short lease will expire naturally if it was written.
+                }
+            }
+        }, {once: true});
+        finishOwnerCheck();
+    }
+
+    function claimWorkspaceOwnership() {
+        if (metaValue(ownerMeta) !== 'true' || window.top !== window) return;
+        showDuplicateNotice();
+        markOwnerCheckPending();
+        var id = ownerId();
+
+        if (typeof window.BroadcastChannel !== 'function') {
+            claimWithLocalStorage(id);
+            return;
+        }
+
+        var probeId = ownerId();
+        var duplicate = false;
+        var channel;
+        try {
+            channel = new window.BroadcastChannel('carlos-rx-owner-' + contextId);
+        } catch (e) {
+            claimWithLocalStorage(id);
+            return;
+        }
+        channel.onmessage = function (event) {
+            var message = event.data || {};
+            if (message.type === 'probe') {
+                channel.postMessage({type: 'alive', probeId: message.probeId});
+            } else if (message.type === 'alive' && message.probeId === probeId) {
+                duplicate = true;
+            }
+        };
+        channel.postMessage({type: 'probe', probeId: probeId});
+        window.setTimeout(function () {
+            if (duplicate) {
+                channel.close();
+                reopenDuplicate();
+                return;
+            }
+            finishOwnerCheck();
+        }, 200);
+        window.addEventListener('pagehide', function () { channel.close(); }, {once: true});
+    }
+
+    claimWorkspaceOwnership();
 
     if (window.fetch) {
         var originalFetch = window.fetch;

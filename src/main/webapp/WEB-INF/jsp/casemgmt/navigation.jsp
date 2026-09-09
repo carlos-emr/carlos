@@ -33,6 +33,7 @@
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% long loadPage = System.currentTimeMillis(); %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -245,7 +246,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Prescriptions</a>
+                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>&programId=<%=SafeEncode.forUriComponent(pgId)%>');return false;">Prescriptions</a>
                         </td>
                     </tr>
 

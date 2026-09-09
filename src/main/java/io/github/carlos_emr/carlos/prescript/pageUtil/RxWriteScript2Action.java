@@ -792,7 +792,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 try {
                     randomIdInt = Integer.parseInt(randomId);
                 } catch (NumberFormatException e) {
-                    logger.error("Invalid randomId parameter: {}", Encode.forJava(randomId));
+                    logger.warn("Rejected an invalid prescription identifier");
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     response.setContentType("application/json;charset=UTF-8");
                     ObjectNode errorResponse = objectMapper.createObjectNode();
@@ -802,9 +802,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 }
                 RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
                 if (rx == null) {
-                    logger.error("Prescription not found in stash for randomId: {}. " +
-                                 "Session may have been reset or prescription was not properly staged.",
-                                 Encode.forJava(randomId));
+                    logger.warn("Prescription identifier was not found in the selected workspace stash");
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     response.setContentType("application/json;charset=UTF-8");
                     ObjectNode errorResponse = objectMapper.createObjectNode();
@@ -1604,14 +1602,14 @@ public final class RxWriteScript2Action extends ActionSupport {
      * Sets the demographic number from a String value, as provided by Struts2
      * parameter binding from the {@code demographicNo} request parameter.
      *
-     * @param RHS String the demographic number to parse; ignored if null, empty, or non-numeric
+     * @param value String the demographic number to parse; ignored if null, empty, or non-numeric
      * @since 2026-01-30
      */
     @StrutsParameter
-    public void setDemographicNo(String RHS) {
-        if (RHS != null && !RHS.isEmpty()) {
+    public void setDemographicNo(String value) {
+        if (value != null && !value.isEmpty()) {
             try {
-                this.demographicNo = Integer.parseInt(RHS);
+                this.demographicNo = Integer.parseInt(value);
             } catch (NumberFormatException e) {
                 // Keep default value (0) if parse fails
             }

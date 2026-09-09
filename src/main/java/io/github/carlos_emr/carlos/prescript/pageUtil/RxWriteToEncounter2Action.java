@@ -38,8 +38,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.encounter.data.EctProgram;
-
 import java.text.SimpleDateFormat;
 
 import jakarta.servlet.ServletException;
@@ -76,12 +74,18 @@ public class RxWriteToEncounter2Action extends ActionSupport {
             return null;
         }
         String demographicNo = String.valueOf(rxSessionBean.getDemographicNo());
-        String programNo = new EctProgram(session).getProgram(session.getAttribute("user").toString());
+        Object workspaceProgram = request.getAttribute(RxSessionFilter.PROGRAM_REQUEST_ATTRIBUTE);
+        if (workspaceProgram == null || workspaceProgram.toString().isBlank()) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Prescription context unavailable");
+            return null;
+        }
+        String programNo = workspaceProgram.toString();
 
 
         CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
         CaseManagementTmpSaveDao caseManagementTmpSaveDao = SpringUtils.getBean(CaseManagementTmpSaveDao.class);
-        CaseManagementNote note = getLastSaved(request, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
+        CaseManagementNote note = getLastSaved(
+                programNo, demographicNo, loggedInInfo.getLoggedInProviderNo(), caseManagementMgr);
         CaseManagementTmpSave tmpSave = caseManagementMgr.getTmpSave(loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo);
         Date today = new Date();
         if (tmpSave != null) {
@@ -131,9 +135,11 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         }
     }
 
-    public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo, CaseManagementManager caseManagementMgr) {
-        HttpSession session = request.getSession();
-        String programId = (String) session.getAttribute("case_program_id");
+    public CaseManagementNote getLastSaved(
+            String programId,
+            String demono,
+            String providerNo,
+            CaseManagementManager caseManagementMgr) {
         return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 
