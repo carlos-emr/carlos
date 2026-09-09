@@ -17,7 +17,7 @@
             <span></span>
             <span>
                 <a href="#"
-                   onclick="popupPage(700,1027,'Rx','${ctx}/rx/choosePatient?providerNo=${bean.providerNo}&amp;demographicNo=${bean.demographicNo}');return false;">
+                   onclick="popupPage(700,1027,'Rx','${ctx}/rx/choosePatient?providerNo=${bean.providerNo}&amp;demographicNo=${bean.demographicNo}&amp;programId=${carlos:forUriComponent(sessionScope.case_program_id)}');return false;">
                     <fmt:message key="global.prescriptions"/>
                 </a>
             </span>

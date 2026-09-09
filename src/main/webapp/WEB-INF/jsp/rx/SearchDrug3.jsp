@@ -75,6 +75,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<% request.setAttribute("rxContextOwnerPage", Boolean.TRUE); %>
 <%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>

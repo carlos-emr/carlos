@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
 <%@ include file="rxContext.jspf" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionFilter" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
@@ -144,14 +145,13 @@
             Vector vecAddressFax = null;
             CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
-                String appt_no = (String) session.getAttribute("cur_appointment_no");
+                Integer workspaceAppointmentNo =
+                        (Integer) request.getAttribute(RxSessionFilter.APPOINTMENT_REQUEST_ATTRIBUTE);
                 String location = null;
-                if (appt_no != null) {
-                    try {
-                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                        if (result != null) location = result.getLocation();
-                    } catch (NumberFormatException e) {
-                        // Malformed appointment number in session — skip location lookup
+                if (workspaceAppointmentNo != null) {
+                    Appointment result = appointmentDao.find(workspaceAppointmentNo.intValue());
+                    if (result != null && result.getDemographicNo() == bean.getDemographicNo()) {
+                        location = result.getLocation();
                     }
                 }
 
