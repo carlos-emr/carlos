@@ -68,11 +68,11 @@ public record PatientPortalContactReviewDto(
                 PortalJson.positiveLong(node, "id"),
                 PortalJson.requiredText(node, "clinic_id"),
                 PortalJson.positiveInt(node, "demographic_no"),
-                PortalJson.text(node, "email_before"),
-                PortalJson.text(node, "email_after"),
+                PortalJson.requiredText(node, "email_before"),
+                PortalJson.requiredText(node, "email_after"),
                 PortalJson.text(node, "phone_number_before"),
                 PortalJson.text(node, "phone_number_after"),
-                PortalJson.timestamp(node, "requested_at"),
+                PortalJson.requiredTimestamp(node, "requested_at"),
                 PortalJson.requiredText(node, "revision"));
     }
 

@@ -220,4 +220,13 @@ final class PortalJson {
             }
         }
     }
+
+    /** Required contract timestamps must not be absent or JSON null. */
+    static Instant requiredTimestamp(JsonNode node, String field) {
+        Instant value = timestamp(node, field);
+        if (value == null) {
+            throw new PortalContractException(String.format(Locale.ROOT, MISSING_FIELD, field));
+        }
+        return value;
+    }
 }

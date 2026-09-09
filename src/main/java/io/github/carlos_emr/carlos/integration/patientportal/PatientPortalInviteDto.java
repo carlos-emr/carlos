@@ -68,11 +68,11 @@ public record PatientPortalInviteDto(
                 PortalJson.positiveInt(node, "demographic_no"),
                 PortalJson.requiredText(node, "status"),
                 PortalJson.text(node, "created_by_id"),
-                PortalJson.text(node, "created_by"),
+                PortalJson.requiredText(node, "created_by"),
                 PortalJson.nonnegativeInt(node, "issued_count"),
-                PortalJson.timestamp(node, "last_issued_at"),
-                PortalJson.text(node, "last_issued_by"),
-                PortalJson.timestamp(node, "expires_at"),
+                PortalJson.requiredTimestamp(node, "last_issued_at"),
+                PortalJson.requiredText(node, "last_issued_by"),
+                PortalJson.requiredTimestamp(node, "expires_at"),
                 PortalJson.optionalLong(node, "accepted_account_id"),
                 PortalJson.optionalLong(node, "supersedes_invite_id"));
     }

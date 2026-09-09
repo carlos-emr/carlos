@@ -139,7 +139,15 @@ public record PatientPortalSettings(
 
     static boolean isConfigured(Function<String, String> lookup) {
         for (String key :
-                new String[] {BASE_URL_KEY, CLINIC_ID_KEY, SERVICE_TOKEN_KEY, STAFF_ASSERTION_KEY}) {
+                new String[] {
+                    BASE_URL_KEY,
+                    CLINIC_ID_KEY,
+                    SERVICE_TOKEN_KEY,
+                    STAFF_ASSERTION_KEY,
+                    CONNECT_TIMEOUT_KEY,
+                    READ_TIMEOUT_KEY,
+                    CERTIFICATE_PINS_KEY
+                }) {
             String value = lookup.apply(key);
             if (value != null && !value.isBlank()) {
                 return true;
@@ -259,17 +267,17 @@ public record PatientPortalSettings(
     }
 
     /**
-     * Rejects anything that is not a bare {@code https://} origin.
+     * Rejects anything that is not a safe {@code https://} base URL.
      *
      * <p>The scheme is matched as an exact lowercase prefix rather than case-insensitively on
      * purpose. This is a TLS enforcement decision, and locale-dependent case folding is the
      * CVE-2024-38827 class of defect that CARLOS tracks in issue #2496; an operator writing {@code
      * HTTPS://} gets a clear error rather than a silently locale-sensitive comparison.
      *
-     * <p>User-info is rejected because credentials in a URL leak into logs and proxy traces. A
-     * query or fragment is rejected because endpoint paths are appended by string concatenation, so
-     * {@code https://host?a=1} would yield {@code https://host?a=1/internal/carlos/...} — the entire
-     * endpoint path swallowed into the query string, and every call landing on the portal root.
+     * <p>A path prefix is supported for a portal mounted below its origin. User-info is rejected
+     * because credentials in a URL leak into logs and proxy traces. A query or fragment is rejected
+     * because endpoint paths are appended by string concatenation, so {@code https://host?a=1}
+     * would swallow the entire endpoint path into the query string.
      */
     private static String validatedBaseUrl(String configured) {
         if (!configured.startsWith(REQUIRED_SCHEME_PREFIX)) {

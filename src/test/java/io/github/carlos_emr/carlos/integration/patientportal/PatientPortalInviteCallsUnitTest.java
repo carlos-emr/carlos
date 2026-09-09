@@ -262,7 +262,11 @@ class PatientPortalInviteCallsUnitTest {
         @Test
         @DisplayName("should post to the resend endpoint and return the replacement token")
         void shouldReturnReplacementToken_whenInviteIsResent() {
-            RecordingExchange exchange = new RecordingExchange(200, INVITE_JSON);
+            String replacement =
+                    INVITE_JSON
+                            .replace("\"id\": 7", "\"id\": 8")
+                            .replace("\"supersedes_invite_id\": null", "\"supersedes_invite_id\": 7");
+            RecordingExchange exchange = new RecordingExchange(200, replacement);
             PatientPortalService service = new PatientPortalService(settings(), exchange);
 
             PatientPortalIssuedInviteDto issued = service.resendInvite(7L, staff());

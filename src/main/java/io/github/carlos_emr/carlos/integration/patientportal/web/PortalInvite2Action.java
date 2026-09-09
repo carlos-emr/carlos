@@ -76,7 +76,7 @@ public class PortalInvite2Action extends PortalJsonAction {
         }
         requirePatientAccess(securityInfoManager, session, patient);
         requirePatientPrivilege(securityInfoManager, session,
-                PortalStaffContextResolver.OBJECT_INVITE, "w", patient);
+                PortalStaffContextResolver.OBJECT_INVITE, SecurityInfoManager.WRITE, patient);
         String method = request.getParameter("method");
         if (METHOD_CREATE.equals(method) || METHOD_RESEND.equals(method)) {
             return invitationUnavailable(response);

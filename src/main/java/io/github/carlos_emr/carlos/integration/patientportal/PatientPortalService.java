@@ -34,6 +34,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.hc.core5.http.ClassicHttpRequest;
@@ -205,7 +206,7 @@ public class PatientPortalService implements Closeable {
                 INVITES_PATH,
                 body.toString(),
                 staff,
-                PatientPortalIssuedInviteDto::fromJson,
+                node -> confirmedCreatedInvite(PatientPortalIssuedInviteDto.fromJson(node)),
                 demographicNo);
     }
 
@@ -237,7 +238,9 @@ public class PatientPortalService implements Closeable {
     public PatientPortalIssuedInviteDto resendInvite(long inviteId, PatientPortalStaffContext staff) {
         return fetch(
                 POST, INVITE_RESEND_PATH, null, staff,
-                PatientPortalIssuedInviteDto::fromJson, inviteId);
+                node -> confirmedResentInvite(
+                        PatientPortalIssuedInviteDto.fromJson(node), inviteId),
+                inviteId);
     }
 
     /** Revokes a pending invite. */
@@ -329,6 +332,8 @@ public class PatientPortalService implements Closeable {
     public PatientPortalUnlockSecretDto createUnlockSecret(
             int demographicNo, String sourceReference, String label,
             PatientPortalStaffContext staff) {
+        String expectedSourceReference =
+                sourceReference == null ? null : sourceReference.strip();
         ObjectNode body = objectMapper.createObjectNode();
         body.put("source_reference", sourceReference);
         body.put("secret_type", SECRET_TYPE_EMAIL);
@@ -340,7 +345,8 @@ public class PatientPortalService implements Closeable {
                 SECRETS_PATH,
                 body.toString(),
                 staff,
-                PatientPortalUnlockSecretDto::fromJson,
+                node -> confirmedCreatedSecret(
+                        PatientPortalUnlockSecretDto.fromJson(node), expectedSourceReference),
                 demographicNo);
     }
 
@@ -357,7 +363,11 @@ public class PatientPortalService implements Closeable {
             long unlockSecretId, PatientPortalStaffContext staff) {
         return fetch(
                 POST, SECRET_PUBLISH_PATH, null, staff,
-                PatientPortalUnlockSecretStatusDto::fromJson, unlockSecretId);
+                node -> confirmedSecretStatus(
+                        PatientPortalUnlockSecretStatusDto.fromJson(node),
+                        unlockSecretId,
+                        "available"),
+                unlockSecretId);
     }
 
     /**
@@ -377,7 +387,10 @@ public class PatientPortalService implements Closeable {
                 SECRET_REVOKE_PATH,
                 body.toString(),
                 staff,
-                PatientPortalUnlockSecretStatusDto::fromJson,
+                node -> confirmedSecretStatus(
+                        PatientPortalUnlockSecretStatusDto.fromJson(node),
+                        unlockSecretId,
+                        "revoked"),
                 unlockSecretId);
     }
 
@@ -399,7 +412,8 @@ public class PatientPortalService implements Closeable {
                 REVIEWS_PATH,
                 null,
                 staff,
-                PatientPortalContactReviewPageDto::fromJson,
+                node -> confirmedReviewPage(
+                        PatientPortalContactReviewPageDto.fromJson(node), requested, from),
                 requested,
                 from);
     }
@@ -429,7 +443,8 @@ public class PatientPortalService implements Closeable {
                 REVIEW_DECISION_PATH,
                 body.toString(),
                 staff,
-                PatientPortalService::contactReviewDecision,
+                node -> confirmedContactReviewDecision(
+                        contactReviewDecision(node), reviewRequestId, approve),
                 reviewRequestId);
     }
 
@@ -505,8 +520,68 @@ public class PatientPortalService implements Closeable {
     private static PatientPortalContactReviewDecision contactReviewDecision(JsonNode payload) {
         return new PatientPortalContactReviewDecision(
                 PortalJson.positiveLong(payload, "id"),
-                PortalJson.text(payload, "status"),
+                PortalJson.requiredText(payload, "status"),
                 PortalJson.text(payload, "decision"));
+    }
+
+    private static PatientPortalIssuedInviteDto confirmedCreatedInvite(
+            PatientPortalIssuedInviteDto issued) {
+        if (!"pending".equals(issued.invite().status())) {
+            throw new PortalContractException(
+                    "portal did not confirm the new invitation is pending");
+        }
+        return issued;
+    }
+
+    private static PatientPortalIssuedInviteDto confirmedResentInvite(
+            PatientPortalIssuedInviteDto issued, long supersededInviteId) {
+        PatientPortalInviteDto invite = issued.invite();
+        if (!"pending".equals(invite.status())
+                || !Objects.equals(invite.supersedesInviteId(), supersededInviteId)) {
+            throw new PortalContractException(
+                    "portal did not confirm the replacement invitation");
+        }
+        return issued;
+    }
+
+    private static PatientPortalUnlockSecretDto confirmedCreatedSecret(
+            PatientPortalUnlockSecretDto secret, String sourceReference) {
+        if (!"pending".equals(secret.status())
+                || !Objects.equals(secret.sourceReference(), sourceReference)) {
+            throw new PortalContractException(
+                    "portal did not confirm the requested pending unlock secret");
+        }
+        return secret;
+    }
+
+    private static PatientPortalUnlockSecretStatusDto confirmedSecretStatus(
+            PatientPortalUnlockSecretStatusDto secret, long expectedId, String expectedStatus) {
+        if (secret.id() != expectedId || !expectedStatus.equals(secret.status())) {
+            throw new PortalContractException(
+                    "portal did not confirm the requested unlock-secret state");
+        }
+        return secret;
+    }
+
+    private static PatientPortalContactReviewPageDto confirmedReviewPage(
+            PatientPortalContactReviewPageDto page, int expectedLimit, int expectedOffset) {
+        if (page.limit() != expectedLimit || page.offset() != expectedOffset) {
+            throw new PortalContractException(
+                    "portal review page does not match the requested pagination");
+        }
+        return page;
+    }
+
+    private static PatientPortalContactReviewDecision confirmedContactReviewDecision(
+            PatientPortalContactReviewDecision result, long expectedId, boolean approved) {
+        String expectedDecision = approved ? "approved" : "rejected";
+        if (result.id() != expectedId
+                || !"reviewed".equals(result.status())
+                || !expectedDecision.equals(result.decision())) {
+            throw new PortalContractException(
+                    "portal did not confirm the requested contact-review decision");
+        }
+        return result;
     }
 
     /** A parsed success body together with the status it arrived with. */

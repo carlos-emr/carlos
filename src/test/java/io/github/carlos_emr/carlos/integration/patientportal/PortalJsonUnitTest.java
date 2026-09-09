@@ -167,6 +167,14 @@ class PortalJsonUnitTest {
             assertThat(PortalJson.timestamp(node("{}"), "t")).isNull();
         }
 
+        @Test
+        @DisplayName("should refuse an absent required timestamp")
+        void shouldThrow_whenRequiredTimestampIsAbsent() {
+            assertThatThrownBy(() -> PortalJson.requiredTimestamp(node("{}"), "requested_at"))
+                    .isInstanceOf(PortalContractException.class)
+                    .hasMessageContaining("requested_at");
+        }
+
         /**
          * Found only by running against a live portal. Values that round-trip through the portal's
          * database come back without an offset because SQLite does not persist tzinfo, while

@@ -327,7 +327,8 @@ class PatientPortalAccountAndSecretCallsUnitTest {
         @Test
         @DisplayName("should clamp the page size and offset to what the portal accepts")
         void shouldClampPaging_whenCallerAsksOutOfRange() {
-            ScriptedExchange exchange = new ScriptedExchange().reply(200, REVIEW_PAGE);
+            ScriptedExchange exchange =
+                    new ScriptedExchange().reply(200, REVIEW_PAGE.replace("\"limit\":50", "\"limit\":100"));
 
             service(exchange)
                     .listContactReviews(
