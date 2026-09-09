@@ -32,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 import org.junit.jupiter.api.AfterEach;
@@ -126,6 +127,33 @@ class PatientPortalHttpClientExchangeUnitTest {
             assertThat(response.statusCode()).isEqualTo(302);
         }
         assertThat(targetHits.get()).isZero();
+    }
+
+    @Test
+    @DisplayName("should not carry a portal cookie into a later staff request")
+    void shouldNotRetainCookies_betweenRequests() throws Exception {
+        AtomicInteger requestCount = new AtomicInteger();
+        AtomicReference<String> laterCookie = new AtomicReference<>();
+        server.createContext(
+                "/cookie",
+                httpExchange -> {
+                    if (requestCount.getAndIncrement() == 0) {
+                        httpExchange
+                                .getResponseHeaders()
+                                .add("Set-Cookie", "portal-session=synthetic; Path=/");
+                    } else {
+                        laterCookie.set(httpExchange.getRequestHeaders().getFirst("Cookie"));
+                    }
+                    httpExchange.sendResponseHeaders(200, -1);
+                    httpExchange.close();
+                });
+
+        try (PatientPortalHttpClientExchange transport = exchange()) {
+            assertThat(transport.send(get("/cookie")).statusCode()).isEqualTo(200);
+            assertThat(transport.send(get("/cookie")).statusCode()).isEqualTo(200);
+        }
+
+        assertThat(laterCookie.get()).isNull();
     }
 
     /** Network smoke test only: routing may refuse TEST-NET before a connect timeout elapses. */
