@@ -10,8 +10,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check": "tsc -b --pretty false",
+    "dev:data": "node scripts/generate-fake-dev-data.mjs",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:dev-data": "node --test scripts/generate-fake-dev-data.test.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "tauri": "tauri"

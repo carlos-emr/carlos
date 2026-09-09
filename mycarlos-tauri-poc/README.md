@@ -82,6 +82,23 @@ npm run tauri dev       # desktop application
 The browser preview intentionally remains the non-persistent synthetic demo. Durable-vault screens
 and commands are available only inside the native Tauri runtime.
 
+## Fake manual-test data
+
+Generate the deterministic development pack before starting the native app:
+
+```bash
+npm run dev:data
+npm run tauri dev
+```
+
+This creates five valid PDFs and `FAKE_MANIFEST.json` in `dev-data/`. Every filename, patient
+profile, folder, provider, and document title starts with `FAKE`. Choose a unique throwaway
+passphrase when creating the test vault; no credential is stored in the fixtures. The manifest
+maps each PDF to a profile and folder. Import
+`FAKE_Avery_Patient_Bloodwork.pdf` first, then its `_DUPLICATE` copy into the same profile to verify
+duplicate detection. The two files are byte-for-byte identical. The generated files contain no
+patient information and must not be edited to include any.
+
 ## Android and iOS
 
 Install the platform prerequisites described by Tauri, then initialize and run the generated shell:
