@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import VaultApp from "./VaultApp";
@@ -88,6 +88,7 @@ describe("durable vault UI", () => {
       folders: [
         { id: "folder-1", profileId: "profile-1", parentId: null, name: "FAKE Test Results", createdAtMs: 2 },
         { id: "folder-2", profileId: "profile-1", parentId: null, name: "FAKE Letters", createdAtMs: 2 },
+        { id: "folder-3", profileId: "profile-1", parentId: "folder-2", name: "FAKE 2025 Letters", createdAtMs: 2 },
       ],
       records: [
         { id: "record-root", profileId: "profile-1", folderIds: [], displayName: "FAKE_Root_Letter.pdf", sourceLabel: "Manual import — unverified", mediaType: "application/octet-stream", plaintextSize: 1024, importedAtMs: 3 },
@@ -106,9 +107,21 @@ describe("durable vault UI", () => {
 
     const recordTransfer = dragTransfer();
     fireEvent.dragStart(screen.getByRole("article", { name: "FAKE_Root_Letter.pdf document" }), { dataTransfer: recordTransfer });
-    fireEvent.dragOver(screen.getByRole("article", { name: "FAKE Test Results folder" }), { dataTransfer: recordTransfer });
-    fireEvent.drop(screen.getByRole("article", { name: "FAKE Test Results folder" }), { dataTransfer: recordTransfer });
+    const visibleFolder = screen.getByRole("article", { name: "FAKE Test Results folder" });
+    const folderNavigation = screen.getByRole("navigation", { name: "Record library" });
+    const sidebarFolder = within(folderNavigation).getByRole("button", { name: /FAKE Test Results/ });
+    fireEvent.dragOver(visibleFolder, { dataTransfer: recordTransfer });
+    expect(visibleFolder).toHaveClass("native-drop-target");
+    expect(sidebarFolder).not.toHaveClass("native-drop-target");
+    fireEvent.drop(visibleFolder, { dataTransfer: recordTransfer });
     await waitFor(() => expect(bridge.assignFolders).toHaveBeenCalledWith("record-root", ["folder-1"]));
+
+    const nestedTransfer = dragTransfer();
+    fireEvent.dragStart(screen.getByRole("article", { name: "FAKE_Root_Letter.pdf document" }), { dataTransfer: nestedTransfer });
+    const nestedSidebarFolder = within(folderNavigation).getByRole("button", { name: /FAKE 2025 Letters/ });
+    fireEvent.dragOver(nestedSidebarFolder, { dataTransfer: nestedTransfer });
+    fireEvent.drop(nestedSidebarFolder, { dataTransfer: nestedTransfer });
+    await waitFor(() => expect(bridge.assignFolders).toHaveBeenCalledWith("record-root", ["folder-3"]));
 
     const folderTransfer = dragTransfer();
     fireEvent.dragStart(screen.getByRole("article", { name: "FAKE Test Results folder" }), { dataTransfer: folderTransfer });
@@ -119,6 +132,13 @@ describe("durable vault UI", () => {
     await user.click(screen.getByRole("button", { name: "Open FAKE Test Results" }));
     expect(screen.getByRole("heading", { name: "FAKE Test Results" })).toBeVisible();
     expect(screen.getByText("FAKE_Bloodwork.pdf")).toBeVisible();
+
+    const rootTransfer = dragTransfer();
+    fireEvent.dragStart(screen.getByRole("article", { name: "FAKE_Bloodwork.pdf document" }), { dataTransfer: rootTransfer });
+    const rootDropTarget = within(folderNavigation).getByRole("button", { name: /My records/ });
+    fireEvent.dragOver(rootDropTarget, { dataTransfer: rootTransfer });
+    fireEvent.drop(rootDropTarget, { dataTransfer: rootTransfer });
+    await waitFor(() => expect(bridge.assignFolders).toHaveBeenCalledWith("record-folder", []));
 
     await user.click(screen.getByRole("button", { name: "Select FAKE_Bloodwork.pdf" }));
     await user.selectOptions(screen.getByLabelText("Move selected to"), "");
