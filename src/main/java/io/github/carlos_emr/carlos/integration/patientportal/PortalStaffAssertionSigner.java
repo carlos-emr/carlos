@@ -38,10 +38,15 @@ import java.util.function.Supplier;
 /**
  * Creates the short-lived provider assertion required by the portal's internal API.
  *
- * <p>The bearer token authenticates the CARLOS workload. This assertion separately binds one call
- * to the authenticated provider, configured clinic, and patient-scoped permissions derived inside
- * CARLOS. The portal accepts a compact {@code base64url(json).base64url(ed25519-signature)} value;
- * it is deliberately not a JWT and has no caller-controlled algorithm field.
+ * <p>The bearer token authenticates the CARLOS workload. This assertion separately attests the
+ * authenticated provider, configured clinic, and permissions derived inside CARLOS. The
+ * current portal assertion schema does not include the endpoint or patient identifier, so TLS and
+ * CARLOS's patient-access checks remain security boundaries; this signature must not be described
+ * as patient binding. The portal checks that {@code jti} is a UUID but does not keep a replay
+ * store, so a fresh identifier is audit correlation rather than a one-use guarantee. The portal
+ * accepts a compact {@code
+ * base64url(json).base64url(ed25519-signature)} value; it is deliberately not a JWT and has no
+ * caller-controlled algorithm field.
  *
  * <p>A signer is immutable and creates a fresh {@link Signature} for every call, so the singleton
  * {@link PatientPortalService} remains safe when servlet requests execute concurrently.
