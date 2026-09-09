@@ -1,7 +1,7 @@
 # myCarlos threat model
 
-- **Status:** Draft for architecture and security review
-- **Version:** 0.1
+- **Status:** Durable-vault implementation complete; independent review and release gates open
+- **Version:** 0.2
 - **Date:** 2026-09-08
 - **Initial platforms:** Windows, macOS, Android, and iOS
 - **Deferred platform:** Linux, until the documented `glib` advisory is resolved and reviewed
@@ -13,9 +13,9 @@ This document identifies what myCarlos must protect, the trust boundaries an att
 credible failure and abuse cases, and the controls and tests required before the application stores
 patient records.
 
-The current Tauri application is a session-only framework proof of concept. Controls described here
-are requirements for later work unless explicitly marked as already demonstrated. They must not be
-read as claims about the current build.
+The native Tauri application includes the synthetic-data durable-vault slice described in
+[`VAULT_FORMAT.md`](VAULT_FORMAT.md); the browser demo remains session-only. Implemented controls
+are marked below, but they must not be read as approval for PHI or production use.
 
 ## Scope
 
@@ -29,8 +29,9 @@ The model covers:
 - future CARLOS document handoff and provenance verification; and
 - build, signing, updating, and third-party dependencies.
 
-It does not yet approve an encryption format, recovery design, PDF renderer, synchronization
-service, analytics provider, or CARLOS protocol. Those are tracked as blocking decisions below.
+It does not approve a PDF renderer, synchronization service, analytics provider, or CARLOS
+protocol. The current encryption and passphrase-only recovery design is implemented but awaits
+independent review and target-device verification.
 
 ## Security and privacy objectives
 
@@ -132,26 +133,26 @@ reduce current risk.
 
 | ID | Risk | Threat and impact | Required controls | Verification | Status |
 | --- | --- | --- | --- | --- | --- |
-| KEY-01 | Critical | An attacker copies the vault and guesses the patient passphrase offline. | Unique salt; reviewed memory-hard password KDF; platform-benchmarked work factor; random vault key wrapped by the derived key; no password verifier that makes guessing cheaper. | Password-cracking cost review and tests against copied vault fixtures on every target class. | Open |
-| KEY-02 | Critical | Recovery becomes a universal backdoor or is easier to attack than the passphrase. | Patient-controlled high-entropy recovery design; no vendor or clinic plaintext key; explicit custody model; rate limits cannot be the only protection against offline attack. | Recover on a new device, attack the recovery artifact offline, and review every party able to decrypt. | Decision required |
-| KEY-03 | High | Keys leak into the renderer, logs, crash dumps, swap, or long-lived memory. | Perform key operations in Rust/native code; never serialize raw keys over IPC; redact diagnostics; minimize key lifetime; use protected memory/zeroization where supported. | Instrument IPC and logging, force crashes, inspect artifacts, and review memory-handling paths. | Open |
+| KEY-01 | Critical | An attacker copies the vault and guesses the patient passphrase offline. | Unique salt; reviewed memory-hard password KDF; platform-benchmarked work factor; random vault key wrapped by the derived key; no password verifier that makes guessing cheaper. | Password-cracking cost review and tests against copied vault fixtures on every target class. | Implemented; benchmarking/review open |
+| KEY-02 | Critical | Recovery becomes a universal backdoor or is easier to attack than the passphrase. | Patient-controlled recovery only; no vendor, clinic, or device-held recovery secret. | Restore an Apple backup with the passphrase and confirm no other party can decrypt. | Resolved: passphrase only; device test open |
+| KEY-03 | High | Keys leak into the renderer, logs, crash dumps, swap, or long-lived memory. | Perform key operations in Rust/native code; never serialize raw keys over IPC; redact diagnostics; minimize key lifetime; use protected memory/zeroization where supported. | Instrument IPC and logging, force crashes, inspect artifacts, and review memory-handling paths. | Rust boundary and zeroization implemented; artifact review open |
 | KEY-04 | High | Biometric unlock bypasses the intended passphrase policy or survives device-account changes. | Biometrics authorize use of a device-bound wrapping key; define fallback and re-enrollment rules; invalidate as appropriate after biometric or device-credential changes. | Test enrollment changes, fallback, repeated failures, device restore, and copied application data. | Decision required |
 | KEY-05 | High | A stale key envelope or vault manifest is restored to bypass deletion or revive old access. | Authenticate and version key envelopes and manifests; define rollback detection and device reconciliation. | Restore older fixtures and confirm safe detection rather than silent acceptance. | Open |
-| KEY-06 | High | The patient loses every key and permanently loses the only copy of the record. | Recovery ceremony, backup-health visibility, recovery verification, and clear no-reset warnings before relying on the vault. | Destructive recovery drills on a new device using synthetic data. | Decision required |
+| KEY-06 | High | The patient loses the passphrase and permanently loses the only copy of the record. | Explicit no-recovery warnings and typed-confirmation whole-vault reset. | Destructive reset and Apple backup/restore drills using synthetic data. | Accepted product constraint; device test open |
 | IMP-01 | High | A selected path, URI, symlink, or replaced file makes the app import a different file than the patient chose. | Open once through native code; use handles/content URIs where available; reject links and special files; avoid check-then-open logic; never accept renderer-supplied filesystem paths. | Symlink, race, content-provider, shared-directory, and path-manipulation tests per platform. | Open |
 | IMP-02 | Critical | A crafted PDF exploits the parser and reaches vault keys or native commands. | Isolated viewer process/webview with no vault capability; fixed local assets; restrictive CSP; no document JavaScript, external fetches, or native plugins; prompt renderer updates. | Malformed corpus, known parser regressions, network observation, and attempted IPC/native access from the viewer. | Design required |
 | IMP-03 | High | Oversized, recursive, or pathological input exhausts memory, disk, battery, or CPU. | Pre-import size and quota limits; bounded parsing; cancellation; timeouts; page/image limits; safe cleanup after termination. | PDF bomb, oversized image, excessive-page, low-disk, and cancellation tests. | Open |
-| IMP-04 | High | Plaintext remains in temporary files, previews, thumbnails, caches, or failed imports. | Stream into authenticated encrypted storage; keep derived artifacts encrypted; use atomic commit; remove incomplete artifacts; disable uncontrolled viewer caches. | Interrupt each import stage, restart, and scan application-controlled storage for recognizable plaintext. | Open |
-| IMP-05 | Medium | Filename, provider, diagnosis, or other metadata leaks before vault unlock. | Encrypt metadata and indexes; use opaque storage names; minimize lock-screen, recent-file, and OS-search integration. | Filesystem and OS-index inspection while locked. | Open |
+| IMP-04 | High | Plaintext remains in temporary files, previews, thumbnails, caches, or failed imports. | Stream into authenticated encrypted storage; keep derived artifacts encrypted; use atomic commit; remove incomplete artifacts. | Interrupt each import stage, restart, and scan application-controlled storage for recognizable plaintext. | Streaming/staging and canary tests implemented; crash matrix open |
+| IMP-05 | Medium | Filename, provider, diagnosis, or other metadata leaks before vault unlock. | Encrypt metadata and indexes; use opaque storage names; minimize lock-screen, recent-file, and OS-search integration. | Filesystem and OS-index inspection while locked. | Encrypted manifest and canary test implemented; OS inspection open |
 | IMP-06 | High | An ordinary imported PDF is displayed as a verified CARLOS record. | Separate verified and unverified imports; verify a signed manifest and document hash; bind provenance to stored ciphertext. | Modify document and manifest fields, use unknown/revoked signers, and confirm the UI cannot show verified status. | Future CARLOS gate |
 | IMP-07 | Medium | The same package is replayed or imported repeatedly, confusing record history. | Stable signed document ID, content hash, idempotent import, and explicit duplicate handling. | Replay identical and modified packages across devices and restores. | Future CARLOS gate |
 | IPC-01 | Critical | Compromised React code invokes privileged Tauri commands to read or overwrite arbitrary files. | Keep narrowly scoped capabilities; commands accept opaque vault IDs rather than paths; authorize lock state and operation in Rust; no generic read/write/execute command. | Enumerate generated permissions and fuzz every command while locked and with invalid IDs. | Partially addressed in POC |
 | IPC-02 | High | XSS or remote content gains the privileges of the main application webview. | Bundle UI assets; restrictive CSP; no remote scripts; sanitize rendered text; isolate document content; review navigation and deep links. | CSP tests, dependency review, injected markup fixtures, and blocked-network assertions. | Open |
 | IPC-03 | High | A plugin silently expands filesystem, shell, network, or clipboard authority. | Per-window capability files; exact plugin inventory; security review for every permission change; deny unused mobile and desktop scopes. | CI diff/check of capability manifests and generated mobile permissions. | Partially addressed in POC |
 | IPC-04 | High | A command returns sensitive paths or error details to the renderer or console. | Patient-safe fixed errors; opaque IDs; no absolute paths; structured redaction at the native boundary. | Force native errors and inspect UI, console, logs, and crash output. | POC returns basename only; broader review open |
-| STO-01 | Critical | Vault files or metadata are readable directly from disk or an OS backup. | Authenticated encryption for every durable sensitive object; encrypted metadata/index; random opaque filenames; backup exclusions for any plaintext cache. | Copy storage and backup images, then search for known document and metadata canaries. | Open |
-| STO-02 | High | Ciphertext or metadata is modified, swapped between records, truncated, or corrupted. | AEAD; bind object ID, type, version, and vault identity as authenticated data; verify before use; safe corruption state. | Bit flips, truncation, object swaps, and cross-vault copy tests. | Open |
-| STO-03 | High | Crash or power loss produces a partially committed record or destroys the previous valid state. | Transactional metadata; write-verify-rename/commit sequence; journal or recovery marker; never replace the last valid state before verification. | Kill the process at every persistence boundary and restart repeatedly. | Open |
+| STO-01 | Critical | Vault files or metadata are readable directly from disk or an OS backup. | Authenticated encryption for every durable sensitive object; encrypted metadata/index; random opaque filenames; backup exclusions for any plaintext cache. | Copy storage and backup images, then search for known document and metadata canaries. | Implemented with automated canary coverage; OS-backup inspection open |
+| STO-02 | High | Ciphertext or metadata is modified, swapped between records, truncated, or corrupted. | AEAD; bind object ID, type, version, and vault identity as authenticated data; verify before use; safe corruption state. | Bit flips, truncation, object swaps, and cross-vault copy tests. | AEAD and bit-flip test implemented; full matrix open |
+| STO-03 | High | Crash or power loss produces a partially committed record or destroys the previous valid state. | Transactional metadata; write-verify-rename/commit sequence; never replace the last valid state before verification. | Kill the process at every persistence boundary and restart repeatedly. | Dual manifest and failed-batch test implemented; crash injection open |
 | STO-04 | High | “Permanent delete” leaves decryptable originals, thumbnails, exports, or synced copies. | Per-object keys or equivalent cryptographic-erasure design; delete wrapped key and derived artifacts; propagate tombstones to backup/sync; explain external exports separately. | Attempt recovery from live storage, backups, caches, and another device after deletion. | Design required |
 | STO-05 | Medium | Local filesystem permissions expose or let another account modify the vault. | Private application data directories; restrictive permissions; no shared/external storage for vault objects; integrity verification remains mandatory. | Platform permission inspection and second-user access tests. | Open |
 | STO-06 | High | Nonce reuse, partial migration, or format downgrade breaks confidentiality or integrity. | Reviewed versioned envelope format; library-managed nonces where possible; migration transaction and rollback plan; reject unsupported/downgraded formats. | Property tests for uniqueness, migration interruption tests, and old/new version matrix. | Decision required |
@@ -173,16 +174,16 @@ reduce current risk.
 
 These decisions block the secure-vault implementation or its promotion:
 
-| Decision | Required outcome |
-| --- | --- |
-| D-01 Vault envelope | Versioned authenticated-encryption format for documents, metadata, manifests, and migrations. |
-| D-02 Key hierarchy and KDF | Vault key, per-object key strategy, passphrase wrapping, OS key-store use, and platform-benchmarked derivation policy. |
-| D-03 Recovery | Patient-understandable recovery ceremony, custody boundary, loss behavior, and new-device restoration. |
-| D-04 Viewer | Renderer choice, isolation boundary, supported PDF features, update path, cache behavior, and malicious-document testing. |
-| D-05 Local database | Encrypted index/storage choice, transaction and crash behavior, schema migration, and corruption recovery. |
-| D-06 CARLOS package | Signed manifest schema, recipient binding, trust store, revocation, expiry, replay, and unverified-import presentation. |
-| D-07 Backup and sync | Threat model extension covering enrollment, metadata privacy, conflicts, tombstones, rollback, and server compromise. |
-| D-08 Diagnostics | Whether telemetry exists at all, allowed fields, consent, retention, support bundles, and incident access. |
+| Decision | Required outcome | Current status |
+| --- | --- | --- |
+| D-01 Vault envelope | Versioned authenticated-encryption format for documents, metadata, manifests, and migrations. | v1 implemented; migration/review open |
+| D-02 Key hierarchy and KDF | Vault key, per-object key strategy, passphrase wrapping, and platform-benchmarked derivation policy. | Implemented; benchmarks/review open |
+| D-03 Recovery | Patient-understandable custody boundary, loss behavior, and new-device restoration. | Passphrase-only, no recovery code; Apple restore test open |
+| D-04 Viewer | Renderer choice, isolation boundary, supported PDF features, update path, cache behavior, and malicious-document testing. | Deferred; no in-app viewer in this slice |
+| D-05 Local database | Encrypted index/storage choice, transaction and crash behavior, schema migration, and corruption recovery. | Encrypted manifest implemented; crash/migration review open |
+| D-06 CARLOS package | Signed manifest schema, recipient binding, trust store, revocation, expiry, replay, and unverified-import presentation. | Future CARLOS gate |
+| D-07 Backup and sync | Threat model extension covering enrollment, metadata privacy, conflicts, tombstones, rollback, and server compromise. | Apple ciphertext backup only; sync deferred |
+| D-08 Diagnostics | Whether telemetry exists at all, allowed fields, consent, retention, support bundles, and incident access. | No telemetry implemented |
 
 ## Secure Vault v0.1 security gate
 

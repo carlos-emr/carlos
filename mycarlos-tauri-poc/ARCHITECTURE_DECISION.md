@@ -52,19 +52,22 @@ the future product.
 - Treat encrypted storage, key handling and recovery, secure deletion, backup and synchronization,
   safe PDF rendering, signing, and updating as unproven work requiring separate design and review.
 
-## First milestone after repository creation
+## Local-vault milestone implemented on the staging branch
 
-Build a security-focused local-vault vertical slice using synthetic PDFs:
+The staging PR now builds a security-focused local-vault vertical slice using synthetic files:
 
 1. import a PDF through the native picker;
 2. encrypt the document and its metadata before durable storage;
-3. close and restart the application;
-4. unlock and render the document through a constrained viewer; and
-5. delete it without leaving recoverable plaintext application artifacts.
+3. close, restart, and unlock the application;
+4. export an authenticated plaintext copy only after an explicit warning; and
+5. organize records across profiles and nested folders without exposing metadata while locked.
 
-The milestone must satisfy the gates in [`THREAT_MODEL.md`](THREAT_MODEL.md), including the key and
-recovery decisions, failure-path tests, and on-device verification. Cloud synchronization and
-CARLOS integration follow only after the local vault lifecycle passes review.
+The implemented format and key/recovery decisions are recorded in
+[`VAULT_FORMAT.md`](VAULT_FORMAT.md). This is implementation-complete for the scoped slice, not
+security-gate complete: independent review, crash injection, backup/restore and physical-device
+matrices, signing, and release controls remain. The chosen scope defers document viewing and
+individual deletion. Cloud synchronization and CARLOS integration follow only after the local
+vault lifecycle passes review.
 
 ## Superseded direction
 

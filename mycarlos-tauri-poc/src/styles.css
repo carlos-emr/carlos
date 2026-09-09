@@ -27,6 +27,124 @@
   --focus: #0b62d6;
 }
 
+/* Durable vault screens. The browser preview continues to use the evaluation UI below. */
+.vault-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(145deg, #e5f1ef, #f7f9f8 58%, #e8efed);
+}
+.vault-card {
+  width: min(100%, 470px);
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.vault-card h1, .vault-topbar h1 { margin: 2px 0 10px; }
+.vault-card > p { color: var(--ink-soft); line-height: 1.55; }
+.vault-card form, .vault-settings form { display: grid; gap: 12px; margin-top: 20px; }
+.vault-card label, .vault-toolbar label, .vault-settings label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+.vault-card input, .vault-toolbar select, .vault-settings input, .vault-settings select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+.vault-card input:focus, .vault-toolbar select:focus, .vault-settings input:focus, .vault-settings select:focus {
+  border-color: var(--focus);
+  outline: 2px solid color-mix(in srgb, var(--focus), transparent 70%);
+}
+.vault-card [role="alert"] { color: var(--red); }
+.vault-kicker {
+  margin: 0;
+  color: var(--teal) !important;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.vault-reset { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.vault-reset summary, .vault-settings summary { cursor: pointer; font-weight: 750; }
+.vault-reset label { margin: 12px 0; }
+
+.vault-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 22px 0 48px;
+}
+.vault-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.vault-boundary {
+  padding: 10px 13px;
+  border: 1px solid #e6c98f;
+  border-radius: 9px;
+  background: var(--amber-soft);
+  color: #6e4406;
+  font-size: 13px;
+}
+.vault-notice {
+  padding: 10px 13px;
+  border-radius: 9px;
+  background: var(--teal-soft);
+  color: var(--teal-dark);
+}
+.vault-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 2fr) auto;
+  align-items: end;
+  gap: 18px;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.vault-toolbar fieldset { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0; padding: 0; border: 0; }
+.vault-toolbar legend { margin-bottom: 7px; color: var(--ink-soft); font-size: 13px; font-weight: 650; }
+.vault-check { display: inline-flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 6px !important; font-weight: 500 !important; }
+.vault-records, .vault-settings {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.vault-records h2 { margin: 0 0 12px; font-size: 18px; }
+.vault-record {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 260px) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.vault-record h3 { margin: 0 0 4px; overflow-wrap: anywhere; font-size: 15px; }
+.vault-record p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+.vault-record small { color: var(--ink-faint); }
+.vault-record details { position: relative; }
+.vault-record details > label { margin-top: 7px; }
+.vault-tags { grid-column: 1 / -1; }
+.vault-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 18px; }
+.vault-settings details { min-width: 0; }
+.vault-settings form { margin: 14px 0; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+
+@media (max-width: 760px) {
+  .vault-toolbar, .vault-record, .vault-settings { grid-template-columns: 1fr; }
+  .vault-record { align-items: start; }
+  .vault-record .button { justify-self: start; }
+  .vault-card { padding: 24px; }
+}
+
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--canvas); color: var(--ink); }
 button, input { font: inherit; color: inherit; }

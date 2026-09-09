@@ -86,6 +86,42 @@ jobs:
           path: mycarlos-tauri-poc/src-tauri/target/debug/bundle
           retention-days: 7
 
+  windows:
+    name: Windows native build
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - run: npm ci
+      - run: npm run tauri build -- --debug --bundles nsis
+
+  macos:
+    name: macOS native build
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - run: npm ci
+      - run: npm run tauri build -- --debug --bundles app
+
   android:
     name: Android debug build
     runs-on: ubuntu-24.04
@@ -113,6 +149,14 @@ jobs:
           --target aarch64-linux-android
       - run: npm ci
       - run: npm run tauri android init -- --ci
+      - name: Disable Android cloud and device-transfer backup
+        shell: bash
+        run: >-
+          perl -0pi -e
+          's/<application\b/<application android:allowBackup="false" android:fullBackupContent="false"/'
+          src-tauri/gen/android/app/src/main/AndroidManifest.xml
+      - name: Verify Android backup remains disabled
+        run: grep -q 'android:allowBackup="false"' src-tauri/gen/android/app/src/main/AndroidManifest.xml
       - run: npm run tauri android build -- --debug --apk --target aarch64 --ci
       - name: Report Android artifact sizes
         run: find src-tauri/gen/android -type f -name '*.apk' -printf '%p %k KB\n' | sort

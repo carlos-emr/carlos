@@ -22,7 +22,8 @@ maintain a parallel Electron/Capacitor implementation.
 ## Safety boundary
 
 - Use synthetic PDF files only. Never enter or select real patient information.
-- The app has no accounts, API, analytics, clinical integration, or persistence.
+- The app has no accounts, API, analytics, or clinical integration. Native builds include a
+  synthetic-data-only encrypted persistence slice; the browser evaluation remains session-only.
 - A chosen PDF is not opened, copied, uploaded, or rendered. Only its basename is displayed in
   memory until the app is refreshed, closed, or reset.
 - Debug packages are unsigned evaluation artifacts and must not be distributed to patients.
@@ -58,7 +59,7 @@ Record evidence for these questions rather than treating a successful build as a
 | Native bridge | Can the UI call a narrow, typed Rust command? | Yes |
 | File chooser | Does the platform picker work consistently? | Implemented; real devices still required |
 | Accessibility | Is the experience usable with target assistive technology? | Automated semantics only; manual testing required |
-| Secure vault | Can records be encrypted, recovered, backed up, and deleted safely? | Not evaluated |
+| Secure vault | Can records be encrypted, recovered, backed up, and deleted safely? | Local encrypted import/export implemented; independent review, device restore, and deletion remain |
 | Mobile APIs | Do biometrics, notifications, deep links, and background work meet requirements? | Not evaluated |
 | Operations | Can the app be signed, observed safely, updated, and supported? | Not evaluated |
 | Dependency risk | Are all initial-target dependency graphs acceptable? | Linux is deferred; the remaining target graphs still require production review |

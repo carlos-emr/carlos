@@ -1,7 +1,8 @@
 # myCarlos Tauri evaluation
 
-> **Evaluation only — do not use real patient files.** This app does not encrypt, persist, copy,
-> upload, or render selected files. It is not connected to CARLOS EMR.
+> **Synthetic-data development only — do not use real patient files.** The native app now includes
+> an encrypted durable-vault vertical slice, but it has not passed the security, privacy, signing,
+> physical-device, or release gates required for PHI. It is not connected to CARLOS EMR.
 
 This directory is the framework-selection proof of concept for the patient-held record proposed in
 [`carlos-emr/carlos#3474`](https://github.com/carlos-emr/carlos/issues/3474). It uses one responsive
@@ -13,8 +14,8 @@ decision, its limits, and the handoff to a future dedicated myCarlos repository.
 remain unmerged in CARLOS until that repository exists, and should then be closed with a link to it.
 
 [`THREAT_MODEL.md`](THREAT_MODEL.md) defines the assets, trust boundaries, credible threats,
-required controls, blocking security decisions, and the Secure Vault v0.1 acceptance gate. It is a
-draft design artifact and does not describe security already implemented by this proof of concept.
+required controls, and the Secure Vault v0.1 acceptance gate. [`VAULT_FORMAT.md`](VAULT_FORMAT.md)
+records the implemented local format and the decisions and release-gate work that remain.
 
 Use [`EVALUATION.md`](EVALUATION.md) to reproduce the evaluation evidence and record remaining
 platform findings. The UI
@@ -38,18 +39,23 @@ evaluation evidence and must not be distributed to patients.
   folders.
 - A synthetic document preview and connected Recent → Starred → Trash → Restore workflow. Actions
   update all affected library sections in memory until refresh, close, or reset.
-- Purpose-level Security & backup and Health data screens. Their controls update synthetic session
-  state only and do not invoke storage, encryption, cloud, biometric, or health APIs.
+- A separate browser-only demo with synthetic library, Security & backup, and Health data screens.
 - A typed `runtime_info` command crossing from TypeScript to Rust.
-- A native PDF picker exposed through the minimal `dialog:allow-open` capability.
-- Session-only display of the selected file's basename; no path or file contents are retained.
+- Native multi-file import and explicit export dialogs owned by Rust; filesystem paths and file
+  bytes are never accepted from or returned to React.
+- A passphrase-unlocked, XChaCha20-Poly1305 encrypted local vault with an Argon2id key wrapper,
+  encrypted metadata, chunked files, per-object keys, atomic manifest generations, and keyed
+  duplicate detection.
+- Multiple patient profiles, nested folders, multiple folder assignments, manual/background/
+  15-minute inactivity locking, passphrase change, and typed-confirmation whole-vault reset.
 - A collapsible evaluation panel and reset control that removes session-only metadata.
 - Frontend unit tests, browser viewport tests, Rust tests, and unsigned debug builds in CI.
 
-It deliberately does **not** demonstrate a secure vault, encryption or key recovery, PDF rendering,
-accounts, synchronization, backup, CARLOS integration, HealthKit/Health Connect, release signing,
-or app-store packaging. A successful build is evidence that the shell compiles, not that Tauri is
-ready to hold PHI.
+It deliberately does **not** implement an in-app document viewer, individual deletion, accounts,
+synchronization, Android cloud backup, CARLOS integration, verified provenance, HealthKit/Health
+Connect, release signing, or app-store packaging. Apple OS backup may carry the encrypted app-data
+vault, but restore still requires the patient passphrase. A successful build and test run are not
+evidence that the app is ready to hold PHI.
 
 ## Responsive UI evidence
 
@@ -71,8 +77,8 @@ npm run dev             # browser preview
 npm run tauri dev       # desktop application
 ```
 
-The browser preview uses the browser's file input in place of the Tauri dialog. Both implementations
-return only a filename and optional byte count to the React layer.
+The browser preview intentionally remains the non-persistent synthetic demo. Durable-vault screens
+and commands are available only inside the native Tauri runtime.
 
 ## Android and iOS
 
@@ -80,6 +86,7 @@ Install the platform prerequisites described by Tauri, then initialize and run t
 
 ```bash
 npm run tauri android init
+# CI then sets android:allowBackup="false" in the generated manifest.
 npm run tauri android dev
 
 # macOS/Xcode only
@@ -115,9 +122,9 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-## Evaluation boundary
+## Native boundary
 
-The POC requests no filesystem capability. The dialog plugin supplies a chosen path to its own
-JavaScript API, and the adapter immediately reduces it to a basename. The Rust command returns only
-compile-time/runtime platform facts. Errors are converted to fixed patient-safe messages and are
-not logged to the browser console.
+The durable UI sends passphrases, opaque record/profile/folder IDs, and sanitized names through
+typed commands. Native pickers and Rust-owned file handles keep paths and file contents out of the
+renderer. The filesystem plugin is not granted to the main webview; it is used only from Rust.
+Errors are converted to fixed patient-safe messages and are not logged to the browser console.
