@@ -47,7 +47,9 @@ evaluation evidence and must not be distributed to patients.
   encrypted metadata, chunked files, per-object keys, atomic manifest generations, and keyed
   duplicate detection.
 - Multiple patient profiles, nested folders, multiple folder assignments, manual/background/
-  15-minute inactivity locking, passphrase change, and typed-confirmation whole-vault reset.
+  15-minute inactivity locking, passphrase change, and typed-confirmation whole-vault reset. A
+  background lock requested by a native picker is completed immediately after that active
+  import/export operation, avoiding a mid-operation lock race.
 - A collapsible evaluation panel and reset control that removes session-only metadata.
 - Frontend unit tests, browser viewport tests, Rust tests, and unsigned debug builds in CI.
 

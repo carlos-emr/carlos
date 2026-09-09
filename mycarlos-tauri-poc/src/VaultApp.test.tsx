@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import VaultApp from "./VaultApp";
@@ -68,6 +68,32 @@ describe("durable vault UI", () => {
     expect(await screen.findByText("report.pdf")).toBeVisible();
     expect(screen.getByText("1 file(s) encrypted and imported. 1 duplicate(s) skipped.")).toBeVisible();
     expect(bridge.importFiles).toHaveBeenCalledWith("profile-1", []);
+  });
+
+  it("finishes an active native import before locking a backgrounded app", async () => {
+    const user = userEvent.setup();
+    let finishImport!: (value: { imported: string[]; skippedDuplicates: string[] }) => void;
+    const importFiles = vi.fn().mockReturnValue(new Promise((resolve) => {
+      finishImport = resolve;
+    }));
+    const bridge = nativeBridge({
+      status: vi.fn().mockResolvedValue("unlocked"),
+      importFiles,
+    });
+    let visibilityState: DocumentVisibilityState = "visible";
+    const visibility = vi.spyOn(document, "visibilityState", "get")
+      .mockImplementation(() => visibilityState);
+    render(<VaultApp bridge={bridge} />);
+
+    await user.click(await screen.findByRole("button", { name: "Choose files to import" }));
+    visibilityState = "hidden";
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(bridge.lock).not.toHaveBeenCalled();
+
+    await act(async () => finishImport({ imported: [], skippedDuplicates: [] }));
+    await waitFor(() => expect(bridge.lock).toHaveBeenCalledOnce());
+    expect(await screen.findByRole("heading", { name: "Unlock your vault" })).toBeVisible();
+    visibility.mockRestore();
   });
 
   it("requires the exact destructive reset phrase", async () => {

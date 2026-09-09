@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import App from "./App";
 import {
   createVaultBridge,
@@ -32,13 +32,24 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   const [snapshot, setSnapshot] = useState<VaultSnapshot | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const pendingLockRef = useRef(false);
 
   const lock = useCallback(async () => {
     await bridge.lock();
+    pendingLockRef.current = false;
     setSnapshot(null);
     setStatus("locked");
     setNotice("Vault locked.");
   }, [bridge]);
+
+  const requestLock = useCallback(() => {
+    if (busyRef.current) {
+      pendingLockRef.current = true;
+      return;
+    }
+    void lock().catch((error) => setNotice(vaultErrorMessage(error)));
+  }, [lock]);
 
   useEffect(() => {
     let active = true;
@@ -59,28 +70,32 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
 
   useEffect(() => {
     if (status !== "unlocked") return;
-    let timer = window.setTimeout(lock, AUTO_LOCK_MS);
+    let timer = window.setTimeout(requestLock, AUTO_LOCK_MS);
     const restart = () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(lock, AUTO_LOCK_MS);
+      timer = window.setTimeout(requestLock, AUTO_LOCK_MS);
     };
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") void lock();
+      if (document.visibilityState === "hidden") requestLock();
     };
     for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
       window.addEventListener(event, restart, { passive: true });
     }
+    window.addEventListener("blur", requestLock);
     document.addEventListener("visibilitychange", onVisibility);
+    if (document.visibilityState === "hidden") requestLock();
     return () => {
       window.clearTimeout(timer);
       for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
         window.removeEventListener(event, restart);
       }
+      window.removeEventListener("blur", requestLock);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [lock, status]);
+  }, [requestLock, status]);
 
   const run = async (operation: () => Promise<void>) => {
+    busyRef.current = true;
     setBusy(true);
     setNotice("");
     try {
@@ -88,7 +103,15 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
     } catch (error) {
       setNotice(vaultErrorMessage(error));
     } finally {
+      busyRef.current = false;
       setBusy(false);
+      if (pendingLockRef.current) {
+        try {
+          await lock();
+        } catch (error) {
+          setNotice(vaultErrorMessage(error));
+        }
+      }
     }
   };
 

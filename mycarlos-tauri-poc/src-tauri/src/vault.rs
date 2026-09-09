@@ -204,7 +204,7 @@ impl VaultStore {
             .is_some()
         {
             VaultStatus::Unlocked
-        } else if self.root.join("header.json").is_file() {
+        } else if self.root.exists() {
             VaultStatus::Locked
         } else {
             VaultStatus::Absent
@@ -566,7 +566,11 @@ impl VaultStore {
     fn read_header(&self) -> Result<VaultHeader, VaultError> {
         let data = fs::read(self.root.join("header.json")).map_err(|error| {
             if error.kind() == io::ErrorKind::NotFound {
-                VaultError::Missing
+                if self.root.exists() {
+                    VaultError::Corrupt
+                } else {
+                    VaultError::Missing
+                }
             } else {
                 VaultError::Storage
             }
@@ -1380,6 +1384,21 @@ mod tests {
         store.unlock(PASSWORD).unwrap();
 
         assert!(!orphan.exists());
+    }
+
+    #[test]
+    fn incomplete_vault_can_be_reset_and_recreated() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        fs::create_dir(&root).unwrap();
+        let store = VaultStore::new(root.clone());
+
+        assert_eq!(store.status(), VaultStatus::Locked);
+        assert!(matches!(store.unlock(PASSWORD), Err(VaultError::Corrupt)));
+        store.reset().unwrap();
+        assert_eq!(store.status(), VaultStatus::Absent);
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        assert_eq!(store.status(), VaultStatus::Unlocked);
     }
 
     #[test]

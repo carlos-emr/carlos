@@ -181,12 +181,17 @@ async fn vault_create(
     store: State<'_, Arc<VaultStore>>,
     mut request: CreateVaultRequest,
 ) -> CommandResult<VaultSnapshot> {
-    let result = store
-        .create(&request.passphrase, &request.initial_profile_name, now_ms())
-        .and_then(|_| store.snapshot())
-        .map_err(Into::into);
-    request.passphrase.zeroize();
-    result
+    let store = store.inner().clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let result = store
+            .create(&request.passphrase, &request.initial_profile_name, now_ms())
+            .and_then(|_| store.snapshot());
+        request.passphrase.zeroize();
+        result
+    })
+    .await
+    .map_err(|_| PublicError::from(VaultError::Storage))?;
+    result.map_err(Into::into)
 }
 
 #[tauri::command]
@@ -194,12 +199,17 @@ async fn vault_unlock(
     store: State<'_, Arc<VaultStore>>,
     mut request: PassphraseRequest,
 ) -> CommandResult<VaultSnapshot> {
-    let result = store
-        .unlock(&request.passphrase)
-        .and_then(|_| store.snapshot())
-        .map_err(Into::into);
-    request.passphrase.zeroize();
-    result
+    let store = store.inner().clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let result = store
+            .unlock(&request.passphrase)
+            .and_then(|_| store.snapshot());
+        request.passphrase.zeroize();
+        result
+    })
+    .await
+    .map_err(|_| PublicError::from(VaultError::Storage))?;
+    result.map_err(Into::into)
 }
 
 #[tauri::command]
@@ -217,12 +227,16 @@ async fn vault_change_passphrase(
     store: State<'_, Arc<VaultStore>>,
     mut request: ChangePassphraseRequest,
 ) -> CommandResult<()> {
-    let result = store
-        .change_passphrase(&request.current_passphrase, &request.new_passphrase)
-        .map_err(Into::into);
-    request.current_passphrase.zeroize();
-    request.new_passphrase.zeroize();
-    result
+    let store = store.inner().clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let result = store.change_passphrase(&request.current_passphrase, &request.new_passphrase);
+        request.current_passphrase.zeroize();
+        request.new_passphrase.zeroize();
+        result
+    })
+    .await
+    .map_err(|_| PublicError::from(VaultError::Storage))?;
+    result.map_err(Into::into)
 }
 
 #[tauri::command]
