@@ -75,7 +75,7 @@ public class PatientPortalService implements Closeable {
     static final String STAFF_ASSERTION_HEADER = PortalStaffAssertionSigner.HEADER;
 
     private static final String BEARER_PREFIX = "Bearer %s";
-    private static final String INVALID_PATH = "portal endpoint path is not a valid URI: %s";
+    private static final String INVALID_PATH = "portal endpoint path is not a valid URI";
     private static final String EMPTY_BODY = "portal returned an empty or non-JSON body";
     // Only established protocol messages may cross the logging/browser boundary.
     private static final Set<String> SAFE_DETAILS = Set.of(
@@ -734,9 +734,11 @@ public class PatientPortalService implements Closeable {
     private URI resolve(String path) {
         try {
             return new URI(settings.baseUrl() + path);
-        } catch (URISyntaxException exception) {
-            throw new PatientPortalConfigurationException(
-                    String.format(Locale.ROOT, INVALID_PATH, path), exception);
+        } catch (URISyntaxException ignored) {
+            // The interpolated path can contain a demographic number. Do not retain either it or
+            // URISyntaxException, whose message repeats the full input URI, in an exception that
+            // may cross the logging boundary.
+            throw new PatientPortalConfigurationException(INVALID_PATH);
         }
     }
 
