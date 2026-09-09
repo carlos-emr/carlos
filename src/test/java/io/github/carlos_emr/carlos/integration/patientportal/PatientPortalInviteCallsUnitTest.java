@@ -153,6 +153,25 @@ class PatientPortalInviteCallsUnitTest {
         }
 
         @Test
+        @DisplayName("should reject a non-creation success status")
+        void shouldReject_whenCreateDoesNotReturnCreated() {
+            PatientPortalService service =
+                    new PatientPortalService(settings(), new RecordingExchange(200, INVITE_JSON));
+
+            assertThatThrownBy(
+                            () ->
+                                    service.createInvite(
+                                            123,
+                                            "patient@example.com",
+                                            LocalDate.of(1980, 1, 1),
+                                            "1234567890",
+                                            staff()))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
         @DisplayName("should surface an existing account or pending invite as a conflict")
         void shouldThrowConflict_whenPortalRejectsDuplicate() {
             PatientPortalService service =
@@ -230,6 +249,18 @@ class PatientPortalInviteCallsUnitTest {
             assertThat(invites).hasSize(1);
             assertThat(invites.get(0).demographicNo()).isEqualTo(123);
             assertThat(invites.get(0).lastIssuedBy()).isEqualTo("Dr Example");
+        }
+
+        @Test
+        @DisplayName("should reject an asynchronous success status")
+        void shouldReject_whenReadReturnsAccepted() {
+            PatientPortalService service =
+                    new PatientPortalService(settings(), new RecordingExchange(202, "[]"));
+
+            assertThatThrownBy(() -> service.listInvites(123, staff()))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
         }
 
         @Test
