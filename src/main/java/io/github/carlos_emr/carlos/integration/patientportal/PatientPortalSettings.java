@@ -85,7 +85,8 @@ public record PatientPortalSettings(
     private static final String REQUIRED_SCHEME_PREFIX = "https://";
     private static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000L;
     private static final long DEFAULT_READ_TIMEOUT_MS = 15000L;
-    private static final int MAX_CLINIC_ID_LENGTH = 20;
+    /** Matches {@code MAX_CLINIC_ID_LENGTH} in the portal's configuration and database models. */
+    private static final int MAX_CLINIC_ID_LENGTH = 64;
     private static final int MIN_SERVICE_TOKEN_LENGTH = 32;
 
     private static final String BAD_PIN_MESSAGE =
@@ -101,7 +102,7 @@ public record PatientPortalSettings(
     private static final String QUERY_MESSAGE = "%s must not carry a query string or fragment";
     private static final String TIMEOUT_MESSAGE = "%s must be a positive number of milliseconds";
     private static final String CLINIC_ID_MESSAGE =
-            "%s must contain 1 to 20 ASCII letters, digits, dots, underscores, or hyphens";
+            "%s must contain 1 to 64 ASCII letters, digits, dots, underscores, or hyphens";
     private static final String SERVICE_TOKEN_MESSAGE =
             "%s must contain at least 32 characters and no control characters";
     private static final String DESCRIPTION =

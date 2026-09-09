@@ -141,6 +141,15 @@ class PatientPortalSettingsUnitTest {
         }
 
         @Test
+        @DisplayName("should accept the portal's full clinic id length")
+        void shouldAccept_whenClinicIdUsesPortalMaximumLength() {
+            Map<String, String> properties = validProperties();
+            properties.put(CLINIC_ID_KEY, "c".repeat(64));
+
+            assertThat(PatientPortalSettings.fromProperties(properties).clinicId()).hasSize(64);
+        }
+
+        @Test
         @DisplayName("should normalize the service token through direct construction too")
         void shouldTrimServiceToken_whenCanonicalConstructorReceivesPadding() {
             PatientPortalSettings settings =
@@ -405,9 +414,9 @@ class PatientPortalSettingsUnitTest {
 
         @Test
         @DisplayName("should reject a clinic id outside the portal contract")
-        void shouldThrow_whenClinicIdIsTooLongOrContainsUnsupportedCharacters() {
+        void shouldThrow_whenClinicIdExceedsPortalLimitOrContainsUnsupportedCharacters() {
             Map<String, String> tooLong = validProperties();
-            tooLong.put(CLINIC_ID_KEY, "c".repeat(21));
+            tooLong.put(CLINIC_ID_KEY, "c".repeat(65));
             Map<String, String> unsupported = validProperties();
             unsupported.put(CLINIC_ID_KEY, "clinic/other");
 
