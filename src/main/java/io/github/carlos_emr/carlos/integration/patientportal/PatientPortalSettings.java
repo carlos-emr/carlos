@@ -36,8 +36,9 @@ import java.util.function.Function;
  *
  * <p>The portal's {@code /internal/carlos/**} API grants clinic-wide staff powers — issuing invite
  * tokens, unlocking accounts, revealing passphrases — to a workload holding the service token and
- * a provider identity signed by CARLOS. That makes this class a security boundary, not plumbing,
- * and it enforces these properties:
+ * a provider identity and permission set signed by CARLOS. The assertion does not contain a
+ * patient identifier; patient scope is enforced in CARLOS before the call. That makes this class a
+ * security boundary, not plumbing, and it enforces these properties:
  *
  * <ul>
  *   <li><b>TLS only.</b> The base URL must be {@code https://}. The token is a bearer credential, so

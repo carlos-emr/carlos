@@ -32,8 +32,9 @@ import org.junit.jupiter.api.Test;
 /**
  * The wrapper that makes credential protection structural rather than remembered.
  *
- * <p>Three values in this package are credentials. Held as plain strings, each relied on someone
- * remembering to redact it; these tests pin the properties that replace remembering.
+ * <p>Service tokens, signing keys, invite tokens, and message passphrases are credentials. Held as
+ * plain strings, each relied on someone remembering to redact it; these tests pin the properties
+ * that replace remembering.
  */
 @Tag("unit")
 @Tag("patient-portal")

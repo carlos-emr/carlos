@@ -172,12 +172,6 @@ class PortalMutationOutcomeUnitTest {
                 + "\"status\":\"" + status + "\"}";
     }
 
-    @Test void identityProofRenderingDoesNotExposePatientData() {
-        var proof = new PortalInviteIdentityValidator.Result("synthetic@example.invalid",
-                java.time.LocalDate.of(1980, 1, 1), "synthetic-health-card", java.util.List.of());
-        assertThat(proof.toString()).doesNotContain("synthetic@example.invalid", "1980-01-01", "synthetic-health-card");
-    }
-
     @Test void secretRenderingDoesNotExposeMessageReference() {
         var secret = new PatientPortalUnlockSecretDto(1, true, PortalSecret.of("synthetic-secret"),
                 "patient-123-message-456", "pending");

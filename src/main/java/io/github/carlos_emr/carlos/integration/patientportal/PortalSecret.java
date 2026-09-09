@@ -28,10 +28,10 @@ import java.util.Objects;
 /**
  * A credential that must not be rendered, serialized, or logged by accident.
  *
- * <p>Three values in this package are credentials: the portal service token, the one-time patient
- * invite token, and the passphrase for an encrypted message. Holding them as {@code String} left
- * three separate protections to remember — and remembering is not a control. This type makes the
- * protections structural:
+ * <p>Four values in this package are credentials: the portal service token, CARLOS's staff-
+ * assertion private key, the one-time patient invite token, and the passphrase for an encrypted
+ * message. Holding them as {@code String} leaves separate protections to remember — and
+ * remembering is not a control. This type makes the protections structural:
  *
  * <ul>
  *   <li><b>Rendering is safe by default.</b> {@link #toString()} never emits the value, so a secret
