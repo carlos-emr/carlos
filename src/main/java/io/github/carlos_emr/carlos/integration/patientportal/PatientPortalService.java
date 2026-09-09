@@ -92,7 +92,6 @@ public class PatientPortalService implements Closeable {
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
     private static final String INVITE_RESEND_PATH = "/internal/carlos/invites/%d/resend";
     private static final String INVITE_REVOKE_PATH = "/internal/carlos/invites/%d/revoke";
-    private static final String INVITE_LIST_PATH = "/internal/carlos/patients/%d/invites?limit=%d";
     private static final String UNLOCK_PATH = "/internal/carlos/patients/%d/unlock";
     private static final String ACCOUNT_PATH = "/internal/carlos/patients/%d/portal-account";
     private static final String ACCESS_PATH = "/internal/carlos/patients/%d/portal-account/access";
@@ -105,9 +104,6 @@ public class PatientPortalService implements Closeable {
 
     private static final String GET = "GET";
     private static final String POST = "POST";
-
-    /** The portal caps an invite listing at 100 records per request. */
-    public static final int MAX_INVITE_PAGE_SIZE = 100;
 
     /** The portal caps a contact-review page at 100 records per request. */
     public static final int MAX_REVIEW_PAGE_SIZE = 100;
@@ -210,22 +206,16 @@ public class PatientPortalService implements Closeable {
                 demographicNo);
     }
 
-    /**
-     * Lists a patient's invites, newest first as the portal orders them.
-     *
-     * @param limit records to request; the portal caps this at {@value #MAX_INVITE_PAGE_SIZE}
-     */
+    /** Lists the patient's latest 100 invites, newest first as the portal orders them. */
     public List<PatientPortalInviteDto> listInvites(
-            int demographicNo, int limit, PatientPortalStaffContext staff) {
-        int requested = Math.min(Math.max(limit, 1), MAX_INVITE_PAGE_SIZE);
+            int demographicNo, PatientPortalStaffContext staff) {
         return fetch(
                 GET,
-                INVITE_LIST_PATH,
+                INVITES_PATH,
                 null,
                 staff,
                 PatientPortalService::inviteList,
-                demographicNo,
-                requested);
+                demographicNo);
     }
 
     /**

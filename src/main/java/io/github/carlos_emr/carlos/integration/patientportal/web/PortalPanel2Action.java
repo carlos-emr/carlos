@@ -182,9 +182,7 @@ public class PortalPanel2Action extends PortalJsonAction {
             PatientPortalStaffContext staff) {
         ArrayNode invites = payload.putArray("invites");
         try {
-            List<PatientPortalInviteDto> found =
-                    portal.listInvites(
-                            demographicNo, PatientPortalService.MAX_INVITE_PAGE_SIZE, staff);
+            List<PatientPortalInviteDto> found = portal.listInvites(demographicNo, staff);
             for (PatientPortalInviteDto invite : found) {
                 ObjectNode node = invites.addObject();
                 node.put("inviteId", invite.id());
