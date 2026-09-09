@@ -77,6 +77,8 @@ public class PatientPortalService implements Closeable {
     private static final String BEARER_PREFIX = "Bearer %s";
     private static final String INVALID_PATH = "portal endpoint path is not a valid URI";
     private static final String EMPTY_BODY = "portal returned an empty or non-JSON body";
+    private static final String UNEXPECTED_SUCCESS_STATUS =
+            "portal returned an unexpected success status";
     // Only established protocol messages may cross the logging/browser boundary.
     private static final Set<String> SAFE_DETAILS = Set.of(
             "permission denied", "not found", "demographic scope mismatch",
@@ -104,6 +106,8 @@ public class PatientPortalService implements Closeable {
 
     private static final String GET = "GET";
     private static final String POST = "POST";
+    private static final int OK = 200;
+    private static final int CREATED = 201;
 
     /** The portal caps a contact-review page at 100 records per request. */
     public static final int MAX_REVIEW_PAGE_SIZE = 100;
@@ -201,6 +205,7 @@ public class PatientPortalService implements Closeable {
                 POST,
                 INVITES_PATH,
                 body.toString(),
+                CREATED,
                 staff,
                 node -> confirmedCreatedInvite(PatientPortalIssuedInviteDto.fromJson(node)),
                 demographicNo);
@@ -213,6 +218,7 @@ public class PatientPortalService implements Closeable {
                 GET,
                 INVITES_PATH,
                 null,
+                OK,
                 staff,
                 PatientPortalService::inviteList,
                 demographicNo);
@@ -227,7 +233,7 @@ public class PatientPortalService implements Closeable {
      */
     public PatientPortalIssuedInviteDto resendInvite(long inviteId, PatientPortalStaffContext staff) {
         return fetch(
-                POST, INVITE_RESEND_PATH, null, staff,
+                POST, INVITE_RESEND_PATH, null, OK, staff,
                 node -> confirmedResentInvite(
                         PatientPortalIssuedInviteDto.fromJson(node), inviteId),
                 inviteId);
@@ -236,7 +242,7 @@ public class PatientPortalService implements Closeable {
     /** Revokes a pending invite. */
     public PatientPortalInviteDto revokeInvite(long inviteId, PatientPortalStaffContext staff) {
         return fetch(
-                POST, INVITE_REVOKE_PATH, null, staff,
+                POST, INVITE_REVOKE_PATH, null, OK, staff,
                 node -> {
                     PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(node);
                     if (invite.id() != inviteId || !"revoked".equals(invite.status())) {
@@ -258,7 +264,7 @@ public class PatientPortalService implements Closeable {
     public PatientPortalAccountAcknowledgementDto unlockAccount(
             int demographicNo, PatientPortalStaffContext staff) {
         return fetch(
-                POST, UNLOCK_PATH, null, staff,
+                POST, UNLOCK_PATH, null, OK, staff,
                 PatientPortalAccountAcknowledgementDto::fromUnlockJson, demographicNo);
     }
 
@@ -269,7 +275,7 @@ public class PatientPortalService implements Closeable {
      */
     public PatientPortalAccountDto findAccount(int demographicNo, PatientPortalStaffContext staff) {
         return fetch(
-                GET, ACCOUNT_PATH, null, staff,
+                GET, ACCOUNT_PATH, null, OK, staff,
                 PatientPortalAccountDto::fromJson, demographicNo);
     }
 
@@ -289,6 +295,7 @@ public class PatientPortalService implements Closeable {
                 POST,
                 ACCESS_PATH,
                 body.toString(),
+                OK,
                 staff,
                 node -> {
                     PatientPortalAccountAcknowledgementDto account =
@@ -334,6 +341,7 @@ public class PatientPortalService implements Closeable {
                 POST,
                 SECRETS_PATH,
                 body.toString(),
+                CREATED,
                 staff,
                 node -> confirmedCreatedSecret(
                         PatientPortalUnlockSecretDto.fromJson(node), expectedSourceReference),
@@ -352,7 +360,7 @@ public class PatientPortalService implements Closeable {
     public PatientPortalUnlockSecretStatusDto publishUnlockSecret(
             long unlockSecretId, PatientPortalStaffContext staff) {
         return fetch(
-                POST, SECRET_PUBLISH_PATH, null, staff,
+                POST, SECRET_PUBLISH_PATH, null, OK, staff,
                 node -> confirmedSecretStatus(
                         PatientPortalUnlockSecretStatusDto.fromJson(node),
                         unlockSecretId,
@@ -376,6 +384,7 @@ public class PatientPortalService implements Closeable {
                 POST,
                 SECRET_REVOKE_PATH,
                 body.toString(),
+                OK,
                 staff,
                 node -> confirmedSecretStatus(
                         PatientPortalUnlockSecretStatusDto.fromJson(node),
@@ -401,6 +410,7 @@ public class PatientPortalService implements Closeable {
                 GET,
                 REVIEWS_PATH,
                 null,
+                OK,
                 staff,
                 node -> confirmedReviewPage(
                         PatientPortalContactReviewPageDto.fromJson(node), requested, from),
@@ -432,6 +442,7 @@ public class PatientPortalService implements Closeable {
                 POST,
                 REVIEW_DECISION_PATH,
                 body.toString(),
+                OK,
                 staff,
                 node -> confirmedContactReviewDecision(
                         contactReviewDecision(node), reviewRequestId, approve),
@@ -460,10 +471,17 @@ public class PatientPortalService implements Closeable {
             String method,
             String pathFormat,
             String jsonBody,
+            int expectedStatus,
             PatientPortalStaffContext staff,
             Function<JsonNode, T> factory,
             Object... args) {
         Parsed parsed = send(method, pathFormat, jsonBody, staff, args);
+        if (parsed.statusCode() != expectedStatus) {
+            throw PatientPortalException.ofMalformedResponse(
+                    parsed.statusCode(),
+                    templateOf(pathFormat),
+                    new PortalContractException(UNEXPECTED_SUCCESS_STATUS));
+        }
         try {
             validateScope(parsed.payload(), pathFormat, args);
             return factory.apply(parsed.payload());

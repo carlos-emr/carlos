@@ -47,7 +47,12 @@ class PortalMutationOutcomeUnitTest {
                 PortalSecret.of("synthetic-service-token-0000000001"),
                 PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(1),
                 Duration.ofSeconds(1), Set.of());
-        return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(200, body));
+        return new PatientPortalService(settings, request -> {
+            String path = request.getRequestUri();
+            boolean createsResource = "POST".equals(request.getMethod())
+                    && (path.endsWith("/invites") || path.endsWith("/unlock-secrets"));
+            return new PatientPortalHttpResponse(createsResource ? 201 : 200, body);
+        });
     }
 
     @ParameterizedTest
