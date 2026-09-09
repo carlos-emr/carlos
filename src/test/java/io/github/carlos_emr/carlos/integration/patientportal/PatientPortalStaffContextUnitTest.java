@@ -229,6 +229,19 @@ class PatientPortalStaffContextUnitTest {
         }
 
         @Test
+        @DisplayName("should reject a well-formed permission CARLOS does not support")
+        void shouldThrow_whenPermissionIsUnknown() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalStaffContext(
+                                            PROVIDER_ID,
+                                            PROVIDER_NAME,
+                                            Set.of("portal.account.delete_everything")))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("not supported");
+        }
+
+        @Test
         @DisplayName("should strip whitespace so the portal parser sees a clean permission")
         void shouldStripPermissions_whenValuesArePadded() {
             PatientPortalStaffContext staff =

@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -33,9 +32,8 @@ import java.util.Set;
  *
  * <p>This is the intended sole builder of a request's portal identity: the permissions sent to the
  * portal come from {@link SecurityInfoManager} rather than from whatever the calling code chose to
- * claim. It is a convention, not an enforced invariant — {@link PatientPortalStaffContext} is a
- * public record with a public canonical constructor, so {@code Set.of(all five constants)} compiles
- * from anywhere. Nothing in the build would catch that today.
+ * claim. {@link PatientPortalStaffContext} rejects malformed and unknown permission names, but it
+ * cannot prove that a provider actually holds a recognized permission; this resolver can.
  *
  * <p>The temptation this class exists to remove is a caller writing {@code Set.of(all five
  * constants)} because it is convenient — which compiles, works, and silently makes the portal's
@@ -77,25 +75,34 @@ public class PortalStaffContextResolver {
     public static final String OBJECT_SECRET = "_portal.secret";
     public static final String OBJECT_CONTACT_REVIEW = "_portal.contact.review";
 
-    private static final Map<String, String> PERMISSION_BY_OBJECT = permissionByObject();
+    private static final Map<String, String> PERMISSION_BY_OBJECT =
+            Map.of(
+                    OBJECT_INVITE,
+                    PatientPortalStaffContext.PERMISSION_INVITE_MANAGE,
+                    OBJECT_ACCOUNT,
+                    PatientPortalStaffContext.PERMISSION_ACCOUNT_MANAGE,
+                    OBJECT_ACCOUNT_UNLOCK,
+                    PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK,
+                    OBJECT_SECRET,
+                    PatientPortalStaffContext.PERMISSION_SECRET_MANAGE,
+                    OBJECT_CONTACT_REVIEW,
+                    PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW);
 
     private static final String NO_PRIVILEGE =
             "provider holds no patient portal privilege; refusing to build a portal identity";
+    private static final String NO_SCOPE = "a patient portal permission scope is required";
+    private static final String UNSUPPORTED_OBJECT =
+            "portal permission scope contains an unsupported security object";
+    private static final String MISSING_SECURITY_MANAGER =
+            "a security manager is required to resolve portal permissions";
 
     private final SecurityInfoManager securityInfoManager;
 
     public PortalStaffContextResolver(SecurityInfoManager securityInfoManager) {
+        if (securityInfoManager == null) {
+            throw new IllegalArgumentException(MISSING_SECURITY_MANAGER);
+        }
         this.securityInfoManager = securityInfoManager;
-    }
-
-    private static Map<String, String> permissionByObject() {
-        Map<String, String> mapping = new LinkedHashMap<>();
-        mapping.put(OBJECT_INVITE, PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
-        mapping.put(OBJECT_ACCOUNT, PatientPortalStaffContext.PERMISSION_ACCOUNT_MANAGE);
-        mapping.put(OBJECT_ACCOUNT_UNLOCK, PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK);
-        mapping.put(OBJECT_SECRET, PatientPortalStaffContext.PERMISSION_SECRET_MANAGE);
-        mapping.put(OBJECT_CONTACT_REVIEW, PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW);
-        return Map.copyOf(mapping);
     }
 
     /**
@@ -132,22 +139,34 @@ public class PortalStaffContextResolver {
 
     private PatientPortalStaffContext resolve(
             LoggedInInfo loggedInInfo, Set<String> objects, String demographicNo) {
+        if (loggedInInfo == null) {
+            throw new IllegalArgumentException("an authenticated session is required");
+        }
+        validateScope(objects);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Set<String> granted = new LinkedHashSet<>();
-        for (Map.Entry<String, String> entry : PERMISSION_BY_OBJECT.entrySet()) {
-            if (objects.contains(entry.getKey())
-                    && securityInfoManager.hasPrivilege(
-                            loggedInInfo,
-                            entry.getKey(),
-                            SecurityInfoManager.READ,
-                            demographicNo)) {
-                granted.add(entry.getValue());
+        for (String object : objects) {
+            if (securityInfoManager.hasPrivilege(
+                    loggedInInfo, object, SecurityInfoManager.READ, demographicNo)) {
+                granted.add(PERMISSION_BY_OBJECT.get(object));
             }
         }
         if (granted.isEmpty()) {
             throw new SecurityException(NO_PRIVILEGE);
         }
         return new PatientPortalStaffContext(providerNo, displayName(loggedInInfo), granted);
+    }
+
+    /** A typo must fail locally rather than silently narrowing the signed assertion. */
+    private static void validateScope(Set<String> objects) {
+        if (objects == null || objects.isEmpty()) {
+            throw new IllegalArgumentException(NO_SCOPE);
+        }
+        for (String object : objects) {
+            if (object == null || !PERMISSION_BY_OBJECT.containsKey(object)) {
+                throw new IllegalArgumentException(UNSUPPORTED_OBJECT);
+            }
+        }
     }
 
     /**
