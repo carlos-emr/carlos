@@ -26,7 +26,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -250,6 +252,40 @@ class PatientPortalSettingsUnitTest {
                                             Duration.ofSeconds(15),
                                             java.util.Set.of()))
                     .isInstanceOf(PatientPortalConfigurationException.class);
+        }
+
+        @Test
+        @DisplayName("should refuse a timeout that becomes zero milliseconds")
+        void shouldReject_whenTimeoutIsBelowTransportPrecision() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalSettings(
+                                            "https://portal.clinic.example",
+                                            "maplecreek",
+                                            PortalSecret.of(TOKEN),
+                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            Duration.ofNanos(1),
+                                            Duration.ofSeconds(15),
+                                            Set.of()))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(CONNECT_TIMEOUT_KEY);
+        }
+
+        @Test
+        @DisplayName("should refuse a timeout that cannot be represented in milliseconds")
+        void shouldReject_whenTimeoutOverflowsTransportPrecision() {
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalSettings(
+                                            "https://portal.clinic.example",
+                                            "maplecreek",
+                                            PortalSecret.of(TOKEN),
+                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            Duration.ofSeconds(Long.MAX_VALUE),
+                                            Duration.ofSeconds(15),
+                                            Set.of()))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(CONNECT_TIMEOUT_KEY);
         }
 
         @Test
@@ -494,6 +530,26 @@ class PatientPortalSettingsUnitTest {
     @Nested
     @DisplayName("certificate pins")
     class CertificatePins {
+
+        @Test
+        @DisplayName("should report a null pin as a configuration failure")
+        void shouldReject_whenDirectPinSetContainsNull() {
+            Set<String> pins = new HashSet<>();
+            pins.add(null);
+
+            assertThatThrownBy(
+                            () ->
+                                    new PatientPortalSettings(
+                                            "https://portal.clinic.example",
+                                            "maplecreek",
+                                            PortalSecret.of(TOKEN),
+                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
+                                            Duration.ofSeconds(5),
+                                            Duration.ofSeconds(15),
+                                            pins))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(PatientPortalSettings.CERTIFICATE_PINS_KEY);
+        }
 
         @Test
         @DisplayName("should accept a comma separated list, for a planned key rotation")
