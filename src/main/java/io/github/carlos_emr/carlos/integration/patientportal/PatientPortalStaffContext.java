@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
@@ -30,10 +31,9 @@ import java.util.TreeSet;
  * The authenticated CARLOS provider on whose behalf a portal call is made.
  *
  * <p>The portal records {@code providerId} in its own audit trail and authorizes each call against
- * {@code permissions}. Both must be derived from the caller's real CARLOS session and privileges —
- * never from request parameters, and never hardcoded to the full permission set. A caller that
- * always sent every permission would make the portal's per-action authorization decorative, and
- * would attribute every action to whatever identity the client chose to claim.
+ * {@code permissions}. CARLOS binds both into a short-lived signed assertion. They must be derived
+ * from the caller's real CARLOS session and privileges — never from request parameters, and never
+ * hardcoded to the full permission set.
  *
  * <p>{@code providerId} must be the durable CARLOS provider number rather than a display name or a
  * session identifier, because the portal keeps it as the permanent record of who acted.
@@ -67,12 +67,19 @@ public record PatientPortalStaffContext(
     /** Matches {@code MAX_PERMISSION_LENGTH} in the portal's {@code staff_identity.py}. */
     public static final int MAX_PERMISSION_LENGTH = 64;
 
+    /** Matches {@code MAX_ACTOR_LENGTH} in the portal's {@code invites.py}. */
+    public static final int MAX_ACTOR_LENGTH = 128;
+
     private static final String BLANK_PROVIDER_ID = "portal staff context requires a provider id";
     private static final String BLANK_PROVIDER_NAME = "portal staff context requires a provider name";
     private static final String NO_PERMISSIONS = "portal staff context requires a permission";
     private static final String TOO_MANY_PERMISSIONS = "portal permits at most %d permissions";
     private static final String PERMISSION_TOO_LONG = "portal permission exceeds %d characters";
     private static final String PERMISSION_HAS_COMMA = "portal permission must not contain a comma";
+    private static final String INVALID_PERMISSION =
+            "portal permission may contain only lowercase ASCII letters, digits, dots, underscores,"
+                    + " and hyphens";
+    private static final String ACTOR_TOO_LONG = "portal staff identity exceeds %d characters";
     private static final String CONTROL_CHARACTER =
             "portal staff identity must not contain control characters";
 
@@ -101,11 +108,12 @@ public record PatientPortalStaffContext(
         }
         providerId = providerId.strip();
         providerName = providerName.strip();
-        // Every one of these three becomes an HTTP header value. A carriage return or newline
-        // would let a caller append headers of its own — including a second
-        // X-CARLOS-Permissions claiming privileges the provider does not hold. An earlier
-        // revision checked only for commas in permissions, which is the narrower half of the
-        // same problem.
+        if (providerId.length() > MAX_ACTOR_LENGTH || providerName.length() > MAX_ACTOR_LENGTH) {
+            throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, ACTOR_TOO_LONG, MAX_ACTOR_LENGTH));
+        }
+        // The portal rejects controls after verifying the assertion. Refuse them before signing so
+        // a malformed local identity is a clear CARLOS error rather than an opaque portal 404.
         rejectControlCharacters(providerId);
         rejectControlCharacters(providerName);
         Set<String> normalized = new LinkedHashSet<>();
@@ -118,14 +126,32 @@ public record PatientPortalStaffContext(
                 throw new IllegalArgumentException(
                         String.format(Locale.ROOT, PERMISSION_TOO_LONG, MAX_PERMISSION_LENGTH));
             }
-            // A comma would split into two claimed permissions inside the portal's header parser.
+            // Keep a specific diagnostic for the most likely separator mistake; the portal's
+            // signed-assertion permission validator rejects commas as well.
             if (stripped.indexOf(',') >= 0) {
                 throw new IllegalArgumentException(PERMISSION_HAS_COMMA);
             }
             rejectControlCharacters(stripped);
+            if (!isPortalPermission(stripped)) {
+                throw new IllegalArgumentException(INVALID_PERMISSION);
+            }
             normalized.add(stripped);
         }
         permissions = Set.copyOf(normalized);
+    }
+
+    private static boolean isPortalPermission(String value) {
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if ((character < 'a' || character > 'z')
+                    && (character < '0' || character > '9')
+                    && character != '.'
+                    && character != '_'
+                    && character != '-') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void rejectControlCharacters(String value) {
@@ -137,11 +163,11 @@ public record PatientPortalStaffContext(
     }
 
     /**
-     * Renders the permission set as the portal's {@code X-CARLOS-Permissions} header value.
+     * Renders the permission set in the stable order used by the signed assertion.
      *
-     * @return comma-separated permissions in a stable order
+     * @return an immutable, sorted permission list
      */
-    public String permissionHeaderValue() {
-        return String.join(",", new TreeSet<>(permissions));
+    public List<String> sortedPermissions() {
+        return List.copyOf(new TreeSet<>(permissions));
     }
 }

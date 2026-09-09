@@ -47,16 +47,20 @@ class PatientPortalSettingsUnitTest {
     private static final String BASE_URL_KEY = "patient_portal.base_url";
     private static final String CLINIC_ID_KEY = "patient_portal.clinic_id";
     private static final String SERVICE_TOKEN_KEY = "patient_portal.service_token";
+    private static final String STAFF_ASSERTION_KEY =
+            "patient_portal.staff_assertion.private_key";
     private static final String CONNECT_TIMEOUT_KEY = "patient_portal.timeout.connect.ms";
     private static final String READ_TIMEOUT_KEY = "patient_portal.timeout.read.ms";
 
     private static final String TOKEN = "portal-service-token-value-000001";
+    private static final String ASSERTION_PRIVATE_KEY = PortalTestKeys.PRIVATE_KEY;
 
     private Map<String, String> validProperties() {
         Map<String, String> properties = new HashMap<>();
         properties.put(BASE_URL_KEY, "https://portal.clinic.example");
         properties.put(CLINIC_ID_KEY, "maplecreek");
         properties.put(SERVICE_TOKEN_KEY, TOKEN);
+        properties.put(STAFF_ASSERTION_KEY, ASSERTION_PRIVATE_KEY);
         return properties;
     }
 
@@ -72,6 +76,8 @@ class PatientPortalSettingsUnitTest {
             assertThat(settings.baseUrl()).isEqualTo("https://portal.clinic.example");
             assertThat(settings.clinicId()).isEqualTo("maplecreek");
             assertThat(settings.serviceToken().expose()).isEqualTo(TOKEN);
+            assertThat(settings.staffAssertionPrivateKey().expose())
+                    .isEqualTo(ASSERTION_PRIVATE_KEY);
         }
 
         @Test
@@ -186,6 +192,7 @@ class PatientPortalSettingsUnitTest {
                                             "http://evil.example",
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
+                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
                                             Duration.ofSeconds(5),
                                             Duration.ofSeconds(15),
                                             java.util.Set.of()))
@@ -201,6 +208,7 @@ class PatientPortalSettingsUnitTest {
                                             "https://portal.clinic.example",
                                             "maplecreek",
                                             PortalSecret.of(TOKEN),
+                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
                                             Duration.ZERO,
                                             Duration.ofSeconds(15),
                                             java.util.Set.of()))
@@ -216,6 +224,7 @@ class PatientPortalSettingsUnitTest {
                                             "https://portal.clinic.example",
                                             "maplecreek",
                                             null,
+                                            PortalSecret.of(ASSERTION_PRIVATE_KEY),
                                             Duration.ofSeconds(5),
                                             Duration.ofSeconds(15),
                                             java.util.Set.of()))
@@ -277,12 +286,62 @@ class PatientPortalSettingsUnitTest {
         }
 
         @Test
+        @DisplayName("should fail when the staff assertion private key is absent")
+        void shouldThrow_whenStaffAssertionPrivateKeyIsMissing() {
+            Map<String, String> properties = validProperties();
+            properties.remove(STAFF_ASSERTION_KEY);
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(STAFF_ASSERTION_KEY);
+        }
+
+        @Test
+        @DisplayName("should reject a private key that is not canonical Ed25519 PKCS8")
+        void shouldThrow_whenStaffAssertionPrivateKeyIsInvalid() {
+            Map<String, String> properties = validProperties();
+            properties.put(STAFF_ASSERTION_KEY, "not-a-private-key");
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(STAFF_ASSERTION_KEY)
+                    .hasMessageNotContaining("not-a-private-key");
+        }
+
+        @Test
+        @DisplayName("should reject padded base64url private key configuration")
+        void shouldThrow_whenStaffAssertionPrivateKeyIsNotCanonical() {
+            Map<String, String> properties = validProperties();
+            properties.put(STAFF_ASSERTION_KEY, ASSERTION_PRIVATE_KEY + "=");
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("unpadded base64url");
+        }
+
+        @Test
         @DisplayName("should fail when the clinic id is absent")
         void shouldThrow_whenClinicIdIsMissing() {
             Map<String, String> properties = validProperties();
             properties.remove(CLINIC_ID_KEY);
 
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(properties))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(CLINIC_ID_KEY);
+        }
+
+        @Test
+        @DisplayName("should reject a clinic id outside the portal contract")
+        void shouldThrow_whenClinicIdIsTooLongOrContainsControls() {
+            Map<String, String> tooLong = validProperties();
+            tooLong.put(CLINIC_ID_KEY, "c".repeat(65));
+            Map<String, String> control = validProperties();
+            control.put(CLINIC_ID_KEY, "clinic\nother");
+
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(tooLong))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(CLINIC_ID_KEY);
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(control))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(CLINIC_ID_KEY);
         }
@@ -321,6 +380,7 @@ class PatientPortalSettingsUnitTest {
             PatientPortalSettings settings = PatientPortalSettings.fromProperties(validProperties());
 
             assertThat(settings.toString()).doesNotContain(TOKEN);
+            assertThat(settings.toString()).doesNotContain(ASSERTION_PRIVATE_KEY);
             assertThat(settings.toString()).contains("REDACTED");
         }
 

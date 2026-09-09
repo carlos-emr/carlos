@@ -48,7 +48,8 @@ class PortalBoundaryRegressionUnitTest {
     }
     private PatientPortalService service(String body) {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
-                PortalSecret.of("synthetic-service-token"), Duration.ofSeconds(1),
+                PortalSecret.of("synthetic-service-token"),
+                PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(1),
                 Duration.ofSeconds(1), Set.of());
         return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(201, body));
     }
@@ -139,7 +140,8 @@ class PortalBoundaryRegressionUnitTest {
 
     @Test void withholdsArbitraryTextInErrorDetails() {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
-                PortalSecret.of("synthetic-service-token"), Duration.ofSeconds(1),
+                PortalSecret.of("synthetic-service-token"),
+                PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(1),
                 Duration.ofSeconds(1), Set.of());
         var client = new PatientPortalService(settings, request -> new PatientPortalHttpResponse(
                 409, "{\"detail\":\"SyntheticSecretToken123\"}"));
@@ -153,6 +155,7 @@ class PortalBoundaryRegressionUnitTest {
         var values = java.util.Map.of(PatientPortalSettings.BASE_URL_KEY, "https://portal.example",
                 PatientPortalSettings.CLINIC_ID_KEY, "clinic",
                 PatientPortalSettings.SERVICE_TOKEN_KEY, "synthetic-service-token",
+                PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY,
                 PatientPortalSettings.CERTIFICATE_PINS_KEY, pins);
         assertThatThrownBy(() -> PatientPortalSettings.fromProperties(values))
                 .isInstanceOf(PatientPortalConfigurationException.class);
