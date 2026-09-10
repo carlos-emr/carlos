@@ -388,17 +388,27 @@ class PatientPortalSettingsUnitTest {
         }
 
         @Test
-        @DisplayName("should reject service tokens outside the portal contract")
-        void shouldThrow_whenServiceTokenIsShortOrContainsControls() {
+        @DisplayName("should reject service tokens that cannot be used in an HTTP header")
+        void shouldThrow_whenServiceTokenIsShortOrNotVisibleAscii() {
             Map<String, String> shortToken = validProperties();
             shortToken.put(SERVICE_TOKEN_KEY, "x".repeat(31));
             Map<String, String> control = validProperties();
             control.put(SERVICE_TOKEN_KEY, "x".repeat(16) + "\n" + "x".repeat(16));
+            Map<String, String> whitespace = validProperties();
+            whitespace.put(SERVICE_TOKEN_KEY, "x".repeat(16) + " " + "x".repeat(16));
+            Map<String, String> unicode = validProperties();
+            unicode.put(SERVICE_TOKEN_KEY, "x".repeat(31) + "é");
 
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(shortToken))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(SERVICE_TOKEN_KEY);
             assertThatThrownBy(() -> PatientPortalSettings.fromProperties(control))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(SERVICE_TOKEN_KEY);
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(whitespace))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining(SERVICE_TOKEN_KEY);
+            assertThatThrownBy(() -> PatientPortalSettings.fromProperties(unicode))
                     .isInstanceOf(PatientPortalConfigurationException.class)
                     .hasMessageContaining(SERVICE_TOKEN_KEY);
         }

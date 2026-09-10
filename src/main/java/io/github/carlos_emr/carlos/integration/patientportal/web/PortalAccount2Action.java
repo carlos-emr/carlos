@@ -106,8 +106,11 @@ public class PortalAccount2Action extends PortalJsonAction {
             return methodNotAllowed(response);
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
+        if (!METHOD_UNLOCK.equals(method) && !METHOD_ACCESS.equals(method)) {
+            return badRequest(response, UNKNOWN_METHOD);
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // Unlock is deliberately a different object from account management.
         String securityObject =
                 METHOD_UNLOCK.equals(method)
@@ -135,11 +138,10 @@ public class PortalAccount2Action extends PortalJsonAction {
         PatientPortalStaffContext staff =
                 staffContextResolver.resolveForPatient(loggedInInfo, Set.of(securityObject), demographicNo);
         try {
-            return switch (method == null ? "" : method) {
-                case METHOD_UNLOCK -> unlock(portal, response, demographicNo, staff);
-                case METHOD_ACCESS -> access(portal, request, response, demographicNo, staff);
-                default -> badRequest(response, UNKNOWN_METHOD);
-            };
+            if (METHOD_UNLOCK.equals(method)) {
+                return unlock(portal, response, demographicNo, staff);
+            }
+            return access(portal, request, response, demographicNo, staff);
         } catch (PatientPortalException exception) {
             return portalFailure(response, exception);
         }

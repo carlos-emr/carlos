@@ -161,6 +161,18 @@ class PortalAccountAndPanelActionUnitTest {
             verifyNoInteractions(patientPortalService);
         }
 
+        @Test
+        @DisplayName("should reject an unknown action before authorization or portal lookup")
+        void shouldRejectUnknownMethod_beforeDependenciesAreUsed() throws Exception {
+            request.setParameter("method", "typo");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("unsupported portal account action");
+            verifyNoInteractions(securityInfoManager, staffContextResolver, patientPortalService);
+        }
+
         /**
          * Unlock forces a password reset on the patient, so it is gated on its own narrower object.
          * If it gated on _portal.account instead, anyone able to view an account could force a
