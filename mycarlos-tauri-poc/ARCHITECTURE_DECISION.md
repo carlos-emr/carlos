@@ -59,15 +59,18 @@ The staging PR now builds a security-focused local-vault vertical slice using sy
 1. import a PDF through the native picker;
 2. encrypt the document and its metadata before durable storage;
 3. close, restart, and unlock the application;
-4. export an authenticated plaintext copy only after an explicit warning; and
-5. organize records across profiles and nested folders without exposing metadata while locked.
+4. export an authenticated plaintext copy only after an explicit warning, using atomic replacement
+   when the destination is a filesystem path;
+5. organize records across profiles and nested folders without exposing metadata while locked; and
+6. permanently delete an individual record by durably removing it from one manifest, unlinking its
+   ciphertext, and removing its wrapped object key from the redundant manifest.
 
 The implemented format and key/recovery decisions are recorded in
 [`VAULT_FORMAT.md`](VAULT_FORMAT.md). This is implementation-complete for the scoped slice, not
 security-gate complete: independent review, crash injection, backup/restore and physical-device
-matrices, signing, and release controls remain. The chosen scope defers document viewing and
-individual deletion. Cloud synchronization and CARLOS integration follow only after the local
-vault lifecycle passes review.
+matrices, signing, and release controls remain. The chosen scope still defers secure document
+viewing and deletion propagation to backups or synchronized devices. Cloud synchronization and
+CARLOS integration follow only after the local vault lifecycle passes review.
 
 ## Superseded direction
 

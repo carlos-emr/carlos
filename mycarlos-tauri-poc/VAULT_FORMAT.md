@@ -35,20 +35,37 @@ vault-v1/
 
 The encrypted manifest contains profiles, nested folders, folder assignments, immutable imported
 filenames, sizes, timestamps, unverified-source labels, per-record fingerprints, opaque object
-names, and wrapped content keys. Mutations write and sync the inactive generation slot before it
-becomes current using a cross-platform atomic replacement primitive. Unlock authenticates both
-slots, selects the highest valid generation whose objects exist, removes incomplete staging jobs,
-and removes ciphertext objects that were never committed to a manifest.
+names, and wrapped content keys. Mutations write the same logical state into two consecutive
+generations using a cross-platform atomic replacement primitive. Unlock authenticates both slots,
+selects the highest valid generation whose objects exist, rewrites that state into the other slot
+to repair redundancy, removes incomplete staging jobs, and only then removes ciphertext objects
+not present in the repaired state.
 
 Imports stream arbitrary files in 1 MiB chunks. XChaCha20-Poly1305 authenticates every chunk with
 the vault ID, record ID, chunk index, and final-chunk marker as associated data. Files are encrypted
 and verified in a per-job staging directory; a batch becomes visible only after every non-duplicate
 input succeeds and the next manifest generation is durable. Duplicate fingerprints are keyed and
-scoped to a patient profile. A failed batch leaves the prior manifest authoritative.
+scoped to a patient profile. A failed batch leaves the prior manifest authoritative. The native
+picker is filtered to PDFs and batches are limited to 100 files so the picker bridge does not hold
+an unbounded number of open handles in one transaction. Individual file size is not capped;
+constant-memory chunking keeps large medical files possible, while available storage and future
+vault-quota policy remain separate concerns. The filter does not validate PDF structure or make a
+future renderer safe.
 
 Exports stream authenticated plaintext only into a destination explicitly chosen with the native
-save dialog. The UI warns that the exported copy is outside vault protection. No viewer, individual
-deletion, synchronization, analytics, or CARLOS provenance is implemented.
+save dialog. Filesystem-path destinations are written to a same-directory temporary file and
+atomically replaced only after authentication and syncing succeeds. Content-provider destinations,
+where atomic rename is unavailable, receive a second streaming pass only after a complete
+authentication pass. The UI warns that the exported copy is outside vault protection.
+
+Individual deletion commits a manifest without the record into one slot, unlinks the ciphertext,
+then commits the same state at a newer generation into the other slot. Both live manifests
+therefore omit the wrapped per-object key after a successful operation. If unlinking fails, the
+second commit still makes the object an undecryptable orphan and unlock cleanup retries its
+removal. This local cryptographic-erasure
+property does not remove previously exported plaintext or old copies held by filesystem snapshots,
+device backups, or a future synchronization service. Those systems require explicit tombstones and
+retention rules. No viewer, synchronization, analytics, or CARLOS provenance is implemented.
 
 ## Backup and restore behavior
 
@@ -64,6 +81,8 @@ reset, which permanently removes all local profiles and records.
 ## Known limits before release
 
 - Rollback across an externally restored pair of otherwise valid manifest slots is not detected.
+- Individual deletion has no backup/synchronization tombstone or verified secure-erasure guarantee
+  for storage media, snapshots, exported plaintext, or copies outside the live vault.
 - Crash-injection, power-loss, low-disk, physical-device backup/restore, and filesystem-permission
   matrices remain release-gate tests.
 - Argon2id settings require performance measurements on the oldest supported device class.

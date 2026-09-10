@@ -52,6 +52,7 @@ export interface VaultBridge {
   assignFolders(recordId: string, folderIds: string[]): Promise<void>;
   importFiles(profileId: string, folderIds: string[]): Promise<ImportOutcome>;
   exportFile(recordId: string, suggestedName: string): Promise<boolean>;
+  deleteRecord(recordId: string): Promise<void>;
   reset(confirmation: string): Promise<void>;
 }
 
@@ -98,6 +99,8 @@ export function createVaultBridge(): VaultBridge {
       invoke<ImportOutcome>("vault_import_begin", { request: { profileId, folderIds } }),
     exportFile: (recordId, suggestedName) =>
       invoke<boolean>("vault_export_begin", { request: { recordId, suggestedName } }),
+    deleteRecord: (recordId) =>
+      invoke<void>("vault_delete_record", { request: { recordId } }),
     reset: (confirmation) => invoke<void>("vault_reset", { request: { confirmation } }),
   };
 }

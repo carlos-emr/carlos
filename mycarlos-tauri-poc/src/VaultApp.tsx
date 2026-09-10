@@ -453,6 +453,17 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
       : "Save cancelled. Nothing changed."));
   };
 
+  const deleteRecord = (record: VaultRecord) => {
+    if (!window.confirm(`Permanently delete ${record.displayName} from this vault? This cannot be undone.`)) return;
+    void run(async () => {
+      await bridge.deleteRecord(record.id);
+      setActiveRecordId(null);
+      setSelectedIds((current) => current.filter((id) => id !== record.id));
+      await refresh();
+      setNotice(`${record.displayName} was permanently deleted.`);
+    });
+  };
+
   const folderCount = (id: string) => records.filter((record) => record.folderIds.includes(id)).length;
   const locationTitle = currentFolder?.name ?? "My records";
 
@@ -583,7 +594,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
           <header className="dialog-head"><div><span className="eyebrow">Encrypted document</span><h2 id="native-record-title">{activeRecord.displayName}</h2></div><button className="dialog-close" type="button" aria-label="Close document details" onClick={() => setActiveRecordId(null)}>×</button></header>
           <div className="document-preview" aria-label="Encrypted document details"><span className={`document-icon ${recordKind(activeRecord.displayName).icon}`}><Icon name={recordKind(activeRecord.displayName).icon} /></span><div className="preview-paper" aria-hidden="true"><i /><i /><i /><i /><i /></div><p>The file stays encrypted in the vault. Save a copy only when you need a readable file outside myCarlos.</p></div>
           <dl className="record-metadata"><div><dt>Kind</dt><dd>{recordKind(activeRecord.displayName).label}</dd></div><div><dt>Source</dt><dd>{activeRecord.sourceLabel}</dd></div><div><dt>Date added</dt><dd>{new Date(activeRecord.importedAtMs).toLocaleString()}</dd></div><div><dt>File</dt><dd>{bytes(activeRecord.plaintextSize)}</dd></div><div><dt>Folder</dt><dd>{activeRecord.folderIds.map((id) => folderNameById.get(id)).filter(Boolean).join(", ") || "My records"}</dd></div></dl>
-          <footer className="dialog-actions native-dialog-actions"><label>Move to<select value={activeRecord.folderIds[0] ?? ""} onChange={(event) => void run(async () => { await bridge.assignFolders(activeRecord.id, event.target.value ? [event.target.value] : []); await refresh(); setNotice("Document moved."); })}><option value="">My records</option>{folders.map((folder) => <option value={folder.id} key={folder.id}>{folder.name}</option>)}</select></label><button className="button primary" type="button" disabled={busy} onClick={() => exportRecord(activeRecord)}>Save a copy to this computer</button></footer>
+          <footer className="dialog-actions native-dialog-actions"><label>Move to<select value={activeRecord.folderIds[0] ?? ""} onChange={(event) => void run(async () => { await bridge.assignFolders(activeRecord.id, event.target.value ? [event.target.value] : []); await refresh(); setNotice("Document moved."); })}><option value="">My records</option>{folders.map((folder) => <option value={folder.id} key={folder.id}>{folder.name}</option>)}</select></label><button className="button danger" type="button" disabled={busy} onClick={() => deleteRecord(activeRecord)}>Permanently delete</button><button className="button primary" type="button" disabled={busy} onClick={() => exportRecord(activeRecord)}>Save a copy to this computer</button></footer>
         </section></div>}
       </section>
     </div>

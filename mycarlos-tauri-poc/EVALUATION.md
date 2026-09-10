@@ -1,8 +1,8 @@
 # myCarlos Tauri evaluation guide
 
-This build exists only to answer whether Tauri is a credible cross-platform shell for a future
-patient-held records product. It is not a pilot, beta, clinical system, or foundation that should
-be promoted directly to production.
+This build began as a framework evaluation and now includes a synthetic-data local-vault MVP slice.
+It is not a pilot, beta, clinical system, or foundation that should be promoted directly to
+production.
 
 ## Decision outcome
 
@@ -24,13 +24,16 @@ maintain a parallel Electron/Capacitor implementation.
 - Use synthetic PDF files only. Never enter or select real patient information.
 - The app has no accounts, API, analytics, or clinical integration. Native builds include a
   synthetic-data-only encrypted persistence slice; the browser evaluation remains session-only.
-- A chosen PDF is not opened, copied, uploaded, or rendered. Only its basename is displayed in
-  memory until the app is refreshed, closed, or reset.
+- The browser demo never opens or copies a chosen PDF; it keeps basename metadata in memory only.
+- In a native build, Rust owns the selected file handle and streams the file directly into encrypted
+  storage. The React renderer receives only opaque IDs and sanitized metadata.
+- Saving a copy creates plaintext at the explicitly selected destination. Permanent deletion covers
+  the live local vault only; it cannot recall previously exported files or old external backups.
 - Debug packages are unsigned evaluation artifacts and must not be distributed to patients.
 
 ## Evaluation tasks
 
-Run the same tasks in the browser, desktop shell, Android emulator/device, and iOS
+Run the responsive concept tasks in the browser, desktop shell, Android emulator/device, and iOS
 simulator/device where available:
 
 1. Confirm the evaluation warning is visible without scrolling.
@@ -49,6 +52,21 @@ simulator/device where available:
    health permission is requested.
 10. Check keyboard navigation, screen-reader labels, text scaling, rotation, and reduced motion.
 
+In a native build, additionally:
+
+1. Generate the fake development pack with `npm run dev:data`.
+2. Create a vault with a unique throwaway passphrase and import only the generated PDFs.
+3. Confirm imports are encrypted, survive lock/restart/unlock, and remain in the selected profile
+   and folder.
+4. Confirm a 101-file batch is rejected before import starts. Import a representative file larger
+   than 100 MB while monitoring memory and confirm memory remains bounded by chunk size rather than
+   total file size.
+5. Export over an existing synthetic file and confirm a deliberately corrupted record leaves the
+   existing destination unchanged.
+6. Permanently delete one record, restart, unlock, and confirm it remains absent.
+7. Background the app during import/export and confirm it locks immediately after the active native
+   operation finishes.
+
 ## Decision questions
 
 Record evidence for these questions rather than treating a successful build as approval:
@@ -59,7 +77,7 @@ Record evidence for these questions rather than treating a successful build as a
 | Native bridge | Can the UI call a narrow, typed Rust command? | Yes |
 | File chooser | Does the platform picker work consistently? | Implemented; real devices still required |
 | Accessibility | Is the experience usable with target assistive technology? | Automated semantics only; manual testing required |
-| Secure vault | Can records be encrypted, recovered, backed up, and deleted safely? | Local encrypted import/export implemented; independent review, device restore, and deletion remain |
+| Secure vault | Can records be encrypted, recovered, backed up, and deleted safely? | Local encrypted import/export and live-vault deletion implemented; independent review, device restore, and backup tombstones remain |
 | Mobile APIs | Do biometrics, notifications, deep links, and background work meet requirements? | Not evaluated |
 | Operations | Can the app be signed, observed safely, updated, and supported? | Not evaluated |
 | Dependency risk | Are all initial-target dependency graphs acceptable? | Linux is deferred; the remaining target graphs still require production review |

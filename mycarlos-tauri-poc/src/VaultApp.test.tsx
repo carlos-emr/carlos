@@ -25,6 +25,7 @@ function nativeBridge(overrides: Partial<VaultBridge> = {}): VaultBridge {
     assignFolders: vi.fn().mockResolvedValue(undefined),
     importFiles: vi.fn().mockResolvedValue({ imported: [], skippedDuplicates: [] }),
     exportFile: vi.fn().mockResolvedValue(false),
+    deleteRecord: vi.fn().mockResolvedValue(undefined),
     reset: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -173,6 +174,32 @@ describe("durable vault UI", () => {
     await waitFor(() => expect(bridge.lock).toHaveBeenCalledOnce());
     expect(await screen.findByRole("heading", { name: "Unlock your vault" })).toBeVisible();
     visibility.mockRestore();
+  });
+
+  it("requires confirmation before permanently deleting a durable record", async () => {
+    const user = userEvent.setup();
+    const record = { id: "record-1", profileId: "profile-1", folderIds: [], displayName: "FAKE_Report.pdf", sourceLabel: "Manual import — unverified", mediaType: "application/octet-stream", plaintextSize: 2048, importedAtMs: 1 };
+    const deleteRecord = vi.fn().mockResolvedValue(undefined);
+    const snapshot = vi.fn()
+      .mockResolvedValueOnce({ ...emptySnapshot, records: [record] })
+      .mockResolvedValueOnce(emptySnapshot);
+    const bridge = nativeBridge({
+      status: vi.fn().mockResolvedValue("unlocked"),
+      snapshot,
+      deleteRecord,
+    });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(<VaultApp bridge={bridge} />);
+
+    await user.click(await screen.findByText("FAKE_Report.pdf"));
+    await user.click(screen.getByRole("button", { name: "Permanently delete" }));
+    expect(deleteRecord).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Permanently delete" }));
+    await waitFor(() => expect(deleteRecord).toHaveBeenCalledWith("record-1"));
+    expect(await screen.findByText("FAKE_Report.pdf was permanently deleted.")).toBeVisible();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    confirm.mockRestore();
   });
 
   it("ignores window blur and locks after 15 minutes of inactivity", async () => {

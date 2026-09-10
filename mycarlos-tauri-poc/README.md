@@ -4,9 +4,11 @@
 > an encrypted durable-vault vertical slice, but it has not passed the security, privacy, signing,
 > physical-device, or release gates required for PHI. It is not connected to CARLOS EMR.
 
-This directory is the framework-selection proof of concept for the patient-held record proposed in
+This directory began as the framework-selection proof of concept for the patient-held record proposed in
 [`carlos-emr/carlos#3474`](https://github.com/carlos-emr/carlos/issues/3474). It uses one responsive
-React/TypeScript web UI with a narrow Rust boundary and Tauri's native document picker.
+React/TypeScript web UI with a narrow Rust boundary and Tauri's native document picker. The branch
+now also contains a synthetic-data local-vault MVP slice; it remains evaluation code rather than a
+patient pilot or production application.
 
 **Tauri v2 is the selected application shell for the next development phase.** This is a framework
 decision, not production approval. [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md) records the
@@ -16,6 +18,8 @@ remain unmerged in CARLOS until that repository exists, and should then be close
 [`THREAT_MODEL.md`](THREAT_MODEL.md) defines the assets, trust boundaries, credible threats,
 required controls, and the Secure Vault v0.1 acceptance gate. [`VAULT_FORMAT.md`](VAULT_FORMAT.md)
 records the implemented local format and the decisions and release-gate work that remain.
+[`MVP_STATUS.md`](MVP_STATUS.md) separates the implemented synthetic-data milestone from the open
+security, device, integration, and release gates.
 
 Use [`EVALUATION.md`](EVALUATION.md) to reproduce the evaluation evidence and record remaining
 platform findings. The UI
@@ -48,6 +52,10 @@ evaluation evidence and must not be distributed to patients.
 - A typed `runtime_info` command crossing from TypeScript to Rust.
 - Native multi-file import and explicit export dialogs owned by Rust; filesystem paths and file
   bytes are never accepted from or returned to React.
+- PDF-filtered imports are limited to 100 files per batch to bound simultaneously open handles and
+  one transaction's duration. Individual file size is not capped: encryption remains
+  constant-memory by streaming 1 MiB chunks, whose plaintext buffers are zeroized on success and
+  error paths.
 - A passphrase-unlocked, XChaCha20-Poly1305 encrypted local vault with an Argon2id key wrapper,
   encrypted metadata, chunked files, per-object keys, atomic manifest generations, and keyed
   duplicate detection.
@@ -55,14 +63,19 @@ evaluation evidence and must not be distributed to patients.
   15-minute inactivity locking, passphrase change, and typed-confirmation whole-vault reset. A
   background lock requested by a native picker is completed immediately after that active
   import/export operation, avoiding a mid-operation lock race.
+- Confirmed individual record deletion updates one durable manifest, unlinks the encrypted object,
+  and then updates the redundant manifest. Both live slots omit the wrapped per-object key when the
+  operation succeeds. Old external backups and future synchronized copies remain outside that
+  local deletion guarantee.
 - A collapsible evaluation panel and reset control that removes session-only metadata.
 - Frontend unit tests, browser viewport tests, Rust tests, and unsigned debug builds in CI.
 
-It deliberately does **not** implement an in-app document viewer, individual deletion, accounts,
-synchronization, Android cloud backup, CARLOS integration, verified provenance, HealthKit/Health
-Connect, release signing, or app-store packaging. Apple OS backup may carry the encrypted app-data
-vault, but restore still requires the patient passphrase. A successful build and test run are not
-evidence that the app is ready to hold PHI.
+It deliberately does **not** implement an in-app document viewer, accounts, synchronization,
+Android cloud backup, CARLOS integration, verified provenance, HealthKit/Health Connect, release
+signing, or app-store packaging. Deletion does not yet propagate tombstones to backups or other
+devices. Apple OS backup may carry the encrypted app-data vault, but restore still requires the
+patient passphrase. A successful build and test run is not evidence that the app is ready to hold
+PHI.
 
 ## Responsive UI evidence
 
@@ -144,9 +157,12 @@ npx playwright install chromium
 npm run test:e2e
 
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml
+CARGO_BUILD_JOBS=1 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+CARGO_BUILD_JOBS=1 cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1
 ```
+
+The single Cargo build job and test thread are the low-memory defaults for a shared development
+container. They trade speed for predictable memory use and do not affect the produced application.
 
 ## Native boundary
 

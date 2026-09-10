@@ -1,5 +1,5 @@
 use argon2::{Algorithm, Argon2, Params, Version};
-use atomicwrites::{AllowOverwrite, AtomicFile};
+use atomicwrites::{AllowOverwrite, AtomicFile, Error as AtomicWriteError};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chacha20poly1305::{
     aead::{Aead, KeyInit, Payload},
@@ -26,6 +26,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 const VAULT_FORMAT: u32 = 1;
 const OBJECT_MAGIC: &[u8; 5] = b"MCVO1";
 const CHUNK_SIZE: usize = 1024 * 1024;
+const MAX_IMPORT_FILES: usize = 100;
 const ARGON_MEMORY_KIB: u32 = 64 * 1024;
 const ARGON_ITERATIONS: u32 = 3;
 const ARGON_LANES: u32 = 4;
@@ -48,6 +49,8 @@ pub enum VaultError {
     NotFound,
     #[error("the requested change is not valid")]
     Invalid,
+    #[error("too many files were selected for one import")]
+    ImportBatchLimit,
     #[error("there is not enough space to complete the operation")]
     NoSpace,
     #[error("the storage operation could not be completed")]
@@ -237,7 +240,7 @@ impl VaultStore {
             let header = build_header(vault_id, passphrase, &master_key)?;
             atomic_json(&stage.join("header.json"), &header)?;
 
-            let manifest = Manifest {
+            let mut manifest = Manifest {
                 format_version: VAULT_FORMAT,
                 vault_id,
                 generation: 1,
@@ -250,6 +253,12 @@ impl VaultStore {
                 records: Vec::new(),
             };
             write_manifest_at(&stage, &master_key, &manifest)?;
+            manifest.generation = manifest
+                .generation
+                .checked_add(1)
+                .ok_or(VaultError::Storage)?;
+            write_manifest_at(&stage, &master_key, &manifest)?;
+            sync_parent(&stage);
             fs::rename(&stage, &self.root)?;
             sync_parent(parent);
             *self.unlocked.lock().expect("vault mutex poisoned") = Some(UnlockedVault {
@@ -268,6 +277,7 @@ impl VaultStore {
         let header = self.read_header()?;
         let master_key = unwrap_master_key(&header, passphrase)?;
         let manifest = read_latest_manifest(&self.root, &master_key, header.vault_id)?;
+        let manifest = repair_manifest_redundancy(&self.root, &master_key, manifest)?;
         remove_staging(&self.root);
         remove_orphan_objects(&self.root, &manifest);
         *self.unlocked.lock().expect("vault mutex poisoned") = Some(UnlockedVault {
@@ -424,6 +434,9 @@ impl VaultStore {
                 skipped_duplicates: Vec::new(),
             });
         }
+        if sources.len() > MAX_IMPORT_FILES {
+            return Err(VaultError::ImportBatchLimit);
+        }
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
         require_profile(&unlocked.manifest, profile_id)?;
@@ -454,11 +467,13 @@ impl VaultStore {
                 let encrypted = encrypt_object(
                     source.reader,
                     &object_path,
-                    unlocked.manifest.vault_id,
-                    record_id,
+                    ObjectContext {
+                        vault_id: unlocked.manifest.vault_id,
+                        record_id,
+                        profile_id,
+                    },
                     &object_key,
                     &keys.fingerprint,
-                    profile_id,
                 )?;
                 let fingerprint = BASE64.encode(encrypted.fingerprint);
                 if existing.contains(&fingerprint)
@@ -496,16 +511,21 @@ impl VaultStore {
                 ));
             }
 
+            let objects = self.root.join("objects");
             for (path, record) in &staged {
-                let destination = self.root.join("objects").join(&record.object_name);
+                let destination = objects.join(&record.object_name);
                 fs::rename(path, &destination)?;
             }
+            sync_parent(&objects);
             let mut next = unlocked.manifest.clone();
-            next.generation += 1;
             next.records
                 .extend(staged.iter().map(|(_, record)| record.clone()));
-            write_manifest_at(&self.root, &unlocked.master_key, &next)?;
-            unlocked.manifest = next;
+            commit_manifest_redundant(
+                &self.root,
+                &unlocked.master_key,
+                &mut unlocked.manifest,
+                next,
+            )?;
             Ok(ImportOutcome {
                 imported: staged.iter().map(|(_, record)| record.id).collect(),
                 skipped_duplicates,
@@ -540,6 +560,60 @@ impl VaultStore {
         )
     }
 
+    pub fn export_atomic(&self, record_id: Uuid, destination: &Path) -> Result<(), VaultError> {
+        let vault_root = fs::canonicalize(&self.root)?;
+        let destination_parent = destination.parent().ok_or(VaultError::Invalid)?;
+        let destination_parent = fs::canonicalize(destination_parent)?;
+        if destination_parent.starts_with(vault_root) {
+            return Err(VaultError::Invalid);
+        }
+
+        let mut options = OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        AtomicFile::new(destination, AllowOverwrite)
+            .write_with_options(|file| self.export(record_id, file), options)
+            .map_err(|error| match error {
+                AtomicWriteError::Internal(error) => error.into(),
+                AtomicWriteError::User(error) => error,
+            })
+    }
+
+    pub fn delete_record(&self, record_id: Uuid) -> Result<(), VaultError> {
+        let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
+        let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
+        let mut next = unlocked.manifest.clone();
+        let index = next
+            .records
+            .iter()
+            .position(|record| record.id == record_id)
+            .ok_or(VaultError::NotFound)?;
+        let object_name = next.records.remove(index).object_name;
+
+        // Commit once before unlinking the ciphertext. If the second manifest write is
+        // interrupted, the newest manifest records the deletion and the older manifest cannot
+        // decrypt a ciphertext that was successfully removed. Unlock repairs slot redundancy
+        // before it considers orphan cleanup.
+        next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
+        write_manifest_at(&self.root, &unlocked.master_key, &next)?;
+        unlocked.manifest = next.clone();
+
+        let objects = self.root.join("objects");
+        match fs::remove_file(objects.join(object_name)) {
+            Ok(()) => sync_parent(&objects),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            // The second manifest commit below still performs cryptographic erasure. Unlock
+            // cleanup retries removal of ciphertext that no live manifest can decrypt.
+            Err(_) => {}
+        }
+
+        next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
+        write_manifest_at(&self.root, &unlocked.master_key, &next)?;
+        unlocked.manifest = next;
+        Ok(())
+    }
+
     pub fn change_passphrase(&self, current: &str, replacement: &str) -> Result<(), VaultError> {
         validate_passphrase(replacement)?;
         let header = self.read_header()?;
@@ -559,8 +633,22 @@ impl VaultStore {
             .root
             .with_file_name(format!("mycarlos-vault-reset-{}", Uuid::new_v4()));
         fs::rename(&self.root, &retired)?;
-        fs::remove_dir_all(retired)?;
-        Ok(())
+        match fs::remove_dir_all(&retired) {
+            Ok(()) => {
+                if let Some(parent) = self.root.parent() {
+                    sync_parent(parent);
+                }
+                Ok(())
+            }
+            Err(error) => {
+                // Keep a failed or partially completed reset visible as the vault path instead of
+                // silently presenting an empty setup screen while retired encrypted data remains.
+                if !self.root.exists() {
+                    let _ = fs::rename(&retired, &self.root);
+                }
+                Err(error.into())
+            }
+        }
     }
 
     fn read_header(&self) -> Result<VaultHeader, VaultError> {
@@ -590,9 +678,12 @@ impl VaultStore {
         let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
         let mut next = unlocked.manifest.clone();
         let result = mutation(&mut next)?;
-        next.generation += 1;
-        write_manifest_at(&self.root, &unlocked.master_key, &next)?;
-        unlocked.manifest = next;
+        commit_manifest_redundant(
+            &self.root,
+            &unlocked.master_key,
+            &mut unlocked.manifest,
+            next,
+        )?;
         Ok(result)
     }
 }
@@ -607,6 +698,13 @@ struct DerivedKeys {
 struct EncryptedObject {
     plaintext_size: u64,
     fingerprint: [u8; 32],
+}
+
+#[derive(Clone, Copy)]
+struct ObjectContext {
+    vault_id: Uuid,
+    record_id: Uuid,
+    profile_id: Uuid,
 }
 
 fn validate_passphrase(passphrase: &str) -> Result<(), VaultError> {
@@ -795,6 +893,38 @@ fn write_manifest_at(
     atomic_bytes(&manifest_path(root, manifest.generation), &output)
 }
 
+fn commit_manifest_redundant(
+    root: &Path,
+    master_key: &[u8; 32],
+    current: &mut Manifest,
+    mut next: Manifest,
+) -> Result<(), VaultError> {
+    next.generation = current
+        .generation
+        .checked_add(1)
+        .ok_or(VaultError::Storage)?;
+    write_manifest_at(root, master_key, &next)?;
+    *current = next.clone();
+
+    next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
+    write_manifest_at(root, master_key, &next)?;
+    *current = next;
+    Ok(())
+}
+
+fn repair_manifest_redundancy(
+    root: &Path,
+    master_key: &[u8; 32],
+    mut manifest: Manifest,
+) -> Result<Manifest, VaultError> {
+    manifest.generation = manifest
+        .generation
+        .checked_add(1)
+        .ok_or(VaultError::Storage)?;
+    write_manifest_at(root, master_key, &manifest)?;
+    Ok(manifest)
+}
+
 fn read_latest_manifest(
     root: &Path,
     master_key: &[u8; 32],
@@ -818,6 +948,7 @@ fn read_latest_manifest(
         ) else {
             continue;
         };
+        let plaintext = Zeroizing::new(plaintext);
         let Ok(manifest) = serde_json::from_slice::<Manifest>(&plaintext) else {
             continue;
         };
@@ -858,11 +989,9 @@ fn object_aad(vault_id: Uuid, record_id: Uuid, index: u64, final_chunk: bool) ->
 fn encrypt_object(
     mut reader: Box<dyn Read + Send>,
     path: &Path,
-    vault_id: Uuid,
-    record_id: Uuid,
+    context: ObjectContext,
     object_key: &[u8; 32],
     fingerprint_key: &[u8; 32],
-    profile_id: Uuid,
 ) -> Result<EncryptedObject, VaultError> {
     let file = open_private_new(path)?;
     let mut writer = BufWriter::new(file);
@@ -875,9 +1004,9 @@ fn encrypt_object(
     let cipher = XChaCha20Poly1305::new(object_key.into());
     let mut mac =
         <HmacSha256 as Mac>::new_from_slice(fingerprint_key).map_err(|_| VaultError::Storage)?;
-    mac.update(profile_id.as_bytes());
-    let mut current = vec![0_u8; CHUNK_SIZE];
-    let mut next = vec![0_u8; CHUNK_SIZE];
+    mac.update(context.profile_id.as_bytes());
+    let mut current = Zeroizing::new(vec![0_u8; CHUNK_SIZE]);
+    let mut next = Zeroizing::new(vec![0_u8; CHUNK_SIZE]);
     let mut current_len = read_chunk(&mut reader, &mut current)?;
     let mut total = 0_u64;
     let mut index = 0_u64;
@@ -895,7 +1024,7 @@ fn encrypt_object(
         let mut nonce = [0_u8; 24];
         nonce[..16].copy_from_slice(&nonce_prefix);
         nonce[16..].copy_from_slice(&index.to_be_bytes());
-        let aad = object_aad(vault_id, record_id, index, final_chunk);
+        let aad = object_aad(context.vault_id, context.record_id, index, final_chunk);
         let ciphertext = cipher
             .encrypt(
                 XNonce::from_slice(&nonce),
@@ -915,8 +1044,6 @@ fn encrypt_object(
         current_len = next_len;
         index = index.checked_add(1).ok_or(VaultError::Invalid)?;
     }
-    current.zeroize();
-    next.zeroize();
     writer.flush()?;
     writer.get_ref().sync_all()?;
     let fingerprint: [u8; 32] = mac.finalize().into_bytes().into();
@@ -975,20 +1102,21 @@ fn verify_object<W: Write>(
         nonce[..16].copy_from_slice(&nonce_prefix);
         nonce[16..].copy_from_slice(&index.to_be_bytes());
         let aad = object_aad(vault_id, record_id, index, final_chunk);
-        let mut plaintext = cipher
-            .decrypt(
-                XNonce::from_slice(&nonce),
-                Payload {
-                    msg: &ciphertext,
-                    aad: &aad,
-                },
-            )
-            .map_err(|_| VaultError::Corrupt)?;
+        let plaintext = Zeroizing::new(
+            cipher
+                .decrypt(
+                    XNonce::from_slice(&nonce),
+                    Payload {
+                        msg: &ciphertext,
+                        aad: &aad,
+                    },
+                )
+                .map_err(|_| VaultError::Corrupt)?,
+        );
         total = total
             .checked_add(plaintext.len() as u64)
             .ok_or(VaultError::Corrupt)?;
         writer.write_all(&plaintext)?;
-        plaintext.zeroize();
         if final_chunk {
             let mut trailing = [0_u8; 1];
             if reader.read(&mut trailing)? != 0 || total != expected_size {
@@ -1432,5 +1560,210 @@ mod tests {
             Err(VaultError::WrongPassphrase)
         ));
         store.unlock("Replacement#9Pass").unwrap();
+    }
+
+    #[test]
+    fn corrupt_latest_manifest_falls_back_without_losing_imported_records() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let record = store
+            .import(
+                profile,
+                vec![],
+                vec![source("report.pdf", b"durable synthetic record")],
+                2,
+            )
+            .unwrap()
+            .imported[0];
+        let latest_generation = {
+            let guard = store.unlocked.lock().unwrap();
+            guard.as_ref().unwrap().manifest.generation
+        };
+        store.lock();
+        fs::write(
+            manifest_path(&root, latest_generation),
+            b"synthetic corruption",
+        )
+        .unwrap();
+
+        let restarted = VaultStore::new(root);
+        restarted.unlock(PASSWORD).unwrap();
+        assert_eq!(restarted.snapshot().unwrap().records[0].id, record);
+        let mut output = Vec::new();
+        restarted.export(record, &mut output).unwrap();
+        assert_eq!(output, b"durable synthetic record");
+    }
+
+    #[test]
+    fn atomic_export_preserves_an_existing_destination_on_corruption() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let destination = temp.path().join("export.pdf");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let record = store
+            .import(
+                profile,
+                vec![],
+                vec![source("report.pdf", b"authenticated synthetic record")],
+                2,
+            )
+            .unwrap()
+            .imported[0];
+
+        let header_before = fs::read(root.join("header.json")).unwrap();
+        assert!(matches!(
+            store.export_atomic(record, &root.join("header.json")),
+            Err(VaultError::Invalid)
+        ));
+        assert_eq!(fs::read(root.join("header.json")).unwrap(), header_before);
+
+        fs::write(&destination, b"existing destination").unwrap();
+        store.export_atomic(record, &destination).unwrap();
+        assert_eq!(
+            fs::read(&destination).unwrap(),
+            b"authenticated synthetic record"
+        );
+
+        let object_name = {
+            let guard = store.unlocked.lock().unwrap();
+            guard.as_ref().unwrap().manifest.records[0]
+                .object_name
+                .clone()
+        };
+        let object = root.join("objects").join(object_name);
+        let mut bytes = fs::read(&object).unwrap();
+        *bytes.last_mut().unwrap() ^= 1;
+        fs::write(object, bytes).unwrap();
+        fs::write(&destination, b"do not overwrite").unwrap();
+
+        assert!(matches!(
+            store.export_atomic(record, &destination),
+            Err(VaultError::Corrupt)
+        ));
+        assert_eq!(fs::read(destination).unwrap(), b"do not overwrite");
+    }
+
+    #[test]
+    fn unlock_finishes_deletion_interrupted_after_its_first_manifest_commit() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        store
+            .import(
+                profile,
+                vec![],
+                vec![source("delete-me.pdf", b"synthetic document bytes")],
+                2,
+            )
+            .unwrap();
+
+        let (master_key, mut interrupted, object_path) = {
+            let guard = store.unlocked.lock().unwrap();
+            let unlocked = guard.as_ref().unwrap();
+            let mut interrupted = unlocked.manifest.clone();
+            let object_path = root
+                .join("objects")
+                .join(&interrupted.records[0].object_name);
+            interrupted.records.clear();
+            (*unlocked.master_key, interrupted, object_path)
+        };
+        interrupted.generation += 1;
+        write_manifest_at(&root, &master_key, &interrupted).unwrap();
+        assert!(object_path.exists());
+        store.lock();
+
+        let restarted = VaultStore::new(root);
+        restarted.unlock(PASSWORD).unwrap();
+        assert!(restarted.snapshot().unwrap().records.is_empty());
+        assert!(!object_path.exists());
+    }
+
+    #[test]
+    fn deleting_a_record_removes_its_key_from_both_manifest_slots() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let record = store
+            .import(
+                profile,
+                vec![],
+                vec![source("delete-me.pdf", b"synthetic document bytes")],
+                2,
+            )
+            .unwrap()
+            .imported[0];
+        let object_name = {
+            let guard = store.unlocked.lock().unwrap();
+            guard.as_ref().unwrap().manifest.records[0]
+                .object_name
+                .clone()
+        };
+
+        store.delete_record(record).unwrap();
+        assert!(store.snapshot().unwrap().records.is_empty());
+        assert!(!root.join("objects").join(object_name).exists());
+
+        let (master_key, vault_id, latest_generation) = {
+            let guard = store.unlocked.lock().unwrap();
+            let unlocked = guard.as_ref().unwrap();
+            (
+                *unlocked.master_key,
+                unlocked.manifest.vault_id,
+                unlocked.manifest.generation,
+            )
+        };
+        fs::write(
+            manifest_path(&root, latest_generation),
+            b"synthetic corruption",
+        )
+        .unwrap();
+        let fallback = read_latest_manifest(&root, &master_key, vault_id).unwrap();
+        assert!(fallback.records.is_empty());
+    }
+
+    #[test]
+    fn deleting_a_missing_record_does_not_change_the_manifest() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = VaultStore::new(temp.path().join("vault"));
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let before = {
+            let guard = store.unlocked.lock().unwrap();
+            guard.as_ref().unwrap().manifest.generation
+        };
+
+        assert!(matches!(
+            store.delete_record(Uuid::new_v4()),
+            Err(VaultError::NotFound)
+        ));
+        let after = {
+            let guard = store.unlocked.lock().unwrap();
+            guard.as_ref().unwrap().manifest.generation
+        };
+        assert_eq!(after, before);
+    }
+
+    #[test]
+    fn excessive_import_batches_are_rejected_before_files_are_read() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = VaultStore::new(temp.path().join("vault"));
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let sources = (0..=MAX_IMPORT_FILES)
+            .map(|index| source(&format!("record-{index}.pdf"), b"%PDF-synthetic"))
+            .collect();
+        assert!(matches!(
+            store.import(profile, vec![], sources, 2),
+            Err(VaultError::ImportBatchLimit)
+        ));
+        assert!(store.snapshot().unwrap().records.is_empty());
     }
 }

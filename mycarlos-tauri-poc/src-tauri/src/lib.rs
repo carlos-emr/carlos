@@ -61,14 +61,17 @@ impl From<VaultError> for PublicError {
                 code: "invalid",
                 message: "Check the requested information and try again.",
             },
+            VaultError::ImportBatchLimit => Self {
+                code: "import_batch_limit",
+                message: "Choose no more than 100 files in one import.",
+            },
             VaultError::NoSpace => Self {
                 code: "no_space",
                 message: "There is not enough storage to complete this operation.",
             },
             VaultError::Storage => Self {
                 code: "storage",
-                message:
-                    "The storage operation could not be completed. No partial import was kept.",
+                message: "The storage operation could not be completed. Review the current vault state before retrying.",
             },
         }
     }
@@ -134,6 +137,12 @@ struct ImportRequest {
 struct ExportRequest {
     record_id: Uuid,
     suggested_name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteRecordRequest {
+    record_id: Uuid,
 }
 
 #[derive(Deserialize)]
@@ -292,7 +301,11 @@ async fn vault_import_begin(
 ) -> CommandResult<vault::ImportOutcome> {
     let picker_app = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
-        picker_app.dialog().file().blocking_pick_files()
+        picker_app
+            .dialog()
+            .file()
+            .add_filter("PDF documents", &["pdf"])
+            .blocking_pick_files()
     })
     .await
     .map_err(|_| PublicError::from(VaultError::Storage))?;
@@ -361,6 +374,29 @@ async fn vault_export_begin(
     let Some(destination) = destination else {
         return Ok(false);
     };
+
+    if let Ok(destination_path) = destination.clone().into_path() {
+        let store = store.inner().clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            store.export_atomic(request.record_id, &destination_path)
+        })
+        .await
+        .map_err(|_| PublicError::from(VaultError::Storage))?
+        .map_err(PublicError::from)?;
+        return Ok(true);
+    }
+
+    // Android content providers can return a content URI rather than a filesystem path, so an
+    // atomic rename is unavailable. Authenticate the complete object before opening/truncating
+    // the selected URI; the second pass streams the verified plaintext to the provider.
+    let store_for_verify = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        store_for_verify.export(request.record_id, std::io::sink())
+    })
+    .await
+    .map_err(|_| PublicError::from(VaultError::Storage))?
+    .map_err(PublicError::from)?;
+
     let mut options = OpenOptions::new();
     options.write(true).create(true).truncate(true);
     let mut output = app
@@ -368,17 +404,19 @@ async fn vault_export_begin(
         .open(destination, options)
         .map_err(|_| PublicError::from(VaultError::Storage))?;
     let store = store.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let result = store.export(request.record_id, &mut output);
-        if result.is_err() {
-            let _ = output.set_len(0);
-        }
-        result
-    })
-    .await
-    .map_err(|_| PublicError::from(VaultError::Storage))?
-    .map_err(PublicError::from)?;
+    tauri::async_runtime::spawn_blocking(move || store.export(request.record_id, &mut output))
+        .await
+        .map_err(|_| PublicError::from(VaultError::Storage))?
+        .map_err(PublicError::from)?;
     Ok(true)
+}
+
+#[tauri::command]
+fn vault_delete_record(
+    store: State<'_, Arc<VaultStore>>,
+    request: DeleteRecordRequest,
+) -> CommandResult<()> {
+    store.delete_record(request.record_id).map_err(Into::into)
 }
 
 #[tauri::command]
@@ -414,6 +452,7 @@ pub fn run() {
             vault_assign_folders,
             vault_import_begin,
             vault_export_begin,
+            vault_delete_record,
             vault_reset
         ])
         .run(tauri::generate_context!())
