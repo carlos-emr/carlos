@@ -235,6 +235,39 @@ class RxSessionFilterUnitTest {
     }
 
     @Test
+    void identicalRepeatedContextIdsAreAccepted() throws Exception {
+        MockHttpSession session = session("provider-1");
+        RxWorkspaceRegistry.RxWorkspace workspace = RxWorkspaceRegistry.getOrCreate(session)
+                .create(101, "provider-1");
+        MockHttpServletRequest request = request(session, "POST", "/rx/WriteScript");
+        request.addParameter("rxContextId", workspace.getContextId(), workspace.getContextId());
+        request.addHeader("X-Rx-Context", workspace.getContextId());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] invoked = {false};
+
+        filter.doFilter(request, response, (req, res) -> invoked[0] = true);
+
+        assertThat(invoked[0]).isTrue();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("X-Rx-Error")).isNull();
+    }
+
+    @Test
+    void blankRepeatedContextIdIsRejected() throws Exception {
+        MockHttpSession session = session("provider-1");
+        RxWorkspaceRegistry.RxWorkspace workspace = RxWorkspaceRegistry.getOrCreate(session)
+                .create(101, "provider-1");
+        MockHttpServletRequest request = request(session, "POST", "/rx/WriteScript");
+        request.addParameter("rxContextId", workspace.getContextId(), " ");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> {});
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Rx-Error")).isEqualTo("rx_context_conflict");
+    }
+
+    @Test
     void validatedWorkspaceExposesImmutableLaunchContext() throws Exception {
         MockHttpSession session = session("provider-1");
         session.setAttribute("case_program_id", "99");
