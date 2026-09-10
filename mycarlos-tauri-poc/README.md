@@ -19,7 +19,8 @@ remain unmerged in CARLOS until that repository exists, and should then be close
 required controls, and the Secure Vault v0.1 acceptance gate. [`VAULT_FORMAT.md`](VAULT_FORMAT.md)
 records the implemented local format and the decisions and release-gate work that remain.
 [`MVP_STATUS.md`](MVP_STATUS.md) separates the implemented synthetic-data milestone from the open
-security, device, integration, and release gates.
+security, device, integration, and release gates. [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md)
+records the approved patient-pilot behavior; most of that larger scope is not implemented here.
 
 Use [`EVALUATION.md`](EVALUATION.md) to reproduce the evaluation evidence and record remaining
 platform findings. The UI

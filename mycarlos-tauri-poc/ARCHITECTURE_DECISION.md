@@ -72,6 +72,16 @@ matrices, signing, and release controls remain. The chosen scope still defers se
 viewing and deletion propagation to backups or synchronized devices. Cloud synchronization and
 CARLOS integration follow only after the local vault lifecycle passes review.
 
+## Approved patient-pilot direction
+
+The subsequent product decisions are recorded in
+[`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md). The target is a four-platform patient pilot using
+the existing portal identity with MFA/passkeys, patient-held recovery, portable encrypted backups,
+an isolated PDF renderer, full E2EE portal synchronization, signed CARLOS provenance, explicit
+per-document sharing, immediate deletion, minimal server-visible metadata, and signed/enforced
+updates. The current local-vault implementation demonstrates only a prerequisite slice of that
+design and must not be described as implementing those patient-pilot capabilities.
+
 ## Superseded direction
 
 Electron plus Capacitor remains useful historical design analysis, but it is no longer the active

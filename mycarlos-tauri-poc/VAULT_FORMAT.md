@@ -3,7 +3,8 @@
 - **Status:** Implemented for synthetic-data development; security review required
 - **Identifier:** `ca.carlos.mycarlos`
 - **Storage root:** Tauri application-data directory, `vault-v1/`
-- **Recovery:** the patient passphrase; there is no vendor key or recovery code
+- **Implemented recovery:** the patient passphrase; there is no vendor key or recovery code
+- **Approved patient-pilot recovery:** a patient-held recovery key; not implemented in format v1
 
 This records decisions D-01, D-02, D-03, and D-05 for the current local-only vertical slice. It is
 an implementation description, not approval to store PHI.
@@ -77,6 +78,11 @@ promised and the generated Android application manifest is configured in CI with
 
 Losing the passphrase means losing access. The only fallback is a typed-confirmation whole-vault
 reset, which permanently removes all local profiles and records.
+
+The patient-pilot target in [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) replaces this limitation
+with a patient-held recovery kit and portable authenticated encrypted backups. That target is not
+implemented by format v1. OS cloud backup is to be excluded where the platform permits once the
+portable backup flow exists.
 
 ## Known limits before release
 

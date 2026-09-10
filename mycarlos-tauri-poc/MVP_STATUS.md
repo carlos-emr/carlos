@@ -37,7 +37,7 @@ privacy, accessibility, or clinical review.
 
 ## Required before calling the synthetic MVP reviewed
 
-- [ ] Replace the stale PR title/body with the implemented scope and current test evidence.
+- [x] Replace the stale PR title/body with the implemented scope and current test evidence.
 - [ ] Obtain application-owner and independent security review of the vault and threat model.
 - [ ] Run the native lifecycle checklist on representative physical target devices.
 - [ ] Run true power-cut/filesystem crash testing around the atomic replacement primitive on every
@@ -52,9 +52,13 @@ privacy, accessibility, or clinical review.
 
 ## Required before a patient pilot
 
+- [x] Decide the patient-pilot product behavior for identity, recovery, backup, deletion, viewing,
+      E2EE portal synchronization, sharing, privacy, and updates; see
+      [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md). Implementation and review remain open.
 - [ ] Design and test an isolated hostile-PDF viewer with no vault or network capability.
-- [ ] Define encrypted backup/sync, device enrollment, rollback protection, and deletion tombstones.
-- [ ] Define and implement signed CARLOS/portal provenance and recipient binding.
+- [ ] Implement the approved portable encrypted backup, E2EE synchronization, device enrollment,
+      rollback protection, immediate deletion, and resurrection-prevention tombstones.
+- [ ] Implement signed CARLOS/portal provenance, recipient binding, and explicit encrypted sharing.
 - [ ] Complete accessibility, privacy, PHIPA/PIPEDA, and clinical-safety review.
 - [ ] Add signing, notarization, app-store packaging, updater security, and release operations.
 - [ ] Resolve all high/critical shipped-runtime findings; Linux remains prohibited while its
