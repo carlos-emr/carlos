@@ -54,6 +54,11 @@ class PortalFailureStatusUnitTest {
     /** The abstract class under test needs a concrete subclass; it contributes no behaviour. */
     private static final class TestAction extends PortalJsonAction {
         private static final long serialVersionUID = 1L;
+
+        @Override
+        protected String handleRequest() {
+            return NONE;
+        }
     }
 
     private int statusFor(PatientPortalException exception) throws IOException {

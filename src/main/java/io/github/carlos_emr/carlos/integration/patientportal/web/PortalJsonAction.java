@@ -92,9 +92,7 @@ public abstract class PortalJsonAction extends ActionSupport {
         }
     }
 
-    protected String handleRequest() throws IOException {
-        return NONE;
-    }
+    protected abstract String handleRequest() throws IOException;
 
     private String configurationFailure(HttpServletResponse response) throws IOException {
         // BeanCreationException may contain configured values in a nested cause. Never log it.

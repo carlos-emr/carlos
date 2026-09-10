@@ -104,7 +104,7 @@ public record PatientPortalSettings(
     private static final String CLINIC_ID_MESSAGE =
             "%s must contain 1 to 64 ASCII letters, digits, dots, underscores, or hyphens";
     private static final String SERVICE_TOKEN_MESSAGE =
-            "%s must contain at least 32 characters and no control characters";
+            "%s must contain at least 32 visible ASCII characters";
     private static final String DESCRIPTION =
             "PatientPortalSettings[baseUrl=%s, clinicId=%s, token=%s, assertionKey=%s,"
                     + " connect=%s, read=%s]";
@@ -171,11 +171,11 @@ public record PatientPortalSettings(
      */
     public static PatientPortalSettings fromProperties(Function<String, String> lookup) {
         return new PatientPortalSettings(
-                required(lookup, BASE_URL_KEY),
-                required(lookup, CLINIC_ID_KEY),
-                PortalSecret.of(requireValue(required(lookup, SERVICE_TOKEN_KEY), SERVICE_TOKEN_KEY)),
+                lookup.apply(BASE_URL_KEY),
+                lookup.apply(CLINIC_ID_KEY),
+                PortalSecret.of(requireValue(lookup.apply(SERVICE_TOKEN_KEY), SERVICE_TOKEN_KEY)),
                 PortalSecret.of(
-                        requireValue(required(lookup, STAFF_ASSERTION_KEY), STAFF_ASSERTION_KEY)),
+                        requireValue(lookup.apply(STAFF_ASSERTION_KEY), STAFF_ASSERTION_KEY)),
                 timeout(lookup, CONNECT_TIMEOUT_KEY, DEFAULT_CONNECT_TIMEOUT_MS),
                 timeout(lookup, READ_TIMEOUT_KEY, DEFAULT_READ_TIMEOUT_MS),
                 pins(lookup));
@@ -290,16 +290,12 @@ public record PatientPortalSettings(
                     String.format(Locale.ROOT, MISSING_MESSAGE, SERVICE_TOKEN_KEY));
         }
         String value = serviceToken.expose().strip();
-        if (value.codePointCount(0, value.length()) < MIN_SERVICE_TOKEN_LENGTH
-                || value.chars().anyMatch(Character::isISOControl)) {
+        if (value.length() < MIN_SERVICE_TOKEN_LENGTH
+                || value.chars().anyMatch(character -> character < 0x21 || character > 0x7e)) {
             throw new PatientPortalConfigurationException(
                     String.format(Locale.ROOT, SERVICE_TOKEN_MESSAGE, SERVICE_TOKEN_KEY));
         }
         return value.equals(serviceToken.expose()) ? serviceToken : PortalSecret.of(value);
-    }
-
-    private static String required(Function<String, String> lookup, String key) {
-        return lookup.apply(key);
     }
 
     /**

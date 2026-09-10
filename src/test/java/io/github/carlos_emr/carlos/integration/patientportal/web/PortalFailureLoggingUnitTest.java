@@ -43,11 +43,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
  * now logged with its exception, and the response body a parse failure refers to is the portal's, so
  * it carries patient email addresses, dates of birth, and health card numbers.
  *
- * <p>Jackson does not quote the source by default — {@code INCLUDE_SOURCE_IN_LOCATION} has been off
- * since 2.16 — so this passes today without any code doing the work. That is precisely why it is
- * pinned: the protection is a library default rather than a decision anyone here made, and an
- * upgrade or a factory tweak could turn it back on silently. The sibling case, a timestamp parse,
- * <em>did</em> leak and is fixed at its source; see {@code PortalJsonUnitTest}.
+ * <p>The response boundary replaces parser exceptions with a body-free contract exception. This
+ * test pins that decision so a future refactor cannot accidentally expose Jackson's source text.
+ * The sibling timestamp case is also sanitized; see {@code PortalJsonUnitTest}.
  *
  * <p>The assertion is on the rendered stack trace, cause chain included, because the top-level
  * message was always clean — asserting on it would pass with the leak present.
@@ -62,6 +60,11 @@ class PortalFailureLoggingUnitTest {
 
     private static final class TestAction extends PortalJsonAction {
         private static final long serialVersionUID = 1L;
+
+        @Override
+        protected String handleRequest() {
+            return NONE;
+        }
     }
 
     /** Everything a log appender would render for this event, cause chain included. */
