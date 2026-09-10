@@ -17,13 +17,18 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.LongSupplier;
 
 /** Stores independent prescription workspaces in a user's HTTP session. */
 public final class RxWorkspaceRegistry implements Serializable {
 
     private static final long serialVersionUID = 1L;
     public static final int MAX_WORKSPACES = 20;
+    static final long CLOSING_GRACE_MILLIS = 2 * 60 * 1000L;
+    static final long UNCLAIMED_IDLE_MILLIS = 10 * 60 * 1000L;
+    static final long ABANDONED_IDLE_MILLIS = 2 * 60 * 60 * 1000L;
     private static final String DEMOGRAPHIC_ATTRIBUTE = "demographicNo";
+    private static final Object REGISTRY_CREATION_LOCK = new Object();
 
     static final String SESSION_KEY = RxWorkspaceRegistry.class.getName();
 
@@ -37,14 +42,23 @@ public final class RxWorkspaceRegistry implements Serializable {
      * session; the filter will fail a stale URL closed after activation.
      */
     private transient Map<String, RxWorkspace> workspaces = new ConcurrentHashMap<>();
+    private transient LongSupplier clock = System::currentTimeMillis;
 
     private RxWorkspaceRegistry() {
         // Created through getOrCreate(HttpSession).
     }
 
+    RxWorkspaceRegistry(LongSupplier clock) {
+        this.clock = clock;
+    }
+
     public static RxWorkspaceRegistry getOrCreate(HttpSession session) {
-        synchronized (session) {
-            Object existing = session.getAttribute(SESSION_KEY);
+        Object existing = session.getAttribute(SESSION_KEY);
+        if (existing instanceof RxWorkspaceRegistry registry) {
+            return registry;
+        }
+        synchronized (REGISTRY_CREATION_LOCK) {
+            existing = session.getAttribute(SESSION_KEY);
             if (existing instanceof RxWorkspaceRegistry registry) {
                 return registry;
             }
@@ -71,6 +85,7 @@ public final class RxWorkspaceRegistry implements Serializable {
         if (providerNo == null || providerNo.isBlank()) {
             throw new IllegalArgumentException("providerNo is required");
         }
+        purgeExpired(clock.getAsLong());
         if (workspaces.size() >= MAX_WORKSPACES) {
             throw new WorkspaceLimitException();
         }
@@ -81,7 +96,7 @@ public final class RxWorkspaceRegistry implements Serializable {
         } while (workspaces.containsKey(contextId));
 
         RxWorkspace workspace = new RxWorkspace(
-                contextId, demographicNo, providerNo, appointmentNo, programId);
+                contextId, demographicNo, providerNo, appointmentNo, programId, clock.getAsLong());
         workspaces.put(contextId, workspace);
         return workspace;
     }
@@ -90,19 +105,67 @@ public final class RxWorkspaceRegistry implements Serializable {
         return contextId == null ? null : workspaces.get(contextId);
     }
 
-    public void remove(String contextId) {
+    /** Pins a workspace while a request validates and uses it. */
+    public synchronized RxWorkspace acquire(String contextId) {
+        RxWorkspace workspace = find(contextId);
+        if (workspace != null) {
+            workspace.activeRequests++;
+        }
+        return workspace;
+    }
+
+    public synchronized void release(RxWorkspace workspace) {
+        if (workspace != null && workspace.activeRequests > 0) {
+            workspace.activeRequests--;
+        }
+    }
+
+    public synchronized void touch(RxWorkspace workspace) {
+        if (workspace != null) {
+            workspace.lastAccessedAt = clock.getAsLong();
+            workspace.closingAt = 0L;
+        }
+    }
+
+    public synchronized void heartbeat(RxWorkspace workspace) {
+        if (workspace != null) {
+            long now = clock.getAsLong();
+            workspace.lastAccessedAt = now;
+            workspace.lastHeartbeatAt = now;
+            workspace.closingAt = 0L;
+        }
+    }
+
+    public synchronized void markClosing(RxWorkspace workspace) {
+        if (workspace != null) {
+            workspace.closingAt = clock.getAsLong();
+        }
+    }
+
+    public synchronized void remove(String contextId) {
         if (contextId != null) {
             workspaces.remove(contextId);
         }
     }
 
-    int size() {
+    synchronized int size() {
         return workspaces.size();
+    }
+
+    synchronized int purgeExpired() {
+        return purgeExpired(clock.getAsLong());
+    }
+
+    private int purgeExpired(long now) {
+        int sizeBefore = workspaces.size();
+        workspaces.entrySet().removeIf(entry -> entry.getValue().isExpired(now));
+        return sizeBefore - workspaces.size();
     }
 
     private void readObject(ObjectInputStream input) throws IOException, ClassNotFoundException {
         input.defaultReadObject();
         workspaces = new ConcurrentHashMap<>();
+        clock = System::currentTimeMillis;
     }
 
     static final class WorkspaceLimitException extends IllegalStateException {
@@ -122,18 +185,26 @@ public final class RxWorkspaceRegistry implements Serializable {
         private final String programId;
         private final Map<String, Object> attributes = new ConcurrentHashMap<>();
         private final ReentrantLock requestLock = new ReentrantLock();
+        private final long createdAt;
+        private long lastAccessedAt;
+        private long lastHeartbeatAt;
+        private long closingAt;
+        private int activeRequests;
 
         private RxWorkspace(
                 String contextId,
                 int demographicNo,
                 String providerNo,
                 Integer appointmentNo,
-                String programId) {
+                String programId,
+                long createdAt) {
             this.contextId = contextId;
             this.demographicNo = demographicNo;
             this.providerNo = providerNo;
             this.appointmentNo = appointmentNo;
             this.programId = programId;
+            this.createdAt = createdAt;
+            this.lastAccessedAt = createdAt;
 
             RxSessionBean bean = new RxSessionBean();
             bean.setDemographicNo(demographicNo);
@@ -189,6 +260,18 @@ public final class RxWorkspaceRegistry implements Serializable {
 
         void unlock() {
             requestLock.unlock();
+        }
+
+        private boolean isExpired(long now) {
+            if (activeRequests > 0) {
+                return false;
+            }
+            if (closingAt > 0) {
+                return now - closingAt >= CLOSING_GRACE_MILLIS;
+            }
+            long idleSince = Math.max(createdAt, lastAccessedAt);
+            long idleLimit = lastHeartbeatAt > 0 ? ABANDONED_IDLE_MILLIS : UNCLAIMED_IDLE_MILLIS;
+            return now - idleSince >= idleLimit;
         }
 
         private void validatePatientState(String name, Object value) {
