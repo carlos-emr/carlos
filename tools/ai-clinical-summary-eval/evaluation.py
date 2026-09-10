@@ -47,7 +47,7 @@ def evaluate(generated, sources, expectations):
             add("error", "UNSUPPORTED_CLAIM", "Claim matches no allowed synthetic fact.", claim["id"])
             continue
         if len(matches) > 1:
-            add("warning", "COMBINED_FACTS", "Claim combines more than one labelled fact.", claim["id"])
+            add("error", "COMBINED_FACTS", "Claim combines more than one labelled fact.", claim["id"])
         for fact in matches:
             matched_fact_ids.add(fact["id"])
             fact_claim_counts[fact["id"]] = fact_claim_counts.get(fact["id"], 0) + 1

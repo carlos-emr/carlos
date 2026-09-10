@@ -138,7 +138,9 @@ Request/response files and validated `artifact.json` are written to ignored
 output path, and creates no files or network connections.
 
 Generation follows Ollama's [generate API](https://docs.ollama.com/api/generate)
-with non-streaming structured output. See the
+with the same source-only prompt boundary, context/output limits, and strict
+completion/model checks as the runtime adapter. JSON with duplicate keys is
+rejected. See the
 [Qwen 3.5 library](https://ollama.com/library/qwen3.5) and
 [Ollama cloud controls](https://docs.ollama.com/faq#how-do-i-disable-ollamas-cloud-features).
 
