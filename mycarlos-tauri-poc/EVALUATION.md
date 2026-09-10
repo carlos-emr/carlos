@@ -67,6 +67,15 @@ In a native build, additionally:
 7. Background the app during import/export and confirm it locks immediately after the active native
    operation finishes.
 
+The Rust suite automates abrupt process termination after an encrypted chunk write, completed
+staging, object rename, each redundant manifest write, and each deletion boundary. It also covers
+bit-flipped, truncated, and swapped ciphertext; one corrupt manifest slot; two corrupt slots;
+bounded reads for a generated 101 MiB source; recursive plaintext-canary inspection; and Unix
+storage modes. Deterministic `NoSpace` injection also covers failure during object output and on
+both sides of the first durable manifest/deletion commit. These tests are repeatable development
+evidence, not a substitute for a genuinely full filesystem, physical power-cut, device-backup, or
+app-switcher testing.
+
 ## Decision questions
 
 Record evidence for these questions rather than treating a successful build as approval:

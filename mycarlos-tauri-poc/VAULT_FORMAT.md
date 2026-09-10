@@ -84,7 +84,10 @@ reset, which permanently removes all local profiles and records.
 - Individual deletion has no backup/synchronization tombstone or verified secure-erasure guarantee
   for storage media, snapshots, exported plaintext, or copies outside the live vault.
 - Crash-injection, power-loss, low-disk, physical-device backup/restore, and filesystem-permission
-  matrices remain release-gate tests.
+  matrices remain release-gate tests. Abrupt subprocess termination at the application-controlled
+  chunk, staging, rename, manifest, and deletion boundaries is automated, along with deterministic
+  `NoSpace` failures around object and metadata commits. True power-cut and genuinely full
+  filesystem behavior inside platform primitives still require target-device testing.
 - Argon2id settings require performance measurements on the oldest supported device class.
 - The format has not received independent cryptographic or privacy review and has no migration
   implementation beyond rejecting unsupported versions.

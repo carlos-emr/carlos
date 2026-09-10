@@ -67,6 +67,11 @@ evaluation evidence and must not be distributed to patients.
   and then updates the redundant manifest. Both live slots omit the wrapped per-object key when the
   operation succeeds. Old external backups and future synchronized copies remain outside that
   local deletion guarantee.
+- Abrupt-termination tests exercise recovery after chunk writes, staging, object rename, redundant
+  manifest commits, and each deletion boundary. Corruption tests cover bit flips, truncation,
+  ciphertext swapping, one-slot recovery, and two-slot fail-closed behavior.
+- A generated 101 MiB input checks bounded 1 MiB read requests without allocating the whole source;
+  recursive canary and Unix mode tests inspect application-controlled storage while locked.
 - A collapsible evaluation panel and reset control that removes session-only metadata.
 - Frontend unit tests, browser viewport tests, Rust tests, and unsigned debug builds in CI.
 

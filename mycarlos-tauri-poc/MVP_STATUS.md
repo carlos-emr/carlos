@@ -24,6 +24,15 @@ privacy, accessibility, or clinical review.
 - [x] Passphrase change and typed-confirmation whole-vault reset.
 - [x] Confirmed individual deletion from the live vault with both manifest slots rewritten without
       the wrapped object key and ciphertext removed between the two durable commits.
+- [x] Abrupt-process-termination recovery matrix after object chunk writes, staging, object rename,
+      both manifest commits, and each deletion boundary.
+- [x] Deterministic `NoSpace` failure injection during object writing and before/after durable
+      manifest/deletion boundaries, verifying restart never exposes a half-committed record.
+- [x] Corrupt/truncated/swapped object tests, corrupt-one-slot recovery, corrupt-both-slots
+      fail-closed behavior, and preservation of ciphertext when metadata recovery is impossible.
+- [x] A generated 101 MiB input verifies that reader requests stay bounded to one 1 MiB chunk.
+- [x] Recursive plaintext-canary inspection and Unix `0700` directory/`0600` file assertions for
+      application-controlled vault storage.
 - [x] Frontend, Rust, responsive-browser, and cross-platform debug-build CI.
 
 ## Required before calling the synthetic MVP reviewed
@@ -31,10 +40,14 @@ privacy, accessibility, or clinical review.
 - [ ] Replace the stale PR title/body with the implemented scope and current test evidence.
 - [ ] Obtain application-owner and independent security review of the vault and threat model.
 - [ ] Run the native lifecycle checklist on representative physical target devices.
-- [ ] Add crash/power-loss injection at every manifest and object persistence boundary.
-- [ ] Test low-disk, filesystem permissions, corrupted slots/objects, and OS backup/restore.
+- [ ] Run true power-cut/filesystem crash testing around the atomic replacement primitive on every
+      supported filesystem and physical target; subprocess termination coverage is implemented.
+- [ ] Reproduce genuine full-filesystem behavior and test OS backup/restore. Deterministic
+      `NoSpace` injection, Unix permission modes, and the local corruption matrix are automated;
+      platform filesystem and policy inspection remains.
 - [ ] Benchmark Argon2id on the oldest supported device class.
-- [ ] Inspect logs, crash artifacts, app-switcher snapshots, and backups for plaintext canaries.
+- [ ] Inspect platform logs, crash artifacts, app-switcher snapshots, and backups for plaintext
+      canaries. Recursive application-storage canary inspection is automated.
 - [ ] Decide whether passphrase-only recovery and permanent loss are acceptable product behavior.
 
 ## Required before a patient pilot

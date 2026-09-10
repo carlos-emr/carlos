@@ -31,6 +31,33 @@ const ARGON_MEMORY_KIB: u32 = 64 * 1024;
 const ARGON_ITERATIONS: u32 = 3;
 const ARGON_LANES: u32 = 4;
 
+#[cfg(test)]
+const TEST_TERMINATION_EXIT_CODE: i32 = 86;
+
+#[cfg(test)]
+fn terminate_at_test_boundary(boundary: &str) {
+    if std::env::var("MYCARLOS_TEST_TERMINATE_AT").as_deref() == Ok(boundary) {
+        std::process::exit(TEST_TERMINATION_EXIT_CODE);
+    }
+}
+
+#[cfg(not(test))]
+fn terminate_at_test_boundary(_boundary: &str) {}
+
+#[cfg(test)]
+fn fail_at_test_boundary(boundary: &str) -> Result<(), VaultError> {
+    if std::env::var("MYCARLOS_TEST_FAIL_AT").as_deref() == Ok(boundary) {
+        Err(VaultError::NoSpace)
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(test))]
+fn fail_at_test_boundary(_boundary: &str) -> Result<(), VaultError> {
+    Ok(())
+}
+
 type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Debug, Error)]
@@ -510,6 +537,7 @@ impl VaultStore {
                     },
                 ));
             }
+            terminate_at_test_boundary("import.after-staging");
 
             let objects = self.root.join("objects");
             for (path, record) in &staged {
@@ -517,6 +545,7 @@ impl VaultStore {
                 fs::rename(path, &destination)?;
             }
             sync_parent(&objects);
+            terminate_at_test_boundary("import.after-object-rename");
             let mut next = unlocked.manifest.clone();
             next.records
                 .extend(staged.iter().map(|(_, record)| record.clone()));
@@ -596,8 +625,11 @@ impl VaultStore {
         // decrypt a ciphertext that was successfully removed. Unlock repairs slot redundancy
         // before it considers orphan cleanup.
         next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
+        fail_at_test_boundary("delete.before-first-manifest")?;
         write_manifest_at(&self.root, &unlocked.master_key, &next)?;
         unlocked.manifest = next.clone();
+        terminate_at_test_boundary("delete.after-first-manifest");
+        fail_at_test_boundary("delete.after-first-manifest")?;
 
         let objects = self.root.join("objects");
         match fs::remove_file(objects.join(object_name)) {
@@ -607,10 +639,13 @@ impl VaultStore {
             // cleanup retries removal of ciphertext that no live manifest can decrypt.
             Err(_) => {}
         }
+        terminate_at_test_boundary("delete.after-object-unlink");
+        fail_at_test_boundary("delete.after-object-unlink")?;
 
         next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
         write_manifest_at(&self.root, &unlocked.master_key, &next)?;
         unlocked.manifest = next;
+        terminate_at_test_boundary("delete.after-second-manifest");
         Ok(())
     }
 
@@ -903,12 +938,16 @@ fn commit_manifest_redundant(
         .generation
         .checked_add(1)
         .ok_or(VaultError::Storage)?;
+    fail_at_test_boundary("manifest.before-first-write")?;
     write_manifest_at(root, master_key, &next)?;
     *current = next.clone();
+    terminate_at_test_boundary("manifest.after-first-write");
+    fail_at_test_boundary("manifest.after-first-write")?;
 
     next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
     write_manifest_at(root, master_key, &next)?;
     *current = next;
+    terminate_at_test_boundary("manifest.after-second-write");
     Ok(())
 }
 
@@ -1037,6 +1076,8 @@ fn encrypt_object(
         writer.write_all(&(ciphertext.len() as u32).to_be_bytes())?;
         writer.write_all(&[u8::from(final_chunk)])?;
         writer.write_all(&ciphertext)?;
+        terminate_at_test_boundary("object.after-chunk-write");
+        fail_at_test_boundary("object.after-chunk-write")?;
         if final_chunk {
             break;
         }
@@ -1322,7 +1363,14 @@ fn subtree_depth(manifest: &Manifest, root: Uuid) -> Result<usize, VaultError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
+    use std::{
+        io::Cursor,
+        process::{Command, Stdio},
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+    };
 
     const PASSWORD: &str = "Correct#8Horse";
 
@@ -1339,6 +1387,137 @@ mod tests {
         fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
             Err(io::Error::other("synthetic interrupted read"))
         }
+    }
+
+    struct GeneratedReader {
+        remaining: u64,
+        largest_request: Arc<AtomicUsize>,
+    }
+
+    impl Read for GeneratedReader {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            self.largest_request
+                .fetch_max(buffer.len(), Ordering::Relaxed);
+            let length = usize::try_from(self.remaining.min(buffer.len() as u64)).unwrap();
+            buffer[..length].fill(0x5a);
+            self.remaining -= length as u64;
+            Ok(length)
+        }
+    }
+
+    fn copy_directory(source: &Path, destination: &Path) {
+        fs::create_dir(destination).unwrap();
+        for entry in fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let target = destination.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_directory(&entry.path(), &target);
+            } else {
+                fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+
+    fn files_below(root: &Path) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        for entry in fs::read_dir(root).unwrap() {
+            let entry = entry.unwrap();
+            if entry.file_type().unwrap().is_dir() {
+                files.extend(files_below(&entry.path()));
+            } else {
+                files.push(entry.path());
+            }
+        }
+        files
+    }
+
+    fn run_termination_child(root: &Path, operation: &str, boundary: &str) {
+        let status = Command::new(std::env::current_exe().unwrap())
+            .args(["--ignored", "--exact", "vault::tests::termination_child"])
+            .env("MYCARLOS_TEST_ROOT", root)
+            .env("MYCARLOS_TEST_OPERATION", operation)
+            .env("MYCARLOS_TEST_TERMINATE_AT", boundary)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        assert_eq!(
+            status.code(),
+            Some(TEST_TERMINATION_EXIT_CODE),
+            "{boundary}"
+        );
+    }
+
+    fn run_failure_child(root: &Path, operation: &str, boundary: &str) {
+        let status = Command::new(std::env::current_exe().unwrap())
+            .args(["--ignored", "--exact", "vault::tests::failure_child"])
+            .env("MYCARLOS_TEST_ROOT", root)
+            .env("MYCARLOS_TEST_OPERATION", operation)
+            .env("MYCARLOS_TEST_FAIL_AT", boundary)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success(), "{boundary}");
+    }
+
+    #[test]
+    #[ignore = "invoked as an abrupt-termination subprocess by the recovery matrix"]
+    fn termination_child() {
+        let Ok(root) = std::env::var("MYCARLOS_TEST_ROOT") else {
+            return;
+        };
+        let operation = std::env::var("MYCARLOS_TEST_OPERATION").unwrap();
+        let store = VaultStore::new(PathBuf::from(root));
+        store.unlock(PASSWORD).unwrap();
+        let snapshot = store.snapshot().unwrap();
+        match operation.as_str() {
+            "import" => {
+                store
+                    .import(
+                        snapshot.profiles[0].id,
+                        vec![],
+                        vec![source("crash-test.pdf", b"synthetic crash boundary record")],
+                        2,
+                    )
+                    .unwrap();
+            }
+            "delete" => store.delete_record(snapshot.records[0].id).unwrap(),
+            _ => panic!("unknown termination-child operation"),
+        }
+        panic!("configured termination boundary was not reached");
+    }
+
+    #[test]
+    #[ignore = "invoked as an injected-write-failure subprocess by the recovery matrix"]
+    fn failure_child() {
+        let Ok(root) = std::env::var("MYCARLOS_TEST_ROOT") else {
+            return;
+        };
+        let operation = std::env::var("MYCARLOS_TEST_OPERATION").unwrap();
+        let store = VaultStore::new(PathBuf::from(root));
+        store.unlock(PASSWORD).unwrap();
+        let snapshot = store.snapshot().unwrap();
+        let failed_with_no_space = match operation.as_str() {
+            "import" => matches!(
+                store.import(
+                    snapshot.profiles[0].id,
+                    vec![],
+                    vec![source(
+                        "failure-test.pdf",
+                        b"synthetic write failure record"
+                    )],
+                    2,
+                ),
+                Err(VaultError::NoSpace)
+            ),
+            "delete" => matches!(
+                store.delete_record(snapshot.records[0].id),
+                Err(VaultError::NoSpace)
+            ),
+            _ => panic!("unknown failure-child operation"),
+        };
+        assert!(failed_with_no_space);
     }
 
     #[test]
@@ -1393,9 +1572,16 @@ mod tests {
                 .clone()
         };
         let path = root.join("objects").join(object_name);
-        let mut bytes = fs::read(&path).unwrap();
+        let original = fs::read(&path).unwrap();
+        let mut bytes = original.clone();
         *bytes.last_mut().unwrap() ^= 1;
-        fs::write(path, bytes).unwrap();
+        fs::write(&path, bytes).unwrap();
+        assert!(matches!(
+            store.export(record, io::sink()),
+            Err(VaultError::Corrupt)
+        ));
+
+        fs::write(&path, &original[..original.len() - 1]).unwrap();
         assert!(matches!(
             store.export(record, io::sink()),
             Err(VaultError::Corrupt)
@@ -1461,6 +1647,98 @@ mod tests {
     }
 
     #[test]
+    fn import_abrupt_termination_matrix_recovers_to_a_complete_state() {
+        let temp = tempfile::tempdir().unwrap();
+        let template = temp.path().join("template-vault");
+        let template_store = VaultStore::new(template.clone());
+        template_store.create(PASSWORD, "Jamie", 1).unwrap();
+        template_store.lock();
+
+        for (boundary, committed) in [
+            ("object.after-chunk-write", false),
+            ("import.after-staging", false),
+            ("import.after-object-rename", false),
+            ("manifest.after-first-write", true),
+            ("manifest.after-second-write", true),
+        ] {
+            let root = temp.path().join(boundary);
+            copy_directory(&template, &root);
+            run_termination_child(&root, "import", boundary);
+
+            let restarted = VaultStore::new(root.clone());
+            restarted.unlock(PASSWORD).unwrap();
+            assert_eq!(
+                restarted.snapshot().unwrap().records.len(),
+                usize::from(committed)
+            );
+            assert_eq!(fs::read_dir(root.join("staging")).unwrap().count(), 0);
+            assert_eq!(
+                fs::read_dir(root.join("objects")).unwrap().count(),
+                usize::from(committed)
+            );
+        }
+    }
+
+    #[test]
+    fn injected_no_space_import_failures_recover_to_a_complete_state() {
+        let temp = tempfile::tempdir().unwrap();
+        let template = temp.path().join("template-vault");
+        let template_store = VaultStore::new(template.clone());
+        template_store.create(PASSWORD, "Jamie", 1).unwrap();
+        template_store.lock();
+
+        for (boundary, committed) in [
+            ("object.after-chunk-write", false),
+            ("manifest.before-first-write", false),
+            ("manifest.after-first-write", true),
+        ] {
+            let root = temp.path().join(boundary);
+            copy_directory(&template, &root);
+            run_failure_child(&root, "import", boundary);
+
+            let restarted = VaultStore::new(root.clone());
+            restarted.unlock(PASSWORD).unwrap();
+            assert_eq!(
+                restarted.snapshot().unwrap().records.len(),
+                usize::from(committed)
+            );
+            assert_eq!(fs::read_dir(root.join("staging")).unwrap().count(), 0);
+            assert_eq!(
+                fs::read_dir(root.join("objects")).unwrap().count(),
+                usize::from(committed)
+            );
+        }
+    }
+
+    #[test]
+    fn large_imports_keep_reader_requests_bounded_to_one_chunk() {
+        const LARGE_FILE_SIZE: u64 = 101 * 1024 * 1024 + 17;
+
+        let temp = tempfile::tempdir().unwrap();
+        let object = temp.path().join("large.mcobj");
+        let largest_request = Arc::new(AtomicUsize::new(0));
+        let encrypted = encrypt_object(
+            Box::new(GeneratedReader {
+                remaining: LARGE_FILE_SIZE,
+                largest_request: largest_request.clone(),
+            }),
+            &object,
+            ObjectContext {
+                vault_id: Uuid::new_v4(),
+                record_id: Uuid::new_v4(),
+                profile_id: Uuid::new_v4(),
+            },
+            &[1_u8; 32],
+            &[2_u8; 32],
+        )
+        .unwrap();
+
+        assert_eq!(encrypted.plaintext_size, LARGE_FILE_SIZE);
+        assert_eq!(largest_request.load(Ordering::Relaxed), CHUNK_SIZE);
+        assert!(fs::metadata(object).unwrap().len() > LARGE_FILE_SIZE);
+    }
+
+    #[test]
     fn locked_storage_contains_no_plaintext_canaries() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("vault");
@@ -1480,22 +1758,49 @@ mod tests {
             .unwrap();
         store.lock();
 
-        for entry in fs::read_dir(&root).unwrap().flatten() {
-            if entry.path().is_file() {
-                let contents = fs::read(entry.path()).unwrap();
-                assert!(!contents
-                    .windows(b"Canary Patient Name".len())
-                    .any(|value| value == b"Canary Patient Name"));
-                assert!(!contents
-                    .windows(b"canary-diagnosis".len())
-                    .any(|value| value == b"canary-diagnosis"));
-            }
-        }
-        for entry in fs::read_dir(root.join("objects")).unwrap().flatten() {
-            let contents = fs::read(entry.path()).unwrap();
+        for path in files_below(&root) {
+            let contents = fs::read(path).unwrap();
+            assert!(!contents
+                .windows(b"Canary Patient Name".len())
+                .any(|value| value == b"Canary Patient Name"));
+            assert!(!contents
+                .windows(b"canary-diagnosis".len())
+                .any(|value| value == b"canary-diagnosis"));
             assert!(!contents
                 .windows(b"recognizable medical canary".len())
                 .any(|value| value == b"recognizable medical canary"));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn vault_directories_and_files_are_private_on_unix() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        store
+            .import(
+                profile,
+                vec![],
+                vec![source("permissions.pdf", b"synthetic permissions record")],
+                2,
+            )
+            .unwrap();
+        store.lock();
+
+        for directory in [&root, &root.join("objects"), &root.join("staging")] {
+            assert_eq!(
+                fs::metadata(directory).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+        for path in files_below(&root) {
+            assert_eq!(
+                fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
         }
     }
 
@@ -1598,6 +1903,81 @@ mod tests {
     }
 
     #[test]
+    fn two_corrupt_manifest_slots_fail_closed_without_removing_ciphertext() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        store
+            .import(
+                profile,
+                vec![],
+                vec![source("report.pdf", b"preserve encrypted object")],
+                2,
+            )
+            .unwrap();
+        let object_path = {
+            let guard = store.unlocked.lock().unwrap();
+            root.join("objects")
+                .join(&guard.as_ref().unwrap().manifest.records[0].object_name)
+        };
+        store.lock();
+        fs::write(root.join("manifest-0.bin"), b"corrupt slot zero").unwrap();
+        fs::write(root.join("manifest-1.bin"), b"corrupt slot one").unwrap();
+
+        let restarted = VaultStore::new(root);
+        assert!(matches!(
+            restarted.unlock(PASSWORD),
+            Err(VaultError::Corrupt)
+        ));
+        assert!(object_path.exists());
+    }
+
+    #[test]
+    fn swapping_ciphertext_between_records_fails_authentication() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let records = store
+            .import(
+                profile,
+                vec![],
+                vec![
+                    source("first.pdf", b"first synthetic record"),
+                    source("second.pdf", b"second synthetic record"),
+                ],
+                2,
+            )
+            .unwrap()
+            .imported;
+        let paths = {
+            let guard = store.unlocked.lock().unwrap();
+            guard
+                .as_ref()
+                .unwrap()
+                .manifest
+                .records
+                .iter()
+                .map(|record| root.join("objects").join(&record.object_name))
+                .collect::<Vec<_>>()
+        };
+        let first = fs::read(&paths[0]).unwrap();
+        let second = fs::read(&paths[1]).unwrap();
+        fs::write(&paths[0], second).unwrap();
+        fs::write(&paths[1], first).unwrap();
+
+        for record in records {
+            assert!(matches!(
+                store.export(record, io::sink()),
+                Err(VaultError::Corrupt)
+            ));
+        }
+    }
+
+    #[test]
     fn atomic_export_preserves_an_existing_destination_on_corruption() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("vault");
@@ -1683,6 +2063,75 @@ mod tests {
         restarted.unlock(PASSWORD).unwrap();
         assert!(restarted.snapshot().unwrap().records.is_empty());
         assert!(!object_path.exists());
+    }
+
+    #[test]
+    fn deletion_abrupt_termination_matrix_finishes_cryptographic_erasure() {
+        let temp = tempfile::tempdir().unwrap();
+        let template = temp.path().join("template-vault");
+        let template_store = VaultStore::new(template.clone());
+        template_store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = template_store.snapshot().unwrap().profiles[0].id;
+        template_store
+            .import(
+                profile,
+                vec![],
+                vec![source("delete-me.pdf", b"synthetic deletion record")],
+                2,
+            )
+            .unwrap();
+        template_store.lock();
+
+        for boundary in [
+            "delete.after-first-manifest",
+            "delete.after-object-unlink",
+            "delete.after-second-manifest",
+        ] {
+            let root = temp.path().join(boundary);
+            copy_directory(&template, &root);
+            run_termination_child(&root, "delete", boundary);
+
+            let restarted = VaultStore::new(root.clone());
+            restarted.unlock(PASSWORD).unwrap();
+            assert!(restarted.snapshot().unwrap().records.is_empty());
+            assert_eq!(fs::read_dir(root.join("objects")).unwrap().count(), 0);
+        }
+    }
+
+    #[test]
+    fn injected_no_space_deletion_failures_recover_without_half_visible_records() {
+        let temp = tempfile::tempdir().unwrap();
+        let template = temp.path().join("template-vault");
+        let template_store = VaultStore::new(template.clone());
+        template_store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = template_store.snapshot().unwrap().profiles[0].id;
+        template_store
+            .import(
+                profile,
+                vec![],
+                vec![source("delete-me.pdf", b"synthetic deletion record")],
+                2,
+            )
+            .unwrap();
+        template_store.lock();
+
+        for (boundary, deleted) in [
+            ("delete.before-first-manifest", false),
+            ("delete.after-first-manifest", true),
+            ("delete.after-object-unlink", true),
+        ] {
+            let root = temp.path().join(boundary);
+            copy_directory(&template, &root);
+            run_failure_child(&root, "delete", boundary);
+
+            let restarted = VaultStore::new(root.clone());
+            restarted.unlock(PASSWORD).unwrap();
+            assert_eq!(restarted.snapshot().unwrap().records.is_empty(), deleted);
+            assert_eq!(
+                fs::read_dir(root.join("objects")).unwrap().count(),
+                usize::from(!deleted)
+            );
+        }
     }
 
     #[test]
