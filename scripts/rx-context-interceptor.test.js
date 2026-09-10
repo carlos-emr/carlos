@@ -153,8 +153,8 @@ function ownerBrowser(loadTwice = false) {
         XMLHttpRequest: FakeXhr,
         open() { return {}; },
         setTimeout,
-        setInterval,
-        clearInterval,
+        setInterval() { return 1; },
+        clearInterval() {},
         addEventListener() {}
     };
     ownerWindow.top = ownerWindow;
@@ -182,6 +182,78 @@ function ownerBrowser(loadTwice = false) {
     return replacements;
 }
 
+function leaseBrowser() {
+    const fetches = [];
+    const beacons = [];
+    const intervals = [];
+    const windowListeners = {};
+    const documentElement = {
+        tagName: 'HTML',
+        getAttribute() {},
+        querySelectorAll() { return []; }
+    };
+    const meta = {
+        'meta[name="rx-context-id"]': 'lease-context',
+        'meta[name="rx-context-path"]': '/carlos',
+        'meta[name="rx-demographic-no"]': '101',
+        'meta[name="rx-csrf-token"]': 'csrf-token'
+    };
+    const leaseDocument = {
+        baseURI: 'https://example.test/carlos/rx/searchDrug?rxContextId=lease-context',
+        documentElement,
+        querySelector(selector) {
+            return Object.hasOwn(meta, selector) ? {getAttribute: () => meta[selector]} : null;
+        },
+        addEventListener() {},
+        createElement() { return {}; }
+    };
+    const leaseWindow = {
+        location: {origin: 'https://example.test', href: leaseDocument.baseURI},
+        fetch(input, init) {
+            fetches.push({input: String(input), init});
+            return Promise.resolve();
+        },
+        XMLHttpRequest: FakeXhr,
+        open() { return {}; },
+        navigator: {
+            sendBeacon(url, body) {
+                beacons.push({url, body});
+                return true;
+            }
+        },
+        setInterval(callback, delay) {
+            intervals.push({callback, delay});
+            return intervals.length;
+        },
+        clearInterval() {},
+        addEventListener(name, callback) {
+            windowListeners[name] = windowListeners[name] || [];
+            windowListeners[name].push(callback);
+        }
+    };
+    leaseWindow.top = leaseWindow;
+    const leaseContext = {
+        URL,
+        URLSearchParams,
+        Headers,
+        Request,
+        FormData,
+        Blob,
+        Object,
+        Array,
+        MutationObserver: class { observe() {} },
+        HTMLFormElement: FakeForm,
+        XMLHttpRequest: FakeXhr,
+        document: leaseDocument,
+        window: leaseWindow
+    };
+    vm.runInNewContext(
+            fs.readFileSync('src/main/webapp/oscarRx/js/rxSessionInterceptor.js', 'utf8'),
+            leaseContext,
+            {filename: 'rxSessionInterceptor.js'});
+    return {fetches, beacons, intervals, windowListeners};
+}
+
 (async () => {
     const firstReplacements = ownerBrowser(true);
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -197,6 +269,18 @@ function ownerBrowser(loadTwice = false) {
     assert.equal(reopened.searchParams.get('programId'), '12');
     assert.equal(reopened.searchParams.get('rxContextId'), null);
     assert.equal(reopened.searchParams.get('rxDuplicate'), '1');
+
+    const lease = leaseBrowser();
+    assert.equal(lease.fetches.length, 1);
+    assert.match(lease.fetches[0].input, /\/rx\/workspaceHeartbeat\?rxContextId=lease-context/);
+    assert.equal(lease.fetches[0].init.method, 'GET');
+    assert.equal(lease.intervals.length, 1);
+    assert.equal(lease.intervals[0].delay, 60000);
+
+    lease.windowListeners.pagehide.forEach((listener) => listener());
+    assert.equal(lease.beacons.length, 1);
+    assert.match(lease.beacons[0].url, /\/rx\/workspaceClose\?rxContextId=lease-context/);
+    assert.equal(await lease.beacons[0].body.text(), 'CSRF-TOKEN=csrf-token');
     console.log('Rx context interceptor contract: PASS');
 })().catch((error) => {
     console.error(error);

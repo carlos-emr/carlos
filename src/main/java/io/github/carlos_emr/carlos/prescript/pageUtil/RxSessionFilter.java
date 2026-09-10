@@ -37,6 +37,8 @@ public class RxSessionFilter implements Filter {
     public static final String DEMOGRAPHIC_REQUEST_ATTRIBUTE = "rxDemographicNo";
     public static final String APPOINTMENT_REQUEST_ATTRIBUTE = "rxAppointmentNo";
     public static final String PROGRAM_REQUEST_ATTRIBUTE = "rxProgramId";
+    static final String HEARTBEAT_ROUTE = "/rx/workspaceHeartbeat";
+    static final String CLOSE_ROUTE = "/rx/workspaceClose";
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final Set<String> ENTRY_ROUTES = Set.of(
@@ -104,25 +106,49 @@ public class RxSessionFilter implements Filter {
             return;
         }
 
-        RxWorkspaceRegistry.RxWorkspace workspace = registry.find(context.value);
-        String validationError = validateWorkspace(request, workspace, demographic.value, providerNo);
-        if (validationError != null) {
-            reject(request, response, validationError);
-            return;
-        }
-
-        request.setAttribute(CONTEXT_REQUEST_ATTRIBUTE, workspace.getContextId());
-        request.setAttribute(DEMOGRAPHIC_REQUEST_ATTRIBUTE, workspace.getDemographicNo());
-        request.setAttribute(APPOINTMENT_REQUEST_ATTRIBUTE, workspace.getAppointmentNo());
-        request.setAttribute(PROGRAM_REQUEST_ATTRIBUTE, workspace.getProgramId());
-
-        workspace.lock();
+        RxWorkspaceRegistry.RxWorkspace workspace = registry.acquire(context.value);
         try {
-            chain.doFilter(
-                    new RxContextRequest(request, workspace),
-                    new RxContextResponse(response, request.getContextPath(), workspace.getContextId()));
+            String validationError = validateWorkspace(request, workspace, demographic.value, providerNo);
+            if (validationError != null) {
+                reject(request, response, validationError);
+                return;
+            }
+
+            if (HEARTBEAT_ROUTE.equals(route)) {
+                if (!"GET".equalsIgnoreCase(request.getMethod())) {
+                    response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                    return;
+                }
+                registry.heartbeat(workspace);
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+                return;
+            }
+            if (CLOSE_ROUTE.equals(route)) {
+                if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                    response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                    return;
+                }
+                registry.markClosing(workspace);
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+                return;
+            }
+
+            registry.touch(workspace);
+            request.setAttribute(CONTEXT_REQUEST_ATTRIBUTE, workspace.getContextId());
+            request.setAttribute(DEMOGRAPHIC_REQUEST_ATTRIBUTE, workspace.getDemographicNo());
+            request.setAttribute(APPOINTMENT_REQUEST_ATTRIBUTE, workspace.getAppointmentNo());
+            request.setAttribute(PROGRAM_REQUEST_ATTRIBUTE, workspace.getProgramId());
+
+            workspace.lock();
+            try {
+                chain.doFilter(
+                        new RxContextRequest(request, workspace),
+                        new RxContextResponse(response, request.getContextPath(), workspace.getContextId()));
+            } finally {
+                workspace.unlock();
+            }
         } finally {
-            workspace.unlock();
+            registry.release(workspace);
         }
     }
 

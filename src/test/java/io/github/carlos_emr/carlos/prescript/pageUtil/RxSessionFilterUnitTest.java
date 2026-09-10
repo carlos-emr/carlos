@@ -282,6 +282,84 @@ class RxSessionFilterUnitTest {
     }
 
     @Test
+    void expiredClosingWorkspaceIsReclaimedBeforeCapacityCheck() {
+        long[] now = {1_000L};
+        RxWorkspaceRegistry registry = new RxWorkspaceRegistry(() -> now[0]);
+        RxWorkspaceRegistry.RxWorkspace closing = null;
+        for (int i = 0; i < RxWorkspaceRegistry.MAX_WORKSPACES; i++) {
+            RxWorkspaceRegistry.RxWorkspace workspace = registry.create(100 + i, "provider-1");
+            if (i == 0) {
+                closing = workspace;
+            }
+        }
+        registry.markClosing(closing);
+        now[0] += RxWorkspaceRegistry.CLOSING_GRACE_MILLIS;
+
+        RxWorkspaceRegistry.RxWorkspace replacement = registry.create(999, "provider-1");
+
+        assertThat(registry.find(closing.getContextId())).isNull();
+        assertThat(registry.find(replacement.getContextId())).isSameAs(replacement);
+        assertThat(registry.size()).isEqualTo(RxWorkspaceRegistry.MAX_WORKSPACES);
+    }
+
+    @Test
+    void heartbeatCancelsPendingCloseAndKeepsWorkspaceAlive() {
+        long[] now = {1_000L};
+        RxWorkspaceRegistry registry = new RxWorkspaceRegistry(() -> now[0]);
+        RxWorkspaceRegistry.RxWorkspace workspace = registry.create(101, "provider-1");
+        registry.markClosing(workspace);
+        now[0] += RxWorkspaceRegistry.CLOSING_GRACE_MILLIS / 2;
+
+        registry.heartbeat(workspace);
+        now[0] += RxWorkspaceRegistry.CLOSING_GRACE_MILLIS;
+
+        assertThat(registry.purgeExpired()).isZero();
+        assertThat(registry.find(workspace.getContextId())).isSameAs(workspace);
+    }
+
+    @Test
+    void abandonedUnclaimedWorkspaceExpiresButInFlightRequestIsPinned() {
+        long[] now = {1_000L};
+        RxWorkspaceRegistry registry = new RxWorkspaceRegistry(() -> now[0]);
+        RxWorkspaceRegistry.RxWorkspace workspace = registry.create(101, "provider-1");
+        RxWorkspaceRegistry.RxWorkspace acquired = registry.acquire(workspace.getContextId());
+        now[0] += RxWorkspaceRegistry.UNCLAIMED_IDLE_MILLIS;
+
+        assertThat(registry.purgeExpired()).isZero();
+        registry.release(acquired);
+        assertThat(registry.purgeExpired()).isOne();
+        assertThat(registry.find(workspace.getContextId())).isNull();
+    }
+
+    @Test
+    void lifecycleEndpointsRefreshAndCloseWorkspaceWithoutInvokingStruts() throws Exception {
+        long[] now = {1_000L};
+        MockHttpSession session = session("provider-1");
+        RxWorkspaceRegistry registry = new RxWorkspaceRegistry(() -> now[0]);
+        session.setAttribute(RxWorkspaceRegistry.SESSION_KEY, registry);
+        RxWorkspaceRegistry.RxWorkspace workspace = registry.create(101, "provider-1");
+        boolean[] invoked = {false};
+
+        MockHttpServletRequest heartbeat = request(session, "GET", RxSessionFilter.HEARTBEAT_ROUTE);
+        heartbeat.addParameter("rxContextId", workspace.getContextId());
+        MockHttpServletResponse heartbeatResponse = new MockHttpServletResponse();
+        filter.doFilter(heartbeat, heartbeatResponse, (req, res) -> invoked[0] = true);
+
+        assertThat(heartbeatResponse.getStatus()).isEqualTo(204);
+        assertThat(invoked[0]).isFalse();
+
+        MockHttpServletRequest close = request(session, "POST", RxSessionFilter.CLOSE_ROUTE);
+        close.addParameter("rxContextId", workspace.getContextId());
+        MockHttpServletResponse closeResponse = new MockHttpServletResponse();
+        filter.doFilter(close, closeResponse, (req, res) -> invoked[0] = true);
+        now[0] += RxWorkspaceRegistry.CLOSING_GRACE_MILLIS;
+
+        assertThat(closeResponse.getStatus()).isEqualTo(204);
+        assertThat(registry.purgeExpired()).isOne();
+        assertThat(registry.find(workspace.getContextId())).isNull();
+    }
+
+    @Test
     void serializedRegistryDropsEphemeralPrescriptionDrafts() throws Exception {
         RxWorkspaceRegistry registry = RxWorkspaceRegistry.getOrCreate(session("provider-1"));
         registry.create(101, "provider-1");

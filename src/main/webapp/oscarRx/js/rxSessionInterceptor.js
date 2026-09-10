@@ -8,6 +8,7 @@
     var appointmentMeta = document.querySelector('meta[name="rx-appointment-no"]');
     var programMeta = document.querySelector('meta[name="rx-program-id"]');
     var ownerMeta = document.querySelector('meta[name="rx-context-owner"]');
+    var csrfMeta = document.querySelector('meta[name="rx-csrf-token"]');
     var contextId = contextMeta ? contextMeta.getAttribute('content') : '';
     var contextPath = pathMeta ? pathMeta.getAttribute('content') : '';
     if (!contextId) return;
@@ -227,6 +228,50 @@
 
     claimWorkspaceOwnership();
 
+    function csrfToken() {
+        var metaToken = metaValue(csrfMeta);
+        if (metaToken) return metaToken;
+        var input = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (input && input.value) return input.value;
+        try {
+            return window.CarlosAjax && typeof window.CarlosAjax.getCsrfToken === 'function'
+                    ? window.CarlosAjax.getCsrfToken() : '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function heartbeatWorkspace() {
+        if (!window.fetch) return;
+        window.fetch(addToUrl(contextPath + '/rx/workspaceHeartbeat'), {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).catch(function () {
+            // Ordinary Rx requests also refresh the lease; a missed heartbeat is recoverable.
+        });
+    }
+
+    function markWorkspaceClosing() {
+        var token = csrfToken();
+        if (!token || !window.navigator || typeof window.navigator.sendBeacon !== 'function') return;
+        var body = 'CSRF-TOKEN=' + encodeURIComponent(token);
+        window.navigator.sendBeacon(
+                addToUrl(contextPath + '/rx/workspaceClose'),
+                new Blob([body], {type: 'application/x-www-form-urlencoded'}));
+    }
+
+    function startWorkspaceLease() {
+        if (window.top !== window) return;
+        heartbeatWorkspace();
+        var heartbeatTimer = window.setInterval(heartbeatWorkspace, 60000);
+        window.addEventListener('pagehide', function () {
+            window.clearInterval(heartbeatTimer);
+            markWorkspaceClosing();
+        }, {once: true});
+    }
+
     if (window.fetch) {
         var originalFetch = window.fetch;
         window.fetch = function (input, init) {
@@ -320,4 +365,6 @@
     } else {
         document.addEventListener('DOMContentLoaded', initialize);
     }
+
+    startWorkspaceLease();
 })();
