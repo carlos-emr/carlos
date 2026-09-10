@@ -272,14 +272,22 @@ public class RxSessionFilter implements Filter {
 
     private static ContextParameter readContext(HttpServletRequest request) {
         String[] parameterValues = request.getParameterValues(CONTEXT_PARAMETER);
-        String parameterContext = parameterValues == null || parameterValues.length != 1
-                ? null : trimToNull(parameterValues[0]);
+        String parameterContext = null;
+        boolean invalid = false;
+        if (parameterValues != null) {
+            for (String value : parameterValues) {
+                String raw = trimToNull(value);
+                if (raw == null || (parameterContext != null && !parameterContext.equals(raw))) {
+                    invalid = true;
+                } else if (parameterContext == null) {
+                    parameterContext = raw;
+                }
+            }
+        }
         String headerContext = trimToNull(request.getHeader(CONTEXT_HEADER));
-        boolean invalid = (parameterValues != null && (parameterValues.length != 1 || parameterContext == null))
+        invalid = invalid
                 || (request.getHeader(CONTEXT_HEADER) != null && headerContext == null)
-                || (parameterContext != null
-                        && headerContext != null
-                        && !parameterContext.equals(headerContext));
+                || (parameterContext != null && headerContext != null && !parameterContext.equals(headerContext));
         return new ContextParameter(parameterContext != null ? parameterContext : headerContext, invalid);
     }
 
