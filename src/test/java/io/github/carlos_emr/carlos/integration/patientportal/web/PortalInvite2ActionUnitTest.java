@@ -22,17 +22,35 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
-import io.github.carlos_emr.carlos.integration.patientportal.*;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.struts2.ServletActionContext;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
@@ -53,7 +71,8 @@ class PortalInvite2ActionUnitTest {
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
 
-    @BeforeEach void setUp() {
+    @BeforeEach
+    void setUp() {
         request.setMethod("POST");
         request.setParameter("method", "revoke");
         request.setParameter("demographicNo", "123");
@@ -86,7 +105,8 @@ class PortalInvite2ActionUnitTest {
                 "Synthetic Provider", 1, null, "Synthetic Provider", null, null, null);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"GET", "HEAD", "post", "DELETE"})
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "post", "DELETE"})
     void rejectsMethodsBeforeAnyLookup(String method) throws Exception {
         request.setMethod(method);
         execute();
@@ -94,7 +114,8 @@ class PortalInvite2ActionUnitTest {
         verifyNoInteractions(security, resolver, portal);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"create", "resend"})
+    @ParameterizedTest
+    @ValueSource(strings = {"create", "resend"})
     void issuanceIsUnavailableEvenWithReplacementConfirmed(String method) throws Exception {
         request.setParameter("method", method);
         request.setParameter("confirmReplace", "true");
@@ -104,7 +125,8 @@ class PortalInvite2ActionUnitTest {
         verifyNoInteractions(portal, resolver);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"_demographic", "_portal.invite"})
+    @ParameterizedTest
+    @ValueSource(strings = {"_demographic", "_portal.invite"})
     void rejectsScopedDenialsEvenWithGlobalPrivilege(String object) throws Exception {
         when(security.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         when(security.hasPrivilege(any(), eq(object), anyString(), eq("123"))).thenReturn(false);
@@ -113,21 +135,24 @@ class PortalInvite2ActionUnitTest {
         verifyNoInteractions(portal, resolver);
     }
 
-    @Test void rejectsRestrictedPatientRecord() throws Exception {
+    @Test
+    void rejectsRestrictedPatientRecord() throws Exception {
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(false);
         execute();
         assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(portal, resolver);
     }
 
-    @Test void rejectsMissingPatient() throws Exception {
+    @Test
+    void rejectsMissingPatient() throws Exception {
         request.removeParameter("demographicNo");
         execute();
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(portal, resolver);
     }
 
-    @Test void rejectsForeignInvitationBeforeMutation() throws Exception {
+    @Test
+    void rejectsForeignInvitationBeforeMutation() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 456, "pending")));
         execute();
@@ -135,7 +160,8 @@ class PortalInvite2ActionUnitTest {
         verify(portal, never()).revokeInvite(anyLong(), any());
     }
 
-    @Test void revokesVerifiedInvitationWithScopedStaffIdentity() throws Exception {
+    @Test
+    void revokesVerifiedInvitationWithScopedStaffIdentity() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 123, "pending")));
         when(portal.revokeInvite(eq(7L), same(staff))).thenReturn(invite(7, 123, "revoked"));
@@ -146,7 +172,8 @@ class PortalInvite2ActionUnitTest {
         verify(portal).revokeInvite(eq(7L), same(staff));
     }
 
-    @Test void revokesVerifiedInvitationBeyondIntegerIdRange() throws Exception {
+    @Test
+    void revokesVerifiedInvitationBeyondIntegerIdRange() throws Exception {
         long id = Integer.MAX_VALUE + 1L;
         request.setParameter("inviteId", String.valueOf(id));
         when(portal.listInvites(eq(123), same(staff)))
@@ -157,7 +184,8 @@ class PortalInvite2ActionUnitTest {
         verify(portal).revokeInvite(eq(id), same(staff));
     }
 
-    @Test void lookupFailureCannotAuthorizeMutation() throws Exception {
+    @Test
+    void lookupFailureCannotAuthorizeMutation() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenThrow(PatientPortalException.ofTransportFailure("/internal/carlos/patients/{id}/invites", null));
         execute();
@@ -165,14 +193,16 @@ class PortalInvite2ActionUnitTest {
         verify(portal, never()).revokeInvite(anyLong(), any());
     }
 
-    @Test void unexpectedReturnedIdentityIsNotReportedAsSuccess() throws Exception {
+    @Test
+    void unexpectedReturnedIdentityIsNotReportedAsSuccess() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(List.of(invite(7, 123, "pending")));
         when(portal.revokeInvite(eq(7L), same(staff))).thenReturn(invite(8, 123, "revoked"));
         execute();
         assertThat(response.getStatus()).isEqualTo(502);
     }
-    @Test void failsClosedWhenFullListingDoesNotContainSelectedInvitation() throws Exception {
+    @Test
+    void failsClosedWhenFullListingDoesNotContainSelectedInvitation() throws Exception {
         when(portal.listInvites(eq(123), same(staff)))
                 .thenReturn(Collections.nCopies(100, invite(1, 123, "revoked")));
         execute();

@@ -67,7 +67,8 @@ class PortalMutationOutcomeUnitTest {
                 .isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE);
     }
 
-    @ParameterizedTest @ValueSource(booleans = {true, false})
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     void rejectsOppositeAccessState(boolean enabled) {
         String opposite = enabled ? "disabled" : "active";
         assertThatThrownBy(() -> service("{\"id\":1,\"status\":\"" + opposite
@@ -75,25 +76,29 @@ class PortalMutationOutcomeUnitTest {
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"pending", "accepted"})
+    @ParameterizedTest
+    @ValueSource(strings = {"pending", "accepted"})
     void rejectsUnconfirmedRevocation(String status) {
         assertThatThrownBy(() -> service(invite(7, status)).revokeInvite(7, staff))
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @Test void rejectsRevocationForDifferentInvite() {
+    @Test
+    void rejectsRevocationForDifferentInvite() {
         assertThatThrownBy(() -> service(invite(8, "revoked")).revokeInvite(7, staff))
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @Test void rejectsResendThatDoesNotSupersedeTheSelectedInvite() {
+    @Test
+    void rejectsResendThatDoesNotSupersedeTheSelectedInvite() {
         assertThatThrownBy(() -> service(issuedInvite(8, "pending", 6)).resendInvite(7, staff))
                 .isInstanceOf(PatientPortalException.class)
                 .extracting(error -> ((PatientPortalException) error).kind())
                 .isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE);
     }
 
-    @Test void rejectsUnlockSecretTransitionForDifferentRecordOrState() {
+    @Test
+    void rejectsUnlockSecretTransitionForDifferentRecordOrState() {
         assertThatThrownBy(
                         () -> service("{\"id\":12,\"status\":\"available\"}")
                                 .publishUnlockSecret(11, staff))
@@ -108,7 +113,8 @@ class PortalMutationOutcomeUnitTest {
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @Test void rejectsUnlockSecretCreatedForDifferentSourceOrState() {
+    @Test
+    void rejectsUnlockSecretCreatedForDifferentSourceOrState() {
         assertThatThrownBy(
                         () -> service(secret("other-message", "pending"))
                                 .createUnlockSecret(123, "message-1", null, staff))
@@ -119,7 +125,8 @@ class PortalMutationOutcomeUnitTest {
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @Test void rejectsContactDecisionThatDoesNotConfirmTheRequest() {
+    @Test
+    void rejectsContactDecisionThatDoesNotConfirmTheRequest() {
         assertThatThrownBy(
                         () -> service("{\"id\":4,\"status\":\"reviewed\","
                                         + "\"decision\":\"approved\"}")
@@ -132,7 +139,8 @@ class PortalMutationOutcomeUnitTest {
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @Test void acceptsConfirmedSecurityChanges() {
+    @Test
+    void acceptsConfirmedSecurityChanges() {
         assertThat(service("{\"id\":1,\"clinic_id\":\"clinic\",\"demographic_no\":123,"
                 + "\"locked_at\":null,\"force_password_reset\":true}").unlockAccount(123, staff).forcePasswordReset()).isTrue();
         for (boolean enabled : new boolean[] {true, false}) {
@@ -177,7 +185,8 @@ class PortalMutationOutcomeUnitTest {
                 + "\"status\":\"" + status + "\"}";
     }
 
-    @Test void secretRenderingDoesNotExposeMessageReference() {
+    @Test
+    void secretRenderingDoesNotExposeMessageReference() {
         var secret = new PatientPortalUnlockSecretDto(1, true, PortalSecret.of("synthetic-secret"),
                 "patient-123-message-456", "pending");
         assertThat(secret.toString()).doesNotContain("synthetic-secret", "patient-123-message-456");

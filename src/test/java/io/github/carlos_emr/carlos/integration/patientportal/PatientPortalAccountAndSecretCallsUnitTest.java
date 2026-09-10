@@ -325,6 +325,29 @@ class PatientPortalAccountAndSecretCallsUnitTest {
         }
 
         @Test
+        @DisplayName("should classify a null items member as a malformed portal response")
+        void shouldThrowMalformedResponse_whenReviewItemsAreNull() {
+            ScriptedExchange exchange =
+                    new ScriptedExchange().reply(
+                            200,
+                            "{\"items\":null,\"limit\":50,\"offset\":0,\"total\":0,"
+                                    + "\"next_offset\":null}");
+
+            assertThatThrownBy(
+                            () ->
+                                    service(exchange)
+                                            .listContactReviews(
+                                                    50,
+                                                    0,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_CONTACT_REVIEW)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
         @DisplayName("should clamp the page size and offset to what the portal accepts")
         void shouldClampPaging_whenCallerAsksOutOfRange() {
             ScriptedExchange exchange =

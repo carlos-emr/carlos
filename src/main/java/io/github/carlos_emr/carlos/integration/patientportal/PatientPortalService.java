@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -498,10 +499,10 @@ public class PatientPortalService implements Closeable {
             }
             return;
         }
-        if (payload.has("invite")) {
+        if (payload.hasNonNull("invite")) {
             validateScope(payload.get("invite"), pathFormat, args);
         }
-        if (payload.has("items")) {
+        if (payload.hasNonNull("items")) {
             validateScope(payload.get("items"), pathFormat, args);
         }
         if (payload.has("clinic_id")
@@ -671,7 +672,7 @@ public class PatientPortalService implements Closeable {
         JsonNode payload;
         try {
             payload = objectMapper.readTree(response.body());
-        } catch (IOException exception) {
+        } catch (JsonProcessingException exception) {
             throw PatientPortalException.ofMalformedResponse(
                     response.statusCode(), template, exception);
         }
@@ -697,7 +698,7 @@ public class PatientPortalService implements Closeable {
             }
             String text = detail.asText();
             return SAFE_DETAILS.contains(text) ? text : null;
-        } catch (IOException exception) {
+        } catch (JsonProcessingException exception) {
             return null;
         }
     }

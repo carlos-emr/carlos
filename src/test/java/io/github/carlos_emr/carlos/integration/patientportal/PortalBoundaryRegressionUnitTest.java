@@ -21,10 +21,14 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetSocketAddress;
@@ -42,10 +46,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 @Tag("patient-portal")
 class PortalBoundaryRegressionUnitTest {
     private final ObjectMapper mapper = new ObjectMapper();
+
     private PatientPortalStaffContext staff() {
         return new PatientPortalStaffContext("999998", "Synthetic Provider",
                 Set.of(PatientPortalStaffContext.PERMISSION_SECRET_MANAGE));
     }
+
     private PatientPortalService service(String body) {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
@@ -54,7 +60,8 @@ class PortalBoundaryRegressionUnitTest {
         return new PatientPortalService(settings, request -> new PatientPortalHttpResponse(201, body));
     }
 
-    @Test void shouldRedactMalformedJsonTokenFromExceptionChain() {
+    @Test
+    void shouldRedactMalformedJsonTokenFromExceptionChain() {
         Throwable failure = catchThrowable(() -> service("{\"secret\":SyntheticSecretToken123}")
                 .createUnlockSecret(123, "message-1", null, staff()));
         assertThat(failure).isInstanceOf(PatientPortalException.class);
@@ -63,25 +70,29 @@ class PortalBoundaryRegressionUnitTest {
         assertThat(rendered.toString()).doesNotContain("SyntheticSecretToken123");
     }
 
-    @Test void shouldRejectFractionalIdentifier() throws Exception {
+    @Test
+    void shouldRejectFractionalIdentifier() throws Exception {
         var value = mapper.readTree("{\"id\":1.9}");
         assertThatThrownBy(() -> PortalJson.requiredLong(value, "id"))
                 .isInstanceOf(PortalContractException.class);
     }
 
-    @Test void shouldRejectOverflowingIdentifier() throws Exception {
+    @Test
+    void shouldRejectOverflowingIdentifier() throws Exception {
         var value = mapper.readTree("{\"id\":18446744073709551617}");
         assertThatThrownBy(() -> PortalJson.requiredInt(value, "id"))
                 .isInstanceOf(PortalContractException.class);
     }
 
-    @Test void shouldRejectMissingPassphrase() {
+    @Test
+    void shouldRejectMissingPassphrase() {
         assertThatThrownBy(() -> service("{\"id\":1,\"created\":true,\"status\":\"pending\"}")
                 .createUnlockSecret(123, "message-1", null, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @ParameterizedTest @ValueSource(ints = {429, 503})
+    @ParameterizedTest
+    @ValueSource(ints = {429, 503})
     void shouldNotReplayMutationAfterTransientFailure(int failureStatus) throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger calls = new AtomicInteger();
@@ -98,10 +109,13 @@ class PortalBoundaryRegressionUnitTest {
             transport.send(ClassicRequestBuilder.post("http://127.0.0.1:"
                     + server.getAddress().getPort() + "/mutate").build());
             assertThat(calls.get()).as("one staff action must not replay a mutation").isEqualTo(1);
-        } finally { server.stop(0); }
+        } finally {
+            server.stop(0);
+        }
     }
 
-    @Test void shouldAbortOversizedResponseWithoutDrainingItsTail() throws Exception {
+    @Test
+    void shouldAbortOversizedResponseWithoutDrainingItsTail() throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/large", exchange -> {
             exchange.sendResponseHeaders(200, 0);
@@ -114,7 +128,11 @@ class PortalBoundaryRegressionUnitTest {
                     out.flush();
                     Thread.sleep(50);
                 }
-            } catch (Exception expectedAfterAbort) { }
+            } catch (IOException expectedAfterAbort) {
+                // Expected when the client closes the oversized response before its tail is sent.
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
         });
         server.start();
         try (var transport = new PatientPortalHttpClientExchange(
@@ -126,21 +144,27 @@ class PortalBoundaryRegressionUnitTest {
             assertThat(Duration.ofNanos(System.nanoTime() - start))
                     .as("size cap must terminate the network read")
                     .isLessThan(Duration.ofSeconds(2));
-        } finally { server.stop(0); }
+        } finally {
+            server.stop(0);
+        }
     }
-    @ParameterizedTest @ValueSource(strings = {"null", "0", "true", "[]", "{}", "\"\"", "\"  \""})
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "0", "true", "[]", "{}", "\"\"", "\"  \""})
     void rejectsInvalidCredentialValues(String secret) {
         assertThatThrownBy(() -> service("{\"id\":1,\"created\":true,\"status\":\"pending\",\"secret\":" + secret + "}")
                 .createUnlockSecret(123, "message-1", null, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @Test void rejectsTrailingContent() {
+    @Test
+    void rejectsTrailingContent() {
         assertThatThrownBy(() -> service("[] {} ").listInvites(123, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
 
-    @Test void withholdsArbitraryTextInErrorDetails() {
+    @Test
+    void withholdsArbitraryTextInErrorDetails() {
         var settings = new PatientPortalSettings("https://portal.example", "clinic",
                 PortalSecret.of("synthetic-service-token-0000000001"),
                 PortalSecret.of(PortalTestKeys.PRIVATE_KEY), Duration.ofSeconds(1),
@@ -152,7 +176,8 @@ class PortalBoundaryRegressionUnitTest {
         assertThat(failure).hasMessageNotContaining("SyntheticSecretToken123");
     }
 
-    @ParameterizedTest @ValueSource(strings = {"sha256/first", "sha256/%%%%", ",,", "sha256/AAAA"})
+    @ParameterizedTest
+    @ValueSource(strings = {"sha256/first", "sha256/%%%%", ",,", "sha256/AAAA"})
     void rejectsInvalidPinConfiguration(String pins) {
         var values = java.util.Map.of(PatientPortalSettings.BASE_URL_KEY, "https://portal.example",
                 PatientPortalSettings.CLINIC_ID_KEY, "clinic",
@@ -164,25 +189,30 @@ class PortalBoundaryRegressionUnitTest {
                 .isInstanceOf(PatientPortalConfigurationException.class);
     }
 
-    @Test void distinguishesPartialConfigurationFromAbsentPortal() {
+    @Test
+    void distinguishesPartialConfigurationFromAbsentPortal() {
         assertThat(PatientPortalSettings.isConfigured(key -> null)).isFalse();
         assertThat(PatientPortalSettings.isConfigured(key ->
                 PatientPortalSettings.BASE_URL_KEY.equals(key) ? "https://portal.example" : null)).isTrue();
     }
 
-    @Test void rejectsMissingUnlockState() {
+    @Test
+    void rejectsMissingUnlockState() {
         assertThatThrownBy(() -> service("{\"id\":1,\"force_password_reset\":true}")
                 .unlockAccount(123, staff())).isInstanceOf(PatientPortalException.class);
     }
 
-    @ParameterizedTest @ValueSource(strings = {
+    @ParameterizedTest
+    @ValueSource(strings = {
             "{\"id\":1,\"clinic_id\":\"other-clinic\",\"demographic_no\":123,\"status\":\"pending\",\"issued_count\":1}",
             "{\"id\":1,\"clinic_id\":\"clinic\",\"demographic_no\":456,\"status\":\"pending\",\"issued_count\":1}"})
     void rejectsInvitationWithWrongResponseScope(String invite) {
         assertThatThrownBy(() -> service("[" + invite + "]").listInvites(123, staff()))
                 .isInstanceOf(PatientPortalException.class);
     }
-    @Test void redactsMalformedHttpStatusFromTransportExceptionChain() throws Exception {
+
+    @Test
+    void redactsMalformedHttpStatusFromTransportExceptionChain() throws Exception {
         try (var server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress());
                 var workers = java.util.concurrent.Executors.newSingleThreadExecutor();
                 var transport = new PatientPortalHttpClientExchange(Duration.ofSeconds(1), Duration.ofSeconds(1))) {

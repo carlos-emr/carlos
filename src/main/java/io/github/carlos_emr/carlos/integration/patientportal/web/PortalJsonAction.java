@@ -24,10 +24,8 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
-import org.springframework.beans.factory.BeanCreationException;
-import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -41,6 +39,8 @@ import java.util.Locale;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.BeanCreationException;
 
 /**
  * Shared JSON plumbing for the portal staff actions.

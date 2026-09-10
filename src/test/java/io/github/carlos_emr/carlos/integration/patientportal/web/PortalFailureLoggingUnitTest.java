@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -145,7 +146,7 @@ class PortalFailureLoggingUnitTest {
         try {
             new ObjectMapper().readTree(body);
             throw new IllegalStateException("that should not have parsed");
-        } catch (IOException parseFailure) {
+        } catch (JsonProcessingException parseFailure) {
             return PatientPortalException.ofMalformedResponse(
                     200, "/internal/carlos/patients/{id}/portal-account", parseFailure);
         }
