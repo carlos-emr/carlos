@@ -275,11 +275,10 @@ public final class RxWorkspaceRegistry implements Serializable {
         }
 
         private void validatePatientState(String name, Object value) {
-            if (value instanceof RxSessionBean bean) {
-                if (bean.getDemographicNo() != demographicNo
-                        || (bean.getProviderNo() != null && !providerNo.equals(bean.getProviderNo()))) {
-                    throw new IllegalArgumentException(name + " belongs to a different Rx workspace");
-                }
+            if (value instanceof RxSessionBean bean
+                    && (bean.getDemographicNo() != demographicNo
+                        || (bean.getProviderNo() != null && !providerNo.equals(bean.getProviderNo())))) {
+                throw new IllegalArgumentException(name + " belongs to a different Rx workspace");
             }
             if (value instanceof RxPatientData.Patient patient
                     && patient.getDemographicNo() != demographicNo) {
