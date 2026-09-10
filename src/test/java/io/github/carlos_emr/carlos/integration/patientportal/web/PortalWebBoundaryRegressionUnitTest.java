@@ -46,7 +46,8 @@ class PortalWebBoundaryRegressionUnitTest {
         var session = mock(LoggedInInfo.class);
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
-        request.setMethod("POST"); request.setParameter("method", "unlock");
+        request.setMethod("POST");
+        request.setParameter("method", "unlock");
         request.setParameter("demographicNo", "123");
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
@@ -76,7 +77,8 @@ class PortalWebBoundaryRegressionUnitTest {
         var session = mock(LoggedInInfo.class);
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
-        request.setMethod("POST"); request.setParameter("method", "unlock");
+        request.setMethod("POST");
+        request.setParameter("method", "unlock");
         request.setParameter("demographicNo", "123");
         when(security.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(true);
         // Mockito defaults deny every patient-specific permission and patient-record access.
@@ -101,7 +103,8 @@ class PortalWebBoundaryRegressionUnitTest {
         var session = mock(LoggedInInfo.class);
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
-        request.setMethod("GET"); request.setParameter("demographicNo", "123");
+        request.setMethod("GET");
+        request.setParameter("demographicNo", "123");
         when(security.hasPrivilege(any(), anyString(), eq("r"), eq("123")))
                 .thenReturn(true);
         when(resolver.resolveForPatient(any(), any(), eq(123))).thenReturn(new PatientPortalStaffContext(

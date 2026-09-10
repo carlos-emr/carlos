@@ -69,7 +69,11 @@ class PortalInvite2ActionUnitTest {
         when(resolver.resolveForPatient(any(), any(), eq(123))).thenReturn(staff);
     }
 
-    @AfterEach void tearDown() { login.close(); servlet.close(); }
+    @AfterEach
+    void tearDown() {
+        login.close();
+        servlet.close();
+    }
 
     private void execute() throws Exception {
         assertThat(new PortalInvite2Action(security, portal, resolver).execute())

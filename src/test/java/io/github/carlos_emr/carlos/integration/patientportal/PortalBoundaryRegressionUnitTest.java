@@ -110,7 +110,9 @@ class PortalBoundaryRegressionUnitTest {
                 out.flush();
                 // Stay below the per-read timeout, but exceed the body cap for three seconds.
                 for (int i = 0; i < 60; i++) {
-                    out.write(new byte[1024]); out.flush(); Thread.sleep(50);
+                    out.write(new byte[1024]);
+                    out.flush();
+                    Thread.sleep(50);
                 }
             } catch (Exception expectedAfterAbort) { }
         });
