@@ -40,7 +40,6 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private String providerLastName;
     private String recipientEmail;
     private boolean isEncrypted;
-    private String password;
     private EmailStatus status;
     private String errorMessage;
     private Date created;
@@ -65,14 +64,13 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @param providerFirstName String the first name of the associated healthcare provider
      * @param providerLastName String the last name of the associated healthcare provider
      * @param isEncrypted boolean flag indicating whether the email was encrypted
-     * @param password String the encryption password (if applicable)
      * @param status EmailStatus the current delivery status of the email
      * @param errorMessage String any error message associated with failed delivery (may be null)
      * @param created Date the timestamp when the email was created/sent
      */
     public EmailStatusResult(Integer logId, String subject, String senderFirstName, String senderLastName, String senderEmail,
                              String recipientFirstName, String recipientLastName, String recipientEmail, String providerFirstName,
-                             String providerLastName, boolean isEncrypted, String password, EmailStatus status,
+                             String providerLastName, boolean isEncrypted, EmailStatus status,
                              String errorMessage, Date created) {
         this.logId = logId;
         this.subject = subject;
@@ -85,7 +83,6 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         this.providerLastName = providerLastName;
         this.recipientEmail = recipientEmail;
         this.isEncrypted = isEncrypted;
-        this.password = password;
         this.status = status;
         this.errorMessage = errorMessage;
         this.created = created;
@@ -356,33 +353,6 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      */
     public void setIsEncrypted(boolean isEncrypted) {
         this.isEncrypted = isEncrypted;
-    }
-
-    /**
-     * Gets the encryption password.
-     *
-     * <p><strong>Security Note:</strong> This password is used for email encryption in a
-     * healthcare context where emails may contain PHI. Handle this value with appropriate
-     * security measures: do not log it, avoid exposing it in error messages, and clear it
-     * from memory when no longer needed.</p>
-     *
-     * @return String the encryption password (may be null if not encrypted)
-     */
-    public String getPassword() {
-        return password;
-    }
-
-    /**
-     * Sets the encryption password.
-     *
-     * <p><strong>Security Note:</strong> This password is used for email encryption in a
-     * healthcare context where emails may contain PHI. Ensure this value is handled
-     * securely and not logged or exposed in error messages.</p>
-     *
-     * @param password String the encryption password to set
-     */
-    public void setPassword(String password) {
-        this.password = password;
     }
 
     /**
