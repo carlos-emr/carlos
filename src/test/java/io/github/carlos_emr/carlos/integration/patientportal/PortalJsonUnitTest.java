@@ -22,13 +22,14 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -52,7 +53,7 @@ class PortalJsonUnitTest {
     private JsonNode node(String json) {
         try {
             return MAPPER.readTree(json);
-        } catch (Exception exception) {
+        } catch (JsonProcessingException exception) {
             throw new IllegalStateException(exception);
         }
     }

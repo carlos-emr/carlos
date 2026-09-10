@@ -156,11 +156,11 @@ public class PortalPanel2Action extends PortalJsonAction {
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(loggedInInfo, scope, demographicNo);
         ObjectNode payload = newPayload();
         boolean complete = true;
-        if (mayReadInvites) {
-            complete &= addInvites(portal, payload, demographicNo, staff);
+        if (mayReadInvites && !addInvites(portal, payload, demographicNo, staff)) {
+            complete = false;
         }
-        if (mayReadAccount) {
-            complete &= addAccount(portal, payload, demographicNo, staff);
+        if (mayReadAccount && !addAccount(portal, payload, demographicNo, staff)) {
+            complete = false;
         }
         // ok is the reliable-looking signal, so it has to be the honest one. Reporting true while
         // both sections failed let a caller doing the obvious `if (!body.ok)` render a healthy,

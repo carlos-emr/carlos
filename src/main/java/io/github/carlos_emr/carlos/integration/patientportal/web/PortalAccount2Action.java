@@ -193,22 +193,23 @@ public class PortalAccount2Action extends PortalJsonAction {
         if (enabled == null) {
             return badRequest(response, ENABLED_REQUIRED);
         }
+        boolean enabledValue = enabled;
         String reason = request.getParameter("reason");
         boolean reasonMissing = reason == null || reason.isBlank();
-        if (!enabled.booleanValue() && reasonMissing) {
+        if (!enabledValue && reasonMissing) {
             return badRequest(response, REASON_REQUIRED);
         }
         PatientPortalAccountAcknowledgementDto account =
                 portal.setAccountAccess(
                         demographicNo,
-                        enabled.booleanValue(),
+                        enabledValue,
                         reasonMissing ? "staff_action" : reason.strip(),
                         staff);
         ObjectNode payload = newPayload();
         payload.put("ok", true);
         payload.put("accountId", account.id());
         payload.put("status", account.status());
-        payload.put("enabled", enabled.booleanValue());
+        payload.put("enabled", enabledValue);
         payload.put("forcePasswordReset", account.forcePasswordReset());
         return write(response, HttpServletResponse.SC_OK, payload);
     }

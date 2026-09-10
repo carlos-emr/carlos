@@ -22,8 +22,8 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.util.Locale;
 import java.time.Instant;
+import java.util.Locale;
 
 /**
  * One portal invite as the portal reports it.

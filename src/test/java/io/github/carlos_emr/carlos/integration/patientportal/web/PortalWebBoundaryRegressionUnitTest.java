@@ -21,26 +21,40 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
-import io.github.carlos_emr.carlos.integration.patientportal.*;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.Set;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import java.util.Set;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /** Regression tests for patient scope and structured failure responses. */
 @Tag("unit")
 @Tag("patient-portal")
 class PortalWebBoundaryRegressionUnitTest {
-    @Test void shouldReturnJsonWhenConfiguredPortalBeanCannotInitialize() throws Exception {
+    @Test
+    void shouldReturnJsonWhenConfiguredPortalBeanCannotInitialize() throws Exception {
         var security = mock(SecurityInfoManager.class);
         var resolver = mock(PortalStaffContextResolver.class);
         var session = mock(LoggedInInfo.class);
@@ -70,7 +84,8 @@ class PortalWebBoundaryRegressionUnitTest {
         }
     }
 
-    @Test void shouldNotUnlockPatientWhoseScopedPermissionIsDenied() throws Exception {
+    @Test
+    void shouldNotUnlockPatientWhoseScopedPermissionIsDenied() throws Exception {
         var security = mock(SecurityInfoManager.class);
         var portal = mock(PatientPortalService.class);
         var resolver = mock(PortalStaffContextResolver.class);
@@ -96,7 +111,8 @@ class PortalWebBoundaryRegressionUnitTest {
         }
     }
 
-    @Test void shouldNotDescribeRejectedServiceCredentialsAsNoPatientAccount() throws Exception {
+    @Test
+    void shouldNotDescribeRejectedServiceCredentialsAsNoPatientAccount() throws Exception {
         var security = mock(SecurityInfoManager.class);
         var portal = mock(PatientPortalService.class);
         var resolver = mock(PortalStaffContextResolver.class);
