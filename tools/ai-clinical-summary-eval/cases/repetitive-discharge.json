@@ -13,20 +13,22 @@
     ],
     "fact_ledger": [
       {"id": "ledger-status", "category": "Problem", "text": "Pneumomediastinum is stable and improving without CXR complications.", "source_ids": ["ward-1"]},
-      {"id": "ledger-symptoms", "category": "Symptoms", "text": "No pain or shortness of breath today.", "source_ids": ["ward-1"]},
-      {"id": "ledger-plan", "category": "Plan", "text": "Stop regular analgesics and repeat CXR in 48 hours.", "source_ids": ["plan-1"]},
-      {"id": "ledger-education", "category": "Education", "text": "Recurrence and urgent-attention advice was provided.", "source_ids": ["nurse-1", "nurse-2"]}
+      {"id": "ledger-symptoms", "category": "Symptoms", "text": "No pain and no shortness of breath today.", "source_ids": ["ward-1"]},
+      {"id": "ledger-stop-analgesics", "category": "Plan", "text": "Stop regular paracetamol and ibuprofen because the patient is pain-free.", "source_ids": ["plan-1"]},
+      {"id": "ledger-repeat-cxr", "category": "Plan", "text": "Repeat CXR in 48 hours.", "source_ids": ["plan-1"]},
+      {"id": "ledger-follow-up", "category": "Plan", "text": "Routine respiratory clinic follow-up is planned.", "source_ids": ["plan-1"]},
+      {"id": "ledger-education", "category": "Education", "text": "Advice about recurrence and when to seek urgent attention was provided.", "source_ids": ["nurse-1", "nurse-2"]}
     ]
   },
   "expectations": {
     "facts": [
-      {"id": "pneumomediastinum-status", "critical": true, "section_ids": ["clinical_overview", "active_problems"], "pattern_groups": [["pneumomediastinum"], ["stable|improv"], ["no complications|without complications"]], "required_source_ids": ["ward-1"]},
+      {"id": "pneumomediastinum-status", "critical": true, "section_ids": ["clinical_overview", "active_problems"], "pattern_groups": [["pneumomediastinum"], ["stable|improv"], ["no complications|without (?:cxr )?complications"]], "required_source_ids": ["ward-1"]},
       {"id": "symptoms-absent", "critical": true, "section_ids": ["clinical_overview", "results_observations"], "pattern_groups": [["no (?:chest )?pain|pain.free"], ["no shortness of breath|no dyspn|no sob"]], "required_source_ids": ["ward-1"]},
       {"id": "observations", "critical": false, "section_ids": ["results_observations"], "pattern_groups": [["128/78"], ["97%|97 percent"], ["air"]], "required_source_ids": ["ward-1"]},
       {"id": "stop-analgesics", "critical": true, "section_ids": ["plan_follow_up"], "pattern_groups": [["stop"], ["paracetamol"], ["ibuprofen"]], "required_source_ids": ["plan-1"]},
       {"id": "repeat-cxr", "critical": true, "section_ids": ["plan_follow_up"], "pattern_groups": [["repeat (?:the )?cxr|repeat chest x.ray"], ["48 hours"]], "required_source_ids": ["plan-1"]},
       {"id": "respiratory-follow-up", "critical": false, "section_ids": ["plan_follow_up"], "pattern_groups": [["respiratory|resp"], ["follow.up|clinic"]], "required_source_ids": ["plan-1"]},
-      {"id": "recurrence-education", "critical": false, "section_ids": ["plan_follow_up"], "pattern_groups": [["education|advis|instruction"], ["recurrence"], ["urgent|seek.*attention"]], "required_source_ids": ["nurse-1", "nurse-2"]}
+      {"id": "recurrence-education", "critical": false, "section_ids": ["plan_follow_up"], "pattern_groups": [["education|advi|instruction"], ["recurrence"], ["urgent|seek.*attention"]], "required_source_ids": ["nurse-1", "nurse-2"]}
     ],
     "forbidden_patterns": ["demographic number", "source admission id", "recorded gender identity", "medicine inpatients", "(?:^|\\s)atient education", "(?:^|\\s)ischarge planning"],
     "excluded_source_ids": ["admin-1"],

@@ -15,13 +15,15 @@ class EvaluationTests(unittest.TestCase):
         self.case = json.loads((BASE / "cases" / "medication-conflict.json").read_text())
         self.generated = {
             "sections": [
-                {"id": "active_problems", "title": "Active problems", "claim_ids": ["c1"]},
+                {"id": "active_problems", "title": "Active problems",
+                 "claim_ids": ["c1", "c4"]},
                 {"id": "medications_allergies", "title": "Medications and allergies",
                  "claim_ids": ["c2", "c3"]}
             ],
             "claims": [
-                {"id": "c1", "text": "Intermittent knee pain for two weeks, with no injury reported.",
+                {"id": "c1", "text": "Intermittent knee pain has been present for two weeks.",
                  "source_ids": ["visit-1"]},
+                {"id": "c4", "text": "No injury was reported.", "source_ids": ["visit-1"]},
                 {"id": "c2", "text": "Amlodipine is listed active, but the patient reports stopping it.",
                  "source_ids": ["visit-1", "meds-1"]},
                 {"id": "c3", "text": "Penicillin caused a rash.", "source_ids": ["allergy-1"]}
@@ -78,6 +80,15 @@ class EvaluationTests(unittest.TestCase):
         generated["sections"][1]["claim_ids"].append("c4")
         result = self.evaluate(generated)
         self.assertIn("DUPLICATE_FACT_CLAIM", {item["code"] for item in result["findings"]})
+
+    def test_combined_facts_fail_atomic_claim_gate(self):
+        generated = copy.deepcopy(self.generated)
+        generated["claims"][0]["text"] = "Intermittent knee pain for two weeks, with no injury reported."
+        generated["claims"] = [claim for claim in generated["claims"] if claim["id"] != "c4"]
+        generated["sections"][0]["claim_ids"].remove("c4")
+        result = self.evaluate(generated)
+        self.assertFalse(result["metrics"]["hard_gate_pass"])
+        self.assertIn("COMBINED_FACTS", {item["code"] for item in result["findings"]})
 
     def test_single_source_claim_is_valid(self):
         case = json.loads((BASE / "cases" / "single-source.json").read_text())
