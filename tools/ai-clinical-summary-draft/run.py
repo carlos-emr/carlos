@@ -22,6 +22,18 @@ class NoRedirect(HTTPRedirectHandler):
         raise ValueError("Ollama redirects are not permitted")
 
 
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        require(key not in result, "Duplicate JSON key: " + key)
+        result[key] = value
+    return result
+
+
+def loads_json(value):
+    return json.loads(value, object_pairs_hook=unique_object)
+
+
 def request_json(port, endpoint, payload):
     # Explicit numeric loopback and no proxies/redirects prevent external HTTP routing.
     opener = build_opener(ProxyHandler({}), NoRedirect())
@@ -31,7 +43,7 @@ def request_json(port, endpoint, payload):
     with opener.open(request, timeout=300) as response:
         body = response.read(MAX_RESPONSE_BYTES + 1)
     require(len(body) <= MAX_RESPONSE_BYTES, "Ollama response exceeds size limit")
-    return json.loads(body)
+    return loads_json(body)
 
 
 def build_artifact(bundle, generated, model, artifact_id, timestamp, allow_empty=False):
@@ -64,7 +76,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         require(1 <= args.port <= 65535, "Port must be between 1 and 65535")
-        bundle = json.loads(args.input.read_text(encoding="utf-8"))
+        bundle = loads_json(args.input.read_text(encoding="utf-8"))
         require(isinstance(bundle, dict) and set(bundle) == {"patient_context", "sources", "fact_ledger"},
                 "Input must contain patient_context, sources and fact_ledger only")
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -76,12 +88,12 @@ def main(argv=None):
             for source in bundle["sources"]
         ]}
         build_artifact(bundle, empty, args.model, run_id, timestamp, allow_empty=True)
-        schema = json.loads((ROOT / "output-schema.json").read_text(encoding="utf-8"))
+        schema = loads_json((ROOT / "output-schema.json").read_text(encoding="utf-8"))
         prompt = (ROOT / "prompt.txt").read_text(encoding="utf-8")
         payload = {"model": args.model, "system": prompt,
-                   "prompt": json.dumps({"bundle": bundle, "schema": schema}),
-                   "format": schema, "stream": False, "think": False,
-                   "options": {"temperature": 0, "num_ctx": 16384}}
+                   "prompt": json.dumps({"sources": bundle["sources"]}),
+                   "format": schema, "stream": False, "think": False, "keep_alive": "5m",
+                   "options": {"temperature": 0, "num_ctx": 65536, "num_predict": 4096}}
         output = ROOT / "runs" / run_id
         require(output.resolve().is_relative_to(ROOT), "Runs directory must stay inside tool directory")
         if args.dry_run:
@@ -97,8 +109,9 @@ def main(argv=None):
         response = request_json(args.port, "generate", payload)
         (output / "response.json").write_text(json.dumps(response, indent=2) + "\n", encoding="utf-8")
         require(isinstance(response, dict) and response.get("done") is True
-                and response.get("done_reason") != "length", "Generation did not complete")
-        generated = json.loads(response.get("response", ""))
+                and response.get("done_reason") == "stop" and response.get("model") == args.model
+                and isinstance(response.get("response"), str), "Generation did not complete")
+        generated = loads_json(response["response"])
         artifact = build_artifact(bundle, generated, args.model, run_id, timestamp)
         (output / "artifact.json").write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
         print(f"Research artifact: {output / 'artifact.json'}")

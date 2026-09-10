@@ -124,7 +124,8 @@ class RunnerTest(unittest.TestCase):
                 generated = copy.deepcopy(self.generated)
                 if not valid:
                     generated["claims"][0]["source_ids"] = ["invented"]
-                response = {"done": True, "done_reason": "stop", "response": json.dumps(generated)}
+                response = {"done": True, "done_reason": "stop", "model": "qwen3.5:4b",
+                            "response": json.dumps(generated)}
                 with patch.object(run, "ROOT", root), patch.object(run, "request_json", side_effect=[{}, response]):
                     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                         if valid:
@@ -136,6 +137,39 @@ class RunnerTest(unittest.TestCase):
                 self.assertEqual(1 if valid else 0, len(artifacts))
                 if valid:
                     validate(json.loads(artifacts[0].read_text()))
+
+    def test_generation_request_matches_runtime_boundary_and_rejects_bad_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("sample-input.json", "prompt.txt", "output-schema.json"):
+                (root / name).write_bytes((ROOT / name).read_bytes())
+            response = {"done": True, "done_reason": "stop", "model": "qwen3.5:4b",
+                        "response": json.dumps(self.generated)}
+            with patch.object(run, "ROOT", root), \
+                    patch.object(run, "request_json", side_effect=[{}, response]) as request:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(0, run.main([]))
+            payload = request.call_args_list[1].args[2]
+            self.assertEqual({"sources"}, set(json.loads(payload["prompt"])))
+            self.assertEqual(65536, payload["options"]["num_ctx"])
+            self.assertEqual(4096, payload["options"]["num_predict"])
+            self.assertEqual("5m", payload["keep_alive"])
+
+        for mutation in ({"model": "qwen3.5:9b"}, {"done_reason": "unload"}, {"done": False}):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for name in ("sample-input.json", "prompt.txt", "output-schema.json"):
+                    (root / name).write_bytes((ROOT / name).read_bytes())
+                invalid = dict(response, **mutation)
+                with patch.object(run, "ROOT", root), \
+                        patch.object(run, "request_json", side_effect=[{}, invalid]), \
+                        contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    run.main([])
+                self.assertFalse(list(root.glob("runs/*/artifact.json")))
+
+    def test_json_parser_rejects_duplicate_keys(self):
+        with self.assertRaisesRegex(ValueError, "Duplicate JSON key"):
+            run.loads_json('{"done":true,"done":false}')
 
     def test_cloud_model_and_redirect_are_rejected(self):
         with patch.object(run, "request_json", return_value={"remote_model": "cloud-model"}):
