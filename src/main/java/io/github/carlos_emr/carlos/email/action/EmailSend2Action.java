@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -260,12 +261,22 @@ public class EmailSend2Action extends ActionSupport {
                 recipients == null ? List.of() : Arrays.asList(recipients));
         // Keep every currently active sender available. The selected account may be the reason the
         // delivery failed, so restricting the retry form to that one account prevents recovery.
-        request.setAttribute("senderAccounts", emailComposeManager.getAllSenderAccounts());
+        request.setAttribute("senderAccounts", getSenderAccountsForRetry(emailLog));
         if (emailLog.getEmailConfig() != null) {
             request.setAttribute("senderEmail", emailLog.getFromEmail());
         }
         if (emailLog.getDemographic() != null) {
             request.setAttribute("receiverName", emailLog.getDemographic().getFormattedName());
+        }
+    }
+
+    private List<EmailConfig> getSenderAccountsForRetry(EmailLog emailLog) {
+        try {
+            return emailComposeManager.getAllSenderAccounts();
+        } catch (RuntimeException e) {
+            logger.warn("Unable to load sender accounts for email retry; using the failed account", e);
+            EmailConfig failedSender = emailLog.getEmailConfig();
+            return failedSender == null ? List.of() : List.of(failedSender);
         }
     }
 

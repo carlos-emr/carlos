@@ -245,6 +245,31 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should retain the failed sender when refreshing sender accounts fails")
+    void shouldRetainFailedSender_whenSenderAccountRefreshFails() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setParameter("emailPDFPassword", "valid-password");
+        request.setParameter("emailPDFPasswordClue", "Known to the patient");
+
+        EmailConfig failedSender = mock(EmailConfig.class);
+        EmailLog emailLog = mock(EmailLog.class);
+        when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(emailLog.getEmailConfig()).thenReturn(failedSender);
+        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(emailLog);
+        when(emailComposeManager.getAllSenderAccounts())
+                .thenThrow(new IllegalStateException("sender lookup unavailable"));
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        action.sendDirectEmail();
+
+        assertThat(request.getAttribute("senderAccounts")).isEqualTo(List.of(failedSender));
+    }
+
+    @Test
     @DisplayName("should re-render the encryption toggle on when the flag is missing")
     void shouldReRenderEncryptionOn_whenFlagMissing() {
         MockHttpServletRequest request = new MockHttpServletRequest();
