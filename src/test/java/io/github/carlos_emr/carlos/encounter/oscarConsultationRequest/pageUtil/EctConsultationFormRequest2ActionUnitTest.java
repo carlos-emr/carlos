@@ -131,6 +131,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(loggedInInfo);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), eq("1")))
                 .thenReturn(true);
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
@@ -441,6 +443,26 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "w", "2");
         verify(consultationRequestDao, never()).find(9);
         verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
+    void shouldDenySubmitAndFax_beforeAnySaveWhenFaxWriteMissing() {
+        action.setSubmission("Submit And Fax");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+        verifyNoInteractions(consultationManager, consultationRequestDao, documentAttachmentManager,
+                consultationSignatureService, demographicManager, digitalSignatureManager);
+    }
+
+    @Test
+    void shouldDenyUpdateAndFax_beforeArchiveWhenFaxAccountReadMissing() {
+        action.setSubmission("Update And Fax");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(false);
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+        verifyNoInteractions(consultationManager, consultationRequestDao, documentAttachmentManager,
+                consultationSignatureService, demographicManager, digitalSignatureManager);
     }
 
     @Test

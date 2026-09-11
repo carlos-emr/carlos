@@ -49,7 +49,29 @@ and answers a different question**. Every check below goes through `:443`.
 
 ## 1. Build the packages
 
-From the repo root:
+For a promotion, start from the **promotion candidate** (whose Maven version
+and SCM tag are already the release tag), not the correction branch's
+`-SNAPSHOT` version. Use an isolated worktree and apply the same release-version
+stamping as `.github/workflows/deb-packages.yml` before building:
+
+```bash
+git worktree add --detach ../carlos-package-validation HEAD
+cd ../carlos-package-validation
+release_tag=2026.08.0-alpha12
+deb_version="${release_tag//-/~}"
+printf 'carlos-emr (%s) resolute; urgency=medium\n\n  * Validation package of release %s.\n\n -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' \
+  "$deb_version" "$release_tag" "$(date -R)" > debian/changelog
+test "$(dpkg-parsechangelog -SVersion)" = "$deb_version"
+```
+
+This replaces the snapshot changelog in the **isolated packaging worktree
+only**; do not commit that generated stamp. The tracked changelog can start at
+`2026.09.0~snapshot21`, which is newer than alpha12, so retaining it below the
+release stanza would violate Debian version ordering. Git retains the history.
+An unstamped development build is valid for development, but is not an alpha12
+release artifact and cannot satisfy the exact About-page assertion below.
+
+Then, from that packaging worktree:
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64

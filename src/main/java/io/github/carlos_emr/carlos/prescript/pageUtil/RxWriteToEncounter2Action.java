@@ -68,14 +68,26 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, "w");
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            return rejectBeforeWrite(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        }
 
-        HttpSession session = request.getSession();
-        rxSessionBean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        HttpSession session = request.getSession(false);
+        rxSessionBean = session == null ? null : (RxSessionBean) session.getAttribute("RxSessionBean");
         if (rxSessionBean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
         }
         String demographicNo = String.valueOf(rxSessionBean.getDemographicNo());
+        // Bind the append to the originating prescription window. Another tab may
+        // have changed RxSessionBean since this window rendered or queued its fax.
+        if (rxSessionBean.getDemographicNo() <= 0
+                || !demographicNo.equals(request.getParameter("expectedDemographicNo"))) {
+            return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, demographicNo)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
         String programNo = new EctProgram(session).getProgram(session.getAttribute("user").toString());
 
 
@@ -109,8 +121,15 @@ public class RxWriteToEncounter2Action extends ActionSupport {
             String noteBody = generateNote(loggedInInfo, request.getParameter("body"), true);
             createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));
         }
+        // Never emit this for an exception after saveNoteSimple: the append may
+        // already have committed, so the client must not blindly repeat it.
+        response.setHeader("X-Carlos-Encounter-Write", "written");
+        return null;
+    }
 
-
+    private String rejectBeforeWrite(int status) {
+        response.setHeader("X-Carlos-Encounter-Write", "not-written");
+        response.setStatus(status);
         return null;
     }
 
@@ -126,8 +145,8 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     }
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
     }
 

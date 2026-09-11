@@ -79,3 +79,15 @@ test('the grace deadline bounds a hung operation and retains the signal exit cod
     cancellation.dispose();
   }
 });
+
+test('a process-like test emitter without exit retains its code past the deadline', async () => {
+  const signalProcess = new EventEmitter();
+  const cancellation = createGracefulSignalCancellation({ signalProcess, graceMs: 10 });
+  try {
+    signalProcess.emit('SIGTERM');
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(signalProcess.exitCode, 143);
+  } finally {
+    cancellation.dispose();
+  }
+});

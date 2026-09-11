@@ -577,6 +577,62 @@ async function assertFailedNotesSaveBlocksFax(page, modalFrame) {
   }
 }
 
+// Exercise recovery in the installed JSP, without submitting clinical text or
+// another fax. The transport is replaced only for these deliberate failure probes.
+async function assertEncounterPasteRecovery(modalFrame) {
+  const results = await modalFrame.locator('#additionalNotes').evaluate(async (notes) => {
+    const w = notes.ownerDocument.defaultView;
+    const original = {
+      fetch: w.fetch, alert: w.alert, openEncounter: w.openEncounter,
+      consoleError: w.console.error, canRetry: w.faxPasteCanRetry,
+      queued: w.faxQueued, pending: w.faxSubmissionPending,
+      retryText: w.faxPasteRetryText, retryPending: w.faxPasteRetryPending,
+    };
+    const checks = [];
+    let requests = 0;
+    try {
+      w.alert = () => {};
+      w.console.error = () => {}; // intentional failure paths, asserted below
+      w.openEncounter = () => { throw new Error('probe: post-commit window failure'); };
+      for (const probe of [
+        { name: 'committed then window failure', status: 200, outcome: 'written', saved: true, retry: false },
+        { name: 'lost response', lost: true, saved: false, retry: false },
+        { name: 'post-save server failure', status: 500, saved: false, retry: false },
+        { name: 'explicit pre-write rejection', status: 409, outcome: 'not-written', saved: false, retry: true },
+      ]) {
+        w.fetch = async () => {
+          requests += 1;
+          if (probe.lost) throw new Error('probe: response lost');
+          return new Response('', { status: probe.status,
+            headers: probe.outcome ? { 'X-Carlos-Encounter-Write': probe.outcome } : {} });
+        };
+        const saved = await w.writeToEncounter(false, 'RECOVERY PROBE - MUST NEVER REACH SERVER');
+        const safe = saved === probe.saved && w.faxPasteCanRetry === probe.retry;
+        // An uncertain append is not retryable even by a direct handler call.
+        w.faxPasteRetryText = 'RECOVERY PROBE - MUST NEVER REACH SERVER';
+        const before = requests;
+        const refused = probe.retry || (w.retryFaxPaste() === false && requests === before);
+        checks.push({ name: probe.name, passed: safe && refused });
+      }
+    } finally {
+      w.fetch = original.fetch;
+      w.alert = original.alert;
+      w.openEncounter = original.openEncounter;
+      w.console.error = original.consoleError;
+      w.faxPasteCanRetry = original.canRetry;
+      w.faxQueued = original.queued;
+      w.faxSubmissionPending = original.pending;
+      w.faxPasteRetryText = original.retryText;
+      w.faxPasteRetryPending = original.retryPending;
+    }
+    return checks;
+  });
+  for (const result of results) {
+    visited.push({ label: 'encounter-recovery', ...result });
+    if (!result.passed) findings.push({ label: 'encounter-recovery', type: 'unsafe-retry', text: result.name });
+  }
+}
+
 async function faxThroughUi(page, modalFrame, scriptId) {
   // Deterministic race: hold the notes save so the fax POST can only carry the note if the page
   // waited for it. The route covers the modal iframe's requests too.
@@ -880,6 +936,7 @@ async function runChecks(context) {
     // clinician's current note failed to persist. The following successful attempt also
     // proves that a later edit can recover the promise chain after the rejected save.
     await assertFailedNotesSaveBlocksFax(page, modalFrame);
+    await assertEncounterPasteRecovery(modalFrame);
 
     // B + C on one real click.
     const uiPdfId = await faxThroughUi(page, modalFrame, scriptId);

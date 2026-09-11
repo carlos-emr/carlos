@@ -20,10 +20,10 @@ function createGracefulSignalCancellation({ signalProcess = process, graceMs = 1
       interruption = new Error(`Interrupted by ${signal}`);
       interruption.exitCode = exitCode;
       signalProcess.exitCode = exitCode;
-      console.error(`${signal}: waiting for the current operation, then cleaning up created allergies`);
+      console.error(`${signal}: waiting for the current operation, then cleaning up test fixtures`);
       deadline = setTimeout(() => {
-        console.error('Signal cleanup deadline expired; generated allergy markers may need manual cleanup');
-        signalProcess.exit(exitCode);
+        console.error('Signal cleanup deadline expired; generated fixtures may need manual cleanup');
+        if (typeof signalProcess.exit === 'function') signalProcess.exit(exitCode);
       }, graceMs);
       deadline.unref();
     };

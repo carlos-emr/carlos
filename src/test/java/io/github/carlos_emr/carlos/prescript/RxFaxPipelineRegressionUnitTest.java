@@ -144,6 +144,29 @@ class RxFaxPipelineRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should bind notes preview signature and fax to the server-resolved displayed prescription")
+    void shouldBindAllPrescriptionOperations_toServerResolvedScript() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        int selectionStart = viewScript2.indexOf("String scriptIdForFax = firstValidScriptId(");
+        int selectionEnd = viewScript2.indexOf(';', selectionStart);
+        assertThat(selectionStart).isGreaterThan(viewScript2.indexOf("bean = (RxSessionBean) session.getAttribute(\"tmpBeanRX\")"));
+        assertThat(selectionEnd).isLessThan(viewScript2.indexOf("function addNotes()"));
+        // The attribute is set on fresh writes and /rx/viewScript; direct reprints
+        // have the displayed saved stash instead. Neither may be overridden by a URL.
+        assertThat(viewScript2.substring(selectionStart, selectionEnd))
+                .contains("request.getAttribute(\"scriptId\")")
+                .contains("bean.getStashItem(0).getScript_no()")
+                .doesNotContain("getParameter");
+        assertThat(viewScript2)
+                .doesNotContain("request.getParameter(\"scriptId\")")
+                .contains("\"scriptNo=\" + encodeURIComponent(faxScriptNo)")
+                .contains("var faxScriptNo = \"<carlos:encode value='<%= scriptIdForFax %>'")
+                .contains("/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>")
+                .contains("this.setDigitalSignatureToRx(signId, '<%= scriptIdForFax %>')")
+                .contains("onPrint2('oscarRxFax', faxScriptNo,");
+    }
+
+    @Test
     @DisplayName("should reapply every current fax prerequisite after a failed submission")
     void shouldReapplyFaxPrerequisites_afterFailedSubmission() throws IOException {
         String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);

@@ -30,6 +30,8 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     faxPasteButton: { disabled: false },
     faxPasteRetryRow: { style: { display: 'none' } },
     faxPasteRetryButton: { disabled: false },
+    faxPasteUncertain: { hidden: true },
+    faxPasteRecoveryText: { value: '' },
     faxNumber: { selectedIndex: 0, options: [{ value: '5555555555' }] },
     preview: { contentWindow: { document: { getElementById: () => previewForm } } },
   };
@@ -55,6 +57,8 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     faxQueued: false,
     faxPasteRetryText: null,
     lastFaxPasteText: null,
+    faxPasteCanRetry: false,
+    faxPasteRetryPending: false,
     hasPreview: true,
     hasFaxNumber: true,
     hasFaxSenderAccount: true,
@@ -133,6 +137,7 @@ test('queued fax with a failed encounter paste offers a retry and refuses a seco
 
   // Fax accepted by the server, encounter write rejected.
   const queuedFaxText = '[Rx faxed to Example Pharmacy Fax#: 5555555555 prescribed by Dr Example, 11-Sep-2026 01:23 PM]\nprescription\nnote at fax click\n';
+  context.faxPasteCanRetry = true; // explicit rejection before any encounter write
   context.enterFaxPasteRecovery(queuedFaxText);
 
   assert.equal(context.faxSubmissionPending, false); // no longer stuck mid-submission
@@ -154,6 +159,7 @@ test('queued fax with a failed encounter paste offers a retry and refuses a seco
     return Promise.resolve(pasteAttempts.length > 1);
   };
   assert.equal(context.retryFaxPaste(), true);
+  assert.equal(context.retryFaxPaste(), false); // do not dispatch concurrent appends
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(pasteAttempts, [
     { print: false, fax: true, pasteRx: true, text: queuedFaxText, useAsIs: true },
@@ -174,4 +180,63 @@ test('queued fax with a failed encounter paste offers a retry and refuses a seco
   assert.equal(deferredTimeouts.length, 1);
   deferredTimeouts[0]();
   assert.equal(closedWindows.length, 1);
+});
+
+test('uncertain encounter outcome preserves text but cannot retry or resend', () => {
+  const { context, elements } = setup();
+  context.faxPasteCanRetry = false;
+  context.enterFaxPasteRecovery('exact queued fax text');
+  assert.equal(elements.faxPasteRetryButton.disabled, true);
+  assert.equal(elements.faxPasteUncertain.hidden, false);
+  assert.equal(elements.faxPasteRecoveryText.value, 'exact queued fax text');
+  assert.equal(context.retryFaxPaste(), false);
+  assert.equal(context.sendFax(true), false);
+});
+
+function encounterFixture(fetchResult) {
+  const { context } = setup();
+  let requests = 0;
+  context.alert = () => {};
+  context.fetch = async () => {
+    requests += 1;
+    if (fetchResult instanceof Error) throw fetchResult;
+    return fetchResult;
+  };
+  context.openEncounter = () => { throw new Error('window failed after commit'); };
+  vm.runInContext(browserFunction('writeToEncounter', 'openEncounter'), context);
+  return { context, requests: () => requests };
+}
+
+test('acknowledged append stays successful when opening encounter fails', async () => {
+  const { context, requests } = encounterFixture({ ok: true, headers: { get: () => 'written' } });
+  assert.equal(await context.writeToEncounter(false, 'rx text'), true);
+  assert.equal(context.faxPasteCanRetry, false);
+  assert.equal(requests(), 1);
+});
+
+for (const [label, response, retryable] of [
+  ['lost response after commit', new Error('connection lost'), false],
+  ['server error after save', { ok: false, status: 500, headers: { get: () => null } }, false],
+  ['login redirect', { ok: true, redirected: true, status: 200, headers: { get: () => null } }, false],
+  ['explicit pre-write rejection', { ok: false, status: 409, headers: { get: () => 'not-written' } }, true],
+]) test(label, async () => {
+  const { context } = encounterFixture(response);
+  assert.equal(await context.writeToEncounter(false, 'rx text'), false);
+  assert.equal(context.faxPasteCanRetry, retryable);
+});
+
+test('local insertion acknowledges success even if layout fails; missing editor returns no-write', () => {
+  const chart = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+  const source = chart.slice(chart.indexOf('function pasteToEncounterNote('), chart.indexOf('function writeToEncounterNote('));
+  const editor = { value: '' };
+  const context = vm.createContext({
+    console, caseNote: 'caseNote', document: { getElementById: () => editor },
+    adjustCaseNote: () => { throw new Error('layout'); }, setCaretPosition: () => {},
+  });
+  vm.runInContext(source, context);
+  assert.equal(context.pasteToEncounterNote('rx text'), true);
+  assert.equal(editor.value, '\nrx text');
+  context.document.getElementById = () => null;
+  assert.equal(context.pasteToEncounterNote('rx text'), false);
+  assert.equal(editor.value, '\nrx text');
 });

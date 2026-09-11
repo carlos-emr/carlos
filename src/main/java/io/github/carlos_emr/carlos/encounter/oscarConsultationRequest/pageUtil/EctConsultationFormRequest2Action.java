@@ -316,6 +316,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String submission = this.getSubmission();
+        // Fax preparation reads gateway accounts and the final send requires
+        // WRITE. Refuse before creating/archiving a consultation, not after save.
+        if (submission != null && submission.endsWith("And Fax")
+                && (loggedInInfo == null
+                    || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
+                    || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null))) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
 
         String appointmentHour = this.getAppointmentHour();
         String appointmentPm = this.getAppointmentPm();
@@ -333,7 +342,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
 
         String sendTo = this.getSendTo();
-        String submission = this.getSubmission();
         String providerNo = this.getProviderNo();
         String demographicNo = this.getDemographicNo();
         String submittedRequestId = this.getRequestId();
