@@ -43,6 +43,20 @@ import org.junit.jupiter.api.Test;
 class RxDrugRefStatusStructUnitTest {
 
     @Test
+    @DisplayName("should omit configured endpoint credentials when update status is not a struct")
+    void shouldOmitEndpointCredentials_whenStatusIsNotAStruct() {
+        try (org.mockito.MockedConstruction<SimpleXmlRpcClient> clients = org.mockito.Mockito.mockConstruction(
+                SimpleXmlRpcClient.class, (client, context) -> org.mockito.Mockito.when(
+                        client.execute(org.mockito.ArgumentMatchers.eq("getUpdateStatus"), org.mockito.ArgumentMatchers.any()))
+                        .thenReturn("invalid struct"))) {
+            RxDrugRef drugRef = new RxDrugRef("https://fixture-user:fixture-secret@localhost/drugref");
+            org.assertj.core.api.Assertions.assertThatThrownBy(drugRef::getUpdateStatus)
+                    .hasMessage("DrugRef: 'getUpdateStatus' returned no struct");
+            assertThat(clients.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
     @DisplayName("should supply every documented key as empty when the server omits it")
     void shouldSupplyEveryDocumentedKey_whenTheStructIsSparse() {
         Map<String, String> status = RxDrugRef.normalizeStatusStruct(new Hashtable<>(Map.of("state", "IDLE")));

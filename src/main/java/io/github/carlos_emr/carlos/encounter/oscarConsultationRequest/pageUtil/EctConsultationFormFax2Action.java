@@ -147,7 +147,9 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             return NONE;
         }
 
-        //EctConsultationFaxForm ectConsultationFaxForm = (EctConsultationFaxForm) form;
+        if (!io.github.carlos_emr.CarlosProperties.getInstance().isConsultationFaxEnabled()) {
+            throw new SecurityException("consultation fax is disabled");
+        }
 
     	this.setRequest(request);
 	   	String reqId = this.getRequestId();

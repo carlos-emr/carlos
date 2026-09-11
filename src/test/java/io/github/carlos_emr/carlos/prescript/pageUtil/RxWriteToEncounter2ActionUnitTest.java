@@ -83,7 +83,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReject_whenPatientChangedBeforeAnyNoteAccess() throws Exception {
         sessionBean.setDemographicNo(43);
-        new RxWriteToEncounter2Action().execute();
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("not-written");
         verifyNoInteractions(notes, tmpDao);
@@ -140,7 +140,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldAcknowledge_afterSavingBoundPatientNote() throws Exception {
-        new RxWriteToEncounter2Action().execute();
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
         verify(notes).saveNoteSimple(note);
         assertThat(note.getNote()).isEqualTo("existing text\nexact prescription text");
         assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");

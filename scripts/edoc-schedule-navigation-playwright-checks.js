@@ -68,6 +68,7 @@ const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 
 /*
  * Hosts that are unambiguously this machine or its compose network. The teardown below
@@ -480,20 +481,24 @@ async function addLink(page) {
 }
 
 async function run() {
+  const cancellation = createGracefulSignalCancellation();
   const { tempDir, pdfPath } = createPdfFixture();
-  initMysqlDefaults();
-  const launchOptions = { headless: true };
+  const launchOptions = { headless: true, handleSIGINT: false, handleSIGTERM: false };
   if (config.chromePath) {
     launchOptions.executablePath = config.chromePath;
   }
-  const browser = await chromium.launch(launchOptions);
+  let browser;
   // The packaged install serves a self-signed certificate, so loopback runs must accept it --
   // but a run pointed at a real host with ALLOW_NON_LOCAL_BASE_URL must still verify TLS.
-  const context = await browser.newContext({ ignoreHTTPSErrors: isLoopbackTarget() });
+  let context;
   let page;
 
   try {
-    const schedulePage = await login(context);
+    initMysqlDefaults();
+    browser = await chromium.launch(launchOptions);
+    cancellation.throwIfCancelled();
+    context = await browser.newContext({ ignoreHTTPSErrors: isLoopbackTarget() });
+    const schedulePage = await cancellation.run(() => login(context));
     const edocPath = await readEdocPath(schedulePage);
 
     // Negative control first: without the flag there must be no header, so a
@@ -511,14 +516,14 @@ async function run() {
     await assertNavHeader(page, true, 'eDoc entry');
     console.log(`eDoc opened in the schedule shell: ${page.url()}`);
 
-    await addDocument(page, pdfPath);
+    await cancellation.run(() => addDocument(page, pdfPath));
     assertScheduleNavRetained(page, 'after adding a document');
     await assertNavHeader(page, true, 'after adding a document');
     await page.locator(`a[title="${docDescription}"]`).waitFor({ state: 'attached', timeout: 30000 });
     await screenshot(page, 'after-add');
     console.log(`document "${docDescription}" added; navigation header intact`);
 
-    await deleteDocument(page);
+    await cancellation.run(() => deleteDocument(page));
     assertScheduleNavRetained(page, 'after deleting a document');
     await assertNavHeader(page, true, 'after deleting a document');
     // The document must be GONE from the active list. Without this the leg passes when the click
@@ -530,17 +535,22 @@ async function run() {
     await screenshot(page, 'after-delete');
     console.log(`document "${docDescription}" deleted; navigation header intact`);
 
-    await restoreDocument(page);
+    await cancellation.run(() => restoreDocument(page));
     await screenshot(page, 'after-restore');
     console.log('document restored to the active list; navigation header intact');
-    await addLink(page);
+    await cancellation.run(() => addLink(page));
     await screenshot(page, 'after-add-link');
     console.log('link document added; navigation header intact');
 
     assert(!pageErrors.length, `Uncaught script errors on the page: ${pageErrors.join(' | ')}`);
 
+    cancellation.throwIfCancelled();
     console.log('PASS: eDoc keeps its navigation header tabs across upload, delete, restore, and Add Link');
   } catch (error) {
+    if (cancellation.isCancellation(error)) {
+      process.exitCode = cancellation.exitCode;
+      return;
+    }
     if (page) {
       console.error(`failure screenshot: ${await screenshot(page, 'failure')}`);
       console.error(`failure url: ${page.url()}`);
@@ -549,31 +559,20 @@ async function run() {
     console.error(`probe document description: ${docDescription}`);
     process.exitCode = 1;
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
-    cleanupProbeDocuments();
-    cleanupMysqlDefaults();
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    try {
+      if (context) await context.close().catch(() => {});
+      if (browser) await browser.close().catch(() => {});
+      cleanupProbeDocuments();
+    } finally {
+      cleanupMysqlDefaults();
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      if (cancellation.exitCode) process.exitCode = cancellation.exitCode;
+      cancellation.dispose();
+    }
   }
 }
 
-/*
- * Node does not run finally blocks on SIGINT/SIGTERM, so an interrupted run would strand the
- * probe document row and the cleartext mysql password file. Both cleanups are idempotent, so
- * running them here is safe even when the finally block has already fired. The browser is left
- * to the OS; only the row and that file matter.
- */
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`\n${signal} received; removing the probe document before exiting.`);
-    try {
-      cleanupProbeDocuments();
-    } catch (error) {
-      console.error(`WARN: cleanup after ${signal} failed: ${error.message}`);
-    }
-    cleanupMysqlDefaults();
-    process.exit(signal === 'SIGINT' ? 130 : 143);
-  });
-}
-
-run();
+run().catch(() => {
+  console.error('FAIL: eDoc validation or fixture cleanup failed');
+  process.exitCode = process.exitCode || 1;
+});

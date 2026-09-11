@@ -224,7 +224,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
         }
 
-        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(pdfRequest, this.getServletContext(), signatureImage)) {
+        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytesOrReportFaxFailure(pdfRequest, signatureImage, isFax, res)) {
+            if (baosPDF == null) {
+                return;
+            }
 
             if (isFax) {
                 // this fax method shouldn't be here and will be removed in future edits.
@@ -376,6 +379,22 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             writer.println("<script>alert('Signature not found. Please sign the prescription.');</script>");
         }
 
+    }
+
+    private ByteArrayOutputStream generatePDFDocumentBytesOrReportFaxFailure(HttpServletRequest request,
+            byte[] signatureImage, boolean isFax, HttpServletResponse response) throws DocumentException, IOException {
+        try {
+            return generatePDFDocumentBytes(request, getServletContext(), signatureImage);
+        } catch (IOException | RuntimeException failure) {
+            if (!isFax) {
+                throw failure;
+            }
+            // This boundary is strictly before file preparation and persistence. Rendering
+            // failures are safe to retry, unlike a lost acknowledgement of the queue commit.
+            response.setContentType("text/html");
+            reportFaxFailure(response, response.getWriter(), "Prescription fax PDF generation failed", failure);
+            return null;
+        }
     }
 
     private PreparedFaxFiles prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,

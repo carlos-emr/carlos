@@ -65,6 +65,21 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     private RxSessionBean rxSessionBean = null;
 
 
+    /**
+     * Appends prescription text to the originating patient's encounter.
+     *
+     * <p>Known pre-write rejection returns HTTP 405 (non-POST) or 409 (missing or
+     * changed Rx patient context), with {@code X-Carlos-Encounter-Write: not-written}.
+     * Successful completion sets that header to {@code written}. Exceptions after
+     * persistence may mean the write committed: absence of the header is never
+     * proof that retrying is safe.</p>
+     *
+     * @return {@link #NONE}, since this action owns the HTTP response
+     * @throws SecurityException if the session or required prescription write privilege is absent
+     * @throws IOException if request/response processing fails
+     * @throws ServletException if servlet processing fails
+     */
+    @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, "w");
@@ -124,13 +139,13 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         // Never emit this for an exception after saveNoteSimple: the append may
         // already have committed, so the client must not blindly repeat it.
         response.setHeader("X-Carlos-Encounter-Write", "written");
-        return null;
+        return NONE;
     }
 
     private String rejectBeforeWrite(int status) {
         response.setHeader("X-Carlos-Encounter-Write", "not-written");
         response.setStatus(status);
-        return null;
+        return NONE;
     }
 
     private String generateNote(LoggedInInfo loggedInInfo, String noteBody, boolean addDateString) {

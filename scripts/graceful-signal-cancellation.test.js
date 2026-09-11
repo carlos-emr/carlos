@@ -91,3 +91,18 @@ test('a process-like test emitter without exit retains its code past the deadlin
     cancellation.dispose();
   }
 });
+
+test('numeric fake timer handles do not prevent cooperative cancellation', (t) => {
+  const signalProcess = new EventEmitter();
+  t.mock.method(global, 'setTimeout', () => 42);
+  const clear = t.mock.method(global, 'clearTimeout', () => {});
+  const cancellation = createGracefulSignalCancellation({ signalProcess });
+  try {
+    assert.doesNotThrow(() => signalProcess.emit('SIGTERM'));
+    assert.equal(cancellation.exitCode, 143);
+    assert.throws(() => cancellation.throwIfCancelled(), (error) => cancellation.isCancellation(error));
+  } finally {
+    cancellation.dispose();
+  }
+  assert.deepEqual(clear.mock.calls[0].arguments, [42]);
+});

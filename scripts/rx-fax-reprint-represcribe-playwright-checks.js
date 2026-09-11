@@ -76,6 +76,7 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { browserErrorClass } = require('./browser-error-class');
 
 // Node keeps the brackets on an IPv6 URL hostname ('http://[::1]/' -> '[::1]'), so a bare '::1'
 // entry in a host set would never match. Strip them before every comparison.
@@ -373,10 +374,7 @@ function safeUrl(rawUrl) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    const message = String(error.message || error);
-    const stack = String(error.stack || '');
-    const where = stack.split('\n').slice(1, 4).join(' | ');
-    findings.push({ label, type: 'pageerror', text: `${message}${where ? ` @ ${where}` : ''}`.slice(0, 500) });
+    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
   });
   page.on('dialog', (dialog) => {
     // Only the custom-drug confirm() is expected, and only while the flag is set. Any other
@@ -385,7 +383,7 @@ function wirePage(page, label) {
       dialog.accept().catch(() => {});
       return;
     }
-    findings.push({ label, type: 'unexpected-dialog', text: `${dialog.type()}: ${dialog.message()}`.slice(0, 300) });
+    findings.push({ label, type: 'unexpected-dialog', text: `unexpected ${dialog.type()} dialog` });
     dialog.dismiss().catch(() => {});
   });
 }

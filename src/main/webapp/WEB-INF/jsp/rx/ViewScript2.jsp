@@ -1393,7 +1393,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
                                         <tr>
                                             <td style="padding-top: 0"><span><input type=button
-                                                    <%=reprint.equals("true") ? "disabled='true'" : ""%>
+                                                    <%=reprint.equals("true") || !previewAvailable ? "disabled='true'" : ""%>
                                                                                     value="<fmt:message key="ViewScript.msgPrintAndPaste"/>"
                                                                                     class="btn btn-outline-primary"
                                                                                     style="width: 210px"

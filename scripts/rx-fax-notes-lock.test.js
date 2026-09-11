@@ -10,6 +10,11 @@ const vm = require('node:vm');
 // Execute the actual JSP's browser functions. No browser, server or duplicate
 // implementation is needed to exercise the delayed-save/click/event ordering.
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp'), 'utf8');
+test('Print and Paste initially disables reprints and missing previews without fax JavaScript', () => {
+  const button = jsp.match(/<input type=button[\s\S]*?id="printPasteButton"[^>]*>/g)?.pop();
+  assert.ok(button);
+  assert.match(button, /reprint\.equals\("true"\) \|\| !previewAvailable \? "disabled='true'"/);
+});
 function browserFunction(name, nextName) {
   const start = jsp.indexOf(`function ${name}(`);
   const end = jsp.indexOf(`function ${nextName}(`, start + 1);

@@ -128,6 +128,36 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         return consult;
     }
 
+    @Test
+    @DisplayName("should retain the inbox row when service and demographic IDs are null")
+    void shouldRetainInboxRow_whenServiceAndDemographicIdsAreNull() throws Exception {
+        ConsultationRequest consult = consultWithNoOrderingProvider();
+        consult.setServiceId(null);
+        consult.setDemographicId(null);
+        stubInboxQuery(consult);
+
+        assertThat(util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
+                null, null, null)).isTrue();
+        assertThat(util.ids).containsExactly("7");
+        assertThat(util.demographicNo).containsExactly("");
+        assertThat(util.patient).containsExactly("");
+        assertThat(util.service).containsExactly("");
+        assertThat(util.vSpecialist).containsExactly("N/A");
+    }
+
+    @Test
+    @DisplayName("should retain the patient consultation row when the service ID is null")
+    void shouldRetainPatientRow_whenServiceIdIsNull() throws Exception {
+        ConsultationRequest consult = consultWithNoOrderingProvider();
+        consult.setServiceId(null);
+        when(consultationRequestDao.getConsults(DEMO_ID)).thenReturn(List.of(consult));
+
+        assertThat(util.estConsultationVecByDemographic(loggedInInfo, DEMO_NO)).isTrue();
+        assertThat(util.ids).containsExactly("7");
+        assertThat(util.service).containsExactly("unknown");
+        assertThat(util.vSpecialist).containsExactly("N/A");
+    }
+
     private Demographic demographicWithMrp(String providerNo) {
         Demographic demographic = new Demographic();
         demographic.setLastName("Doe");
