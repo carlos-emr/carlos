@@ -371,29 +371,10 @@ function safeUrl(rawUrl) {
   }
 }
 
-// Page errors that are known, pre-existing, and outside this PR's diff. Each entry must name the
-// issue tracking it: an unexplained entry here would let a real regression pass unnoticed. They are
-// recorded in `visited` so a run still shows them, but they do not fail the check.
-const KNOWN_PAGE_ERRORS = [
-  {
-    // ViewScript2.jsp's printPharmacy() writes into the preview iframe from an async fetch callback
-    // without waiting for that iframe to parse, so #pharmInfo is null when the fetch wins the race.
-    // Untouched by this branch; surfaced here only because this is the first check to exercise a
-    // patient whose preferred pharmacy is populated.
-    issue: 3578,
-    match: (message, stack) => /setting 'innerHTML'/.test(message) && /expandPreview|reducePreview/.test(stack),
-  },
-];
-
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
     const message = String(error.message || error);
     const stack = String(error.stack || '');
-    const known = KNOWN_PAGE_ERRORS.find((k) => k.match(message, stack));
-    if (known) {
-      visited.push({ label, type: 'known-pageerror', issue: known.issue, text: message.slice(0, 200) });
-      return;
-    }
     const where = stack.split('\n').slice(1, 4).join(' | ');
     findings.push({ label, type: 'pageerror', text: `${message}${where ? ` @ ${where}` : ''}`.slice(0, 500) });
   });

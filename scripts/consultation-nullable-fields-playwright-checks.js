@@ -133,7 +133,8 @@ function sqlValue(value) {
     let requestRow;
     // Results are newest first, and seeded request 2 is older than the first
     // 100 results. Follow the list's own pagination to exercise its real row.
-    while (true) {
+    const maxPages = 100;
+    for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
       const matchingRowIndexes = await requestRows.evaluateAll((rows, targetRequestId) => rows.flatMap((row, index) => {
         const onclick = row.getAttribute('onclick') || '';
         const targetMatch = /['"]([^'"]*\/encounter\/ViewRequest\?[^'"]*)['"]/.exec(onclick);
@@ -173,6 +174,7 @@ function sqlValue(value) {
       assert(Number.isSafeInteger(nextOffset) && nextOffset > previousOffset,
         `consultation list pagination did not advance (${previousOffset} to ${nextOffset})`);
     }
+    assert(requestRow, `consultation list did not contain staged request ${requestId} within ${maxPages} pages`);
     const consultPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
     await requestRow.click();
     const consultPage = await consultPopup;

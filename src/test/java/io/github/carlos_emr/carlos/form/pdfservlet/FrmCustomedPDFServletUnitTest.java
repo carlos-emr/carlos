@@ -176,6 +176,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
      */
     private void stubStoredSignature(String prescriberNo) throws Exception {
         Prescription prescription = new Prescription();
+        org.springframework.test.util.ReflectionTestUtils.setField(prescription, "id", SCRIPT_ID);
         prescription.setDemographicId(DEMOGRAPHIC_NO);
         prescription.setProviderNo(prescriberNo);
         prescription.setDigitalSignatureId(SIGNATURE_ID);
@@ -327,7 +328,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
             verify(faxConfigDao).getActiveConfigByNumber("4165553434");
             ArgumentCaptor<FaxJob> faxJobCaptor = ArgumentCaptor.forClass(FaxJob.class);
-            verify(faxManager).persistAndLogFaxJob(any(), faxJobCaptor.capture(), eq(TransactionType.RX), eq(-1));
+            verify(faxManager).persistAndLogFaxJob(any(), faxJobCaptor.capture(), eq(TransactionType.RX), eq(SCRIPT_ID));
             assertThat(faxJobCaptor.getValue().getDemographicNo()).isEqualTo(DEMOGRAPHIC_NO);
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
@@ -534,7 +535,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxManager).persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(-1));
+            verify(faxManager).persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
@@ -556,7 +557,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         doThrow(new IllegalStateException("database unavailable")).doNothing().when(faxManager)
-                .persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(-1));
+                .persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
 
         try {
             CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
@@ -581,7 +582,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
             verify(faxManager, times(2)).persistAndLogFaxJob(
-                    any(), any(FaxJob.class), eq(TransactionType.RX), eq(-1));
+                    any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
@@ -620,7 +621,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
             verify(faxManager).persistAndLogFaxJob(
-                    any(), any(FaxJob.class), eq(TransactionType.RX), eq(-1));
+                    any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
             logActionMock.verify(() -> LogAction.addLog("999998", LogConst.SENT, LogConst.CON_FAX,
                     "PRESCRIPTION prescription_rx-123.pdf"));
         } finally {
@@ -1340,6 +1341,20 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
         assertThat(resolved).isNull();
         verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+    }
+
+    @Test
+    @DisplayName("should withhold stored signatures when both ownership values are missing")
+    void shouldWithholdStoredSignature_whenPrescriberIsUnknown() throws Exception {
+        for (String providerNo : new String[] {null, "", " "}) {
+            MockHttpServletRequest request = createFaxRequest();
+            stubStoredSignature(providerNo);
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            assertThat(new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo)).isNull();
+            verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
+        }
     }
 
     @Test
