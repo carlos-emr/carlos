@@ -9,7 +9,9 @@ import statistics
 
 
 def normalized(value):
-    return " ".join(str(value or "").lower().split())
+    value = " ".join(str(value or "").lower().split())
+    # Treat common UK/US clinical spellings as equivalent in synthetic scoring.
+    return re.sub(r"\borthopnea\b", "orthopnoea", value)
 
 
 def _matches(text, pattern_groups):

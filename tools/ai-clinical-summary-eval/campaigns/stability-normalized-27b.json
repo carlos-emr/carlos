@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "campaign_id": "clinical-summary-normalized-delta-stability-27b-v1",
+  "model": "qwen3.5:27b",
+  "seeds": [314, 2718],
+  "repetitions": 1,
+  "timeout_seconds": 14400,
+  "cases": [
+    "../cases/holdout-observations-followup.json",
+    "../cases/holdout-lab-medication.json",
+    "../cases/holdout-anticoagulation.json"
+  ],
+  "candidates": [
+    {
+      "id": "host-ledger-normalized-delta-10x180-8k",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 8192,
+      "num_predict": 768,
+      "input_mode": "clinical_sources_and_atomic_fact_ledger",
+      "output_mode": "host_ledger_with_normalized_evidence_delta"
+    }
+  ]
+}
