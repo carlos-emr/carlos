@@ -21,6 +21,7 @@
       {"id": "knee-pain", "critical": false, "section_ids": ["clinical_overview", "active_problems"], "pattern_groups": [["knee pain"], ["two weeks|2 weeks"]], "required_source_ids": ["visit-1"]},
       {"id": "no-injury", "critical": false, "section_ids": ["clinical_overview", "active_problems"], "pattern_groups": [["no (?:reported )?injury|without (?:reported )?injury|denies injury"]], "required_source_ids": ["visit-1"]},
       {"id": "amlodipine-conflict", "critical": true, "section_ids": ["medications_allergies"], "pattern_groups": [["amlodipine"], ["stop|not taking|discontinu"], ["active|list"]], "required_source_ids": ["visit-1", "meds-1"]},
+      {"id": "amlodipine-dose", "required": false, "critical": false, "section_ids": ["medications_allergies"], "pattern_groups": [["amlodipine"], ["5 mg"], ["daily"]], "required_source_ids": ["meds-1"]},
       {"id": "penicillin-rash", "critical": true, "section_ids": ["medications_allergies"], "pattern_groups": [["penicillin"], ["rash"]], "required_source_ids": ["allergy-1"]},
       {"id": "reconciliation-pending", "required": false, "critical": false, "section_ids": ["medications_allergies", "plan_follow_up"], "pattern_groups": [["medication reconciliation"], ["pending|not complete"]], "required_source_ids": ["visit-1"]}
     ],
