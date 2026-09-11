@@ -64,11 +64,13 @@ class EctFormPropUnmarshalUnitTest {
         }
         assertThat(formProp).isNotNull();
 
-        Vector<?> measurementTypes = EctFormProp.getMeasurementTypes();
+        // Read the instance just unmarshalled, not EctFormProp.getMeasurementTypes(): that is a
+        // static accumulator every unmarshal in the JVM resets and appends to, so under parallel
+        // Surefire it could hold another test's measurements (or none) at this point.
+        Vector<EctMeasurementTypesBean> measurementTypes = formProp.getMeasurements();
         assertThat(measurementTypes).as("VTForm.xml declares measurements").isNotEmpty();
         int rules = 0;
-        for (Object o : measurementTypes) {
-            EctMeasurementTypesBean mt = (EctMeasurementTypesBean) o;
+        for (EctMeasurementTypesBean mt : measurementTypes) {
             assertThat(mt.getType()).isNotBlank();
             for (EctValidationsBean rule : mt.getValidationRules()) {
                 rules++;

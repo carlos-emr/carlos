@@ -72,6 +72,16 @@ public class EctFormProp {
     }
 
     /**
+     * The measurements bound to THIS instance by JAXB, as opposed to {@link #getMeasurementTypes()},
+     * which is a static accumulator that every unmarshal resets and appends to. Callers that hold
+     * the instance they unmarshalled should read this, since the static one can be replaced by any
+     * concurrent unmarshal in the same JVM.
+     */
+    public Vector<EctMeasurementTypesBean> getMeasurements() {
+        return measurements;
+    }
+
+    /**
      * Called by JAXB after unmarshalling to populate the static measurementTypes vector.
      */
     @SuppressWarnings("unused")

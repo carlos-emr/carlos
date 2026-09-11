@@ -168,9 +168,11 @@ class FormProseWafExclusionRegressionTest {
             assertThat(target).as("a negated, anchored ARGS regex and nothing broader: %s", m.group(0))
                     .startsWith("!ARGS:/^").endsWith("$/");
             String regex = target.substring("!ARGS:/".length(), target.length() - 1);
-            // Only bracket classes, digits-plus and literal word characters: no alternation,
-            // no dot, no unanchored quantifier that could widen a pattern to another name.
-            assertThat(regex).matches("\\^(?:[A-Za-z0-9_-]|\\[[()]\\])+\\$");
+            // Only literal word characters (letters, digits, '_' and '-', which both regexLiteral
+            // and the generator's regex_literal leave unbracketed) and single-character bracket
+            // classes for the metacharacters they do bracket ('(' ')' '.'): no alternation, no
+            // bare dot, no quantifier that could widen a pattern to another name.
+            assertThat(regex).matches("\\^(?:[A-Za-z0-9_-]|\\[[().]\\])+\\$");
         }
         assertThat(count).isGreaterThan(30);
         // Every directive in the file is one of those lines: no SecRule, no request-wide removal.
