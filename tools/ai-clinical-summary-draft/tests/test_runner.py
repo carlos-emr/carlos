@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
 sys.path.insert(0, str(ROOT))
 import run
-from validate_artifact import validate
+from validate_artifact import validate, validate_generated
 
 FIXTURE = REPO / "src/main/resources/clinical/summary/synthetic-overview.json"
 
@@ -95,6 +95,20 @@ class RunnerTest(unittest.TestCase):
             with self.subTest(generated=generated), self.assertRaises(ValueError):
                 run.build_artifact(self.bundle, generated, "qwen3.5:4b",
                                    "run-1", "2026-09-08T00:00:00Z")
+
+    def test_common_clinical_abbreviations_support_fluent_claims(self):
+        sources = [{"id": "note-1", "patient_id": "synthetic", "title": "HF review",
+                    "date": "2026-09-10", "text": "Obs: HR 76. BP 118/70. SpO2 97%."}]
+        generated = {
+            "sections": [{"id": "results_observations", "title": "Results and observations",
+                          "claim_ids": ["claim-1"]}],
+            "claims": [{"id": "claim-1",
+                        "text": "Heart rate was 76, blood pressure was 118/70, and oxygen saturation was 97%.",
+                        "source_ids": ["note-1"]}],
+            "coverage": [{"source_id": "note-1", "status": "cited",
+                          "reason": "Host attached this source to an accepted claim: note-1"}],
+        }
+        validate_generated(generated, sources)
 
     def test_contract_rejects_bad_provenance(self):
         mutations = [

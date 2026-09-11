@@ -159,6 +159,15 @@ class CampaignTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Duplicate JSON key"):
             run_campaign.loads_json('{"done":true,"done":false}')
 
+    def test_structured_prefix_interprets_only_the_first_complete_value(self):
+        for suffix in (']}}null]}}null', ' explanation', '{"second":true}'):
+            with self.subTest(suffix=suffix):
+                self.assertEqual({"claims": []}, run_campaign.loads_structured_prefix(
+                    '{"claims":[]}' + suffix))
+        for invalid in ('{"claims":[', '{"claims":[],"claims":[]}'):
+            with self.subTest(invalid=invalid), self.assertRaises((ValueError, json.JSONDecodeError)):
+                run_campaign.loads_structured_prefix(invalid)
+
     def test_default_run_artifacts_are_ignored(self):
         repo = BASE.parents[1]
         result = subprocess.run(["git", "-c", f"safe.directory={repo}", "check-ignore",
@@ -410,6 +419,33 @@ class CampaignTests(unittest.TestCase):
             {"text": text, "section_id": "clinical_overview",
              "evidence": [{"source_id": "thyroid-1", "quote": text}]}
             for text in texts]}
+        generated = run_campaign.materialize_candidate_output(output, case, candidate)
+        run_campaign.validate_candidate_output(generated, case, candidate)
+        result = run_campaign.evaluate(
+            generated, case["bundle"]["sources"], case["expectations"])
+        self.assertTrue(result["metrics"]["hard_gate_pass"], result["findings"])
+
+    def test_fluent_delta_separates_readable_text_from_verbatim_evidence(self):
+        path = BASE / "campaigns" / "checkpoint-fluent-27b.json"
+        config = run_campaign.load_campaign(path)
+        case, candidate, _, _ = next(run_campaign.experiment_matrix(
+            config, path, {"validation-fragmented-note"}))
+        prompt = run_campaign.candidate_prompt("unused", candidate)
+        self.assertIn("claim text may paraphrase", prompt)
+        self.assertIn("must be verbatim", prompt)
+        self.assertIn("Never use evidence_quote", prompt)
+        self.assertIn("do not explain, narrate, or use Markdown", prompt)
+        output = {"claims": [
+            {"text": "Heart rate was 76, blood pressure was 118/70, and oxygen saturation was 97% on room air.",
+             "section_id": "clinical_overview", "evidence": [{
+                 "source_id": "hf-1", "quote": "Obs: HR 76. BP 118/70. SpO2 97% RA."}]},
+            {"text": "Continue bisoprolol 5 mg once daily.",
+             "section_id": "clinical_overview", "evidence": [{
+                 "source_id": "hf-1", "quote": "Continue bisoprolol 5 mg OD."}]},
+            {"text": "Cardiology follow-up is planned in six weeks.",
+             "section_id": "clinical_overview", "evidence": [{
+                 "source_id": "hf-1", "quote": "Cardiology f/u in 6 wks."}]}
+        ]}
         generated = run_campaign.materialize_candidate_output(output, case, candidate)
         run_campaign.validate_candidate_output(generated, case, candidate)
         result = run_campaign.evaluate(
