@@ -69,7 +69,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
      * value persisted as a waiting-list note.
      */
     private static final Pattern ROW_SELECTOR =
-            Pattern.compile("^waitingListBean\\[([0-9]+)\\]\\.(demographicNo|note|onListSince)$");
+            Pattern.compile("^waitingListBean\\[(\\d+)\\]\\.(demographicNo|note|onListSince)$");
 
     static boolean isRowSelector(String selector) {
         return selector != null && ROW_SELECTOR.matcher(selector).matches();

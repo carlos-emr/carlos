@@ -189,7 +189,9 @@ class ClinicalProseWafExclusionRegressionTest {
                 .map(String::trim)
                 .filter(line -> line.startsWith("ctl:"))
                 .forEach(line -> {
-                    Matcher pair = Pattern.compile("^ctl:ruleRemoveTargetByTag=([^;]+);ARGS:(.+?)[,\"\\\\]*$").matcher(line);
+                    // A target is one literal argument name (the hand-written rules also carry the
+                    // bracketed search[value]); the class is exact, so the match cannot backtrack.
+                    Matcher pair = Pattern.compile("^ctl:ruleRemoveTargetByTag=([^;]+);ARGS:([A-Za-z0-9_.\\-\\[\\]]+)[,\"\\\\]*$").matcher(line);
                     assertThat(pair.matches()).as("rule %s: unexpected ctl line %s", ruleId, line).isTrue();
                     assertThat(arguments)
                             .as("rule %s names an argument that is not in the table: %s", ruleId, pair.group(2))

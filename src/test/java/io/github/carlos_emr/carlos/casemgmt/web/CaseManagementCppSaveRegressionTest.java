@@ -261,9 +261,12 @@ class CaseManagementCppSaveRegressionTest {
         // clinician's text.
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
 
-        assertThat(js)
-                .contains("+ escapeNoteText(payload) + \"<\\/textarea>\"")
-                .doesNotContain("+ payload + \"<\\/textarea>\"");
+        int editNote = js.indexOf("function editNote(e)");
+        int escaped = js.indexOf("payload = escapeNoteText(payload);", editNote);
+        int spliced = js.indexOf("id='\" + caseNote + \"'>\" + payload + \"<\\/textarea>\"", editNote);
+        assertThat(editNote).as("editNote() is defined").isGreaterThanOrEqualTo(0);
+        assertThat(escaped).as("editNote() escapes the payload").isGreaterThan(editNote);
+        assertThat(spliced).as("editNote() splices the payload into the textarea markup").isGreaterThan(escaped);
     }
 
     @Test

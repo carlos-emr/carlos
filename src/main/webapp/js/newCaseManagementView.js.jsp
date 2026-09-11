@@ -1585,7 +1585,8 @@ function updateCPPNote() {
     // save-on-switch fragment emits it as a JavaScript string), and it is spliced into
     // markup for insertAdjacentHTML/update below. It must be HTML-escaped first: with the
     // WAF no longer scoring the note body for XSS, this is the only thing between a note
-    // containing "</span><img onerror=...>" and script running in the chart.
+    // containing a closing span tag and an image element with an onerror handler, and
+    // script running in the chart.
     function escapeNoteText(text) {
         return String(text)
             .replace(/&/g, "&amp;")
@@ -2023,9 +2024,11 @@ function updateCPPNote() {
         caseNote = "caseNote_note" + nId;
 
         // The decoded text goes back through HTML: a textarea's content is RCDATA, so the
-        // entities decode into the editor unchanged, while a note holding "</textarea>"
-        // or "<img onerror=...>" cannot close the element or become markup.
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + escapeNoteText(payload) + "<\/textarea>";
+        // entities decode into the editor unchanged, while a note holding a closing textarea
+        // tag or an image element with an onerror handler cannot close the element or
+        // become markup.
+        payload = escapeNoteText(payload);
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 

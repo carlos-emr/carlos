@@ -74,7 +74,7 @@ class FormProseWafExclusionRegressionTest {
 
     // Mirrors of the generator's patterns. Keep them identical.
     private static final Pattern TAG = Pattern.compile(
-            "<(textarea|input|form)\\b((?:<%.*?%>|<carlos:encode\\b[^>]*/>|[^>])*)>",
+            "<(textarea|input|form)\\b((?:<%(?:(?!%>).)*%>|<carlos:encode\\b(?:<%(?:(?!%>).)*%>|[^<>])*/>|<(?!%|carlos:encode\\b)|[^<>])*)>",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern ATTR = Pattern.compile(
             "([a-zA-Z_:-]+)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
@@ -168,7 +168,7 @@ class FormProseWafExclusionRegressionTest {
         // Walk the subdirectories (pharmaForms/) as the generator does, keyed by the path
         // under the form directory, so a nested page cannot hide from the mirror.
         try (Stream<Path> files = Files.walk(FORM_DIR)) {
-            for (Path file : files.filter(p -> p.getFileName().toString().endsWith(".jsp")).sorted().collect(Collectors.toList())) {
+            for (Path file : files.filter(p -> p.getFileName().toString().endsWith(".jsp")).sorted().toList()) {
                 infos.put(FORM_DIR.relativize(file).toString().replace('\\', '/'), analyse(file));
             }
         }
@@ -180,7 +180,7 @@ class FormProseWafExclusionRegressionTest {
         PageInfo info = new PageInfo();
         Matcher inc = INCLUDE.matcher(text);
         while (inc.find()) {
-            String page = inc.group(1) != null ? inc.group(1) : inc.group(2);
+            String page = inc.group(inc.group(1) != null ? 1 : 2);
             info.includes.add(Path.of(page).getFileName().toString());
         }
         Matcher tag = TAG.matcher(text);
@@ -230,7 +230,7 @@ class FormProseWafExclusionRegressionTest {
         Map<String, String> out = new LinkedHashMap<>();
         Matcher m = ATTR.matcher(raw);
         while (m.find()) {
-            out.put(m.group(1).toLowerCase(), m.group(3) != null ? m.group(3) : m.group(4));
+            out.put(m.group(1).toLowerCase(), m.group(m.group(3) != null ? 3 : 4));
         }
         return out;
     }

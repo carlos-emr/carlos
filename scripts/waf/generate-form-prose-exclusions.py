@@ -76,9 +76,11 @@ NOT_PROSE_INPUT_NAME = re.compile(
     r"dose|units?$|qty|quantity|score|total|count", re.IGNORECASE)
 
 # A tag's attribute list may embed a JSP scriptlet (<%= formClass %>) or an encoder tag
-# (<carlos:encode .../>), both of which contain '>' — consume them whole so the tag does
-# not end early.
-TAG_RE = re.compile(r"<(textarea|input|form)\b((?:<%.*?%>|<carlos:encode\b[^>]*/>|[^>])*)>",
+# (<carlos:encode .../>, itself possibly wrapping a scriptlet), both of which contain '>'
+# — consume them whole so the tag does not end early. The alternatives are mutually
+# exclusive (a '<' is a scriptlet, an encoder tag, or a lone character, never two of
+# them), so the match runs in linear time. FormProseWafExclusionRegressionTest mirrors it.
+TAG_RE = re.compile(r"<(textarea|input|form)\b((?:<%(?:(?!%>).)*%>|<carlos:encode\b(?:<%(?:(?!%>).)*%>|[^<>])*/>|<(?!%|carlos:encode\b)|[^<>])*)>",
                     re.IGNORECASE | re.DOTALL)
 ATTR_RE = re.compile(r"""([a-zA-Z_:-]+)\s*=\s*("([^"]*)"|'([^']*)')""", re.DOTALL)
 DYNAMIC_RE = re.compile(r"<%|\$\{")

@@ -81,7 +81,7 @@ public class EctFindMeasurementTypeUtil {
      *
      * @return the declared measurement types, empty when the stream could not be unmarshalled
      */
-    static public Vector<EctMeasurementTypesBean> loadMeasurementTypes(InputStream is) {
+    public static Vector<EctMeasurementTypesBean> loadMeasurementTypes(InputStream is) {
         EctFormProp formProp = getEctMeasurementsType(is);
         if (formProp == null || formProp.getMeasurements() == null) {
             return new Vector<>();
