@@ -169,6 +169,30 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("incoming docs filename reduces a path-like name to its basename (accepted, not rejected)")
+    void shouldReduceToBasename_whenIncomingDocsFilenameHasDirectoryPrefix() throws Exception {
+        // FilenameUtils.getName strips the directory prefix, so a path-like name is accepted as its
+        // basename rather than rejected — documenting the intended contract (issue #2213 review).
+        assertThat(invokeSanitizeForIncomingDocs("subdir/report.pdf")).isEqualTo("report.pdf");
+        assertThat(invokeSanitizeForIncomingDocs("../secret.pdf")).isEqualTo("secret.pdf");
+    }
+
+    @Test
+    @DisplayName("incoming docs filename returns null for a hidden or traversal basename")
+    void shouldReturnNull_whenIncomingDocsBasenameIsHiddenOrTraversal() throws Exception {
+        assertThat(invokeSanitizeForIncomingDocs(".env")).isNull();
+        assertThat(invokeSanitizeForIncomingDocs("..")).isNull();
+        assertThat(invokeSanitizeForIncomingDocs("   ")).isNull();
+    }
+
+    private String invokeSanitizeForIncomingDocs(String filename) throws Exception {
+        java.lang.reflect.Method method = DocumentUpload2Action.class
+                .getDeclaredMethod("sanitizeFileNameForIncomingDocs", String.class);
+        method.setAccessible(true);
+        return (String) method.invoke(new DocumentUpload2Action(), filename);
+    }
+
     private DocumentUpload2Action incomingDocsAction(String filename) throws Exception {
         tempUploadFile = File.createTempFile("document-upload", ".pdf");
         Files.writeString(tempUploadFile.toPath(), "pdf");
