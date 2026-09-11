@@ -159,9 +159,13 @@ class PortalPatient2ActionUnitTest {
         String script = Files.readString(
                 Path.of("src/main/webapp/share/javascript/patientPortalAccount.js"),
                 StandardCharsets.UTF_8);
+        String styles = Files.readString(
+                Path.of("src/main/webapp/demographic/patientPortalAccount.css"),
+                StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .contains("/WEB-INF/jspf/csrf-token.jspf")
+                .contains("patientPortalAccount.css")
                 .contains("patientPortalAccount.js")
                 .contains("requestScope.demographicNo")
                 .contains("forHtmlContent(requestScope.demographicNo)")
@@ -181,6 +185,11 @@ class PortalPatient2ActionUnitTest {
                 .contains("/demographic/portalAccount")
                 .doesNotContain("innerHTML")
                 .doesNotContain("outerHTML");
+        assertThat(styles)
+                .contains("--portal-primary: var(--carlos-primary, #337ab7)")
+                .contains(".portal-account-page [hidden]")
+                .contains(".portal-sidebar")
+                .contains(".portal-account__card h2");
     }
 
     @Test
