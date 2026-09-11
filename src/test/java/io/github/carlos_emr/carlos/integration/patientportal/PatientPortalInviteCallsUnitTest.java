@@ -60,6 +60,15 @@ class PatientPortalInviteCallsUnitTest {
              "expires_at": "2026-08-26T12:00:00+00:00", "accepted_account_id": null,
              "supersedes_invite_id": null, "invite_token": "one-time-activation-token-abc123"}
             """;
+    private static final String OPERATION_ID = "invite-email:operation-1";
+    private static final String DELIVERY_REFERENCE = "email-outbox:clinic/42";
+    private static final String PREPARED_INVITE_JSON = INVITE_JSON
+            .replace("\"status\": \"pending\"", "\"status\": \"prepared\"")
+            .replace(
+                    "\"supersedes_invite_id\": null, \"invite_token\"",
+                    "\"supersedes_invite_id\": null,"
+                            + " \"delivery_operation_id\": \"" + OPERATION_ID + "\","
+                            + " \"delivery_reference\": null, \"invite_token\"");
 
     /** Records what CARLOS sent and replays a canned portal reply. */
     private static final class RecordingExchange implements PatientPortalHttpExchange {
@@ -230,6 +239,108 @@ class PatientPortalInviteCallsUnitTest {
                     .hasMessageNotContaining(TOKEN)
                     .extracting(exception -> ((PatientPortalException) exception).kind())
                     .isEqualTo(Kind.TRANSPORT_FAILURE);
+        }
+    }
+
+    @Nested
+    @DisplayName("durable delivery preparation")
+    class DurableDeliveryPreparation {
+
+        @Test
+        @DisplayName("should prepare an inactive first invite with a stable operation id")
+        void shouldPrepareFirstInvite_withoutClaimingDelivery() throws Exception {
+            RecordingExchange exchange = new RecordingExchange(201, PREPARED_INVITE_JSON);
+            PatientPortalService service = new PatientPortalService(settings(), exchange);
+
+            PatientPortalPreparedInviteDto prepared = service.prepareInvite(
+                    123,
+                    "patient@example.com",
+                    LocalDate.of(1980, 1, 1),
+                    "1234567890",
+                    OPERATION_ID,
+                    staff());
+
+            assertThat(exchange.captured.getUri().getPath())
+                    .isEqualTo("/internal/carlos/patients/123/invites/prepare");
+            assertThat(bodyOf(exchange.captured))
+                    .contains("\"delivery_operation_id\":\"" + OPERATION_ID + "\"");
+            assertThat(prepared.deliveryOperationId()).isEqualTo(OPERATION_ID);
+            assertThat(prepared.issuedInvite().invite().status()).isEqualTo("prepared");
+            assertThat(prepared.issuedInvite().inviteToken().expose()).isEqualTo(INVITE_TOKEN);
+            assertThat(prepared.toString()).doesNotContain(INVITE_TOKEN);
+        }
+
+        @Test
+        @DisplayName("should prepare a resend without treating it as an immediate replacement")
+        void shouldPrepareResend_againstSelectedInvite() throws Exception {
+            String response = PREPARED_INVITE_JSON
+                    .replace("\"id\": 7", "\"id\": 8")
+                    .replace(
+                            "\"supersedes_invite_id\": null",
+                            "\"supersedes_invite_id\": 7");
+            RecordingExchange exchange = new RecordingExchange(201, response);
+            PatientPortalService service = new PatientPortalService(settings(), exchange);
+
+            PatientPortalPreparedInviteDto prepared =
+                    service.prepareInviteResend(7L, OPERATION_ID, staff());
+
+            assertThat(exchange.captured.getUri().getPath())
+                    .isEqualTo("/internal/carlos/invites/7/resend/prepare");
+            assertThat(bodyOf(exchange.captured))
+                    .contains("\"delivery_operation_id\":\"" + OPERATION_ID + "\"");
+            assertThat(prepared.issuedInvite().invite().supersedesInviteId()).isEqualTo(7L);
+        }
+
+        @Test
+        @DisplayName("should commit only the exact operation and durable email reference")
+        void shouldCommitPreparedInvite_whenPortalConfirmsExactReferences() throws Exception {
+            String committedJson = PREPARED_INVITE_JSON
+                    .replace("\"status\": \"prepared\"", "\"status\": \"pending\"")
+                    .replace(
+                            "\"delivery_reference\": null",
+                            "\"delivery_reference\": \"" + DELIVERY_REFERENCE + "\"");
+            RecordingExchange exchange = new RecordingExchange(200, committedJson);
+            PatientPortalService service = new PatientPortalService(settings(), exchange);
+
+            PatientPortalInviteDto committed = service.commitInviteDelivery(
+                    7L, OPERATION_ID, DELIVERY_REFERENCE, staff());
+
+            assertThat(exchange.captured.getUri().getPath())
+                    .isEqualTo("/internal/carlos/invites/7/commit-delivery");
+            assertThat(bodyOf(exchange.captured))
+                    .contains("\"delivery_operation_id\":\"" + OPERATION_ID + "\"")
+                    .contains("\"delivery_reference\":\"" + DELIVERY_REFERENCE + "\"");
+            assertThat(committed.status()).isEqualTo("pending");
+        }
+
+        @Test
+        @DisplayName("should reject a mismatched operation confirmation")
+        void shouldRejectCommit_whenPortalConfirmsDifferentOperation() {
+            String committedJson = PREPARED_INVITE_JSON
+                    .replace("\"status\": \"prepared\"", "\"status\": \"pending\"")
+                    .replace(OPERATION_ID, "invite-email:different")
+                    .replace(
+                            "\"delivery_reference\": null",
+                            "\"delivery_reference\": \"" + DELIVERY_REFERENCE + "\"");
+            PatientPortalService service =
+                    new PatientPortalService(settings(), new RecordingExchange(200, committedJson));
+
+            assertThatThrownBy(() -> service.commitInviteDelivery(
+                            7L, OPERATION_ID, DELIVERY_REFERENCE, staff()))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
+        @DisplayName("should reject identifiers before making a portal call")
+        void shouldRejectInvalidDeliveryIdentifiers_withoutCallingPortal() {
+            RecordingExchange exchange = new RecordingExchange(201, PREPARED_INVITE_JSON);
+            PatientPortalService service = new PatientPortalService(settings(), exchange);
+
+            assertThatThrownBy(() -> service.prepareInviteResend(7L, "bad operation", staff()))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(exchange.captured).isNull();
         }
     }
 
