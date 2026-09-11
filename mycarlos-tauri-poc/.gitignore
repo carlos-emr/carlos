@@ -1,0 +1,10 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+coverage/
+*.cdx.json
+src-tauri/target/
+src-tauri/gen/schemas/
+*.log
+*.local

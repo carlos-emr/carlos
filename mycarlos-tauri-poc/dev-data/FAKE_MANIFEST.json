@@ -1,0 +1,58 @@
+{
+  "warning": "FAKE synthetic development data only. Contains no patient information.",
+  "passphraseGuidance": "Choose a unique throwaway passphrase; no credential is stored in these fixtures.",
+  "profiles": [
+    {
+      "name": "FAKE Avery Patient",
+      "folders": [
+        "FAKE Test Results",
+        "FAKE Specialist Letters"
+      ]
+    },
+    {
+      "name": "FAKE Morgan Patient",
+      "folders": [
+        "FAKE Imaging",
+        "FAKE Prescriptions"
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "fileName": "FAKE_Avery_Patient_Bloodwork.pdf",
+      "profileName": "FAKE Avery Patient",
+      "folders": [
+        "FAKE Test Results"
+      ]
+    },
+    {
+      "fileName": "FAKE_Avery_Patient_Cardiology_Letter.pdf",
+      "profileName": "FAKE Avery Patient",
+      "folders": [
+        "FAKE Specialist Letters"
+      ]
+    },
+    {
+      "fileName": "FAKE_Morgan_Patient_Imaging_Report.pdf",
+      "profileName": "FAKE Morgan Patient",
+      "folders": [
+        "FAKE Imaging"
+      ]
+    },
+    {
+      "fileName": "FAKE_Morgan_Patient_Prescription.pdf",
+      "profileName": "FAKE Morgan Patient",
+      "folders": [
+        "FAKE Prescriptions"
+      ]
+    },
+    {
+      "fileName": "FAKE_Avery_Patient_Bloodwork_DUPLICATE.pdf",
+      "duplicateOf": "FAKE_Avery_Patient_Bloodwork.pdf",
+      "profileName": "FAKE Avery Patient",
+      "folders": [
+        "FAKE Test Results"
+      ]
+    }
+  ]
+}

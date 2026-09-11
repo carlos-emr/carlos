@@ -1,0 +1,291 @@
+name: myCarlos Tauri POC
+
+on:
+  pull_request:
+    paths:
+      - "mycarlos-tauri-poc/**"
+      - ".github/workflows/mycarlos-tauri-poc.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "23 9 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mycarlos-tauri-poc-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: mycarlos-tauri-poc
+
+jobs:
+  supply-chain:
+    name: Locked dependencies and SBOMs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - run: npm ci
+      - name: Reject known high or critical production npm vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+      - name: Generate reproducible frontend CycloneDX SBOM
+        run: |
+          npm run sbom:frontend
+          cp sbom-frontend.cdx.json /tmp/sbom-frontend-first.cdx.json
+          npm run sbom:frontend
+          cmp /tmp/sbom-frontend-first.cdx.json sbom-frontend.cdx.json
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' sbom-frontend.cdx.json
+      - name: Install pinned Rust CycloneDX generator
+        run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+      - name: Install pinned Rust advisory scanner
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Reject known Rust vulnerabilities
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.head_ref != 'poc/3474-tauri-v2' ||
+          github.event.pull_request.head.repo.full_name != github.repository ||
+          github.event.number != 3544
+        run: cargo audit --file src-tauri/Cargo.lock
+      - name: Reject known Rust vulnerabilities (exact draft Linux exception)
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.head_ref == 'poc/3474-tauri-v2' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.number == 3544
+        run: >-
+          cargo audit --file src-tauri/Cargo.lock
+          --ignore RUSTSEC-2024-0429
+      - name: Generate reproducible native CycloneDX SBOM
+        env:
+          SOURCE_DATE_EPOCH: "0"
+        run: |
+          cargo metadata --locked --manifest-path src-tauri/Cargo.toml --format-version 1 > /dev/null
+          cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --target all
+          cp src-tauri/mycarlos-tauri-poc.cdx.json /tmp/sbom-native-first.cdx.json
+          cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --target all
+          cmp /tmp/sbom-native-first.cdx.json src-tauri/mycarlos-tauri-poc.cdx.json
+          git diff --exit-code -- src-tauri/Cargo.lock
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' \
+            src-tauri/mycarlos-tauri-poc.cdx.json
+      - name: Collect native SBOM
+        run: mv src-tauri/mycarlos-tauri-poc.cdx.json sbom-native.cdx.json
+      - name: Upload dependency inventories
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mycarlos-cyclonedx-sboms
+          path: |
+            mycarlos-tauri-poc/sbom-frontend.cdx.json
+            mycarlos-tauri-poc/sbom-native.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+  web:
+    name: Web UI and browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run test:dev-data
+      - run: npm run test:android-security
+      - run: npm run build
+      - name: Install Playwright Chromium with bounded mirror retries
+        run: |
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chromium; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+      - run: npm run test:e2e
+      - name: Upload responsive screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mycarlos-browser-evidence
+          path: |
+            mycarlos-tauri-poc/test-results
+            mycarlos-tauri-poc/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  desktop:
+    # Linux is not an initial supported platform while the documented glib advisory is unresolved.
+    # Keep this build as a compatibility monitor so an upstream resolution remains visible.
+    name: Linux compatibility monitor (unsupported)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Linux webview dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y \
+              libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+        working-directory: .
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: >-
+          rustup toolchain install 1.98.0 --profile minimal
+          --component rustfmt --component clippy
+      - run: npm ci
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: npm run tauri build -- --debug --bundles deb
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
+      - name: Report desktop artifact sizes
+        run: find src-tauri/target/debug/bundle -type f -printf '%p %k KB\n' | sort
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mycarlos-linux-evaluation-debug
+          path: mycarlos-tauri-poc/src-tauri/target/debug/bundle
+          retention-days: 7
+
+  windows:
+    # Installer signing and release packaging are separate gates. This job validates the native
+    # application and vault on Windows without presenting an unsigned NSIS installer as evidence.
+    name: Windows native build
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - run: npm ci
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: npm run tauri build -- --debug --no-bundle
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
+
+  macos:
+    name: macOS native build
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - run: npm ci
+      - run: npm run tauri build -- --debug --bundles app
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
+
+  android:
+    name: Android debug build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Configure hosted Android NDK
+        run: |
+          test -d "$ANDROID_NDK_LATEST_HOME"
+          echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+      - name: Install pinned Rust toolchain and Android target
+        run: >-
+          rustup toolchain install 1.98.0 --profile minimal
+          --target aarch64-linux-android
+      - run: npm ci
+      - run: npm run tauri android init -- --ci
+      - name: Disable Android cloud and device-transfer backup
+        run: npm run android:secure
+      - name: Verify Android backup remains disabled
+        run: grep -q 'android:allowBackup="false"' src-tauri/gen/android/app/src/main/AndroidManifest.xml
+      - run: npm run tauri android build -- --debug --apk --target aarch64 --ci
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
+      - name: Report Android artifact sizes
+        run: find src-tauri/gen/android -type f -name '*.apk' -printf '%p %k KB\n' | sort
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mycarlos-android-debug
+          path: mycarlos-tauri-poc/src-tauri/gen/android/app/build/outputs/apk
+          retention-days: 7
+
+  ios:
+    name: iOS simulator debug build
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain and iOS simulator target
+        run: >-
+          rustup toolchain install 1.98.0 --profile minimal
+          --target aarch64-apple-ios-sim
+      - run: npm ci
+      - run: npm run tauri ios init -- --ci
+      - run: npm run tauri ios build -- --debug --target aarch64-sim --no-sign --ci
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
+      - name: Report iOS simulator artifact sizes
+        run: find src-tauri/gen/apple/build -type d -name '*.app' -exec du -sh {} \;
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mycarlos-ios-simulator-debug
+          path: mycarlos-tauri-poc/src-tauri/gen/apple/build/**/*.app
+          if-no-files-found: error
+          retention-days: 7
