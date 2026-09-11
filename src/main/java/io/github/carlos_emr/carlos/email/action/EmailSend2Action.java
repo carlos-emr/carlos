@@ -100,6 +100,11 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 result identifier - "success" for successful email operations,
      *         or NONE after cancellation or request rejection
      */
+    // FindSecBugs XSS_SERVLET: validation failures are fixed server-authored strings returned as
+    // text/plain, never request-derived content or HTML.
+    @SuppressFBWarnings(
+            value = "XSS_SERVLET",
+            justification = "response is text/plain and validation messages are fixed server-authored strings")
     public String execute () {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
