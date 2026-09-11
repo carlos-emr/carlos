@@ -84,8 +84,6 @@ class FormProseWafExclusionRegressionTest {
             "([a-zA-Z_:-]+)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
     private static final Pattern DYNAMIC = Pattern.compile("<%|\\$\\{");
     private static final Pattern LITERAL_TARGET = Pattern.compile("^[A-Za-z0-9_.\\-]+$");
-    private static final Pattern ROW_INDEX_NAME = Pattern.compile(
-            "^([A-Za-z0-9_.\\-]*)<%=\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*%>([A-Za-z0-9_.\\-]*)$");
     private static final Pattern PAREN_NAME = Pattern.compile("^[A-Za-z0-9_.\\-]+\\([A-Za-z0-9_.\\-]+\\)$");
     private static final Pattern FORM_CLASS_ASSIGN = Pattern.compile(
             "^\\s*String\\s+formClass\\s*=\\s*\"([^\"]+)\"", Pattern.MULTILINE);
@@ -144,8 +142,10 @@ class FormProseWafExclusionRegressionTest {
                 .filter(line -> !line.isBlank() && !line.startsWith("#"))
                 .collect(Collectors.joining("\n"));
 
-        assertThat(patterns).as("the three shapes the generator was written for are present")
-                .contains("^comment_[0-9]+$", "^descOther[0-9]+$", "^value[(]subjective[)]$");
+        assertThat(patterns).as("the map-backed Vascular Tracker cells are present")
+                .contains("^value[(]subjective[)]$", "^value[(]plan[)]$");
+        assertThat(patterns).as("generic row-indexed names are NOT globally exempted (they collide with other routes)")
+                .noneMatch(pattern -> pattern.contains("[0-9]+"));
         assertThat(actual)
                 .as("RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf is stale: run "
                         + "python3 scripts/waf/generate-form-prose-exclusions.py")
@@ -170,7 +170,7 @@ class FormProseWafExclusionRegressionTest {
             String regex = target.substring("!ARGS:/".length(), target.length() - 1);
             // Only bracket classes, digits-plus and literal word characters: no alternation,
             // no dot, no unanchored quantifier that could widen a pattern to another name.
-            assertThat(regex).matches("\\^(?:[A-Za-z0-9_-]|\\[[().]\\]|\\[0-9\\]\\+)+\\$");
+            assertThat(regex).matches("\\^(?:[A-Za-z0-9_-]|\\[[()]\\])+\\$");
         }
         assertThat(count).isGreaterThan(30);
         // Every directive in the file is one of those lines: no SecRule, no request-wide removal.
@@ -274,7 +274,7 @@ class FormProseWafExclusionRegressionTest {
                 }
             }
             if (DYNAMIC.matcher(name).find() || !LITERAL_TARGET.matcher(name).matches()) {
-                String pattern = anchoredPattern(name, text);
+                String pattern = anchoredPattern(name);
                 if (pattern != null && !info.patterns.contains(pattern)) {
                     info.patterns.add(pattern);
                 }
@@ -301,15 +301,12 @@ class FormProseWafExclusionRegressionTest {
     }
 
     /**
-     * Mirror of the generator's anchored_pattern: a row-indexed name whose index the page prints
-     * from an {@code int} loop counter becomes {@code ^prefix[0-9]+suffix$}; a parenthesised
-     * map-backed name is spelled literally; anything else is not expressible (null).
+     * Mirror of the generator's anchored_pattern: only a parenthesised map-backed name
+     * (value(subjective)) is expressed here, spelled literally with each metacharacter bracketed.
+     * A row-indexed name (comment_&lt;n&gt;) is left as a residual because its prefix is generic
+     * and a global pattern would collide with other routes (rx/prescribe.jsp posts comment_&lt;rand&gt;).
      */
-    private static String anchoredPattern(String name, String text) {
-        Matcher m = ROW_INDEX_NAME.matcher(name);
-        if (m.matches() && Pattern.compile("for\\s*\\(\\s*int\\s+" + Pattern.quote(m.group(2)) + "\\s*=").matcher(text).find()) {
-            return "^" + regexLiteral(m.group(1)) + "[0-9]+" + regexLiteral(m.group(3)) + "$";
-        }
+    private static String anchoredPattern(String name) {
         if (PAREN_NAME.matcher(name).matches()) {
             return "^" + regexLiteral(name) + "$";
         }

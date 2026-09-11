@@ -364,6 +364,30 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should reposition the list when update is clicked with no row selected")
+        void shouldRePosition_whenNoSelectorsSubmitted() throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            // The page leaves the three selector fields blank when no row's note/date was edited;
+            // clicking update then means "reposition", not "update a row".
+            mockRequest.setParameter("demographicNumSelected", "");
+            mockRequest.setParameter("wlNoteSelected", "");
+            mockRequest.setParameter("onListSinceSelected", "");
+
+            try {
+                new WLSetupDisplayWaitingList2Action().execute();
+            } catch (Exception pageRenderNeedsSession) {
+                // intentional: only the mutation is under test here
+            }
+
+            waitingListUtilMock.verify(() -> WLWaitingListUtil.rePositionWaitingList("7"));
+            assertThat(mockResponse.getStatus()).isNotEqualTo(400);
+        }
+
+        @Test
         @DisplayName("should read the row index only from a well-formed selector")
         void shouldReadRowIndex_onlyFromWellFormedSelector() {
             assertThat(WLSetupDisplayWaitingList2Action.rowIndexOf("waitingListBean[0].note")).isEqualTo("0");

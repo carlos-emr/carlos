@@ -90,6 +90,10 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         Matcher matcher = ROW_SELECTOR.matcher(selector);
         return matcher.matches() ? matcher.group(1) : null;
     }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -161,26 +165,34 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSafe.sanitize(waitingListId));
         if (update != null && update.equalsIgnoreCase("Y")) {
-            if (!isRowSelector(demographicNumSelected) || !isRowSelector(wlNoteSelected)
-                    || !isRowSelector(onListSinceSelected)) {
-                log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row selector outside waitingListBean[n]"); // NOSONAR javasecurity:S5145 — fixed text, no request data
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
-            }
-            // All three selectors must name the SAME row. Otherwise a crafted POST could pair
-            // one row's demographicNo with another row's note, and updateWaitingListRecord would
-            // persist the second row's note against the first row's patient.
-            String selectorRow = rowIndexOf(demographicNumSelected);
-            if (!selectorRow.equals(rowIndexOf(wlNoteSelected))
-                    || !selectorRow.equals(rowIndexOf(onListSinceSelected))) {
-                log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected selectors spanning more than one waiting-list row"); // NOSONAR javasecurity:S5145 — fixed text, no request data
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
-            }
+            // The page's update button submits the three selectors only when a row's note or
+            // date field has been edited (setParameters() fills them on blur); clicking update
+            // without editing a row leaves them blank and means "reposition", handled by the
+            // fallback below. So the selector validation applies only when a selector is present.
+            boolean anySelector = !isBlank(demographicNumSelected) || !isBlank(wlNoteSelected)
+                    || !isBlank(onListSinceSelected);
+            if (anySelector) {
+                if (!isRowSelector(demographicNumSelected) || !isRowSelector(wlNoteSelected)
+                        || !isRowSelector(onListSinceSelected)) {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row selector outside waitingListBean[n]"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
+                // All three selectors must name the SAME row. Otherwise a crafted POST could pair
+                // one row's demographicNo with another row's note, and updateWaitingListRecord
+                // would persist the second row's note against the first row's patient.
+                String selectorRow = rowIndexOf(demographicNumSelected);
+                if (!selectorRow.equals(rowIndexOf(wlNoteSelected))
+                        || !selectorRow.equals(rowIndexOf(onListSinceSelected))) {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected selectors spanning more than one waiting-list row"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
 
-            demographicNo = request.getParameter(demographicNumSelected);
-            waitingListNote = request.getParameter(wlNoteSelected);
-            onListSince = request.getParameter(onListSinceSelected);
+                demographicNo = request.getParameter(demographicNumSelected);
+                waitingListNote = request.getParameter(wlNoteSelected);
+                onListSince = request.getParameter(onListSinceSelected);
+            }
 //	        demographicNo = (String)wlForm.get(demographicNumSelected);
 //	        waitingListNote = (String)wlForm.get(wlNoteSelected);
 //	        onListSince =  (String)wlForm.get(onListSinceSelected);

@@ -25,20 +25,24 @@ What counts as a free-text cell (the same rule the test applies):
     name fragments that the forms use for narrative boxes (comments, notes, observations,
     history, plan, ...) and does not match NOT_PROSE_INPUT_NAME (date, id, phone, code,
     dose, score, ...). Dates, codes, numbers and everything else stay fully inspected.
-Names a ctl target cannot carry go to a second generated file,
-debian/assets/modsecurity/RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf, as config-time
-SecRuleUpdateTargetByTag lines with an ANCHORED regex target, which libmodsecurity 3.0.14
-accepts there (it rejects both a regex and "ARGS:value(subjective)", quoted or not, inside a
-ctl action). Two shapes qualify, and both are derived, never hand-listed:
-  * a name whose only non-literal part is a scriptlet printing an int loop index,
-    <input name="comment_<%=i%>"> inside `for (int i = ...)` (the growth charts' per-row
-    comment, the chart checklist's per-row description): the index becomes [0-9]+;
+Names a ctl target cannot carry, and that are specific enough to exempt globally, go to a
+second generated file, debian/assets/modsecurity/RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf,
+as config-time SecRuleUpdateTargetByTag lines with an ANCHORED regex target, which
+libmodsecurity 3.0.14 accepts there (it rejects both a regex and "ARGS:value(subjective)",
+quoted or not, inside a ctl action). One shape qualifies, derived, never hand-listed:
   * a literal name with one parenthesised segment, value(subjective) (the Vascular Tracker's
     map-backed cells): every non-alphanumeric character is bracketed, value[(]subjective[)].
-A config-time update is not route-scoped — it applies to an argument of exactly that shape
-on any route — which is why this file is kept to the names that cannot be expressed the
-per-route way and why each pattern is anchored at both ends; see the header the generator
-writes into that file. Any other non-literal name is still reported with a SKIPPED line.
+A config-time update is not route-scoped — it applies to an argument of exactly that NAME on
+any route — so only names that no other route reads and that are not generic go here. The
+value(<key>) names are read solely by the form-save actions.
+
+A row-indexed name (comment_<%=i%>, descOther<%=i %>) could be written as ^comment_[0-9]+$
+but is deliberately left as a reported residual: the prefix is generic, rx/prescribe.jsp
+posts the prescription comment as comment_<rand>, and a global ^comment_[0-9]+$ would unscore
+that field and hand a forged POST to any route a rule-free parameter name. Those cells stay
+fully inspected (they answer 403 on scored prose); the clean fix is a per-form rename to
+fixed repeated names the 901 file can target by literal ARGS. Any other non-literal name is
+reported the same way.
 
 How a form is resolved:
   * the save route is the <form ... action="..."> whose path is under /form/;
@@ -163,13 +167,19 @@ def regex_literal(s):
 def anchored_pattern(name, text):
     """The anchored regex target for a name a ctl action cannot carry, or None.
 
-    A row-indexed name (comment_<%=i%>) qualifies only when the JSP declares that variable
-    as an int loop counter, so the pattern can bound the varying part to digits; a
-    parenthesised map-backed name (value(subjective)) is spelled literally. Anything else
-    (an expression, a string-valued scriptlet, EL) is not expressible and stays reported."""
-    m = ROW_INDEX_NAME_RE.match(name)
-    if m and re.search(r"for\s*\(\s*int\s+" + re.escape(m.group(2)) + r"\s*=", text):
-        return "^" + regex_literal(m.group(1)) + "[0-9]+" + regex_literal(m.group(3)) + "$"
+    Only the parenthesised map-backed shape (value(subjective)) qualifies: it is spelled
+    literally with each metacharacter bracketed. A config-time SecRuleUpdateTargetByTag is
+    NOT route-scoped, so it exempts an argument of exactly that NAME on any route, and these
+    value(<key>) names are read only by the form-save actions and are not generic.
+
+    A row-indexed name (comment_<%=i%> -> ^comment_[0-9]+$) is deliberately NOT expressed
+    here even though it could be: the prefix is generic. rx/prescribe.jsp posts the
+    prescription comment as comment_<rand> and RxWriteScript persists it, so a global
+    ^comment_[0-9]+$ would unscore that field too and, worse, hand a forged POST to any
+    route a rule-free parameter name. Such names stay reported as a residual and keep the
+    full rule set; the clean fix is a per-form rename to fixed names the 901 file can target
+    by literal ARGS. `text` is unused now but kept for the row-index detection the residual
+    reporting still does."""
     if PAREN_NAME_RE.match(name):
         return "^" + regex_literal(name) + "$"
     return None
@@ -315,18 +325,18 @@ def render_after(patterns):
                "# an anchored regex in a config-time SecRuleUpdateTargetByTag, so these cells\n"
                "# are exempted here, the same way RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf\n"
                "# handles the measurement, manual-lab, contact and waiting-list rows.\n#\n"
-               "# Two shapes, both derived from the JSPs by the generator (never hand-listed):\n"
-               "#   comment_<n>, descOther<n>   a row index the page prints from an int loop\n"
-               "#                              counter; the varying part is bounded to digits\n"
-               "#   value(subjective)          the Vascular Tracker's map-backed cells, spelled\n"
-               "#                              literally with each metacharacter bracketed\n#\n"
-               "# A config-time update is not route-scoped: an argument of exactly that shape is\n"
-               "# exempt on any route. That is accepted here because every pattern is anchored\n"
-               "# at both ends and matches only the shape the page generates (comment_1 yes,\n"
-               "# comment_1x and xcomment_1 no); the only handlers that read these names are\n"
-               "# the form save routes, which store the text through parameterised writes; and\n"
-               "# every other argument on every route keeps the full rule set. The XSS family\n"
-               "# is deliberately NOT removed, here or in the BEFORE-CRS file: the CRS XSS rules\n"
+               "# One shape, derived from the JSPs by the generator (never hand-listed):\n"
+               "#   value(subjective)   the Vascular Tracker's map-backed cells, spelled\n"
+               "#                       literally with each metacharacter bracketed\n#\n"
+               "# A config-time update is NOT route-scoped: an argument of exactly that name is\n"
+               "# exempt on any route. That is accepted here only because these value(<key>)\n"
+               "# names are read solely by the form-save actions and are not generic. Every\n"
+               "# pattern is anchored at both ends. Row-indexed cells (comment_<n>,\n"
+               "# descOther<n>) are deliberately NOT here: their prefix is generic and, e.g.,\n"
+               "# rx/prescribe.jsp posts the prescription comment as comment_<rand>, so a\n"
+               "# global ^comment_[0-9]+$ would unscore that field and give a forged POST a\n"
+               "# rule-free name on any route. They stay fully inspected. The XSS family is\n"
+               "# deliberately NOT removed, here or in the BEFORE-CRS file: the CRS XSS rules\n"
                "# did not fire on any measured prose shape at paranoia level 1 and the legacy\n"
                "# form views render stored cells raw, so that layer stays on as defence in\n"
                "# depth. Nothing here is request-wide.")

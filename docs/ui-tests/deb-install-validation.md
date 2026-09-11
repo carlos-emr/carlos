@@ -88,27 +88,33 @@ cells reach the application on all shapes; a Rourke cell posted under another
 form's `form_class`, the same cell with no `form_class`, the same cell on GET,
 and the structured fields on every form (`formId`, `demographic_no`,
 `form_class`) still block; Mental Health Form 1 and Rourke 2020 saved from the
-browser through `:443` with such prose are stored intact. The cells whose
-names a `ctl` target cannot carry go to a second generated file,
-`RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf`: the Vascular Tracker's
-`value(...)` cells (libmodsecurity rejects parentheses in a `ctl` target) and
-the growth-chart and chart-checklist cells whose names carry a row index
-(`comment_<n>`, `descOther<n>`) are written as anchored config-time
-`SecRuleUpdateTargetByTag` patterns, the same form the per-row fields above
-use, derived from the JSPs (a parenthesised literal is bracketed character by
-character; a row index qualifies only when the page prints it from an `int`
-loop counter, and becomes `[0-9]+`). Same trade-off, same reasons, same
-regression test. Measured on the packaged install: `value(subjective)`,
-`value(plan)`, `value(24UAComments)`, `comment_3`, `comment_14` and `descOther2`
-reach the application on all three shapes; `value(formId)`, `value(WTValue)`,
-`value(subjectivex)`, `comment_3x`, `xcomment_3`, `comment_` and `descOther2a`
-still block, and Growth Charts saved from the browser through `:443` with
-such a per-row comment are stored intact (the BC chart checklist has no table
-on an Ontario install, so it is covered by the probe only). The Rh-injection
-page under the form directory posts elsewhere (`/prevention/AddPrevention`,
-`reason` and `reasonOtherText`) and is covered by rule 1117; the lab
-requisition print view posts nothing; the generator reports both by name
-rather than as skipped.
+browser through `:443` with such prose are stored intact. The Vascular
+Tracker's `value(...)` cells cannot be named by a per-route `ctl` target
+(libmodsecurity rejects parentheses in one), so they go to a second generated
+file, `RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf`, as anchored
+config-time `SecRuleUpdateTargetByTag` patterns (each metacharacter bracketed,
+`value[(]subjective[)]`), the same mechanism the per-row fields in the 999 file
+use. Measured on the packaged install: `value(subjective)`, `value(plan)`,
+`value(24UAComments)` reach the application on all three shapes; `value(formId)`,
+`value(WTValue)`, `value(subjectivex)` still block.
+
+The growth-chart and chart-checklist per-row cells (`comment_<n>`,
+`descOther<n>`) are a **deliberate residual**: they still answer 403 on scored
+prose, and this is a security decision, not a gap. A config-time
+`SecRuleUpdateTargetByTag` is not route-scoped, so a global `^comment_[0-9]+$`
+would exempt that name on **every** route — and `rx/prescribe.jsp` posts the
+prescription comment as `comment_<rand>`, so the pattern would unscore that
+field and hand a forged POST to any endpoint a rule-free parameter name.
+Exempting a generic row-indexed name globally trades a rare 403 on a
+growth-chart cell for a widened attack surface, which is the wrong trade on a
+PHI application. The clean fix is a per-form rename of those cells to fixed
+repeated names the 901 file can target by literal `ARGS` (which also needs the
+save action, keyed by row index, to change) — a form migration, out of scope
+here. The generator reports these cells as skipped so the residual is visible.
+The Rh-injection page under the form directory posts elsewhere
+(`/prevention/AddPrevention`, `reason` and `reasonOtherText`) and is covered by
+rule 1117; the lab requisition print view posts nothing; the generator reports
+both by name rather than as skipped.
 
 The Vascular Tracker's cells are exempted and probe-verified, but the form
 itself cannot be exercised from the browser on this line, for reasons that
