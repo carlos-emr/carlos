@@ -73,7 +73,17 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     generated per-form list of their narrative cells, keyed on each form's
     save route and form class; a regression test keeps that list in step
     with the form pages. The Vascular Tracker's bracketed cell names and the
-    growth-chart per-row comments cannot be listed and still answer 403.
+    growth-chart and chart-checklist per-row cells, which the firewall cannot
+    list by name, are exempted by anchored name patterns generated from the
+    same pages. The Rh-injection page's "other" reason is exempted on the
+    prevention route it posts to.
+  * Reading a measurement definition file (the Vascular Tracker's, or one
+    given to the measurement-type import) no longer fails on its validation
+    rules, which were bound to an untyped list. The Vascular Tracker form
+    itself remains unusable on this line for reasons unrelated to the
+    firewall (its shortcut, setup and save actions were never finished for
+    the current framework); that is a form migration, not part of this
+    change, and is described in docs/ui-tests/deb-install-validation.md.
   * Opening an encounter form from the chart for a patient who has never had
     that form no longer fails with an error page: the shortcut now opens a
     new form. The Discharge Summary also opens at a clinic that does not use

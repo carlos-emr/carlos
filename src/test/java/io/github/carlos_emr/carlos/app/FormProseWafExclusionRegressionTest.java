@@ -43,7 +43,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Pins the generated per-form WAF exclusions for clinician prose on the encounter forms.
  *
- * <p>{@code REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf} is generated from the form JSPs by
+ * <p>{@code REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf} (per-route ctl exclusions) and
+ * {@code RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf} (anchored config-time patterns for the
+ * cell names a ctl target cannot carry) are generated from the form JSPs by
  * {@code scripts/waf/generate-form-prose-exclusions.py}. A hand-maintained list of that size
  * silently sends a newly added form cell back to the front-door 403, so this test re-derives the
  * table from the JSPs with the same rules the generator applies and fails when the committed file
@@ -62,6 +64,8 @@ class FormProseWafExclusionRegressionTest {
     private static final Path FORM_DIR = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "form"));
     private static final Path GENERATED = resolveProjectPath(
             Path.of("debian", "assets", "modsecurity", "REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf"));
+    private static final Path GENERATED_AFTER = resolveProjectPath(
+            Path.of("debian", "assets", "modsecurity", "RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf"));
     private static final Path MAIN_CONF = resolveProjectPath(Path.of("debian", "assets", "modsecurity", "main.conf"));
     private static final Path DEBIAN_RULES = resolveProjectPath(Path.of("debian", "rules"));
 
@@ -80,6 +84,9 @@ class FormProseWafExclusionRegressionTest {
             "([a-zA-Z_:-]+)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
     private static final Pattern DYNAMIC = Pattern.compile("<%|\\$\\{");
     private static final Pattern LITERAL_TARGET = Pattern.compile("^[A-Za-z0-9_.\\-]+$");
+    private static final Pattern ROW_INDEX_NAME = Pattern.compile(
+            "^([A-Za-z0-9_.\\-]*)<%=\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*%>([A-Za-z0-9_.\\-]*)$");
+    private static final Pattern PAREN_NAME = Pattern.compile("^[A-Za-z0-9_.\\-]+\\([A-Za-z0-9_.\\-]+\\)$");
     private static final Pattern FORM_CLASS_ASSIGN = Pattern.compile(
             "^\\s*String\\s+formClass\\s*=\\s*\"([^\"]+)\"", Pattern.MULTILINE);
     private static final Pattern INCLUDE = Pattern.compile(
@@ -100,6 +107,8 @@ class FormProseWafExclusionRegressionTest {
         String formClass;
         boolean hasForm;
         final List<String> names = new ArrayList<>();
+        /** Anchored regex targets for the cells a ctl action cannot name (see anchoredPattern). */
+        final List<String> patterns = new ArrayList<>();
         final List<String> includes = new ArrayList<>();
     }
 
@@ -122,6 +131,53 @@ class FormProseWafExclusionRegressionTest {
                 .as("REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf is stale: run "
                         + "python3 scripts/waf/generate-form-prose-exclusions.py")
                 .isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("the generated AFTER-CRS patterns should match the row-indexed and map-backed cells in the form JSPs")
+    void shouldMatchFormJsps_forGeneratedAnchoredPatterns() throws IOException {
+        Map<String, PageInfo> infos = analyseAll();
+        List<String> patterns = anchoredPatterns(infos);
+
+        String expected = renderAfter(patterns);
+        String actual = Files.readAllLines(GENERATED_AFTER, StandardCharsets.UTF_8).stream()
+                .filter(line -> !line.isBlank() && !line.startsWith("#"))
+                .collect(Collectors.joining("\n"));
+
+        assertThat(patterns).as("the three shapes the generator was written for are present")
+                .contains("^comment_[0-9]+$", "^descOther[0-9]+$", "^value[(]subjective[)]$");
+        assertThat(actual)
+                .as("RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf is stale: run "
+                        + "python3 scripts/waf/generate-form-prose-exclusions.py")
+                .isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("every generated AFTER-CRS target should be anchored at both ends and carry only the six prose families")
+    void shouldStayAnchoredAndBounded_forGeneratedAnchoredPatterns() throws IOException {
+        String file = Files.readString(GENERATED_AFTER, StandardCharsets.UTF_8).replace("\r\n", "\n");
+        assertThat(file).contains("GENERATED FILE").contains("generate-form-prose-exclusions.py");
+        Pattern line = Pattern.compile("^SecRuleUpdateTargetByTag\\s+\"([^\"]+)\"\\s+\"([^\"]+)\"\\s*$", Pattern.MULTILINE);
+        Matcher m = line.matcher(file);
+        int count = 0;
+        while (m.find()) {
+            count++;
+            assertThat(m.group(1)).as("only the six prose families: %s", m.group(0))
+                    .isIn(List.of(CONTENT_ATTACK_TAGS));
+            String target = m.group(2);
+            assertThat(target).as("a negated, anchored ARGS regex and nothing broader: %s", m.group(0))
+                    .startsWith("!ARGS:/^").endsWith("$/");
+            String regex = target.substring("!ARGS:/".length(), target.length() - 1);
+            // Only bracket classes, digits-plus and literal word characters: no alternation,
+            // no dot, no unanchored quantifier that could widen a pattern to another name.
+            assertThat(regex).matches("\\^(?:[A-Za-z0-9_-]|\\[[().]\\]|\\[0-9\\]\\+)+\\$");
+        }
+        assertThat(count).isGreaterThan(30);
+        // Every directive in the file is one of those lines: no SecRule, no request-wide removal.
+        Stream.of(file.split("\n"))
+                .filter(l -> !l.isBlank() && !l.startsWith("#"))
+                .forEach(l -> assertThat(l).startsWith("SecRuleUpdateTargetByTag "));
+        assertThat(file).doesNotContain("attack-xss");
     }
 
     @Test
@@ -156,9 +212,12 @@ class FormProseWafExclusionRegressionTest {
         int before = mainConf.indexOf("REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf");
         int forms = mainConf.indexOf("Include /etc/carlos-emr/modsecurity/REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf");
         int crs = mainConf.indexOf("Include /usr/share/modsecurity-crs/rules/*.conf");
+        int after = mainConf.indexOf("Include /etc/carlos-emr/modsecurity/RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf");
         assertThat(forms).as("main.conf includes the form exclusions").isGreaterThan(before);
         assertThat(crs).as("form exclusions load before the CRS rules").isGreaterThan(forms);
-        assertThat(rules).contains("REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf");
+        assertThat(after).as("the anchored form patterns load after the CRS rules they update").isGreaterThan(crs);
+        assertThat(rules).contains("REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf")
+                .contains("RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf");
     }
 
     // ---- derivation (mirror of the generator) -----------------------------------------------
@@ -215,6 +274,10 @@ class FormProseWafExclusionRegressionTest {
                 }
             }
             if (DYNAMIC.matcher(name).find() || !LITERAL_TARGET.matcher(name).matches()) {
+                String pattern = anchoredPattern(name, text);
+                if (pattern != null && !info.patterns.contains(pattern)) {
+                    info.patterns.add(pattern);
+                }
                 continue;
             }
             if (!info.names.contains(name)) {
@@ -222,6 +285,62 @@ class FormProseWafExclusionRegressionTest {
             }
         }
         return info;
+    }
+
+    /** Mirror of the generator's regex_literal: bracket every non-word character. */
+    private static String regexLiteral(String s) {
+        StringBuilder out = new StringBuilder();
+        for (char ch : s.toCharArray()) {
+            if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
+                out.append(ch);
+            } else {
+                out.append('[').append(ch).append(']');
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * Mirror of the generator's anchored_pattern: a row-indexed name whose index the page prints
+     * from an {@code int} loop counter becomes {@code ^prefix[0-9]+suffix$}; a parenthesised
+     * map-backed name is spelled literally; anything else is not expressible (null).
+     */
+    private static String anchoredPattern(String name, String text) {
+        Matcher m = ROW_INDEX_NAME.matcher(name);
+        if (m.matches() && Pattern.compile("for\\s*\\(\\s*int\\s+" + Pattern.quote(m.group(2)) + "\\s*=").matcher(text).find()) {
+            return "^" + regexLiteral(m.group(1)) + "[0-9]+" + regexLiteral(m.group(3)) + "$";
+        }
+        if (PAREN_NAME.matcher(name).matches()) {
+            return "^" + regexLiteral(name) + "$";
+        }
+        return null;
+    }
+
+    /** The anchored patterns of every page that resolves to a save route, sorted like the generator. */
+    private static List<String> anchoredPatterns(Map<String, PageInfo> infos) {
+        Map<String, String> includers = includers(infos);
+        java.util.TreeSet<String> patterns = new java.util.TreeSet<>();
+        for (Map.Entry<String, PageInfo> e : infos.entrySet()) {
+            if (e.getValue().patterns.isEmpty()) {
+                continue;
+            }
+            if (resolve(e.getKey(), infos, includers, 0)[0] != null) {
+                patterns.addAll(e.getValue().patterns);
+            }
+        }
+        return new ArrayList<>(patterns);
+    }
+
+    private static String renderAfter(List<String> patterns) {
+        StringBuilder out = new StringBuilder();
+        for (String pattern : patterns) {
+            for (String tag : CONTENT_ATTACK_TAGS) {
+                out.append("SecRuleUpdateTargetByTag \"").append(tag).append('"')
+                        .append(" ".repeat(22 - tag.length()))
+                        .append("\"!ARGS:/").append(pattern).append("/\"\n");
+            }
+        }
+        return out.toString().stripTrailing();
     }
 
     private static Map<String, String> attrs(String raw) {
@@ -251,7 +370,7 @@ class FormProseWafExclusionRegressionTest {
     }
 
     /** Groups keyed by [route, formClass-or-empty], sorted like the generator sorts them. */
-    private static Map<List<String>, List<String>> group(Map<String, PageInfo> infos) {
+    private static Map<String, String> includers(Map<String, PageInfo> infos) {
         Map<String, String> includers = new LinkedHashMap<>();
         for (Map.Entry<String, PageInfo> e : infos.entrySet()) {
             for (String page : e.getValue().includes) {
@@ -260,6 +379,11 @@ class FormProseWafExclusionRegressionTest {
                 }
             }
         }
+        return includers;
+    }
+
+    private static Map<List<String>, List<String>> group(Map<String, PageInfo> infos) {
+        Map<String, String> includers = includers(infos);
         Map<List<String>, List<String>> groups = new TreeMap<>((a, b) -> {
             int byRoute = a.get(0).compareTo(b.get(0));
             return byRoute != 0 ? byRoute : a.get(1).compareTo(b.get(1));

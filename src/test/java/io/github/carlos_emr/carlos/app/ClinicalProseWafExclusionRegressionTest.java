@@ -115,7 +115,8 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1114", "/carlos/rx/RxReason", "POST", List.of("comments")),
                 Arguments.of("1115", "/carlos/rx/managePharmacy", "POST", List.of("pharmacyNotes")),
                 Arguments.of("1116", "/carlos/encounter/MeasurementData", "POST", List.of("instruction")),
-                Arguments.of("1117", "/carlos/prevention/AddPrevention", "POST", List.of("comments")),
+                Arguments.of("1117", "/carlos/prevention/AddPrevention", "POST",
+                        List.of("comments", "reason", "reasonOtherText")),
                 Arguments.of("1118", "/carlos/documentManager/ManageDocument", "POST", List.of("documentDescription")),
                 Arguments.of("1119", "/carlos/documentManager/ViewIncomingDocs", "POST", List.of("documentDescription")),
                 Arguments.of("1120", "/carlos/oscarMDS/UpdateStatus", "POST", List.of("comment")),
@@ -141,8 +142,10 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1138", "/carlos/fax/faxAction", "POST", List.of("comments")),
                 Arguments.of("1139", "/carlos/PMmodule/ProgramManagerView", "POST",
                         List.of("admission.admissionNotes", "admission.dischargeNotes")),
-                // The one GET: the patient page's custom telephone-encounter reason travels on the
-                // GET link that opens the chart (demographic/edit.jsp add2url).
+                // The one GET: the chart launchers' link carries a page-generated reason (the
+                // appointment reason, a fixed label, or empty) in the query string. No launcher
+                // puts typed text on it: the patient page's old custom-reason function had no
+                // markup left to invoke it and was removed.
                 Arguments.of("1140", "/carlos/encounter/IncomingEncounter", "GET", List.of("reason")),
                 // The other GET: the tickler list's DataTables search term rides the query string.
                 Arguments.of("1141", "/carlos/tickler/ListTicklers", "GET", List.of("search[value]")));

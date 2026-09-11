@@ -77,7 +77,7 @@ The encounter forms under `/form/*` are covered by a **generated** file,
 `scripts/waf/generate-form-prose-exclusions.py` from the form JSPs: one rule per
 save route and, on the shared `/form/formname` route, per `form_class`, listing
 that form's `<textarea>` cells and the single-line inputs whose names mark them
-as narrative boxes (48 rules, 1,243 cells at the time of writing). The
+as narrative boxes (48 rules, 1,257 cells at the time of writing). The
 `form_class`-keyed rules run in phase 2, where the POST body is available.
 `FormProseWafExclusionRegressionTest` re-derives the same table from the JSPs
 and fails when the committed file is stale, so after editing a form run the
@@ -88,11 +88,49 @@ cells reach the application on all shapes; a Rourke cell posted under another
 form's `form_class`, the same cell with no `form_class`, the same cell on GET,
 and the structured fields on every form (`formId`, `demographic_no`,
 `form_class`) still block; Mental Health Form 1 and Rourke 2020 saved from the
-browser through `:443` with such prose are stored intact. Not covered, and
-reported by the generator: the Vascular Tracker's `value(...)` cells, because
-libmodsecurity rejects parentheses in a `ctl` target, and the growth-chart and
-chart-checklist cells whose names are generated per row. Those still 403 on
-such text. Two form-page 500s found while proving this are fixed alongside it:
+browser through `:443` with such prose are stored intact. The cells whose
+names a `ctl` target cannot carry go to a second generated file,
+`RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf`: the Vascular Tracker's
+`value(...)` cells (libmodsecurity rejects parentheses in a `ctl` target) and
+the growth-chart and chart-checklist cells whose names carry a row index
+(`comment_<n>`, `descOther<n>`) are written as anchored config-time
+`SecRuleUpdateTargetByTag` patterns, the same form the per-row fields above
+use, derived from the JSPs (a parenthesised literal is bracketed character by
+character; a row index qualifies only when the page prints it from an `int`
+loop counter, and becomes `[0-9]+`). Same trade-off, same reasons, same
+regression test. Measured on the packaged install: `value(subjective)`,
+`value(plan)`, `value(24UAComments)`, `comment_3`, `comment_14` and `descOther2`
+reach the application on all three shapes; `value(formId)`, `value(WTValue)`,
+`value(subjectivex)`, `comment_3x`, `xcomment_3`, `comment_` and `descOther2a`
+still block, and Growth Charts saved from the browser through `:443` with
+such a per-row comment are stored intact (the BC chart checklist has no table
+on an Ontario install, so it is covered by the probe only). The Rh-injection
+page under the form directory posts elsewhere (`/prevention/AddPrevention`,
+`reason` and `reasonOtherText`) and is covered by rule 1117; the lab
+requisition print view posts nothing; the generator reports both by name
+rather than as skipped.
+
+The Vascular Tracker's cells are exempted and probe-verified, but the form
+itself cannot be exercised from the browser on this line, for reasons that
+have nothing to do with the firewall and are NOT fixed here. Its Struts 2
+migration was never finished: the chart shortcut is stored as the Struts 1
+route (`../form/SetupForm.do?formName=VTForm&demographic_no=`), which the
+route resolver returns null for (`CARLOS Error: 400`); the setup and submit
+actions' configured-form check rejects that same stored row as not their
+route (400); the submit action reads its `value(...)` cells from a map that
+Struts 2 never fills (`value(x)` is not an accepted parameter name) and
+returns raw paths as result names that nothing maps; and the setup action
+sets the page's request attributes and then redirects, so the page renders
+`null` in every label it reads from them. Each was reproduced on the
+packaged install by fixing the one before it. Restoring the form is a form
+migration with its own browser verification, not a WAF exclusion, and it
+was deliberately not bundled into this change. The one piece kept is the
+JAXB binding of `<validationRule>` in `EctMeasurementTypesBean`: a raw
+`Vector` gave JAXB no element type, so every definition with a validation
+rule unmarshalled to DOM elements and the first cast to `EctValidationsBean`
+threw, and the measurement-type import shares that path
+(`EctFormPropUnmarshalUnitTest`). Two form-page 500s
+found while proving this are fixed alongside it:
 the chart's form shortcut now always carries `formId` (0 when the patient has no
 record of that form yet, which every form page parses unconditionally), and
 Discharge Summary no longer requires a program id in the session. Verified in

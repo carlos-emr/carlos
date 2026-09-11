@@ -25,11 +25,20 @@ What counts as a free-text cell (the same rule the test applies):
     name fragments that the forms use for narrative boxes (comments, notes, observations,
     history, plan, ...) and does not match NOT_PROSE_INPUT_NAME (date, id, phone, code,
     dose, score, ...). Dates, codes, numbers and everything else stay fully inspected.
-Names that contain a JSP or EL expression, or characters a ctl target cannot carry
-(libmodsecurity 3.0.14 rejects "ARGS:value(subjective)", quoted or not), are skipped with a
-report line naming each one; the rule form used here (ctl:ruleRemoveTargetByTag with a
-literal ARGS:<name> target) cannot express them. Today that is the Vascular Tracker form's
-value(...) cells, which therefore still 403 on scored prose.
+Names a ctl target cannot carry go to a second generated file,
+debian/assets/modsecurity/RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf, as config-time
+SecRuleUpdateTargetByTag lines with an ANCHORED regex target, which libmodsecurity 3.0.14
+accepts there (it rejects both a regex and "ARGS:value(subjective)", quoted or not, inside a
+ctl action). Two shapes qualify, and both are derived, never hand-listed:
+  * a name whose only non-literal part is a scriptlet printing an int loop index,
+    <input name="comment_<%=i%>"> inside `for (int i = ...)` (the growth charts' per-row
+    comment, the chart checklist's per-row description): the index becomes [0-9]+;
+  * a literal name with one parenthesised segment, value(subjective) (the Vascular Tracker's
+    map-backed cells): every non-alphanumeric character is bracketed, value[(]subjective[)].
+A config-time update is not route-scoped — it applies to an argument of exactly that shape
+on any route — which is why this file is kept to the names that cannot be expressed the
+per-route way and why each pattern is anchored at both ends; see the header the generator
+writes into that file. Any other non-literal name is still reported with a SKIPPED line.
 
 How a form is resolved:
   * the save route is the <form ... action="..."> whose path is under /form/;
@@ -49,6 +58,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 FORM_DIR = os.path.join(ROOT, "src", "main", "webapp", "WEB-INF", "jsp", "form")
 OUTPUT = os.path.join(ROOT, "debian", "assets", "modsecurity",
                       "REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf")
+AFTER_OUTPUT = os.path.join(ROOT, "debian", "assets", "modsecurity",
+                            "RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf")
 FIRST_RULE_ID = 1200
 # attack-xss is deliberately NOT here: the CRS XSS rules did not fire on any measured
 # prose shape at paranoia level 1, and several legacy views still render stored text
@@ -75,7 +86,20 @@ ATTR_RE = re.compile(r"""([a-zA-Z_:-]+)\s*=\s*("([^"]*)"|'([^']*)')""", re.DOTAL
 DYNAMIC_RE = re.compile(r"<%|\$\{")
 # The only characters libmodsecurity accepts in a literal ctl target name.
 LITERAL_TARGET_RE = re.compile(r"^[A-Za-z0-9_.\-]+$")
+# A name whose only non-literal part is one scriptlet printing a variable: prefix, the
+# variable, suffix. It qualifies for an anchored pattern only when the JSP declares that
+# variable as an int loop counter (see anchored_pattern).
+ROW_INDEX_NAME_RE = re.compile(r"^([A-Za-z0-9_.\-]*)<%=\s*([A-Za-z_][A-Za-z0-9_]*)\s*%>([A-Za-z0-9_.\-]*)$")
+# A literal name with one parenthesised segment: the Struts map-backed value(key) cells.
+PAREN_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+\([A-Za-z0-9_.\-]+\)$")
 FORM_CLASS_ASSIGN_RE = re.compile(r'^\s*String\s+formClass\s*=\s*"([^"]+)"', re.MULTILINE)
+# Pages under the form directory whose prose does not post to a /form/ route, and where it
+# goes instead. Listed so the report says what happened to them rather than "SKIPPED".
+NON_FORM_ROUTE_PAGES = {
+    "addRhInjection.jsp": "posts reason/reasonOtherText to /prevention/AddPrevention, "
+                          "covered by rule 1117 in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf",
+    "formlabreqprint.jsp": "print view of the lab requisition; it has no form and posts nothing",
+}
 INCLUDE_RE = re.compile(r"""<jsp:include\s+page\s*=\s*["']([^"']+)["']|<%@\s*include\s+file\s*=\s*["']([^"']+)["']""",
                         re.IGNORECASE)
 
@@ -89,7 +113,8 @@ def attrs(raw):
 
 def analyse(path):
     text = open(path, encoding="utf-8", errors="replace").read()
-    info = {"route": None, "form_class": None, "names": [], "dynamic": [], "has_form": False,
+    info = {"route": None, "form_class": None, "names": [], "patterns": [], "dynamic": [],
+            "has_form": False,
             "includes": [os.path.basename(m.group(1) or m.group(2)) for m in INCLUDE_RE.finditer(text)]}
     for m in TAG_RE.finditer(text):
         tag, a = m.group(1).lower(), attrs(m.group(2))
@@ -116,12 +141,38 @@ def analyse(path):
                     or NOT_PROSE_INPUT_NAME.search(name):
                 continue
         if DYNAMIC_RE.search(name) or not LITERAL_TARGET_RE.match(name):
-            if name not in info["dynamic"]:
-                info["dynamic"].append(name)
+            pattern = anchored_pattern(name, text)
+            if pattern is None:
+                if name not in info["dynamic"]:
+                    info["dynamic"].append(name)
+            elif (name, pattern) not in info["patterns"]:
+                info["patterns"].append((name, pattern))
             continue
         if name not in info["names"]:
             info["names"].append(name)
     return info
+
+
+def regex_literal(s):
+    """Spell a literal name as a libmodsecurity target regex: every character that is not a
+    letter, digit, underscore or hyphen is put in its own bracket class ([.] [(] [)]), which
+    keeps the target free of unbracketed metacharacters and of the '/' that ends it."""
+    return "".join(ch if (ch.isalnum() or ch in "_-") else "[" + ch + "]" for ch in s)
+
+
+def anchored_pattern(name, text):
+    """The anchored regex target for a name a ctl action cannot carry, or None.
+
+    A row-indexed name (comment_<%=i%>) qualifies only when the JSP declares that variable
+    as an int loop counter, so the pattern can bound the varying part to digits; a
+    parenthesised map-backed name (value(subjective)) is spelled literally. Anything else
+    (an expression, a string-valued scriptlet, EL) is not expressible and stays reported."""
+    m = ROW_INDEX_NAME_RE.match(name)
+    if m and re.search(r"for\s*\(\s*int\s+" + re.escape(m.group(2)) + r"\s*=", text):
+        return "^" + regex_literal(m.group(1)) + "[0-9]+" + regex_literal(m.group(3)) + "$"
+    if PAREN_NAME_RE.match(name):
+        return "^" + regex_literal(name) + "$"
+    return None
 
 
 def resolve(f, infos, includers, depth=0):
@@ -147,6 +198,7 @@ def collect():
             if page in infos and infos[page]["route"] is None:
                 includers[page] = f
     groups = OrderedDict()   # (route, form_class) -> ordered names
+    patterns = OrderedDict()  # anchored regex -> ordered "name: file -> route" labels
     report = []
     for f in files:
         info = infos[f]
@@ -154,18 +206,30 @@ def collect():
         # would otherwise vanish from the report while staying blocked by the WAF.
         for d in info["dynamic"]:
             report.append(f"SKIPPED {f}: name {d!r} cannot be a literal ctl target")
-        if not info["names"]:
+        if not info["names"] and not info["patterns"]:
             continue
         route, form_class = resolve(f, infos, includers)
         if route is None:
-            report.append(f"SKIPPED {f}: prose cells but no /form/ save route ({len(info['names'])} names)")
+            if f in NON_FORM_ROUTE_PAGES:
+                report.append(f"NOTE {f}: {NON_FORM_ROUTE_PAGES[f]}")
+            else:
+                report.append(f"SKIPPED {f}: prose cells but no /form/ save route "
+                              f"({len(info['names']) + len(info['patterns'])} names)")
+            continue
+        label = f"{route} form_class={form_class}" if form_class else route
+        for name, pattern in info["patterns"]:
+            patterns.setdefault(pattern, [])
+            entry = f"{name}: {f} -> {label}"
+            if entry not in patterns[pattern]:
+                patterns[pattern].append(entry)
+        if not info["names"]:
             continue
         groups.setdefault((route, form_class), [])
         for n in info["names"]:
             if n not in groups[(route, form_class)]:
                 groups[(route, form_class)].append(n)
     ordered = OrderedDict(sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1] or "")))
-    return ordered, report
+    return ordered, OrderedDict(sorted(patterns.items())), report
 
 
 def render(groups):
@@ -232,26 +296,78 @@ def render(groups):
     return "\n".join(out) + "\n"
 
 
+def render_after(patterns):
+    out = []
+    out.append("# SPDX-License-Identifier: AGPL-3.0-only\n# Copyright (C) 2026 CARLOS Contributors\n#")
+    out.append("# GENERATED FILE — do not edit by hand. Regenerate with\n"
+               "#     python3 scripts/waf/generate-form-prose-exclusions.py\n"
+               "# after changing any JSP under src/main/webapp/WEB-INF/jsp/form.\n"
+               "# FormProseWafExclusionRegressionTest fails the build when this file and\n"
+               "# the form JSPs disagree.\n#")
+    out.append("# Clinician free text on the encounter forms whose cell names a ctl target\n"
+               "# cannot carry\n"
+               "# ------------------------------------------------------------------------\n"
+               "# REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf exempts each form's\n"
+               "# narrative cells per route, per form_class and per literal argument name.\n"
+               "# The names below cannot be written that way: libmodsecurity 3.0.14 rejects\n"
+               "# a regex target inside a ctl action and rejects parentheses in a literal one\n"
+               "# (\"ARGS:value(subjective)\" fails nginx -t, quoted or not). It does accept\n"
+               "# an anchored regex in a config-time SecRuleUpdateTargetByTag, so these cells\n"
+               "# are exempted here, the same way RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf\n"
+               "# handles the measurement, manual-lab, contact and waiting-list rows.\n#\n"
+               "# Two shapes, both derived from the JSPs by the generator (never hand-listed):\n"
+               "#   comment_<n>, descOther<n>   a row index the page prints from an int loop\n"
+               "#                              counter; the varying part is bounded to digits\n"
+               "#   value(subjective)          the Vascular Tracker's map-backed cells, spelled\n"
+               "#                              literally with each metacharacter bracketed\n#\n"
+               "# A config-time update is not route-scoped: an argument of exactly that shape is\n"
+               "# exempt on any route. That is accepted here because every pattern is anchored\n"
+               "# at both ends and matches only the shape the page generates (comment_1 yes,\n"
+               "# comment_1x and xcomment_1 no); the only handlers that read these names are\n"
+               "# the form save routes, which store the text through parameterised writes; and\n"
+               "# every other argument on every route keeps the full rule set. The XSS family\n"
+               "# is deliberately NOT removed, here or in the BEFORE-CRS file: the CRS XSS rules\n"
+               "# did not fire on any measured prose shape at paranoia level 1 and the legacy\n"
+               "# form views render stored cells raw, so that layer stays on as defence in\n"
+               "# depth. Nothing here is request-wide.")
+    total = 0
+    for pattern, labels in patterns.items():
+        total += 1
+        out.append("\n# " + "\n# ".join(labels))
+        out.append("\n".join(f'SecRuleUpdateTargetByTag "{tag}"' + " " * (22 - len(tag)) + f'"!ARGS:/{pattern}/"'
+                             for tag in CONTENT_ATTACK_TAGS))
+    out.insert(3, f"# {total} anchored patterns, {total * len(CONTENT_ATTACK_TAGS)} lines.")
+    return "\n".join(out) + "\n"
+
+
 def main():
-    groups, report = collect()
-    content = render(groups)
+    groups, patterns, report = collect()
+    outputs = ((OUTPUT, render(groups)), (AFTER_OUTPUT, render_after(patterns)))
     if "--check" in sys.argv:
-        current = open(OUTPUT, encoding="utf-8").read() if os.path.exists(OUTPUT) else ""
         for line in report:
             print(line, file=sys.stderr)
-        if current != content:
-            print(f"{OUTPUT} is stale; regenerate it", file=sys.stderr)
+        stale = False
+        for path, content in outputs:
+            current = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+            if current != content:
+                print(f"{path} is stale; regenerate it", file=sys.stderr)
+                stale = True
+        if stale:
             sys.exit(1)
         print("form prose exclusions are up to date")
         return
-    with open(OUTPUT, "w", encoding="utf-8") as fh:
-        fh.write(content)
+    for path, content in outputs:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
     for line in report:
         print(line, file=sys.stderr)
     print(f"wrote {os.path.relpath(OUTPUT, ROOT)}: {len(groups)} rules, "
           f"{sum(len(n) for n in groups.values())} free-text cells")
     for (route, fc), names in groups.items():
         print(f"  {route:32s} {str(fc):22s} {len(names):3d}")
+    print(f"wrote {os.path.relpath(AFTER_OUTPUT, ROOT)}: {len(patterns)} anchored patterns")
+    for pattern, labels in patterns.items():
+        print(f"  {pattern:44s} {labels[0]}")
 
 
 if __name__ == "__main__":
