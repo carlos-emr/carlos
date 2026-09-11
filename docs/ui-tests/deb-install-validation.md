@@ -179,7 +179,10 @@ every row update fell through to a reposition and the edit was lost. Verified
 on the packaged install: a note holding `& < > 2+2` and a new date persist as
 a new `waitingList` row with the old one marked history
 (`WLMutation2ActionsTest` pins the page's field names against the action's
-selector contract). A
+selector contract). The action also refuses `update=Y` without a usable
+`waitingListId` (missing, non-numeric or non-positive) with a 400: the
+legacy null check around the mutation never fired, because the parsed id
+defaulted to an empty string, so the reposition and update ran against `""`. A
 quick way to re-survey after a policy change is to POST each field
 through `:443` unauthenticated with a value that begins with
 `http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the

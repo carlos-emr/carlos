@@ -174,6 +174,16 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSafe.sanitize(waitingListId));
         if (update != null && update.equalsIgnoreCase("Y")) {
+            // The page copies the clicked row's list id into waitingListId before it submits
+            // update=Y, so an update without a usable id is malformed. The local defaults to ""
+            // and the parser above leaves it there for a missing, non-numeric or non-positive
+            // value, so the null check the legacy code kept around the mutation could never skip
+            // it: rePositionWaitingList("") and updateWaitingListRecord("", ...) were reachable.
+            if (isBlank(waitingListId)) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected update without a valid waitingListId"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
             // The page's update button submits the three selectors only when a row's note or
             // date field has been edited (setParameters() fills them on blur); clicking update
             // without editing a row leaves them blank and means "reposition", handled by the
@@ -211,23 +221,21 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 waitingListId = (String) wlForm.get("selectedWL");
             }*/
 
-            if (waitingListId != null) {
-                try {
-                    // A selected row is updated even when its note is empty: clearing the note
-                    // is an edit, and treating the empty box as "no row selected" left the old
-                    // note on the record. The date stays required, since updateWaitingListRecord
-                    // would silently replace a blank one with today.
-                    if (anySelector && !isBlank(demographicNo) && !isBlank(onListSince)) {
-                        WLWaitingListUtil.updateWaitingListRecord(waitingListId,
-                                waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
-                    } else {
-                        WLWaitingListUtil.rePositionWaitingList(waitingListId);
-                    }
-
-                } catch (Exception ex) {
-                    log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
-                    return "failure";
+            try {
+                // A selected row is updated even when its note is empty: clearing the note
+                // is an edit, and treating the empty box as "no row selected" left the old
+                // note on the record. The date stays required, since updateWaitingListRecord
+                // would silently replace a blank one with today.
+                if (anySelector && !isBlank(demographicNo) && !isBlank(onListSince)) {
+                    WLWaitingListUtil.updateWaitingListRecord(waitingListId,
+                            waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
+                } else {
+                    WLWaitingListUtil.rePositionWaitingList(waitingListId);
                 }
+
+            } catch (Exception ex) {
+                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
+                return "failure";
             }
         }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???
 

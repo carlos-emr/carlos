@@ -410,6 +410,50 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getStatus()).isNotEqualTo(400);
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"", " ", "0", "-1", "abc", "7 OR 1=1"})
+        @DisplayName("should answer 400 and persist nothing when update is posted without a usable list id")
+        void shouldReject400_whenWaitingListIdIsInvalid(String invalidListId) throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", invalidListId);
+            // A well-formed row edit, so only the list id is wrong. Before the guard the parser
+            // left the id as "" and the mutation ran against it.
+            mockRequest.setParameter("demographicNumSelected", "waitingListBean[0].demographicNo");
+            mockRequest.setParameter("wlNoteSelected", "waitingListBean[0].note");
+            mockRequest.setParameter("onListSinceSelected", "waitingListBean[0].onListSince");
+            mockRequest.setParameter("waitingListBean[0].demographicNo", "42");
+            mockRequest.setParameter("waitingListBean[0].note", "reviewed");
+            mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
+
+            String result = new WLSetupDisplayWaitingList2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            waitingListUtilMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should answer 400 and persist nothing when update is posted with no list id at all")
+        void shouldReject400_whenWaitingListIdIsMissing() throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("demographicNumSelected", "");
+            mockRequest.setParameter("wlNoteSelected", "");
+            mockRequest.setParameter("onListSinceSelected", "");
+
+            String result = new WLSetupDisplayWaitingList2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            waitingListUtilMock.verify(() -> WLWaitingListUtil.rePositionWaitingList(any()), never());
+            waitingListUtilMock.verifyNoInteractions();
+        }
+
         @Test
         @DisplayName("should answer 400 and persist nothing when a selector names another field of the row")
         void shouldReject400_whenSelectorNamesAnotherField() throws Exception {

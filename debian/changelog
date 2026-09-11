@@ -93,7 +93,8 @@ carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
     named its row fields plainly, so the update's row selectors came out as
     "waitingListBean[undefined]" and every update fell through to a
     re-numbering of the list; the fields now carry their row index and their
-    current values, as the update expects.
+    current values, as the update expects. An update posted without a usable
+    list id is now refused rather than run against an empty id.
   * The legacy encounter-note entry view, the note history popup, the legacy
     tickler list, the prescription record and reason comments, and the
     demographic alert and notes boxes now encode the text they put back on
