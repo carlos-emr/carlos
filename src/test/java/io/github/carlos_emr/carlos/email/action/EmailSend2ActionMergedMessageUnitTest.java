@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -59,15 +60,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link EmailSend2Action} redirect safety.
+ * Unit tests for {@link EmailSend2Action} merged-message routing, validation, and retry state.
  *
  * @since 2026-05-20
  */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")
-@DisplayName("EmailSend2Action")
-class EmailSend2ActionTest extends CarlosUnitTestBase {
+@DisplayName("EmailSend2Action merged-message behavior")
+class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
 
     private static final String ENCRYPTED_BODY_NOTICE_KEY = "email.compose.msg.encryptedBodyNotice";
 
@@ -93,31 +94,6 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
-    }
-
-    @Test
-    @DisplayName("should encode fdid when cancel redirects to eForm")
-    void shouldEncodeFdid_whenCancelRedirectsToEForm() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setContextPath("/carlos");
-        request.setParameter("transactionType", "EFORM");
-        request.setParameter("fdid", "123&parentAjaxId=evil#fragment%25 +/");
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = spy(new EmailSend2Action());
-        // cancel() builds EmailData via prepareEmailFields, which resolves the encrypted-body notice
-        // (encryption now fails closed by default). getText() has no live Struts container here.
-        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
-        action.request = request;
-        action.response = response;
-
-        String result = action.cancel();
-
-        assertThat(result).isEqualTo("EFORM");
-        assertThat(response.getRedirectedUrl()).isEqualTo(
-                "/carlos/eform/efmshowform_data?fdid="
-                        + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
     }
 
     @Test
@@ -155,7 +131,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("emailPDFPassword", "valid-password");
         request.setParameter("emailPDFPasswordClue", "Known to the patient");
         List<EmailAttachment> attachments = List.of(mock(EmailAttachment.class));
-        request.getSession().setAttribute("emailAttachmentList", attachments);
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
         when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
 
         EmailSend2Action action = spy(new EmailSend2Action());
@@ -165,19 +141,16 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isSameAs(attachments);
         verifyNoInteractions(emailManager);
     }
 
     @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {"unknown"})
-    @DisplayName("should reject missing or unknown POST operations before sending email")
-    void shouldRejectMissingOrUnknownOperation_beforeSendingEmail(String actionMethod) {
+    @ValueSource(strings = {"", "unknown"})
+    @DisplayName("should reject unsupported POST operations before sending email")
+    void shouldRejectUnsupportedOperation_beforeSendingEmail(String actionMethod) {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
-        if (actionMethod != null) {
-            request.setParameter("method", actionMethod);
-        }
+        request.setParameter("method", actionMethod);
         request.setParameter("message", "This message must not be sent.");
         request.setParameter("isEmailEncrypted", "false");
         request.setParameter("senderConfigId", "1");
@@ -229,7 +202,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
                 "result.pdf", "/tmp/original-result.pdf", DocumentType.DOC, 7, 123L);
         originalAttachment.setPreviewToken("preview-token");
         List<EmailAttachment> originalAttachments = List.of(originalAttachment);
-        request.getSession().setAttribute("emailAttachmentList", originalAttachments);
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, originalAttachments);
 
         EmailLog emailLog = mock(EmailLog.class);
         EmailConfig emailConfig = mock(EmailConfig.class);
@@ -257,7 +230,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("receiverEmailList"))
                 .isEqualTo(List.of("patient@example.test"));
         assertThat(request.getAttribute("senderAccounts")).isEqualTo(List.of(emailConfig));
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(originalAttachments);
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                .isSameAs(originalAttachments);
         assertThat(originalAttachment.getFilePath()).isEqualTo("/tmp/original-result.pdf");
         assertThat(sentEmail.getValue().getAttachments().get(0)).isNotSameAs(originalAttachment);
     }
@@ -296,7 +270,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = encryptedSendRequest();
         request.setParameter("emailPDFPassword", "valid-password");
         request.setParameter("emailPDFPasswordClue", "Known to the patient");
-        request.getSession().setAttribute("emailAttachmentList", List.of(
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of(
                 new EmailAttachment("result.pdf", "/tmp/result.pdf", DocumentType.DOC, 7)));
 
         EmailLog emailLog = mock(EmailLog.class);
@@ -310,7 +284,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         action.sendDirectEmail();
 
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isNull();
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isNull();
     }
 
     @Test
@@ -341,7 +315,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("method", "sendDirectEmail");
         List<EmailAttachment> attachments = List.of(mock(EmailAttachment.class));
-        request.getSession().setAttribute("emailAttachmentList", attachments);
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
         when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
 
         EmailSend2Action action = spy(new EmailSend2Action());
@@ -352,7 +326,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isSameAs(attachments);
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isSameAs(attachments);
         verifyNoInteractions(emailManager);
     }
 

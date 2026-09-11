@@ -40,4 +40,17 @@ class EmailComposeEncryptionStateJspRegressionTest {
         assertThat(applyState).isGreaterThan(domReady);
         assertThat(applyState).isLessThan(sendResultBranch);
     }
+
+    @Test
+    @DisplayName("should collapse the composer only after successful delivery")
+    void shouldCollapseComposerOnly_whenDeliverySucceeds() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        int slideUp = jsp.indexOf("$(\"#page-body\").slideUp");
+        int successOnlyGuard = jsp.lastIndexOf(
+                "<c:if test=\"${ isEmailSuccessful eq true }\">", slideUp);
+
+        assertThat(slideUp).isGreaterThanOrEqualTo(0);
+        assertThat(successOnlyGuard).isGreaterThanOrEqualTo(0);
+    }
 }

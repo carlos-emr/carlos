@@ -436,20 +436,20 @@ public class EmailManager {
      * Encrypts the email message and/or attachments as password-protected PDFs.
      *
      * This method handles encryption of PHI content for secure transmission. It converts
-     * the encrypted message to a PDF attachment and encrypts selected attachments, then
-     * appends the password clue to the email body.
+     * the encrypted message to a PDF attachment and encrypts selected attachments while
+     * leaving the fixed visible email body unchanged.
      *
      * Encryption workflow:
      * 1. Convert encrypted message text to PDF attachment (if present)
      * 2. Collect attachments to encrypt based on isAttachmentEncrypted flag
      * 3. Encrypt all selected attachments with the provided password
      * 4. Update email attachments list with encrypted files
-     * 5. Append password clue to email body
+     * 5. Preserve the fixed, PHI-free visible email body without adding the password or clue
      *
      * @param emailData EmailData the email data containing content to encrypt
      * @throws EmailSendingException if PDF encryption fails
      */
-    private void encryptEmail(EmailData emailData) throws EmailSendingException {
+    void encryptEmail(EmailData emailData) throws EmailSendingException {
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
         if (!StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
@@ -467,8 +467,9 @@ public class EmailManager {
         }
         emailData.setAttachments(emailAttachments);
 
-        //append password clue
-        emailData.setBody(emailData.getBody() + "\n\n*****\n" + emailData.getPasswordClue().trim() + "\n*****\n");
+        // The visible MIME body is deliberately limited to the fixed secure-message notice.
+        // Passwords and clues must be communicated through a separate agreed channel; including
+        // either here would violate the merged-message PHI boundary from issue #3118.
     }
 
     /**

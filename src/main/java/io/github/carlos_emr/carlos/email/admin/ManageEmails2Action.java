@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -231,8 +232,11 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String resendEmail() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin.email)");
+        // This endpoint is also used by the patient-chart email-note viewer, not only by the
+        // administration screen. Require the same email-read privilege enforced by
+        // EmailComposeManager without incorrectly restricting chart users to the admin role.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         String emailLogId = request.getParameter("logId");
@@ -272,7 +276,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("subjectEmail", emailLog.getSubject());
         // Map the stored two-field log back into the single "Message" field (issue #3118): an
         // encrypted email's clinical content lives in encryptedMessage (the cleartext body is only
-        // the PHI-free notice + clue), while an unencrypted email's content lives in the body.
+        // the PHI-free notice), while an unencrypted email's content lives in the body.
         boolean isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
@@ -283,7 +287,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return "compose";
     }

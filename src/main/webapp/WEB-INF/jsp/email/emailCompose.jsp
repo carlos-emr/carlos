@@ -88,7 +88,8 @@
     <%--
         Action return flashy confirmation messages.
     --%>
-    <c:if test="${ not empty isEmailSuccessful }">
+    <%-- Keep failed sends editable for retry; only a successful send collapses the composer. --%>
+    <c:if test="${ isEmailSuccessful eq true }">
         <script type="text/javascript">
             $(document).ready(function () {
                 $("#page-body").slideUp("slow");
