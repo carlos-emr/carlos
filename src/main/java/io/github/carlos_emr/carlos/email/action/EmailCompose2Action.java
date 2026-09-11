@@ -283,9 +283,10 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
-        // The compose screen now has a single "Message" field (issue #3118). Seed it from whichever
-        // legacy channel is populated for this workflow, preferring the one matching the encryption
-        // state so pre-filled content is preserved when opening the composer.
+        // The compose screen now has a single "Message" field (issue #3118). Seed it from the
+        // channel matching the encryption state. If both legacy channels contain content, the
+        // protected channel deliberately wins: there is no reliable way to distinguish a meaningful
+        // historical cleartext body from the fixed notice stored by the unified workflow.
         // Fail closed when older entry points do not seed the session flag: only an explicit
         // Boolean false may open the composer with encryption disabled.
         boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));

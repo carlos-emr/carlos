@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -64,6 +65,7 @@ public class EmailSend2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
+    private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
 
     private static final String PARAM_MESSAGE = "message";
@@ -251,10 +253,10 @@ public class EmailSend2Action extends ActionSupport {
         String[] recipients = request.getParameterValues("receiverEmailAddress");
         request.setAttribute("receiverEmailList",
                 recipients == null ? List.of() : Arrays.asList(recipients));
-        if (emailLog.getEmailConfig() == null) {
-            request.setAttribute("senderAccounts", List.of());
-        } else {
-            request.setAttribute("senderAccounts", List.of(emailLog.getEmailConfig()));
+        // Keep every currently active sender available. The selected account may be the reason the
+        // delivery failed, so restricting the retry form to that one account prevents recovery.
+        request.setAttribute("senderAccounts", emailComposeManager.getAllSenderAccounts());
+        if (emailLog.getEmailConfig() != null) {
             request.setAttribute("senderEmail", emailLog.getFromEmail());
         }
         if (emailLog.getDemographic() != null) {
@@ -400,8 +402,7 @@ public class EmailSend2Action extends ActionSupport {
      *   <li>Handling password protection parameters (password and password clue)</li>
      *   <li>Retrieving patient chart display options and demographic information</li>
      *   <li>Extracting transaction type and additional URL parameters</li>
-     *   <li>Retrieving email attachments from session storage</li>
-     *   <li>Cleaning up session by removing attachment list after extraction</li>
+     *   <li>Copying email attachments from session storage so failed sends can be retried</li>
      * </ul>
      *
      * <p>The method supports PHI protection through encryption options and associates

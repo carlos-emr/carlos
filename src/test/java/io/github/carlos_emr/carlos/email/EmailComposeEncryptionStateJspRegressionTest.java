@@ -53,4 +53,26 @@ class EmailComposeEncryptionStateJspRegressionTest {
         assertThat(slideUp).isGreaterThanOrEqualTo(0);
         assertThat(successOnlyGuard).isGreaterThanOrEqualTo(0);
     }
+
+    @Test
+    @DisplayName("should contextually encode retry values at HTML and JavaScript sinks")
+    void shouldEncodeRetryValues_atRenderedSinks() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("value=\"${carlos:forHtmlAttribute(demographicId)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(fdid)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(openEFormAfterEmail)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(deleteEFormAfterEmail)}\"")
+                .contains("value=\"${carlos:forHtmlAttribute(transactionType)}\"")
+                .contains("fdid=${carlos:forJavaScript(carlos:forUriComponent(fdid))}")
+                .contains("demographic_no=${carlos:forJavaScript(carlos:forUriComponent(demographicId))}")
+                .doesNotContain("value=\"${demographicId}\"")
+                .doesNotContain("value=\"${fdid}\"")
+                .doesNotContain("value=\"${openEFormAfterEmail}\"")
+                .doesNotContain("value=\"${deleteEFormAfterEmail}\"")
+                .doesNotContain("value=\"${transactionType}\"")
+                .doesNotContain("fdid=${fdid}")
+                .doesNotContain("demographic_no=${demographicId}");
+    }
 }

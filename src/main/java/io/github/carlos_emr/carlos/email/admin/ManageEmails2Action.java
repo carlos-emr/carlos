@@ -274,9 +274,10 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("senderConfigId", emailLog.getEmailConfig() != null ? emailLog.getEmailConfig().getId() : null);
         request.setAttribute("senderEmail", emailLog.getFromEmail());
         request.setAttribute("subjectEmail", emailLog.getSubject());
-        // Map the stored two-field log back into the single "Message" field (issue #3118): an
-        // encrypted email's clinical content lives in encryptedMessage (the cleartext body is only
-        // the PHI-free notice), while an unencrypted email's content lives in the body.
+        // Map the stored two-field log back into the single "Message" field (issue #3118). For an
+        // encrypted log, prefer encryptedMessage because the body may be the unified workflow's
+        // fixed notice; for an unencrypted log, use the body. This precedence is intentionally
+        // fail-safe when historical records happen to contain both legacy channels.
         boolean isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(

@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -74,6 +75,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private EmailManager emailManager;
+    private EmailComposeManager emailComposeManager;
     private SecurityInfoManager securityInfoManager;
 
     @BeforeEach
@@ -82,6 +84,8 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         emailManager = mock(EmailManager.class);
         registerMock(EmailManager.class, emailManager);
+        emailComposeManager = mock(EmailComposeManager.class);
+        registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EformDataManager.class, mock(EformDataManager.class));
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
@@ -206,9 +210,12 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
 
         EmailLog emailLog = mock(EmailLog.class);
         EmailConfig emailConfig = mock(EmailConfig.class);
+        EmailConfig alternateEmailConfig = mock(EmailConfig.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
         when(emailLog.getEmailConfig()).thenReturn(emailConfig);
         when(emailLog.getFromEmail()).thenReturn("clinic@example.test");
+        when(emailComposeManager.getAllSenderAccounts())
+                .thenReturn(List.of(emailConfig, alternateEmailConfig));
         ArgumentCaptor<EmailData> sentEmail = ArgumentCaptor.forClass(EmailData.class);
         when(emailManager.sendEmail(any(LoggedInInfo.class), sentEmail.capture())).thenAnswer(invocation -> {
             EmailData emailData = invocation.getArgument(1);
@@ -229,7 +236,8 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("subjectEmail")).isEqualTo("Retry subject");
         assertThat(request.getAttribute("receiverEmailList"))
                 .isEqualTo(List.of("patient@example.test"));
-        assertThat(request.getAttribute("senderAccounts")).isEqualTo(List.of(emailConfig));
+        assertThat(request.getAttribute("senderAccounts"))
+                .isEqualTo(List.of(emailConfig, alternateEmailConfig));
         assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
                 .isSameAs(originalAttachments);
         assertThat(originalAttachment.getFilePath()).isEqualTo("/tmp/original-result.pdf");

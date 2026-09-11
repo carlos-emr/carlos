@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -54,6 +55,7 @@ class EmailSend2ActionRequestMethodUnitTest extends CarlosUnitTestBase {
         EformDataManager eformDataManager = mock(EformDataManager.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(EmailManager.class, emailManager);
+        registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
         registerMock(EformDataManager.class, eformDataManager);
         when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), isNull(String.class)))
                 .thenReturn(true);

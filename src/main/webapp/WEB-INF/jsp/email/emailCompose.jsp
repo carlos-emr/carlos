@@ -252,9 +252,9 @@
                 </c:when>
             </c:choose>
 
-            <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
-            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
-            <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
+            <input type="hidden" name="isEmailError" id="isEmailError" value="${carlos:forHtmlAttribute(isEmailError)}"/>
+            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${carlos:forHtmlAttribute(emailErrorMessage)}"/>
+            <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${carlos:forHtmlAttribute(isEmailSuccessful)}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
             <input type="hidden" name="totalSenderEmails" id="totalSenderEmails" value="${fn:length(senderAccounts)}"/>
@@ -263,14 +263,14 @@
             <input type="hidden" name="totalInvalidRecipintEmails" id="totalInvalidRecipintEmails"
                    value="${fn:length(invalidReceiverEmailList)}"/>
 
-            <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
+            <form id="emailComposeForm" class="email-compose-form" action="${carlos:forHtmlAttribute(emailSendAction)}" method="post"
                   onsubmit="return validateEmailForm()" novalidate>
-                <input type="hidden" name="demographicId" value="${demographicId}"/>
-                <input type="hidden" name="fdid" value="${fdid}"/>
+                <input type="hidden" name="demographicId" value="${carlos:forHtmlAttribute(demographicId)}"/>
+                <input type="hidden" name="fdid" value="${carlos:forHtmlAttribute(fdid)}"/>
                 <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
-                <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
-                <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
-                <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
+                <input type="hidden" name="openEFormAfterEmail" value="${carlos:forHtmlAttribute(openEFormAfterEmail)}"/>
+                <input type="hidden" name="deleteEFormAfterEmail" value="${carlos:forHtmlAttribute(deleteEFormAfterEmail)}"/>
+                <input type="hidden" name="transactionType" id="transactionType" value="${carlos:forHtmlAttribute(transactionType)}"/>
 
                 <%-- To and From sit side by side: recipient (To) first/leftmost, sender (From) on the right.
                      Equal-height cards keep the row tidy when the To card grows with extra recipients. --%>
@@ -881,9 +881,9 @@
 
     // Open EForm again on sent
     function openEFormAfterSend() {
-        const isOpenEForm = "${isOpenEForm}" === "true";
+        const isOpenEForm = "${carlos:forJavaScript(isOpenEForm)}" === "true";
         if (isOpenEForm) {
-            window.open("${ctx}/eform/efmshowform_data?fdid=${fdid}", "_blank", "width=800,height=600");
+            window.open("${carlos:forJavaScript(ctx)}/eform/efmshowform_data?fdid=${carlos:forJavaScript(carlos:forUriComponent(fdid))}", "_blank", "width=800,height=600");
         }
     }
 
@@ -961,7 +961,7 @@
 
     function openDemographicPage(event) {
         event.preventDefault();
-        window.open("${ctx}/demographic/DemographicEdit?demographic_no=${demographicId}", "_blank", "width=1027,height=700");
+        window.open("${carlos:forJavaScript(ctx)}/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(carlos:forUriComponent(demographicId))}", "_blank", "width=1027,height=700");
     }
 
     function cancelEmail() {
@@ -970,7 +970,7 @@
             window.close();
         }
         const emailComposeForm = document.getElementById("emailComposeForm");
-        emailComposeForm.action = "${ctx}/email/emailSendAction?method=cancel";
+        emailComposeForm.action = "${carlos:forJavaScript(ctx)}/email/emailSendAction?method=cancel";
         emailComposeForm.submit();
     }
 

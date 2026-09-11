@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -85,6 +86,7 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         eformDataManager = mock(EformDataManager.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(EmailManager.class, emailManager);
+        registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
         registerMock(EformDataManager.class, eformDataManager);
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
