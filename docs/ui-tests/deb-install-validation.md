@@ -47,12 +47,26 @@ all 67 of them answering 403 on the same three shapes, and a consultation
 request save and a tickler add reproduced it in the browser. Exclusions
 1100-1141 close them per argument. `tickler-crud-playwright-checks.js` now
 types that scoring text too. Fields whose parameter names are generated per
-row (measurement `comments-<n>`, manual lab `test_<id>.labnotes`, contact
-`contact_<id>.note`, waiting-list notes, and the encounter forms under
-`/form/*`) are **not** covered: libmodsecurity 3.0.14 rejects a regex target in
-a `ctl` action, so they need a bounded enumeration or a
-`SecRuleUpdateTargetByTag` in the AFTER-CRS file, and they still 403 on such
-text. A quick way to re-survey after a policy change is to POST each field
+row (measurement `comments-<n>`, manual lab `test_<n>.labnotes`, contact
+`contact_<n>.note`, waiting-list `waitingListBean[<n>].note`) cannot be literal
+`ctl` targets and libmodsecurity 3.0.14 rejects a regex target in a `ctl`
+action, but it accepts one in a config-time `SecRuleUpdateTargetByTag`, so
+those four are anchored patterns in `RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`.
+The trade-off, spelled out in that file, is that a config-time update is not
+route-scoped: an argument of exactly that shape is exempt on any route, while a
+near-miss name (`xcomments-1`, `comments-1x`) still scores. Measured after
+deploying them: every per-row field reaches the application on all six shapes,
+the structured neighbours on the same rows (`test_<n>.lab_test_name`,
+`contact_<n>.contactId`, `waitingListBean[<n>].demographicNo`) and the
+un-indexed names (`comments`, `labnotes`, `note`) still block on the same
+shapes, and a measurement saved from the browser with such a comment lands in
+the `measurements` table intact. What remains uncovered is the encounter forms under `/form/*`: 136 form
+JSPs with 395 distinct `<textarea>` names all saving through `/form/formname`
+or `/form/SubmitForm`. Those names are fixed, so per-argument entries are the
+right shape, but a list that size has to be generated from the form JSPs and
+pinned by a test that re-derives it, or a newly added form field silently
+returns to 403; that is separate work and prose in those cells still 403s. A
+quick way to re-survey after a policy change is to POST each field
 through `:443` unauthenticated with a value that begins with
 `http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the
 application does, so nginx's own 403 page means blocked and any application

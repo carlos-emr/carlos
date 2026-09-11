@@ -25,7 +25,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -54,6 +60,21 @@ class ClinicalProseWafExclusionRegressionTest {
 
     private static final Path EXCLUSIONS = resolveProjectPath(
             Path.of("debian", "assets", "modsecurity", "REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf"));
+    private static final Path AFTER_CRS_EXCLUSIONS = resolveProjectPath(
+            Path.of("debian", "assets", "modsecurity", "RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf"));
+    /**
+     * The four per-row prose fields whose names carry a row counter. They cannot be literal
+     * ctl targets, so they are config-time regex exclusions in the AFTER-CRS file; each
+     * pattern must stay anchored at both ends so only the exact page-generated shape matches.
+     */
+    private static final List<String> PER_ROW_PROSE_PATTERNS = List.of(
+            "^comments-[0-9]+$",
+            "^test_[0-9]+[.]labnotes$",
+            "^contact_[0-9]+[.]note$",
+            "^waitingListBean[[][0-9]+[]][.]note$");
+    /** The only non-prose exclusions the AFTER-CRS file may carry (CSRF token, session cookie). */
+    private static final List<String> AFTER_CRS_INFRASTRUCTURE_TARGETS = List.of(
+            "!ARGS:CSRF-TOKEN", "!REQUEST_COOKIES:/^JSESSIONID$/");
 
     /** The same seven content-attack tag groups exclusion 1010 removes on the note route. */
     private static final String[] CONTENT_ATTACK_TAGS = {
@@ -213,6 +234,44 @@ class ClinicalProseWafExclusionRegressionTest {
         String rule = exclusions.substring(ruleStart, ruleEnd);
         assertThat(rule).as("exclusion %s slice spans its chained rule", ruleId).contains("SecRule REQUEST_METHOD");
         return rule;
+    }
+
+    @Test
+    @DisplayName("per-row prose fields should be exempted by anchored regex patterns, and nothing broader")
+    void shouldExemptPerRowFields_byAnchoredPatternOnly() throws IOException {
+        // A regex target is rejected inside a ctl action but accepted by a config-time
+        // SecRuleUpdateTargetByTag, which applies to an argument of that name on ANY route.
+        // That is the accepted trade-off for these four fields, so what this pins is that
+        // the patterns match exactly the page-generated shape (anchored, digits only) and
+        // that the file never grows a bare ARGS, an unanchored pattern, or a fifth field
+        // without this table changing with it.
+        String after = Files.readString(AFTER_CRS_EXCLUSIONS, StandardCharsets.UTF_8).replace("\r\n", "\n");
+        Pattern directive = Pattern.compile(
+                "^SecRuleUpdateTargetByTag\\s+\"([^\"]+)\"\\s+\"([^\"]+)\"\\s*$", Pattern.MULTILINE);
+        Matcher matcher = directive.matcher(after);
+        Map<String, Set<String>> tagsByTarget = new HashMap<>();
+        while (matcher.find()) {
+            tagsByTarget.computeIfAbsent(matcher.group(2), key -> new HashSet<>()).add(matcher.group(1));
+        }
+
+        for (String pattern : PER_ROW_PROSE_PATTERNS) {
+            String target = "!ARGS:/" + pattern + "/";
+            assertThat(pattern).as("pattern %s is anchored at both ends", pattern)
+                    .startsWith("^").endsWith("$");
+            assertThat(tagsByTarget.get(target))
+                    .as("per-row field %s is exempted from exactly the seven content-attack tags", pattern)
+                    .containsExactlyInAnyOrder(CONTENT_ATTACK_TAGS);
+        }
+        Set<String> allowedTargets = new HashSet<>(AFTER_CRS_INFRASTRUCTURE_TARGETS);
+        PER_ROW_PROSE_PATTERNS.forEach(pattern -> allowedTargets.add("!ARGS:/" + pattern + "/"));
+        assertThat(tagsByTarget.keySet())
+                .as("no exclusion target in the AFTER-CRS file beyond the infrastructure pair and the four per-row fields")
+                .isSubsetOf(allowedTargets);
+        assertThat(after)
+                .doesNotContain("\"!ARGS\"")
+                .doesNotContain("!ARGS:/^[^/]*[^$]/\"")
+                .doesNotContain("SecRuleRemoveByTag")
+                .doesNotContain("SecRuleRemoveById");
     }
 
     private static String read() throws IOException {

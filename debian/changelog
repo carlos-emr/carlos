@@ -40,9 +40,11 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     patient email, appointment reasons and notes, master-record notes and
     alerts, billing comments, fax cover comments and program notes. Each is
     exempted per argument on its own route; the firewall still inspects every
-    other argument and still blocks a probe injection. Per-row fields (measurement
-    comments, manual lab notes, contact notes, encounter forms) are not yet
-    covered and still answer 403 on such text.
+    other argument and still blocks a probe injection. The four fields whose
+    names carry a row number (measurement comments, manual lab notes, contact
+    notes, waiting-list notes) are exempted by an anchored name pattern
+    instead, since the firewall cannot list them; the encounter forms are not
+    yet covered and still answer 403 on such text.
   * The legacy encounter-note entry view now encodes the note it puts back
     into its text box. With the firewall no longer reading that note as a
     script attack, the application's own output encoding is what keeps a
