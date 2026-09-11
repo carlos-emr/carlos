@@ -23,6 +23,11 @@ device benchmarking and independent cryptographic review before release. Raw key
 Rust zeroizes passphrase request strings and long-lived secret-key buffers where the libraries make
 that practical.
 
+New and replacement passphrases must contain at least 15 Unicode characters, contain no control
+characters, and encode to no more than 1,024 bytes. There are no composition rules. Unlock remains
+compatible with a shorter passphrase created by an earlier evaluation build. Compromised-passphrase
+screening and the patient-held recovery key remain patient-pilot work.
+
 ## Files and transactions
 
 ```text
@@ -41,6 +46,13 @@ generations using a cross-platform atomic replacement primitive. Unlock authenti
 selects the highest valid generation whose objects exist, rewrites that state into the other slot
 to repair redundancy, removes incomplete staging jobs, and only then removes ciphertext objects
 not present in the repaired state.
+
+Before a decrypted manifest can drive a filesystem operation, the reader checks format and vault
+identity, unique profile/folder/record/object IDs, folder ownership and acyclic depth, record-folder
+ownership, exact v1 object-name syntax, wrapped-key/fingerprint encodings, metadata bounds, and that
+every object is a regular file rather than a link. The non-secret header is limited to 16 KiB and
+each encrypted manifest slot to 16 MiB before allocation, so a corrupt local file cannot request an
+unbounded metadata allocation.
 
 Imports stream arbitrary files in 1 MiB chunks. XChaCha20-Poly1305 authenticates every chunk with
 the vault ID, record ID, chunk index, and final-chunk marker as associated data. Files are encrypted
@@ -87,6 +99,9 @@ portable backup flow exists.
 ## Known limits before release
 
 - Rollback across an externally restored pair of otherwise valid manifest slots is not detected.
+- Restoring an older valid `header.json` can restore an older passphrase wrapper for the unchanged
+  master key. Patient-pilot backup, recovery-key rotation, and device synchronization must define
+  and enforce key-envelope rollback protection.
 - Individual deletion has no backup/synchronization tombstone or verified secure-erasure guarantee
   for storage media, snapshots, exported plaintext, or copies outside the live vault.
 - Crash-injection, power-loss, low-disk, physical-device backup/restore, and filesystem-permission

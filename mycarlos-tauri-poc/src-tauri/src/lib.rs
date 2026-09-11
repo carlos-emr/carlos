@@ -1,6 +1,8 @@
 mod vault;
 
 use serde::{Deserialize, Serialize};
+#[cfg(desktop)]
+use std::{fs, io, path::Path};
 use std::{
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
@@ -136,7 +138,6 @@ struct ImportRequest {
 #[serde(rename_all = "camelCase")]
 struct ExportRequest {
     record_id: Uuid,
-    suggested_name: String,
 }
 
 #[derive(Deserialize)]
@@ -173,6 +174,32 @@ fn now_ms() -> u64 {
         .as_millis()
         .try_into()
         .unwrap_or(u64::MAX)
+}
+
+#[cfg(desktop)]
+fn open_regular_local_file(path: &Path) -> io::Result<fs::File> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.file_type().is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "selected path is not a regular file",
+        ));
+    }
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.custom_flags(libc::O_NOFOLLOW);
+    }
+    let file = options.open(path)?;
+    if !file.metadata()?.file_type().is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "selected handle is not a regular file",
+        ));
+    }
+    Ok(file)
 }
 
 #[tauri::command]
@@ -315,6 +342,7 @@ async fn vault_import_begin(
             skipped_duplicates: Vec::new(),
         });
     };
+    vault::validate_import_count(paths.len()).map_err(PublicError::from)?;
     let job_id = Uuid::new_v4();
     let _ = app.emit(
         "vault-import-progress",
@@ -326,6 +354,23 @@ async fn vault_import_begin(
     let mut sources = Vec::with_capacity(paths.len());
     for path in paths {
         let display_name = path.to_string();
+        #[cfg(desktop)]
+        {
+            if let Ok(local_path) = path.clone().into_path() {
+                let file = open_regular_local_file(&local_path).map_err(|error| {
+                    if error.kind() == io::ErrorKind::InvalidInput {
+                        PublicError::from(VaultError::Invalid)
+                    } else {
+                        PublicError::from(VaultError::Storage)
+                    }
+                })?;
+                sources.push(ImportSource {
+                    display_name,
+                    reader: Box::new(file),
+                });
+                continue;
+            }
+        }
         let mut options = OpenOptions::new();
         options.read(true);
         let file = app
@@ -361,7 +406,9 @@ async fn vault_export_begin(
     request: ExportRequest,
 ) -> CommandResult<bool> {
     let picker_app = app.clone();
-    let suggested_name = request.suggested_name.clone();
+    let suggested_name = store
+        .export_name(request.record_id)
+        .map_err(PublicError::from)?;
     let destination = tauri::async_runtime::spawn_blocking(move || {
         picker_app
             .dialog()
@@ -475,5 +522,59 @@ mod tests {
         let error = PublicError::from(VaultError::Storage);
         assert_eq!(error.code, "storage");
         assert!(!error.message.contains('/'));
+    }
+
+    #[test]
+    fn native_selection_limit_is_available_before_files_are_opened() {
+        assert!(vault::validate_import_count(vault::MAX_IMPORT_FILES).is_ok());
+        assert!(matches!(
+            vault::validate_import_count(vault::MAX_IMPORT_FILES + 1),
+            Err(VaultError::ImportBatchLimit)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn local_import_rejects_symbolic_links() {
+        use std::os::unix::fs::symlink;
+
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("record.pdf");
+        let link = temp.path().join("selected.pdf");
+        fs::write(&target, b"%PDF-synthetic").unwrap();
+        symlink(&target, &link).unwrap();
+
+        assert_eq!(
+            open_regular_local_file(&link).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+
+    #[test]
+    fn production_webview_configuration_has_no_development_network_access() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let security = &config["app"]["security"];
+        let production_csp = security["csp"].as_str().unwrap();
+        assert!(!production_csp.contains("ws:"));
+        for directive in [
+            "object-src 'none'",
+            "frame-src 'none'",
+            "worker-src 'none'",
+            "base-uri 'none'",
+            "form-action 'none'",
+        ] {
+            assert!(production_csp.contains(directive));
+        }
+        assert!(security["devCsp"]
+            .as_str()
+            .unwrap()
+            .contains("ws://localhost:1421"));
+        assert_eq!(security["freezePrototype"], true);
+        assert_eq!(config["build"]["removeUnusedCommands"], true);
+
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        assert_eq!(capability["permissions"], serde_json::json!([]));
     }
 }

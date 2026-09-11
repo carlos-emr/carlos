@@ -17,6 +17,8 @@ privacy, accessibility, or clinical review.
       encryption and no arbitrary per-file size cap.
 - [x] XChaCha20-Poly1305 encrypted chunked objects and encrypted metadata manifests.
 - [x] Argon2id passphrase wrapper, independent object keys, and keyed duplicate detection.
+- [x] Approved 15-character passphrase minimum without arbitrary composition rules; compromised-
+      passphrase screening remains a patient-pilot gate.
 - [x] Atomic import, redundant manifest repair, atomic filesystem-path export, restart/unlock, and
       error-path cleanup.
 - [x] Multiple patient profiles, nested folders, search, sorting, bulk moves, and drag-and-drop.
@@ -34,6 +36,11 @@ privacy, accessibility, or clinical review.
 - [x] Recursive plaintext-canary inspection and Unix `0700` directory/`0600` file assertions for
       application-controlled vault storage.
 - [x] Frontend, Rust, responsive-browser, and cross-platform debug-build CI.
+- [x] Native imports reject an oversized selection before opening file handles and reject local
+      links/special files; metadata reads are bounded and authenticated manifests are structurally
+      validated before their object names drive filesystem operations.
+- [x] Production CSP excludes development WebSocket access, freezes the JavaScript prototype, and
+      grants the main webview no unused Tauri core command permissions.
 
 ## Required before calling the synthetic MVP reviewed
 

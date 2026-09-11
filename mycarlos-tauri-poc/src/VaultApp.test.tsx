@@ -50,15 +50,15 @@ describe("durable vault UI", () => {
     await screen.findByRole("heading", { name: "Create your encrypted vault" });
     await user.type(screen.getByLabelText("First patient profile"), "Jamie");
     const passwords = screen.getAllByLabelText(/passphrase/i);
-    await user.type(passwords[0], "Correct#8Horse");
+    await user.type(passwords[0], "Correct-Horse-8!");
     await user.type(passwords[1], "different");
     expect(screen.getByRole("button", { name: "Create vault" })).toBeDisabled();
     await user.clear(passwords[1]);
-    await user.type(passwords[1], "Correct#8Horse");
+    await user.type(passwords[1], "Correct-Horse-8!");
     await user.click(screen.getByRole("button", { name: "Create vault" }));
 
     await screen.findByRole("heading", { name: "My records" });
-    expect(bridge.create).toHaveBeenCalledWith("Correct#8Horse", "Jamie");
+    expect(bridge.create).toHaveBeenCalledWith("Correct-Horse-8!", "Jamie");
   });
 
   it("unlocks and imports through the native bridge", async () => {
@@ -73,7 +73,7 @@ describe("durable vault UI", () => {
     render(<VaultApp bridge={bridge} />);
 
     await screen.findByRole("heading", { name: "Unlock your vault" });
-    await user.type(screen.getByLabelText("Passphrase"), "Correct#8Horse");
+    await user.type(screen.getByLabelText("Passphrase"), "Correct-Horse-8!");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
     await user.click(await screen.findByRole("button", { name: "Choose files to import" }));
 

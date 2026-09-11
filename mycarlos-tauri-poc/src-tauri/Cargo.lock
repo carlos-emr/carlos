@@ -1972,6 +1972,7 @@ dependencies = [
  "chacha20poly1305",
  "hkdf",
  "hmac",
+ "libc",
  "rand",
  "serde",
  "serde_json",

@@ -3,7 +3,5 @@
   "identifier": "main-window",
   "description": "Renderer capabilities for the myCarlos native vault",
   "windows": ["main"],
-  "permissions": [
-    "core:default"
-  ]
+  "permissions": []
 }

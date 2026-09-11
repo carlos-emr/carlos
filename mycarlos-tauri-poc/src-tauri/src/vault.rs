@@ -26,7 +26,11 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 const VAULT_FORMAT: u32 = 1;
 const OBJECT_MAGIC: &[u8; 5] = b"MCVO1";
 const CHUNK_SIZE: usize = 1024 * 1024;
-const MAX_IMPORT_FILES: usize = 100;
+pub(crate) const MAX_IMPORT_FILES: usize = 100;
+const MIN_PASSPHRASE_CHARS: usize = 15;
+const MAX_PASSPHRASE_BYTES: usize = 1024;
+const MAX_HEADER_BYTES: usize = 16 * 1024;
+const MAX_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
 const ARGON_MEMORY_KIB: u32 = 64 * 1024;
 const ARGON_ITERATIONS: u32 = 3;
 const ARGON_LANES: u32 = 4;
@@ -249,6 +253,7 @@ impl VaultStore {
     ) -> Result<(), VaultError> {
         validate_passphrase(passphrase)?;
         validate_name(initial_profile)?;
+        let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         if self.root.exists() {
             return Err(VaultError::AlreadyExists);
         }
@@ -288,7 +293,7 @@ impl VaultStore {
             sync_parent(&stage);
             fs::rename(&stage, &self.root)?;
             sync_parent(parent);
-            *self.unlocked.lock().expect("vault mutex poisoned") = Some(UnlockedVault {
+            *guard = Some(UnlockedVault {
                 master_key,
                 manifest,
             });
@@ -301,13 +306,14 @@ impl VaultStore {
     }
 
     pub fn unlock(&self, passphrase: &str) -> Result<(), VaultError> {
+        let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         let header = self.read_header()?;
         let master_key = unwrap_master_key(&header, passphrase)?;
         let manifest = read_latest_manifest(&self.root, &master_key, header.vault_id)?;
         let manifest = repair_manifest_redundancy(&self.root, &master_key, manifest)?;
         remove_staging(&self.root);
         remove_orphan_objects(&self.root, &manifest);
-        *self.unlocked.lock().expect("vault mutex poisoned") = Some(UnlockedVault {
+        *guard = Some(UnlockedVault {
             master_key,
             manifest,
         });
@@ -461,9 +467,7 @@ impl VaultStore {
                 skipped_duplicates: Vec::new(),
             });
         }
-        if sources.len() > MAX_IMPORT_FILES {
-            return Err(VaultError::ImportBatchLimit);
-        }
+        validate_import_count(sources.len())?;
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
         require_profile(&unlocked.manifest, profile_id)?;
@@ -589,6 +593,18 @@ impl VaultStore {
         )
     }
 
+    pub fn export_name(&self, record_id: Uuid) -> Result<String, VaultError> {
+        let guard = self.unlocked.lock().expect("vault mutex poisoned");
+        let unlocked = guard.as_ref().ok_or(VaultError::Locked)?;
+        unlocked
+            .manifest
+            .records
+            .iter()
+            .find(|record| record.id == record_id)
+            .map(|record| record.display_name.clone())
+            .ok_or(VaultError::NotFound)
+    }
+
     pub fn export_atomic(&self, record_id: Uuid, destination: &Path) -> Result<(), VaultError> {
         let vault_root = fs::canonicalize(&self.root)?;
         let destination_parent = destination.parent().ok_or(VaultError::Invalid)?;
@@ -651,16 +667,23 @@ impl VaultStore {
 
     pub fn change_passphrase(&self, current: &str, replacement: &str) -> Result<(), VaultError> {
         validate_passphrase(replacement)?;
+        let guard = self.unlocked.lock().expect("vault mutex poisoned");
+        let unlocked = guard.as_ref().ok_or(VaultError::Locked)?;
         let header = self.read_header()?;
-        let mut verified = unwrap_master_key(&header, current)?;
-        let new_header = build_header(header.vault_id, replacement, &verified)?;
+        let verified = unwrap_master_key(&header, current)?;
+        if header.vault_id != unlocked.manifest.vault_id
+            || verified.as_ref() != unlocked.master_key.as_ref()
+        {
+            return Err(VaultError::Corrupt);
+        }
+        let new_header = build_header(header.vault_id, replacement, &unlocked.master_key)?;
         atomic_json(&self.root.join("header.json"), &new_header)?;
-        verified.zeroize();
         Ok(())
     }
 
     pub fn reset(&self) -> Result<(), VaultError> {
-        self.lock();
+        let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
+        *guard = None;
         if !self.root.exists() {
             return Err(VaultError::Missing);
         }
@@ -687,19 +710,27 @@ impl VaultStore {
     }
 
     fn read_header(&self) -> Result<VaultHeader, VaultError> {
-        let data = fs::read(self.root.join("header.json")).map_err(|error| {
-            if error.kind() == io::ErrorKind::NotFound {
-                if self.root.exists() {
+        let data = read_bounded_regular_file(&self.root.join("header.json"), MAX_HEADER_BYTES)
+            .map_err(|error| {
+                if error.kind() == io::ErrorKind::NotFound {
+                    if self.root.exists() {
+                        VaultError::Corrupt
+                    } else {
+                        VaultError::Missing
+                    }
+                } else if error.kind() == io::ErrorKind::InvalidData {
                     VaultError::Corrupt
                 } else {
-                    VaultError::Missing
+                    VaultError::Storage
                 }
-            } else {
-                VaultError::Storage
-            }
-        })?;
+            })?;
         let header: VaultHeader = serde_json::from_slice(&data).map_err(|_| VaultError::Corrupt)?;
-        if header.magic != "MYCARLOS-VAULT" || header.format_version != VAULT_FORMAT {
+        if header.magic != "MYCARLOS-VAULT"
+            || header.format_version != VAULT_FORMAT
+            || header.vault_id.is_nil()
+            || !valid_kdf_config(&header.kdf)
+            || !valid_wrapped_secret(&header.wrapped_master_key)
+        {
             return Err(VaultError::Corrupt);
         }
         Ok(header)
@@ -743,17 +774,21 @@ struct ObjectContext {
 }
 
 fn validate_passphrase(passphrase: &str) -> Result<(), VaultError> {
-    if passphrase.chars().count() < 8 || passphrase.len() > 1024 {
-        return Err(VaultError::Invalid);
-    }
-    let upper = passphrase.chars().any(|c| c.is_ascii_uppercase());
-    let lower = passphrase.chars().any(|c| c.is_ascii_lowercase());
-    let digit = passphrase.chars().any(|c| c.is_ascii_digit());
-    let symbol = passphrase.chars().any(|c| !c.is_alphanumeric());
-    if upper && lower && digit && symbol {
+    if passphrase.chars().count() >= MIN_PASSPHRASE_CHARS
+        && passphrase.len() <= MAX_PASSPHRASE_BYTES
+        && !passphrase.chars().any(char::is_control)
+    {
         Ok(())
     } else {
         Err(VaultError::Invalid)
+    }
+}
+
+pub(crate) fn validate_import_count(count: usize) -> Result<(), VaultError> {
+    if count > MAX_IMPORT_FILES {
+        Err(VaultError::ImportBatchLimit)
+    } else {
+        Ok(())
     }
 }
 
@@ -776,6 +811,132 @@ fn sanitize_basename(value: &str) -> String {
     }
 }
 
+fn valid_kdf_config(config: &KdfConfig) -> bool {
+    config.algorithm == "argon2id"
+        && config.version == 19
+        && config.memory_kib == ARGON_MEMORY_KIB
+        && config.iterations == ARGON_ITERATIONS
+        && config.lanes == ARGON_LANES
+        && BASE64
+            .decode(&config.salt)
+            .is_ok_and(|salt| salt.len() == 16)
+}
+
+fn valid_wrapped_secret(secret: &WrappedSecret) -> bool {
+    BASE64
+        .decode(&secret.nonce)
+        .is_ok_and(|nonce| nonce.len() == 24)
+        && BASE64
+            .decode(&secret.ciphertext)
+            .is_ok_and(|ciphertext| ciphertext.len() == 48)
+}
+
+fn valid_fingerprint(fingerprint: &str) -> bool {
+    BASE64
+        .decode(fingerprint)
+        .is_ok_and(|value| value.len() == 32)
+}
+
+fn valid_object_name(object_name: &str) -> bool {
+    object_name
+        .strip_suffix(".mcobj")
+        .and_then(|value| Uuid::parse_str(value).ok())
+        .is_some_and(|id| format!("{id}.mcobj") == object_name)
+}
+
+fn valid_record_name(name: &str) -> bool {
+    !name.trim().is_empty()
+        && name.chars().count() <= 240
+        && !name.chars().any(char::is_control)
+        && !name.contains('/')
+        && !name.contains('\\')
+}
+
+fn validate_manifest(root: &Path, manifest: &Manifest, vault_id: Uuid) -> Result<(), VaultError> {
+    if manifest.format_version != VAULT_FORMAT
+        || manifest.vault_id != vault_id
+        || manifest.generation == 0
+        || manifest.profiles.is_empty()
+    {
+        return Err(VaultError::Corrupt);
+    }
+
+    let mut profile_ids = HashSet::new();
+    for profile in &manifest.profiles {
+        if profile.id.is_nil()
+            || !profile_ids.insert(profile.id)
+            || validate_name(&profile.display_name).is_err()
+        {
+            return Err(VaultError::Corrupt);
+        }
+    }
+
+    let mut folders_by_id = HashMap::new();
+    for folder in &manifest.folders {
+        if folder.id.is_nil()
+            || folders_by_id
+                .insert(folder.id, (folder.profile_id, folder.parent_id))
+                .is_some()
+            || !profile_ids.contains(&folder.profile_id)
+            || folder.parent_id == Some(folder.id)
+            || validate_name(&folder.name).is_err()
+        {
+            return Err(VaultError::Corrupt);
+        }
+    }
+    for folder in &manifest.folders {
+        let mut parent_id = folder.parent_id;
+        let mut seen = HashSet::new();
+        let mut depth = 1;
+        while let Some(id) = parent_id {
+            if !seen.insert(id) || depth >= 32 {
+                return Err(VaultError::Corrupt);
+            }
+            let (parent_profile_id, next_parent_id) =
+                folders_by_id.get(&id).copied().ok_or(VaultError::Corrupt)?;
+            if parent_profile_id != folder.profile_id {
+                return Err(VaultError::Corrupt);
+            }
+            parent_id = next_parent_id;
+            depth += 1;
+        }
+    }
+
+    let mut record_ids = HashSet::new();
+    let mut object_names = HashSet::new();
+    for record in &manifest.records {
+        if record.id.is_nil()
+            || !record_ids.insert(record.id)
+            || !profile_ids.contains(&record.profile_id)
+            || !valid_record_name(&record.display_name)
+            || record.source_label != "Manual import — unverified"
+            || record.media_type != "application/octet-stream"
+            || !valid_object_name(&record.object_name)
+            || !object_names.insert(record.object_name.as_str())
+            || !valid_fingerprint(&record.fingerprint)
+            || !valid_wrapped_secret(&record.wrapped_object_key)
+        {
+            return Err(VaultError::Corrupt);
+        }
+        let unique_folders: HashSet<_> = record.folder_ids.iter().collect();
+        if unique_folders.len() != record.folder_ids.len()
+            || record.folder_ids.iter().any(|folder_id| {
+                folders_by_id
+                    .get(folder_id)
+                    .is_none_or(|(profile_id, _)| *profile_id != record.profile_id)
+            })
+        {
+            return Err(VaultError::Corrupt);
+        }
+        let object_path = root.join("objects").join(&record.object_name);
+        let metadata = fs::symlink_metadata(object_path).map_err(|_| VaultError::Corrupt)?;
+        if !metadata.file_type().is_file() {
+            return Err(VaultError::Corrupt);
+        }
+    }
+    Ok(())
+}
+
 fn build_header(
     vault_id: Uuid,
     passphrase: &str,
@@ -791,9 +952,8 @@ fn build_header(
         lanes: ARGON_LANES,
         salt: BASE64.encode(salt),
     };
-    let mut wrapping_key = derive_passphrase_key(passphrase, &kdf)?;
+    let wrapping_key = Zeroizing::new(derive_passphrase_key(passphrase, &kdf)?);
     let wrapped_master_key = wrap_secret(&wrapping_key, master_key, vault_id.as_bytes())?;
-    wrapping_key.zeroize();
     Ok(VaultHeader {
         magic: "MYCARLOS-VAULT".to_owned(),
         format_version: VAULT_FORMAT,
@@ -807,24 +967,17 @@ fn unwrap_master_key(
     header: &VaultHeader,
     passphrase: &str,
 ) -> Result<Zeroizing<[u8; 32]>, VaultError> {
-    let mut wrapping_key = derive_passphrase_key(passphrase, &header.kdf)?;
-    let result = unwrap_secret(
+    let wrapping_key = Zeroizing::new(derive_passphrase_key(passphrase, &header.kdf)?);
+    unwrap_secret(
         &wrapping_key,
         &header.wrapped_master_key,
         header.vault_id.as_bytes(),
     )
-    .map_err(|_| VaultError::WrongPassphrase);
-    wrapping_key.zeroize();
-    result
+    .map_err(|_| VaultError::WrongPassphrase)
 }
 
 fn derive_passphrase_key(passphrase: &str, config: &KdfConfig) -> Result<[u8; 32], VaultError> {
-    if config.algorithm != "argon2id"
-        || config.version != 19
-        || config.memory_kib != ARGON_MEMORY_KIB
-        || config.iterations != ARGON_ITERATIONS
-        || config.lanes != ARGON_LANES
-    {
+    if !valid_kdf_config(config) {
         return Err(VaultError::Corrupt);
     }
     let salt = BASE64
@@ -910,6 +1063,9 @@ fn write_manifest_at(
 ) -> Result<(), VaultError> {
     let keys = derive_keys(manifest.vault_id, master_key)?;
     let plaintext = Zeroizing::new(serde_json::to_vec(manifest).map_err(|_| VaultError::Storage)?);
+    if plaintext.len() > MAX_MANIFEST_BYTES.saturating_sub(40) {
+        return Err(VaultError::Storage);
+    }
     let mut nonce = [0_u8; 24];
     OsRng.fill_bytes(&mut nonce);
     let aad = manifest_aad(manifest.vault_id);
@@ -973,7 +1129,9 @@ fn read_latest_manifest(
     let mut candidates = Vec::new();
     for slot in 0..=1 {
         let path = root.join(format!("manifest-{slot}.bin"));
-        let Ok(data) = fs::read(path) else { continue };
+        let Ok(data) = read_bounded_regular_file(&path, MAX_MANIFEST_BYTES) else {
+            continue;
+        };
         if data.len() < 40 {
             continue;
         }
@@ -991,10 +1149,7 @@ fn read_latest_manifest(
         let Ok(manifest) = serde_json::from_slice::<Manifest>(&plaintext) else {
             continue;
         };
-        if manifest.format_version == VAULT_FORMAT
-            && manifest.vault_id == vault_id
-            && manifest_objects_exist(root, &manifest)
-        {
+        if validate_manifest(root, &manifest, vault_id).is_ok() {
             candidates.push(manifest);
         }
     }
@@ -1002,13 +1157,6 @@ fn read_latest_manifest(
         .into_iter()
         .max_by_key(|manifest| manifest.generation)
         .ok_or(VaultError::Corrupt)
-}
-
-fn manifest_objects_exist(root: &Path, manifest: &Manifest) -> bool {
-    manifest
-        .records
-        .iter()
-        .all(|record| root.join("objects").join(&record.object_name).is_file())
 }
 
 fn manifest_aad(vault_id: Uuid) -> Vec<u8> {
@@ -1102,7 +1250,14 @@ fn verify_object<W: Write>(
     object_key: &[u8; 32],
     expected_size: u64,
 ) -> Result<(), VaultError> {
-    let mut reader = BufReader::new(File::open(path)?);
+    let file = open_regular_read(path).map_err(|error| {
+        if error.kind() == io::ErrorKind::InvalidData {
+            VaultError::Corrupt
+        } else {
+            error.into()
+        }
+    })?;
+    let mut reader = BufReader::new(file);
     let mut magic = [0_u8; 5];
     reader.read_exact(&mut magic)?;
     if &magic != OBJECT_MAGIC {
@@ -1181,6 +1336,49 @@ fn read_chunk(reader: &mut dyn Read, buffer: &mut [u8]) -> Result<usize, VaultEr
         }
     }
     Ok(used)
+}
+
+fn read_bounded_regular_file(path: &Path, maximum: usize) -> io::Result<Vec<u8>> {
+    let file = open_regular_read(path)?;
+    let metadata = file.metadata()?;
+    if metadata.len() > maximum as u64 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "file is not a bounded regular file",
+        ));
+    }
+    let mut data = Vec::with_capacity(metadata.len() as usize);
+    file.take((maximum as u64).saturating_add(1))
+        .read_to_end(&mut data)?;
+    if data.len() > maximum {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "file exceeds its format limit",
+        ));
+    }
+    Ok(data)
+}
+
+fn open_regular_read(path: &Path) -> io::Result<File> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.file_type().is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "path is not a regular file",
+        ));
+    }
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    options.custom_flags(libc::O_NOFOLLOW);
+    let file = options.open(path)?;
+    if !file.metadata()?.file_type().is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "handle is not a regular file",
+        ));
+    }
+    Ok(file)
 }
 
 fn atomic_json(path: &Path, value: &impl Serialize) -> Result<(), VaultError> {
@@ -1372,7 +1570,7 @@ mod tests {
         },
     };
 
-    const PASSWORD: &str = "Correct#8Horse";
+    const PASSWORD: &str = "Correct-Horse-8!";
 
     fn source(name: &str, data: &[u8]) -> ImportSource {
         ImportSource {
@@ -1857,14 +2055,14 @@ mod tests {
         let store = VaultStore::new(root.clone());
         store.create(PASSWORD, "Jamie", 1).unwrap();
         store
-            .change_passphrase(PASSWORD, "Replacement#9Pass")
+            .change_passphrase(PASSWORD, "Replacement-Pass-9")
             .unwrap();
         store.lock();
         assert!(matches!(
             store.unlock(PASSWORD),
             Err(VaultError::WrongPassphrase)
         ));
-        store.unlock("Replacement#9Pass").unwrap();
+        store.unlock("Replacement-Pass-9").unwrap();
     }
 
     #[test]
@@ -2214,5 +2412,92 @@ mod tests {
             Err(VaultError::ImportBatchLimit)
         ));
         assert!(store.snapshot().unwrap().records.is_empty());
+    }
+
+    #[test]
+    fn passphrase_policy_requires_length_without_composition_rules() {
+        assert!(validate_passphrase("a long phrase with spaces").is_ok());
+        assert!(matches!(
+            validate_passphrase("short phrase!!"),
+            Err(VaultError::Invalid)
+        ));
+        assert!(matches!(
+            validate_passphrase("fifteen chars\nmore"),
+            Err(VaultError::Invalid)
+        ));
+        assert!(matches!(
+            validate_passphrase(&"a".repeat(MAX_PASSPHRASE_BYTES + 1)),
+            Err(VaultError::Invalid)
+        ));
+    }
+
+    #[test]
+    fn oversized_or_non_regular_metadata_files_fail_closed() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        store.lock();
+        fs::write(root.join("header.json"), vec![0_u8; MAX_HEADER_BYTES + 1]).unwrap();
+
+        assert!(matches!(store.unlock(PASSWORD), Err(VaultError::Corrupt)));
+
+        fs::remove_file(root.join("header.json")).unwrap();
+        fs::create_dir(root.join("header.json")).unwrap();
+        assert!(matches!(store.unlock(PASSWORD), Err(VaultError::Corrupt)));
+    }
+
+    #[test]
+    fn authenticated_manifest_cannot_escape_the_object_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        store
+            .import(
+                profile,
+                vec![],
+                vec![source("report.pdf", b"synthetic record")],
+                2,
+            )
+            .unwrap();
+        let (master_key, mut manifest) = {
+            let guard = store.unlocked.lock().unwrap();
+            let unlocked = guard.as_ref().unwrap();
+            (*unlocked.master_key, unlocked.manifest.clone())
+        };
+        manifest.records[0].object_name = "../../outside.mcobj".to_owned();
+        manifest.generation += 1;
+        write_manifest_at(&root, &master_key, &manifest).unwrap();
+        manifest.generation += 1;
+        write_manifest_at(&root, &master_key, &manifest).unwrap();
+        store.lock();
+
+        assert!(matches!(store.unlock(PASSWORD), Err(VaultError::Corrupt)));
+    }
+
+    #[test]
+    fn passphrase_change_requires_the_unlocked_master_key_to_match() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let vault_id = store
+            .unlocked
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .manifest
+            .vault_id;
+        let forged_master = [0x5a_u8; 32];
+        let forged_header = build_header(vault_id, PASSWORD, &forged_master).unwrap();
+        atomic_json(&root.join("header.json"), &forged_header).unwrap();
+
+        assert!(matches!(
+            store.change_passphrase(PASSWORD, "Replacement-Pass-9"),
+            Err(VaultError::Corrupt)
+        ));
     }
 }
