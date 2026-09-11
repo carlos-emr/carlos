@@ -1311,10 +1311,17 @@ function updateCPPNote() {
         let caseNoteElement = document.getElementById(caseNote);
         if (caseNoteElement) {
             caseNoteElement.value += "\n" + txt;
-            adjustCaseNote();
-            setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            try {
+                adjustCaseNote();
+                setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            } catch (error) {
+                // Text is already inserted. Layout/focus failure is not a failed paste.
+                console.error('Encounter text inserted; could not update layout', error);
+            }
+            return true;
         } else {
             console.error('Element with ID caseNote element not found.');
+            return false;
         }
     }
 

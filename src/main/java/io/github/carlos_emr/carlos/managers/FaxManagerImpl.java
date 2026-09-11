@@ -771,6 +771,9 @@ public class FaxManagerImpl implements FaxManager {
     @Transactional
     @Override
     public void persistAndLogConsultationFaxJobs(LoggedInInfo loggedInInfo, List<FaxJob> faxJobs, int requestId) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
         for (FaxJob faxJob : faxJobs) {
             faxJobDao.persist(faxJob);
             logFaxJob(loggedInInfo, faxJob, TransactionType.CONSULTATION, requestId);
@@ -781,6 +784,9 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public void persistAndLogFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob,
             TransactionType transactionType, int transactionId) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
         faxJobDao.persist(faxJob);
         logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
     }

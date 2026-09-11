@@ -133,7 +133,7 @@ function sqlValue(value) {
     let requestRow;
     // Results are newest first, and seeded request 2 is older than the first
     // 100 results. Follow the list's own pagination to exercise its real row.
-    while (!requestRow) {
+    while (true) {
       const matchingRowIndexes = await requestRows.evaluateAll((rows, targetRequestId) => rows.flatMap((row, index) => {
         const onclick = row.getAttribute('onclick') || '';
         const targetMatch = /['"]([^'"]*\/encounter\/ViewRequest\?[^'"]*)['"]/.exec(onclick);

@@ -481,6 +481,60 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject pre-built consultation fax batches without fax write privilege")
+    void shouldRejectPrebuiltConsultationFaxBatch_withoutFaxWritePrivilege() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(false);
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+
+        assertThatThrownBy(() -> manager.persistAndLogConsultationFaxJobs(loggedInInfo, List.of(new FaxJob()), 123))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+
+        verifyNoInteractions(faxJobDao);
+    }
+
+    @Test
+    @DisplayName("should reject a pre-built fax job before persistence or audit when fax write is denied")
+    void shouldRejectPrebuiltFaxJob_whenFaxWriteIsDenied() throws Exception {
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+        FaxJob faxJob = new FaxJob();
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, (String) null))
+                .thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, (String) null))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> manager.persistAndLogFaxJob(
+                loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, (String) null);
+        verifyNoInteractions(faxJobDao, loggedInInfo);
+        verify(manager, never()).logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+    }
+
+    @Test
+    @DisplayName("should not persist or audit a pre-built fax job when its authorization check fails")
+    void shouldNotPersistPrebuiltFaxJob_whenAuthorizationCheckFails() throws Exception {
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+        FaxJob faxJob = new FaxJob();
+        IllegalStateException authorizationFailure = new IllegalStateException("role lookup unavailable");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, (String) null))
+                .thenThrow(authorizationFailure);
+
+        assertThatThrownBy(() -> manager.persistAndLogFaxJob(
+                loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123))
+                .isSameAs(authorizationFailure);
+
+        verifyNoInteractions(faxJobDao, loggedInInfo);
+        verify(manager, never()).logFaxJob(loggedInInfo, faxJob, FaxManager.TransactionType.RX, 123);
+    }
+
+    @Test
     @DisplayName("should delete the orphaned Cover_* file when PDF concatenation fails")
     void shouldDeleteOrphanCoverFile_whenConcatFails() throws Exception {
         FaxDocumentManager faxDocumentManager = mock(FaxDocumentManager.class);

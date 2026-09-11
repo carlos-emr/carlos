@@ -115,7 +115,7 @@
              * parse to a positive {@code int} — so a value the servlet rejects (0, or a 10-digit value
              * above Integer.MAX_VALUE such as 9999999999) can never "win" over a later valid source
              * and reintroduce the unsigned-fax failure this helper prevents. Used to resolve the
-             * scriptId across request parameter, request attribute and stash.
+             * scriptId across the server-resolved request attribute and displayed stash.
              */
             private static String firstValidScriptId(String... candidates) {
                 for (String candidate : candidates) {
@@ -161,6 +161,15 @@
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
+            // Use the prescription resolved by the action, falling back to the displayed stash
+            // for direct reprints. A caller-supplied scriptId must not override this identity:
+            // otherwise the page can show/save notes for A while faxing signed prescription B.
+            // Resolve once before rendering any client code; notes, preview, signature and fax
+            // all use this same server-selected target.
+            String scriptIdForFax = firstValidScriptId(
+                    request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
+                    (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
+                            ? bean.getStashItem(0).getScript_no() : "");
 // for satellite clinics
             Vector vecAddressName = null;
             Vector vecAddress = null;
@@ -406,6 +415,9 @@
                                 }
                                 previewFrame.removeEventListener('load', faxResultHandler);
                                 if (faxSucceeded) {
+                                    // The server accepted the fax. Nothing on this page may queue it
+                                    // a second time from here on, whatever the encounter write does.
+                                    faxQueued = true;
                                     if (pasteAfterSuccess) {
                                         // The fax is already queued. Keep this page alive until the
                                         // encounter write confirms success; closing earlier can abort
@@ -414,7 +426,16 @@
                                                 .then(function (pasted) {
                                                     if (pasted) {
                                                         setTimeout(function () { window.top.close(); }, 3000);
+                                                    } else {
+                                                        // The pharmacy has the prescription but the chart
+                                                        // note does not. Leaving the page frozen here was
+                                                        // a dead end: only a reload cleared it, and the
+                                                        // reload lost the exact faxed text.
+                                                        enterFaxPasteRecovery(lastFaxPasteText || capturedPasteText);
                                                     }
+                                                }, function (e) {
+                                                    console.error('Encounter paste failed after the fax was queued', e);
+                                                    enterFaxPasteRecovery(lastFaxPasteText || capturedPasteText);
                                                 });
                                     } else {
                                         setTimeout(function () { window.top.close(); }, 3000);
@@ -466,14 +487,16 @@
                 // A later blur/button event must not enqueue a write after the fax has frozen
                 // its note. The server renders the stored note, so that write could otherwise
                 // overtake the fax request and disagree with the captured encounter-paste text.
-                if (faxSubmissionPending) {
+                // Once a fax has been queued the same holds permanently: the stored note is the
+                // record of what the pharmacy received.
+                if (faxSubmissionPending || faxQueued) {
                     if (faxNotesState) faxNotesState.notes.value = faxNotesState.value;
                     return false;
                 }
                 var url = '${carlos:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
-                var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
+                var params = "scriptNo=" + encodeURIComponent(faxScriptNo) + "&comment=" + comment + "&rand=" + ran_number;  //]
                 // CHAIN onto the previous save, never replace it. Two edits in quick succession
                 // (type, blur, type, blur) would otherwise leave pendingNotesSave holding only the
                 // second request: if that one resolved first the fax would submit while the first
@@ -529,50 +552,62 @@
                 }
             }
 
-            function printPaste2Parent(print, fax, pasteRx, capturedPasteText) {
+            function printPaste2Parent(print, fax, pasteRx, capturedPasteText, useCapturedPasteTextAsIs) {
                 //console.log("in printPaste2Parent");
+                if ((faxQueued || faxSubmissionPending) && !fax) return Promise.resolve(false);
+                // A retry is safe only until an insertion or request may have written text.
+                // Network failures and editor callbacks can fail AFTER their side effect.
+                faxPasteCanRetry = true;
                 try {
-                    text = "";
-                    <% if (props.isPropertyActive("rx_paste_asterisk")) { %>
-                    text += "**********************************************************************************\n";
-                    <% } %>
+                    var text = "";
+                    if (fax && pasteRx && useCapturedPasteTextAsIs && typeof capturedPasteText === 'string') {
+                        text = capturedPasteText;
+                    } else {
+                        <% if (props.isPropertyActive("rx_paste_asterisk")) { %>
+                        text += "**********************************************************************************\n";
+                        <% } %>
 
-                    if (print) {
-                        text += "Prescribed and printed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>\n";
-                    } else if (fax) {
-                        <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
-                        <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
-                        // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
+                        if (print) {
+                            text += "Prescribed and printed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>\n";
+                        } else if (fax) {
+                            <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
+                            <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
+                            // %>
+                            text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
 
-                        <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
-                        text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
-                        <%--    	 <% } %>--%>
-                        text += ", <%= timeStamp %>]\n";
-                        <%--   		 <%--%>
-                        <%--    	 }--%>
-                        <%--    	 %>    	--%>
-                    }
-
-                    if (pasteRx) {
-                        if (typeof capturedPasteText === 'string') {
-                            text += capturedPasteText;
-                        } else if (document.all) {
-                            text += preview.document.forms[0].rx_no_newlines.value
-                        } else {
-                            text += preview.document.forms[0].rx_no_newlines.value + "\n";
+                            <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
+                            text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
+                            <%--    	 <% } %>--%>
+                            text += ", <%= timeStamp %>]\n";
+                            <%--   		 <%--%>
+                            <%--    	 }--%>
+                            <%--    	 %>    	--%>
                         }
 
-                        if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
-                            text += document.getElementById('additionalNotes').value + "\n";
+                        if (pasteRx) {
+                            if (typeof capturedPasteText === 'string') {
+                                text += capturedPasteText;
+                            } else if (document.all) {
+                                text += preview.document.forms[0].rx_no_newlines.value
+                            } else {
+                                text += preview.document.forms[0].rx_no_newlines.value + "\n";
+                            }
+
+                            if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
+                                text += document.getElementById('additionalNotes').value + "\n";
+                            }
                         }
+                        <% if (props.isPropertyActive("rx_paste_asterisk")) {
+                                if(prefPharmacy!=null && prefPharmacy.trim()!=""){ %>
+                        text += "<carlos:encode value='<%= prefPharmacy %>' context="javaScript"/>\n"
+                        <% } %>
+                        text += "****<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="javaScript"/>********************************************************************************\n";
+                        <% } %>
                     }
-                    <% if (props.isPropertyActive("rx_paste_asterisk")) {
-                            if(prefPharmacy!=null && prefPharmacy.trim()!=""){ %>
-                    text += "<carlos:encode value='<%= prefPharmacy %>' context="javaScript"/>\n"
-                    <% } %>
-                    text += "****<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="javaScript"/>********************************************************************************\n";
-                    <% } %>
+
+                    if (fax && pasteRx && typeof text === 'string' && text.length > 0) {
+                        lastFaxPasteText = text;
+                    }
 
                     //we support pasting into orig encounter and new casemanagement
                     demographicNo = <%=bean.getDemographicNo()%>;
@@ -583,17 +618,25 @@
                             window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo &&
                             window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo.value === "<%=bean.getDemographicNo()%>") {
                             //oscarLog("3");
-                            window.parent.opener.pasteToEncounterNote(text);
+                            faxPasteCanRetry = false;
+                            if (window.parent.opener.pasteToEncounterNote(text) === false) {
+                                faxPasteCanRetry = true; // editor explicitly reported no insertion
+                                return Promise.resolve(false);
+                            }
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.encForm != undefined) {
+                        } else if (window.parent.opener.document.encForm != undefined &&
+                            window.parent.opener.document.encForm.demographicNo &&
+                            window.parent.opener.document.encForm.demographicNo.value === "<%=bean.getDemographicNo()%>") {
                             //oscarLog("4");
+                            faxPasteCanRetry = false;
                             window.parent.opener.document.encForm.enTextarea.value = window.parent.opener.document.encForm.enTextarea.value + text;
                             if (print) {
                                 printIframe();
                             }
                         } else if (window.parent.opener.document.getElementById(noteEditor) != undefined) {
+                            faxPasteCanRetry = false;
                             window.parent.opener.document.getElementById(noteEditor).value = window.parent.opener.document.getElementById(noteEditor).value + text;
                             if (print) {
                                 printIframe();
@@ -619,21 +662,31 @@
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
 			var prefPharmacy = "<%=prefPharmacy != null ? SafeEncode.forJavaScriptBlock(prefPharmacy) : ""%>";
-			return fetch(url, {
+			var options = {
 				method: 'POST',
 				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 				credentials: 'same-origin',
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
+						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
-			}).then(function(ret){
-				if (!ret.ok) {
+			};
+			faxPasteCanRetry = false;
+			return fetch(url, options).then(function(ret){
+				// Only this action's explicit pre-write rejection permits another append.
+				// A 500, lost response or login redirect is not proof that nothing committed.
+				var outcome = ret.headers.get('X-Carlos-Encounter-Write');
+				if (!ret.ok || ret.redirected || outcome !== 'written') {
+					faxPasteCanRetry = !ret.redirected && outcome === 'not-written';
 					throw new Error('WriteToEncounter returned HTTP ' + ret.status);
 				}
-				if (print) {
-					printIframe();
+				try {
+					if (print) printIframe();
+					openEncounter();
+				} catch (e) {
+					// The append is acknowledged. A window/layout error must not retry it.
+					console.error('Encounter note saved; could not open encounter', e);
 				}
-				openEncounter();
 				return true;
 			}).catch(function(e) {
 				alert("ERROR: could not paste to EMR" + e);
@@ -711,32 +764,15 @@
             signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
-            // The saved script id for the fax/print request. On a fresh write (updateAndPrint /
-            // saveDrug) the id is set as a request ATTRIBUTE, not a parameter, so reading only the
-            // parameter yields "" and the fax request cannot identify the script — the stamp-signed
-            // prescription is then rejected as unsigned. Resolve parameter -> attribute -> the saved
-            // stash script number so every path faxes THIS script. Each source is accepted only if it
-            // is shaped like a real script id: a positive integer of 1-10 digits, matching the PDF
-            // servlet's own parsePositiveInt. That rejects the literal strings "null"/"undefined" a
-            // caller may build from a JS variable, "" , "0", and overlong values — any of which would
-            // otherwise be passed on and refused as unsigned — so a bad source falls through to the
-            // next rather than winning over a good id.
-            String scriptIdForFax = firstValidScriptId(
-                    StringUtils.noNull(request.getParameter("scriptId")),
-                    request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
-                    (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
-                            ? bean.getStashItem(0).getScript_no() : "");
-
             // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
             // patient; gate the Fax buttons on the same right so the page never offers a fax the
             // server will refuse (a read-only reprint of a signed script would otherwise show an
             // enabled Fax button and then a refusal).
             //
             // The gate MUST resolve the same target the server authorizes: the persisted prescription
-            // named by scriptIdForFax, NOT the session bean's demographic. scriptIdForFax can come
-            // from a request parameter, so it may name a script belonging to a different patient than
-            // the chart the bean holds; gating on the bean would then enable Fax for a fax the server
-            // refuses (or hide one it would allow). No id, or an id that resolves to nothing or to a
+            // named by scriptIdForFax, NOT the session bean's demographic. The persisted row is the
+            // authority for patient-scoped authorization even if the session chart has changed.
+            // No id, or an id that resolves to nothing or to a
             // row with no patient, means there is nothing faxable — closed, not open.
             //
             // Nothing in here may throw. hasPrivilege rethrows PatientDirectiveException
@@ -808,8 +844,23 @@
             var POLL_TIME = 1500;
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
+            var faxScriptNo = "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>";
             var faxSubmissionPending = false;
             var faxNotesState = null;
+            // A fax the server has accepted for this script. The prescription is with the
+            // pharmacy from that point on, so no later step -- including recovery from a failed
+            // encounter paste -- may re-open Fax or Fax & Paste, or let the frozen note that was
+            // faxed be rewritten on the stored record.
+            var faxQueued = false;
+            // The exact text the queued fax carried, held so a failed encounter paste can be
+            // retried with that text rather than whatever the page shows afterwards.
+            var faxPasteRetryText = null;
+            // The fully composed encounter note text for the in-flight fax. Retry must reuse this
+            // exact string, including the original header/footer lines, rather than rebuilding
+            // them with a later timestamp or changed page state.
+            var lastFaxPasteText = null;
+            var faxPasteCanRetry = false;
+            var faxPasteRetryPending = false;
 
             function lockFaxNotes() {
                 var notes = document.getElementById('additionalNotes');
@@ -848,6 +899,7 @@
 
             function shouldDisableFaxControls() {
                 return faxSubmissionPending
+                        || faxQueued
                         || typeof hasPreview === 'undefined'
                         || !hasPreview
                         || !hasFaxNumber
@@ -858,9 +910,60 @@
 
             function resetFailedFaxSubmission(previousUnloadHandler) {
                 faxSubmissionPending = false;
+                lastFaxPasteText = null;
                 unlockFaxNotes();
                 setFaxControlsDisabled(shouldDisableFaxControls());
                 window.onbeforeunload = previousUnloadHandler;
+            }
+
+            function enterFaxPasteRecovery(capturedPasteText) {
+                // Fax & Paste queued the fax and then failed to write the encounter note.
+                // The submission is over, so the page must stop behaving as if one were in
+                // flight, but the fax itself must not become repeatable: shouldDisableFaxControls()
+                // keeps both fax buttons disabled through faxQueued.
+                faxSubmissionPending = false;
+                faxQueued = true;
+                setFaxControlsDisabled(shouldDisableFaxControls());
+                // The note stays frozen on purpose -- read-only, and still holding exactly what
+                // the fax carried, so it can be selected and copied if every retry fails.
+                faxPasteRetryText = capturedPasteText;
+                var retryRow = document.getElementById('faxPasteRetryRow');
+                if (retryRow) retryRow.style.display = '';
+                var retryButton = document.getElementById('faxPasteRetryButton');
+                if (retryButton) retryButton.disabled = !faxPasteCanRetry;
+                var uncertain = document.getElementById('faxPasteUncertain');
+                if (uncertain) uncertain.hidden = faxPasteCanRetry;
+                var recoveryText = document.getElementById('faxPasteRecoveryText');
+                if (recoveryText) recoveryText.value = capturedPasteText;
+                // The fax was sent, so the unload guard's "fax has not been sent" warning would
+                // now be false. Leave it cleared and let the clinician close the window.
+            }
+
+            function retryFaxPaste() {
+                if (typeof faxPasteRetryText !== 'string' || !faxPasteCanRetry || faxPasteRetryPending) return false;
+                faxPasteRetryPending = true;
+                var retryButton = document.getElementById('faxPasteRetryButton');
+                if (retryButton) retryButton.disabled = true;
+                // Repeat the exact encounter note text the fax already carried, including its
+                // original header/footer, never a later recomposition from current page state.
+                printPaste2Parent(false, true, true, faxPasteRetryText, true).then(function (pasted) {
+                    faxPasteRetryPending = false;
+                    if (pasted) {
+                        faxPasteRetryText = null;
+                        lastFaxPasteText = null;
+                        var retryRow = document.getElementById('faxPasteRetryRow');
+                        if (retryRow) retryRow.style.display = 'none';
+                        setTimeout(function () { window.top.close(); }, 3000);
+                    } else {
+                        enterFaxPasteRecovery(faxPasteRetryText);
+                    }
+                }, function (e) {
+                    console.error('Encounter paste retry failed', e);
+                    faxPasteRetryPending = false;
+                    faxPasteCanRetry = false;
+                    enterFaxPasteRecovery(faxPasteRetryText);
+                });
+                return true;
             }
 
             function refreshImage() {
@@ -872,7 +975,7 @@
             }
 
             function sendFax(pasteAfterSuccess) {
-                if (faxSubmissionPending) {
+                if (faxSubmissionPending || faxQueued) {
                     return false;
                 }
                 let faxNumber = document.getElementById('faxNumber');
@@ -898,11 +1001,12 @@
                         capturedPasteText += document.getElementById('additionalNotes').value + '\n';
                     }
                 }
+                lastFaxPasteText = null;
                 faxSubmissionPending = true;
                 setFaxControlsDisabled(true);
                 try {
                     lockFaxNotes();
-                    onPrint2('oscarRxFax', "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>",
+                    onPrint2('oscarRxFax', faxScriptNo,
                             faxDocumentId, Boolean(pasteAfterSuccess), capturedPasteText,
                             previousUnloadHandler);
                 } catch (e) {
@@ -950,11 +1054,8 @@
                     }
 		<% }
 
-		// Link the drawn signature to the script that will actually be FAXED, not to the stash
-		// row. The two can differ (scriptIdForFax may come from a request parameter), and the fax
-		// gate is now resolved from the fax target: linking to the stash row would flip the gate
-		// open while leaving the faxed prescription unsigned in storage, so the fax would then be
-		// refused as unsigned. Only the digits-validated scriptIdForFax is emitted here.
+		// Link the drawn signature to the same server-resolved prescription used by the
+		// preview, Additional Notes and fax. Only the digits-validated target is emitted.
 		if (!scriptIdForFax.isEmpty()) {
 		%>
 		try {
@@ -1054,7 +1155,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>
@@ -1232,6 +1333,20 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     class="btn btn-outline-primary" id="faxPasteButton" style="width: 210px"
                                     onClick="sendFax(true);" <%=isFaxDisabled%>/></span>
 
+                                            </td>
+                                        </tr>
+                                        <%-- Shown only by enterFaxPasteRecovery(), when the fax was queued
+                                             but the encounter note could not be written. It repeats the
+                                             encounter paste with the text the fax carried; the fax itself
+                                             stays disabled so the pharmacy cannot receive it twice. --%>
+                                        <tr id="faxPasteRetryRow" style="display: none">
+                                            <td style="padding-top: 0"><span><input type=button
+                                                    value="<fmt:message key="ViewScript.msgRetryPaste"/>"
+                                                    class="btn btn-outline-danger" id="faxPasteRetryButton"
+                                                    style="width: 210px" onClick="retryFaxPaste();"/></span>
+                                                <p id="faxPasteUncertain" hidden role="alert"><fmt:message key="ViewScript.msgPasteUncertain"/></p>
+                                                <textarea id="faxPasteRecoveryText" readonly rows="6" style="width: 100%"
+                                                          aria-label="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"></textarea>
                                             </td>
                                         </tr>
 

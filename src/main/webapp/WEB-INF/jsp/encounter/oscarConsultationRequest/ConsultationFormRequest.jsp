@@ -204,6 +204,9 @@
             return;
         }
         boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, consultSecurityTarget);
+        boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
 
         // Check if the selected providers is currently active. If it is not active, add it to the prList, as the list only contains active providers.
         Boolean isProviderActive = false;
@@ -2603,7 +2606,7 @@ if (userAgent != null) {
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
                                 <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
-                                <% if (props.isConsultationFaxEnabled()) { %>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="updateAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
                                            onclick="return checkForm('Update And Fax','EctConsultationFormRequest2Form');"/>
@@ -2618,7 +2621,7 @@ if (userAgent != null) {
                                        onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
 
                                 <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
-                                <% if (props.isConsultationFaxEnabled()) { %>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="submitAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
