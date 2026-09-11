@@ -36,7 +36,27 @@ well as on the note save itself. A WAF check that submits only inoffensive prose
 measures nothing. Position matters too: CRS 931100 (RFI via an IP-address URL)
 is anchored on the start of the argument, so it fired only once the seeded text
 *began* with the pasted PACS link — a probe that buried the link mid-sentence
-reported the argument clean. Scripts driving a free-text clinical field through the front
+reported the argument clean.
+
+The note route was not special. A per-argument survey of every clinician
+free-text field the application posts (consultation requests, ticklers,
+prescriptions and allergies, preventions, document and lab comments, HRM,
+messenger and patient email, appointment reasons and notes, master-record
+notes and alerts, billing comments, fax cover comments, program notes) found
+all 68 of them answering 403 on the same three shapes, and a consultation
+request save and a tickler add reproduced it in the browser. Exclusions
+1100-1140 close them per argument. `tickler-crud-playwright-checks.js` now
+types that scoring text too. Fields whose parameter names are generated per
+row (measurement `comments-<n>`, manual lab `test_<id>.labnotes`, contact
+`contact_<id>.note`, waiting-list notes, and the encounter forms under
+`/form/*`) are **not** covered: libmodsecurity 3.0.14 rejects a regex target in
+a `ctl` action, so they need a bounded enumeration or a
+`SecRuleUpdateTargetByTag` in the AFTER-CRS file, and they still 403 on such
+text. A quick way to re-survey after a policy change is to POST each field
+through `:443` unauthenticated with a value that begins with
+`http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the
+application does, so nginx's own 403 page means blocked and any application
+answer (302 to login, its CSRF 403) means the request got through. Scripts driving a free-text clinical field through the front
 door should carry text the rule set actually scores (see
 `CLINICAL_TEXT_THE_WAF_SCORES` in `scripts/echart-playwright-checks.js`) and
 should be confirmed to fail against the previous exclusion file, not merely to

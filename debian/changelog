@@ -30,7 +30,18 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     injection.
   * That same save-on-switch no longer cuts an encounter note off at its first
     "&" -- "H&P", or a pasted link with "&cmd=" in it, arrived truncated on the
-    server -- and no longer turns a "+" into a space.
+    server -- and no longer turns a "+" into a space. The same cut-off is fixed
+    on the patient page's custom telephone-encounter reason and the document
+    description templates.
+  * The same firewall false positive is closed on the rest of the free-text
+    clinical fields: consultation requests, ticklers, prescriptions and
+    allergies, preventions, document and lab comments, HRM, messenger and
+    patient email, appointment reasons and notes, master-record notes and
+    alerts, billing comments, fax cover comments and program notes. Each is
+    exempted per argument on its own route; the firewall still inspects every
+    other argument and still blocks a probe injection. Per-row fields (measurement
+    comments, manual lab notes, contact notes, encounter forms) are not yet
+    covered and still answer 403 on such text.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
 
