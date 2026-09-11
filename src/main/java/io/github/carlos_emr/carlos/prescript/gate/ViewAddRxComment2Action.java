@@ -62,7 +62,7 @@ public final class ViewAddRxComment2Action extends ActionSupport {
         int scriptNo;
         try {
             scriptNo = Integer.parseInt(request.getParameter("scriptNo"));
-        } catch (NumberFormatException | NullPointerException e) {
+        } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }

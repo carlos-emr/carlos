@@ -82,7 +82,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -406,8 +405,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             servlet.service(request, response);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            assertThat(response.getContentAsString()).contains("fax-failure").contains("Unable to generate fax");
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
             assertThat(existingPdf).hasContent("existing pdf");
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
@@ -444,8 +444,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             serviceAs(servlet, request, response, loggedInInfo);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            assertThat(response.getContentAsString()).contains("fax-failure").contains("Unable to generate fax");
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
             assertThat(existingSpoolPdf).hasContent("existing spool pdf");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
@@ -481,8 +482,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             serviceAs(servlet, request, response, loggedInInfo);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            assertThat(response.getContentAsString()).contains("fax-failure").contains("Unable to generate fax");
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
             assertThat(existingTrackingFile).hasContent("9055550100");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
@@ -526,8 +528,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return server error when fax tracking write fails")
-    void shouldReturnServerError_whenFaxTrackingWriteFails(@TempDir Path tempDir) throws Exception {
+    @DisplayName("should preserve uncertainty until an operator clears a tracking path collision")
+    void shouldReportUncertainty_whenFaxTrackingPathAlreadyExists(@TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
         Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
@@ -555,8 +557,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             servlet.service(request, response);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            assertThat(response.getContentAsString()).contains("Unable to generate fax");
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).isDirectory();
@@ -616,8 +619,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             MockHttpServletResponse retryResponse = new MockHttpServletResponse();
             serviceAs(servlet, request, retryResponse, loggedInInfo);
 
-            assertThat(retryResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            assertThat(retryResponse.getContentAsString()).doesNotContain("fax-success");
+            assertThat(retryResponse.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(retryResponse.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");

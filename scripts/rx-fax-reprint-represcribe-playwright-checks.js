@@ -237,19 +237,9 @@ function sql(query) {
       '-N', '-B', mysqlDatabase, '-e', query,
     ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
   } catch (e) {
-    // Neither the query nor raw stderr may reach the log. MySQL echoes the offending SQL back in
-    // its "near '...'" fragment, and this check's queries carry demographic and script numbers,
-    // which are PHI-correlating. Keep only the first stderr line with quoted fragments and digit
-    // runs redacted, and never include the query itself.
-    const raw = String((e && e.stderr) || (e && e.message) || e);
-    // The mysql client writes a '----' rule and then ECHOES THE STATEMENT before the ERROR line,
-    // so taking the first line would both hide the real reason and print back the very query text
-    // withheld above. Pick the ERROR line itself, and say nothing specific when there isn't one.
-    const errorLine = raw.split('\n').find((l) => l.startsWith('ERROR '));
-    const detail = errorLine
-      ? errorLine.replace(/'[^']*'/g, "'<redacted>'").replace(/\d+/g, '<n>').slice(0, 160)
-      : 'no ERROR line in client output';
-    throw new Error(`SQL failed: ${detail}`);
+    // Database error lines can contain clinical text even after quoted fragments
+    // and numbers are removed. Keep only a fixed outcome, never client output.
+    throw new Error(e && e.code === 'ETIMEDOUT' ? 'database query timed out' : 'database query failed');
   }
 }
 
@@ -327,7 +317,7 @@ function seedPharmacyFax() {
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (e) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${String(e.message || e).slice(0, 200)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(e)}` });
     }
   };
   let scripts = [];
@@ -679,11 +669,11 @@ async function checkStampSurvivesPadActivity(modalFrame, scriptId) {
     if (typeof window.signatureHandler !== 'function') return false;
     window.signatureHandler({ target: { onbeforeunload: null }, isSave: false, isDirty: true });
     return true;
-  }).catch((e) => String(e && e.message ? e.message : e));
+  }).catch(() => false);
   if (invoked !== true) {
     findings.push({
       label: 'pad', type: 'handler-not-invoked',
-      text: `could not raise the pad's signatureHandler on script ${scriptId}, so the Fax-stays-enabled assertion would prove nothing: ${invoked}`,
+      text: 'could not invoke the pad signatureHandler; Fax-stays-enabled assertion cannot run',
     });
     return;
   }
@@ -776,6 +766,6 @@ async function runChecks(context) {
   }
 })().catch((error) => {
   try { cleanupFixtures(); } finally { removeSecretsDir(); }
-  console.error(error);
+  console.error(`FAIL rx-fax-reprint-represcribe: ${browserErrorClass(error)}`);
   process.exit(1);
 });

@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 import java.io.*;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -401,6 +402,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
         try {
             return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
+        } catch (FileAlreadyExistsException e) {
+            // A replay can collide with artifacts from an already queued job. Reject
+            // without overwriting them, but never claim that another send is safe.
+            reportFaxUncertain(res, writer, e);
+            return null;
         } catch (IOException | RuntimeException e) {
             reportFaxFailure(res, writer, "Prescription fax file preparation failed", e);
             return null;
@@ -473,7 +479,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     private void reportFaxUncertain(HttpServletResponse res, PrintWriter writer, Exception failure) {
-        logger.error("Prescription fax persistence outcome is uncertain; preserving prepared files", failure);
+        logger.error("Prescription fax outcome is uncertain; preserving existing fax artifacts", failure);
         res.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         writer.println("<div id='fax-uncertain'><h3>The fax result could not be confirmed.</h3>"
                 + "<p>The job may already be queued. Check the fax outbox before sending again.</p></div>");

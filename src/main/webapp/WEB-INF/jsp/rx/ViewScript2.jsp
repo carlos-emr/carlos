@@ -1486,13 +1486,13 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                              encounter paste with the text the fax carried; the fax itself
                                              stays disabled so the pharmacy cannot receive it twice. --%>
                                         <tr id="faxSubmissionUncertain" hidden>
-                                            <td role="alert"><fmt:message key="ViewScript.msgFaxUncertain"/>
+                                            <td><p role="alert"><fmt:message key="ViewScript.msgFaxUncertain"/></p>
                                                 <textarea id="faxSubmissionRecoveryText" hidden readonly rows="6" style="width: 100%"
                                                           aria-label="<fmt:message key="ViewScript.msgFaxRecoveryText"/>"></textarea>
                                             </td>
                                         </tr>
                                         <tr id="faxPreviewChanged" hidden>
-                                            <td role="alert"><fmt:message key="ViewScript.msgFaxPreviewChanged"/></td>
+                                            <td><p role="alert"><fmt:message key="ViewScript.msgFaxPreviewChanged"/></p></td>
                                         </tr>
                                         <tr id="faxPasteRetryRow" style="display: none">
                                             <td style="padding-top: 0"><span><input type=button
