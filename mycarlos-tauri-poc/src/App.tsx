@@ -509,13 +509,13 @@ export default function App({ bridge = defaultBridge }: AppProps) {
 
       <div className="page-wrap">
         <section className="app-window" aria-label="myCarlos record library evaluation">
-          <header className="titlebar" inert={activeDocument ? true : undefined}>
+          <header className="titlebar" inert={Boolean(activeDocument)}>
             <span className="window-dots" aria-hidden="true"><i /><i /><i /></span>
             <span className="window-title">myCarlos</span>
             <span className="unlock-pill"><Icon name="lock-open" /> Unlocked</span>
           </header>
 
-          <label className="mobile-section-picker" inert={activeDocument ? true : undefined}>
+          <label className="mobile-section-picker" inert={Boolean(activeDocument)}>
             <span>Section</span>
             <select
               aria-label="Section"
@@ -531,7 +531,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
             </select>
           </label>
 
-          <div className="app-body" inert={activeDocument ? true : undefined}>
+          <div className="app-body" inert={Boolean(activeDocument)}>
             <aside className="sidebar">
               <div className="brand">
                 <span className="brand-mark"><Icon name="activity" /></span>

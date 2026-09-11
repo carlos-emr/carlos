@@ -513,7 +513,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
     </div>
     <div className="page-wrap">
       <section className="app-window" aria-label="myCarlos encrypted record library">
-        <header className="titlebar" inert={activeRecord ? true : undefined}>
+        <header className="titlebar" inert={Boolean(activeRecord)}>
           <span className="window-dots" aria-hidden="true"><i /><i /><i /></span>
           <span className="window-title">myCarlos</span>
           <button className="unlock-pill native-lock-button" type="button" disabled={busy} onClick={() => void onLock()}>
@@ -521,7 +521,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
           </button>
         </header>
 
-        <label className="mobile-section-picker" inert={activeRecord ? true : undefined}>
+        <label className="mobile-section-picker" inert={Boolean(activeRecord)}>
           <span>Section</span>
           <select aria-label="Section" value={section} onChange={(event) => setSection(event.target.value as NativeSection)}>
             <option value="records">My records</option>
@@ -529,7 +529,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
           </select>
         </label>
 
-        <div className="app-body" inert={activeRecord ? true : undefined}>
+        <div className="app-body" inert={Boolean(activeRecord)}>
           <aside className="sidebar">
             <div className="brand">
               <span className="brand-mark"><Icon name="activity" /></span>
