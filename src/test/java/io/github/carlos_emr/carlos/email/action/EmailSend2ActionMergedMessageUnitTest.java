@@ -39,6 +39,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -231,7 +232,9 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("demographicId", "42");
         request.setParameter("emailConsentName", "Email consent");
-        request.setParameter("emailConsentStatus", "Explicit Opt-In");
+        request.setParameter("emailConsentStatus", "OPT_IN");
+        request.setParameter("consentOverride", "true");
+        request.setParameter("consentOverrideReason", "Forged request value");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         EmailAttachment originalAttachment = new EmailAttachment(
@@ -244,6 +247,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         EmailConfig emailConfig = mock(EmailConfig.class);
         EmailConfig alternateEmailConfig = mock(EmailConfig.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(emailLog.getConsentStatus()).thenReturn(EmailConsentStatus.OPT_OUT);
         when(emailLog.getEmailConfig()).thenReturn(emailConfig);
         when(emailLog.getFromEmail()).thenReturn("clinic@example.test");
         when(emailComposeManager.getAllSenderAccounts())
@@ -267,7 +271,11 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("subjectEmail")).isEqualTo("Retry subject");
         assertThat(request.getAttribute("emailConsentName")).isEqualTo("Email consent");
-        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("Explicit Opt-In");
+        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("OPT_OUT");
+        assertThat(request.getAttribute("emailConsentMessageKey"))
+                .isEqualTo("email.consent.status.optOut");
+        assertThat(request.getAttribute("consentOverride")).isEqualTo(false);
+        assertThat(request.getAttribute("consentOverrideReason")).isEqualTo("");
         assertThat(request.getAttribute("receiverEmailList"))
                 .isEqualTo(List.of("patient@example.test"));
         assertThat(request.getAttribute("senderAccounts"))
@@ -276,6 +284,36 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
                 .isSameAs(originalAttachments);
         assertThat(originalAttachment.getFilePath()).isEqualTo("/tmp/original-result.pdf");
         assertThat(sentEmail.getValue().getAttachments().get(0)).isNotSameAs(originalAttachment);
+    }
+
+    @Test
+    @DisplayName("should preserve an accepted consent override when delivery fails")
+    void shouldPreserveAcceptedConsentOverride_whenDeliveryFails() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setParameter("emailPDFPassword", "valid-password");
+        request.setParameter("emailPDFPasswordClue", "Known to the patient");
+        request.setParameter("consentOverride", "true");
+        request.setParameter("consentOverrideReason", "Provider confirmed verbal consent");
+
+        EmailLog emailLog = mock(EmailLog.class);
+        when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(emailLog.getConsentStatus()).thenReturn(EmailConsentStatus.UNKNOWN);
+        when(emailLog.getConsentOverride()).thenReturn(true);
+        when(emailLog.getConsentOverrideReason())
+                .thenReturn("Provider confirmed verbal consent");
+        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenReturn(emailLog);
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        action.sendDirectEmail();
+
+        assertThat(request.getAttribute("consentOverride")).isEqualTo(true);
+        assertThat(request.getAttribute("consentOverrideReason"))
+                .isEqualTo("Provider confirmed verbal consent");
     }
 
     @Test
@@ -375,6 +413,29 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(response.getContentAsString()).contains("must not exceed 10000 characters");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should reject overlong consent override reasons before sending")
+    void shouldRejectConsentOverrideReason_whenLongerThanAuditColumn() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Message");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("consentOverrideReason", "a".repeat(256));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("must not exceed 255 characters");
         verifyNoInteractions(emailManager);
     }
 

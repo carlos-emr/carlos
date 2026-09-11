@@ -69,6 +69,12 @@
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
     <fmt:message key="email.compose.msg.minimumRecipient" var="emailComposeMinimumRecipient"/>
+    <fmt:message key="email.compose.label.consentOverride" var="emailComposeConsentOverrideLabel"/>
+    <fmt:message key="email.compose.label.consentOverrideReason" var="emailComposeConsentOverrideReasonLabel"/>
+    <fmt:message key="email.compose.msg.consentOverrideReasonRequired" var="emailComposeConsentOverrideReasonRequired"/>
+    <c:if test="${not empty emailConsentMessageKey}">
+        <fmt:message key="${emailConsentMessageKey}" var="emailConsentStatusLabel"/>
+    </c:if>
     <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
     <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
 
@@ -308,9 +314,18 @@
                                 </div>
                             </div>
                             <div class="card-footer">
-                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
+                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${emailConsentStatusLabel}</b>
                                 <input type="hidden" name="emailConsentName" value="${carlos:forHtmlAttribute(emailConsentName)}"/>
                                 <input type="hidden" name="emailConsentStatus" value="${carlos:forHtmlAttribute(emailConsentStatus)}"/>
+                                <c:if test="${emailConsentStatus eq 'UNKNOWN'}">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" name="consentOverride" id="consentOverride" value="true" ${consentOverride ? 'checked' : ''}/>
+                                        <label class="form-check-label" for="consentOverride">${emailComposeConsentOverrideLabel}</label>
+                                    </div>
+                                    <label class="form-label mt-2" for="consentOverrideReason">${emailComposeConsentOverrideReasonLabel}</label>
+                                    <textarea class="form-control" name="consentOverrideReason" id="consentOverrideReason" rows="2" maxlength="255"><carlos:encode value="${consentOverrideReason}"/></textarea>
+                                    <div class="invalid-feedback d-block" id="consentOverrideReasonError"></div>
+                                </c:if>
                             </div>
                         </div>
                     </div>
@@ -752,6 +767,7 @@
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
     const emailComposeMinimumRecipientMsg = "<carlos:encode value='${emailComposeMinimumRecipient}' context="javaScript"/>";
+    const emailComposeConsentOverrideReasonRequiredMsg = "<carlos:encode value='${emailComposeConsentOverrideReasonRequired}' context="javaScript"/>";
     const emailComposeStateOnMsg = "<carlos:encode value='${emailComposeStateOn}' context="javaScript"/>";
     const emailComposeStateOffMsg = "<carlos:encode value='${emailComposeStateOff}' context="javaScript"/>";
 
@@ -774,6 +790,8 @@
         const hasAttachments = document.querySelectorAll('.emailAttachmentItem').length > 0;
         const hasSender = document.getElementById('totalSenderEmails') && document.getElementById('totalSenderEmails').value > 0;
         const hasRecipint = document.getElementById('totalRecipintEmails') && document.getElementById('totalRecipintEmails').value > 0;
+        const consentOverride = document.getElementById('consentOverride');
+        const consentOverrideReason = document.getElementById('consentOverrideReason');
 
         if (!hasSender || !hasRecipint) {
             return false;
@@ -795,6 +813,11 @@
                 clearError('emailPDFPasswordClueError');
             }
         }
+        if (consentOverride && consentOverride.checked) {
+            validateField(consentOverrideReason, emailComposeConsentOverrideReasonRequiredMsg, errors, 'consentOverrideReasonError');
+        } else if (consentOverrideReason) {
+            clearError('consentOverrideReasonError', consentOverrideReason);
+        }
 
         if (Object.keys(errors).length === 0) {
             return true;
@@ -803,31 +826,33 @@
     }
 
     function validateField(field, errorMessage, errors, errorElementId) {
-        clearError(errorElementId);
+        clearError(errorElementId, field);
 
         if (field.value.trim() === '') {
             errors[field.name] = errorMessage;
-            displayError(errorElementId, errorMessage);
+            displayError(errorElementId, errorMessage, field);
         } else if (field.value.trim().length < 5 && field.id === 'emailPDFPassword') {
             errorMessage = emailComposePasswordMinLengthMsg;
             errors[field.name] = errorMessage;
-            displayError(errorElementId, errorMessage);
+            displayError(errorElementId, errorMessage, field);
         }
     }
 
-    function displayError(errorElementId, errorMessage) {
+    function displayError(errorElementId, errorMessage, field) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = errorMessage;
-        errorElement.previousElementSibling.classList.add("is-invalid");
+        const invalidField = field || errorElement.previousElementSibling;
+        invalidField.classList.add("is-invalid");
         setTimeout(function () {
             errorElement.scrollIntoView({block: 'center'});
         }, 100);
     }
 
-    function clearError(errorElementId) {
+    function clearError(errorElementId, field) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = '';
-        errorElement.previousElementSibling.classList.remove("is-invalid");
+        const invalidField = field || errorElement.previousElementSibling;
+        invalidField.classList.remove("is-invalid");
     }
 
     let disableEncryptionConfirmed = false;
