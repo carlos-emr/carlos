@@ -62,7 +62,7 @@ public record PatientPortalContactReviewPageDto(
         for (JsonNode item : itemNodes) {
             items.add(PatientPortalContactReviewDto.fromJson(item));
         }
-        Integer next = PortalJson.optionalInt(node, "next_offset");
+        Integer next = PortalJson.nullableInt(node, "next_offset");
         PatientPortalContactReviewPageDto page = new PatientPortalContactReviewPageDto(
                 List.copyOf(items),
                 PortalJson.positiveInt(node, "limit"),

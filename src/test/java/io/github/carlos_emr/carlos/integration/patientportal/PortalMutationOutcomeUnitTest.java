@@ -166,16 +166,18 @@ class PortalMutationOutcomeUnitTest {
 
     private String invite(long id, String status) {
         return "{\"id\":" + id + ",\"clinic_id\":\"clinic\",\"demographic_no\":123,"
-                + "\"status\":\"" + status + "\",\"created_by\":\"Dr Example\","
+                + "\"status\":\"" + status + "\",\"created_by_id\":null,"
+                + "\"created_by\":\"Dr Example\","
                 + "\"issued_count\":1,\"last_issued_at\":\"2026-08-19T12:00:00Z\","
                 + "\"last_issued_by\":\"Dr Example\","
-                + "\"expires_at\":\"2026-08-26T12:00:00Z\"}";
+                + "\"expires_at\":\"2026-08-26T12:00:00Z\","
+                + "\"accepted_account_id\":null,\"supersedes_invite_id\":null}";
     }
 
     private String issuedInvite(long id, String status, long supersedesInviteId) {
         return invite(id, status).replace(
-                "}",
-                ",\"supersedes_invite_id\":" + supersedesInviteId
+                "\"supersedes_invite_id\":null}",
+                "\"supersedes_invite_id\":" + supersedesInviteId
                         + ",\"invite_token\":\"one-time-token\"}");
     }
 

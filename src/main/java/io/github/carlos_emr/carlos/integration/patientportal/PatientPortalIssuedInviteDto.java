@@ -42,14 +42,9 @@ public record PatientPortalIssuedInviteDto(
         PatientPortalInviteDto invite, PortalSecret inviteToken) {
 
     private static final String DESCRIPTION = "PatientPortalIssuedInviteDto[invite=%s, token=%s]";
-    private static final String MISSING_TOKEN =
-            "portal issued an invite without the one-time token";
-
     static PatientPortalIssuedInviteDto fromJson(JsonNode node) {
-        PortalSecret token = PortalSecret.ofNullable(PortalJson.text(node, "invite_token"));
-        if (token == null) {
-            throw new PortalContractException(MISSING_TOKEN);
-        }
+        String value = PortalJson.requiredText(node, "invite_token");
+        PortalSecret token = PortalSecret.of(value);
         return new PatientPortalIssuedInviteDto(PatientPortalInviteDto.fromJson(node), token);
     }
 
