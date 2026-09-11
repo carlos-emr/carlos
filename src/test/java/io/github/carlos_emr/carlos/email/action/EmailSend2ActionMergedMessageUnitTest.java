@@ -103,25 +103,30 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should route the single message into the encrypted PDF when encryption is on")
     void shouldRouteMessageToEncryptedPdf_whenEncryptionOn() {
-        EmailData sent = captureSentEmail("Confidential lab result for the patient.", "true");
+        EmailData sent = captureSentEmail(
+                "Confidential lab result for the patient.", "true", "true");
 
         // The clinical content goes into the encrypted-PDF channel; the visible cleartext body
         // is only the fixed, PHI-free notice.
         assertThat(sent.getEncryptedMessage()).isEqualTo("Confidential lab result for the patient.");
         assertThat(sent.getBody()).isEqualTo("SECURE_NOTICE");
         assertThat(sent.getIsEncrypted()).isTrue();
+        assertThat(sent.getAttachments()).hasSize(1);
+        assertThat(sent.getIsAttachmentEncrypted()).isTrue();
     }
 
     @Test
     @DisplayName("should route the single message into the cleartext body when encryption is off")
     void shouldRouteMessageToCleartextBody_whenEncryptionOff() {
-        EmailData sent = captureSentEmail("A non-clinical reminder.", "false");
+        EmailData sent = captureSentEmail("A non-clinical reminder.", "false", "false");
 
         // The message is sent as the cleartext body; the encrypted-PDF channel stays empty so the
         // client can never populate both at once.
         assertThat(sent.getBody()).isEqualTo("A non-clinical reminder.");
         assertThat(sent.getEncryptedMessage()).isEmpty();
         assertThat(sent.getIsEncrypted()).isFalse();
+        assertThat(sent.getAttachments()).hasSize(1);
+        assertThat(sent.getIsAttachmentEncrypted()).isFalse();
     }
 
     @ParameterizedTest
@@ -174,15 +179,17 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should encrypt by default when the encryption flag is missing")
-    void shouldEncryptByDefault_whenEncryptionFlagMissing() {
-        // Fail closed: a direct/malformed POST that omits the isEmailEncrypted toggle must route the
-        // message into the encrypted-PDF channel, never the cleartext body.
-        EmailData sent = captureSentEmail("Confidential note.", null);
+    @DisplayName("should default message and attachment encryption on when their flags are missing")
+    void shouldDefaultEncryptionOn_whenEncryptionFlagsMissing() {
+        // Fail closed: a direct/malformed POST that omits either encryption toggle must protect both
+        // the message channel and any attachments supplied through the compose session.
+        EmailData sent = captureSentEmail("Confidential note.", null, null);
 
         assertThat(sent.getEncryptedMessage()).isEqualTo("Confidential note.");
         assertThat(sent.getBody()).isEqualTo("SECURE_NOTICE");
         assertThat(sent.getIsEncrypted()).isTrue();
+        assertThat(sent.getAttachments()).hasSize(1);
+        assertThat(sent.getIsAttachmentEncrypted()).isTrue();
     }
 
     @Test
@@ -279,6 +286,8 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         request.setParameter("emailPDFPasswordClue", "Known to the patient");
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of(
+                new EmailAttachment("result.pdf", "/tmp/result.pdf", DocumentType.DOC, 7)));
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         EmailLog emailLog = mock(EmailLog.class);
@@ -295,6 +304,7 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         // Fail closed: a missing toggle must re-render ON so a retry stays encrypted, matching the
         // fail-closed send-side routing.
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
     }
 
     @Test
@@ -397,12 +407,12 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Drives sendDirectEmail() with the given single "message" field and encryption flag, and
+     * Drives sendDirectEmail() with the given single "message" field and encryption flags, and
      * returns the EmailData the action handed to EmailManager so routing can be asserted. A null
-     * {@code isEmailEncrypted} omits that parameter entirely, mirroring a direct POST that leaves it
-     * out.
+     * flag omits its parameter entirely, mirroring a direct POST that leaves it out.
      */
-    private EmailData captureSentEmail(String message, String isEmailEncrypted) {
+    private EmailData captureSentEmail(
+            String message, String isEmailEncrypted, String isEmailAttachmentEncrypted) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         if (message != null) {
             request.setParameter("message", message);
@@ -410,12 +420,17 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         if (isEmailEncrypted != null) {
             request.setParameter("isEmailEncrypted", isEmailEncrypted);
         }
+        if (isEmailAttachmentEncrypted != null) {
+            request.setParameter("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
+        }
         if (!"false".equals(isEmailEncrypted)) {
             request.setParameter("emailPDFPassword", "valid-password");
             request.setParameter("emailPDFPasswordClue", "Known to the patient");
         }
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of(
+                new EmailAttachment("result.pdf", "/tmp/result.pdf", DocumentType.DOC, 7)));
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         EmailLog emailLog = mock(EmailLog.class);

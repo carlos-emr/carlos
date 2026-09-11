@@ -234,12 +234,12 @@ public class EmailSend2Action extends ActionSupport {
      */
     private void preserveComposeInputsForReRender(EmailLog emailLog) {
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
-        // Fail closed on the message-encryption flag, matching prepareEmailFields: only an explicit
-        // "false" re-renders the toggle OFF, so a failed encrypted draft can never reopen as cleartext.
+        // Fail closed on both encryption flags, matching prepareEmailFields: only an explicit
+        // "false" re-renders a toggle OFF, so a failed draft cannot silently lose protection.
         request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED,
-                isMessageEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
+                isEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
         request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED,
-                Boolean.TRUE.toString().equals(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
+                isEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
         request.setAttribute("demographicId", request.getParameter("demographicId"));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("fid", request.getParameter("fid"));
@@ -384,7 +384,7 @@ public class EmailSend2Action extends ActionSupport {
      * @throws EmailSendValidationException when encrypted delivery lacks a usable password or clue
      */
     private void validateEncryptionRequirements(HttpServletRequest request) {
-        if (!isMessageEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
+        if (!isEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
             return;
         }
 
@@ -446,15 +446,16 @@ public class EmailSend2Action extends ActionSupport {
             message = "";
         }
         // Fail closed: treat only an explicit "false" as encryption OFF. A direct or malformed POST
-        // that omits or garbles the toggle defaults to ENCRYPTED, so PHI is never routed to the
-        // cleartext body when intent is unclear (the compose flow defaults encryption on). See #3118.
-        boolean encrypted = isMessageEncryptionEnabled(isEncrypted);
+        // that omits or garbles either toggle defaults to ENCRYPTED, so PHI is never routed to the
+        // cleartext body or sent in an unprotected attachment when intent is unclear. See #3118.
+        boolean encrypted = isEncryptionEnabled(isEncrypted);
+        boolean attachmentEncrypted = isEncryptionEnabled(
+                request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED));
         String body = encrypted ? encryptedBodyNotice() : message;
         String encryptedMessage = encrypted ? message : "";
 
         String password = request.getParameter("emailPDFPassword");
         String passwordClue = request.getParameter("emailPDFPasswordClue");
-        String isAttachmentEncrypted = request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED);
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
         String transactionType = request.getParameter("transactionType");
@@ -475,7 +476,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);
         emailData.setIsEncrypted(encrypted);
-        emailData.setIsAttachmentEncrypted(isAttachmentEncrypted);
+        emailData.setIsAttachmentEncrypted(attachmentEncrypted);
         emailData.setChartDisplayOption(chartDisplayOption);
         emailData.setInternalComment(internalComment);
         emailData.setTransactionType(transactionType);
@@ -487,8 +488,8 @@ public class EmailSend2Action extends ActionSupport {
         return emailData;
     }
 
-    /** Only an explicit false value opts out of message encryption. */
-    private static boolean isMessageEncryptionEnabled(String value) {
+    /** Only an explicit false value opts out of message or attachment encryption. */
+    private static boolean isEncryptionEnabled(String value) {
         return !Boolean.FALSE.toString().equals(value);
     }
 

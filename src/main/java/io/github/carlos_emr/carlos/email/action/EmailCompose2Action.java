@@ -288,9 +288,11 @@ public class EmailCompose2Action extends ActionSupport {
         // contain content, the protected channel deliberately wins: there is no reliable way to
         // distinguish a meaningful historical cleartext body from the fixed notice stored by the
         // unified workflow.
-        // Fail closed when older entry points do not seed the session flag: only an explicit
-        // Boolean false may open the composer with encryption disabled.
+        // Fail closed when older entry points do not seed either session flag: only an explicit
+        // Boolean false may open the composer with message or attachment encryption disabled.
         boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
+        boolean isEmailAttachmentEncrypted =
+                !Boolean.FALSE.equals(session.getAttribute("isEmailAttachmentEncrypted"));
         isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
                 isEmailEncrypted, bodyEmail, encryptedMessageEmail);
         request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
@@ -301,7 +303,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
         request.setAttribute("isEmailEncrypted", isEmailEncrypted);
-        request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
+        request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
         request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
