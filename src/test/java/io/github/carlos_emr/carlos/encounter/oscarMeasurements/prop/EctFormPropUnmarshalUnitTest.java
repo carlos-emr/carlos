@@ -80,15 +80,39 @@ class EctFormPropUnmarshalUnitTest {
         assertThat(rules).as("VTForm.xml declares validation rules").isGreaterThan(0);
     }
 
+    @Test
+    @DisplayName("the measurement-form save and setup paths should read the unmarshalled instance, not the static accumulator")
+    void shouldReadInstanceMeasurements_onProductionFormPaths() throws Exception {
+        // EctFormProp.getMeasurementTypes() is process-wide and refilled by every unmarshal, so
+        // a form saved while another provider's form was being set up could be validated
+        // against the other form's rules. Both production readers now take the list bound to
+        // the EctFormProp they unmarshalled.
+        String util = Files.readString(resolveProjectPath(Path.of("src", "main", "java", "io", "github",
+                "carlos_emr", "carlos", "encounter", "oscarMeasurements", "util", "EctFindMeasurementTypeUtil.java")));
+        String formAction = Files.readString(resolveProjectPath(Path.of("src", "main", "java", "io", "github",
+                "carlos_emr", "carlos", "form", "pageUtil", "FrmForm2Action.java")));
+
+        assertThat(util)
+                .contains("Vector<EctMeasurementTypesBean> measurementTypes = loadMeasurementTypes(is);")
+                .doesNotContain("EctFormProp.getMeasurementTypes()");
+        assertThat(formAction)
+                .contains("loadMeasurementTypes(trustedFormName)")
+                .doesNotContain("EctFormProp.getMeasurementTypes();");
+    }
+
+    /** Bounded like the other fixture helpers: a run from an unrelated directory fails fast. */
+    private static final int MAX_PARENT_SEARCH_DEPTH = 8;
+
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of("").toAbsolutePath();
-        while (current != null) {
+        for (int depth = 0; current != null && depth <= MAX_PARENT_SEARCH_DEPTH; depth++) {
             Path candidate = current.resolve(relativePath);
             if (Files.exists(candidate)) {
                 return candidate;
             }
             current = current.getParent();
         }
-        throw new IllegalStateException("Could not resolve " + relativePath);
+        throw new IllegalStateException("Could not resolve " + relativePath + " within "
+                + MAX_PARENT_SEARCH_DEPTH + " parent directories of " + Path.of("").toAbsolutePath());
     }
 }

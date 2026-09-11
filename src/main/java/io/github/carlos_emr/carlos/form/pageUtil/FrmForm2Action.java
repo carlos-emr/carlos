@@ -30,6 +30,11 @@
 package io.github.carlos_emr.carlos.form.pageUtil;
 
 import java.io.IOException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -58,7 +63,6 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
-import io.github.carlos_emr.carlos.encounter.oscarMeasurements.prop.EctFormProp;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -93,6 +97,23 @@ public class FrmForm2Action extends ActionSupport {
      **/
 
     private String _dateFormat = "yyyy/MM/dd";
+
+    /**
+     * Unmarshals {@code /form/<formName>.xml} the same way {@link FrmSetupForm2Action} does when it
+     * renders the form, so the save validates against the definitions of the form being saved.
+     *
+     * @param trustedFormName a form name already passed through {@link #validateSetupFormName}
+     */
+    private Vector<EctMeasurementTypesBean> loadMeasurementTypes(String trustedFormName) throws IOException {
+        String formDirPath = request.getSession().getServletContext().getRealPath("/form/");
+        if (formDirPath == null) {
+            throw new IOException("Cannot resolve form directory path — exploded WAR deployment required");
+        }
+        File validatedForm = PathValidationUtils.validatePath(trustedFormName + ".xml", new File(formDirPath));
+        try (InputStream is = new FileInputStream(validatedForm)) {
+            return EctFindMeasurementTypeUtil.loadMeasurementTypes(is); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
+        }
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -133,7 +154,11 @@ public class FrmForm2Action extends ActionSupport {
 
         Properties props = new Properties();
 
-        Vector measurementTypes = EctFormProp.getMeasurementTypes();
+        // Read this form's own definition rather than EctFormProp.getMeasurementTypes(): that
+        // static vector holds whichever form was unmarshalled last anywhere in the JVM (the
+        // setup action of another provider's form, say), so a save validated against it could
+        // apply another form's measurement rules.
+        Vector<EctMeasurementTypesBean> measurementTypes = loadMeasurementTypes(trustedFormName);
         logger.debug("num measurements " + measurementTypes.size());
         String demographicNo = null;
         String providerNo = (String) session.getAttribute("user");

@@ -252,6 +252,38 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
+    @DisplayName("reopening a saved note for editing should HTML-escape the decoded text inside the textarea markup")
+    void shouldEscapeDecodedNote_whenBuildingEditorMarkup() throws IOException {
+        // renderedNoteText() hands back the raw note, and editNote() splices it into
+        // "<textarea ...>" + payload + "</textarea>" through insertAdjacentHTML. Unescaped, a
+        // note holding "</textarea><img onerror=...>" would close the element and run when
+        // the next clinician opened it. Escaped, the textarea's RCDATA decodes it back to the
+        // clinician's text.
+        String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(js)
+                .contains("+ escapeNoteText(payload) + \"<\\/textarea>\"")
+                .doesNotContain("+ payload + \"<\\/textarea>\"");
+    }
+
+    @Test
+    @DisplayName("save-on-switch should hand the saved note text and its container to the view")
+    void shouldRenderSavedNote_afterSaveOnSwitch() throws IOException {
+        // The fragment reads ${noteTxt}, a scoped attribute, so ajaxsave() must set it or the
+        // view of the note just saved renders empty. It then promoted the container with
+        // $("nc" + origId), but the page renders the initial note as nc<offset><idx> ("nc00"
+        // for n0), so that lookup was null and threw before the fragment finished.
+        String action = read(Path.of("src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java"));
+        String jsp = Files.readString(NOTE_ISSUE_LIST_JSP, StandardCharsets.UTF_8);
+
+        assertThat(action).contains("request.setAttribute(\"noteTxt\", noteTxt);");
+        assertThat(jsp)
+                .contains("var savedNoteDiv = $(\"n\" + newId);")
+                .contains("noteContainer.id = \"nc\" + maxNcId;")
+                .doesNotContain("$(\"nc\" + origId)");
+    }
+
+    @Test
     @DisplayName("save-on-switch should post the whole note as one noteTxt parameter")
     void shouldEncodeNoteTxt_asOneParameter() throws IOException {
         // ajaxSaveNote() is the save that runs when a note with unsaved text is left for

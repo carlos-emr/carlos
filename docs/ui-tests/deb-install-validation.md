@@ -144,7 +144,40 @@ the chart's form shortcut now always carries `formId` (0 when the patient has no
 record of that form yet, which every form page parses unconditionally), and
 Discharge Summary no longer requires a program id in the session. Verified in
 the browser: Mental Health Form 14 opens from the shortcut for a patient with
-no record, and Discharge Summary opens and saves such prose as a new record. A
+no record, and Discharge Summary opens and saves such prose as a new record.
+The form save (`FrmForm2Action`) and the setup check
+(`EctFindMeasurementTypeUtil.checkMeasurmentTypes`) also now validate against
+the definition file they read rather than `EctFormProp.getMeasurementTypes()`,
+a static list refilled by every unmarshal in the JVM, so one provider opening
+a form can no longer change the rules another provider's save is checked
+against. One nested form page is reported by the generator but exempted
+nowhere: `form/pharmaForms/formBPMH.jsp` posts to `/formBPMH`, no page links
+to it, its fetch path dereferences a handler only the save path constructs
+(HTTP 500 measured on the packaged install), and its prose widgets are
+`<form:textarea>` tags with no such taglib declared, so they render as inert
+text. Repairing it is a form migration of its own.
+
+Two more defects surfaced while driving the note route and are fixed here,
+both verified in the browser through `:443`. Leaving a note with unsaved text
+for another note (save-on-switch) rendered an empty view: `ajaxsave()` never
+set the `noteTxt` attribute `noteIssueList.jsp` reads, and for a brand-new
+note the fragment then threw on `$("nc" + origId)`, because the page renders
+the initial note's container as `nc<offset><idx>` (`nc00` for `n0`) while
+`newNote()` builds `nc0N`. The action now hands the saved text to the view and
+the fragment promotes the container by walking up from the note div it just
+renamed. Reopening a saved note for editing (`editNote()`) now HTML-escapes
+the decoded text before splicing it into the textarea markup, so a note
+holding `</textarea><img onerror=...>` decodes back into the editor as text
+rather than closing the element (`CaseManagementCppSaveRegressionTest`). And
+the waiting-list page (`waitinglist/DisplayWaitingList.jsp`) now names its row
+fields `waitingListBean[<i>].demographicNo/note/onListSince` with their
+current values: the plain names left from the Struts 1 `indexed="true"` tags
+made `setParameters()` build `waitingListBean[undefined].*` selectors, so
+every row update fell through to a reposition and the edit was lost. Verified
+on the packaged install: a note holding `& < > 2+2` and a new date persist as
+a new `waitingList` row with the old one marked history
+(`WLMutation2ActionsTest` pins the page's field names against the action's
+selector contract). A
 quick way to re-survey after a policy change is to POST each field
 through `:443` unauthenticated with a value that begins with
 `http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the

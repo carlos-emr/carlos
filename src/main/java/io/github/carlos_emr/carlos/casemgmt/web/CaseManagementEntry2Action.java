@@ -1915,6 +1915,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute(varName, false); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         request.setAttribute("ajaxsave", note.getId());
         request.setAttribute("origNoteId", noteId);
+        // noteIssueList.jsp renders the saved text into the read-only view through
+        // ${noteTxt}; EL reads scoped attributes, not request parameters, so without this
+        // the view of a note saved on switch came up empty until the chart was reloaded.
+        request.setAttribute("noteTxt", noteTxt);
 
         String logAction;
         if (newNote) {

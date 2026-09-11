@@ -165,9 +165,11 @@ class FormProseWafExclusionRegressionTest {
 
     private static Map<String, PageInfo> analyseAll() throws IOException {
         Map<String, PageInfo> infos = new TreeMap<>();
-        try (Stream<Path> files = Files.list(FORM_DIR)) {
+        // Walk the subdirectories (pharmaForms/) as the generator does, keyed by the path
+        // under the form directory, so a nested page cannot hide from the mirror.
+        try (Stream<Path> files = Files.walk(FORM_DIR)) {
             for (Path file : files.filter(p -> p.getFileName().toString().endsWith(".jsp")).sorted().collect(Collectors.toList())) {
-                infos.put(file.getFileName().toString(), analyse(file));
+                infos.put(FORM_DIR.relativize(file).toString().replace('\\', '/'), analyse(file));
             }
         }
         return infos;

@@ -91,6 +91,11 @@ NON_FORM_ROUTE_PAGES = {
     "addRhInjection.jsp": "posts reason/reasonOtherText to /prevention/AddPrevention, "
                           "covered by rule 1117 in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf",
     "formlabreqprint.jsp": "print view of the lab requisition; it has no form and posts nothing",
+    "pharmaForms/formBPMH.jsp": "posts to /formBPMH, not a /form/ route, and is not reachable: no page "
+                                "links to it, its fetch path dereferences a handler that only the save "
+                                "path constructs (HTTP 500 measured on the packaged install), and its "
+                                "prose widgets are <form:textarea> tags with no such taglib declared, "
+                                "so they render as inert text. Nothing to exempt until the page is repaired",
 }
 INCLUDE_RE = re.compile(r"""<jsp:include\s+page\s*=\s*["']([^"']+)["']|<%@\s*include\s+file\s*=\s*["']([^"']+)["']""",
                         re.IGNORECASE)
@@ -155,7 +160,11 @@ def resolve(f, infos, includers, depth=0):
 
 
 def collect():
-    files = sorted(f for f in os.listdir(FORM_DIR) if f.endswith(".jsp"))
+    # Walk the subdirectories too (pharmaForms/): a nested page is keyed by its path under the
+    # form directory, so it is reported under that name rather than silently left out.
+    files = sorted(os.path.relpath(os.path.join(directory, name), FORM_DIR)
+                   for directory, _, names in os.walk(FORM_DIR)
+                   for name in names if name.endswith(".jsp"))
     infos = {f: analyse(os.path.join(FORM_DIR, f)) for f in files}
     includers = {}
     for f in files:
@@ -170,14 +179,16 @@ def collect():
         # would otherwise vanish from the report while staying blocked by the WAF.
         for d in info["dynamic"]:
             report.append(f"SKIPPED {f}: name {d!r} cannot be a literal ctl target")
+        if f in NON_FORM_ROUTE_PAGES:
+            # Reported whether or not any literal cell was found: the point is to say where
+            # the page's prose went, not to exempt it here.
+            report.append(f"NOTE {f}: {NON_FORM_ROUTE_PAGES[f]}")
+            continue
         if not info["names"]:
             continue
         route, form_class = resolve(f, infos, includers)
         if route is None:
-            if f in NON_FORM_ROUTE_PAGES:
-                report.append(f"NOTE {f}: {NON_FORM_ROUTE_PAGES[f]}")
-            else:
-                report.append(f"SKIPPED {f}: prose cells but no /form/ save route ({len(info['names'])} names)")
+            report.append(f"SKIPPED {f}: prose cells but no /form/ save route ({len(info['names'])} names)")
             continue
         groups.setdefault((route, form_class), [])
         for n in info["names"]:

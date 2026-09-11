@@ -37,7 +37,6 @@
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-    var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
     var providerNo;
     var demographicNo;
@@ -2023,7 +2022,10 @@ function updateCPPNote() {
         Element.remove(txtId);
         caseNote = "caseNote_note" + nId;
 
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        // The decoded text goes back through HTML: a textarea's content is RCDATA, so the
+        // entities decode into the editor unchanged, while a note holding "</textarea>"
+        // or "<img onerror=...>" cannot close the element or become markup.
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + escapeNoteText(payload) + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 

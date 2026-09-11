@@ -93,6 +93,25 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     that form no longer fails with an error page: the shortcut now opens a
     new form. The Discharge Summary also opens at a clinic that does not use
     programs.
+  * Saving an encounter form validates it against that form's own measurement
+    definitions. The save read a process-wide list that holds whichever
+    definition file was read last anywhere on the server, so a form saved
+    while another provider was opening a different form could be checked
+    against the other form's rules. The save and the setup step now each read
+    the file they were given.
+  * Leaving a note with unsaved text for another note, or for a new one, now
+    shows the saved note in place. The refresh that runs after that save never
+    received the note text, so the note came back as an empty box until the
+    chart was reloaded, and for a brand-new note the refresh then failed on an
+    element it looked up under the wrong name. Reopening a saved note for
+    editing also escapes the text it puts into the editor, so a note holding
+    something like "</textarea>" cannot become markup when the next clinician
+    opens it.
+  * Editing a patient's note or date on a waiting list saves again. The page
+    named its row fields plainly, so the update's row selectors came out as
+    "waitingListBean[undefined]" and every update fell through to a
+    re-numbering of the list; the fields now carry their row index and their
+    current values, as the update expects.
   * The legacy encounter-note entry view, the note history popup, the legacy
     tickler list, the prescription record and reason comments, and the
     demographic alert and notes boxes now encode the text they put back on

@@ -28,6 +28,11 @@ import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -428,5 +433,45 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             assertThat(WLSetupDisplayWaitingList2Action.rowIndexOf("comments-1")).isNull();
             assertThat(WLSetupDisplayWaitingList2Action.rowIndexOf(null)).isNull();
         }
+
+        @Test
+        @DisplayName("the waiting-list page should post each row's fields under the selector shape the action requires")
+        void shouldEmitIndexedRowFields_onDisplayWaitingListPage() throws IOException {
+            // setParameters() reads the row index out of the edited field's name and the update
+            // posts waitingListBean[i].demographicNo/note/onListSince selectors that the action
+            // resolves back to parameters. With the Struts 1 indexed="true" attribute left as
+            // inert HTML the fields were named plain "note", the selectors came out as
+            // waitingListBean[undefined].*, and every update fell through to a reposition.
+            String jsp = Files.readString(resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
+                    "waitinglist", "DisplayWaitingList.jsp")), StandardCharsets.UTF_8);
+
+            assertThat(jsp)
+                    .contains("name=\"waitingListBean[${ctr.index}].demographicNo\" value=\"${carlos:forHtmlAttribute(waitingListBean.demographicNo)}\"")
+                    .contains("name=\"waitingListBean[${ctr.index}].note\"")
+                    .contains("name=\"waitingListBean[${ctr.index}].onListSince\" value=\"${carlos:forHtmlAttribute(waitingListBean.onListSince)}\"")
+                    .doesNotContain("name=\"note\"")
+                    .doesNotContain("name=\"onListSince\"")
+                    .doesNotContain("indexed=\"true\"")
+                    .doesNotContain("var wlcount = 0;");
+            for (String field : new String[]{"demographicNo", "note", "onListSince"}) {
+                assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("waitingListBean[3]." + field, field))
+                        .as("the page's %s selector satisfies the action's contract", field).isTrue();
+            }
+        }
+    }
+
+    private static final int MAX_PARENT_SEARCH_DEPTH = 8;
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of("").toAbsolutePath();
+        for (int depth = 0; current != null && depth <= MAX_PARENT_SEARCH_DEPTH; depth++) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Could not resolve " + relativePath + " within "
+                + MAX_PARENT_SEARCH_DEPTH + " parent directories of " + Path.of("").toAbsolutePath());
     }
 }
