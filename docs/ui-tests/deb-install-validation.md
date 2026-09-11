@@ -77,7 +77,7 @@ The encounter forms under `/form/*` are covered by a **generated** file,
 `scripts/waf/generate-form-prose-exclusions.py` from the form JSPs: one rule per
 save route and, on the shared `/form/formname` route, per `form_class`, listing
 that form's `<textarea>` cells and the single-line inputs whose names mark them
-as narrative boxes (48 rules, 1,257 cells at the time of writing). The
+as narrative boxes (48 rules, 1,250 cells at the time of writing). The
 `form_class`-keyed rules run in phase 2, where the POST body is available.
 `FormProseWafExclusionRegressionTest` re-derives the same table from the JSPs
 and fails when the committed file is stale, so after editing a form run the
