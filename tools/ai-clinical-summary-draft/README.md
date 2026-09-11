@@ -110,8 +110,10 @@ limit, 4 MiB response limit, 65,536-token
 context and 4,096-token output limit. Truncated, malformed or inconsistent output
 is withheld. Generated drafts also use fixed clinical sections and bounded prose;
 duplicate claims or coverage reasons, fixture metadata presented as claims, and
-claims without basic lexical overlap with cited evidence are withheld. These checks
-do not establish clinical accuracy or citation support.
+claims without basic lexical overlap with cited evidence are withheld. The overlap
+check recognizes a small fixed set of common clinical abbreviations such as HR,
+BP, RR, SpO2 and HF so readable expansions are not rejected. These checks do not
+establish clinical accuracy or citation support.
 
 ## Offline local generation
 

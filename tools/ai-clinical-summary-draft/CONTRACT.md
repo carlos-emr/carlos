@@ -51,7 +51,9 @@ uses a fixed set of five clinical sections, omits empty sections, contains 1-20
 single-paragraph claims of at most 240 characters, and keeps coverage reasons to
 160 characters. Normalized duplicate claims and reasons, fixture metadata posed
 as clinical claims, and claims without basic lexical overlap with their cited
-sources are rejected. These checks reduce obvious low-quality output but do not
+sources are rejected. A fixed abbreviation map treats common clinical shorthand
+such as HR, BP, RR, SpO2 and HF as lexical equivalents of their readable forms.
+These checks reduce obvious low-quality output but do not
 prove that prose is clinically supported or correct. Generated output accepts
 exactly sections, claims and coverage and must pass this contract before rendering.
 Chart-derived patient context may contain a

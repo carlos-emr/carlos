@@ -24,6 +24,15 @@ COMMON_WORDS = {
     "report", "reported", "source", "that", "the", "their", "there", "this", "was", "were",
     "with", "without",
 }
+LEXICAL_EXPANSIONS = (
+    (re.compile(r"\bhr\b", re.IGNORECASE), "heart rate"),
+    (re.compile(r"\bbp\b", re.IGNORECASE), "blood pressure"),
+    (re.compile(r"\brr\b", re.IGNORECASE), "respiratory rate"),
+    (re.compile(r"\bspo2\b", re.IGNORECASE), "oxygen saturation"),
+    (re.compile(r"\bhf\b", re.IGNORECASE), "heart failure"),
+    (re.compile(r"\bf/u\b", re.IGNORECASE), "follow up"),
+    (re.compile(r"\bwks?\b", re.IGNORECASE), "weeks"),
+)
 
 
 def require(condition, message):
@@ -69,7 +78,10 @@ def normalized(value):
 
 
 def words(value):
-    return {word for word in re.findall(r"[^\W_]+", unicodedata.normalize("NFKC", value).lower(), re.UNICODE)
+    expanded = unicodedata.normalize("NFKC", value).lower()
+    for pattern, replacement in LEXICAL_EXPANSIONS:
+        expanded = pattern.sub(replacement, expanded)
+    return {word for word in re.findall(r"[^\W_]+", expanded, re.UNICODE)
             if len(word) >= 3}
 
 

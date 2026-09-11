@@ -74,6 +74,14 @@ separate renal-monitoring and thyroid-adjustment cases.
 `stability-normalized-27b.json` adds two further seeds over the three regression
 cases after the single-seed checkpoint succeeds.
 
+`checkpoint-fluent-27b.json` keeps exact contiguous quotations as hidden audit
+evidence but permits displayed claim text to paraphrase, expand unambiguous
+clinical abbreviations, and repair note fragments without changing clinical
+meaning. The host still owns claim IDs, final sections, citations, coverage,
+ledger-duplicate suppression, and observation grouping. A fragmented-note case
+checks fluent vital signs, medication frequency, and follow-up shorthand while
+an administrative prompt-injection source is excluded.
+
 ## Campaign tiers
 
 Qwen 2B is an iteration proxy. Qwen 27B remains the authority for promotion:
@@ -130,6 +138,10 @@ python3 tools/ai-clinical-summary-eval/run_campaign.py \
 python3 tools/ai-clinical-summary-eval/run_campaign.py \
   --config tools/ai-clinical-summary-eval/campaigns/stability-normalized-27b.json
 
+# Check fluent displayed prose with exact hidden evidence on 27B.
+python3 tools/ai-clinical-summary-eval/run_campaign.py \
+  --config tools/ai-clinical-summary-eval/campaigns/checkpoint-fluent-27b.json
+
 # Run only surviving candidates on the 27B smoke cases.
 python3 tools/ai-clinical-summary-eval/run_campaign.py \
   --config tools/ai-clinical-summary-eval/campaigns/smoke-27b.json \
@@ -162,6 +174,12 @@ failed rows without aborting the remaining matrix. After a transport error or
 timeout, it writes a partial report and stops: Ollama can continue a request after
 the client disconnects, so restart Ollama and begin a new campaign before
 collecting more latency data. The runner never pulls or starts a model.
+The fluent 27B mode has one bounded compatibility path for the local Qwen/Ollama
+decoder: when generation reaches its token limit, the host parses only the first
+complete JSON value and never interprets later output. That value must still pass
+the exact schema, quotation, numeric, citation, section, and evaluation gates.
+The raw response is retained and metadata records `structured_prefix_recovered`;
+every other output mode still requires `done_reason=stop`.
 Each generation request uses `keep_alive: 0`, forcing Ollama to unload the model
 after the response. This deliberately trades repeated load time for bounded
 memory and independent timings on machines that cannot safely retain Qwen 27B
