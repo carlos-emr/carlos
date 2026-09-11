@@ -82,10 +82,12 @@ browser through `:443` with such prose are stored intact. Not covered, and
 reported by the generator: the Vascular Tracker's `value(...)` cells, because
 libmodsecurity rejects parentheses in a `ctl` target, and the growth-chart and
 chart-checklist cells whose names are generated per row. Those still 403 on
-such text. Two form JSPs open with a 500 on this install before any WAF is
-involved (Discharge Summary needs a program id in the session; every form needs
-`formId` on the URL, which the chart shortcut omits for a patient with no prior
-record); that is application behaviour, not part of this change. A
+such text. Two form-page 500s found while proving this are fixed alongside it:
+the chart's form shortcut now always carries `formId` (0 when the patient has no
+record of that form yet, which every form page parses unconditionally), and
+Discharge Summary no longer requires a program id in the session. Verified in
+the browser: Mental Health Form 14 opens from the shortcut for a patient with
+no record, and Discharge Summary opens and saves such prose as a new record. A
 quick way to re-survey after a policy change is to POST each field
 through `:443` unauthenticated with a value that begins with
 `http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the

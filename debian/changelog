@@ -49,6 +49,10 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     save route and form class; a regression test keeps that list in step
     with the form pages. The Vascular Tracker's bracketed cell names and the
     growth-chart per-row comments cannot be listed and still answer 403.
+  * Opening an encounter form from the chart for a patient who has never had
+    that form no longer fails with an error page: the shortcut now opens a
+    new form. The Discharge Summary also opens at a clinic that does not use
+    programs.
   * The legacy encounter-note entry view now encodes the note it puts back
     into its text box. With the firewall no longer reading that note as a
     script attack, the application's own output encoding is what keeps a
