@@ -227,7 +227,7 @@
                     show('updateButton', false);
                 } else if (status.state === 'FAILED') {
                     setResult('The last update' + (status.finishedAt ? ' (' + status.finishedAt + ')' : '')
-                        + ' FAILED and the previous drug data was kept: ' + (status.message || 'no details'), 'danger');
+                        + ' FAILED: ' + (status.message || 'no details'), 'danger');
                     show('updateButton', true);
                 } else if (status.state === 'SUCCEEDED') {
                     setResult('Update completed' + (status.finishedAt ? ' at ' + status.finishedAt : '')

@@ -463,7 +463,13 @@
 
 
             function addNotes() {
-
+                // A later blur/button event must not enqueue a write after the fax has frozen
+                // its note. The server renders the stored note, so that write could otherwise
+                // overtake the fax request and disagree with the captured encounter-paste text.
+                if (faxSubmissionPending) {
+                    if (faxNotesState) faxNotesState.notes.value = faxNotesState.value;
+                    return false;
+                }
                 var url = '${carlos:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
@@ -803,6 +809,35 @@
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
             var faxSubmissionPending = false;
+            var faxNotesState = null;
+
+            function lockFaxNotes() {
+                var notes = document.getElementById('additionalNotes');
+                if (!notes || faxNotesState) return;
+                var saveButton = document.getElementById('saveAdditionalNotes');
+                faxNotesState = {
+                    notes: notes,
+                    value: notes.value,
+                    readOnly: notes.readOnly,
+                    disabled: notes.disabled,
+                    saveButton: saveButton,
+                    saveDisabled: saveButton ? saveButton.disabled : false
+                };
+                // Read-only keeps the frozen note selectable for copying after a paste error.
+                notes.readOnly = true;
+                if (saveButton) saveButton.disabled = true;
+            }
+
+            function unlockFaxNotes() {
+                if (!faxNotesState) return;
+                faxNotesState.notes.value = faxNotesState.value;
+                faxNotesState.notes.readOnly = faxNotesState.readOnly;
+                faxNotesState.notes.disabled = faxNotesState.disabled;
+                if (faxNotesState.saveButton) {
+                    faxNotesState.saveButton.disabled = faxNotesState.saveDisabled;
+                }
+                faxNotesState = null;
+            }
 
             function setFaxControlsDisabled(disabled) {
                 ['faxButton', 'faxPasteButton'].forEach(function (id) {
@@ -823,6 +858,7 @@
 
             function resetFailedFaxSubmission(previousUnloadHandler) {
                 faxSubmissionPending = false;
+                unlockFaxNotes();
                 setFaxControlsDisabled(shouldDisableFaxControls());
                 window.onbeforeunload = previousUnloadHandler;
             }
@@ -850,9 +886,9 @@
                 // Reusing it made a second click collide with the first attempt's clinical PDF.
                 // Give every fax submission a fresh path-safe identifier instead.
                 var faxDocumentId = '<%=signatureRequestId%>-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
-                // Bind Fax & Paste to the exact text visible at the click. The notes save may take
-                // time and the textarea remains editable; reading it in the later callback could
-                // paste text that was not part of the fax that just succeeded.
+                // Bind Fax & Paste to the exact text visible at the click. Freeze notes until
+                // this attempt finishes so a subsequent edit cannot overtake the fax's stored
+                // record read while the first notes save is still in flight.
                 var capturedPasteText = null;
                 if (pasteAfterSuccess) {
                     var previewForm = document.getElementById('preview').contentWindow.document.getElementById('preview2Form');
@@ -865,6 +901,7 @@
                 faxSubmissionPending = true;
                 setFaxControlsDisabled(true);
                 try {
+                    lockFaxNotes();
                     onPrint2('oscarRxFax', "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>",
                             faxDocumentId, Boolean(pasteAfterSuccess), capturedPasteText,
                             previousUnloadHandler);
@@ -1225,7 +1262,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             <td>
                                                 <textarea id="additionalNotes" style="width: 200px"
                                                           onchange="javascript:addNotes();"></textarea>
-                                                <input type="button" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
+                                                <input type="button" id="saveAdditionalNotes" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        class="btn btn-outline-secondary" onclick="javascript:addNotes();"/>
                                             </td>
                                         </tr>

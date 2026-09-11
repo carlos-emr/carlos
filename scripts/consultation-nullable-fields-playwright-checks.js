@@ -122,7 +122,7 @@ function sqlValue(value) {
     // The demo dataset ships hundreds of consults, so an empty first page is a
     // regression, not a filter: the packaged install once rendered zero rows
     // because the seeded _site_access_privacy grant was applied without
-    // multisite mode. The per-request fallback below must not mask that.
+    // multisite mode. Paging to the staged request must not mask that.
     const listRows = await listPage.locator('table.consult-table tbody tr').count();
     assert(listRows > 0, 'consultation list rendered no rows for the demo dataset');
 
@@ -130,20 +130,49 @@ function sqlValue(value) {
     // Require the exact staged row to render so direct form navigation cannot
     // hide a consultation-list failure such as a NULL urgency dereference.
     const requestRows = listPage.locator("table.consult-table tbody tr[onclick*='requestId=']");
-    const matchingRowIndexes = await requestRows.evaluateAll((rows, targetRequestId) => rows.flatMap((row, index) => {
-      const onclick = row.getAttribute('onclick') || '';
-      const targetMatch = /['"]([^'"]*\/encounter\/ViewRequest\?[^'"]*)['"]/.exec(onclick);
-      if (!targetMatch) return [];
-      try {
-        const targetUrl = new URL(targetMatch[1], window.location.href);
-        return targetUrl.searchParams.get('requestId') === targetRequestId ? [index] : [];
-      } catch {
-        return [];
+    let requestRow;
+    // Results are newest first, and seeded request 2 is older than the first
+    // 100 results. Follow the list's own pagination to exercise its real row.
+    while (!requestRow) {
+      const matchingRowIndexes = await requestRows.evaluateAll((rows, targetRequestId) => rows.flatMap((row, index) => {
+        const onclick = row.getAttribute('onclick') || '';
+        const targetMatch = /['"]([^'"]*\/encounter\/ViewRequest\?[^'"]*)['"]/.exec(onclick);
+        if (!targetMatch) return [];
+        try {
+          const targetUrl = new URL(targetMatch[1], window.location.href);
+          return targetUrl.searchParams.get('requestId') === targetRequestId ? [index] : [];
+        } catch {
+          return [];
+        }
+      }), requestId);
+      assert(matchingRowIndexes.length <= 1,
+        `consultation list rendered ${matchingRowIndexes.length} exact rows for staged request ${requestId}`);
+      if (matchingRowIndexes.length === 1) {
+        requestRow = requestRows.nth(matchingRowIndexes[0]);
+        break;
       }
-    }), requestId);
-    assert(matchingRowIndexes.length === 1,
-      `consultation list rendered ${matchingRowIndexes.length} exact rows for staged request ${requestId}`);
-    const requestRow = requestRows.nth(matchingRowIndexes[0]);
+
+      const nextButton = listPage.locator('button[onclick="gotoPage(true);"]');
+      assert(await nextButton.count() === 1,
+        `consultation list pagination ended without staged request ${requestId}`);
+      const previousOffset = Number(await listPage.locator('input[name="offset"]').inputValue());
+      assert(Number.isSafeInteger(previousOffset) && previousOffset >= 0,
+        `consultation list has invalid offset ${previousOffset}`);
+      const [nextResponse] = await Promise.all([
+        listPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+        nextButton.click(),
+      ]);
+      assert(nextResponse && nextResponse.ok(),
+        `consultation list next page failed with HTTP ${nextResponse?.status()}`);
+      await assertNotErrorPage(listPage, 'consultation list next page');
+      const nextUrl = new URL(listPage.url());
+      assert(nextUrl.origin === config.baseUrl.origin
+        && nextUrl.pathname === new URL(appUrl(config.baseUrl, '/encounter/ViewConsultation')).pathname,
+      `consultation list pagination opened an unexpected destination (${nextUrl.pathname})`);
+      const nextOffset = Number(await listPage.locator('input[name="offset"]').inputValue());
+      assert(Number.isSafeInteger(nextOffset) && nextOffset > previousOffset,
+        `consultation list pagination did not advance (${previousOffset} to ${nextOffset})`);
+    }
     const consultPopup = context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
     await requestRow.click();
     const consultPage = await consultPopup;

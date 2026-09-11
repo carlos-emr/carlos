@@ -89,7 +89,36 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        verifyNoInteractions(prescriptionDao, securityInfoManager);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verifyNoInteractions(prescriptionDao);
+    }
+
+    @Test
+    @DisplayName("should deny an unauthenticated GET before returning method information")
+    void shouldRejectMissingSession_beforeMethodCheck() {
+        request.setMethod("GET");
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(
+                any(jakarta.servlet.http.HttpServletRequest.class))).thenReturn(null);
+
+        assertThatThrownBy(() -> new ViewAddRxComment2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+
+        verifyNoInteractions(securityInfoManager, prescriptionDao);
+    }
+
+    @Test
+    @DisplayName("should deny a GET without coarse Rx write before returning method information")
+    void shouldRejectMissingPrivilege_beforeMethodCheck() {
+        request.setMethod("GET");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_rx"),
+                eq(SecurityInfoManager.WRITE), isNull())).thenReturn(false);
+
+        assertThatThrownBy(() -> new ViewAddRxComment2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+
+        verifyNoInteractions(prescriptionDao);
     }
 
     @Test

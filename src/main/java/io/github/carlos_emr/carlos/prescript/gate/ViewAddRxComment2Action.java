@@ -44,11 +44,6 @@ public final class ViewAddRxComment2Action extends ActionSupport {
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             throw new SecurityException("missing required sec object (_rx)");
@@ -57,6 +52,11 @@ public final class ViewAddRxComment2Action extends ActionSupport {
         // callers must receive the same denial whether those parameters are valid or malformed.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_rx)");
+        }
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         int scriptNo;

@@ -86,6 +86,7 @@
 
 const { chromium } = require('playwright');
 const { randomUUID } = require('node:crypto');
+const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 const {
   assert,
   assertNoPageErrors,
@@ -209,11 +210,36 @@ async function deactivateCreatedAllergies(context) {
   }
 }
 
+async function recordAllergy(page, marker, cancellation) {
+  await cancellation.run(async () => {
+    attemptedReactionMarkers.push(marker);
+    // Wait for every initiated operation, even if one fails. In particular, a
+    // signal must not start cleanup while the form submission is still pending.
+    const results = await Promise.allSettled([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('#RxAddAllergyForm input[value="Add Allergy"]').click(),
+    ]);
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
+    const response = results[0].value;
+    assert(response && response.ok(), `Adding allergy returned HTTP ${response?.status()}`);
+  });
+}
+
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const cancellation = createGracefulSignalCancellation();
+  let browser;
   let context;
   try {
+    browser = await chromium.launch({
+      ...getLaunchOptions(config.chromePath),
+      // Keep Chromium available to finally; Playwright otherwise closes it on
+      // these signals before the script can archive its generated allergies.
+      handleSIGINT: false,
+      handleSIGTERM: false,
+    });
+    cancellation.throwIfCancelled();
     if (config.baseUrl.protocol !== 'https:') {
       console.log(
         '[warn] BASE_URL is not HTTPS, so this run does NOT go through nginx and '
@@ -233,8 +259,11 @@ async function deactivateCreatedAllergies(context) {
       ignoreHTTPSErrors: loopback.has(host),
       viewport: { width: 1440, height: 1000 },
     });
+    context.setDefaultTimeout(30000);
+    cancellation.throwIfCancelled();
     const landing = await login(context, config, recorder);
     await landing.close();
+    cancellation.throwIfCancelled();
 
     // ---------------------------------------------------------------- part 1
     const allergyPage = await context.newPage();
@@ -297,6 +326,7 @@ async function deactivateCreatedAllergies(context) {
     const chosenName = ((await chosen.textContent()) || '').trim();
     assert(chosenName.length > 0, 'Search result anchor has no text');
 
+    cancellation.throwIfCancelled();
     const [reactionResponse] = await Promise.all([
       allergyPage.waitForResponse(
         (r) => r.url().includes('/rx/addReaction') && r.request().method() === 'POST',
@@ -314,11 +344,7 @@ async function deactivateCreatedAllergies(context) {
     const reactionForm = allergyPage.locator('#RxAddAllergyForm');
     await reactionForm.waitFor({ state: 'visible', timeout: 20000 });
     await allergyPage.locator('#reactionDescription').fill(typedReaction);
-    attemptedReactionMarkers.push(typedReaction);
-    await Promise.all([
-      allergyPage.waitForLoadState('domcontentloaded'),
-      allergyPage.locator('#RxAddAllergyForm input[value="Add Allergy"]').click(),
-    ]);
+    await recordAllergy(allergyPage, typedReaction, cancellation);
     await allergyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(allergyPage, 'allergy profile after add');
 
@@ -336,6 +362,7 @@ async function deactivateCreatedAllergies(context) {
     // ------------------------------------------------- part 2, the free-text allergy
     // "Custom Allergy" is how a clinician records an allergen they did not pick out
     // of the reference. It posts ID=0&type=0, the category DrugRef used to skip.
+    cancellation.throwIfCancelled();
     await allergyPage.locator('#searchString').fill(customAllergen);
     customConfirmMode = 'dismiss';
     const cancelledRequest = allergyPage.waitForRequest(
@@ -346,6 +373,7 @@ async function deactivateCreatedAllergies(context) {
     assert(customConfirmMode === null, 'The Custom Allergy control did not open its confirmation');
     assert(!(await cancelledRequest), 'Cancelling Custom Allergy still submitted addReaction2');
 
+    cancellation.throwIfCancelled();
     customConfirmMode = 'accept';
     const [customReactionResponse] = await Promise.all([
       allergyPage.waitForResponse(
@@ -366,11 +394,7 @@ async function deactivateCreatedAllergies(context) {
     // A free-text allergy renders the non-drug selector, and the form's own
     // doSubmit() refuses to submit while it is unset.
     await allergyPage.locator('#nonDrug').selectOption('off');
-    attemptedReactionMarkers.push(freeTextReaction);
-    await Promise.all([
-      allergyPage.waitForLoadState('domcontentloaded'),
-      allergyPage.locator('#RxAddAllergyForm input[value="Add Allergy"]').click(),
-    ]);
+    await recordAllergy(allergyPage, freeTextReaction, cancellation);
     await allergyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(allergyPage, 'allergy profile after custom add');
 
@@ -383,6 +407,7 @@ async function deactivateCreatedAllergies(context) {
     await allergyPage.close();
 
     // ---------------------------------------------------------------- part 3
+    cancellation.throwIfCancelled();
     const rxPage = await context.newPage();
     wirePage(rxPage, 'rx-alert', recorder);
     await gotoApp(rxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
@@ -407,6 +432,7 @@ async function deactivateCreatedAllergies(context) {
     // The allergy probe is a POST to /rx/showAllergy?method=allergyData fired by
     // prescribe.jsp as the drug lands in the stash. Wait on the response so the
     // assertion below is not racing the fetch.
+    cancellation.throwIfCancelled();
     const [allergyDataResponse] = await Promise.all([
       rxPage.waitForResponse(
         (r) => r.url().includes('/rx/showAllergy') && r.request().method() === 'POST',
@@ -453,6 +479,7 @@ async function deactivateCreatedAllergies(context) {
     // ---------------------------------------------------------------- part 4
     // The literally reported scenario: a penicillin prescribed to a patient carrying
     // the penicillin allergy recorded in part 1.
+    cancellation.throwIfCancelled();
     if (!matchedRequestedAllergen) {
       console.log(
         `[skip] part 4: the search for "${allergySearchTerm}" did not return "${allergenName}", so `
@@ -480,6 +507,7 @@ async function deactivateCreatedAllergies(context) {
       const typedDrugItems = typedRxPage.locator('ul.ui-autocomplete li');
       await typedDrugItems.first().waitFor({ state: 'visible', timeout: 20000 });
 
+      cancellation.throwIfCancelled();
       const [typedAllergyResponse] = await Promise.all([
         typedRxPage.waitForResponse(
           (r) => r.url().includes('/rx/showAllergy') && r.request().method() === 'POST',
@@ -507,6 +535,7 @@ async function deactivateCreatedAllergies(context) {
       await typedRxPage.close();
     }
 
+    cancellation.throwIfCancelled();
     assertNoPageErrors(recorder);
     assert(recorder.dialogs.length === 0,
       `The browser opened ${recorder.dialogs.length} unexpected dialog(s)`);
@@ -518,28 +547,40 @@ async function deactivateCreatedAllergies(context) {
       console.log(`  ${typedDrugTerm} warned on the allergen recorded from the search results`);
     }
   } catch (error) {
-    console.error('allergy-rx-alert checks FAILED:', error.message);
-    // Deliberately narrower than buildFailureDetails(): this check drives a real patient's
-    // allergy list, and the recorded reactions that come back in the probe JSON are the
-    // patient's own clinical text. Report the diagnostics that identify the defect --
-    // failed requests, console errors, dialogs -- and leave response bodies out.
-    console.error(JSON.stringify({
-      badResponses: recorder.badResponses,
-      consoleIssues: recorder.consoleIssues,
-      pageErrors: recorder.pageErrors,
-      dialogs: recorder.dialogs,
-    }, null, 2));
-    process.exitCode = 1;
-  } finally {
-    if (context && attemptedReactionMarkers.length > 0) {
-      try {
-        await deactivateCreatedAllergies(context);
-      } catch (cleanupError) {
-        console.error('allergy-rx-alert cleanup FAILED:', cleanupError.message);
-        process.exitCode = 1;
-      }
+    if (cancellation.isCancellation(error)) {
+      console.error(error.message);
+    } else {
+      console.error('allergy-rx-alert checks FAILED:', error.message);
+      // Deliberately narrower than buildFailureDetails(): this check drives a real patient's
+      // allergy list, and the recorded reactions that come back in the probe JSON are the
+      // patient's own clinical text. Report the diagnostics that identify the defect --
+      // failed requests, console errors, dialogs -- and leave response bodies out.
+      console.error(JSON.stringify({
+        badResponses: recorder.badResponses,
+        consoleIssues: recorder.consoleIssues,
+        pageErrors: recorder.pageErrors,
+        dialogs: recorder.dialogs,
+      }, null, 2));
+      process.exitCode = 1;
     }
-    if (context) await context.close();
-    await browser.close();
+  } finally {
+    try {
+      if (context && attemptedReactionMarkers.length > 0) {
+        try {
+          await deactivateCreatedAllergies(context);
+        } catch (cleanupError) {
+          console.error('allergy-rx-alert cleanup FAILED:', cleanupError.message);
+          process.exitCode = 1;
+        }
+      }
+      try {
+        if (context) await context.close();
+      } finally {
+        if (browser) await browser.close();
+      }
+    } finally {
+      if (cancellation.exitCode) process.exitCode = cancellation.exitCode;
+      cancellation.dispose();
+    }
   }
 })();
