@@ -36,8 +36,12 @@ import java.util.Locale;
  *
  * <ul>
  *   <li><b>Optional readers</b> ({@link #text}, {@link #optionalLong}, {@link #optionalInt}) return
- *       {@code null} when a field is absent or JSON null. Use these only where the portal genuinely
+ *       {@code null} when a field is absent or JSON null. Use these only where an endpoint genuinely
  *       may omit the field.
+ *   <li><b>Nullable readers</b> ({@link #nullableText}, {@link #nullableLong}, {@link
+ *       #nullableInt}) require the field to be present, but return {@code null} when its JSON value
+ *       is null. The portal's response models declare nullable fields explicitly; silently treating
+ *       an omitted field as null would hide a contract regression.
  *   <li><b>Required readers</b> ({@link #requiredLong}, {@link #requiredInt}, {@link #requiredBool})
  *       throw when a field is absent, null, or of the wrong JSON type. Use these for identifiers and
  *       safety-relevant flags, where Jackson's convenience accessors would coerce a missing field to
@@ -60,6 +64,18 @@ final class PortalJson {
     static String text(JsonNode node, String field) {
         JsonNode value = node.get(field);
         if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isTextual()) {
+            throw new PortalContractException(String.format(Locale.ROOT, WRONG_TYPE, field));
+        }
+        return value.textValue();
+    }
+
+    /** A declared nullable string: the member must exist, although its value may be JSON null. */
+    static String nullableText(JsonNode node, String field) {
+        JsonNode value = declared(node, field);
+        if (value.isNull()) {
             return null;
         }
         if (!value.isTextual()) {
@@ -106,9 +122,21 @@ final class PortalJson {
         return value == null || value.isNull() ? null : requiredLong(node, field);
     }
 
+    /** A declared nullable long: the member must exist, although its value may be JSON null. */
+    static Long nullableLong(JsonNode node, String field) {
+        JsonNode value = declared(node, field);
+        return value.isNull() ? null : requiredLong(node, field);
+    }
+
     static Integer optionalInt(JsonNode node, String field) {
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? null : requiredInt(node, field);
+    }
+
+    /** A declared nullable int: the member must exist, although its value may be JSON null. */
+    static Integer nullableInt(JsonNode node, String field) {
+        JsonNode value = declared(node, field);
+        return value.isNull() ? null : requiredInt(node, field);
     }
 
     /**
@@ -166,8 +194,17 @@ final class PortalJson {
     }
 
     private static JsonNode present(JsonNode node, String field) {
+        JsonNode value = declared(node, field);
+        if (value.isNull()) {
+            throw new PortalContractException(String.format(Locale.ROOT, MISSING_FIELD, field));
+        }
+        return value;
+    }
+
+    /** Returns a declared member, preserving JSON null while rejecting an omitted member. */
+    private static JsonNode declared(JsonNode node, String field) {
         JsonNode value = node.get(field);
-        if (value == null || value.isNull()) {
+        if (value == null) {
             throw new PortalContractException(String.format(Locale.ROOT, MISSING_FIELD, field));
         }
         return value;
@@ -205,6 +242,16 @@ final class PortalJson {
         if (value == null) {
             return null;
         }
+        return parsedTimestamp(value, field);
+    }
+
+    /** A declared nullable timestamp: the member must exist, although its value may be JSON null. */
+    static Instant nullableTimestamp(JsonNode node, String field) {
+        String value = nullableText(node, field);
+        return value == null ? null : parsedTimestamp(value, field);
+    }
+
+    private static Instant parsedTimestamp(String value, String field) {
         try {
             return OffsetDateTime.parse(value).toInstant();
         } catch (DateTimeParseException withoutOffset) {

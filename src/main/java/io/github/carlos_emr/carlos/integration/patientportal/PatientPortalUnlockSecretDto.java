@@ -71,7 +71,7 @@ public record PatientPortalUnlockSecretDto(
                 PortalJson.positiveLong(node, "id"),
                 PortalJson.requiredBool(node, "created"),
                 PortalSecret.of(PortalJson.requiredText(node, "secret")),
-                PortalJson.text(node, "source_reference"),
+                PortalJson.nullableText(node, "source_reference"),
                 PortalJson.requiredText(node, "status"));
     }
 

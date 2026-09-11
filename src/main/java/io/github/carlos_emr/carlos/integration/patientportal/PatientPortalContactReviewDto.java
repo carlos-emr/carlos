@@ -70,8 +70,8 @@ public record PatientPortalContactReviewDto(
                 PortalJson.positiveInt(node, "demographic_no"),
                 PortalJson.requiredText(node, "email_before"),
                 PortalJson.requiredText(node, "email_after"),
-                PortalJson.text(node, "phone_number_before"),
-                PortalJson.text(node, "phone_number_after"),
+                PortalJson.nullableText(node, "phone_number_before"),
+                PortalJson.nullableText(node, "phone_number_after"),
                 PortalJson.requiredTimestamp(node, "requested_at"),
                 PortalJson.requiredText(node, "revision"));
     }

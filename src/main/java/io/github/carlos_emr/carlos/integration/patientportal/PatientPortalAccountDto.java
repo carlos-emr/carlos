@@ -61,8 +61,8 @@ public record PatientPortalAccountDto(
                 PortalJson.requiredText(node, "status"),
                 PortalJson.requiredBool(node, "locked"),
                 PortalJson.requiredBool(node, "force_password_reset"),
-                PortalJson.timestamp(node, "disabled_at"),
-                PortalJson.text(node, "disabled_reason"));
+                PortalJson.nullableTimestamp(node, "disabled_at"),
+                PortalJson.nullableText(node, "disabled_reason"));
     }
 
     private static final String DESCRIPTION =

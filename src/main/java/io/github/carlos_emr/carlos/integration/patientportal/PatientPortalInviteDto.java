@@ -67,14 +67,14 @@ public record PatientPortalInviteDto(
                 PortalJson.requiredText(node, "clinic_id"),
                 PortalJson.positiveInt(node, "demographic_no"),
                 PortalJson.requiredText(node, "status"),
-                PortalJson.text(node, "created_by_id"),
+                PortalJson.nullableText(node, "created_by_id"),
                 PortalJson.requiredText(node, "created_by"),
                 PortalJson.nonnegativeInt(node, "issued_count"),
                 PortalJson.requiredTimestamp(node, "last_issued_at"),
                 PortalJson.requiredText(node, "last_issued_by"),
                 PortalJson.requiredTimestamp(node, "expires_at"),
-                PortalJson.optionalLong(node, "accepted_account_id"),
-                PortalJson.optionalLong(node, "supersedes_invite_id"));
+                PortalJson.nullableLong(node, "accepted_account_id"),
+                PortalJson.nullableLong(node, "supersedes_invite_id"));
     }
 
     private static final String DESCRIPTION =

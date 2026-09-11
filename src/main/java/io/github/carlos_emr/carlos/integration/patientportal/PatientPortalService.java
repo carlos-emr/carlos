@@ -530,7 +530,7 @@ public class PatientPortalService implements Closeable {
         return new PatientPortalContactReviewDecision(
                 PortalJson.positiveLong(payload, "id"),
                 PortalJson.requiredText(payload, "status"),
-                PortalJson.text(payload, "decision"));
+                PortalJson.nullableText(payload, "decision"));
     }
 
     private static PatientPortalIssuedInviteDto confirmedCreatedInvite(

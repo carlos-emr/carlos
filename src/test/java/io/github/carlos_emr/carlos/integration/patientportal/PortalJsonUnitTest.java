@@ -141,6 +141,50 @@ class PortalJsonUnitTest {
     }
 
     @Nested
+    @DisplayName("nullable readers")
+    class NullableReaders {
+
+        @Test
+        @DisplayName("should accept explicit JSON null")
+        void shouldReturnNull_whenDeclaredFieldIsNull() {
+            JsonNode payload = node("{\"x\":null}");
+
+            assertThat(PortalJson.nullableText(payload, "x")).isNull();
+            assertThat(PortalJson.nullableLong(payload, "x")).isNull();
+            assertThat(PortalJson.nullableInt(payload, "x")).isNull();
+            assertThat(PortalJson.nullableTimestamp(payload, "x")).isNull();
+        }
+
+        @Test
+        @DisplayName("should refuse an omitted nullable field")
+        void shouldThrow_whenNullableFieldIsAbsent() {
+            JsonNode payload = node("{}");
+
+            assertThatThrownBy(() -> PortalJson.nullableText(payload, "x"))
+                    .isInstanceOf(PortalContractException.class)
+                    .hasMessageContaining("x");
+            assertThatThrownBy(() -> PortalJson.nullableLong(payload, "x"))
+                    .isInstanceOf(PortalContractException.class);
+            assertThatThrownBy(() -> PortalJson.nullableInt(payload, "x"))
+                    .isInstanceOf(PortalContractException.class);
+            assertThatThrownBy(() -> PortalJson.nullableTimestamp(payload, "x"))
+                    .isInstanceOf(PortalContractException.class);
+        }
+
+        @Test
+        @DisplayName("should read declared nullable values without coercion")
+        void shouldReadValue_whenNullableFieldHasAValue() {
+            JsonNode payload = node("{\"s\":\"v\",\"n\":5,\"t\":\"2026-08-19T12:00:00Z\"}");
+
+            assertThat(PortalJson.nullableText(payload, "s")).isEqualTo("v");
+            assertThat(PortalJson.nullableLong(payload, "n")).isEqualTo(5L);
+            assertThat(PortalJson.nullableInt(payload, "n")).isEqualTo(5);
+            assertThat(PortalJson.nullableTimestamp(payload, "t"))
+                    .isEqualTo(Instant.parse("2026-08-19T12:00:00Z"));
+        }
+    }
+
+    @Nested
     @DisplayName("timestamps")
     class Timestamps {
 
