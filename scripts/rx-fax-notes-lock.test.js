@@ -28,23 +28,31 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     saveAdditionalNotes: save,
     faxButton: { disabled: false },
     faxPasteButton: { disabled: false },
+    faxPasteRetryRow: { style: { display: 'none' } },
+    faxPasteRetryButton: { disabled: false },
     faxNumber: { selectedIndex: 0, options: [{ value: '5555555555' }] },
     preview: { contentWindow: { document: { getElementById: () => previewForm } } },
   };
   const previewElements = { finalFax: { value: '' }, additNotes: { style: {} } };
   const savedBodies = [];
+  const deferredTimeouts = [];
+  const closedWindows = [];
   let releaseSave;
   const saveGate = new Promise((resolve) => { releaseSave = resolve; });
   const context = vm.createContext({
+    console,
     document: { getElementById: (id) => elements[id] || null },
     frames: { preview: { document: {
       getElementById: (id) => previewElements[id],
       getElementsByName: () => [{ value: '' }],
     } } },
-    window: { onbeforeunload: () => 'unsaved' },
+    window: { onbeforeunload: () => 'unsaved', top: { close: () => { closedWindows.push(true); } } },
+    setTimeout: (fn) => { deferredTimeouts.push(fn); },
     faxSubmissionPending: false,
     faxNotesState: null,
     pendingNotesSave: Promise.resolve(),
+    faxQueued: false,
+    faxPasteRetryText: null,
     hasPreview: true,
     hasFaxNumber: true,
     hasFaxSenderAccount: true,
@@ -64,10 +72,12 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     ['unlockFaxNotes', 'setFaxControlsDisabled'],
     ['setFaxControlsDisabled', 'shouldDisableFaxControls'],
     ['shouldDisableFaxControls', 'resetFailedFaxSubmission'],
-    ['resetFailedFaxSubmission', 'refreshImage'],
+    ['resetFailedFaxSubmission', 'enterFaxPasteRecovery'],
+    ['enterFaxPasteRecovery', 'retryFaxPaste'],
+    ['retryFaxPaste', 'refreshImage'],
     ['sendFax', 'unloadMess'],
   ]) vm.runInContext(browserFunction(name, next), context);
-  return { context, notes, save, savedBodies, releaseSave };
+  return { context, notes, save, elements, savedBodies, releaseSave, deferredTimeouts, closedWindows };
 }
 
 for (const pasteAfterSuccess of [false, true]) {
@@ -113,3 +123,51 @@ for (const priorReadOnly of [false, true]) {
     assert.equal(context.window.onbeforeunload, unload);
   });
 }
+
+test('queued fax with a failed encounter paste offers a retry and refuses a second fax', async () => {
+  const { context, notes, elements, deferredTimeouts, closedWindows } = setup();
+  context.onPrint2 = () => {};
+  assert.equal(context.sendFax(true), true);
+
+  // Fax accepted by the server, encounter write rejected.
+  context.enterFaxPasteRecovery('prescription\nnote at fax click\n');
+
+  assert.equal(context.faxSubmissionPending, false); // no longer stuck mid-submission
+  assert.equal(context.faxQueued, true);
+  assert.equal(elements.faxPasteRetryRow.style.display, '');
+  assert.equal(elements.faxPasteRetryButton.disabled, false);
+  assert.equal(elements.faxButton.disabled, true); // the pharmacy already has this script
+  assert.equal(elements.faxPasteButton.disabled, true);
+  assert.equal(context.sendFax(true), false);
+  assert.equal(notes.readOnly, true); // still holds exactly what was faxed, selectable to copy
+  notes.value = 'edit after the fax went out';
+  assert.equal(context.addNotes(), false);
+  assert.equal(notes.value, 'note at fax click');
+
+  // A retry that fails again leaves the recovery path available.
+  const pasteAttempts = [];
+  context.printPaste2Parent = (print, fax, pasteRx, text) => {
+    pasteAttempts.push({ print, fax, pasteRx, text });
+    return Promise.resolve(pasteAttempts.length > 1);
+  };
+  assert.equal(context.retryFaxPaste(), true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(pasteAttempts, [
+    { print: false, fax: true, pasteRx: true, text: 'prescription\nnote at fax click\n' },
+  ]);
+  assert.equal(elements.faxPasteRetryButton.disabled, false);
+  assert.equal(elements.faxPasteRetryRow.style.display, '');
+  assert.equal(closedWindows.length, 0);
+
+  // A successful retry pastes the faxed text, hides the retry and closes the window.
+  assert.equal(context.retryFaxPaste(), true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pasteAttempts.length, 2);
+  assert.equal(pasteAttempts[1].text, 'prescription\nnote at fax click\n');
+  assert.equal(context.faxPasteRetryText, null);
+  assert.equal(elements.faxPasteRetryRow.style.display, 'none');
+  assert.equal(context.retryFaxPaste(), false); // nothing left to retry
+  assert.equal(deferredTimeouts.length, 1);
+  deferredTimeouts[0]();
+  assert.equal(closedWindows.length, 1);
+});

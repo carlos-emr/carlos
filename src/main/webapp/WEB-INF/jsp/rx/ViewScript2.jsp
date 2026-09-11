@@ -406,6 +406,9 @@
                                 }
                                 previewFrame.removeEventListener('load', faxResultHandler);
                                 if (faxSucceeded) {
+                                    // The server accepted the fax. Nothing on this page may queue it
+                                    // a second time from here on, whatever the encounter write does.
+                                    faxQueued = true;
                                     if (pasteAfterSuccess) {
                                         // The fax is already queued. Keep this page alive until the
                                         // encounter write confirms success; closing earlier can abort
@@ -414,7 +417,16 @@
                                                 .then(function (pasted) {
                                                     if (pasted) {
                                                         setTimeout(function () { window.top.close(); }, 3000);
+                                                    } else {
+                                                        // The pharmacy has the prescription but the chart
+                                                        // note does not. Leaving the page frozen here was
+                                                        // a dead end: only a reload cleared it, and the
+                                                        // reload lost the exact faxed text.
+                                                        enterFaxPasteRecovery(capturedPasteText);
                                                     }
+                                                }, function (e) {
+                                                    console.error('Encounter paste failed after the fax was queued', e);
+                                                    enterFaxPasteRecovery(capturedPasteText);
                                                 });
                                     } else {
                                         setTimeout(function () { window.top.close(); }, 3000);
@@ -466,7 +478,9 @@
                 // A later blur/button event must not enqueue a write after the fax has frozen
                 // its note. The server renders the stored note, so that write could otherwise
                 // overtake the fax request and disagree with the captured encounter-paste text.
-                if (faxSubmissionPending) {
+                // Once a fax has been queued the same holds permanently: the stored note is the
+                // record of what the pharmacy received.
+                if (faxSubmissionPending || faxQueued) {
                     if (faxNotesState) faxNotesState.notes.value = faxNotesState.value;
                     return false;
                 }
@@ -810,6 +824,14 @@
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
             var faxSubmissionPending = false;
             var faxNotesState = null;
+            // A fax the server has accepted for this script. The prescription is with the
+            // pharmacy from that point on, so no later step -- including recovery from a failed
+            // encounter paste -- may re-open Fax or Fax & Paste, or let the frozen note that was
+            // faxed be rewritten on the stored record.
+            var faxQueued = false;
+            // The exact text the queued fax carried, held so a failed encounter paste can be
+            // retried with that text rather than whatever the page shows afterwards.
+            var faxPasteRetryText = null;
 
             function lockFaxNotes() {
                 var notes = document.getElementById('additionalNotes');
@@ -848,6 +870,7 @@
 
             function shouldDisableFaxControls() {
                 return faxSubmissionPending
+                        || faxQueued
                         || typeof hasPreview === 'undefined'
                         || !hasPreview
                         || !hasFaxNumber
@@ -863,6 +886,47 @@
                 window.onbeforeunload = previousUnloadHandler;
             }
 
+            function enterFaxPasteRecovery(capturedPasteText) {
+                // Fax & Paste queued the fax and then failed to write the encounter note.
+                // The submission is over, so the page must stop behaving as if one were in
+                // flight, but the fax itself must not become repeatable: shouldDisableFaxControls()
+                // keeps both fax buttons disabled through faxQueued.
+                faxSubmissionPending = false;
+                faxQueued = true;
+                setFaxControlsDisabled(shouldDisableFaxControls());
+                // The note stays frozen on purpose -- read-only, and still holding exactly what
+                // the fax carried, so it can be selected and copied if every retry fails.
+                faxPasteRetryText = capturedPasteText;
+                var retryRow = document.getElementById('faxPasteRetryRow');
+                if (retryRow) retryRow.style.display = '';
+                var retryButton = document.getElementById('faxPasteRetryButton');
+                if (retryButton) retryButton.disabled = false;
+                // The fax was sent, so the unload guard's "fax has not been sent" warning would
+                // now be false. Leave it cleared and let the clinician close the window.
+            }
+
+            function retryFaxPaste() {
+                if (typeof faxPasteRetryText !== 'string') return false;
+                var retryButton = document.getElementById('faxPasteRetryButton');
+                if (retryButton) retryButton.disabled = true;
+                // Repeat the paste with the text the fax carried, never with the page's current
+                // state: the chart note has to match the prescription the pharmacy received.
+                printPaste2Parent(false, true, true, faxPasteRetryText).then(function (pasted) {
+                    if (pasted) {
+                        faxPasteRetryText = null;
+                        var retryRow = document.getElementById('faxPasteRetryRow');
+                        if (retryRow) retryRow.style.display = 'none';
+                        setTimeout(function () { window.top.close(); }, 3000);
+                    } else if (retryButton) {
+                        retryButton.disabled = false;
+                    }
+                }, function (e) {
+                    console.error('Encounter paste retry failed', e);
+                    if (retryButton) retryButton.disabled = false;
+                });
+                return true;
+            }
+
             function refreshImage() {
                 counter = counter + 1;
                 if (frames["preview"].document.getElementById("signature") != null) {
@@ -872,7 +936,7 @@
             }
 
             function sendFax(pasteAfterSuccess) {
-                if (faxSubmissionPending) {
+                if (faxSubmissionPending || faxQueued) {
                     return false;
                 }
                 let faxNumber = document.getElementById('faxNumber');
@@ -1232,6 +1296,17 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     class="btn btn-outline-primary" id="faxPasteButton" style="width: 210px"
                                     onClick="sendFax(true);" <%=isFaxDisabled%>/></span>
 
+                                            </td>
+                                        </tr>
+                                        <%-- Shown only by enterFaxPasteRecovery(), when the fax was queued
+                                             but the encounter note could not be written. It repeats the
+                                             encounter paste with the text the fax carried; the fax itself
+                                             stays disabled so the pharmacy cannot receive it twice. --%>
+                                        <tr id="faxPasteRetryRow" style="display: none">
+                                            <td style="padding-top: 0"><span><input type=button
+                                                    value="<fmt:message key="ViewScript.msgRetryPaste"/>"
+                                                    class="btn btn-outline-danger" id="faxPasteRetryButton"
+                                                    style="width: 210px" onClick="retryFaxPaste();"/></span>
                                             </td>
                                         </tr>
 
