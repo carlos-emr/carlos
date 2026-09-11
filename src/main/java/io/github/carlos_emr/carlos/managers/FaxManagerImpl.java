@@ -782,7 +782,7 @@ public class FaxManagerImpl implements FaxManager {
     public void persistAndLogFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob,
             TransactionType transactionType, int transactionId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new SecurityException("missing required sec object (_fax)");
         }
         faxJobDao.persist(faxJob);
         logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
