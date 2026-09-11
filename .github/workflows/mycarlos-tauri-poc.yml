@@ -19,6 +19,55 @@ defaults:
     working-directory: mycarlos-tauri-poc
 
 jobs:
+  supply-chain:
+    name: Locked dependencies and SBOMs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: mycarlos-tauri-poc/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - run: npm ci
+      - name: Reject known high or critical production npm vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+      - name: Generate reproducible frontend CycloneDX SBOM
+        run: |
+          npm run sbom:frontend
+          cp sbom-frontend.cdx.json /tmp/sbom-frontend-first.cdx.json
+          npm run sbom:frontend
+          cmp /tmp/sbom-frontend-first.cdx.json sbom-frontend.cdx.json
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' sbom-frontend.cdx.json
+      - name: Install pinned Rust CycloneDX generator
+        run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+      - name: Generate reproducible native CycloneDX SBOM
+        env:
+          SOURCE_DATE_EPOCH: "0"
+        run: |
+          cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --target all
+          cp src-tauri/mycarlos-tauri-poc.cdx.json /tmp/sbom-native-first.cdx.json
+          cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --target all
+          cmp /tmp/sbom-native-first.cdx.json src-tauri/mycarlos-tauri-poc.cdx.json
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' \
+            src-tauri/mycarlos-tauri-poc.cdx.json
+      - name: Collect native SBOM
+        run: mv src-tauri/mycarlos-tauri-poc.cdx.json sbom-native.cdx.json
+      - name: Upload dependency inventories
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mycarlos-cyclonedx-sboms
+          path: |
+            mycarlos-tauri-poc/sbom-frontend.cdx.json
+            mycarlos-tauri-poc/sbom-native.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
   web:
     name: Web UI and browser tests
     runs-on: ubuntu-latest

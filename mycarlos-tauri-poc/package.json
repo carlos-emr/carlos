@@ -12,6 +12,7 @@
     "check": "tsc -b --pretty false",
     "dev:data": "node scripts/generate-fake-dev-data.mjs",
     "preview": "vite preview",
+    "sbom:frontend": "cyclonedx-npm --package-lock-only --output-reproducible --output-format JSON --output-file sbom-frontend.cdx.json",
     "test": "vitest run",
     "test:dev-data": "node --test scripts/generate-fake-dev-data.test.mjs",
     "test:watch": "vitest",
@@ -25,7 +26,9 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@tauri-apps/cli": "^2.11.4",
+    "@cyclonedx/cyclonedx-npm": "6.0.1",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",

@@ -1,0 +1,20 @@
+[
+  { "name": "empty", "bytes": [] },
+  { "name": "truncated magic", "bytes": [77, 67, 86] },
+  {
+    "name": "header without a frame",
+    "bytes": [77, 67, 86, 79, 49, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  },
+  {
+    "name": "ciphertext shorter than the authentication tag",
+    "bytes": [77, 67, 86, 79, 49, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15]
+  },
+  {
+    "name": "ciphertext larger than one framed chunk",
+    "bytes": [77, 67, 86, 79, 49, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 17]
+  },
+  {
+    "name": "invalid final marker",
+    "bytes": [77, 67, 86, 79, 49, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  }
+]

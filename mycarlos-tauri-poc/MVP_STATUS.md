@@ -45,7 +45,21 @@ privacy, accessibility, or clinical review.
       grants the main webview no unused Tauri core command permissions.
 - [x] Property-based malformed-input coverage for header, manifest, object, and IPC envelopes;
       unsupported versions, same-generation manifest divergence, and generation overflow fail
-      closed, and a future migration protocol is recorded.
+      closed. Structured semantic manifest mutations, recovery-candidate selection, exact chunk
+      boundaries and a preserved malformed-object regression corpus are also covered, and a future
+      migration protocol is recorded.
+- [x] Map every OWASP MASVS v2.1.0 control to current evidence and explicit gaps in
+      [`MASVS_MAPPING.md`](MASVS_MAPPING.md). This engineering map is not an independent assessment.
+- [x] Generate reproducible CycloneDX npm/Cargo dependency inventories in CI, keep Actions commit
+      pinned, and run a high/critical production npm vulnerability gate.
+- [x] Define content-provider export failure behavior: provider destinations may retain a partial
+      readable copy and the returned patient-safe error requires deleting it before retrying.
+- [x] Record the evaluation's empty telemetry allow-list, incident handling, supported-version
+      boundary, future support-bundle constraints and release-supply-chain gates in
+      [`SECURITY_OPERATIONS.md`](SECURITY_OPERATIONS.md).
+- [x] Add WCAG A/AA automation across the browser library, Security, Health and document-dialog
+      states at desktop/phone sizes; fix the detected secondary-text contrast failures. Add a
+      hostile-filename regression proving metadata renders as text without off-origin requests.
 
 ## Required before calling the synthetic MVP reviewed
 

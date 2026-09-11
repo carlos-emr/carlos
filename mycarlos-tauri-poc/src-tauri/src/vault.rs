@@ -1622,11 +1622,98 @@ mod tests {
 
     const PASSWORD: &str = "river-azimuth-cobalt-sparrow-934";
 
+    #[derive(Deserialize)]
+    struct CorruptObjectRegression {
+        name: String,
+        bytes: Vec<u8>,
+    }
+
     fn source(name: &str, data: &[u8]) -> ImportSource {
         ImportSource {
             display_name: name.to_owned(),
             reader: Box::new(Cursor::new(data.to_vec())),
         }
+    }
+
+    fn valid_manifest_fixture(root: &Path) -> (Uuid, Manifest) {
+        fs::create_dir_all(root.join("objects")).unwrap();
+        let vault_id = Uuid::new_v4();
+        let first_profile = Uuid::new_v4();
+        let second_profile = Uuid::new_v4();
+        let first_folder = Uuid::new_v4();
+        let second_folder = Uuid::new_v4();
+        let first_record = Uuid::new_v4();
+        let second_record = Uuid::new_v4();
+        let first_object = format!("{}.mcobj", Uuid::new_v4());
+        let second_object = format!("{}.mcobj", Uuid::new_v4());
+        fs::write(root.join("objects").join(&first_object), b"object").unwrap();
+        fs::write(root.join("objects").join(&second_object), b"object").unwrap();
+        let wrapped = WrappedSecret {
+            nonce: BASE64.encode([0x11_u8; 24]),
+            ciphertext: BASE64.encode([0x22_u8; 48]),
+        };
+        let manifest = Manifest {
+            format_version: VAULT_FORMAT,
+            vault_id,
+            generation: 7,
+            profiles: vec![
+                PatientProfile {
+                    id: first_profile,
+                    display_name: "Jamie".to_owned(),
+                    created_at_ms: 1,
+                },
+                PatientProfile {
+                    id: second_profile,
+                    display_name: "Morgan".to_owned(),
+                    created_at_ms: 2,
+                },
+            ],
+            folders: vec![
+                VaultFolder {
+                    id: first_folder,
+                    profile_id: first_profile,
+                    parent_id: None,
+                    name: "Labs".to_owned(),
+                    created_at_ms: 3,
+                },
+                VaultFolder {
+                    id: second_folder,
+                    profile_id: second_profile,
+                    parent_id: None,
+                    name: "Imaging".to_owned(),
+                    created_at_ms: 4,
+                },
+            ],
+            records: vec![
+                StoredRecord {
+                    id: first_record,
+                    profile_id: first_profile,
+                    folder_ids: vec![first_folder],
+                    display_name: "first.pdf".to_owned(),
+                    source_label: "Manual import — unverified".to_owned(),
+                    media_type: "application/octet-stream".to_owned(),
+                    plaintext_size: 6,
+                    imported_at_ms: 5,
+                    object_name: first_object,
+                    fingerprint: BASE64.encode([0x33_u8; 32]),
+                    wrapped_object_key: wrapped.clone(),
+                },
+                StoredRecord {
+                    id: second_record,
+                    profile_id: second_profile,
+                    folder_ids: vec![second_folder],
+                    display_name: "second.pdf".to_owned(),
+                    source_label: "Manual import — unverified".to_owned(),
+                    media_type: "application/octet-stream".to_owned(),
+                    plaintext_size: 6,
+                    imported_at_ms: 6,
+                    object_name: second_object,
+                    fingerprint: BASE64.encode([0x44_u8; 32]),
+                    wrapped_object_key: wrapped,
+                },
+            ],
+        };
+        (vault_id, manifest)
     }
 
     struct FailingReader;
@@ -1794,6 +1881,89 @@ mod tests {
         restarted.export(record, &mut output).unwrap();
         assert_eq!(output, b"private clinical bytes");
         assert_eq!(restarted.snapshot().unwrap().folders[0].name, "Hospital");
+    }
+
+    #[test]
+    fn privileged_operations_reject_locked_state_and_unknown_ids() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root);
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let unknown = Uuid::new_v4();
+
+        assert!(matches!(
+            store.create_folder(unknown, None, "Unknown", 2),
+            Err(VaultError::NotFound)
+        ));
+        assert!(matches!(
+            store.update_folder(unknown, None, "Unknown"),
+            Err(VaultError::NotFound)
+        ));
+        assert!(matches!(
+            store.assign_folders(unknown, vec![]),
+            Err(VaultError::NotFound)
+        ));
+        assert!(matches!(
+            store.import(
+                unknown,
+                vec![],
+                vec![source("unknown.pdf", b"never read")],
+                2
+            ),
+            Err(VaultError::NotFound)
+        ));
+        assert!(matches!(
+            store.export(unknown, io::sink()),
+            Err(VaultError::NotFound)
+        ));
+        assert!(matches!(
+            store.export_name(unknown),
+            Err(VaultError::NotFound)
+        ));
+
+        store.lock();
+        assert!(matches!(store.snapshot(), Err(VaultError::Locked)));
+        assert!(matches!(
+            store.create_profile("Morgan", 3),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.create_folder(unknown, None, "Unknown", 3),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.update_folder(unknown, None, "Unknown"),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.assign_folders(unknown, vec![]),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.import(
+                unknown,
+                vec![],
+                vec![source("locked.pdf", b"never read")],
+                3
+            ),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.export(unknown, io::sink()),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.export_name(unknown),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.delete_record(unknown),
+            Err(VaultError::Locked)
+        ));
+        assert!(matches!(
+            store.change_passphrase(PASSWORD, "lantern-orbit-willow-cascade-572"),
+            Err(VaultError::Locked)
+        ));
     }
 
     #[test]
@@ -2227,6 +2397,56 @@ mod tests {
                 Err(VaultError::Corrupt)
             ));
         }
+    }
+
+    #[test]
+    fn copying_ciphertext_between_vaults_fails_authentication() {
+        let temp = tempfile::tempdir().unwrap();
+        let first_root = temp.path().join("first-vault");
+        let second_root = temp.path().join("second-vault");
+        let first_store = VaultStore::new(first_root.clone());
+        let second_store = VaultStore::new(second_root.clone());
+        first_store.create(PASSWORD, "Jamie", 1).unwrap();
+        second_store
+            .create("lantern-orbit-willow-cascade-572", "Morgan", 1)
+            .unwrap();
+        let first_profile = first_store.snapshot().unwrap().profiles[0].id;
+        let second_profile = second_store.snapshot().unwrap().profiles[0].id;
+        first_store
+            .import(
+                first_profile,
+                vec![],
+                vec![source("first.pdf", b"first vault record")],
+                2,
+            )
+            .unwrap();
+        let second_record = second_store
+            .import(
+                second_profile,
+                vec![],
+                vec![source("second.pdf", b"second vault record")],
+                2,
+            )
+            .unwrap()
+            .imported[0];
+        let first_object = {
+            let guard = first_store.unlocked.lock().unwrap();
+            first_root
+                .join("objects")
+                .join(&guard.as_ref().unwrap().manifest.records[0].object_name)
+        };
+        let second_object = {
+            let guard = second_store.unlocked.lock().unwrap();
+            second_root
+                .join("objects")
+                .join(&guard.as_ref().unwrap().manifest.records[0].object_name)
+        };
+        fs::copy(first_object, second_object).unwrap();
+
+        assert!(matches!(
+            second_store.export(second_record, io::sink()),
+            Err(VaultError::Corrupt)
+        ));
     }
 
     #[test]
@@ -2696,8 +2916,198 @@ mod tests {
         assert_eq!(fs::read(root.join("manifest-1.bin")).unwrap(), before[1]);
     }
 
+    #[test]
+    fn object_chunk_boundaries_round_trip_exactly() {
+        let lengths = [
+            0,
+            1,
+            CHUNK_SIZE - 1,
+            CHUNK_SIZE,
+            CHUNK_SIZE + 1,
+            (2 * CHUNK_SIZE) - 1,
+            2 * CHUNK_SIZE,
+            (2 * CHUNK_SIZE) + 1,
+        ];
+        for length in lengths {
+            let temp = tempfile::tempdir().unwrap();
+            let object = temp.path().join("boundary.mcobj");
+            let vault_id = Uuid::new_v4();
+            let record_id = Uuid::new_v4();
+            let plaintext = (0..length)
+                .map(|index| (index % 251) as u8)
+                .collect::<Vec<_>>();
+            let encrypted = encrypt_object(
+                Box::new(Cursor::new(plaintext.clone())),
+                &object,
+                ObjectContext {
+                    vault_id,
+                    record_id,
+                    profile_id: Uuid::new_v4(),
+                },
+                &[0x51_u8; 32],
+                &[0x52_u8; 32],
+            )
+            .unwrap();
+            assert_eq!(encrypted.plaintext_size, length as u64);
+            let mut recovered = Vec::new();
+            verify_object(
+                &object,
+                &mut recovered,
+                vault_id,
+                record_id,
+                &[0x51_u8; 32],
+                length as u64,
+            )
+            .unwrap();
+            assert_eq!(recovered, plaintext, "length={length}");
+        }
+    }
+
+    #[test]
+    fn object_aad_binds_counter_boundaries_and_object_identity() {
+        let vault_id = Uuid::new_v4();
+        let record_id = Uuid::new_v4();
+        let counters = [0, 1, u64::MAX - 1, u64::MAX];
+        let aad_values = counters
+            .into_iter()
+            .flat_map(|counter| {
+                [
+                    object_aad(vault_id, record_id, counter, false),
+                    object_aad(vault_id, record_id, counter, true),
+                ]
+            })
+            .collect::<HashSet<_>>();
+        assert_eq!(aad_values.len(), counters.len() * 2);
+        assert_ne!(
+            object_aad(vault_id, record_id, 0, false),
+            object_aad(Uuid::new_v4(), record_id, 0, false)
+        );
+        assert_ne!(
+            object_aad(vault_id, record_id, 0, false),
+            object_aad(vault_id, Uuid::new_v4(), 0, false)
+        );
+    }
+
+    #[test]
+    fn preserved_corrupt_object_regressions_fail_closed() {
+        let cases: Vec<CorruptObjectRegression> =
+            serde_json::from_str(include_str!("../testdata/corrupt-object-regressions.json"))
+                .unwrap();
+        for case in cases {
+            let temp = tempfile::tempdir().unwrap();
+            let object = temp.path().join("regression.mcobj");
+            fs::write(&object, case.bytes).unwrap();
+            assert!(
+                verify_object(
+                    &object,
+                    io::sink(),
+                    Uuid::new_v4(),
+                    Uuid::new_v4(),
+                    &[0x61_u8; 32],
+                    0,
+                )
+                .is_err(),
+                "corrupt regression unexpectedly decoded: {}",
+                case.name
+            );
+        }
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(64))]
+
+        #[test]
+        fn authenticated_semantic_manifest_mutations_fail_closed(mutation in 0_usize..23) {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path();
+            let (vault_id, mut manifest) = valid_manifest_fixture(root);
+            prop_assert!(validate_manifest(root, &manifest, vault_id).is_ok());
+
+            match mutation {
+                0 => manifest.format_version = VAULT_FORMAT + 1,
+                1 => manifest.vault_id = Uuid::new_v4(),
+                2 => manifest.generation = 0,
+                3 => manifest.profiles.clear(),
+                4 => manifest.profiles[0].id = Uuid::nil(),
+                5 => manifest.profiles.push(manifest.profiles[0].clone()),
+                6 => manifest.folders[0].profile_id = Uuid::new_v4(),
+                7 => manifest.folders[0].parent_id = Some(manifest.folders[0].id),
+                8 => manifest.folders[0].parent_id = Some(manifest.folders[1].id),
+                9 => {
+                    manifest.folders[1].profile_id = manifest.folders[0].profile_id;
+                    manifest.folders[0].parent_id = Some(manifest.folders[1].id);
+                    manifest.folders[1].parent_id = Some(manifest.folders[0].id);
+                }
+                10 => manifest.records[0].id = Uuid::nil(),
+                11 => manifest.records[1].id = manifest.records[0].id,
+                12 => manifest.records[0].profile_id = Uuid::new_v4(),
+                13 => manifest.records[0].folder_ids = vec![Uuid::new_v4()],
+                14 => {
+                    let folder_id = manifest.records[0].folder_ids[0];
+                    manifest.records[0].folder_ids.push(folder_id);
+                }
+                15 => manifest.records[0].object_name = "../../outside.mcobj".to_owned(),
+                16 => manifest.records[1].object_name = manifest.records[0].object_name.clone(),
+                17 => manifest.records[0].fingerprint = BASE64.encode([0_u8; 31]),
+                18 => manifest.records[0].wrapped_object_key.nonce = BASE64.encode([0_u8; 23]),
+                19 => {
+                    manifest.records[0].wrapped_object_key.ciphertext = BASE64.encode([0_u8; 47]);
+                }
+                20 => manifest.records[0].source_label = "Verified".to_owned(),
+                21 => manifest.records[0].media_type = "application/pdf".to_owned(),
+                22 => manifest.records[0].display_name = "../record.pdf".to_owned(),
+                _ => unreachable!(),
+            }
+
+            prop_assert!(matches!(
+                validate_manifest(root, &manifest, vault_id),
+                Err(VaultError::Corrupt)
+            ));
+        }
+
+        #[test]
+        fn recovery_selects_only_the_highest_valid_authenticated_generation(
+            first_generation in 1_u64..10_000,
+            second_generation in 1_u64..10_000,
+            first_valid in any::<bool>(),
+            second_valid in any::<bool>(),
+        ) {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path();
+            let (vault_id, base) = valid_manifest_fixture(root);
+            let key = [0x71_u8; 32];
+
+            let mut first = base.clone();
+            first.generation = first_generation;
+            write_manifest_at(root, &key, &first).unwrap();
+            let mut first_bytes = fs::read(manifest_path(root, first_generation)).unwrap();
+            if !first_valid {
+                first_bytes[24] ^= 0x80;
+            }
+
+            let mut second = base;
+            second.generation = second_generation;
+            write_manifest_at(root, &key, &second).unwrap();
+            let mut second_bytes = fs::read(manifest_path(root, second_generation)).unwrap();
+            if !second_valid {
+                second_bytes[24] ^= 0x80;
+            }
+            fs::write(root.join("manifest-0.bin"), first_bytes).unwrap();
+            fs::write(root.join("manifest-1.bin"), second_bytes).unwrap();
+
+            let selected = read_latest_manifest(root, &key, vault_id);
+            if first_valid || second_valid {
+                let expected = match (first_valid, second_valid) {
+                    (true, true) => first_generation.max(second_generation),
+                    (true, false) => first_generation,
+                    (false, true) => second_generation,
+                    (false, false) => unreachable!(),
+                };
+                prop_assert_eq!(selected.unwrap().generation, expected);
+            } else {
+                prop_assert!(matches!(selected, Err(VaultError::Corrupt)));
+            }
+        }
 
         #[test]
         fn arbitrary_header_bytes_fail_closed_without_panicking(

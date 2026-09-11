@@ -39,6 +39,15 @@ struct PublicError {
 
 type CommandResult<T> = Result<T, PublicError>;
 
+impl PublicError {
+    fn partial_export() -> Self {
+        Self {
+            code: "partial_export",
+            message: "The selected destination may contain a partial readable copy. Delete that copy before retrying.",
+        }
+    }
+}
+
 impl From<VaultError> for PublicError {
     fn from(error: VaultError) -> Self {
         match error {
@@ -474,12 +483,12 @@ async fn vault_export_begin(
     let mut output = app
         .fs()
         .open(destination, options)
-        .map_err(|_| PublicError::from(VaultError::Storage))?;
+        .map_err(|_| PublicError::partial_export())?;
     let store = store.inner().clone();
     tauri::async_runtime::spawn_blocking(move || store.export(request.record_id, &mut output))
         .await
-        .map_err(|_| PublicError::from(VaultError::Storage))?
-        .map_err(PublicError::from)?;
+        .map_err(|_| PublicError::partial_export())?
+        .map_err(|_| PublicError::partial_export())?;
     Ok(true)
 }
 
@@ -552,6 +561,11 @@ mod tests {
         let weak = PublicError::from(VaultError::WeakPassphrase);
         assert_eq!(weak.code, "weak_passphrase");
         assert!(weak.message.contains("less predictable"));
+
+        let partial = PublicError::partial_export();
+        assert_eq!(partial.code, "partial_export");
+        assert!(partial.message.contains("partial readable copy"));
+        assert!(partial.message.contains("Delete"));
     }
 
     #[test]

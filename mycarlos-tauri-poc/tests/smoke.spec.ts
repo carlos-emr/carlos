@@ -1,4 +1,37 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+
+test("has no automatically detectable WCAG A/AA violations", async ({ page }, testInfo) => {
+  async function expectNoViolations() {
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(results.violations).toEqual([]);
+  }
+
+  async function openSection(value: string, label: string) {
+    if (testInfo.project.name === "phone") {
+      await page.getByRole("combobox", { name: "Section" }).selectOption(value);
+    } else {
+      await page.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+    }
+  }
+
+  await page.goto("/");
+  await expectNoViolations();
+
+  await openSection("security", "Security & backup");
+  await expectNoViolations();
+
+  await openSection("health", "Health data");
+  await expectNoViolations();
+
+  await openSection("records", "My records");
+  await page
+    .getByRole("button", { name: "More options for Prescription — ramipril 5mg" })
+    .click();
+  await expectNoViolations();
+});
 
 test("renders the mock-aligned patient library at each target viewport", async ({ page }, testInfo) => {
   await page.goto("/");
@@ -32,6 +65,30 @@ test("imports browser-selected PDF metadata for the session", async ({ page }) =
   await page.getByRole("button", { name: "Reset session" }).click();
   await expect(page.getByText("fictional-browser-record.pdf", { exact: true })).not.toBeVisible();
   await expect(page.getByText("Evaluation reset. Only the built-in sample records are shown.")).toBeVisible();
+});
+
+test("renders hostile metadata as text without making off-origin requests", async ({ page }) => {
+  const offOriginRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.origin !== "http://127.0.0.1:4173") offOriginRequests.push(request.url());
+  });
+  await page.goto("/");
+
+  const hostileName = 'FAKE_<img src=x onerror="window.__mycarlos_xss=true">.pdf';
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "New document — choose a sample PDF" }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: hostileName,
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n% synthetic hostile-metadata fixture\n"),
+  });
+
+  await expect(page.getByText(hostileName, { exact: true })).toBeVisible();
+  await expect(page.locator('img[src="x"]')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => Reflect.get(window, "__mycarlos_xss"))).toBeUndefined();
+  expect(offOriginRequests).toEqual([]);
 });
 
 test("shows the purpose of the library navigation sections", async ({ page }, testInfo) => {

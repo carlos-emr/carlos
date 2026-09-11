@@ -21,6 +21,9 @@ records the implemented local format and the decisions and release-gate work tha
 [`MVP_STATUS.md`](MVP_STATUS.md) separates the implemented synthetic-data milestone from the open
 security, device, integration, and release gates. [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md)
 records the approved patient-pilot behavior; most of that larger scope is not implemented here.
+[`MASVS_MAPPING.md`](MASVS_MAPPING.md) provides a non-compliance working map of every MASVS v2.1.0
+control, and [`SECURITY_OPERATIONS.md`](SECURITY_OPERATIONS.md) fixes the evaluation's no-egress,
+incident, supported-version and future release boundaries.
 
 Use [`EVALUATION.md`](EVALUATION.md) to reproduce the evaluation evidence and record remaining
 platform findings. The UI
@@ -71,11 +74,17 @@ evaluation evidence and must not be distributed to patients.
   local deletion guarantee.
 - Abrupt-termination tests exercise recovery after chunk writes, staging, object rename, redundant
   manifest commits, and each deletion boundary. Corruption tests cover bit flips, truncation,
-  ciphertext swapping, one-slot recovery, and two-slot fail-closed behavior.
+  ciphertext swapping, exact chunk boundaries, structured semantic manifest mutations,
+  authenticated-generation recovery selection, a preserved malformed-object corpus, one-slot
+  recovery, and two-slot fail-closed behavior.
 - A generated 101 MiB input checks bounded 1 MiB read requests without allocating the whole source;
   recursive canary and Unix mode tests inspect application-controlled storage while locked.
 - A collapsible evaluation panel and reset control that removes session-only metadata.
-- Frontend unit tests, browser viewport tests, Rust tests, and unsigned debug builds in CI.
+- Frontend unit tests, browser viewport tests, automated WCAG A/AA scans, hostile-metadata/network
+  regressions, Rust tests, and unsigned debug builds in CI.
+- CI generates reproducible CycloneDX inventories for both locked dependency graphs and rejects
+  known high/critical production npm findings. These are inventories, not signed release
+  provenance.
 
 It deliberately does **not** implement an in-app document viewer, accounts, synchronization,
 Android cloud backup, CARLOS integration, verified provenance, HealthKit/Health Connect, release
@@ -177,3 +186,6 @@ The durable UI sends passphrases, opaque record/profile/folder IDs, and sanitize
 typed commands. Native pickers and Rust-owned file handles keep paths and file contents out of the
 renderer. The filesystem plugin is not granted to the main webview; it is used only from Rust.
 Errors are converted to fixed patient-safe messages and are not logged to the browser console.
+Filesystem destinations are written with an atomic replacement. A content-provider destination
+cannot offer that guarantee: if the provider fails after opening/truncating its document, the app
+reports that a partial readable copy may remain and tells the patient to delete it before retrying.
