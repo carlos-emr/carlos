@@ -25,7 +25,12 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     History or other CPP item report "403 ... your session has expired" on an
     item that had in fact already saved. Exclusion 1010 now covers every
     clinician free-text argument on that route, each one individually and only
-    on POST; the WAF still blocks a probe injection.
+    on POST, including the save that runs when a note with unsaved text is
+    left for another note or for a new one; the WAF still blocks a probe
+    injection.
+  * That same save-on-switch no longer cuts an encounter note off at its first
+    "&" -- "H&P", or a pasted link with "&cmd=" in it, arrived truncated on the
+    server -- and no longer turns a "+" into a space.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
 

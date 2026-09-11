@@ -2369,7 +2369,12 @@ function updateCPPNote() {
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
         var url = ctx + "/CaseManagementEntry";
-        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURI($F(encType)) + "&noteTxt=" + encodeURI(noteTxt);
+        // encodeURIComponent, not encodeURI: encodeURI leaves & = + intact, so a note
+        // containing "H&P" or a pasted link with "&cmd=" was cut off at the first "&"
+        // on the server (ajaxsave() reads noteTxt, and the rest became stray
+        // parameters) and a "+" arrived as a space. This is the save that runs when
+        // the clinician opens another note or the new-note icon with unsaved text.
+        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
         CarlosAjax.updater(

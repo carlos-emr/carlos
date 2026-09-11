@@ -44,13 +44,18 @@ class CaseManagementCppSaveRegressionTest {
 
     /**
      * Every clinician-authored free-text argument the note route accepts: the CPP editor body,
-     * the encounter note under the two names it travels as, and the editor's
-     * {@code <input type="text">} extension fields. Its {@code <select>} pickers are
-     * deliberately absent — see the picker assertion below.
+     * the encounter note under the three names it travels as (the serialized form, the draft
+     * autosave, and the save-on-switch's {@code noteTxt}), and the editor's six prose
+     * extension fields. Not every {@code <input type="text">} qualifies: the editor's date
+     * boxes and age-at-onset are text inputs too but hold no prose, and they stay inspected
+     * along with the {@code <select>} pickers — see the assertions below.
      */
     private static final String[] CLINICIAN_FREE_TEXT_ARGUMENTS = {
-            "value", "caseNote_note", "note", "problemdescription", "problemstatus",
+            "value", "caseNote_note", "note", "noteTxt", "problemdescription", "problemstatus",
             "treatment", "exposuredetail", "relationship", "procedure"};
+    /** Editor controls that carry no prose and must never appear in exclusion 1010. */
+    private static final String[] INSPECTED_EDITOR_CONTROLS = {
+            "lifestage", "hidecpp", "startdate", "resolutiondate", "proceduredate", "ageatonset"};
     /**
      * The CRS tag groups that read prose as an attack. {@code attack-rfi} is on this list
      * for the note route even though 1045 and 1050 keep it: 931100 is anchored on the whole
@@ -153,14 +158,15 @@ class CaseManagementCppSaveRegressionTest {
                         .contains("ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:" + argument + ",");
             }
         }
-        // The editor's two <select> pickers carry no prose, so they have nothing to
-        // false-positive on and stay fully inspected; exempting one would only hand a forged
-        // POST a rule-free parameter to smuggle a payload in.
-        for (String picker : new String[] {"lifestage", "hidecpp"}) {
+        // The editor's two <select> pickers, its three date boxes and age-at-onset carry no
+        // prose, so they have nothing to false-positive on and stay fully inspected;
+        // exempting one would only hand a forged POST a rule-free parameter to smuggle a
+        // payload in.
+        for (String control : INSPECTED_EDITOR_CONTROLS) {
             assertThat(rule)
-                    .as("picker %s is not exempted", picker)
-                    .doesNotContain(";ARGS:" + picker + ",")
-                    .doesNotContain(";ARGS:" + picker + "\"");
+                    .as("non-prose control %s is not exempted", control)
+                    .doesNotContain(";ARGS:" + control + ",")
+                    .doesNotContain(";ARGS:" + control + "\"");
         }
         assertThat(rule)
                 // reloadUrl is an app-generated URL, not prose, and keeps its narrower
@@ -171,8 +177,24 @@ class CaseManagementCppSaveRegressionTest {
                 // reloadUrl is a relative app path with no scheme, so no RFI rule can fire
                 // on a legitimate value; leave the family on it.
                 .doesNotContain("ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:reloadUrl")
-                // Per-argument only: nothing in this rule may drop a signature request-wide.
-                .doesNotContain("ruleRemoveById=932110,");
+                // Per-argument only: nothing in this rule may drop a signature request-wide,
+                // wherever in the action list such a directive might sit.
+                .doesNotContain("ctl:ruleRemoveById=");
+    }
+
+    @Test
+    @DisplayName("save-on-switch should post the whole note as one noteTxt parameter")
+    void shouldEncodeNoteTxt_asOneParameter() throws IOException {
+        // ajaxSaveNote() is the save that runs when a note with unsaved text is left for
+        // another note or a new one. It built its body with encodeURI, which leaves & = +
+        // intact, so "H&P" or a pasted link with "&cmd=" reached ajaxsave() cut off at the
+        // first "&" (the remainder became stray parameters) and a "+" arrived as a space.
+        // Exempting ARGS:noteTxt in exclusion 1010 only helps once the text travels intact.
+        String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(js)
+                .contains("\"&noteTxt=\" + encodeURIComponent(noteTxt)")
+                .doesNotContain("encodeURI(noteTxt)");
     }
 
     /**
