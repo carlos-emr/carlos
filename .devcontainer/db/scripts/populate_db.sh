@@ -88,6 +88,8 @@ echo 'Restoring current Administration privileges...'
 $SQL oscar < /scripts/development_privileges.sql
 echo 'Preparing demographic names for development environment...'
 $SQL oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
+echo 'Adding NHS synthetic development patients...'
+$SQL oscar < /scripts/nhs-synthetic/patients.sql
 echo 'Seeding Rich Text Letter eForm...'
 $SQL oscar < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
