@@ -422,11 +422,11 @@
                                                         // note does not. Leaving the page frozen here was
                                                         // a dead end: only a reload cleared it, and the
                                                         // reload lost the exact faxed text.
-                                                        enterFaxPasteRecovery(capturedPasteText);
+                                                        enterFaxPasteRecovery(lastFaxPasteText || capturedPasteText);
                                                     }
                                                 }, function (e) {
                                                     console.error('Encounter paste failed after the fax was queued', e);
-                                                    enterFaxPasteRecovery(capturedPasteText);
+                                                    enterFaxPasteRecovery(lastFaxPasteText || capturedPasteText);
                                                 });
                                     } else {
                                         setTimeout(function () { window.top.close(); }, 3000);
@@ -543,50 +543,58 @@
                 }
             }
 
-            function printPaste2Parent(print, fax, pasteRx, capturedPasteText) {
+            function printPaste2Parent(print, fax, pasteRx, capturedPasteText, useCapturedPasteTextAsIs) {
                 //console.log("in printPaste2Parent");
                 try {
-                    text = "";
-                    <% if (props.isPropertyActive("rx_paste_asterisk")) { %>
-                    text += "**********************************************************************************\n";
-                    <% } %>
+                    var text = "";
+                    if (fax && pasteRx && useCapturedPasteTextAsIs && typeof capturedPasteText === 'string') {
+                        text = capturedPasteText;
+                    } else {
+                        <% if (props.isPropertyActive("rx_paste_asterisk")) { %>
+                        text += "**********************************************************************************\n";
+                        <% } %>
 
-                    if (print) {
-                        text += "Prescribed and printed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>\n";
-                    } else if (fax) {
-                        <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
-                        <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
-                        // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
+                        if (print) {
+                            text += "Prescribed and printed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>\n";
+                        } else if (fax) {
+                            <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
+                            <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
+                            // %>
+                            text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
 
-                        <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
-                        text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
-                        <%--    	 <% } %>--%>
-                        text += ", <%= timeStamp %>]\n";
-                        <%--   		 <%--%>
-                        <%--    	 }--%>
-                        <%--    	 %>    	--%>
-                    }
-
-                    if (pasteRx) {
-                        if (typeof capturedPasteText === 'string') {
-                            text += capturedPasteText;
-                        } else if (document.all) {
-                            text += preview.document.forms[0].rx_no_newlines.value
-                        } else {
-                            text += preview.document.forms[0].rx_no_newlines.value + "\n";
+                            <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
+                            text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
+                            <%--    	 <% } %>--%>
+                            text += ", <%= timeStamp %>]\n";
+                            <%--   		 <%--%>
+                            <%--    	 }--%>
+                            <%--    	 %>    	--%>
                         }
 
-                        if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
-                            text += document.getElementById('additionalNotes').value + "\n";
+                        if (pasteRx) {
+                            if (typeof capturedPasteText === 'string') {
+                                text += capturedPasteText;
+                            } else if (document.all) {
+                                text += preview.document.forms[0].rx_no_newlines.value
+                            } else {
+                                text += preview.document.forms[0].rx_no_newlines.value + "\n";
+                            }
+
+                            if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
+                                text += document.getElementById('additionalNotes').value + "\n";
+                            }
                         }
+                        <% if (props.isPropertyActive("rx_paste_asterisk")) {
+                                if(prefPharmacy!=null && prefPharmacy.trim()!=""){ %>
+                        text += "<carlos:encode value='<%= prefPharmacy %>' context="javaScript"/>\n"
+                        <% } %>
+                        text += "****<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="javaScript"/>********************************************************************************\n";
+                        <% } %>
                     }
-                    <% if (props.isPropertyActive("rx_paste_asterisk")) {
-                            if(prefPharmacy!=null && prefPharmacy.trim()!=""){ %>
-                    text += "<carlos:encode value='<%= prefPharmacy %>' context="javaScript"/>\n"
-                    <% } %>
-                    text += "****<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="javaScript"/>********************************************************************************\n";
-                    <% } %>
+
+                    if (fax && pasteRx && typeof text === 'string' && text.length > 0) {
+                        lastFaxPasteText = text;
+                    }
 
                     //we support pasting into orig encounter and new casemanagement
                     demographicNo = <%=bean.getDemographicNo()%>;
@@ -833,6 +841,10 @@
             // The exact text the queued fax carried, held so a failed encounter paste can be
             // retried with that text rather than whatever the page shows afterwards.
             var faxPasteRetryText = null;
+            // The fully composed encounter note text for the in-flight fax. Retry must reuse this
+            // exact string, including the original header/footer lines, rather than rebuilding
+            // them with a later timestamp or changed page state.
+            var lastFaxPasteText = null;
 
             function lockFaxNotes() {
                 var notes = document.getElementById('additionalNotes');
@@ -882,6 +894,7 @@
 
             function resetFailedFaxSubmission(previousUnloadHandler) {
                 faxSubmissionPending = false;
+                lastFaxPasteText = null;
                 unlockFaxNotes();
                 setFaxControlsDisabled(shouldDisableFaxControls());
                 window.onbeforeunload = previousUnloadHandler;
@@ -910,11 +923,12 @@
                 if (typeof faxPasteRetryText !== 'string') return false;
                 var retryButton = document.getElementById('faxPasteRetryButton');
                 if (retryButton) retryButton.disabled = true;
-                // Repeat the paste with the text the fax carried, never with the page's current
-                // state: the chart note has to match the prescription the pharmacy received.
-                printPaste2Parent(false, true, true, faxPasteRetryText).then(function (pasted) {
+                // Repeat the exact encounter note text the fax already carried, including its
+                // original header/footer, never a later recomposition from current page state.
+                printPaste2Parent(false, true, true, faxPasteRetryText, true).then(function (pasted) {
                     if (pasted) {
                         faxPasteRetryText = null;
+                        lastFaxPasteText = null;
                         var retryRow = document.getElementById('faxPasteRetryRow');
                         if (retryRow) retryRow.style.display = 'none';
                         setTimeout(function () { window.top.close(); }, 3000);
@@ -963,6 +977,7 @@
                         capturedPasteText += document.getElementById('additionalNotes').value + '\n';
                     }
                 }
+                lastFaxPasteText = null;
                 faxSubmissionPending = true;
                 setFaxControlsDisabled(true);
                 try {

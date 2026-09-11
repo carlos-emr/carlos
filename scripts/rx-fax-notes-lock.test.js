@@ -48,11 +48,13 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     } } },
     window: { onbeforeunload: () => 'unsaved', top: { close: () => { closedWindows.push(true); } } },
     setTimeout: (fn) => { deferredTimeouts.push(fn); },
+    faxScriptNo: '12345',
     faxSubmissionPending: false,
     faxNotesState: null,
     pendingNotesSave: Promise.resolve(),
     faxQueued: false,
     faxPasteRetryText: null,
+    lastFaxPasteText: null,
     hasPreview: true,
     hasFaxNumber: true,
     hasFaxSenderAccount: true,
@@ -130,7 +132,8 @@ test('queued fax with a failed encounter paste offers a retry and refuses a seco
   assert.equal(context.sendFax(true), true);
 
   // Fax accepted by the server, encounter write rejected.
-  context.enterFaxPasteRecovery('prescription\nnote at fax click\n');
+  const queuedFaxText = '[Rx faxed to Example Pharmacy Fax#: 5555555555 prescribed by Dr Example, 11-Sep-2026 01:23 PM]\nprescription\nnote at fax click\n';
+  context.enterFaxPasteRecovery(queuedFaxText);
 
   assert.equal(context.faxSubmissionPending, false); // no longer stuck mid-submission
   assert.equal(context.faxQueued, true);
@@ -146,14 +149,14 @@ test('queued fax with a failed encounter paste offers a retry and refuses a seco
 
   // A retry that fails again leaves the recovery path available.
   const pasteAttempts = [];
-  context.printPaste2Parent = (print, fax, pasteRx, text) => {
-    pasteAttempts.push({ print, fax, pasteRx, text });
+  context.printPaste2Parent = (print, fax, pasteRx, text, useAsIs) => {
+    pasteAttempts.push({ print, fax, pasteRx, text, useAsIs });
     return Promise.resolve(pasteAttempts.length > 1);
   };
   assert.equal(context.retryFaxPaste(), true);
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(pasteAttempts, [
-    { print: false, fax: true, pasteRx: true, text: 'prescription\nnote at fax click\n' },
+    { print: false, fax: true, pasteRx: true, text: queuedFaxText, useAsIs: true },
   ]);
   assert.equal(elements.faxPasteRetryButton.disabled, false);
   assert.equal(elements.faxPasteRetryRow.style.display, '');
@@ -163,7 +166,8 @@ test('queued fax with a failed encounter paste offers a retry and refuses a seco
   assert.equal(context.retryFaxPaste(), true);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(pasteAttempts.length, 2);
-  assert.equal(pasteAttempts[1].text, 'prescription\nnote at fax click\n');
+  assert.equal(pasteAttempts[1].text, queuedFaxText);
+  assert.equal(pasteAttempts[1].useAsIs, true);
   assert.equal(context.faxPasteRetryText, null);
   assert.equal(elements.faxPasteRetryRow.style.display, 'none');
   assert.equal(context.retryFaxPaste(), false); // nothing left to retry
