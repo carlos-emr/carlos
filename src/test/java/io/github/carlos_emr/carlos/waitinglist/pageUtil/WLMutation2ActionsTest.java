@@ -347,6 +347,34 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should clear the note when the selected row's note box is emptied")
+        void shouldClearNote_whenSelectedRowNoteIsEmpty() throws Exception {
+            // An emptied note used to be read as "no row selected" and fell through to a
+            // reposition, so the old note stayed on the record. The selectors say a row was
+            // edited; an empty note is that edit.
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            mockRequest.setParameter("demographicNumSelected", "waitingListBean[0].demographicNo");
+            mockRequest.setParameter("wlNoteSelected", "waitingListBean[0].note");
+            mockRequest.setParameter("onListSinceSelected", "waitingListBean[0].onListSince");
+            mockRequest.setParameter("waitingListBean[0].demographicNo", "42");
+            mockRequest.setParameter("waitingListBean[0].note", "");
+            mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
+
+            try {
+                new WLSetupDisplayWaitingList2Action().execute();
+            } catch (NullPointerException pageRenderNeedsSession) {
+                // intentional: only the mutation is under test here (see the update test above)
+            }
+
+            waitingListUtilMock.verify(() -> WLWaitingListUtil.updateWaitingListRecord("7", "", "42", "2026-06-01"));
+            waitingListUtilMock.verify(() -> WLWaitingListUtil.rePositionWaitingList(any()), org.mockito.Mockito.never());
+        }
+
+        @Test
         @DisplayName("should answer 400 and persist nothing when the selectors span more than one row")
         void shouldReject400_whenSelectorsSpanMultipleRows() throws Exception {
             when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))

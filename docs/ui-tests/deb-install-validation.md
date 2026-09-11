@@ -151,11 +151,13 @@ the definition file they read rather than `EctFormProp.getMeasurementTypes()`,
 a static list refilled by every unmarshal in the JVM, so one provider opening
 a form can no longer change the rules another provider's save is checked
 against. One nested form page is reported by the generator but exempted
-nowhere: `form/pharmaForms/formBPMH.jsp` posts to `/formBPMH`, no page links
-to it, its fetch path dereferences a handler only the save path constructs
-(HTTP 500 measured on the packaged install), and its prose widgets are
-`<form:textarea>` tags with no such taglib declared, so they render as inert
-text. Repairing it is a form migration of its own.
+nowhere: `form/pharmaForms/formBPMH.jsp` posts to `/formBPMH`, not a `/form/`
+route, so it is outside the generator's scope; and it posts no prose today,
+because no page links to it, its fetch path dereferences a handler only the
+save path constructs (HTTP 500 measured on the packaged install), and its
+prose widgets are `<form:textarea>` tags with no such taglib declared, so
+they render as inert text. Repairing it is a form migration of its own, and
+its cells then need an exclusion on `/formBPMH`.
 
 Two more defects surfaced while driving the note route and are fixed here,
 both verified in the browser through `:443`. Leaving a note with unsaved text

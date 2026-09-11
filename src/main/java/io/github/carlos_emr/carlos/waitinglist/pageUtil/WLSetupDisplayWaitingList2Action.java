@@ -213,10 +213,13 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
             if (waitingListId != null) {
                 try {
-                    if (demographicNo != null && !demographicNo.equals("") &&
-                            waitingListNote != null && !waitingListNote.equals("") &&
-                            onListSince != null && !onListSince.equals("")) {
-                        WLWaitingListUtil.updateWaitingListRecord(waitingListId, waitingListNote, demographicNo, onListSince);
+                    // A selected row is updated even when its note is empty: clearing the note
+                    // is an edit, and treating the empty box as "no row selected" left the old
+                    // note on the record. The date stays required, since updateWaitingListRecord
+                    // would silently replace a blank one with today.
+                    if (anySelector && !isBlank(demographicNo) && !isBlank(onListSince)) {
+                        WLWaitingListUtil.updateWaitingListRecord(waitingListId,
+                                waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
                     } else {
                         WLWaitingListUtil.rePositionWaitingList(waitingListId);
                     }

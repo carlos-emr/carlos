@@ -91,11 +91,12 @@ NON_FORM_ROUTE_PAGES = {
     "addRhInjection.jsp": "posts reason/reasonOtherText to /prevention/AddPrevention, "
                           "covered by rule 1117 in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf",
     "formlabreqprint.jsp": "print view of the lab requisition; it has no form and posts nothing",
-    "pharmaForms/formBPMH.jsp": "posts to /formBPMH, not a /form/ route, and is not reachable: no page "
-                                "links to it, its fetch path dereferences a handler that only the save "
-                                "path constructs (HTTP 500 measured on the packaged install), and its "
-                                "prose widgets are <form:textarea> tags with no such taglib declared, "
-                                "so they render as inert text. Nothing to exempt until the page is repaired",
+    "pharmaForms/formBPMH.jsp": "posts to /formBPMH, not a /form/ route, so it is outside this "
+                                "generator's scope. It also posts no prose today: no page links to it, "
+                                "its fetch path dereferences a handler only the save path constructs "
+                                "(HTTP 500 measured on the packaged install), and its prose widgets are "
+                                "<form:textarea> tags with no such taglib declared, so they render as "
+                                "inert text. Exempt its cells on /formBPMH once the page is repaired",
 }
 INCLUDE_RE = re.compile(r"""<jsp:include\s+page\s*=\s*["']([^"']+)["']|<%@\s*include\s+file\s*=\s*["']([^"']+)["']""",
                         re.IGNORECASE)
