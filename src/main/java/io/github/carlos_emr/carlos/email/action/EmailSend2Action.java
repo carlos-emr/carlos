@@ -66,12 +66,21 @@ public class EmailSend2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
-    private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+    private transient EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
 
     private static final String PARAM_MESSAGE = "message";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
+    private static final String PARAM_DELETE_EFORM_AFTER_EMAIL = "deleteEFormAfterEmail";
+    private static final String PARAM_OPEN_EFORM_AFTER_EMAIL = "openEFormAfterEmail";
+    private static final String PARAM_DEMOGRAPHIC_ID = "demographicId";
+    private static final String PARAM_TRANSACTION_TYPE = "transactionType";
+    private static final String PARAM_SENDER_CONFIG_ID = "senderConfigId";
+    private static final String PARAM_SUBJECT_EMAIL = "subjectEmail";
+    private static final String PARAM_EMAIL_PDF_PASSWORD = "emailPDFPassword";
+    private static final String PARAM_EMAIL_PDF_PASSWORD_CLUE = "emailPDFPasswordClue";
+    private static final String PARAM_INTERNAL_COMMENT = "internalComment";
     private static final int MINIMUM_PDF_PASSWORD_LENGTH = 5;
     private static final int MAXIMUM_MESSAGE_LENGTH = 10_000;
 
@@ -180,7 +189,8 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String sendEFormEmail() {
-        boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
+        boolean deleteEFormAfterEmail =
+                "true".equalsIgnoreCase(request.getParameter(PARAM_DELETE_EFORM_AFTER_EMAIL));
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         EmailLog emailLog = sendEmail(request);
@@ -190,7 +200,7 @@ public class EmailSend2Action extends ActionSupport {
         if (isEmailSuccessful && deleteEFormAfterEmail) {
             eformDataManager.removeEFormData(loggedInInfo, request.getParameter("fdid"));
         }
-        request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
+        request.setAttribute("isOpenEForm", request.getParameter(PARAM_OPEN_EFORM_AFTER_EMAIL));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("emailLog", emailLog);
         if (!isEmailSuccessful) {
@@ -240,18 +250,22 @@ public class EmailSend2Action extends ActionSupport {
                 isEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
         request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED,
                 isEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
-        request.setAttribute("demographicId", request.getParameter("demographicId"));
+        request.setAttribute(PARAM_DEMOGRAPHIC_ID, request.getParameter(PARAM_DEMOGRAPHIC_ID));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("fid", request.getParameter("fid"));
-        request.setAttribute("openEFormAfterEmail", request.getParameter("openEFormAfterEmail"));
-        request.setAttribute("deleteEFormAfterEmail", request.getParameter("deleteEFormAfterEmail"));
-        request.setAttribute("transactionType", request.getParameter("transactionType"));
-        request.setAttribute("senderConfigId", request.getParameter("senderConfigId"));
-        request.setAttribute("subjectEmail", request.getParameter("subjectEmail"));
-        request.setAttribute("emailPDFPassword", request.getParameter("emailPDFPassword"));
-        request.setAttribute("emailPDFPasswordClue", request.getParameter("emailPDFPasswordClue"));
+        request.setAttribute(
+                PARAM_OPEN_EFORM_AFTER_EMAIL, request.getParameter(PARAM_OPEN_EFORM_AFTER_EMAIL));
+        request.setAttribute(
+                PARAM_DELETE_EFORM_AFTER_EMAIL, request.getParameter(PARAM_DELETE_EFORM_AFTER_EMAIL));
+        request.setAttribute(PARAM_TRANSACTION_TYPE, request.getParameter(PARAM_TRANSACTION_TYPE));
+        request.setAttribute(PARAM_SENDER_CONFIG_ID, request.getParameter(PARAM_SENDER_CONFIG_ID));
+        request.setAttribute(PARAM_SUBJECT_EMAIL, request.getParameter(PARAM_SUBJECT_EMAIL));
+        request.setAttribute(
+                PARAM_EMAIL_PDF_PASSWORD, request.getParameter(PARAM_EMAIL_PDF_PASSWORD));
+        request.setAttribute(
+                PARAM_EMAIL_PDF_PASSWORD_CLUE, request.getParameter(PARAM_EMAIL_PDF_PASSWORD_CLUE));
         request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
-        request.setAttribute("internalComment", request.getParameter("internalComment"));
+        request.setAttribute(PARAM_INTERNAL_COMMENT, request.getParameter(PARAM_INTERNAL_COMMENT));
         request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
         request.setAttribute("emailConsentStatus", request.getParameter("emailConsentStatus"));
         request.setAttribute("invalidReceiverEmailList", List.of());
@@ -303,7 +317,7 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
-        String transactionType = request.getParameter("transactionType");
+        String transactionType = request.getParameter(PARAM_TRANSACTION_TYPE);
         if (!"DIRECT".equals(transactionType) && !"EFORM".equals(transactionType)) {
             return rejectRequest(
                     HttpServletResponse.SC_BAD_REQUEST,
@@ -388,12 +402,12 @@ public class EmailSend2Action extends ActionSupport {
             return;
         }
 
-        String password = request.getParameter("emailPDFPassword");
+        String password = request.getParameter(PARAM_EMAIL_PDF_PASSWORD);
         if (password == null || password.trim().length() < MINIMUM_PDF_PASSWORD_LENGTH) {
             throw new EmailSendValidationException(
                     "A PDF password of at least 5 characters is required for encrypted email");
         }
-        String passwordClue = request.getParameter("emailPDFPasswordClue");
+        String passwordClue = request.getParameter(PARAM_EMAIL_PDF_PASSWORD_CLUE);
         if (passwordClue == null || passwordClue.trim().isEmpty()) {
             throw new EmailSendValidationException(
                     "A PDF password clue is required for encrypted email");
@@ -429,9 +443,9 @@ public class EmailSend2Action extends ActionSupport {
      *         ready for processing by EmailManager
      */
     private EmailData prepareEmailFields(HttpServletRequest request) {
-        String senderConfigId = request.getParameter("senderConfigId");
+        String senderConfigId = request.getParameter(PARAM_SENDER_CONFIG_ID);
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
-        String subject = request.getParameter("subjectEmail");
+        String subject = request.getParameter(PARAM_SUBJECT_EMAIL);
         String isEncrypted = request.getParameter(PARAM_IS_EMAIL_ENCRYPTED);
 
         // Single "Message" field routed server-side by the encryption toggle so the client can never
@@ -454,12 +468,12 @@ public class EmailSend2Action extends ActionSupport {
         String body = encrypted ? encryptedBodyNotice() : message;
         String encryptedMessage = encrypted ? message : "";
 
-        String password = request.getParameter("emailPDFPassword");
-        String passwordClue = request.getParameter("emailPDFPasswordClue");
+        String password = request.getParameter(PARAM_EMAIL_PDF_PASSWORD);
+        String passwordClue = request.getParameter(PARAM_EMAIL_PDF_PASSWORD_CLUE);
         String chartDisplayOption = request.getParameter("patientChartOption");
-        String internalComment = request.getParameter("internalComment");
-        String transactionType = request.getParameter("transactionType");
-        String demographicNo = request.getParameter("demographicId");
+        String internalComment = request.getParameter(PARAM_INTERNAL_COMMENT);
+        String transactionType = request.getParameter(PARAM_TRANSACTION_TYPE);
+        String demographicNo = request.getParameter(PARAM_DEMOGRAPHIC_ID);
         String additionalParams = request.getParameter("additionalURLParams");
         List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession()
                 .getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);

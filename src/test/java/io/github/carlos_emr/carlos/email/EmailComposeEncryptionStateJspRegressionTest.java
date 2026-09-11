@@ -37,8 +37,9 @@ class EmailComposeEncryptionStateJspRegressionTest {
         int sendResultBranch = jsp.indexOf("// A successful send is terminal", domReady);
 
         assertThat(domReady).isGreaterThanOrEqualTo(0);
-        assertThat(applyState).isGreaterThan(domReady);
-        assertThat(applyState).isLessThan(sendResultBranch);
+        assertThat(applyState)
+                .isGreaterThan(domReady)
+                .isLessThan(sendResultBranch);
     }
 
     @Test
