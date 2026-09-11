@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
@@ -75,6 +76,10 @@ public class PortalAccount2Action extends PortalJsonAction {
     private static final String UNKNOWN_METHOD = "unsupported portal account action";
     private static final String REASON_REQUIRED =
             "a reason is required when disabling a portal account";
+    private static final String REASON_TOO_LONG =
+            "the portal account reason must be at most 64 characters";
+    private static final String REASON_HAS_UNSAFE_CHARACTER =
+            "the portal account reason must not contain control or formatting characters";
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient PortalStaffContextResolver staffContextResolver;
@@ -199,11 +204,18 @@ public class PortalAccount2Action extends PortalJsonAction {
         if (!enabledValue && reasonMissing) {
             return badRequest(response, REASON_REQUIRED);
         }
+        String normalizedReason = reasonMissing ? "staff_action" : reason.strip();
+        if (normalizedReason.length() > PatientPortalAccountDto.MAX_DISABLED_REASON_LENGTH) {
+            return badRequest(response, REASON_TOO_LONG);
+        }
+        if (!PatientPortalAccountDto.hasSafeDisabledReasonCharacters(normalizedReason)) {
+            return badRequest(response, REASON_HAS_UNSAFE_CHARACTER);
+        }
         PatientPortalAccountAcknowledgementDto account =
                 portal.setAccountAccess(
                         demographicNo,
                         enabledValue,
-                        reasonMissing ? "staff_action" : reason.strip(),
+                        normalizedReason,
                         staff);
         ObjectNode payload = newPayload();
         payload.put("ok", true);

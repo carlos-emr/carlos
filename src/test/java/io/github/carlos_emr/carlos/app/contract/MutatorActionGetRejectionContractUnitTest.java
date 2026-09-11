@@ -327,6 +327,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> NON_MUTATOR_GATES = Set.of(
         "io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action",
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalPatient2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",

@@ -47,13 +47,16 @@
             <result name="caisiSearch">/PMmodule/ClientSearch2</result>
         </action>
         <!--
-          Patient portal invitations (issue #3475). No <result> elements: every route writes JSON
-          directly and returns NONE, so a named result would resolve to a JSP forward and append
-          HTML to the response body.
+          Patient portal integration (issue #3475). The JSON routes have no <result> elements
+          because they write their responses directly. The page route remains deliberately absent
+          from normal navigation and is reachable only by direct URL for now.
         -->
         <action name="demographic/portalInvite" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action"/>
         <action name="demographic/portalAccount" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action"/>
         <action name="demographic/portalPanel" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action"/>
+        <action name="demographic/portalPatient" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalPatient2Action">
+            <result name="success">/WEB-INF/jsp/demographic/portalPatient.jsp</result>
+        </action>
         <action name="demographic/printDemoLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action"/>
         <action name="demographic/printDemoAddressLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoAddressLabel2Action"/>
         <action name="demographic/printDemoChartLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoChartLabel2Action"/>
