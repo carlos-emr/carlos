@@ -297,12 +297,15 @@ class PatientPortalAccountAndSecretCallsUnitTest {
     @DisplayName("contact reviews")
     class ContactReviews {
 
-        private static final String REVIEW_PAGE =
-                "{\"items\":[{\"id\":3,\"clinic_id\":\"maplecreek\",\"demographic_no\":123,"
+        private static final String REVIEW_ITEM =
+                "{\"id\":3,\"clinic_id\":\"maplecreek\",\"demographic_no\":123,"
                         + "\"email_before\":\"old@example.com\",\"email_after\":"
                         + "\"patient@example.com\",\"phone_number_before\":null,"
                         + "\"phone_number_after\":null,\"requested_at\":\"2026-08-19T12:00:00Z\","
-                        + "\"revision\":\"rev-abc\"}],\"limit\":50,\"offset\":0,\"total\":1,"
+                        + "\"revision\":\"rev-abc\"}";
+
+        private static final String REVIEW_PAGE =
+                "{\"items\":[" + REVIEW_ITEM + "],\"limit\":50,\"offset\":0,\"total\":1,"
                         + "\"next_offset\":null}";
 
         @Test
@@ -456,6 +459,31 @@ class PatientPortalAccountAndSecretCallsUnitTest {
                                     service(exchange)
                                             .listContactReviews(
                                                     50,
+                                                    0,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_CONTACT_REVIEW)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
+        @DisplayName("should reject a page containing more items than its declared limit")
+        void shouldThrowMalformedResponse_whenReviewPageExceedsLimit() {
+            String oversizedPage =
+                    "{\"items\":["
+                            + REVIEW_ITEM
+                            + ","
+                            + REVIEW_ITEM.replace("\"id\":3", "\"id\":4")
+                            + "],\"limit\":1,\"offset\":0,\"total\":2,\"next_offset\":1}";
+            ScriptedExchange exchange = new ScriptedExchange().reply(200, oversizedPage);
+
+            assertThatThrownBy(
+                            () ->
+                                    service(exchange)
+                                            .listContactReviews(
+                                                    1,
                                                     0,
                                                     staff(
                                                             PatientPortalStaffContext
