@@ -40,7 +40,8 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     patient email, appointment reasons and notes, master-record notes and
     alerts, billing comments, fax cover comments and program notes. Each is
     exempted per argument on its own route; the firewall still inspects every
-    other argument and still blocks a probe injection. The four fields whose
+    other argument, keeps its script-injection rules on all of them, and still
+    blocks a probe injection. The four fields whose
     names carry a row number (measurement comments, manual lab notes, contact
     notes, waiting-list notes) are exempted by an anchored name pattern
     instead, since the firewall cannot list them. The encounter forms (Rourke,
@@ -53,8 +54,10 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     that form no longer fails with an error page: the shortcut now opens a
     new form. The Discharge Summary also opens at a clinic that does not use
     programs.
-  * The legacy encounter-note entry view now encodes the note it puts back
-    into its text box. With the firewall no longer reading that note as a
+  * The legacy encounter-note entry view, the note history popup, the legacy
+    tickler list, the prescription record and reason comments, and the
+    demographic alert and notes boxes now encode the text they put back on
+    the page. With the firewall no longer reading that note as a
     script attack, the application's own output encoding is what keeps a
     stored "</textarea><script>" from running on the next open of that view.
 

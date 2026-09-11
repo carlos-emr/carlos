@@ -2683,10 +2683,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String noteid = request.getParameter("noteId");
 
+        // The note text is rendered by showHistory.jsp through the null-safe encoder with
+        // line breaks preserved (carlos:forHtmlContentWithBreaks). Splicing "<br/>" into
+        // the stored text here forced the view to emit it raw, which made a stored
+        // "</p><script>" in a note execute in the history popup.
         List<CaseManagementNote> history = caseManagementMgr.getHistory(noteid);
-        for (CaseManagementNote caseManagementNote : history) {
-            caseManagementNote.setNote(caseManagementNote.getNote().replace("\n", "<br/>"));
-        }
         request.setAttribute("history", history);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         request.setAttribute("title", props.getString("encounter.noteHistory.title"));

@@ -76,9 +76,14 @@ class ClinicalProseWafExclusionRegressionTest {
     private static final List<String> AFTER_CRS_INFRASTRUCTURE_TARGETS = List.of(
             "!ARGS:CSRF-TOKEN", "!REQUEST_COOKIES:/^JSESSIONID$/");
 
-    /** The same seven content-attack tag groups exclusion 1010 removes on the note route. */
+    /**
+     * The six tag families that misread prose. Unlike exclusion 1010 on the note route,
+     * attack-xss is NOT removed anywhere in the survey block, the per-row patterns or the
+     * form list: the CRS XSS rules did not fire on any measured prose shape at paranoia
+     * level 1, and legacy views still render some stored text raw, so that layer stays on.
+     */
     private static final String[] CONTENT_ATTACK_TAGS = {
-            "attack-sqli", "attack-xss", "attack-rce",
+            "attack-sqli", "attack-rce",
             "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"};
 
     /**
@@ -164,7 +169,9 @@ class ClinicalProseWafExclusionRegressionTest {
             for (String tag : CONTENT_ATTACK_TAGS) {
                 assertThat(rule)
                         .as("rule %s exempts %s from %s", ruleId, argument, tag)
-                        .contains("ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:" + argument);
+                        // A delimiter after the name, so "note" cannot be satisfied by "notes".
+                        .containsPattern(Pattern.quote("ctl:ruleRemoveTargetByTag=" + tag + ";ARGS:" + argument)
+                                + "(?:,|\"|\\\\)");
             }
         }
 
@@ -180,6 +187,16 @@ class ClinicalProseWafExclusionRegressionTest {
                             .as("rule %s names an argument that is not in the table: %s", ruleId, target)
                             .contains(target);
                 });
+    }
+
+    @Test
+    @DisplayName("the survey block and the per-row patterns should leave the XSS family inspected")
+    void shouldKeepXssInspected_forSurveyAndPerRowFields() throws IOException {
+        String before = read();
+        String survey = before.substring(before.indexOf("Clinician free text on the rest of the application"));
+        String after = Files.readString(AFTER_CRS_EXCLUSIONS, StandardCharsets.UTF_8);
+        assertThat(survey).doesNotContain("attack-xss;ARGS:");
+        assertThat(after).doesNotContain("\"attack-xss\"           \"!ARGS:/");
     }
 
     @Test

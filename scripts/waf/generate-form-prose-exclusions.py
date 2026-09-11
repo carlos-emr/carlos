@@ -7,8 +7,10 @@ Generate the per-form ModSecurity exclusions for clinician prose on the encounte
 Reads every form JSP under src/main/webapp/WEB-INF/jsp/form, works out which route each
 form saves through and which `form_class` it posts, collects the names of its free-text
 cells, and writes debian/assets/modsecurity/REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf:
-one chained rule per (route, form_class) that removes the seven CRS content-attack tag
-families from exactly those argument names, on POST only.
+one chained rule per (route, form_class) that removes the six CRS content-attack tag
+families that misread prose (SQLi, RCE, PHP injection, protocol, LFI, RFI) from exactly
+those argument names, on POST only. The XSS family stays on: it did not fire on any
+measured prose shape, and legacy views still render some stored text raw.
 
 Why generated: 136 form JSPs carry several hundred distinct free-text names and gain new
 ones over time. A hand-written list silently sends a new field back to the front-door 403.
@@ -48,7 +50,10 @@ FORM_DIR = os.path.join(ROOT, "src", "main", "webapp", "WEB-INF", "jsp", "form")
 OUTPUT = os.path.join(ROOT, "debian", "assets", "modsecurity",
                       "REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf")
 FIRST_RULE_ID = 1200
-CONTENT_ATTACK_TAGS = ("attack-sqli", "attack-xss", "attack-rce", "attack-injection-php",
+# attack-xss is deliberately NOT here: the CRS XSS rules did not fire on any measured
+# prose shape at paranoia level 1, and several legacy views still render stored text
+# raw, so the XSS layer stays on every form cell as defence in depth.
+CONTENT_ATTACK_TAGS = ("attack-sqli", "attack-rce", "attack-injection-php",
                        "attack-protocol", "attack-lfi", "attack-rfi")
 # Name fragments that mark a single-line text input as a narrative box on these forms.
 PROSE_INPUT_NAME = re.compile(
@@ -187,7 +192,10 @@ def render(groups):
                "# <textarea> cells and the single-line inputs whose names mark them as\n"
                "# narrative boxes (see the generator's PROSE_INPUT_NAME); dates, codes,\n"
                "# numbers, ids and form_class itself stay fully inspected, as does every\n"
-               "# other argument on these routes. Nothing here is request-wide.\n#\n"
+               "# other argument on these routes. Nothing here is request-wide. The XSS\n"
+               "# family is NOT removed: the CRS XSS rules did not fire on any measured\n"
+               "# prose shape at paranoia level 1, and legacy form views render stored\n"
+               "# cells raw, so that layer stays on every cell as defence in depth.\n#\n"
                "# The form_class-keyed rules are phase 2 (the POST body is parsed there);\n"
                "# the CRS content-attack rules are phase 2 as well, and this file loads\n"
                "# before them, so the exclusions still apply first. Route-only rules stay\n"

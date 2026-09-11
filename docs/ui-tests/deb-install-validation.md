@@ -62,6 +62,16 @@ un-indexed names (`comments`, `labnotes`, `note`) still block on the same
 shapes, and a measurement saved from the browser with such a comment lands in
 the `measurements` table intact.
 
+Everything the survey, the per-row patterns and the form list exempt keeps the
+CRS **XSS** family inspected: those rules did not fire on any measured prose
+shape at paranoia level 1, and legacy views still render some stored values
+raw, so only the six families that misread prose (SQLi, RCE, PHP injection,
+protocol, LFI, RFI) are removed. Exclusion 1010 on the note route keeps its
+original seven, and the raw sinks a review found behind exempted arguments
+(note history, the legacy tickler list, prescription record and reason
+comments, the demographic alert and notes boxes) now go through the null-safe
+encoder, pinned by `ProseSinkEncodingRegressionTest`.
+
 The encounter forms under `/form/*` are covered by a **generated** file,
 `REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf` (ids 1200-1399), written by
 `scripts/waf/generate-form-prose-exclusions.py` from the form JSPs: one rule per

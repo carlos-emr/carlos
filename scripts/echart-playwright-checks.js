@@ -51,6 +51,10 @@ const notesLoadRequests = [];
 // Set when a response arrives through the packaged nginx front door, which is the only
 // configuration where the WAF can see (and so false-positive on) the seeded clinical text.
 let frontDoorObserved = false;
+// Set EXPECT_FRONT_DOOR=true to make a run that never saw an nginx-served response FAIL rather
+// than merely report it: the Server header is the only cheap signal, and a hardened proxy that
+// strips it would otherwise turn a WAF run into a silent no-op.
+const expectFrontDoor = /^(1|true|yes)$/i.test(process.env.EXPECT_FRONT_DOOR || '');
 
 // The notes list pages in older notes from a 1s poll, so "settled" means no new fetch
 // for several poll ticks. The overall cap keeps a legitimately long chart from hanging
@@ -590,6 +594,9 @@ function isExpectedNoteLockDialog(issue) {
     // devcontainer's bare Tomcat, where CLINICAL_TEXT_THE_WAF_SCORES passes for the boring
     // reason that nothing inspected it — a green run there is NOT evidence that exclusion
     // 1010 is intact, and only the packaged front door on :443 can give that.
+    if (expectFrontDoor && !frontDoorObserved) {
+      throw new Error('EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the packaged front door');
+    }
     console.log(frontDoorObserved
       ? 'WAF coverage: requests went through the packaged front door, so the '
         + 'attack-shaped clinical text exercised exclusion 1010'

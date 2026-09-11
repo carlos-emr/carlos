@@ -65,8 +65,9 @@ class FormProseWafExclusionRegressionTest {
 
     private static final int FIRST_RULE_ID = 1200;
     private static final int LAST_ALLOWED_RULE_ID = 1399;
+    /** The six tag families that misread prose; attack-xss stays inspected on every cell. */
     private static final String[] CONTENT_ATTACK_TAGS = {
-            "attack-sqli", "attack-xss", "attack-rce", "attack-injection-php",
+            "attack-sqli", "attack-rce", "attack-injection-php",
             "attack-protocol", "attack-lfi", "attack-rfi"};
 
     // Mirrors of the generator's patterns. Keep them identical.
@@ -140,7 +141,9 @@ class FormProseWafExclusionRegressionTest {
                 .doesNotContain("ctl:ruleRemoveByTag=")
                 .doesNotContain(";ARGS,")
                 .doesNotContain(";ARGS\"")
-                .doesNotContain("ARGS:/");
+                .doesNotContain("ARGS:/")
+                // The XSS layer stays on every form cell; legacy form views render stored text raw.
+                .doesNotContain("attack-xss");
     }
 
     @Test

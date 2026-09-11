@@ -104,8 +104,8 @@ class CaseManagementEmptyStateRegressionTest {
             // contains() check while <fmt:message> renders nothing, so require a real value.
             assertThat(resources)
                     .as("localized empty-state messages for %s", locale)
-                    .containsPattern("(?m)^casemgmt\\.showHistory\\.msgNoHistory=\\s*\\S")
-                    .containsPattern("(?m)^casemgmt\\.viewNotes\\.msgNoNotes=\\s*\\S");
+                    .containsPattern("(?m)^\\s*casemgmt\\.showHistory\\.msgNoHistory\\s*[=:]\\s*\\S")
+                    .containsPattern("(?m)^\\s*casemgmt\\.viewNotes\\.msgNoNotes\\s*[=:]\\s*\\S");
         }
 
         String english = Files.readString(
@@ -133,8 +133,10 @@ class CaseManagementEmptyStateRegressionTest {
 
             assertThat(resources)
                     .as("empty-state messages for %s must not fall back to the English text", locale)
-                    .doesNotContain(ENGLISH_NO_HISTORY)
-                    .doesNotContain(ENGLISH_NO_NOTES);
+                    // The English sentence itself, so a copied value survives no formatting
+                    // difference around the key or the separator.
+                    .doesNotContain(ENGLISH_NO_HISTORY.substring(ENGLISH_NO_HISTORY.indexOf('=') + 1))
+                    .doesNotContain(ENGLISH_NO_NOTES.substring(ENGLISH_NO_NOTES.indexOf('=') + 1));
         }
     }
 
