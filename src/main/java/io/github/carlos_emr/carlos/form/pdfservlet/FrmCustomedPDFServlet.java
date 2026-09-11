@@ -272,6 +272,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     }
 
                     String provider_no = loggedInInfo.getLoggedInProviderNo();
+                    boolean persistenceAttempted = false;
                     try {
                         int numPages;
                         try (PdfReader pdfReader = new PdfReader(preparedFiles.getDocumentPdf().toString())) {
@@ -292,14 +293,18 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         faxJob.setSenderEmail(selectedFaxConfig.getSenderEmail());
                         faxJob.setDirection(Direction.OUT);
 
-                        // This call returns only after the FaxJob and its FaxClientLog transaction
-                        // commits. Until then every filesystem artifact is owned solely by this
-                        // request and must be removed if inspection, job construction or persistence
-                        // fails, so the same unique attempt id remains retryable.
+                        // A commit acknowledgement can be lost after the job becomes visible.
+                        // Once persistence starts, an exception does not prove rollback: retain
+                        // the files and report uncertainty rather than inviting a duplicate fax.
+                        persistenceAttempted = true;
                         faxManager.persistAndLogFaxJob(loggedInInfo, faxJob, TransactionType.RX, prescription.getId());
                     } catch (IOException | RuntimeException e) {
-                        preparedFiles.cleanupAfterFailure(e);
-                        reportFaxFailure(res, writer, "Prescription fax queueing failed", e);
+                        if (persistenceAttempted) {
+                            reportFaxUncertain(res, writer, e);
+                        } else {
+                            preparedFiles.cleanupAfterFailure(e);
+                            reportFaxFailure(res, writer, "Prescription fax preparation failed", e);
+                        }
                         return;
                     }
 
@@ -446,6 +451,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 out.write(faxNo);
             }
         }
+    }
+
+    private void reportFaxUncertain(HttpServletResponse res, PrintWriter writer, Exception failure) {
+        logger.error("Prescription fax persistence outcome is uncertain; preserving prepared files", failure);
+        res.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        writer.println("<div id='fax-uncertain'><h3>The fax result could not be confirmed.</h3>"
+                + "<p>The job may already be queued. Check the fax outbox before sending again.</p></div>");
+        writer.flush();
     }
 
     private void reportFaxFailure(HttpServletResponse res, PrintWriter writer, String stage, Exception failure) {

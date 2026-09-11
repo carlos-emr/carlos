@@ -15,6 +15,7 @@ function browserFunction(name, nextName) {
   const end = jsp.indexOf(`function ${nextName}(`, start + 1);
   assert.ok(start >= 0 && end > start, `missing JSP function ${name}`);
   return jsp.slice(start, end)
+    .replace(/<%--[\s\S]*?--%>/g, '')
     .replace(/<%[\s\S]*?%>/g, '1')
     .replace(/<carlos:encode\b[^>]*\/>/g, '1');
 }
@@ -68,6 +69,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     faxPasteCanRetry: false,
     faxPasteRetryPending: false,
     hasPreview: true,
+    isReprint: false,
     hasFaxNumber: true,
     hasFaxSenderAccount: true,
     canFaxScript: true,
@@ -345,6 +347,39 @@ test('missing fax prerequisites alone do not disable Print and Paste', () => {
   fixture.context.setFaxControlsDisabled(true);
   assert.equal(fixture.elements.faxButton.disabled, true);
   assert.equal(fixture.elements.printPasteButton.disabled, false);
+});
+
+test('recalculating controls preserves the historical-reprint restriction', () => {
+  const fixture = setup();
+  fixture.context.isReprint = true;
+  fixture.context.setFaxControlsDisabled(false);
+  assert.equal(fixture.elements.printPasteButton.disabled, true);
+});
+
+test('Print and Paste works without fax-only variables and rejects historical reprints', async () => {
+  const { context } = setup();
+  delete context.hasFaxNumber;
+  delete context.hasFaxSenderAccount;
+  delete context.canFaxScript;
+  delete context.hasStoredSignature;
+  context.window.parent = { opener: null };
+  const writes = [];
+  context.writeToEncounter = (print, text) => { writes.push({ print, text }); return Promise.resolve(true); };
+  context.alert = (message) => { throw new Error(message); };
+  vm.runInContext(browserFunction('printPaste2Parent', 'writeToEncounter'), context);
+  assert.equal(await context.printPaste2Parent(true, false, true, 'captured prescription'), true);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].print, true);
+  assert.ok(writes[0].text.includes('captured prescription'));
+  context.isReprint = true;
+  assert.equal(await context.printPaste2Parent(true, false, true, 'old prescription'), false);
+  assert.equal(writes.length, 1);
+  // The declarations must remain in the unconditional script, not under the
+  // later isRxFaxEnabled JSP branch that supplies the fax-only variables.
+  const declarations = jsp.slice(jsp.indexOf('var POLL_TIME'), jsp.indexOf('function lockFaxNotes'));
+  assert.match(declarations, /var hasPreview =/);
+  assert.match(declarations, /var isReprint =/);
+  assert.ok(!declarations.includes('if (CarlosProperties'));
 });
 
 function encounterFixture(fetchResult) {

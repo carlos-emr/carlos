@@ -543,8 +543,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should remove owned fax files after persistence failure and allow the same id to retry")
-    void shouldCleanOwnedFilesAndAllowRetry_whenPersistenceFails(@TempDir Path tempDir) throws Exception {
+    @DisplayName("should preserve fax files and reject replay when persistence outcome is uncertain")
+    void shouldKeepFilesAndRejectReplay_whenPersistenceOutcomeIsUncertain(@TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
         Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
@@ -556,7 +556,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         stubRecordDemographic();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        doThrow(new IllegalStateException("database unavailable")).doNothing().when(faxManager)
+        doThrow(new IllegalStateException("commit acknowledgement lost")).when(faxManager)
                 .persistAndLogFaxJob(any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
 
         try {
@@ -567,21 +567,22 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
             serviceAs(servlet, request, failedResponse, loggedInInfo);
 
-            assertThat(failedResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            assertThat(failedResponse.getContentAsString()).contains("fax-failure").contains("Unable to generate fax");
-            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
-            assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
-            assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
+            assertThat(failedResponse.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(failedResponse.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
 
             MockHttpServletResponse retryResponse = new MockHttpServletResponse();
             serviceAs(servlet, request, retryResponse, loggedInInfo);
 
-            assertThat(retryResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            assertThat(retryResponse.getContentAsString()).contains("fax-success");
+            assertThat(retryResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(retryResponse.getContentAsString()).doesNotContain("fax-success");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
-            verify(faxManager, times(2)).persistAndLogFaxJob(
+            verify(faxManager).persistAndLogFaxJob(
                     any(), any(FaxJob.class), eq(TransactionType.RX), eq(SCRIPT_ID));
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
