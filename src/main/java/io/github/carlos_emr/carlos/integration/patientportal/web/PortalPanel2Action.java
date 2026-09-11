@@ -78,7 +78,7 @@ public class PortalPanel2Action extends PortalJsonAction {
 
     private static final String SECTION_UNAVAILABLE = "unavailable";
     private static final String SECTION_FAILED_LOG =
-            "patient portal panel section %s could not be read: kind=%s";
+            "patient portal panel section {} could not be read: kind={}";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -203,7 +203,9 @@ public class PortalPanel2Action extends PortalJsonAction {
             payload.put("invitesErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
             logger.log(
                     failureLogLevel(exception),
-                    String.format(Locale.ROOT, SECTION_FAILED_LOG, "invites", exception.kind()),
+                    SECTION_FAILED_LOG,
+                    "invites",
+                    exception.kind(),
                     exception);
             return false;
         }
@@ -231,7 +233,9 @@ public class PortalPanel2Action extends PortalJsonAction {
             payload.put("accountErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
             logger.log(
                     failureLogLevel(exception),
-                    String.format(Locale.ROOT, SECTION_FAILED_LOG, "account", exception.kind()),
+                    SECTION_FAILED_LOG,
+                    "account",
+                    exception.kind(),
                     exception);
             return false;
         }

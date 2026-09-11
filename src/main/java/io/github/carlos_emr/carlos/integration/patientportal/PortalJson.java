@@ -128,6 +128,15 @@ final class PortalJson {
         return value.isNull() ? null : requiredLong(node, field);
     }
 
+    /** A declared nullable identifier, which must be positive when it is not JSON null. */
+    static Long nullablePositiveLong(JsonNode node, String field) {
+        Long value = nullableLong(node, field);
+        if (value != null && value <= 0) {
+            throw new PortalContractException(String.format(Locale.ROOT, OUT_OF_RANGE, field));
+        }
+        return value;
+    }
+
     static Integer optionalInt(JsonNode node, String field) {
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? null : requiredInt(node, field);

@@ -151,6 +151,7 @@ class PortalJsonUnitTest {
 
             assertThat(PortalJson.nullableText(payload, "x")).isNull();
             assertThat(PortalJson.nullableLong(payload, "x")).isNull();
+            assertThat(PortalJson.nullablePositiveLong(payload, "x")).isNull();
             assertThat(PortalJson.nullableInt(payload, "x")).isNull();
             assertThat(PortalJson.nullableTimestamp(payload, "x")).isNull();
         }
@@ -165,6 +166,8 @@ class PortalJsonUnitTest {
                     .hasMessageContaining("x");
             assertThatThrownBy(() -> PortalJson.nullableLong(payload, "x"))
                     .isInstanceOf(PortalContractException.class);
+            assertThatThrownBy(() -> PortalJson.nullablePositiveLong(payload, "x"))
+                    .isInstanceOf(PortalContractException.class);
             assertThatThrownBy(() -> PortalJson.nullableInt(payload, "x"))
                     .isInstanceOf(PortalContractException.class);
             assertThatThrownBy(() -> PortalJson.nullableTimestamp(payload, "x"))
@@ -178,9 +181,19 @@ class PortalJsonUnitTest {
 
             assertThat(PortalJson.nullableText(payload, "s")).isEqualTo("v");
             assertThat(PortalJson.nullableLong(payload, "n")).isEqualTo(5L);
+            assertThat(PortalJson.nullablePositiveLong(payload, "n")).isEqualTo(5L);
             assertThat(PortalJson.nullableInt(payload, "n")).isEqualTo(5);
             assertThat(PortalJson.nullableTimestamp(payload, "t"))
                     .isEqualTo(Instant.parse("2026-08-19T12:00:00Z"));
+        }
+
+        @Test
+        @DisplayName("should refuse a non-positive nullable identifier")
+        void shouldThrow_whenNullableIdentifierIsNotPositive() {
+            assertThatThrownBy(
+                            () -> PortalJson.nullablePositiveLong(node("{\"id\":0}"), "id"))
+                    .isInstanceOf(PortalContractException.class)
+                    .hasMessageContaining("id");
         }
     }
 

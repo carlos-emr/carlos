@@ -113,6 +113,9 @@ public class PatientPortalService implements Closeable {
     /** The portal caps a contact-review page at 100 records per request. */
     public static final int MAX_REVIEW_PAGE_SIZE = 100;
 
+    /** Highest contact-review offset accepted by the portal query contract. */
+    public static final int MAX_REVIEW_OFFSET = 100_000;
+
     /** The only secret type the portal currently mints. */
     static final String SECRET_TYPE_EMAIL = "email";
 
@@ -406,7 +409,7 @@ public class PatientPortalService implements Closeable {
     public PatientPortalContactReviewPageDto listContactReviews(
             int limit, int offset, PatientPortalStaffContext staff) {
         int requested = Math.min(Math.max(limit, 1), MAX_REVIEW_PAGE_SIZE);
-        int from = Math.max(offset, 0);
+        int from = Math.min(Math.max(offset, 0), MAX_REVIEW_OFFSET);
         return fetch(
                 GET,
                 REVIEWS_PATH,
@@ -577,6 +580,10 @@ public class PatientPortalService implements Closeable {
         if (page.limit() != expectedLimit || page.offset() != expectedOffset) {
             throw new PortalContractException(
                     "portal review page does not match the requested pagination");
+        }
+        if (page.nextOffset() != null && page.nextOffset() > MAX_REVIEW_OFFSET) {
+            throw new PortalContractException(
+                    "portal review page points beyond the supported pagination range");
         }
         return page;
     }

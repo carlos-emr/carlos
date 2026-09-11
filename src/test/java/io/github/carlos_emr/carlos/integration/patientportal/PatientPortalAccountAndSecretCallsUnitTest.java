@@ -361,6 +361,111 @@ class PatientPortalAccountAndSecretCallsUnitTest {
         }
 
         @Test
+        @DisplayName("should cap the offset at the portal's accepted maximum")
+        void shouldClampOffset_whenCallerAsksBeyondPortalRange() {
+            String lastPage =
+                    "{\"items\":[],\"limit\":50,\"offset\":100000,\"total\":100000,"
+                            + "\"next_offset\":null}";
+            ScriptedExchange exchange = new ScriptedExchange().reply(200, lastPage);
+
+            service(exchange)
+                    .listContactReviews(
+                            50,
+                            Integer.MAX_VALUE,
+                            staff(PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW));
+
+            assertThat(exchange.sent.get(0).getRequestUri()).contains("limit=50&offset=100000");
+        }
+
+        @Test
+        @DisplayName("should accept the portal's exact next-page offset")
+        void shouldReturnNextOffset_whenAnotherReviewPageExists() {
+            String firstPage =
+                    REVIEW_PAGE
+                            .replace("\"total\":1", "\"total\":2")
+                            .replace("\"next_offset\":null", "\"next_offset\":50");
+            ScriptedExchange exchange = new ScriptedExchange().reply(200, firstPage);
+
+            PatientPortalContactReviewPageDto page =
+                    service(exchange)
+                            .listContactReviews(
+                                    50,
+                                    0,
+                                    staff(
+                                            PatientPortalStaffContext
+                                                    .PERMISSION_CONTACT_REVIEW));
+
+            assertThat(page.nextOffset()).isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("should reject a next offset that does not follow the portal contract")
+        void shouldThrowMalformedResponse_whenNextOffsetIsUnexpected() {
+            String inconsistentPage =
+                    REVIEW_PAGE
+                            .replace("\"total\":1", "\"total\":2")
+                            .replace("\"next_offset\":null", "\"next_offset\":25");
+            ScriptedExchange exchange = new ScriptedExchange().reply(200, inconsistentPage);
+
+            assertThatThrownBy(
+                            () ->
+                                    service(exchange)
+                                            .listContactReviews(
+                                                    50,
+                                                    0,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_CONTACT_REVIEW)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
+        @DisplayName("should reject a next offset the portal itself will not accept")
+        void shouldThrowMalformedResponse_whenNextOffsetExceedsPortalRange() {
+            String unusablePage =
+                    "{\"items\":[],\"limit\":100,\"offset\":100000,\"total\":100101,"
+                            + "\"next_offset\":100100}";
+            ScriptedExchange exchange = new ScriptedExchange().reply(200, unusablePage);
+
+            assertThatThrownBy(
+                            () ->
+                                    service(exchange)
+                                            .listContactReviews(
+                                                    100,
+                                                    100000,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_CONTACT_REVIEW)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
+        @DisplayName("should reject a page that claims more items but omits its next offset")
+        void shouldThrowMalformedResponse_whenReviewPaginationIsInconsistent() {
+            String inconsistentPage =
+                    "{\"items\":[],\"limit\":50,\"offset\":0,\"total\":1,"
+                            + "\"next_offset\":null}";
+            ScriptedExchange exchange = new ScriptedExchange().reply(200, inconsistentPage);
+
+            assertThatThrownBy(
+                            () ->
+                                    service(exchange)
+                                            .listContactReviews(
+                                                    50,
+                                                    0,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_CONTACT_REVIEW)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
         @DisplayName("should echo the exact revision back on the decision")
         void shouldSendRevision_whenDecisionIsRecorded() throws Exception {
             ScriptedExchange exchange =

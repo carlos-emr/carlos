@@ -109,6 +109,8 @@ class PortalFailureStatusUnitTest {
         action.write(response, 200, payload);
 
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getHeader("Cache-Control"))
+                .isEqualTo("no-store, no-cache, must-revalidate");
         com.fasterxml.jackson.databind.JsonNode parsed =
                 new com.fasterxml.jackson.databind.ObjectMapper()
                         .readTree(response.getContentAsString());

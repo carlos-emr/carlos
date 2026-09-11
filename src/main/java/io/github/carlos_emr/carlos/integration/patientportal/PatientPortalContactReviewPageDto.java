@@ -69,8 +69,15 @@ public record PatientPortalContactReviewPageDto(
                 PortalJson.nonnegativeInt(node, "offset"),
                 PortalJson.nonnegativeInt(node, "total"),
                 next);
-        if (next != null && next <= page.offset()) {
-            throw new PortalContractException("portal review page has a non-advancing next offset");
+        long consumed = (long) page.offset() + page.items().size();
+        boolean hasMore = consumed < page.total();
+        if (hasMore != (next != null)) {
+            throw new PortalContractException(
+                    "portal review page does not consistently report whether another page exists");
+        }
+        if (next != null && next != (long) page.offset() + page.limit()) {
+            throw new PortalContractException(
+                    "portal review page has an unexpected next offset");
         }
         return page;
     }
