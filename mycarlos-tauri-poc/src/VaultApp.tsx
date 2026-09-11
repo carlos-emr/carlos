@@ -10,7 +10,32 @@ import {
   type VaultStatus,
 } from "./vault";
 
-const AUTO_LOCK_MS = 5 * 60 * 1000;
+const DEFAULT_AUTO_LOCK_MINUTES = 5;
+const AUTO_LOCK_STORAGE_KEY = "mycarlos.autoLockMinutes.v1";
+const AUTO_LOCK_OPTIONS = Array.from({ length: 15 }, (_, index) => index + 1);
+
+function normalizeAutoLockMinutes(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 15
+    ? parsed
+    : DEFAULT_AUTO_LOCK_MINUTES;
+}
+
+function readAutoLockMinutes(): number {
+  try {
+    return normalizeAutoLockMinutes(window.localStorage.getItem(AUTO_LOCK_STORAGE_KEY));
+  } catch {
+    return DEFAULT_AUTO_LOCK_MINUTES;
+  }
+}
+
+function persistAutoLockMinutes(value: number): void {
+  try {
+    window.localStorage.setItem(AUTO_LOCK_STORAGE_KEY, String(value));
+  } catch {
+    // The clamped in-memory setting remains active when webview storage is unavailable.
+  }
+}
 
 export interface VaultAppProps {
   bridge?: VaultBridge;
@@ -66,6 +91,7 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [concealed, setConcealed] = useState(false);
+  const [autoLockMinutes, setAutoLockMinutes] = useState(readAutoLockMinutes);
   const busyRef = useRef(false);
   const pendingLockRef = useRef(false);
 
@@ -106,10 +132,11 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
 
   useEffect(() => {
     if (status !== "unlocked") return;
-    let timer = window.setTimeout(requestLock, AUTO_LOCK_MS);
+    const delayMs = autoLockMinutes * 60 * 1000;
+    let timer = window.setTimeout(requestLock, delayMs);
     const restart = () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(requestLock, AUTO_LOCK_MS);
+      timer = window.setTimeout(requestLock, delayMs);
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") requestLock(true);
@@ -126,7 +153,14 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
       }
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [requestLock, status]);
+  }, [autoLockMinutes, requestLock, status]);
+
+  const updateAutoLockMinutes = (value: unknown) => {
+    const normalized = normalizeAutoLockMinutes(value);
+    setAutoLockMinutes(normalized);
+    persistAutoLockMinutes(normalized);
+    setNotice(`Automatic locking set to ${normalized} minute${normalized === 1 ? "" : "s"}.`);
+  };
 
   const run = async (operation: () => Promise<void>) => {
     busyRef.current = true;
@@ -165,7 +199,7 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   }
 
   if (status === "locked" || !snapshot) {
-    return <UnlockVault busy={busy} notice={notice} onUnlock={(passphrase) => run(async () => {
+    return <UnlockVault busy={busy} notice={notice} autoLockMinutes={autoLockMinutes} onUnlock={(passphrase) => run(async () => {
       setSnapshot(await bridge.unlock(passphrase));
       setConcealed(false);
       setStatus("unlocked");
@@ -182,7 +216,8 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   }
 
   return <VaultLibrary bridge={bridge} snapshot={snapshot} busy={busy} notice={notice}
-    setNotice={setNotice} run={run} refresh={refresh} onLock={lock} />;
+    setNotice={setNotice} run={run} refresh={refresh} onLock={lock}
+    autoLockMinutes={autoLockMinutes} onAutoLockMinutes={updateAutoLockMinutes} />;
 }
 
 function CreateVault({ busy, notice, onCreate }: {
@@ -219,9 +254,10 @@ function CreateVault({ busy, notice, onCreate }: {
   </VaultAuthFrame>;
 }
 
-function UnlockVault({ busy, notice, onUnlock, onReset }: {
+function UnlockVault({ busy, notice, autoLockMinutes, onUnlock, onReset }: {
   busy: boolean;
   notice: string;
+  autoLockMinutes: number;
   onUnlock: (passphrase: string) => Promise<void>;
   onReset: (confirmation: string) => Promise<void>;
 }) {
@@ -237,7 +273,7 @@ function UnlockVault({ busy, notice, onUnlock, onReset }: {
     <section className="vault-card" aria-labelledby="unlock-title">
       <p className="vault-kicker">myCarlos private records</p>
       <h1 id="unlock-title">Unlock your vault</h1>
-      <p>The vault locks after 5 minutes of inactivity and whenever the app is backgrounded.</p>
+      <p>The vault locks after {autoLockMinutes} minute{autoLockMinutes === 1 ? "" : "s"} of inactivity and whenever the app is backgrounded.</p>
       <form onSubmit={submit}>
         <label>Passphrase<input autoFocus required type="password" autoComplete="current-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} /></label>
         {notice && <p role="status">{notice}</p>}
@@ -253,7 +289,7 @@ function UnlockVault({ busy, notice, onUnlock, onReset }: {
   </VaultAuthFrame>;
 }
 
-function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh, onLock }: {
+function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh, onLock, autoLockMinutes, onAutoLockMinutes }: {
   bridge: VaultBridge;
   snapshot: VaultSnapshot;
   busy: boolean;
@@ -262,6 +298,8 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
   run: (operation: () => Promise<void>) => Promise<void>;
   refresh: () => Promise<void>;
   onLock: () => Promise<void>;
+  autoLockMinutes: number;
+  onAutoLockMinutes: (value: unknown) => void;
 }) {
   const [profileId, setProfileId] = useState(snapshot.profiles[0]?.id ?? "");
   const [section, setSection] = useState<NativeSection>("records");
@@ -456,14 +494,14 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
     `${base}${dropTarget === zone ? " native-drop-target" : ""}`;
 
   const exportRecord = (record: VaultRecord) => {
-    if (!window.confirm("Saving a copy creates a readable file outside the encrypted vault. Continue?")) return;
+    if (!window.confirm("Saving creates a readable file outside the encrypted vault. myCarlos cannot erase that copy later, and deleting this record will not remove it. Continue?")) return;
     void run(async () => setNotice(await bridge.exportFile(record.id)
       ? "A readable copy was saved to this computer."
       : "Save cancelled. Nothing changed."));
   };
 
   const deleteRecord = (record: VaultRecord) => {
-    if (!window.confirm(`Permanently delete ${record.displayName} from this vault? This cannot be undone.`)) return;
+    if (!window.confirm(`Permanently delete ${record.displayName} from this vault? This cannot be undone here. Readable exports and the clinic's source medical record are not deleted.`)) return;
     void run(async () => {
       await bridge.deleteRecord(record.id);
       setActiveRecordId(null);
@@ -591,8 +629,9 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
             <p className="status-line" role="status" aria-live="polite">{notice}</p>
             <div className="setting-list">
               <section className="setting-row"><div><h2>Encryption <span className="state-pill">On — always</span></h2><p>Files, names, folders, and record details are encrypted on this device.</p></div></section>
-              <section className="setting-row"><div><h2>Lock automatically <span className="state-pill">5 minutes</span></h2><p>The vault locks after 5 minutes without keyboard, pointer, or touch activity.</p></div><button className="button" type="button" onClick={() => void onLock()}>Lock now</button></section>
-              <section className="setting-row native-setting-form"><div><h2>Change passphrase</h2><p>Use at least 15 characters and avoid common names or predictable phrases.</p></div><form onSubmit={(event) => { event.preventDefault(); const current = currentPassphrase; const replacement = newPassphrase; setCurrentPassphrase(""); setNewPassphrase(""); void run(async () => { await bridge.changePassphrase(current, replacement); setNotice("Passphrase changed."); }); }}><label>Current passphrase<input required type="password" autoComplete="current-password" value={currentPassphrase} onChange={(event) => setCurrentPassphrase(event.target.value)} /></label><label>New passphrase<input required type="password" autoComplete="new-password" value={newPassphrase} onChange={(event) => setNewPassphrase(event.target.value)} /></label><button className="button" disabled={busy}>Change passphrase</button></form></section>
+              <section className="setting-row native-setting-form"><div><h2>Lock automatically <span className="state-pill">{autoLockMinutes} minute{autoLockMinutes === 1 ? "" : "s"}</span></h2><p>The vault locks after the selected period without keyboard, pointer, or touch activity. This non-medical setting is clamped to 1–15 minutes.</p></div><div><label>Automatic lock delay<select value={autoLockMinutes} onChange={(event) => onAutoLockMinutes(event.target.value)}>{AUTO_LOCK_OPTIONS.map((minutes) => <option value={minutes} key={minutes}>{minutes} minute{minutes === 1 ? "" : "s"}</option>)}</select></label><button className="button" type="button" onClick={() => void onLock()}>Lock now</button></div></section>
+              <section className="setting-row native-setting-form"><div><h2>Change passphrase</h2><p>Use at least 15 characters and avoid common names or predictable phrases. Until recovery kits are implemented, forgetting the new passphrase permanently loses access.</p></div><form onSubmit={(event) => { event.preventDefault(); const current = currentPassphrase; const replacement = newPassphrase; setCurrentPassphrase(""); setNewPassphrase(""); void run(async () => { await bridge.changePassphrase(current, replacement); setNotice("Passphrase changed."); }); }}><label>Current passphrase<input required type="password" autoComplete="current-password" value={currentPassphrase} onChange={(event) => setCurrentPassphrase(event.target.value)} /></label><label>New passphrase<input required type="password" autoComplete="new-password" value={newPassphrase} onChange={(event) => setNewPassphrase(event.target.value)} /></label><button className="button" disabled={busy}>Change passphrase</button></form></section>
+              <section className="setting-row"><div><h2>Readable copies and screenshots</h2><p>Exports and screenshots leave vault protection. Deleting a record from myCarlos cannot erase those copies or the clinic's source medical record.</p></div></section>
               <section className="setting-row native-setting-form"><div><h2>Patient profiles</h2><p>Keep each person’s filing cabinet separate inside this vault.</p></div><form onSubmit={(event) => { event.preventDefault(); const name = profileName; setProfileName(""); void run(async () => { await bridge.createProfile(name); await refresh(); setNotice(`${name} was added.`); }); }}><label>New profile name<input required maxLength={120} value={profileName} onChange={(event) => setProfileName(event.target.value)} /></label><button className="button" disabled={busy}>Add profile</button></form></section>
               <section className="setting-row native-danger-setting"><div><h2>Erase entire vault</h2><p>Permanently deletes every encrypted document, profile, and folder. This cannot be undone.</p></div><details><summary>Show reset controls</summary><label>Type RESET MYCARLOS VAULT<input value={resetText} onChange={(event) => setResetText(event.target.value)} /></label><button className="button danger" disabled={busy || resetText !== "RESET MYCARLOS VAULT"} onClick={() => void run(async () => { await bridge.reset(resetText); window.location.reload(); })}>Erase entire vault</button></details></section>
             </div>

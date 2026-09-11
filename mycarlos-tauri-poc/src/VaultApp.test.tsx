@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import VaultApp from "./VaultApp";
 import type { VaultBridge, VaultSnapshot } from "./vault";
 
@@ -42,20 +42,22 @@ function dragTransfer() {
 }
 
 describe("durable vault UI", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("creates the vault only when passphrases match", async () => {
-    const user = userEvent.setup();
     const bridge = nativeBridge({ status: vi.fn().mockResolvedValue("absent") });
     render(<VaultApp bridge={bridge} />);
 
     await screen.findByRole("heading", { name: "Create your encrypted vault" });
-    await user.type(screen.getByLabelText("First patient profile"), "Jamie");
+    fireEvent.change(screen.getByLabelText("First patient profile"), { target: { value: "Jamie" } });
     const passwords = screen.getAllByLabelText(/passphrase/i);
-    await user.type(passwords[0], "river-azimuth-cobalt-sparrow-934");
-    await user.type(passwords[1], "different");
+    fireEvent.change(passwords[0], { target: { value: "river-azimuth-cobalt-sparrow-934" } });
+    fireEvent.change(passwords[1], { target: { value: "different" } });
     expect(screen.getByRole("button", { name: "Create vault" })).toBeDisabled();
-    await user.clear(passwords[1]);
-    await user.type(passwords[1], "river-azimuth-cobalt-sparrow-934");
-    await user.click(screen.getByRole("button", { name: "Create vault" }));
+    fireEvent.change(passwords[1], { target: { value: "river-azimuth-cobalt-sparrow-934" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create vault" }));
 
     await screen.findByRole("heading", { name: "My records" });
     expect(bridge.create).toHaveBeenCalledWith("river-azimuth-cobalt-sparrow-934", "Jamie");
@@ -147,15 +149,20 @@ describe("durable vault UI", () => {
     await waitFor(() => expect(bridge.assignFolders).toHaveBeenCalledWith("record-folder", []));
 
     await user.click(screen.getByText("FAKE_Bloodwork.pdf"));
-    expect(screen.getByRole("button", { name: "Save a copy to this computer" })).toBeVisible();
+    const exportConfirmation = vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button", { name: "Save a copy to this computer" }));
+    expect(exportConfirmation).toHaveBeenCalledWith(expect.stringContaining("cannot erase that copy"));
+    expect(bridge.exportFile).not.toHaveBeenCalled();
+    exportConfirmation.mockRestore();
   });
 
   it("finishes an active native import before locking a backgrounded app", async () => {
     const user = userEvent.setup();
     let finishImport!: (value: { imported: string[]; skippedDuplicates: string[] }) => void;
-    const importFiles = vi.fn().mockReturnValue(new Promise((resolve) => {
+    const pendingImport = new Promise<{ imported: string[]; skippedDuplicates: string[] }>((resolve) => {
       finishImport = resolve;
-    }));
+    });
+    const importFiles = vi.fn().mockReturnValue(pendingImport);
     const bridge = nativeBridge({
       status: vi.fn().mockResolvedValue("unlocked"),
       importFiles,
@@ -175,7 +182,10 @@ describe("durable vault UI", () => {
       expect(screen.queryByRole("heading", { name: "My records" })).not.toBeInTheDocument();
       expect(screen.getByText(/Vault content is hidden/)).toBeVisible();
 
-      await act(async () => finishImport({ imported: [], skippedDuplicates: [] }));
+      await act(async () => {
+        finishImport({ imported: [], skippedDuplicates: [] });
+        await pendingImport;
+      });
       await waitFor(() => expect(bridge.lock).toHaveBeenCalledOnce());
       expect(await screen.findByRole("heading", { name: "Unlock your vault" })).toBeVisible();
     } finally {
@@ -201,6 +211,7 @@ describe("durable vault UI", () => {
     await user.click(await screen.findByText("FAKE_Report.pdf"));
     await user.click(screen.getByRole("button", { name: "Permanently delete" }));
     expect(deleteRecord).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenNthCalledWith(1, expect.stringContaining("clinic's source medical record"));
 
     await user.click(screen.getByRole("button", { name: "Permanently delete" }));
     await waitFor(() => expect(deleteRecord).toHaveBeenCalledWith("record-1"));
@@ -226,6 +237,52 @@ describe("durable vault UI", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("persists a bounded automatic lock delay", async () => {
+    const bridge = nativeBridge({ status: vi.fn().mockResolvedValue("unlocked") });
+    render(<VaultApp bridge={bridge} />);
+    await screen.findByRole("heading", { name: "My records" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Security" }));
+    const delay = screen.getByRole("combobox", { name: "Automatic lock delay" });
+    expect(delay).toHaveValue("5");
+    fireEvent.change(delay, { target: { value: "1" } });
+
+    expect(delay).toHaveValue("1");
+    expect(window.localStorage.getItem("mycarlos.autoLockMinutes.v1")).toBe("1");
+  });
+
+  it("applies a persisted one-minute automatic lock delay", async () => {
+    vi.useFakeTimers();
+    try {
+      window.localStorage.setItem("mycarlos.autoLockMinutes.v1", "1");
+      const bridge = nativeBridge({ status: vi.fn().mockResolvedValue("unlocked") });
+      render(<VaultApp bridge={bridge} />);
+      await act(async () => undefined);
+
+      await act(async () => vi.advanceTimersByTime(59 * 1000));
+      expect(bridge.lock).not.toHaveBeenCalled();
+      await act(async () => vi.advanceTimersByTime(1000));
+      expect(bridge.lock).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("loads a persisted delay but rejects out-of-range stored values", async () => {
+    window.localStorage.setItem("mycarlos.autoLockMinutes.v1", "15");
+    const first = render(<VaultApp bridge={nativeBridge({ status: vi.fn().mockResolvedValue("unlocked") })} />);
+    await screen.findByRole("heading", { name: "My records" });
+    fireEvent.click(screen.getByRole("button", { name: "Security" }));
+    expect(screen.getByRole("combobox", { name: "Automatic lock delay" })).toHaveValue("15");
+    first.unmount();
+
+    window.localStorage.setItem("mycarlos.autoLockMinutes.v1", "999");
+    render(<VaultApp bridge={nativeBridge({ status: vi.fn().mockResolvedValue("unlocked") })} />);
+    await screen.findByRole("heading", { name: "My records" });
+    fireEvent.click(screen.getByRole("button", { name: "Security" }));
+    expect(screen.getByRole("combobox", { name: "Automatic lock delay" })).toHaveValue("5");
   });
 
   it("requires the exact destructive reset phrase", async () => {

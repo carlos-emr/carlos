@@ -10,6 +10,7 @@ type Category = "Test results" | "Letters" | "Imaging" | "Prescriptions" | "Othe
 type Filter = "All" | Category;
 type ViewMode = "list" | "grid";
 type AppSection = "records" | "recent" | "starred" | "trash" | "security" | "health";
+const AUTO_LOCK_MINUTES = Array.from({ length: 15 }, (_, index) => index + 1);
 export type IconName =
   | "activity"
   | "camera"
@@ -858,9 +859,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                     <label className="select-control">
                       <span className="sr-only">Automatic lock delay</span>
                       <select value={autoLock} onChange={(event) => setAutoLock(event.target.value)}>
-                        <option>1 minute</option>
-                        <option>5 minutes</option>
-                        <option>15 minutes</option>
+                        {AUTO_LOCK_MINUTES.map((minutes) => <option key={minutes}>{minutes} minute{minutes === 1 ? "" : "s"}</option>)}
                       </select>
                     </label>
                   </section>

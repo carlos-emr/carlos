@@ -23,8 +23,8 @@ privacy, accessibility, or clinical review.
 - [x] Atomic import, redundant manifest repair, atomic filesystem-path export, restart/unlock, and
       error-path cleanup.
 - [x] Multiple patient profiles, nested folders, search, sorting, bulk moves, and drag-and-drop.
-- [x] Manual/background locking, immediate background visual concealment, and the approved
-      five-minute default inactivity lock. Persisted one-to-fifteen-minute configuration remains.
+- [x] Manual/background locking, immediate background visual concealment, and persisted
+      one-to-fifteen-minute inactivity configuration with the approved five-minute default.
 - [x] Passphrase change and typed-confirmation whole-vault reset.
 - [x] Confirmed individual deletion from the live vault with both manifest slots rewritten without
       the wrapped object key and ciphertext removed between the two durable commits.
@@ -44,7 +44,8 @@ privacy, accessibility, or clinical review.
 - [x] Production CSP excludes development WebSocket access, freezes the JavaScript prototype, and
       grants the main webview no unused Tauri core command permissions.
 - [x] Property-based malformed-input coverage for header, manifest, object, and IPC envelopes;
-      unsupported header/manifest versions fail closed and a future migration protocol is recorded.
+      unsupported versions, same-generation manifest divergence, and generation overflow fail
+      closed, and a future migration protocol is recorded.
 
 ## Required before calling the synthetic MVP reviewed
 
@@ -60,7 +61,8 @@ privacy, accessibility, or clinical review.
       result template are in [`ARGON2_BENCHMARK.md`](ARGON2_BENCHMARK.md); physical results remain.
 - [ ] Inspect platform logs, crash artifacts, app-switcher snapshots, and backups for plaintext
       canaries. Recursive application-storage canary inspection is automated.
-- [ ] Decide whether passphrase-only recovery and permanent loss are acceptable product behavior.
+- [x] State the current evaluation's passphrase-only permanent-loss behavior and the limits of
+      readable exports/deletion directly in the UI. The selected recovery kit and backup remain open.
 
 ## Required before a patient pilot
 

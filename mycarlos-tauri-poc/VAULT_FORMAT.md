@@ -46,9 +46,9 @@ The encrypted manifest contains profiles, nested folders, folder assignments, im
 filenames, sizes, timestamps, unverified-source labels, per-record fingerprints, opaque object
 names, and wrapped content keys. Mutations write the same logical state into two consecutive
 generations using a cross-platform atomic replacement primitive. Unlock authenticates both slots,
-selects the highest valid generation whose objects exist, rewrites that state into the other slot
-to repair redundancy, removes incomplete staging jobs, and only then removes ciphertext objects
-not present in the repaired state.
+selects the highest valid generation whose objects exist, rejects divergent authenticated states at
+the same generation, rewrites the selected state into the other slot to repair redundancy, removes
+incomplete staging jobs, and only then removes ciphertext objects not present in the repaired state.
 
 Before a decrypted manifest can drive a filesystem operation, the reader checks format and vault
 identity, unique profile/folder/record/object IDs, folder ownership and acyclic depth, record-folder

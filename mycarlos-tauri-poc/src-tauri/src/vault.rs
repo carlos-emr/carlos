@@ -118,7 +118,7 @@ struct KdfConfig {
     salt: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct WrappedSecret {
     nonce: String,
@@ -135,7 +135,7 @@ struct VaultHeader {
     wrapped_master_key: WrappedSecret,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatientProfile {
     pub id: Uuid,
@@ -143,7 +143,7 @@ pub struct PatientProfile {
     pub created_at_ms: u64,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultFolder {
     pub id: Uuid,
@@ -153,7 +153,7 @@ pub struct VaultFolder {
     pub created_at_ms: u64,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredRecord {
     id: Uuid,
@@ -169,7 +169,7 @@ struct StoredRecord {
     wrapped_object_key: WrappedSecret,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Manifest {
     format_version: u32,
@@ -1179,10 +1179,19 @@ fn read_latest_manifest(
             candidates.push(manifest);
         }
     }
-    candidates
+    let latest_generation = candidates
+        .iter()
+        .map(|manifest| manifest.generation)
+        .max()
+        .ok_or(VaultError::Corrupt)?;
+    let mut newest = candidates
         .into_iter()
-        .max_by_key(|manifest| manifest.generation)
-        .ok_or(VaultError::Corrupt)
+        .filter(|manifest| manifest.generation == latest_generation);
+    let selected = newest.next().ok_or(VaultError::Corrupt)?;
+    if newest.any(|candidate| candidate != selected) {
+        return Err(VaultError::Corrupt);
+    }
+    Ok(selected)
 }
 
 fn manifest_aad(vault_id: Uuid) -> Vec<u8> {
@@ -2625,6 +2634,66 @@ mod tests {
                 Err(VaultError::Corrupt)
             ));
         }
+    }
+
+    #[test]
+    fn divergent_authenticated_manifests_at_the_same_generation_fail_closed() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let (master_key, mut manifest) = {
+            let guard = store.unlocked.lock().unwrap();
+            let unlocked = guard.as_ref().unwrap();
+            (*unlocked.master_key, unlocked.manifest.clone())
+        };
+
+        manifest.generation = 100;
+        manifest.profiles[0].display_name = "Jamie Alpha".to_owned();
+        write_manifest_at(&root, &master_key, &manifest).unwrap();
+        let alpha = fs::read(root.join("manifest-0.bin")).unwrap();
+
+        manifest.profiles[0].display_name = "Jamie Beta".to_owned();
+        write_manifest_at(&root, &master_key, &manifest).unwrap();
+        let beta = fs::read(root.join("manifest-0.bin")).unwrap();
+        atomic_bytes(&root.join("manifest-0.bin"), &alpha).unwrap();
+        atomic_bytes(&root.join("manifest-1.bin"), &beta).unwrap();
+
+        assert!(matches!(
+            read_latest_manifest(&root, &master_key, manifest.vault_id),
+            Err(VaultError::Corrupt)
+        ));
+    }
+
+    #[test]
+    fn generation_overflow_fails_without_mutating_manifest_slots() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let (master_key, mut current) = {
+            let guard = store.unlocked.lock().unwrap();
+            let unlocked = guard.as_ref().unwrap();
+            (*unlocked.master_key, unlocked.manifest.clone())
+        };
+        let before = [
+            fs::read(root.join("manifest-0.bin")).unwrap(),
+            fs::read(root.join("manifest-1.bin")).unwrap(),
+        ];
+
+        current.generation = u64::MAX;
+        let mut live = current.clone();
+        let next = current.clone();
+        assert!(matches!(
+            commit_manifest_redundant(&root, &master_key, &mut live, next),
+            Err(VaultError::Storage)
+        ));
+        assert!(matches!(
+            repair_manifest_redundancy(&root, &master_key, current),
+            Err(VaultError::Storage)
+        ));
+        assert_eq!(fs::read(root.join("manifest-0.bin")).unwrap(), before[0]);
+        assert_eq!(fs::read(root.join("manifest-1.bin")).unwrap(), before[1]);
     }
 
     proptest! {
