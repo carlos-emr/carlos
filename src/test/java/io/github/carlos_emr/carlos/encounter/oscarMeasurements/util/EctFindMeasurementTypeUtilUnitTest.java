@@ -32,7 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import static org.mockito.Mockito.mock;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
@@ -57,7 +57,7 @@ class EctFindMeasurementTypeUtilUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void registerDao() {
         // The utility looks its DAO up statically when the class loads.
-        registerMock(MeasurementTypeDao.class, Mockito.mock(MeasurementTypeDao.class));
+        registerMock(MeasurementTypeDao.class, mock(MeasurementTypeDao.class));
     }
 
     @Test

@@ -76,7 +76,7 @@ class FormProseWafExclusionRegressionTest {
     private static final Pattern TAG_START = Pattern.compile("<(textarea|input|form)\\b", Pattern.CASE_INSENSITIVE);
     private static final String ENCODE_TAG = "<carlos:encode";
     private static final Pattern ATTR = Pattern.compile(
-            "([a-zA-Z_:-]+)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
+            "([a-zA-Z_:-]++)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
     private static final Pattern DYNAMIC = Pattern.compile("<%|\\$\\{");
     private static final Pattern LITERAL_TARGET = Pattern.compile("^[A-Za-z0-9_.\\-]+$");
     private static final Pattern FORM_CLASS_ASSIGN = Pattern.compile(
