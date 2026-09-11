@@ -66,8 +66,12 @@ const NOTES_POLL_TIMEOUT_MS = 30000;
 // command injection). Either CRITICAL match alone is the whole request at the packaged
 // anomaly threshold. Every argument that carries this on POST /carlos/CaseManagementEntry —
 // ARGS:value (the CPP body), ARGS:caseNote_note (the encounter note in the serialized
-// form) and ARGS:note (the draft autosave) — is exempted per-argument by exclusion 1010
-// in debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf. This string is
+// form), ARGS:note (the draft autosave) and ARGS:noteTxt (the save-on-switch) — is exempted
+// per-argument by exclusion 1010 in debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.
+// This check drives the first three; it does not drive the save-on-switch, because that
+// path persists a real encounter note for the patient that only a database delete can
+// undo, and this script has no database access. That path is pinned by
+// CaseManagementCppSaveRegressionTest instead. This string is
 // the check's whole point through the front door, so keep it signature-shaped AND keep the
 // link first: replacing it with clean prose, or moving the link off the start, makes the
 // check green on a re-broken WAF policy.
@@ -77,6 +81,16 @@ const CLINICAL_TEXT_THE_WAF_SCORES =
 // backup() re-arms every 5s and autosaves whenever the note textarea differs from the
 // value the chart loaded, so one tick plus generous slack is enough to observe a draft save.
 const AUTOSAVE_WAIT_MS = 20000;
+
+// A fresh encounter note opens with only the generated header, "[11-Sep-2026 .: Tel-Progress
+// Note]" and a newline (CaseManagementEntry2Action builds it from the date and the reason).
+// A note that holds nothing but that header carries no clinician text, so a draft of it is
+// nobody's unsaved work. Anything beyond the header may be a restored clinician draft.
+const GENERATED_NOTE_HEADER_ONLY = /^\s*\[\d{2}-[A-Za-z]{3}-\d{4} \.: [^\]]*\]\s*$/;
+
+function holdsClinicianText(noteText) {
+  return noteText.trim() !== '' && !GENERATED_NOTE_HEADER_ONLY.test(noteText);
+}
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -342,6 +356,27 @@ async function discardEncounterNoteDraft(page) {
   assert(response.ok(), `discarding the note draft failed with HTTP ${response.status()}`);
 }
 
+/**
+ * Puts the encounter note's ORIGINAL text back into the stored draft.
+ *
+ * edit() restores an existing draft (casemgmt_tmpsave) into the textarea before this check
+ * ever touches it, so the text the check read out first may be a clinician's unsaved work.
+ * Deleting the draft in that case would destroy it. Calling the page's own autoSave() after
+ * the textarea has been restored writes that original text back over the run's
+ * signature-shaped draft, so the next open of this chart shows what it showed before.
+ */
+async function restoreEncounterNoteDraft(page) {
+  const saved = page.waitForResponse(isAutosaveResponse, { timeout: 15000 });
+  await page.evaluate(() => {
+    if (typeof autoSave !== 'function') {
+      throw new Error('autoSave() is not defined on the chart page');
+    }
+    autoSave();
+  });
+  const response = await saved;
+  assert(response.ok(), `re-saving the original note draft failed with HTTP ${response.status()}`);
+}
+
 async function archiveCppNote(page, noteText) {
   const noteLink = page.locator("#divR1I1 a[id^='listNote']").filter({ hasText: noteText }).first();
   if (!(await noteLink.isVisible().catch(() => false))) {
@@ -444,6 +479,11 @@ function isExpectedNoteLockDialog(issue) {
       // enough to trigger it — backup() polls the value against origCaseNote rather than
       // listening for input events, so no synthetic event is needed, and this proves it.
       const autosaveResponse = echart.waitForResponse(isAutosaveResponse, { timeout: AUTOSAVE_WAIT_MS });
+      // Mark the armed wait as handled. If the CPP save fails before it is awaited below, the
+      // wait would otherwise reject (timeout, or the browser closing) with no handler and
+      // Node would report an unhandled rejection over the failure that actually mattered.
+      // `await autosaveResponse` on the success path still rejects normally.
+      autosaveResponse.catch(() => {});
 
       await echart.locator('#noteEditTxt').fill(cppNote);
       const unresolvedIssuesResponse = echart.waitForResponse(isUnresolvedIssuesResponse, { timeout: 15000 });
@@ -464,14 +504,22 @@ function isExpectedNoteLockDialog(issue) {
       saveFailure = error;
     } finally {
       if (originalEncounterNote !== null) {
-        // Restore the note text, then drop the draft the autosave above deposited. Restoring
-        // alone is not cleanup: the value now matches origCaseNote, so no later tick
-        // overwrites the stored draft, and edit() restores it on the next open of this chart
-        // — the run's signature-shaped test text would come back as the clinician's own
-        // unsaved note. deleteAutoSave() is the page's own cancel path.
+        // Restore the note text, then deal with the draft the autosave above deposited.
+        // Restoring alone is not cleanup: the value now matches origCaseNote, so no later
+        // tick overwrites the stored draft, and edit() restores it on the next open of this
+        // chart — the run's signature-shaped test text would come back as the clinician's
+        // own unsaved note. Which cleanup is right depends on what was there first: an
+        // editor holding nothing but the generated header means no clinician draft existed
+        // (edit() would have restored one into it), so the page's own cancel path deletes
+        // ours and leaves the table as it was; anything more may BE a clinician's restored
+        // draft, so it is written back rather than deleted.
         await seedEncounterNoteText(echart, originalEncounterNote).catch(() => {});
         try {
-          await discardEncounterNoteDraft(echart);
+          if (holdsClinicianText(originalEncounterNote)) {
+            await restoreEncounterNoteDraft(echart);
+          } else {
+            await discardEncounterNoteDraft(echart);
+          }
         } catch (error) {
           cleanupFailure = new Error(`note draft cleanup failed: ${error.message}`, { cause: error });
         }
@@ -506,7 +554,7 @@ function isExpectedNoteLockDialog(issue) {
       `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
 
     console.log('PASS eChart clinical notes rendered, note pagination stopped at end of chart, '
-      + 'Social History saved and archived, note draft autosaved and discarded, and '
+      + 'Social History saved and archived, note draft autosaved and cleaned up, and '
       + 'Unresolved Issues refreshed');
     console.log(`Observed ${notesLoadRequests.length} note pagination requests`);
     console.log(`Observed ${captures.length} eChart-related responses`);

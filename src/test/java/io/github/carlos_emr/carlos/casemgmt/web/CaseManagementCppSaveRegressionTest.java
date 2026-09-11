@@ -139,9 +139,10 @@ class CaseManagementCppSaveRegressionTest {
         // Verified on a packaged Ubuntu 26.04 install: ordinary clinical prose in the
         // encounter note — a pasted PACS link whose own query string contains "&cmd" —
         // scored CRS 932110 and answered POST /carlos/CaseManagementEntry with 403. That
-        // one note text broke three workflows, because the same body travels under three
+        // one note text broke four workflows, because the same body travels under four
         // parameter names on this route: ARGS:caseNote_note on the serialized
-        // caseManagementEntryForm, ARGS:note on the 5s draft autosave, and ARGS:value in
+        // caseManagementEntryForm, ARGS:note on the 5s draft autosave, ARGS:noteTxt on the
+        // save that runs when unsaved text is left for another note, and ARGS:value in
         // the CPP editor. The CPP item itself still saved (its own POST carries ARGS:value,
         // already exempt for SQLi/XSS), so the clinician saw only a spurious
         // "403 ... your session has expired" alert on a Social History entry that was in
