@@ -123,16 +123,17 @@ public class EctViewConsultationRequestsUtil {
 
           for ( int idx = 0; idx < consultList.size(); ++idx ) {
               consult = (ConsultationRequest) consultList.get(idx);
-              demo = demographicManager.getDemographic(loggedInInfo, consult.getDemographicId());
+              demo = consult.getDemographicId() == null ? null
+                      : demographicManager.getDemographic(loggedInInfo, consult.getDemographicId());
 
               List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(consult.getId());
               Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
               
               String serviceDescription = "";
               // If service id is 0, check the extensions table
-              if (consult.getServiceId() == 0) {
+              if (Integer.valueOf(0).equals(consult.getServiceId())) {
                  serviceDescription = extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey(), "");
-              } else {
+              } else if (consult.getServiceId() != null) {
                  services = serviceDao.find(consult.getServiceId());
                  if (services != null) {
                     serviceDescription = services.getServiceDesc();
@@ -156,7 +157,7 @@ public class EctViewConsultationRequestsUtil {
 
               if ( consult.getProfessionalSpecialist() == null ) {
                   specialistName = "N/A";
-                  if (consult.getServiceId() == 0) {
+                  if (Integer.valueOf(0).equals(consult.getServiceId())) {
                      specialistName = extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), "N/A");
                   }
               }
@@ -167,7 +168,7 @@ public class EctViewConsultationRequestsUtil {
 
               boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
 
-              demographicNo.add(consult.getDemographicId().toString());
+              demographicNo.add(consult.getDemographicId() != null ? consult.getDemographicId().toString() : "");
               Date referralDate = consult.getReferralDate();
               date.add(referralDate != null ? DateFormatUtils.ISO_DATE_FORMAT.format(referralDate) : "");
               ids.add(consult.getId().toString());
@@ -245,9 +246,9 @@ public class EctViewConsultationRequestsUtil {
           for ( ConsultationRequest consult : consultList ) {
               String serviceDescription = "unknown";
               // If service id is 0, check the extensions table
-              if (consult.getServiceId() == 0) {
+              if (Integer.valueOf(0).equals(consult.getServiceId())) {
                  serviceDescription = consultationRequestExtDao.getConsultationRequestExtsByKey(consult.getId(), ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey());
-              } else {
+              } else if (consult.getServiceId() != null) {
                  ConsultationServices services = serviceDao.find(consult.getServiceId());
                  if (services != null) {
                     serviceDescription = services.getServiceDesc();
@@ -256,7 +257,7 @@ public class EctViewConsultationRequestsUtil {
 
                if (consult.getProfessionalSpecialist() == null) {
                   specialistName = "N/A";
-                  if (consult.getServiceId() == 0) {
+                  if (Integer.valueOf(0).equals(consult.getServiceId())) {
                      specialistName = consultationRequestExtDao.getConsultationRequestExtsByKey(consult.getId(), ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey());
                   }
                }
@@ -271,7 +272,8 @@ public class EctViewConsultationRequestsUtil {
               // instead of being silently dropped. The whole loop shares one catch, so any unguarded
               // dereference here NPEs and blanks EVERY consult on the tab -- the precise failure the
               // widened query exists to fix.
-              Demographic demo = demoManager.getDemographic(loggedInInfo, consult.getDemographicId());
+              Demographic demo = consult.getDemographicId() == null ? null
+                      : demoManager.getDemographic(loggedInInfo, consult.getDemographicId());
               String providerId = (demo != null) ? demo.getProviderNo() : null;
               // Guard the LOOKUP RESULT, not just the id: a non-empty providerNo can still reference a
               // provider row that no longer exists, and getProvider() returns null rather than throwing.

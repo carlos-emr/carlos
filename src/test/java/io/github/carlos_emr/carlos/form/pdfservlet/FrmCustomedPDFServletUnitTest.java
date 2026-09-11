@@ -51,6 +51,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.PdfWriter;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -333,6 +337,41 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"document", "missing-file", "io", "runtime"})
+    @DisplayName("should report a definite fax failure when PDF generation fails before persistence")
+    void shouldReportDefiniteFaxFailure_whenPdfGenerationFails(String failureType) throws Exception {
+        Exception failure = switch (failureType) {
+            case "document" -> new DocumentException("fixture rendering failure");
+            case "missing-file" -> new java.io.FileNotFoundException("fixture missing file");
+            case "io" -> new java.io.IOException("fixture read failure");
+            default -> new IllegalStateException("fixture rendering state");
+        };
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        stubStoredSignature();
+        stubRecordDemographic();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        try (MockedStatic<LoggedInInfo> loginMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<PdfWriter> pdfWriterMock = mockStatic(PdfWriter.class)) {
+            loginMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            pdfWriterMock.when(() -> PdfWriter.getInstance(any(), any())).thenAnswer(invocation -> { throw failure; });
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(response.getContentAsString()).contains("fax-failure")
+                    .doesNotContain("fax-uncertain", "fax-success", "fixture");
+            verifyFaxWasNotQueued();
+            verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
         }
     }
 

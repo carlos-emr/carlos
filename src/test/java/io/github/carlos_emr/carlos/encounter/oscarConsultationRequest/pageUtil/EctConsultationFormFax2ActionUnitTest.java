@@ -141,6 +141,22 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject faxing before rendering when consultation fax is disabled")
+    void shouldRejectFax_beforeRenderingWhenFeatureIsDisabled() {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        io.github.carlos_emr.CarlosProperties properties = mock(io.github.carlos_emr.CarlosProperties.class);
+        try (MockedStatic<io.github.carlos_emr.CarlosProperties> propertiesMock = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
+            propertiesMock.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(properties);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class).hasMessage("consultation fax is disabled");
+            org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxJobDao);
+            action.setMethod("cancel");
+            assertThat(action.execute()).isEqualTo("cancel");
+        }
+    }
+
+    @Test
     @DisplayName("should return the error result when the rendered fax PDF cannot be promoted into the document store")
     void shouldReturnError_whenFaxPdfPromotionReturnsNull() throws Exception {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);

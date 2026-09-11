@@ -25,7 +25,7 @@ function createGracefulSignalCancellation({ signalProcess = process, graceMs = 1
         console.error('Signal cleanup deadline expired; generated fixtures may need manual cleanup');
         if (typeof signalProcess.exit === 'function') signalProcess.exit(exitCode);
       }, graceMs);
-      deadline.unref();
+      if (typeof deadline?.unref === 'function') deadline.unref();
     };
     handlers.set(signal, handler);
     signalProcess.on(signal, handler);

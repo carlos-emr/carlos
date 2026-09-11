@@ -86,6 +86,7 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { browserErrorClass } = require('./browser-error-class');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -369,8 +370,7 @@ function sql(query) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    const text = error.stack || error.message || '';
-    findings.push({ label, type: 'pageerror', text });
+    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
   });
   page.on('dialog', async (dialog) => {
     // Accept ONLY the one confirm() the custom-drug button legitimately raises, and only while we are
@@ -382,7 +382,7 @@ function wirePage(page, label) {
       await dialog.accept().catch(() => {});
       return;
     }
-    findings.push({ label, type: 'unexpected-dialog', text: `${dialog.type()}: ${dialog.message()}`.slice(0, 200) });
+    findings.push({ label, type: 'unexpected-dialog', text: `unexpected ${dialog.type()} dialog` });
     await dialog.dismiss().catch(() => dialog.accept().catch(() => {}));
   });
 }

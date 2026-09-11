@@ -325,6 +325,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null))) {
             throw new SecurityException("missing required sec object (_fax)");
         }
+        if (submission != null && submission.endsWith("And Fax")
+                && !CarlosProperties.getInstance().isConsultationFaxEnabled()) {
+            throw new SecurityException("consultation fax is disabled");
+        }
 
         String appointmentHour = this.getAppointmentHour();
         String appointmentPm = this.getAppointmentPm();

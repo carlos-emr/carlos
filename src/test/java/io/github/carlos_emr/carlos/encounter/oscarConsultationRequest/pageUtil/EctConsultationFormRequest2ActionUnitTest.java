@@ -446,6 +446,18 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldDenySubmitAndFax_beforeAnySaveWhenFeatureIsDisabled() {
+        action.setSubmission("Submit And Fax");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
+                    .hasMessage("consultation fax is disabled");
+            verifyNoInteractions(consultationRequestDao, documentAttachmentManager, consultationManager);
+        }
+    }
+
+    @Test
     void shouldDenySubmitAndFax_beforeAnySaveWhenFaxWriteMissing() {
         action.setSubmission("Submit And Fax");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(false);

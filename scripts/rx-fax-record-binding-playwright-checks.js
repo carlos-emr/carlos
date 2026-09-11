@@ -79,6 +79,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
+const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
+const { browserErrorClass } = require('./browser-error-class');
 const {
   appUrl,
   buildArtifactPath,
@@ -409,20 +411,14 @@ function cleanupFixtures() {
   }
 }
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(130); });
-}
-
 // --- browser plumbing -------------------------------------------------------------
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    const text = error.stack || error.message || '';
     // Record the error CLASS only. A page error's message or stack can quote page content -- a
     // patient name in a DOM path, a demographic number in a URL -- and this goes to stderr and the
     // artifact file, so it must never carry the text itself.
-    const errorClass = /^([A-Za-z]+Error)\b/.exec(text);
-    findings.push({ label, type: 'pageerror', text: errorClass ? errorClass[1] : 'browser page error' });
+    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
   });
   page.on('dialog', async (dialog) => {
     // Accept only the custom-drug confirm(), and only while clicking that button. Anything else is a
@@ -1036,25 +1032,25 @@ function assertNoteRendered(runs) {
   }
 }
 
-async function runChecks(context) {
-  const page = await login(context);
+async function runChecks(context, cancellation) {
+  const page = await cancellation.run(() => login(context));
   try {
     faxConfig = stageFaxConfig();
     seedPharmacyFax();
 
-    const { modalFrame, scriptId } = await writeCustomRxThroughUi(page);
+    const { modalFrame, scriptId } = await cancellation.run(() => writeCustomRxThroughUi(page));
     visited.push({ label: 'prescription', created: true });
     addProbeLineToRecord(scriptId);
 
     // A record-bound fax must never silently send the previously stored note when the
     // clinician's current note failed to persist. The following successful attempt also
     // proves that a later edit can recover the promise chain after the rejected save.
-    await assertFailedNotesSaveBlocksFax(page, modalFrame);
-    await assertEncounterPasteRecovery(modalFrame);
-    await assertFaxConfirmationRecovery(modalFrame);
+    await cancellation.run(() => assertFailedNotesSaveBlocksFax(page, modalFrame));
+    await cancellation.run(() => assertEncounterPasteRecovery(modalFrame));
+    await cancellation.run(() => assertFaxConfirmationRecovery(modalFrame));
 
     // B + C on one real click.
-    const uiPdfId = await faxThroughUi(page, modalFrame, scriptId);
+    const uiPdfId = await cancellation.run(() => faxThroughUi(page, modalFrame, scriptId));
     if (uiPdfId) {
       const runs = pdfTextRuns(await waitForPdf(uiPdfId, 'ui-fax'));
       visited.push({ label: 'ui-fax-pdf', runs: runs.length });
@@ -1065,7 +1061,7 @@ async function runChecks(context) {
     }
 
     // A: the same signed script, posted with a forged identity.
-    const forgedPdfId = await faxWithForgedIdentity(page, scriptId);
+    const forgedPdfId = await cancellation.run(() => faxWithForgedIdentity(page, scriptId));
     if (forgedPdfId) {
       const runs = pdfTextRuns(await waitForPdf(forgedPdfId, 'forged-fax'));
       visited.push({ label: 'forged-fax-pdf', runs: runs.length });
@@ -1080,19 +1076,29 @@ async function runChecks(context) {
 }
 
 (async () => {
-  const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_PATH || ''));
+  const cancellation = createGracefulSignalCancellation({ graceMs: faxRoundTripTimeoutMs + 60000 });
+  let browser;
   let exitCode = 0;
   try {
+    browser = await chromium.launch({
+      ...getLaunchOptions(process.env.CHROME_PATH || ''),
+      handleSIGINT: false,
+      handleSIGTERM: false,
+    });
+    cancellation.throwIfCancelled();
     const host = baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     const isLoopback = ['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host);
     const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback && baseUrl.protocol === 'https:' });
-    await runChecks(context);
+    await runChecks(context, cancellation);
     await context.close();
   } catch (error) {
-    findings.push({ label: 'run', type: 'exception', text: (error && error.message) || String(error) });
+    if (!cancellation.isCancellation(error)) {
+      findings.push({ label: 'run', type: 'exception', text: (error && error.message) || String(error) });
+    }
   } finally {
-    await browser.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
     removeSecretsDir();
+    cancellation.dispose();
   }
 
   const summary = { baseUrl: `${baseUrl.origin}${baseUrl.pathname}`, visited, findings };
@@ -1108,8 +1114,8 @@ async function runChecks(context) {
     exitCode = 1;
     console.error(`FAIL: ${findings.length} finding(s)`);
     for (const f of findings) console.error(` - [${f.label}] ${f.type}: ${f.text || ''}`);
-  } else {
+  } else if (!cancellation.exitCode) {
     console.log('PASS: identity, header (date, clinic, reprint), one-character line and notes are bound to the prescription record; the clinic header renders on its own lines');
   }
-  process.exit(exitCode);
+  process.exit(cancellation.exitCode || exitCode);
 })();

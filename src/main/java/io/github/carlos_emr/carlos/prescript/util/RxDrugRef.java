@@ -454,7 +454,7 @@ public class RxDrugRef {
         Vector params = new Vector();
         Object result = callWebserviceLite("getUpdateStatus", params);
         if (!(result instanceof Map<?, ?> struct)) {
-            throw new Exception("DrugRef: 'getUpdateStatus' returned no struct for server " + server_url);
+            throw new Exception("DrugRef: 'getUpdateStatus' returned no struct");
         }
         return normalizeStatusStruct(struct);
     }
