@@ -24,6 +24,8 @@
  *      in the faxed PDF. The save is deliberately DELAYED here (route
  *      interception) so the race is deterministic: without the fix the fax POST
  *      won and rendered the stored (old) note; with it, the fax waits.
+ *      While that save is held, further note edits must be locked and a late
+ *      notes handler must not enqueue another write that can overtake the fax.
  *   D. clinic header — the page must submit the header as separate lines and the
  *      clinic name must render as its own line. Preview2.jsp
  *      joined the header's lines with <br> and converted them for the PDF with a
@@ -551,6 +553,12 @@ async function assertFailedNotesSaveBlocksFax(page, modalFrame) {
     await modalFrame.locator('#faxButton').click();
     await expectedDialog;
     dialogSeen = notesSaveFailureDialogSeen;
+    await modalFrame.locator('#additionalNotes:enabled:not([readonly])').waitFor({ state: 'visible', timeout: 5000 });
+    const notesRestored = await modalFrame.locator('#additionalNotes').evaluate((notes) => !notes.readOnly && !notes.disabled);
+    const saveRestored = await modalFrame.locator('#saveAdditionalNotes').isEnabled();
+    if (!notesRestored || !saveRestored) {
+      findings.push({ label: 'notes-save-failure', type: 'notes-locked', text: 'a failed fax attempt did not restore the Additional Notes controls' });
+    }
   } finally {
     expectingNotesSaveFailureDialog = false;
     page.off('request', faxRequestListener);
@@ -573,9 +581,16 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   // Deterministic race: hold the notes save so the fax POST can only carry the note if the page
   // waited for it. The route covers the modal iframe's requests too.
   let saveRequested = false;
+  let saveRequestCount = 0;
+  let releaseNotesSave;
+  const notesSaveGate = new Promise((resolve) => { releaseNotesSave = resolve; });
   await page.route(/\/rx\/ViewAddRxComment/, async (route) => {
     saveRequested = true;
-    await new Promise((resolve) => setTimeout(resolve, notesSaveDelayMs));
+    saveRequestCount += 1;
+    await Promise.all([
+      notesSaveGate,
+      new Promise((resolve) => setTimeout(resolve, notesSaveDelayMs)),
+    ]);
     await route.continue();
   });
 
@@ -586,7 +601,31 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: faxRoundTripTimeoutMs });
   // The click moves focus off the textarea, firing its onchange (addNotes -> delayed save) before
   // the click handler faxes: the same order a clinician's click produces.
-  await modalFrame.locator('#faxButton').click();
+  try {
+    await modalFrame.locator('#faxButton').click();
+    const lock = await modalFrame.locator('#additionalNotes').evaluate((notes, attemptedNote) => {
+      const modalWindow = notes.ownerDocument.defaultView;
+      const save = notes.ownerDocument.getElementById('saveAdditionalNotes');
+      const frozenValue = notes.value;
+      const pendingSave = modalWindow.pendingNotesSave;
+      const controlsLocked = notes.readOnly && save.disabled;
+      // Exercise the handler as well as the visible lock: a queued change event must
+      // not enqueue another save after the fax captured its note.
+      notes.value = attemptedNote;
+      modalWindow.addNotes();
+      return {
+        controlsLocked,
+        writeBlocked: modalWindow.pendingNotesSave === pendingSave,
+        valueRestored: notes.value === frozenValue,
+      };
+    }, `${noteText}-late-edit-must-not-save`);
+    visited.push({ label: 'notes-pending-lock', ...lock });
+    if (!lock.controlsLocked || !lock.writeBlocked || !lock.valueRestored) {
+      findings.push({ label: 'notes-pending-lock', type: 'late-edit-accepted', text: 'Additional Notes can change or enqueue a write while the fax is waiting for its saved note' });
+    }
+  } finally {
+    releaseNotesSave();
+  }
 
   let pdfId = null;
   let status = 0;
@@ -621,6 +660,9 @@ async function faxThroughUi(page, modalFrame, scriptId) {
     // Without a save request the race cannot be observed; say so distinctly rather than let the
     // note assertion below read as the race failing.
     findings.push({ label: 'notes-race', type: 'save-not-triggered', text: 'clicking Fax did not fire the Additional Notes save (textarea onchange); the race could not be exercised' });
+  }
+  if (saveRequestCount !== 1) {
+    findings.push({ label: 'notes-pending-lock', type: 'extra-save', text: 'the pending fax did not retain exactly one Additional Notes save' });
   }
   if (status < 200 || status >= 300) {
     findings.push({ label: 'ui-fax', type: 'http-error', status, text: `signed fax returned HTTP ${status}` });

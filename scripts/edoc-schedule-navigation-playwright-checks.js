@@ -29,13 +29,15 @@
  * parameters, and eform-admin-schedule-navigation covers the same class of bug on
  * a different surface entirely.
  *
- * Three scenarios:
+ * Five scenarios:
  *   1. Entering eDoc with scheduleNav=1 renders the header AND puts the flag in
  *      the add form (the missing hidden input is the root cause; assert it
  *      directly so a regression is diagnosed, not just detected).
  *   2. Adding a document keeps the header and keeps scheduleNav=1 on the URL.
  *   3. Deleting that document -- the same page's other mutation redirect -- keeps
  *      them too.
+ *   4. Restoring it through the deleted list preserves the header and makes it active again.
+ *   5. Adding a link preserves the header and persists the generated link document.
  * Plus the negative: entering eDoc WITHOUT the flag must still render no header,
  * so the fix cannot be "always show the header".
  *
@@ -50,19 +52,19 @@
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (fixture teardown; see below)
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  *
- * FIXTURE SAFETY: uploads one PDF this script generates under a unique,
- * timestamped description and only ever asserts on that document. Note that the
+ * FIXTURE SAFETY: creates one PDF and one link under unique descriptions and
+ * only mutates those fixtures. Note that the
  * UI delete in scenario 3 is the application's SOFT delete -- status='D', row and
  * file both still there -- so it is an assertion, NOT teardown. The row is removed
- * for real in the `finally` block, pass or fail, so an interrupted run leaves
- * nothing behind either -- including on SIGINT/SIGTERM, which skip `finally`.
- * Cleanup never fails the run; if it could not connect it warns, and strays are
- * then removable with:
- *   DELETE FROM document WHERE docdesc LIKE 'carlos-nav-probe-%';
+ * for real in the `finally` block on ordinary success or failure. Cleanup errors
+ * fail validation. Signal handling is best effort; kills, a pending server write,
+ * or host panic can leave strays. Identify those by their carlos-nav-probe- prefix
+ * on a disposable demo database and remove their related rows by document_no.
  */
 
 const { chromium } = require('playwright');
 const { execFileSync } = require('node:child_process');
+const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -130,7 +132,9 @@ const pageErrors = [];
 function watchForPageErrors(page, label) {
   page.on('pageerror', (error) => pageErrors.push(`${label}: ${error.message}`));
 }
-const docDescription = `carlos-nav-probe-${Date.now()}`;
+const docDescription = `carlos-nav-probe-${randomUUID()}`;
+const linkInputDescription = `${docDescription}-link`;
+const linkDescription = `${linkInputDescription} (link)`;
 const docTypeName = 'CARLOS Nav Probe';
 
 function validateBaseUrl(rawBaseUrl) {
@@ -224,7 +228,7 @@ function sql(query) {
  *
  * The UI delete in scenario 3 is the application's SOFT delete -- it sets status='D' and leaves
  * both the row and the uploaded PDF in place -- so it is an assertion, not teardown. This runs
- * unconditionally, pass or fail, so an interrupted run leaves nothing behind either.
+ * on ordinary success or failure; interrupted writes can still leave strays.
  */
 let cleanupDone = false;
 function cleanupProbeDocuments() {
@@ -234,9 +238,10 @@ function cleanupProbeDocuments() {
   cleanupDone = true;
   try {
     const ids = sql(
-      `SELECT document_no FROM document WHERE docdesc LIKE '${docDescription}%'`,
+      `SELECT document_no FROM document WHERE docdesc IN ('${docDescription}', '${linkDescription}')`,
     ).split(/\s+/).filter(Boolean);
     if (!ids.length) return;
+    assert(ids.every((id) => /^\d+$/.test(id)), 'Fixture cleanup returned a nonnumeric document id');
     const list = ids.join(',');
     console.log(`cleanup: removing probe document row(s) ${list} for ${docDescription}`);
     // document_storage is empty in the default file-backed mode, but carries the file's bytes
@@ -248,8 +253,8 @@ function cleanupProbeDocuments() {
     sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
     sql(`DELETE FROM document WHERE document_no IN (${list})`);
   } catch (e) {
-    // Housekeeping, never an assertion: a cleanup problem must not turn a passing run red.
-    console.warn(`WARN: could not clean up probe documents for ${docDescription}: ${e.message}`);
+    console.error(`FAIL: could not clean up probe documents for ${docDescription}: ${e.message}`);
+    process.exitCode = 1;
   }
 }
 
@@ -399,11 +404,79 @@ async function deleteDocument(page) {
   const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) }).first();
   await row.waitFor({ state: 'visible', timeout: 15000 });
   page.once('dialog', (dialog) => dialog.accept());
-  await Promise.all([
-    page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {}),
+  const [response] = await Promise.all([
+    page.waitForResponse((result) => new URL(result.url()).pathname.endsWith('/documentManager/DocumentDelete')
+      && result.request().method() === 'POST', { timeout: 30000 }),
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
     row.locator('a[onclick^="checkDelete("]').first().click(),
   ]);
-  await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  assert(response.status() < 400, `Delete Document POST returned HTTP ${response.status()}`);
+}
+
+async function selectDocumentStatus(page, status) {
+  const [response] = await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    page.locator('#viewstatus').selectOption(status),
+  ]);
+  assert(response && response.ok(), `Document ${status} filter failed`);
+  assertScheduleNavRetained(page, `after selecting ${status} documents`);
+  await assertNavHeader(page, true, `after selecting ${status} documents`);
+  assert(await page.locator('#viewstatus').inputValue() === status, 'Document status filter was not retained');
+}
+
+async function restoreDocument(page) {
+  await selectDocumentStatus(page, 'deleted');
+  const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) });
+  assert(await row.count() === 1, 'Deleted list did not contain exactly the uploaded fixture');
+  const [response] = await Promise.all([
+    page.waitForResponse((result) => new URL(result.url()).pathname.endsWith('/documentManager/DocumentUndelete')
+      && result.request().method() === 'POST', { timeout: 30000 }),
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    row.locator('a[onclick^="submitDocAction(\'undelDocumentNo\'"]').click(),
+  ]);
+  assert(response.status() < 400, `Restore Document POST returned HTTP ${response.status()}`);
+  assertScheduleNavRetained(page, 'after restoring a document');
+  await assertNavHeader(page, true, 'after restoring a document');
+  assert(await page.locator(`a[title="${docDescription}"]`).count() === 0,
+    'Restored fixture remained in the deleted list');
+  await selectDocumentStatus(page, 'active');
+  assert(await page.locator(`a[title="${docDescription}"]`).count() === 1,
+    'Restored fixture did not reappear in the active list');
+}
+
+async function addLink(page) {
+  await page.locator('button[data-bs-target="#addLinkDiv"]').click();
+  const form = page.locator('#addLinkDiv form');
+  await form.locator('#docDesc2').waitFor({ state: 'visible', timeout: 15000 });
+  assert(await form.locator('input[name="scheduleNav"][value="1"]').count() === 1,
+    'The Add Link form did not carry scheduleNav=1');
+  const types = await form.locator('#docType1 option').evaluateAll(
+    (options) => options.map((option) => option.value).filter(Boolean),
+  );
+  assert(types.length > 0, 'Add Link has no document type after the upload created or selected one');
+  await form.locator('#docType1').selectOption(types[0]);
+  await form.locator('#docDesc2').fill(linkInputDescription);
+  // The link is persisted but never followed; no external service is involved.
+  await form.locator('#html').fill('http://example.invalid/carlos-nav-probe');
+  const expectedFunction = await form.locator('input[name="function"]').inputValue();
+  const expectedFunctionId = await form.locator('input[name="functionid"]').inputValue();
+  const [response] = await Promise.all([
+    page.waitForResponse((result) => new URL(result.url()).pathname.endsWith('/documentManager/addLink')
+      && result.request().method() === 'POST', { timeout: 30000 }),
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    form.locator('input[type="submit"]').click(),
+  ]);
+  assert(response.status() < 400, `Add Link POST returned HTTP ${response.status()}`);
+  const destination = new URL(page.url());
+  assert(destination.origin === config.baseUrl.origin
+    && destination.pathname === new URL(appUrl('/documentManager/ViewDocumentReport')).pathname
+    && destination.searchParams.get('function') === expectedFunction
+    && destination.searchParams.get('functionid') === expectedFunctionId,
+  'Add Link did not return to the originating document report');
+  assertScheduleNavRetained(page, 'after adding a link');
+  await assertNavHeader(page, true, 'after adding a link');
+  assert(await page.locator(`a[title="${linkDescription}"]`).count() === 1,
+    'Created link did not appear exactly once in the document list');
 }
 
 async function run() {
@@ -457,9 +530,16 @@ async function run() {
     await screenshot(page, 'after-delete');
     console.log(`document "${docDescription}" deleted; navigation header intact`);
 
+    await restoreDocument(page);
+    await screenshot(page, 'after-restore');
+    console.log('document restored to the active list; navigation header intact');
+    await addLink(page);
+    await screenshot(page, 'after-add-link');
+    console.log('link document added; navigation header intact');
+
     assert(!pageErrors.length, `Uncaught script errors on the page: ${pageErrors.join(' | ')}`);
 
-    console.log('PASS: eDoc keeps its navigation header tabs across add and delete');
+    console.log('PASS: eDoc keeps its navigation header tabs across upload, delete, restore, and Add Link');
   } catch (error) {
     if (page) {
       console.error(`failure screenshot: ${await screenshot(page, 'failure')}`);

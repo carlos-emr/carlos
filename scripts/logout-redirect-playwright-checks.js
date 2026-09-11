@@ -157,12 +157,20 @@ function isExpectedMissingAsset(status, responseUrl) {
 function isExpectedConsoleNoise(message) {
   const text = message.text();
   const location = message.location ? message.location() : {};
+  // Chromium can omit the location but include the resource URL in the text.
+  // Accept only a single, exact origin favicon URL in that case; an anonymous
+  // 404, a URL prefix match, or a message naming multiple resources still fails.
+  const textUrls = text.match(/https?:\/\/[^\s"'<>]+/g) || [];
+  const resourceUrl = location.url || (
+    textUrls.length === 1 && textUrls[0] === `${baseUrl.origin}/favicon.ico`
+      ? textUrls[0] : ''
+  );
   return /Content Security Policy.*report-only/i.test(text)
     || /Master token \[CSRF-TOKEN\]/.test(text)
     || /Hidden token fields .* were updated with new token value/.test(text)
     || (message.type() === 'error'
       && /Failed to load resource.*404/i.test(text)
-      && isExpectedMissingAsset(404, location.url || ''));
+      && isExpectedMissingAsset(404, resourceUrl));
 }
 
 function isSevereConsoleMessage(message) {

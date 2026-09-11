@@ -54,26 +54,33 @@ From the repo root:
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export MAVEN_OPTS="-Xmx3g"
-dpkg-buildpackage -us -uc -b
+env -u DRUGREF_WAR -u DRUGREF_SRC -u DRUGREF_REF dpkg-buildpackage -us -uc -b
 ```
 
 This compiles the CARLOS WAR, fetches and builds DrugRef at the ref pinned in
 `debian/drugref.pin`, and downloads the Chromium revision pinned in
 `debian/chromium.pin`. The three `.deb` files land in the parent directory.
 
-For iterative rebuilds, cache the parts that do not change and skip their
-network fetches (see the header of [`debian/rules`](../../debian/rules) for the
-full input list):
+For iterative rebuilds, optionally reuse Chromium downloaded by this build
+while `debian/chromium.pin` is unchanged. Refresh that cache whenever the pin
+changes. Keep DrugRef on the default pinned-source build for promotion
+validation:
 
 ```bash
 mkdir -p ../build-cache
-cp    debian/build/drugref2.war ../build-cache/
 cp -a debian/build/chromium     ../build-cache/chromium
 # later rebuilds:
-DRUGREF_WAR=$PWD/../build-cache/drugref2.war \
 CHROMIUM_DIST=$PWD/../build-cache/chromium \
-dpkg-buildpackage -us -uc -b
+env -u DRUGREF_WAR -u DRUGREF_SRC -u DRUGREF_REF dpkg-buildpackage -us -uc -b
 ```
+
+The local `DRUGREF_WAR` and `DRUGREF_SRC` overrides in
+[`debian/rules`](../../debian/rules) bypass the pinned-source fetch. A prebuilt
+WAR's filename or package version does not establish that it contains the
+revision in `debian/drugref.pin`; an old unversioned cache can silently omit
+DrugRef fixes even when the CARLOS build is current. Do not use an unverified
+DrugRef WAR as evidence for a promotion. The commands above clear those
+overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 
 ## 2. Create the test VM
 
@@ -377,7 +384,8 @@ for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js
   # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
   # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
   t=300; case "$s" in *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;; esac
-  if timeout "$t" node "$s"; then
+  # Signal the Node runner so its cleanup can keep using the browser.
+  if timeout --foreground "$t" node "$s"; then
     echo "PASS $s"
   else
     rc=$?
@@ -452,7 +460,14 @@ Notes on the contract:
   inactivates every active row carrying one of those exact markers through the
   product's supported UI path. Rows remain archived because that is the allergy
   list's normal audit-preserving semantics, but repeat runs do not accumulate
-  active clinical data. A process killed before `finally` can still leave a row;
+  active clinical data. SIGINT/SIGTERM sent to the Node runner PID stop new
+  fixture writes, allow the current submit to settle, and run that same cleanup
+  before closing Chromium, exiting with code 130/143. The loop uses
+  `timeout --foreground` to target the runner; signalling the browser or its
+  process group directly can prevent browser-based cleanup. Shutdown has a
+  three-minute grace deadline; a hung request,
+  cleanup failure, SIGKILL, or host panic can still leave a row. A timeout does
+  not prove that the server abandoned a pending write. In these cases,
   clear only those generated markers on a disposable demo box with
   `UPDATE allergies SET archived=1 WHERE archived=0 AND (reaction LIKE 'Rash typed check %' OR reaction LIKE 'Rash free-text check %');`
   Run it on a **loopback** `BASE_URL`: like `billing-on-third-party`, it relaxes

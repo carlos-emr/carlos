@@ -31,6 +31,8 @@
  *      page can tell "running" from "died". UNAVAILABLE is accepted only when
  *      DRUGREF_UPDATE_REQUIRE_STATUS is not "true" (a DrugRef build older than
  *      getUpdateStatus); the packaged deployment must answer a real state.
+ *      An intercepted FAILED status also proves the actual page displays a
+ *      rollback failure without claiming the previous dataset was preserved.
  *   3. With DRUGREF_UPDATE_TRIGGER=true: the click gets "running" (or "already
  *      running"), the page follows the run, the run ends SUCCEEDED, the date in
  *      the panel moves forward, and a live drug search still answers. This
@@ -147,6 +149,60 @@ async function callStatus(page) {
   }, ENDPOINT);
 }
 
+async function checkRollbackFailureDisplay(context, pageUrl, recorder) {
+  const page = await context.newPage();
+  wirePage(page, 'drugref-rollback-failure-display', recorder);
+  const message = 'failed during importing DPD data -- AND the previous dataset could NOT be restored: '
+    + 'SQLException: recovery unavailable; reload the drug reference seed';
+  let interceptedStatus = 0;
+  let attemptedUpdates = 0;
+  try {
+    // Intercept only this page's exact relay. Verify remains a live read, and
+    // the mutation is blocked even if a future page regression tries to start it.
+    await page.route(
+      (url) => url.origin === config.baseUrl.origin && url.pathname === ENDPOINT,
+      async (route) => {
+        const method = new URLSearchParams(route.request().postData() || '').get('method');
+        if (method === 'updateDB') {
+          attemptedUpdates += 1;
+          await route.abort('blockedbyclient');
+        } else if (method === 'status') {
+          interceptedStatus += 1;
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              state: 'FAILED', step: 'importing DPD data', message,
+              startedAt: '', finishedAt: '', lastUpdate: '',
+            }),
+          });
+        } else {
+          await route.continue();
+        }
+      },
+    );
+    await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await assertNotErrorPage(page, 'DrugRef rollback failure page');
+    await page.waitForFunction(
+      (expected) => document.getElementById('updateResult')?.textContent.includes(expected),
+      message,
+      { timeout: 20000 },
+    );
+    const result = page.locator('#updateResult');
+    assert(await result.isVisible(), 'rollback failure result is hidden');
+    const text = await result.innerText();
+    assert(text.includes('FAILED') && text.includes(message), `rollback failure details missing: ${text}`);
+    assert(!/previous drug data was kept|previous dataset was preserved/i.test(text),
+      `rollback failure falsely claims preservation: ${text}`);
+    assert(/\balert-danger\b/.test(await result.getAttribute('class')), 'rollback failure is not marked as an error');
+    assert(interceptedStatus > 0, 'the real page did not request the intercepted status');
+    assert(attemptedUpdates === 0, 'rendering a failure unexpectedly attempted a database rebuild');
+    console.log('STEP 2b rollback failure display: PASS (details retained; no false preservation claim; no rebuild)');
+  } finally {
+    await page.close();
+  }
+}
+
 (async () => {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
@@ -233,6 +289,8 @@ async function callStatus(page) {
     // reports a definite state, so this asserts the page positively enabled the trigger
     // rather than merely never having hidden it.
     assert(await popup.locator('#updatedb').isVisible(), 'the Update Drugref button is not visible');
+
+    await checkRollbackFailureDisplay(context, popup.url(), recorder);
 
     if (!trigger) {
       await screenshot(popup, config.screenshotDir, 'drugref-update-page');
