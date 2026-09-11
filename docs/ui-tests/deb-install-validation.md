@@ -33,7 +33,10 @@ typed was clean and the text in the tester's chart was not — a pasted link who
 query string contained `&cmd` scored CRS 932110 on the encounter note body, and
 that body rides on the CPP save's issue-refresh POST and the draft autosave as
 well as on the note save itself. A WAF check that submits only inoffensive prose
-measures nothing. Scripts driving a free-text clinical field through the front
+measures nothing. Position matters too: CRS 931100 (RFI via an IP-address URL)
+is anchored on the start of the argument, so it fired only once the seeded text
+*began* with the pasted PACS link — a probe that buried the link mid-sentence
+reported the argument clean. Scripts driving a free-text clinical field through the front
 door should carry text the rule set actually scores (see
 `CLINICAL_TEXT_THE_WAF_SCORES` in `scripts/echart-playwright-checks.js`) and
 should be confirmed to fail against the previous exclusion file, not merely to

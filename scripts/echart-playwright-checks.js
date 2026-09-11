@@ -58,17 +58,21 @@ let frontDoorObserved = false;
 const NOTES_POLL_QUIET_MS = 4000;
 const NOTES_POLL_TIMEOUT_MS = 30000;
 
-// Ordinary clinical prose that the OWASP CRS scores as an attack: the pasted PACS link's
-// own query string carries the literal "&cmd", which is rule 932110 (Windows command
-// injection), and one CRITICAL match is the whole request at the packaged anomaly
-// threshold. Every argument that carries this on POST /carlos/CaseManagementEntry —
+// Ordinary clinical prose that the OWASP CRS scores as an attack, twice over. The text
+// BEGINS with a pasted internal PACS link on an IP address: rule 931100 (RFI, URL parameter
+// using an IP address) is anchored on the whole argument, so it fires only when the value
+// starts with the link — which is exactly how a link gets pasted into a CPP box or a note.
+// The link's own query string then carries the literal "&cmd", which is rule 932110 (Windows
+// command injection). Either CRITICAL match alone is the whole request at the packaged
+// anomaly threshold. Every argument that carries this on POST /carlos/CaseManagementEntry —
 // ARGS:value (the CPP body), ARGS:caseNote_note (the encounter note in the serialized
 // form) and ARGS:note (the draft autosave) — is exempted per-argument by exclusion 1010
 // in debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf. This string is
-// the check's whole point through the front door, so keep it signature-shaped: replacing
-// it with clean prose makes the check green on a re-broken WAF policy.
+// the check's whole point through the front door, so keep it signature-shaped AND keep the
+// link first: replacing it with clean prose, or moving the link off the start, makes the
+// check green on a re-broken WAF policy.
 const CLINICAL_TEXT_THE_WAF_SCORES =
-  "reviewed prior imaging at http://pacs.example.org/study?id=1&cmd=view; pt's father had COPD, BP > 140/90";
+  "http://10.0.0.5/pacs/study?id=1&cmd=view reviewed prior imaging; pt's father had COPD, BP > 140/90";
 
 // backup() re-arms every 5s and autosaves whenever the note textarea differs from the
 // value the chart loaded, so one tick plus generous slack is enough to observe a draft save.
@@ -416,7 +420,9 @@ function isExpectedNoteLockDialog(issue) {
     await screenshot(echart, 'echart-after-social-history-plus');
 
     const cppNoteToken = `Playwright Social History ${Date.now()}`;
-    const cppNote = `${cppNoteToken} — ${CLINICAL_TEXT_THE_WAF_SCORES}`;
+    // The scored text goes FIRST so ARGS:value also begins with the pasted link (931100 is
+    // anchored on the start of the argument); the token is what the archive step looks for.
+    const cppNote = `${CLINICAL_TEXT_THE_WAF_SCORES} — ${cppNoteToken}`;
     let saveFailure = null;
     let cleanupFailure = null;
     let saveConfirmed = false;

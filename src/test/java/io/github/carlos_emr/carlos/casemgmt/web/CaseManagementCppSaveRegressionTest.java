@@ -51,9 +51,15 @@ class CaseManagementCppSaveRegressionTest {
     private static final String[] CLINICIAN_FREE_TEXT_ARGUMENTS = {
             "value", "caseNote_note", "note", "problemdescription", "problemstatus",
             "treatment", "exposuredetail", "relationship", "procedure"};
+    /**
+     * The CRS tag groups that read prose as an attack. {@code attack-rfi} is on this list
+     * for the note route even though 1045 and 1050 keep it: 931100 is anchored on the whole
+     * argument and fires on a CPP box or note that IS a pasted IP-address link (an internal
+     * PACS URL), measured 403 on the packaged install — see the rule's comment.
+     */
     private static final String[] CONTENT_ATTACK_TAGS = {
             "attack-sqli", "attack-xss", "attack-rce",
-            "attack-injection-php", "attack-protocol", "attack-lfi"};
+            "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"};
 
     @Test
     @DisplayName("CPP saves should refresh Unresolved Issues without relying on a missing form element (#3422)")
@@ -162,6 +168,9 @@ class CaseManagementCppSaveRegressionTest {
                 // attack-rce family.
                 .contains("ctl:ruleRemoveTargetById=932110;ARGS:reloadUrl")
                 .doesNotContain("ctl:ruleRemoveTargetByTag=attack-rce;ARGS:reloadUrl")
+                // reloadUrl is a relative app path with no scheme, so no RFI rule can fire
+                // on a legitimate value; leave the family on it.
+                .doesNotContain("ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:reloadUrl")
                 // Per-argument only: nothing in this rule may drop a signature request-wide.
                 .doesNotContain("ruleRemoveById=932110,");
     }
