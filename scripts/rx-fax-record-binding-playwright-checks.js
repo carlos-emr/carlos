@@ -418,9 +418,6 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
     const text = error.stack || error.message || '';
-    // Pre-existing, tracked by issue #3578 (expandPreview writes into the preview iframe before it
-    // has parsed on some render orders). Named so the suppression stays auditable.
-    if (/Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text)) return;
     // Record the error CLASS only. A page error's message or stack can quote page content -- a
     // patient name in a DOM path, a demographic number in a URL -- and this goes to stderr and the
     // artifact file, so it must never carry the text itself.
@@ -587,6 +584,9 @@ async function assertEncounterPasteRecovery(modalFrame) {
       consoleError: w.console.error, canRetry: w.faxPasteCanRetry,
       queued: w.faxQueued, pending: w.faxSubmissionPending,
       retryText: w.faxPasteRetryText, retryPending: w.faxPasteRetryPending,
+      paste: w.printPaste2Parent, setTimeout: w.setTimeout, lastText: w.lastFaxPasteText,
+      retryDisplay: w.document.getElementById('faxPasteRetryRow').style.display,
+      retryDisabled: w.document.getElementById('faxPasteRetryButton').disabled,
     };
     const checks = [];
     let requests = 0;
@@ -611,8 +611,26 @@ async function assertEncounterPasteRecovery(modalFrame) {
         // An uncertain append is not retryable even by a direct handler call.
         w.faxPasteRetryText = 'RECOVERY PROBE - MUST NEVER REACH SERVER';
         const before = requests;
-        const refused = probe.retry || (w.retryFaxPaste() === false && requests === before);
-        checks.push({ name: probe.name, passed: safe && refused });
+        let handlerVerified;
+        if (probe.retry) {
+          const attempts = [];
+          const scheduledCloses = [];
+          w.printPaste2Parent = (...args) => { attempts.push(args); return Promise.resolve(true); };
+          w.setTimeout = (callback) => { scheduledCloses.push(callback); };
+          const accepted = w.retryFaxPaste() === true;
+          const duplicateBlocked = w.retryFaxPaste() === false;
+          await Promise.resolve();
+          await Promise.resolve();
+          handlerVerified = accepted && duplicateBlocked && attempts.length === 1
+            && attempts[0][0] === false && attempts[0][1] === true && attempts[0][2] === true
+            && attempts[0][3] === 'RECOVERY PROBE - MUST NEVER REACH SERVER' && attempts[0][4] === true
+            && w.faxPasteRetryText === null && !w.faxPasteRetryPending
+            && w.document.getElementById('faxPasteRetryRow').style.display === 'none'
+            && scheduledCloses.length === 1 && requests === before;
+        } else {
+          handlerVerified = w.retryFaxPaste() === false && requests === before;
+        }
+        checks.push({ name: probe.name, passed: safe && handlerVerified });
       }
     } finally {
       w.fetch = original.fetch;
@@ -624,12 +642,108 @@ async function assertEncounterPasteRecovery(modalFrame) {
       w.faxSubmissionPending = original.pending;
       w.faxPasteRetryText = original.retryText;
       w.faxPasteRetryPending = original.retryPending;
+      w.printPaste2Parent = original.paste;
+      w.setTimeout = original.setTimeout;
+      w.lastFaxPasteText = original.lastText;
+      w.document.getElementById('faxPasteRetryRow').style.display = original.retryDisplay;
+      w.document.getElementById('faxPasteRetryButton').disabled = original.retryDisabled;
     }
     return checks;
   });
   for (const result of results) {
     visited.push({ label: 'encounter-recovery', ...result });
     if (!result.passed) findings.push({ label: 'encounter-recovery', type: 'unsafe-retry', text: result.name });
+  }
+}
+
+// Run the installed JSP's real submit/result functions, but replace form.submit
+// so these uncertainty probes cannot create a job or send clinical data.
+async function assertFaxConfirmationRecovery(modalFrame) {
+  const results = await modalFrame.locator('#additionalNotes').evaluate(async (notes) => {
+    const w = notes.ownerDocument.defaultView;
+    const frame = w.document.getElementById('preview');
+    const previewDoc = frame.contentWindow.document;
+    const form = previewDoc.getElementById('preview2Form');
+    const originalSubmit = Object.getOwnPropertyDescriptor(form, 'submit');
+    const originalGet = Object.getOwnPropertyDescriptor(previewDoc, 'getElementById');
+    const getElement = previewDoc.getElementById;
+    const globals = ['pendingNotesSave', 'faxSubmissionPending', 'faxSubmissionUncertain',
+      'faxPreviewReloading', 'faxQueued', 'faxPasteCanRetry', 'faxNotesState',
+      'lastFaxPasteText', 'hasPreview', 'setTimeout', 'clearTimeout', 'onbeforeunload'];
+    const saved = Object.fromEntries(globals.map((key) => [key, w[key]]));
+    const savedError = w.console.error;
+    const originalScript = form.getAttribute('data-script-id');
+    const originalAction = form.getAttribute('action');
+    const originalTarget = form.getAttribute('target');
+    const pdfId = form.querySelector('#pdfId');
+    const originalPdfId = pdfId.value;
+    const controls = ['additionalNotes', 'saveAdditionalNotes', 'faxButton', 'faxPasteButton',
+      'printPasteButton', 'faxSubmissionUncertain', 'faxSubmissionRecoveryText', 'faxPreviewChanged']
+      .map((id) => w.document.getElementById(id)).filter(Boolean)
+      .map((element) => ({ element, values: Object.fromEntries(
+        ['value', 'disabled', 'readOnly', 'hidden'].filter((key) => key in element)
+          .map((key) => [key, element[key]])) }));
+    const restore = () => {
+      for (const [key, value] of Object.entries(saved)) w[key] = value;
+      for (const { element, values } of controls) Object.assign(element, values);
+      w.console.error = savedError;
+      if (originalSubmit) Object.defineProperty(form, 'submit', originalSubmit);
+      else delete form.submit;
+      if (originalGet) Object.defineProperty(previewDoc, 'getElementById', originalGet);
+      else delete previewDoc.getElementById;
+      for (const [key, value] of [['data-script-id', originalScript], ['action', originalAction], ['target', originalTarget]]) {
+        if (value === null) form.removeAttribute(key); else form.setAttribute(key, value);
+      }
+      pdfId.value = originalPdfId;
+    };
+    const checks = [];
+    try {
+      for (const outcome of ['markerless', 'inaccessible', 'timeout', 'wrong-script']) {
+        restore();
+        let submitted = 0;
+        let timeout;
+        let timerCleared = false;
+        w.console.error = () => {};
+        w.setTimeout = (callback) => { timeout = callback; return 1; };
+        w.clearTimeout = () => { timerCleared = true; };
+        form.submit = () => { submitted += 1; };
+        w.pendingNotesSave = Promise.resolve();
+        w.lockFaxNotes();
+        w.faxSubmissionPending = true;
+        w.setFaxControlsDisabled(true);
+        if (outcome === 'wrong-script') form.setAttribute('data-script-id', 'not-the-displayed-script');
+        w.onPrint2('oscarRxFax', w.faxScriptNo, 'NO-SUBMISSION-PROBE', true, 'RECOVERY PROBE');
+        await Promise.resolve();
+        if (outcome === 'wrong-script') {
+          checks.push({ name: outcome, passed: submitted === 0 && !w.hasPreview
+            && !w.document.getElementById('faxPreviewChanged').hidden });
+          continue;
+        }
+        if (outcome === 'timeout') {
+          timeout();
+        } else {
+          previewDoc.getElementById = function (id) {
+            if (outcome === 'inaccessible') throw new Error('inaccessible fixture response');
+            if (['preview2Form', 'fax-success', 'fax-failure'].includes(id)) return null;
+            return getElement.call(this, id);
+          };
+          frame.dispatchEvent(new w.Event('load'));
+        }
+        checks.push({ name: outcome, passed: submitted === 1 && timerCleared
+          && w.faxSubmissionUncertain && !w.faxSubmissionPending && !w.faxQueued
+          && !w.faxPasteCanRetry && w.sendFax(true) === false && notes.readOnly
+          && w.document.getElementById('printPasteButton').disabled
+          && w.document.getElementById('faxSubmissionRecoveryText').value === 'RECOVERY PROBE'
+          && !w.document.getElementById('faxSubmissionUncertain').hidden });
+      }
+    } finally {
+      restore();
+    }
+    return checks;
+  });
+  for (const result of results) {
+    visited.push({ label: 'fax-confirmation-recovery', ...result });
+    if (!result.passed) findings.push({ label: 'fax-confirmation-recovery', type: 'unsafe-retry', text: result.name });
   }
 }
 
@@ -937,6 +1051,7 @@ async function runChecks(context) {
     // proves that a later edit can recover the promise chain after the rejected save.
     await assertFailedNotesSaveBlocksFax(page, modalFrame);
     await assertEncounterPasteRecovery(modalFrame);
+    await assertFaxConfirmationRecovery(modalFrame);
 
     // B + C on one real click.
     const uiPdfId = await faxThroughUi(page, modalFrame, scriptId);

@@ -61,7 +61,7 @@ class FlowSheetEditorJspRegressionTest {
 
     @Test
     @DisplayName("flowsheet pages should reference the packaged context-relative favicon")
-    void flowsheetPagesShouldReferencePackagedFavicon() throws IOException {
+    void shouldReferencePackagedFavicon_forFlowsheetPages() throws IOException {
         assertThat(PACKAGED_FAVICON).isRegularFile();
 
         for (Path jspPath : new Path[] {EDIT_FLOWSHEET_JSP, PRINT_FLOWSHEET_JSP}) {

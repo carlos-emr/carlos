@@ -365,6 +365,7 @@
 
             function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
                               previousUnloadHandler) {
+                if (method === 'oscarRxFax' && (faxQueued || faxSubmissionUncertain || faxPreviewReloading)) return false;
                 var useSC = false;
                 var scAddress = "";
                 var rxPageSize = document.getElementById('printPageSize').value;
@@ -380,8 +381,15 @@
             }%>
                 let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
                 var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
-                previewForm.action = action;
                 if (method === "oscarRxFax") {
+                    if (!matchesFaxPreview(previewForm)) {
+                        hasPreview = false;
+                        resetFailedFaxSubmission(previousUnloadHandler);
+                        document.getElementById('faxPreviewChanged').hidden = false;
+                        return false;
+                    }
+                    var faxPostStarted = false;
+                    var stopFaxResultWait = function () {};
                     // Only the fax waits. A print renders additNotes from the request, which
                     // addNotes() already updated synchronously, so there is nothing to wait for --
                     // and deferring a target="_blank" submit out of the click's user-gesture context
@@ -395,6 +403,11 @@
                         previewForm.action = action;
                         previewForm.querySelector('#pdfId').value = faxDocumentId;
                         var previewFrame = document.getElementById('preview');
+                        var confirmationTimeout;
+                        stopFaxResultWait = function () {
+                            clearTimeout(confirmationTimeout);
+                            previewFrame.removeEventListener('load', faxResultHandler);
+                        };
                         var faxResultHandler = function () {
                             try {
                                 var faxSucceeded = frames['preview'].document.getElementById('fax-success');
@@ -405,15 +418,15 @@
                                 if (!faxSucceeded && !faxFailed) {
                                     // A container-generated 4xx/5xx page has no fax marker, but it
                                     // also cannot contain the prescription preview form. Treat that
-                                    // as a failed attempt. The real preview document does contain
+                                    // as inconclusive: the job may already have committed. The real preview document contains
                                     // the form, including its possible late baseline load event.
                                     if (!frames['preview'].document.getElementById('preview2Form')) {
-                                        previewFrame.removeEventListener('load', faxResultHandler);
-                                        resetFailedFaxSubmission(previousUnloadHandler);
+                                        stopFaxResultWait();
+                                        markFaxSubmissionUncertain(capturedPasteText);
                                     }
                                     return;
                                 }
-                                previewFrame.removeEventListener('load', faxResultHandler);
+                                stopFaxResultWait();
                                 if (faxSucceeded) {
                                     // The server accepted the fax. Nothing on this page may queue it
                                     // a second time from here on, whatever the encounter write does.
@@ -442,20 +455,34 @@
                                     }
                                 } else {
                                     resetFailedFaxSubmission(previousUnloadHandler);
+                                    restoreFaxPreviewAfterFailure();
                                 }
                             } catch (e) {
-                                resetFailedFaxSubmission(previousUnloadHandler);
+                                stopFaxResultWait();
+                                markFaxSubmissionUncertain(capturedPasteText);
                                 console.error('Could not confirm fax result', e);
                             }
                         };
                         previewFrame.addEventListener('load', faxResultHandler);
+                        confirmationTimeout = setTimeout(function () {
+                            stopFaxResultWait();
+                            markFaxSubmissionUncertain(capturedPasteText);
+                        }, 120000);
+                        faxPostStarted = true;
                         previewForm.submit();
                     }).catch(function (e) {
+                        stopFaxResultWait();
+                        if (faxPostStarted) {
+                            markFaxSubmissionUncertain(capturedPasteText);
+                            console.error('Fax submission outcome is unknown', e);
+                            return;
+                        }
                         console.error('Additional notes save failed; fax cancelled', e);
                         alert('${carlos:forJavaScript(msg_noteSaveFailed)}');
                         resetFailedFaxSubmission(previousUnloadHandler);
                     });
                 } else {
+                    previewForm.action = action;
                     previewForm.target = "_blank";
                     previewForm.submit();
                 }
@@ -489,7 +516,7 @@
                 // overtake the fax request and disagree with the captured encounter-paste text.
                 // Once a fax has been queued the same holds permanently: the stored note is the
                 // record of what the pharmacy received.
-                if (faxSubmissionPending || faxQueued) {
+                if (faxSubmissionPending || faxQueued || faxSubmissionUncertain || faxPreviewReloading) {
                     if (faxNotesState) faxNotesState.notes.value = faxNotesState.value;
                     return false;
                 }
@@ -554,7 +581,7 @@
 
             function printPaste2Parent(print, fax, pasteRx, capturedPasteText, useCapturedPasteTextAsIs) {
                 //console.log("in printPaste2Parent");
-                if ((faxQueued || faxSubmissionPending) && !fax) return Promise.resolve(false);
+                if (faxSubmissionUncertain || faxPreviewReloading || ((!hasPreview || faxQueued || faxSubmissionPending) && !fax)) return Promise.resolve(false);
                 // A retry is safe only until an insertion or request may have written text.
                 // Network failures and editor callbacks can fail AFTER their side effect.
                 faxPasteCanRetry = true;
@@ -846,6 +873,8 @@
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
             var faxScriptNo = "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>";
             var faxSubmissionPending = false;
+            var faxSubmissionUncertain = false;
+            var faxPreviewReloading = false;
             var faxNotesState = null;
             // A fax the server has accepted for this script. The prescription is with the
             // pharmacy from that point on, so no later step -- including recovery from a failed
@@ -895,11 +924,19 @@
                     var control = document.getElementById(id);
                     if (control) control.disabled = disabled;
                 });
+                // Printing/pasting needs neither a fax account nor a signature.
+                var printPasteButton = document.getElementById('printPasteButton');
+                if (printPasteButton) {
+                    printPasteButton.disabled = !hasPreview || faxSubmissionPending || faxQueued
+                            || faxSubmissionUncertain || faxPreviewReloading;
+                }
             }
 
             function shouldDisableFaxControls() {
                 return faxSubmissionPending
                         || faxQueued
+                        || faxSubmissionUncertain
+                        || faxPreviewReloading
                         || typeof hasPreview === 'undefined'
                         || !hasPreview
                         || !hasFaxNumber
@@ -914,6 +951,52 @@
                 unlockFaxNotes();
                 setFaxControlsDisabled(shouldDisableFaxControls());
                 window.onbeforeunload = previousUnloadHandler;
+            }
+
+            function matchesFaxPreview(form) {
+                return Boolean(form && form.getAttribute('data-script-id') === faxScriptNo
+                        && form.elements.demographic_no
+                        && form.elements.demographic_no.value === '<%= bean.getDemographicNo() %>');
+            }
+
+            function restoreFaxPreviewAfterFailure() {
+                // The explicit rejection replaced preview2Form with a result page.
+                // Rebuild the saved preview before offering a retry; otherwise the
+                // next Fax click dereferences missing fields and cannot submit.
+                faxPreviewReloading = true;
+                lockFaxNotes();
+                setFaxControlsDisabled(true);
+                var frame = document.getElementById('preview');
+                var ready = function () {
+                    frame.removeEventListener('load', ready);
+                    try {
+                        faxPreviewReloading = !matchesFaxPreview(frame.contentWindow.document.getElementById('preview2Form'));
+                        if (!faxPreviewReloading) unlockFaxNotes();
+                        else document.getElementById('faxPreviewChanged').hidden = false;
+                    } catch (error) {
+                        console.error('Could not reload the rejected fax preview', error);
+                    }
+                    setFaxControlsDisabled(shouldDisableFaxControls());
+                };
+                frame.addEventListener('load', ready);
+                frame.src = frame.getAttribute('src');
+            }
+
+            function markFaxSubmissionUncertain(capturedPasteText) {
+                faxSubmissionPending = false;
+                faxSubmissionUncertain = true;
+                faxPasteCanRetry = false;
+                // Neither resubmit nor paste an assertion that the fax was queued.
+                // Keep notes frozen until the clinician verifies the fax outbox.
+                setFaxControlsDisabled(shouldDisableFaxControls());
+                var message = document.getElementById('faxSubmissionUncertain');
+                if (message) message.hidden = false;
+                var recoveryText = document.getElementById('faxSubmissionRecoveryText');
+                if (recoveryText && capturedPasteText) {
+                    recoveryText.value = capturedPasteText;
+                    recoveryText.hidden = false;
+                }
+                window.onbeforeunload = null;
             }
 
             function enterFaxPasteRecovery(capturedPasteText) {
@@ -940,7 +1023,7 @@
             }
 
             function retryFaxPaste() {
-                if (typeof faxPasteRetryText !== 'string' || !faxPasteCanRetry || faxPasteRetryPending) return false;
+                if (typeof faxPasteRetryText !== 'string' || !faxPasteCanRetry || faxPasteRetryPending || faxSubmissionUncertain) return false;
                 faxPasteRetryPending = true;
                 var retryButton = document.getElementById('faxPasteRetryButton');
                 if (retryButton) retryButton.disabled = true;
@@ -975,7 +1058,7 @@
             }
 
             function sendFax(pasteAfterSuccess) {
-                if (faxSubmissionPending || faxQueued) {
+                if (faxSubmissionPending || faxQueued || faxSubmissionUncertain || faxPreviewReloading) {
                     return false;
                 }
                 let faxNumber = document.getElementById('faxNumber');
@@ -1203,29 +1286,55 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         var json = JSON.parse(responseText);
 
                                                     if (json != null) {
-                                                        var text = json.name + "<br>" + json.address + "<br>" + json.city + ", " + json.province + ", "
-                                                            + json.postalCode + "<br>Tel:" + json.phone1 + " " + json.phone2 + "<br>Fax:" + json.fax + "<br>Email:" + json.email + "<br>Note:" + json.notes;
+                                                        var text = pharmacyText(json.name) + "<br>" + pharmacyText(json.address) + "<br>" + pharmacyText(json.city) + ", " + pharmacyText(json.province) + ", "
+                                                            + pharmacyText(json.postalCode) + "<br>Tel:" + pharmacyText(json.phone1) + " " + pharmacyText(json.phone2) + "<br>Fax:" + pharmacyText(json.fax) + "<br>Email:" + pharmacyText(json.email) + "<br>Note:" + pharmacyText(json.notes);
 
                                                         text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
-                                                        text += "<input type='hidden' name='pharmacyInfo' value=" + id + " />"
+                                                        text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";
                                                         expandPreview(text);
                                                     }
                                                 });
 
                                         }
 
+                                        function pharmacyText(value) {
+                                            return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
+                                                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character];
+                                            });
+                                        }
+
+                                        var pharmacyPreviewHtml = '';
+                                        function applyPharmacyPreview() {
+                                            var frame = document.getElementById('preview');
+                                            var target;
+                                            try {
+                                                target = frame && frame.contentWindow.document.getElementById('pharmInfo');
+                                            } catch (error) {
+                                                return false;
+                                            }
+                                            if (!target) return false;
+                                            target.innerHTML = pharmacyPreviewHtml;
+                                            return true;
+                                        }
+
                                         function expandPreview(text) {
+                                            pharmacyPreviewHtml = text;
                                             try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.add('modal-xl'); } catch(e) {}
                                             document.getElementById('preview').style.width = "600px";
-                                            frames['preview'].document.getElementById('pharmInfo').innerHTML = text;
+                                            applyPharmacyPreview();
                                             document.getElementById("selectedPharmacy").innerHTML = '<fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
                                         }
 
                                         function reducePreview() {
+                                            pharmacyPreviewHtml = '';
                                             try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.remove('modal-xl'); } catch(e) {}
                                             document.getElementById('preview').style.width = "460px";
-                                            frames['preview'].document.getElementById('pharmInfo').innerHTML = "";
+                                            applyPharmacyPreview();
                                             document.getElementById("selectedPharmacy").innerHTML = "";
+                                        }
+                                        var pharmacyPreviewFrame = document.getElementById('preview');
+                                        if (pharmacyPreviewFrame) {
+                                            pharmacyPreviewFrame.addEventListener('load', applyPharmacyPreview);
                                         }
                                     </script>
 
@@ -1288,7 +1397,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                                                     value="<fmt:message key="ViewScript.msgPrintAndPaste"/>"
                                                                                     class="btn btn-outline-primary"
                                                                                     style="width: 210px"
-                                                                                    onClick="printPaste2Parent(true, false, true);"/></span>
+                                                                                    id="printPasteButton" onClick="printPaste2Parent(true, false, true);"/></span>
                                             </td>
                                         </tr>
                                         <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
@@ -1339,6 +1448,15 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                              but the encounter note could not be written. It repeats the
                                              encounter paste with the text the fax carried; the fax itself
                                              stays disabled so the pharmacy cannot receive it twice. --%>
+                                        <tr id="faxSubmissionUncertain" hidden>
+                                            <td role="alert"><fmt:message key="ViewScript.msgFaxUncertain"/>
+                                                <textarea id="faxSubmissionRecoveryText" hidden readonly rows="6" style="width: 100%"
+                                                          aria-label="<fmt:message key="ViewScript.msgFaxRecoveryText"/>"></textarea>
+                                            </td>
+                                        </tr>
+                                        <tr id="faxPreviewChanged" hidden>
+                                            <td role="alert"><fmt:message key="ViewScript.msgFaxPreviewChanged"/></td>
+                                        </tr>
                                         <tr id="faxPasteRetryRow" style="display: none">
                                             <td style="padding-top: 0"><span><input type=button
                                                     value="<fmt:message key="ViewScript.msgRetryPaste"/>"
@@ -1346,7 +1464,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                     style="width: 210px" onClick="retryFaxPaste();"/></span>
                                                 <p id="faxPasteUncertain" hidden role="alert"><fmt:message key="ViewScript.msgPasteUncertain"/></p>
                                                 <textarea id="faxPasteRecoveryText" readonly rows="6" style="width: 100%"
-                                                          aria-label="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"></textarea>
+                                                          aria-label="<fmt:message key="ViewScript.msgFaxRecoveryText"/>"></textarea>
                                             </td>
                                         </tr>
 

@@ -296,7 +296,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         // commits. Until then every filesystem artifact is owned solely by this
                         // request and must be removed if inspection, job construction or persistence
                         // fails, so the same unique attempt id remains retryable.
-                        faxManager.persistAndLogFaxJob(loggedInInfo, faxJob, TransactionType.RX, -1);
+                        faxManager.persistAndLogFaxJob(loggedInInfo, faxJob, TransactionType.RX, prescription.getId());
                     } catch (IOException | RuntimeException e) {
                         preparedFiles.cleanupAfterFailure(e);
                         reportFaxFailure(res, writer, "Prescription fax queueing failed", e);
@@ -1502,7 +1502,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
                 || metadata.getDemographicId() == null
                 || !metadata.getDemographicId().equals(demographicId)
-                || !Objects.equals(metadata.getProviderNo(), prescribingProviderNo)) {
+                || prescribingProviderNo == null || prescribingProviderNo.isBlank()
+                || !prescribingProviderNo.equals(metadata.getProviderNo())) {
             logger.debug("Stored signature does not belong to prescription {}; not rendering it", LogSafe.sanitize(String.valueOf(scriptNo)));
             return null;
         }

@@ -503,6 +503,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         FaxJob faxJob = new FaxJob();
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, (String) null))
                 .thenReturn(false);
+        // Model a read-only role: if the implementation ever substitutes READ
+        // for WRITE, it must not accidentally satisfy this denial regression.
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, (String) null))
                 .thenReturn(true);
 

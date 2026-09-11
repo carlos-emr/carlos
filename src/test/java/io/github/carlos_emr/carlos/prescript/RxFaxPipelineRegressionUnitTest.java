@@ -175,6 +175,7 @@ class RxFaxPipelineRegressionUnitTest {
         assertThat(predicateMatcher.find()).isTrue();
         assertThat(predicateMatcher.group(1))
                 .contains("faxSubmissionPending")
+                .contains("faxSubmissionUncertain")
                 .contains("typeof hasPreview === 'undefined'")
                 .contains("!hasPreview")
                 .contains("!hasFaxNumber")

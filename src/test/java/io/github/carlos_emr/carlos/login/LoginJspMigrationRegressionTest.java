@@ -92,7 +92,7 @@ class LoginJspMigrationRegressionTest {
 
     @Test
     @DisplayName("login page should not steal focus after credential entry begins")
-    void loginPageShouldNotStealFocusAfterCredentialEntryBegins() throws IOException {
+    void shouldNotStealFocus_afterCredentialEntryBegins() throws IOException {
         String loginJsp = Files.readString(LOGIN_JSP, StandardCharsets.UTF_8);
 
         assertThat(loginJsp)

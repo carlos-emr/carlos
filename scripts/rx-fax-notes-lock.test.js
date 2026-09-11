@@ -28,16 +28,21 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     saveAdditionalNotes: save,
     faxButton: { disabled: false },
     faxPasteButton: { disabled: false },
+    printPasteButton: { disabled: false },
     faxPasteRetryRow: { style: { display: 'none' } },
     faxPasteRetryButton: { disabled: false },
     faxPasteUncertain: { hidden: true },
     faxPasteRecoveryText: { value: '' },
+    faxSubmissionUncertain: { hidden: true },
+    faxSubmissionRecoveryText: { hidden: true, value: '' },
+    faxPreviewChanged: { hidden: true },
     faxNumber: { selectedIndex: 0, options: [{ value: '5555555555' }] },
     preview: { contentWindow: { document: { getElementById: () => previewForm } } },
   };
   const previewElements = { finalFax: { value: '' }, additNotes: { style: {} } };
   const savedBodies = [];
   const deferredTimeouts = [];
+  const clearedTimeouts = [];
   const closedWindows = [];
   let releaseSave;
   const saveGate = new Promise((resolve) => { releaseSave = resolve; });
@@ -49,9 +54,12 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
       getElementsByName: () => [{ value: '' }],
     } } },
     window: { onbeforeunload: () => 'unsaved', top: { close: () => { closedWindows.push(true); } } },
-    setTimeout: (fn) => { deferredTimeouts.push(fn); },
+    setTimeout: (fn) => { deferredTimeouts.push(fn); return deferredTimeouts.length; },
+    clearTimeout: (id) => { clearedTimeouts.push(id); },
     faxScriptNo: '12345',
     faxSubmissionPending: false,
+    faxSubmissionUncertain: false,
+    faxPreviewReloading: false,
     faxNotesState: null,
     pendingNotesSave: Promise.resolve(),
     faxQueued: false,
@@ -83,7 +91,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     ['retryFaxPaste', 'refreshImage'],
     ['sendFax', 'unloadMess'],
   ]) vm.runInContext(browserFunction(name, next), context);
-  return { context, notes, save, elements, savedBodies, releaseSave, deferredTimeouts, closedWindows };
+  return { context, notes, save, elements, savedBodies, releaseSave, deferredTimeouts, clearedTimeouts, closedWindows };
 }
 
 for (const pasteAfterSuccess of [false, true]) {
@@ -191,6 +199,152 @@ test('uncertain encounter outcome preserves text but cannot retry or resend', ()
   assert.equal(elements.faxPasteRecoveryText.value, 'exact queued fax text');
   assert.equal(context.retryFaxPaste(), false);
   assert.equal(context.sendFax(true), false);
+});
+
+function faxResultFixture({ submitThrows = false, notesReject = false, script = '12345', patient = '1', missing = false } = {}) {
+  const fixture = setup();
+  const { context, elements } = fixture;
+  const frame = elements.preview;
+  const form = frame.contentWindow.document.getElementById('preview2Form');
+  let handler;
+  let submissions = 0;
+  let result = missing ? 'markerless' : 'preview';
+  elements.printPageSize = { value: 'A4' };
+  elements.addressSel = { value: 'none' };
+  frame.addEventListener = (_event, callback) => { handler = callback; };
+  frame.removeEventListener = () => {};
+  frame.getAttribute = () => '/rx/ViewPreview2?scriptId=12345';
+  form.querySelector = () => ({ value: '' });
+  form.getAttribute = () => script;
+  form.elements.demographic_no = { value: patient };
+  form.submit = () => {
+    submissions += 1;
+    if (submitThrows) throw new Error('submit outcome unknown');
+  };
+  context.frames.preview.document.getElementById = (id) => {
+    if (result === 'inaccessible') throw new Error('response inaccessible');
+    if (id === 'preview2Form') return result === 'preview' ? form : null;
+    if (id === 'fax-success') return result === 'success' ? {} : null;
+    if (id === 'fax-failure') return result === 'failure' ? {} : null;
+    return null;
+  };
+  frame.contentWindow.document = context.frames.preview.document;
+  context.console = { log() {}, error() {} };
+  context.alert = () => {};
+  context.lockFaxNotes();
+  context.faxSubmissionPending = true;
+  context.setFaxControlsDisabled(true);
+  if (notesReject) context.pendingNotesSave = Promise.reject(new Error('notes not saved'));
+  vm.runInContext(browserFunction('onPrint2', 'setComment'), context);
+  context.onPrint2('oscarRxFax', '12345', 'attempt-id', false, 'captured prescription text', () => 'unsaved');
+  return { ...fixture, submissions: () => submissions, load: (state) => { result = state; handler(); } };
+}
+
+for (const result of ['markerless', 'inaccessible']) {
+  test(`inconclusive ${result} fax result never permits another transmission`, async () => {
+    const fixture = faxResultFixture();
+    await new Promise((resolve) => setImmediate(resolve));
+    fixture.load('preview'); // late initial iframe load is not a fax result
+    assert.equal(fixture.context.faxSubmissionPending, true);
+    fixture.load(result);
+    assert.equal(fixture.context.faxSubmissionUncertain, true);
+    assert.equal(fixture.context.faxQueued, false); // do not claim success
+    assert.equal(fixture.elements.faxSubmissionUncertain.hidden, false);
+    assert.equal(fixture.context.sendFax(true), false);
+    assert.equal(fixture.context.onPrint2('oscarRxFax'), false);
+    assert.equal(fixture.context.addNotes(), false);
+    assert.equal(fixture.notes.readOnly, true);
+    assert.equal(fixture.elements.printPasteButton.disabled, true);
+    assert.deepEqual(fixture.clearedTimeouts, [1]);
+    assert.equal(fixture.submissions(), 1);
+  });
+}
+
+test('explicit fax-failure restores controls but fax-success retains the queue lock', async () => {
+  for (const result of ['failure', 'success']) {
+    const fixture = faxResultFixture();
+    await new Promise((resolve) => setImmediate(resolve));
+    fixture.load(result);
+    assert.equal(fixture.context.faxSubmissionUncertain, false);
+    if (result === 'failure') {
+      assert.equal(fixture.context.faxPreviewReloading, true);
+      assert.equal(fixture.elements.faxButton.disabled, true);
+      fixture.load('preview');
+      assert.equal(fixture.context.faxPreviewReloading, false);
+    }
+    assert.equal(fixture.context.faxQueued, result === 'success');
+    assert.equal(fixture.elements.faxButton.disabled, result === 'success');
+    assert.equal(fixture.notes.readOnly, result === 'success');
+  }
+});
+
+test('an exception after submit begins is uncertain, but a notes rejection never submits', async () => {
+  const uncertain = faxResultFixture({ submitThrows: true });
+  const rejected = faxResultFixture({ notesReject: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(uncertain.context.faxSubmissionUncertain, true);
+  assert.equal(uncertain.submissions(), 1);
+  assert.equal(rejected.context.faxSubmissionUncertain, false);
+  assert.equal(rejected.context.faxSubmissionPending, false);
+  assert.equal(rejected.notes.readOnly, false);
+  assert.equal(rejected.submissions(), 0);
+});
+
+test('a failed preview reload keeps fax and note writes disabled', async () => {
+  const fixture = faxResultFixture();
+  await new Promise((resolve) => setImmediate(resolve));
+  fixture.load('failure');
+  fixture.load('markerless');
+  assert.equal(fixture.context.faxSubmissionUncertain, false); // explicit no-queue result is known
+  assert.equal(fixture.context.faxPreviewReloading, true);
+  assert.equal(fixture.notes.readOnly, true);
+  assert.equal(fixture.context.sendFax(false), false);
+  assert.equal(fixture.context.addNotes(), false);
+});
+
+test('preview identity must match both the originating script and patient', () => {
+  const { context } = setup();
+  const form = { getAttribute: () => '12345', elements: { demographic_no: { value: '1' } } };
+  assert.equal(context.matchesFaxPreview(form), true);
+  form.getAttribute = () => '54321';
+  assert.equal(context.matchesFaxPreview(form), false);
+  form.getAttribute = () => '12345';
+  form.elements.demographic_no.value = '2';
+  assert.equal(context.matchesFaxPreview(form), false);
+  assert.equal(context.matchesFaxPreview(null), false);
+});
+
+for (const options of [{ script: '54321' }, { patient: '2' }, { missing: true }]) {
+  test(`missing or mismatched preview cannot submit: ${JSON.stringify(options)}`, async () => {
+    const fixture = faxResultFixture(options);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(fixture.submissions(), 0);
+    assert.equal(fixture.context.hasPreview, false);
+    assert.equal(fixture.elements.faxPreviewChanged.hidden, false);
+    assert.equal(fixture.elements.faxButton.disabled, true);
+  });
+}
+
+test('missing fax load event times out to uncertainty, never to safe retry', async () => {
+  const fixture = faxResultFixture();
+  await new Promise((resolve) => setImmediate(resolve));
+  fixture.deferredTimeouts[0]();
+  assert.equal(fixture.context.faxSubmissionPending, false);
+  assert.equal(fixture.context.faxSubmissionUncertain, true);
+  assert.equal(fixture.context.faxQueued, false);
+  assert.equal(fixture.elements.faxSubmissionRecoveryText.value, 'captured prescription text');
+  assert.equal(fixture.elements.faxSubmissionRecoveryText.hidden, false);
+  assert.equal(fixture.context.sendFax(true), false);
+  assert.equal(fixture.elements.printPasteButton.disabled, true);
+  assert.deepEqual(fixture.clearedTimeouts, [1]);
+});
+
+test('missing fax prerequisites alone do not disable Print and Paste', () => {
+  const fixture = setup();
+  fixture.context.hasFaxSenderAccount = false;
+  fixture.context.setFaxControlsDisabled(true);
+  assert.equal(fixture.elements.faxButton.disabled, true);
+  assert.equal(fixture.elements.printPasteButton.disabled, false);
 });
 
 function encounterFixture(fetchResult) {

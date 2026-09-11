@@ -81,7 +81,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void rejectsChangedPatientBeforeAnyNoteAccess() throws Exception {
+    void shouldReject_whenPatientChangedBeforeAnyNoteAccess() throws Exception {
         sessionBean.setDemographicNo(43);
         new RxWriteToEncounter2Action().execute();
         assertThat(response.getStatus()).isEqualTo(409);
@@ -90,7 +90,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void requiresOriginatingPatientEvenWhenSessionExists() throws Exception {
+    void shouldRequireOriginatingPatient_whenSessionExists() throws Exception {
         request.removeParameter("expectedDemographicNo");
         new RxWriteToEncounter2Action().execute();
         assertThat(response.getStatus()).isEqualTo(409);
@@ -98,7 +98,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void rejectsMissingRxSessionWithoutLoginRedirect() throws Exception {
+    void shouldRejectWithoutRedirect_whenRxSessionIsMissing() throws Exception {
         request.getSession().removeAttribute("RxSessionBean");
         new RxWriteToEncounter2Action().execute();
         assertThat(response.getStatus()).isEqualTo(409);
@@ -107,7 +107,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void rejectsNonPostBeforeNoteAccess() throws Exception {
+    void shouldRejectBeforeNoteAccess_whenMethodIsNotPost() throws Exception {
         request.setMethod("GET");
         new RxWriteToEncounter2Action().execute();
         assertThat(response.getStatus()).isEqualTo(405);
@@ -116,7 +116,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void rejectsAnonymousBeforeMethodDetails() {
+    void shouldRejectAnonymous_beforeMethodDetails() {
         request.setMethod("GET");
         loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
         assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
@@ -124,14 +124,22 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void rejectsPatientScopedWriteDenialBeforeNoteAccess() {
+    void shouldRejectLowercaseMethod_becauseHttpMethodTokensAreCaseSensitive() throws Exception {
+        request.setMethod("post");
+        new RxWriteToEncounter2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(405);
+        verifyNoInteractions(notes, tmpDao);
+    }
+
+    @Test
+    void shouldRejectBeforeNoteAccess_whenPatientWriteIsDenied() {
         when(security.hasPrivilege(login, "_rx", "w", "42")).thenReturn(false);
         assertThatThrownBy(() -> new RxWriteToEncounter2Action().execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(notes, tmpDao);
     }
 
     @Test
-    void acknowledgesOnlyAfterSavingTheBoundPatientsNote() throws Exception {
+    void shouldAcknowledge_afterSavingBoundPatientNote() throws Exception {
         new RxWriteToEncounter2Action().execute();
         verify(notes).saveNoteSimple(note);
         assertThat(note.getNote()).isEqualTo("existing text\nexact prescription text");
@@ -139,7 +147,7 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void postSaveCleanupFailureNeverClaimsNoWrite() {
+    void shouldNeverClaimNoWrite_whenPostSaveCleanupFails() {
         CaseManagementTmpSave tmp = mock(CaseManagementTmpSave.class);
         when(tmp.getNoteId()).thenReturn(7);
         when(tmp.getUpdateDate()).thenReturn(new Date(1));

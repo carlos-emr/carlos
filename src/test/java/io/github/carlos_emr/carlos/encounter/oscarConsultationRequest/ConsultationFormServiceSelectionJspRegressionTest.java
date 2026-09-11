@@ -43,7 +43,8 @@ class ConsultationFormServiceSelectionJspRegressionTest {
     private static final Path CONSULT_JSP = resolveProjectPath(CONSULT_JSP_RELATIVE);
 
     @Test
-    void shouldGateBothFaxButtonsOnConsultWriteAndFaxReadWrite() throws Exception {
+    @DisplayName("should require consultation write and fax read/write for both fax buttons")
+    void shouldGateBothFaxButtons_whenConsultWriteAndFaxReadWriteAreRequired() throws Exception {
         String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
         assertThat(jsp).contains("boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()")
                 .contains("hasPrivilege(loggedInInfo, \"_fax\", SecurityInfoManager.WRITE, null)")

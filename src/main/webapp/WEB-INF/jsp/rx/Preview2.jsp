@@ -316,7 +316,8 @@
             showPatientDOB = true;
         }
     %>
-    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form"
+          data-script-id="<carlos:encode value='<%= bean.getStashSize() > 0 ? bean.getStashItem(0).getScript_no() : "" %>' context="htmlAttribute"/>">
         <input type="hidden" name="demographic_no" value="<%=bean.getDemographicNo()%>"/>
         <table>
             <tr>

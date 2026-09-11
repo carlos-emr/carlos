@@ -68,7 +68,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, "w");
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             return rejectBeforeWrite(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         }

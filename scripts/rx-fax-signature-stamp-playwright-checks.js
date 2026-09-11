@@ -370,13 +370,6 @@ function sql(query) {
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
     const text = error.stack || error.message || '';
-    // Known pre-existing defect, tracked by issue #3578: expandPreview writes into the preview
-    // iframe from an async fetch callback before that iframe has parsed, so the target node does
-    // not exist on some render orders. Named here so the suppression stays auditable — an entry
-    // without an issue behind it would let a real regression pass unnoticed.
-    if (/Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text)) {
-      return;
-    }
     findings.push({ label, type: 'pageerror', text });
   });
   page.on('dialog', async (dialog) => {

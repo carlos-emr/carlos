@@ -55,7 +55,9 @@ and SCM tag are already the release tag), not the correction branch's
 stamping as `.github/workflows/deb-packages.yml` before building:
 
 ```bash
-git worktree add --detach ../carlos-package-validation HEAD
+git fetch origin
+promotion_ref=origin/codex/promote-2026-08-alpha12-to-main
+git worktree add --detach ../carlos-package-validation "$promotion_ref"
 cd ../carlos-package-validation
 release_tag=2026.08.0-alpha12
 deb_version="${release_tag//-/~}"
