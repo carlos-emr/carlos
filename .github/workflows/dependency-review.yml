@@ -29,8 +29,13 @@ jobs:
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
       - name: 'Dependency Review'
-        if: github.head_ref != 'poc/3474-tauri-v2'
+        if: >-
+          github.head_ref != 'poc/3474-tauri-v2' ||
+          github.event.pull_request.head.repo.full_name != github.repository ||
+          github.event.number != 3544
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0 (Node 24 runtime)
         # Commonly enabled options, see https://github.com/actions/dependency-review-action#configuration-options for all available options.
         with:
@@ -39,7 +44,10 @@ jobs:
         #   deny-licenses: GPL-1.0-or-later, LGPL-2.0-or-later
         #   retry-on-snapshot-warnings: true
       - name: 'Dependency Review (myCarlos Linux exception)'
-        if: github.head_ref == 'poc/3474-tauri-v2'
+        if: >-
+          github.head_ref == 'poc/3474-tauri-v2' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.number == 3544
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0 (Node 24 runtime)
         with:
           comment-summary-in-pr: always

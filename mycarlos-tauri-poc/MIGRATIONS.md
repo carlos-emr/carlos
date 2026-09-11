@@ -2,7 +2,7 @@
 
 - **Status:** protocol defined; no migration is needed while only format v1 exists
 - **Data restriction:** synthetic fixtures only until independent review and physical-device testing
-- **Applies to:** `header.json`, both encrypted manifest slots, and encrypted object envelopes
+- **Applies to:** both header slots, both encrypted manifest slots, and encrypted object envelopes
 
 This protocol defines how a future format reader/writer must migrate a vault without modifying the
 only known-good copy in place. A format implementation must not be merged merely because it follows
@@ -40,7 +40,7 @@ different-filesystem staging location.
 
 1. Lock the vault and take the same exclusive operation mutex used by create, unlock, reset, and
    passphrase rotation. Do not expose a partially migrated state to another command.
-2. Read and authenticate the current header, both manifest slots, and every referenced object with
+2. Read and authenticate both current header slots, both manifest slots, and every referenced object with
    the old version reader. Resolve manifest redundancy before migration. Do not delete or repair
    unreferenced data after migration has begun.
 3. Check target-version support, required free-space reserve, and migration-specific preconditions.

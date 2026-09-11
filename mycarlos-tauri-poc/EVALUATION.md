@@ -64,8 +64,8 @@ In a native build, additionally:
 5. Export over an existing synthetic file and confirm a deliberately corrupted record leaves the
    existing destination unchanged.
 6. Permanently delete one record, restart, unlock, and confirm it remains absent.
-7. Background the app during import/export and confirm it locks immediately after the active native
-   operation finishes.
+7. Background the app during import/export and confirm the UI conceals immediately, the native
+   operation is cancelled at its next I/O boundary, and the vault reaches the locked state.
 8. On Android, use a test document provider that fails after accepting some bytes. Confirm the app
    says the destination may contain a partial readable copy, then inspect and delete that
    destination before retrying. A provider-backed destination is not an atomic export.
@@ -74,8 +74,9 @@ The Rust suite automates abrupt process termination after an encrypted chunk wri
 staging, object rename, each redundant manifest write, and each deletion boundary. It also covers
 bit-flipped, truncated, and swapped ciphertext; structured semantic manifest mutations;
 authenticated recovery-candidate selection; exact chunk-size boundaries; a preserved malformed
-object corpus; one corrupt manifest slot; two corrupt slots; bounded reads for a generated 101 MiB
-source; recursive plaintext-canary inspection; and Unix storage modes. Deterministic `NoSpace`
+object corpus; redundant-header repair; one corrupt manifest slot; two corrupt slots; bounded reads
+for a generated 101 MiB source; cancellation boundaries; recursive plaintext-canary inspection;
+and Unix storage modes. Deterministic `NoSpace`
 injection also covers failure during object output and on both sides of the first durable
 manifest/deletion commit. These tests are repeatable development
 evidence, not a substitute for a genuinely full filesystem, physical power-cut, device-backup, or
@@ -90,7 +91,7 @@ Record evidence for these questions rather than treating a successful build as a
 | Shared UI | Can one responsive React interface serve the target form factors? | Yes, at POC depth |
 | Native bridge | Can the UI call a narrow, typed Rust command? | Yes |
 | File chooser | Does the platform picker work consistently? | Implemented; real devices still required |
-| Accessibility | Is the experience usable with target assistive technology? | Automated WCAG A/AA checks pass across primary browser states at desktop/phone sizes; manual testing required |
+| Accessibility | Is the experience usable with target assistive technology? | Automated WCAG A/AA checks pass across browser and durable-vault states; modal focus and keyboard folder movement are implemented; manual testing required |
 | Secure vault | Can records be encrypted, recovered, backed up, and deleted safely? | Local encrypted import/export and live-vault deletion implemented; independent review, device restore, and backup tombstones remain |
 | Mobile APIs | Do biometrics, notifications, deep links, and background work meet requirements? | Not evaluated |
 | Operations | Can the app be signed, observed safely, updated, and supported? | No-egress/incident/support-bundle baseline and dependency SBOM CI recorded; signing, updating, ownership and drills remain |

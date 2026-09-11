@@ -19,7 +19,10 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{self, BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 use thiserror::Error;
 use uuid::Uuid;
@@ -30,6 +33,7 @@ const VAULT_FORMAT: u32 = 1;
 const OBJECT_MAGIC: &[u8; 5] = b"MCVO1";
 const CHUNK_SIZE: usize = 1024 * 1024;
 pub(crate) const MAX_IMPORT_FILES: usize = 100;
+pub(crate) const MAX_FOLDER_ASSIGNMENTS: usize = 1_000;
 const MIN_PASSPHRASE_CHARS: usize = 15;
 const MAX_PASSPHRASE_BYTES: usize = 1024;
 const MAX_HEADER_BYTES: usize = 16 * 1024;
@@ -70,6 +74,22 @@ fn fail_at_test_boundary(_boundary: &str) -> Result<(), VaultError> {
 }
 
 type HmacSha256 = Hmac<Sha256>;
+type SecretKey = Zeroizing<[u8; 32]>;
+
+#[derive(Debug)]
+struct CancelledIo;
+
+impl std::fmt::Display for CancelledIo {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("vault locking")
+    }
+}
+
+impl std::error::Error for CancelledIo {}
+
+fn cancelled_io_error() -> io::Error {
+    io::Error::other(CancelledIo)
+}
 
 #[derive(Debug, Error)]
 pub enum VaultError {
@@ -95,11 +115,21 @@ pub enum VaultError {
     NoSpace,
     #[error("the storage operation could not be completed")]
     Storage,
+    #[error("the operation was cancelled because the vault is locking")]
+    Cancelled,
+    #[error("the vault is in read-only recovery mode")]
+    RecoveryMode,
 }
 
 impl From<io::Error> for VaultError {
     fn from(error: io::Error) -> Self {
-        if error.raw_os_error() == Some(28) || error.kind() == io::ErrorKind::StorageFull {
+        if error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<CancelledIo>())
+            .is_some()
+        {
+            Self::Cancelled
+        } else if error.raw_os_error() == Some(28) || error.kind() == io::ErrorKind::StorageFull {
             Self::NoSpace
         } else {
             Self::Storage
@@ -107,7 +137,7 @@ impl From<io::Error> for VaultError {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct KdfConfig {
     algorithm: String,
@@ -125,14 +155,18 @@ struct WrappedSecret {
     ciphertext: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct VaultHeader {
     magic: String,
     format_version: u32,
     vault_id: Uuid,
+    #[serde(default)]
+    generation: u64,
     kdf: KdfConfig,
     wrapped_master_key: WrappedSecret,
+    #[serde(default)]
+    integrity_tag: String,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,7 +214,7 @@ struct Manifest {
     records: Vec<StoredRecord>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultRecord {
     pub id: Uuid,
@@ -199,6 +233,7 @@ pub struct VaultSnapshot {
     pub profiles: Vec<PatientProfile>,
     pub folders: Vec<VaultFolder>,
     pub records: Vec<VaultRecord>,
+    pub degraded: bool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
@@ -214,6 +249,53 @@ pub struct ImportSource {
     pub reader: Box<dyn Read + Send>,
 }
 
+struct CancellableReader {
+    inner: Box<dyn Read + Send>,
+    cancelled: Arc<AtomicBool>,
+}
+
+impl CancellableReader {
+    fn new(inner: Box<dyn Read + Send>, cancelled: Arc<AtomicBool>) -> Self {
+        Self { inner, cancelled }
+    }
+}
+
+impl Read for CancellableReader {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        if self.cancelled.load(Ordering::Acquire) {
+            return Err(cancelled_io_error());
+        }
+        self.inner.read(buffer)
+    }
+}
+
+struct CancellableWriter<W> {
+    inner: W,
+    cancelled: Arc<AtomicBool>,
+}
+
+impl<W> CancellableWriter<W> {
+    fn new(inner: W, cancelled: Arc<AtomicBool>) -> Self {
+        Self { inner, cancelled }
+    }
+}
+
+impl<W: Write> Write for CancellableWriter<W> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        if self.cancelled.load(Ordering::Acquire) {
+            return Err(cancelled_io_error());
+        }
+        self.inner.write(buffer)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        if self.cancelled.load(Ordering::Acquire) {
+            return Err(cancelled_io_error());
+        }
+        self.inner.flush()
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportOutcome {
@@ -224,11 +306,13 @@ pub struct ImportOutcome {
 struct UnlockedVault {
     master_key: Zeroizing<[u8; 32]>,
     manifest: Manifest,
+    degraded: bool,
 }
 
 pub struct VaultStore {
     root: PathBuf,
     unlocked: Mutex<Option<UnlockedVault>>,
+    cancel_io: Arc<AtomicBool>,
 }
 
 impl VaultStore {
@@ -236,6 +320,7 @@ impl VaultStore {
         Self {
             root,
             unlocked: Mutex::new(None),
+            cancel_io: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -263,6 +348,7 @@ impl VaultStore {
         validate_name(initial_profile)?;
         validate_new_passphrase(passphrase, &[initial_profile])?;
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
+        self.cancel_io.store(false, Ordering::Release);
         if self.root.exists() {
             return Err(VaultError::AlreadyExists);
         }
@@ -278,8 +364,13 @@ impl VaultStore {
             let vault_id = Uuid::new_v4();
             let mut master_key = Zeroizing::new([0_u8; 32]);
             OsRng.fill_bytes(master_key.as_mut());
-            let header = build_header(vault_id, passphrase, &master_key)?;
-            atomic_json(&stage.join("header.json"), &header)?;
+            let (first_header, second_header) =
+                build_header_pair(vault_id, 1, passphrase, &master_key)?;
+            atomic_json(&header_path(&stage, first_header.generation), &first_header)?;
+            atomic_json(
+                &header_path(&stage, second_header.generation),
+                &second_header,
+            )?;
 
             let mut manifest = Manifest {
                 format_version: VAULT_FORMAT,
@@ -305,6 +396,7 @@ impl VaultStore {
             *guard = Some(UnlockedVault {
                 master_key,
                 manifest,
+                degraded: false,
             });
             Ok(())
         })();
@@ -315,22 +407,52 @@ impl VaultStore {
     }
 
     pub fn unlock(&self, passphrase: &str) -> Result<(), VaultError> {
+        if passphrase.len() > MAX_PASSPHRASE_BYTES {
+            return Err(VaultError::Invalid);
+        }
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
-        let header = self.read_header()?;
-        let master_key = unwrap_master_key(&header, passphrase)?;
+        self.cancel_io.store(false, Ordering::Release);
+        let (header, master_key, wrapping_key) =
+            read_header_for_passphrase(&self.root, passphrase)?;
         let manifest = read_latest_manifest(&self.root, &master_key, header.vault_id)?;
-        let manifest = repair_manifest_redundancy(&self.root, &master_key, manifest)?;
+        let manifest_healthy =
+            manifest_redundancy_healthy(&self.root, &master_key, header.vault_id, &manifest);
+        let header_healthy =
+            header_redundancy_healthy(&self.root, &header, &wrapping_key, &master_key);
+        let mut degraded = false;
+        let manifest = if manifest_healthy {
+            manifest
+        } else {
+            match repair_manifest_redundancy(&self.root, &master_key, manifest.clone()) {
+                Ok(repaired) => repaired,
+                Err(VaultError::NoSpace | VaultError::Storage) => {
+                    degraded = true;
+                    manifest
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        if !header_healthy {
+            match repair_header_redundancy(&self.root, &header, passphrase, &master_key) {
+                Ok(()) => {}
+                Err(VaultError::NoSpace | VaultError::Storage) => degraded = true,
+                Err(error) => return Err(error),
+            }
+        }
         remove_staging(&self.root);
         remove_orphan_objects(&self.root, &manifest);
         *guard = Some(UnlockedVault {
             master_key,
             manifest,
+            degraded,
         });
         Ok(())
     }
 
     pub fn lock(&self) {
+        self.cancel_io.store(true, Ordering::Release);
         *self.unlocked.lock().expect("vault mutex poisoned") = None;
+        self.cancel_io.store(false, Ordering::Release);
     }
 
     pub fn snapshot(&self) -> Result<VaultSnapshot, VaultError> {
@@ -354,6 +476,7 @@ impl VaultStore {
                     imported_at_ms: record.imported_at_ms,
                 })
                 .collect(),
+            degraded: unlocked.degraded,
         })
     }
 
@@ -445,20 +568,36 @@ impl VaultStore {
     }
 
     pub fn assign_folders(&self, record_id: Uuid, folder_ids: Vec<Uuid>) -> Result<(), VaultError> {
+        self.assign_folders_batch(vec![record_id], folder_ids)
+    }
+
+    pub fn assign_folders_batch(
+        &self,
+        record_ids: Vec<Uuid>,
+        folder_ids: Vec<Uuid>,
+    ) -> Result<(), VaultError> {
+        if record_ids.is_empty()
+            || record_ids.len() > MAX_FOLDER_ASSIGNMENTS
+            || folder_ids.len() > MAX_FOLDER_ASSIGNMENTS
+        {
+            return Err(VaultError::Invalid);
+        }
         self.mutate_manifest(|manifest| {
-            let record = manifest
-                .records
-                .iter()
-                .find(|record| record.id == record_id)
-                .cloned()
-                .ok_or(VaultError::NotFound)?;
-            validate_folder_ids(manifest, record.profile_id, &folder_ids)?;
-            manifest
-                .records
-                .iter_mut()
-                .find(|candidate| candidate.id == record_id)
-                .expect("record disappeared")
-                .folder_ids = unique(folder_ids);
+            let unique_record_ids = unique(record_ids);
+            for record_id in &unique_record_ids {
+                let record = manifest
+                    .records
+                    .iter()
+                    .find(|record| record.id == *record_id)
+                    .ok_or(VaultError::NotFound)?;
+                validate_folder_ids(manifest, record.profile_id, &folder_ids)?;
+            }
+            let assignments = unique(folder_ids);
+            for record in &mut manifest.records {
+                if unique_record_ids.contains(&record.id) {
+                    record.folder_ids = assignments.clone();
+                }
+            }
             Ok(())
         })
     }
@@ -479,6 +618,9 @@ impl VaultStore {
         validate_import_count(sources.len())?;
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
+        if unlocked.degraded {
+            return Err(VaultError::RecoveryMode);
+        }
         require_profile(&unlocked.manifest, profile_id)?;
         validate_folder_ids(&unlocked.manifest, profile_id, &folder_ids)?;
 
@@ -505,7 +647,10 @@ impl VaultStore {
                 let mut object_key = Zeroizing::new([0_u8; 32]);
                 OsRng.fill_bytes(object_key.as_mut());
                 let encrypted = encrypt_object(
-                    source.reader,
+                    Box::new(CancellableReader::new(
+                        source.reader,
+                        Arc::clone(&self.cancel_io),
+                    )),
                     &object_path,
                     ObjectContext {
                         vault_id: unlocked.manifest.vault_id,
@@ -525,7 +670,7 @@ impl VaultStore {
                 }
                 verify_object(
                     &object_path,
-                    io::sink(),
+                    CancellableWriter::new(io::sink(), Arc::clone(&self.cancel_io)),
                     unlocked.manifest.vault_id,
                     record_id,
                     &object_key,
@@ -550,6 +695,9 @@ impl VaultStore {
                     },
                 ));
             }
+            if self.cancel_io.load(Ordering::Acquire) {
+                return Err(VaultError::Cancelled);
+            }
             terminate_at_test_boundary("import.after-staging");
 
             let objects = self.root.join("objects");
@@ -558,21 +706,32 @@ impl VaultStore {
                 fs::rename(path, &destination)?;
             }
             sync_parent(&objects);
+            if self.cancel_io.load(Ordering::Acquire) {
+                return Err(VaultError::Cancelled);
+            }
             terminate_at_test_boundary("import.after-object-rename");
             let mut next = unlocked.manifest.clone();
             next.records
                 .extend(staged.iter().map(|(_, record)| record.clone()));
-            commit_manifest_redundant(
+            let redundant = commit_manifest_redundant(
                 &self.root,
                 &unlocked.master_key,
                 &mut unlocked.manifest,
                 next,
             )?;
+            unlocked.degraded = !redundant;
             Ok(ImportOutcome {
                 imported: staged.iter().map(|(_, record)| record.id).collect(),
                 skipped_duplicates,
             })
         })();
+        if result.is_err() {
+            let objects = self.root.join("objects");
+            for (_, record) in &staged {
+                let _ = fs::remove_file(objects.join(&record.object_name));
+            }
+            sync_parent(&objects);
+        }
         let _ = fs::remove_dir_all(&stage);
         result
     }
@@ -594,7 +753,7 @@ impl VaultStore {
         )?;
         verify_object(
             &self.root.join("objects").join(&record.object_name),
-            writer,
+            CancellableWriter::new(writer, Arc::clone(&self.cancel_io)),
             unlocked.manifest.vault_id,
             record.id,
             &object_key,
@@ -637,6 +796,9 @@ impl VaultStore {
     pub fn delete_record(&self, record_id: Uuid) -> Result<(), VaultError> {
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
+        if unlocked.degraded {
+            return Err(VaultError::RecoveryMode);
+        }
         let mut next = unlocked.manifest.clone();
         let index = next
             .records
@@ -650,11 +812,13 @@ impl VaultStore {
         // decrypt a ciphertext that was successfully removed. Unlock repairs slot redundancy
         // before it considers orphan cleanup.
         next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
+        let second_generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
         fail_at_test_boundary("delete.before-first-manifest")?;
         write_manifest_at(&self.root, &unlocked.master_key, &next)?;
         unlocked.manifest = next.clone();
         terminate_at_test_boundary("delete.after-first-manifest");
-        fail_at_test_boundary("delete.after-first-manifest")?;
+        let mut omit_redundant_write =
+            fail_at_test_boundary("delete.after-first-manifest").is_err();
 
         let objects = self.root.join("objects");
         match fs::remove_file(objects.join(object_name)) {
@@ -665,18 +829,32 @@ impl VaultStore {
             Err(_) => {}
         }
         terminate_at_test_boundary("delete.after-object-unlink");
-        fail_at_test_boundary("delete.after-object-unlink")?;
+        omit_redundant_write |= fail_at_test_boundary("delete.after-object-unlink").is_err();
+        if omit_redundant_write {
+            unlocked.degraded = true;
+            return Ok(());
+        }
 
-        next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
-        write_manifest_at(&self.root, &unlocked.master_key, &next)?;
+        next.generation = second_generation;
+        if write_manifest_at(&self.root, &unlocked.master_key, &next).is_err() {
+            unlocked.degraded = true;
+            return Ok(());
+        }
         unlocked.manifest = next;
+        unlocked.degraded = false;
         terminate_at_test_boundary("delete.after-second-manifest");
         Ok(())
     }
 
     pub fn change_passphrase(&self, current: &str, replacement: &str) -> Result<(), VaultError> {
-        let guard = self.unlocked.lock().expect("vault mutex poisoned");
-        let unlocked = guard.as_ref().ok_or(VaultError::Locked)?;
+        if current.len() > MAX_PASSPHRASE_BYTES {
+            return Err(VaultError::Invalid);
+        }
+        let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
+        let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
+        if unlocked.degraded {
+            return Err(VaultError::RecoveryMode);
+        }
         let profile_names = unlocked
             .manifest
             .profiles
@@ -691,12 +869,30 @@ impl VaultStore {
         {
             return Err(VaultError::Corrupt);
         }
-        let new_header = build_header(header.vault_id, replacement, &unlocked.master_key)?;
-        atomic_json(&self.root.join("header.json"), &new_header)?;
+        let first_generation = header
+            .generation
+            .checked_add(1)
+            .ok_or(VaultError::Storage)?;
+        let second_generation = first_generation.checked_add(1).ok_or(VaultError::Storage)?;
+        let (first, second) = build_header_pair(
+            header.vault_id,
+            first_generation,
+            replacement,
+            &unlocked.master_key,
+        )?;
+        debug_assert_eq!(second.generation, second_generation);
+        atomic_json(&header_path(&self.root, first.generation), &first)?;
+        if atomic_json(&header_path(&self.root, second.generation), &second).is_err() {
+            unlocked.degraded = true;
+            return Ok(());
+        }
+        unlocked.degraded = false;
+        let _ = fs::remove_file(self.root.join("header.json"));
         Ok(())
     }
 
     pub fn reset(&self) -> Result<(), VaultError> {
+        self.cancel_io.store(true, Ordering::Release);
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         *guard = None;
         if !self.root.exists() {
@@ -725,30 +921,7 @@ impl VaultStore {
     }
 
     fn read_header(&self) -> Result<VaultHeader, VaultError> {
-        let data = read_bounded_regular_file(&self.root.join("header.json"), MAX_HEADER_BYTES)
-            .map_err(|error| {
-                if error.kind() == io::ErrorKind::NotFound {
-                    if self.root.exists() {
-                        VaultError::Corrupt
-                    } else {
-                        VaultError::Missing
-                    }
-                } else if error.kind() == io::ErrorKind::InvalidData {
-                    VaultError::Corrupt
-                } else {
-                    VaultError::Storage
-                }
-            })?;
-        let header: VaultHeader = serde_json::from_slice(&data).map_err(|_| VaultError::Corrupt)?;
-        if header.magic != "MYCARLOS-VAULT"
-            || header.format_version != VAULT_FORMAT
-            || header.vault_id.is_nil()
-            || !valid_kdf_config(&header.kdf)
-            || !valid_wrapped_secret(&header.wrapped_master_key)
-        {
-            return Err(VaultError::Corrupt);
-        }
-        Ok(header)
+        read_latest_header(&self.root)
     }
 
     fn mutate_manifest<T>(
@@ -757,14 +930,18 @@ impl VaultStore {
     ) -> Result<T, VaultError> {
         let mut guard = self.unlocked.lock().expect("vault mutex poisoned");
         let unlocked = guard.as_mut().ok_or(VaultError::Locked)?;
+        if unlocked.degraded {
+            return Err(VaultError::RecoveryMode);
+        }
         let mut next = unlocked.manifest.clone();
         let result = mutation(&mut next)?;
-        commit_manifest_redundant(
+        let redundant = commit_manifest_redundant(
             &self.root,
             &unlocked.master_key,
             &mut unlocked.manifest,
             next,
         )?;
+        unlocked.degraded = !redundant;
         Ok(result)
     }
 }
@@ -818,6 +995,14 @@ pub(crate) fn validate_import_count(count: usize) -> Result<(), VaultError> {
     }
 }
 
+pub(crate) fn validate_folder_assignment_count(count: usize) -> Result<(), VaultError> {
+    if count > MAX_FOLDER_ASSIGNMENTS {
+        Err(VaultError::Invalid)
+    } else {
+        Ok(())
+    }
+}
+
 fn validate_name(name: &str) -> Result<(), VaultError> {
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 120 || name.chars().any(char::is_control) {
@@ -829,8 +1014,59 @@ fn validate_name(name: &str) -> Result<(), VaultError> {
 
 fn sanitize_basename(value: &str) -> String {
     let raw = value.rsplit(['/', '\\']).next().unwrap_or("Imported file");
-    let cleaned: String = raw.chars().filter(|c| !c.is_control()).take(240).collect();
-    if cleaned.trim().is_empty() {
+    let mut cleaned = String::new();
+    for character in raw.chars().filter(|character| {
+        !character.is_control()
+            && !matches!(
+                *character,
+                '\u{061c}'
+                    | '\u{200b}'..='\u{200f}'
+                    | '\u{202a}'..='\u{202e}'
+                    | '\u{2066}'..='\u{2069}'
+                    | '\u{feff}'
+            )
+    }) {
+        let character = if matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*') {
+            '_'
+        } else {
+            character
+        };
+        if cleaned.len() + character.len_utf8() > 240 {
+            break;
+        }
+        cleaned.push(character);
+    }
+    cleaned = cleaned.trim().trim_end_matches(['.', ' ']).to_owned();
+    let stem = cleaned.split('.').next().unwrap_or_default();
+    let reserved = matches!(
+        stem.to_ascii_uppercase().as_str(),
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
+    );
+    if reserved {
+        cleaned.insert(0, '_');
+    }
+    if cleaned.is_empty() {
         "Imported file".to_owned()
     } else {
         cleaned
@@ -963,8 +1199,10 @@ fn validate_manifest(root: &Path, manifest: &Manifest, vault_id: Uuid) -> Result
     Ok(())
 }
 
+#[cfg(test)]
 fn build_header(
     vault_id: Uuid,
+    generation: u64,
     passphrase: &str,
     master_key: &[u8; 32],
 ) -> Result<VaultHeader, VaultError> {
@@ -978,31 +1216,90 @@ fn build_header(
         lanes: ARGON_LANES,
         salt: BASE64.encode(salt),
     };
-    let wrapping_key = Zeroizing::new(derive_passphrase_key(passphrase, &kdf)?);
-    let wrapped_master_key = wrap_secret(&wrapping_key, master_key, vault_id.as_bytes())?;
-    Ok(VaultHeader {
+    let wrapping_key = derive_passphrase_key(passphrase, &kdf)?;
+    build_header_with_key(vault_id, generation, kdf, &wrapping_key, master_key)
+}
+
+fn build_header_pair(
+    vault_id: Uuid,
+    first_generation: u64,
+    passphrase: &str,
+    master_key: &[u8; 32],
+) -> Result<(VaultHeader, VaultHeader), VaultError> {
+    let second_generation = first_generation.checked_add(1).ok_or(VaultError::Storage)?;
+    let mut salt = [0_u8; 16];
+    OsRng.fill_bytes(&mut salt);
+    let kdf = KdfConfig {
+        algorithm: "argon2id".to_owned(),
+        version: 19,
+        memory_kib: ARGON_MEMORY_KIB,
+        iterations: ARGON_ITERATIONS,
+        lanes: ARGON_LANES,
+        salt: BASE64.encode(salt),
+    };
+    let wrapping_key = derive_passphrase_key(passphrase, &kdf)?;
+    Ok((
+        build_header_with_key(
+            vault_id,
+            first_generation,
+            kdf.clone(),
+            &wrapping_key,
+            master_key,
+        )?,
+        build_header_with_key(vault_id, second_generation, kdf, &wrapping_key, master_key)?,
+    ))
+}
+
+fn build_header_with_key(
+    vault_id: Uuid,
+    generation: u64,
+    kdf: KdfConfig,
+    wrapping_key: &[u8; 32],
+    master_key: &[u8; 32],
+) -> Result<VaultHeader, VaultError> {
+    let wrapped_master_key =
+        wrap_secret(wrapping_key, master_key, &header_aad(vault_id, generation))?;
+    let mut header = VaultHeader {
         magic: "MYCARLOS-VAULT".to_owned(),
         format_version: VAULT_FORMAT,
         vault_id,
+        generation,
         kdf,
         wrapped_master_key,
-    })
+        integrity_tag: String::new(),
+    };
+    header.integrity_tag = compute_header_integrity_tag(&header, master_key)?;
+    Ok(header)
 }
 
-fn unwrap_master_key(
+fn unwrap_master_key(header: &VaultHeader, passphrase: &str) -> Result<SecretKey, VaultError> {
+    unwrap_master_key_and_wrapping_key(header, passphrase).map(|(master_key, _)| master_key)
+}
+
+fn unwrap_master_key_and_wrapping_key(
     header: &VaultHeader,
     passphrase: &str,
-) -> Result<Zeroizing<[u8; 32]>, VaultError> {
-    let wrapping_key = Zeroizing::new(derive_passphrase_key(passphrase, &header.kdf)?);
-    unwrap_secret(
-        &wrapping_key,
-        &header.wrapped_master_key,
-        header.vault_id.as_bytes(),
-    )
-    .map_err(|_| VaultError::WrongPassphrase)
+) -> Result<(SecretKey, SecretKey), VaultError> {
+    let wrapping_key = derive_passphrase_key(passphrase, &header.kdf)?;
+    let master_key = unwrap_master_key_with_wrapping_key(header, &wrapping_key)?;
+    Ok((master_key, wrapping_key))
 }
 
-fn derive_passphrase_key(passphrase: &str, config: &KdfConfig) -> Result<[u8; 32], VaultError> {
+fn unwrap_master_key_with_wrapping_key(
+    header: &VaultHeader,
+    wrapping_key: &[u8; 32],
+) -> Result<SecretKey, VaultError> {
+    let aad = if header.generation == 0 {
+        header.vault_id.as_bytes().to_vec()
+    } else {
+        header_aad(header.vault_id, header.generation)
+    };
+    let master_key = unwrap_secret(wrapping_key, &header.wrapped_master_key, &aad)
+        .map_err(|_| VaultError::WrongPassphrase)?;
+    Ok(master_key)
+}
+
+fn derive_passphrase_key(passphrase: &str, config: &KdfConfig) -> Result<SecretKey, VaultError> {
     if !valid_kdf_config(config) {
         return Err(VaultError::Corrupt);
     }
@@ -1015,9 +1312,9 @@ fn derive_passphrase_key(passphrase: &str, config: &KdfConfig) -> Result<[u8; 32
     let params = Params::new(config.memory_kib, config.iterations, config.lanes, Some(32))
         .map_err(|_| VaultError::Corrupt)?;
     let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-    let mut output = [0_u8; 32];
+    let mut output = Zeroizing::new([0_u8; 32]);
     argon
-        .hash_password_into(passphrase.as_bytes(), &salt, &mut output)
+        .hash_password_into(passphrase.as_bytes(), &salt, output.as_mut())
         .map_err(|_| VaultError::Storage)?;
     Ok(output)
 }
@@ -1065,17 +1362,242 @@ fn unwrap_secret(
     if nonce.len() != 24 {
         return Err(VaultError::Corrupt);
     }
-    let plaintext = XChaCha20Poly1305::new(key.into())
-        .decrypt(
-            XNonce::from_slice(&nonce),
-            Payload {
-                msg: &ciphertext,
-                aad,
-            },
-        )
+    let plaintext = Zeroizing::new(
+        XChaCha20Poly1305::new(key.into())
+            .decrypt(
+                XNonce::from_slice(&nonce),
+                Payload {
+                    msg: &ciphertext,
+                    aad,
+                },
+            )
+            .map_err(|_| VaultError::Corrupt)?,
+    );
+    if plaintext.len() != 32 {
+        return Err(VaultError::Corrupt);
+    }
+    let mut value = Zeroizing::new([0_u8; 32]);
+    value.copy_from_slice(&plaintext);
+    Ok(value)
+}
+
+fn header_aad(vault_id: Uuid, generation: u64) -> Vec<u8> {
+    let mut aad = Vec::with_capacity(48);
+    aad.extend_from_slice(b"mycarlos-header-v1:");
+    aad.extend_from_slice(vault_id.as_bytes());
+    aad.extend_from_slice(&generation.to_be_bytes());
+    aad
+}
+
+fn header_integrity_payload(header: &VaultHeader) -> Result<Vec<u8>, VaultError> {
+    serde_json::to_vec(&(
+        header.magic.as_str(),
+        header.format_version,
+        header.vault_id,
+        header.generation,
+        &header.kdf,
+        &header.wrapped_master_key,
+    ))
+    .map_err(|_| VaultError::Storage)
+}
+
+fn header_integrity_key(vault_id: Uuid, master_key: &[u8; 32]) -> Result<SecretKey, VaultError> {
+    let hkdf = Hkdf::<Sha256>::new(Some(vault_id.as_bytes()), master_key);
+    let mut key = Zeroizing::new([0_u8; 32]);
+    hkdf.expand(b"mycarlos/header-integrity/v1", key.as_mut())
         .map_err(|_| VaultError::Corrupt)?;
-    let value: [u8; 32] = plaintext.try_into().map_err(|_| VaultError::Corrupt)?;
-    Ok(Zeroizing::new(value))
+    Ok(key)
+}
+
+fn compute_header_integrity_tag(
+    header: &VaultHeader,
+    master_key: &[u8; 32],
+) -> Result<String, VaultError> {
+    let key = header_integrity_key(header.vault_id, master_key)?;
+    let mut mac =
+        <HmacSha256 as Mac>::new_from_slice(key.as_ref()).map_err(|_| VaultError::Storage)?;
+    mac.update(&header_integrity_payload(header)?);
+    Ok(BASE64.encode(mac.finalize().into_bytes()))
+}
+
+fn valid_header_integrity(header: &VaultHeader, master_key: &[u8; 32]) -> bool {
+    if header.generation == 0 {
+        return header.integrity_tag.is_empty();
+    }
+    let Ok(tag) = BASE64.decode(&header.integrity_tag) else {
+        return false;
+    };
+    let Ok(key) = header_integrity_key(header.vault_id, master_key) else {
+        return false;
+    };
+    let Ok(payload) = header_integrity_payload(header) else {
+        return false;
+    };
+    let Ok(mut mac) = <HmacSha256 as Mac>::new_from_slice(key.as_ref()) else {
+        return false;
+    };
+    mac.update(&payload);
+    mac.verify_slice(&tag).is_ok()
+}
+
+fn header_path(root: &Path, generation: u64) -> PathBuf {
+    root.join(format!("header-{}.json", generation % 2))
+}
+
+fn valid_header(header: &VaultHeader) -> bool {
+    header.magic == "MYCARLOS-VAULT"
+        && header.format_version == VAULT_FORMAT
+        && !header.vault_id.is_nil()
+        && valid_kdf_config(&header.kdf)
+        && valid_wrapped_secret(&header.wrapped_master_key)
+        && (header.generation == 0
+            || BASE64
+                .decode(&header.integrity_tag)
+                .is_ok_and(|tag| tag.len() == 32))
+}
+
+fn read_header_candidates(root: &Path) -> Vec<VaultHeader> {
+    [
+        root.join("header-0.json"),
+        root.join("header-1.json"),
+        root.join("header.json"),
+    ]
+    .into_iter()
+    .filter_map(|path| read_bounded_regular_file(&path, MAX_HEADER_BYTES).ok())
+    .filter_map(|data| serde_json::from_slice::<VaultHeader>(&data).ok())
+    .filter(valid_header)
+    .collect()
+}
+
+fn read_latest_header(root: &Path) -> Result<VaultHeader, VaultError> {
+    let candidates = read_header_candidates(root);
+    let generation = candidates
+        .iter()
+        .map(|header| header.generation)
+        .max()
+        .ok_or_else(|| {
+            if root.exists() {
+                VaultError::Corrupt
+            } else {
+                VaultError::Missing
+            }
+        })?;
+    let mut newest = candidates
+        .into_iter()
+        .filter(|header| header.generation == generation);
+    let selected = newest.next().ok_or(VaultError::Corrupt)?;
+    if newest.any(|candidate| candidate != selected) {
+        return Err(VaultError::Corrupt);
+    }
+    Ok(selected)
+}
+
+fn read_header_for_passphrase(
+    root: &Path,
+    passphrase: &str,
+) -> Result<(VaultHeader, SecretKey, SecretKey), VaultError> {
+    let mut candidates = read_header_candidates(root);
+    if candidates.is_empty() {
+        return Err(if root.exists() {
+            VaultError::Corrupt
+        } else {
+            VaultError::Missing
+        });
+    }
+    candidates.sort_by_key(|header| std::cmp::Reverse(header.generation));
+
+    let mut wrapping_keys: Vec<(KdfConfig, SecretKey)> = Vec::new();
+    let mut selected = None;
+    for header in &candidates {
+        let key_index = match wrapping_keys
+            .iter()
+            .position(|(config, _)| config == &header.kdf)
+        {
+            Some(index) => index,
+            None => {
+                let key = derive_passphrase_key(passphrase, &header.kdf)?;
+                wrapping_keys.push((header.kdf.clone(), key));
+                wrapping_keys.len() - 1
+            }
+        };
+        let Ok(master_key) =
+            unwrap_master_key_with_wrapping_key(header, &wrapping_keys[key_index].1)
+        else {
+            continue;
+        };
+        if valid_header_integrity(header, &master_key) {
+            selected = Some((header.clone(), master_key, key_index));
+            break;
+        }
+    }
+    let (header, master_key, key_index) = selected.ok_or(VaultError::WrongPassphrase)?;
+
+    // A valid newer header for this same master key represents a committed passphrase rotation.
+    // Do not silently fall back to an older passphrase. Invalid newer tags are damaged copies and
+    // may safely be repaired from the authenticated candidate selected above.
+    if candidates.iter().any(|candidate| {
+        candidate.generation > header.generation && valid_header_integrity(candidate, &master_key)
+    }) {
+        return Err(VaultError::WrongPassphrase);
+    }
+    if candidates.iter().any(|candidate| {
+        candidate.generation == header.generation
+            && candidate != &header
+            && valid_header_integrity(candidate, &master_key)
+    }) {
+        return Err(VaultError::Corrupt);
+    }
+    let (_, wrapping_key) = wrapping_keys.swap_remove(key_index);
+    Ok((header, master_key, wrapping_key))
+}
+
+fn header_redundancy_healthy(
+    root: &Path,
+    selected: &VaultHeader,
+    wrapping_key: &[u8; 32],
+    master_key: &[u8; 32],
+) -> bool {
+    let headers = [root.join("header-0.json"), root.join("header-1.json")]
+        .into_iter()
+        .filter_map(|path| read_bounded_regular_file(&path, MAX_HEADER_BYTES).ok())
+        .filter_map(|data| serde_json::from_slice::<VaultHeader>(&data).ok())
+        .filter(valid_header)
+        .collect::<Vec<_>>();
+    headers.len() == 2
+        && headers[0].generation.abs_diff(headers[1].generation) == 1
+        && headers
+            .iter()
+            .any(|header| header.generation == selected.generation)
+        && headers.iter().all(|header| {
+            header.vault_id == selected.vault_id
+                && header.kdf == selected.kdf
+                && valid_header_integrity(header, master_key)
+                && unwrap_secret(
+                    wrapping_key,
+                    &header.wrapped_master_key,
+                    &header_aad(header.vault_id, header.generation),
+                )
+                .is_ok_and(|candidate| candidate.as_ref() == master_key)
+        })
+}
+
+fn repair_header_redundancy(
+    root: &Path,
+    current: &VaultHeader,
+    passphrase: &str,
+    master_key: &[u8; 32],
+) -> Result<(), VaultError> {
+    fail_at_test_boundary("header.repair")?;
+    let first_generation = current
+        .generation
+        .checked_add(1)
+        .ok_or(VaultError::Storage)?;
+    let (first, second) =
+        build_header_pair(current.vault_id, first_generation, passphrase, master_key)?;
+    atomic_json(&header_path(root, first_generation), &first)?;
+    atomic_json(&header_path(root, second.generation), &second)?;
+    let _ = fs::remove_file(root.join("header.json"));
+    Ok(())
 }
 
 fn manifest_path(root: &Path, generation: u64) -> PathBuf {
@@ -1115,22 +1637,27 @@ fn commit_manifest_redundant(
     master_key: &[u8; 32],
     current: &mut Manifest,
     mut next: Manifest,
-) -> Result<(), VaultError> {
+) -> Result<bool, VaultError> {
     next.generation = current
         .generation
         .checked_add(1)
         .ok_or(VaultError::Storage)?;
+    let second_generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
     fail_at_test_boundary("manifest.before-first-write")?;
     write_manifest_at(root, master_key, &next)?;
     *current = next.clone();
     terminate_at_test_boundary("manifest.after-first-write");
-    fail_at_test_boundary("manifest.after-first-write")?;
+    if fail_at_test_boundary("manifest.after-first-write").is_err() {
+        return Ok(false);
+    }
 
-    next.generation = next.generation.checked_add(1).ok_or(VaultError::Storage)?;
-    write_manifest_at(root, master_key, &next)?;
+    next.generation = second_generation;
+    if write_manifest_at(root, master_key, &next).is_err() {
+        return Ok(false);
+    }
     *current = next;
     terminate_at_test_boundary("manifest.after-second-write");
-    Ok(())
+    Ok(true)
 }
 
 fn repair_manifest_redundancy(
@@ -1142,6 +1669,7 @@ fn repair_manifest_redundancy(
         .generation
         .checked_add(1)
         .ok_or(VaultError::Storage)?;
+    fail_at_test_boundary("manifest.repair")?;
     write_manifest_at(root, master_key, &manifest)?;
     Ok(manifest)
 }
@@ -1152,33 +1680,9 @@ fn read_latest_manifest(
     vault_id: Uuid,
 ) -> Result<Manifest, VaultError> {
     let keys = derive_keys(vault_id, master_key)?;
-    let mut candidates = Vec::new();
-    for slot in 0..=1 {
-        let path = root.join(format!("manifest-{slot}.bin"));
-        let Ok(data) = read_bounded_regular_file(&path, MAX_MANIFEST_BYTES) else {
-            continue;
-        };
-        if data.len() < 40 {
-            continue;
-        }
-        let aad = manifest_aad(vault_id);
-        let Ok(plaintext) = XChaCha20Poly1305::new((&keys.manifest).into()).decrypt(
-            XNonce::from_slice(&data[..24]),
-            Payload {
-                msg: &data[24..],
-                aad: &aad,
-            },
-        ) else {
-            continue;
-        };
-        let plaintext = Zeroizing::new(plaintext);
-        let Ok(manifest) = serde_json::from_slice::<Manifest>(&plaintext) else {
-            continue;
-        };
-        if validate_manifest(root, &manifest, vault_id).is_ok() {
-            candidates.push(manifest);
-        }
-    }
+    let candidates = (0..=1)
+        .filter_map(|slot| read_manifest_slot(root, &keys.manifest, vault_id, slot))
+        .collect::<Vec<_>>();
     let latest_generation = candidates
         .iter()
         .map(|manifest| manifest.generation)
@@ -1192,6 +1696,56 @@ fn read_latest_manifest(
         return Err(VaultError::Corrupt);
     }
     Ok(selected)
+}
+
+fn read_manifest_slot(
+    root: &Path,
+    manifest_key: &[u8; 32],
+    vault_id: Uuid,
+    slot: u64,
+) -> Option<Manifest> {
+    let path = root.join(format!("manifest-{slot}.bin"));
+    let data = read_bounded_regular_file(&path, MAX_MANIFEST_BYTES).ok()?;
+    if data.len() < 40 {
+        return None;
+    }
+    let aad = manifest_aad(vault_id);
+    let plaintext = XChaCha20Poly1305::new(manifest_key.into())
+        .decrypt(
+            XNonce::from_slice(&data[..24]),
+            Payload {
+                msg: &data[24..],
+                aad: &aad,
+            },
+        )
+        .ok()?;
+    let plaintext = Zeroizing::new(plaintext);
+    let manifest = serde_json::from_slice::<Manifest>(&plaintext).ok()?;
+    validate_manifest(root, &manifest, vault_id).ok()?;
+    Some(manifest)
+}
+
+fn manifest_redundancy_healthy(
+    root: &Path,
+    master_key: &[u8; 32],
+    vault_id: Uuid,
+    selected: &Manifest,
+) -> bool {
+    let Ok(keys) = derive_keys(vault_id, master_key) else {
+        return false;
+    };
+    let Some(mut first) = read_manifest_slot(root, &keys.manifest, vault_id, 0) else {
+        return false;
+    };
+    let Some(mut second) = read_manifest_slot(root, &keys.manifest, vault_id, 1) else {
+        return false;
+    };
+    let adjacent = first.generation.abs_diff(second.generation) == 1;
+    let includes_selected =
+        first.generation == selected.generation || second.generation == selected.generation;
+    first.generation = 0;
+    second.generation = 0;
+    adjacent && includes_selected && first == second
 }
 
 fn manifest_aad(vault_id: Uuid) -> Vec<u8> {
@@ -1519,12 +2073,14 @@ fn validate_folder_ids(
     profile_id: Uuid,
     folder_ids: &[Uuid],
 ) -> Result<(), VaultError> {
-    if folder_ids.iter().all(|id| {
-        manifest
-            .folders
-            .iter()
-            .any(|folder| folder.id == *id && folder.profile_id == profile_id)
-    }) {
+    if folder_ids.len() <= MAX_FOLDER_ASSIGNMENTS
+        && folder_ids.iter().all(|id| {
+            manifest
+                .folders
+                .iter()
+                .any(|folder| folder.id == *id && folder.profile_id == profile_id)
+        })
+    {
         Ok(())
     } else {
         Err(VaultError::Invalid)
@@ -1615,9 +2171,9 @@ mod tests {
         process::{Command, Stdio},
         sync::{
             atomic::{AtomicUsize, Ordering},
-            Arc,
+            mpsc, Arc,
         },
-        time::Instant,
+        time::{Duration, Instant},
     };
 
     const PASSWORD: &str = "river-azimuth-cobalt-sparrow-934";
@@ -1833,26 +2389,45 @@ mod tests {
         let store = VaultStore::new(PathBuf::from(root));
         store.unlock(PASSWORD).unwrap();
         let snapshot = store.snapshot().unwrap();
-        let failed_with_no_space = match operation.as_str() {
-            "import" => matches!(
-                store.import(
+        if operation == "unlock-degraded" {
+            assert!(snapshot.degraded);
+            assert!(matches!(
+                store.create_profile("Blocked in recovery", 2),
+                Err(VaultError::RecoveryMode)
+            ));
+            return;
+        }
+        let outcome = match operation.as_str() {
+            "import" => store
+                .import(
                     snapshot.profiles[0].id,
                     vec![],
                     vec![source(
                         "failure-test.pdf",
-                        b"synthetic write failure record"
+                        b"synthetic write failure record",
                     )],
                     2,
-                ),
-                Err(VaultError::NoSpace)
-            ),
-            "delete" => matches!(
-                store.delete_record(snapshot.records[0].id),
-                Err(VaultError::NoSpace)
-            ),
+                )
+                .map(|_| ()),
+            "delete" => store.delete_record(snapshot.records[0].id),
             _ => panic!("unknown failure-child operation"),
         };
-        assert!(failed_with_no_space);
+        let committed = matches!(
+            std::env::var("MYCARLOS_TEST_FAIL_AT").as_deref(),
+            Ok("manifest.after-first-write"
+                | "delete.after-first-manifest"
+                | "delete.after-object-unlink")
+        );
+        if committed {
+            assert!(outcome.is_ok());
+            assert!(store.snapshot().unwrap().degraded);
+        } else {
+            assert!(matches!(outcome, Err(VaultError::NoSpace)));
+            if operation == "import" {
+                let root = PathBuf::from(std::env::var("MYCARLOS_TEST_ROOT").unwrap());
+                assert_eq!(fs::read_dir(root.join("objects")).unwrap().count(), 0);
+            }
+        }
     }
 
     #[test]
@@ -2060,6 +2635,125 @@ mod tests {
 
         assert!(matches!(result, Err(VaultError::Storage)));
         assert!(store.snapshot().unwrap().records.is_empty());
+        assert_eq!(fs::read_dir(root.join("objects")).unwrap().count(), 0);
+        assert_eq!(fs::read_dir(root.join("staging")).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn bulk_folder_assignment_is_one_manifest_transaction() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = VaultStore::new(temp.path().join("vault"));
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let folder = store.create_folder(profile, None, "Results", 2).unwrap();
+        let records = store
+            .import(
+                profile,
+                vec![],
+                vec![
+                    source("first.pdf", b"first"),
+                    source("second.pdf", b"second"),
+                ],
+                3,
+            )
+            .unwrap()
+            .imported;
+        let before = store.snapshot().unwrap();
+        assert!(matches!(
+            store.assign_folders_batch(vec![records[0], Uuid::new_v4()], vec![folder]),
+            Err(VaultError::NotFound)
+        ));
+        assert_eq!(store.snapshot().unwrap().records, before.records);
+
+        store
+            .assign_folders_batch(records.clone(), vec![folder])
+            .unwrap();
+        assert!(store
+            .snapshot()
+            .unwrap()
+            .records
+            .iter()
+            .all(|record| record.folder_ids == vec![folder]));
+    }
+
+    #[test]
+    fn cancellation_wrappers_stop_at_the_next_io_boundary() {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut reader = CancellableReader::new(
+            Box::new(Cursor::new(b"synthetic".to_vec())),
+            Arc::clone(&cancelled),
+        );
+        let mut output = [0_u8; 4];
+        assert_eq!(reader.read(&mut output).unwrap(), 4);
+        cancelled.store(true, Ordering::Release);
+        assert!(matches!(
+            VaultError::from(reader.read(&mut output).unwrap_err()),
+            VaultError::Cancelled
+        ));
+        let mut writer = CancellableWriter::new(Vec::new(), cancelled);
+        assert!(matches!(
+            VaultError::from(writer.write(b"blocked").unwrap_err()),
+            VaultError::Cancelled
+        ));
+    }
+
+    #[test]
+    fn locking_cancels_an_import_before_it_can_commit() {
+        struct GatedReader {
+            data: Cursor<Vec<u8>>,
+            started: Option<mpsc::Sender<()>>,
+            release: mpsc::Receiver<()>,
+        }
+
+        impl Read for GatedReader {
+            fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+                if let Some(started) = self.started.take() {
+                    started.send(()).unwrap();
+                    self.release.recv().unwrap();
+                }
+                self.data.read(buffer)
+            }
+        }
+
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = Arc::new(VaultStore::new(root.clone()));
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let profile = store.snapshot().unwrap().profiles[0].id;
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let import_store = Arc::clone(&store);
+        let import = std::thread::spawn(move || {
+            import_store.import(
+                profile,
+                vec![],
+                vec![ImportSource {
+                    display_name: "cancelled.pdf".to_owned(),
+                    reader: Box::new(GatedReader {
+                        data: Cursor::new(b"synthetic cancelled import".to_vec()),
+                        started: Some(started_tx),
+                        release: release_rx,
+                    }),
+                }],
+                2,
+            )
+        });
+        started_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let lock_store = Arc::clone(&store);
+        let lock = std::thread::spawn(move || lock_store.lock());
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !store.cancel_io.load(Ordering::Acquire) {
+            assert!(
+                Instant::now() < deadline,
+                "lock did not request cancellation"
+            );
+            std::thread::yield_now();
+        }
+        release_tx.send(()).unwrap();
+
+        assert!(matches!(import.join().unwrap(), Err(VaultError::Cancelled)));
+        lock.join().unwrap();
+        assert_eq!(store.status(), VaultStatus::Locked);
         assert_eq!(fs::read_dir(root.join("objects")).unwrap().count(), 0);
         assert_eq!(fs::read_dir(root.join("staging")).unwrap().count(), 0);
     }
@@ -2467,12 +3161,13 @@ mod tests {
             .unwrap()
             .imported[0];
 
-        let header_before = fs::read(root.join("header.json")).unwrap();
+        let header_path = root.join("header-0.json");
+        let header_before = fs::read(&header_path).unwrap();
         assert!(matches!(
-            store.export_atomic(record, &root.join("header.json")),
+            store.export_atomic(record, &header_path),
             Err(VaultError::Invalid)
         ));
-        assert_eq!(fs::read(root.join("header.json")).unwrap(), header_before);
+        assert_eq!(fs::read(header_path).unwrap(), header_before);
 
         fs::write(&destination, b"existing destination").unwrap();
         store.export_atomic(record, &destination).unwrap();
@@ -2720,13 +3415,105 @@ mod tests {
         let store = VaultStore::new(root.clone());
         store.create(PASSWORD, "Jamie", 1).unwrap();
         store.lock();
-        fs::write(root.join("header.json"), vec![0_u8; MAX_HEADER_BYTES + 1]).unwrap();
+        for slot in 0..=1 {
+            fs::write(
+                root.join(format!("header-{slot}.json")),
+                vec![0_u8; MAX_HEADER_BYTES + 1],
+            )
+            .unwrap();
+        }
 
         assert!(matches!(store.unlock(PASSWORD), Err(VaultError::Corrupt)));
 
-        fs::remove_file(root.join("header.json")).unwrap();
-        fs::create_dir(root.join("header.json")).unwrap();
+        for slot in 0..=1 {
+            let path = root.join(format!("header-{slot}.json"));
+            fs::remove_file(&path).unwrap();
+            fs::create_dir(path).unwrap();
+        }
         assert!(matches!(store.unlock(PASSWORD), Err(VaultError::Corrupt)));
+    }
+
+    #[test]
+    fn one_structurally_valid_but_damaged_header_slot_is_repaired_after_unlock() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        store.lock();
+        let mut damaged: VaultHeader =
+            serde_json::from_slice(&fs::read(root.join("header-0.json")).unwrap()).unwrap();
+        let mut ciphertext = BASE64
+            .decode(&damaged.wrapped_master_key.ciphertext)
+            .unwrap();
+        ciphertext[0] ^= 1;
+        damaged.wrapped_master_key.ciphertext = BASE64.encode(ciphertext);
+        atomic_json(&root.join("header-0.json"), &damaged).unwrap();
+
+        store.unlock(PASSWORD).unwrap();
+        assert!(!store.snapshot().unwrap().degraded);
+        for slot in 0..=1 {
+            let header: VaultHeader = serde_json::from_slice(
+                &fs::read(root.join(format!("header-{slot}.json"))).unwrap(),
+            )
+            .unwrap();
+            assert!(valid_header(&header));
+            assert_eq!(unwrap_master_key(&header, PASSWORD).unwrap().len(), 32);
+        }
+    }
+
+    #[test]
+    fn a_valid_newer_header_prevents_fallback_to_an_old_passphrase() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("vault");
+        let store = VaultStore::new(root.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        let current = read_latest_header(&root).unwrap();
+        let master_key = unwrap_master_key(&current, PASSWORD).unwrap();
+        let replacement = "lantern-orbit-willow-cascade-572";
+        let (newer, _) = build_header_pair(
+            current.vault_id,
+            current.generation + 1,
+            replacement,
+            &master_key,
+        )
+        .unwrap();
+        atomic_json(&header_path(&root, newer.generation), &newer).unwrap();
+        store.lock();
+
+        assert!(matches!(
+            store.unlock(PASSWORD),
+            Err(VaultError::WrongPassphrase)
+        ));
+        store.unlock(replacement).unwrap();
+        assert!(!store.snapshot().unwrap().degraded);
+    }
+
+    #[test]
+    fn repair_write_failures_still_unlock_in_recovery_mode() {
+        let temp = tempfile::tempdir().unwrap();
+        let template = temp.path().join("template-vault");
+        let store = VaultStore::new(template.clone());
+        store.create(PASSWORD, "Jamie", 1).unwrap();
+        store.lock();
+
+        let manifest_root = temp.path().join("manifest-repair");
+        copy_directory(&template, &manifest_root);
+        fs::write(manifest_root.join("manifest-0.bin"), b"damaged manifest").unwrap();
+        run_failure_child(&manifest_root, "unlock-degraded", "manifest.repair");
+
+        let header_root = temp.path().join("header-repair");
+        copy_directory(&template, &header_root);
+        fs::write(header_root.join("header-0.json"), b"damaged header").unwrap();
+        run_failure_child(&header_root, "unlock-degraded", "header.repair");
+    }
+
+    #[test]
+    fn imported_names_remove_spoofing_and_invalid_export_characters() {
+        assert_eq!(sanitize_basename("/tmp/CON.pdf"), "_CON.pdf");
+        assert_eq!(sanitize_basename("report\u{202e}fdp.exe"), "reportfdp.exe");
+        assert_eq!(sanitize_basename("bad:name?.pdf. "), "bad_name_.pdf");
+        assert_eq!(sanitize_basename("\u{200b}\u{feff}"), "Imported file");
+        assert!(sanitize_basename(&"🩺".repeat(100)).len() <= 240);
     }
 
     #[test]
@@ -2774,7 +3561,7 @@ mod tests {
             .manifest
             .vault_id;
         let forged_master = [0x5a_u8; 32];
-        let forged_header = build_header(vault_id, PASSWORD, &forged_master).unwrap();
+        let forged_header = build_header(vault_id, 3, PASSWORD, &forged_master).unwrap();
         atomic_json(&root.join("header.json"), &forged_header).unwrap();
 
         assert!(matches!(
@@ -2835,11 +3622,13 @@ mod tests {
             (*unlocked.master_key, unlocked.manifest.clone())
         };
 
-        let mut header: VaultHeader =
-            serde_json::from_slice(&fs::read(root.join("header.json")).unwrap()).unwrap();
+        let header: VaultHeader =
+            serde_json::from_slice(&fs::read(root.join("header-0.json")).unwrap()).unwrap();
         for version in [0, VAULT_FORMAT + 1] {
-            header.format_version = version;
-            atomic_json(&root.join("header.json"), &header).unwrap();
+            let mut unsupported = header.clone();
+            unsupported.format_version = version;
+            atomic_json(&root.join("header-0.json"), &unsupported).unwrap();
+            atomic_json(&root.join("header-1.json"), &unsupported).unwrap();
             assert!(matches!(store.read_header(), Err(VaultError::Corrupt)));
         }
 
@@ -2910,6 +3699,19 @@ mod tests {
         ));
         assert!(matches!(
             repair_manifest_redundancy(&root, &master_key, current),
+            Err(VaultError::Storage)
+        ));
+        assert_eq!(fs::read(root.join("manifest-0.bin")).unwrap(), before[0]);
+        assert_eq!(fs::read(root.join("manifest-1.bin")).unwrap(), before[1]);
+
+        live.generation = u64::MAX - 1;
+        let next = live.clone();
+        assert!(matches!(
+            commit_manifest_redundant(&root, &master_key, &mut live, next),
+            Err(VaultError::Storage)
+        ));
+        assert!(matches!(
+            build_header_pair(Uuid::new_v4(), u64::MAX, PASSWORD, &master_key),
             Err(VaultError::Storage)
         ));
         assert_eq!(fs::read(root.join("manifest-0.bin")).unwrap(), before[0]);

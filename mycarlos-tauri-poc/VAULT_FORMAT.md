@@ -35,7 +35,8 @@ patient-pilot work.
 
 ```text
 vault-v1/
-  header.json          non-secret format, KDF configuration, wrapped master key
+  header-0.json        non-secret KDF configuration, wrapped master key, and keyed integrity tag
+  header-1.json        redundant generation-bound wrapped-key and integrity-tag slot
   manifest-0.bin       authenticated encrypted metadata slot
   manifest-1.bin       authenticated encrypted metadata slot
   objects/<uuid>.mcobj authenticated encrypted record stream
@@ -45,10 +46,18 @@ vault-v1/
 The encrypted manifest contains profiles, nested folders, folder assignments, immutable imported
 filenames, sizes, timestamps, unverified-source labels, per-record fingerprints, opaque object
 names, and wrapped content keys. Mutations write the same logical state into two consecutive
-generations using a cross-platform atomic replacement primitive. Unlock authenticates both slots,
-selects the highest valid generation whose objects exist, rejects divergent authenticated states at
-the same generation, rewrites the selected state into the other slot to repair redundancy, removes
-incomplete staging jobs, and only then removes ciphertext objects not present in the repaired state.
+generations using a cross-platform atomic replacement primitive. Once the first generation is
+durable, the logical mutation is committed; failure of the redundant write is reported in the
+snapshot as recovery mode rather than as a failed mutation. Unlock authenticates both slots, selects
+the highest valid generation whose objects exist, rejects divergent authenticated states at the same
+generation, and repairs only missing or damaged redundancy. If repair cannot write because storage
+is full, unlock still permits read/export access in recovery mode. Staging and definite precommit
+orphan objects are removed without relying on a later unlock.
+
+Each header binds its generation into the master-key wrapping operation and carries a separate
+master-key-authenticated tag over the KDF configuration and wrapped envelope. That tag lets unlock
+reject a genuinely newer passphrase generation while recovering from a newer slot whose still-valid
+JSON has been corrupted. Legacy `header.json` data is accepted once and migrated to the two slots.
 
 Before a decrypted manifest can drive a filesystem operation, the reader checks format and vault
 identity, unique profile/folder/record/object IDs, folder ownership and acyclic depth, record-folder
@@ -61,7 +70,9 @@ Imports stream arbitrary files in 1 MiB chunks. XChaCha20-Poly1305 authenticates
 the vault ID, record ID, chunk index, and final-chunk marker as associated data. Files are encrypted
 and verified in a per-job staging directory; a batch becomes visible only after every non-duplicate
 input succeeds and the next manifest generation is durable. Duplicate fingerprints are keyed and
-scoped to a patient profile. A failed batch leaves the prior manifest authoritative. The native
+scoped to a patient profile. A failure before the first manifest commit leaves the prior manifest
+authoritative and immediately removes newly moved ciphertext. A failure after that commit returns a
+successful import in recovery mode because the new manifest is already authoritative. The native
 picker is filtered to PDFs and batches are limited to 100 files so the picker bridge does not hold
 an unbounded number of open handles in one transaction. Individual file size is not capped;
 constant-memory chunking keeps large medical files possible, while available storage and future
@@ -89,10 +100,13 @@ On Apple platforms the vault is deliberately stored in the application data/Appl
 area so normal device backups can carry its ciphertext. A restored vault still requires the
 patient passphrase. No plaintext cache is created or marked for backup. Android cloud backup is not
 promised and the generated Android application manifest is configured in CI with
-`android:allowBackup="false"`; Android users need a future explicit encrypted export/restore flow.
+`android:allowBackup="false"` and `android:fullBackupContent="false"`. Checked-in build logic rejects
+an Android build unless those generated-manifest settings are present; Android users still need a
+future explicit encrypted export/restore flow and physical OEM transfer testing.
 
 Losing the passphrase means losing access. The only fallback is a typed-confirmation whole-vault
-reset, which permanently removes all local profiles and records.
+reset followed by a trusted native confirmation dialog. It permanently removes all local profiles
+and records.
 
 The patient-pilot target in [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) replaces this limitation
 with a patient-held recovery kit and portable authenticated encrypted backups. That target is not
@@ -102,7 +116,7 @@ portable backup flow exists.
 ## Known limits before release
 
 - Rollback across an externally restored pair of otherwise valid manifest slots is not detected.
-- Restoring an older valid `header.json` can restore an older passphrase wrapper for the unchanged
+- Restoring an older valid pair of header slots can restore an older passphrase wrapper for the unchanged
   master key. Patient-pilot backup, recovery-key rotation, and device synchronization must define
   and enforce key-envelope rollback protection.
 - Individual deletion has no backup/synchronization tombstone or verified secure-erasure guarantee

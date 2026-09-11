@@ -20,12 +20,15 @@ privacy, accessibility, or clinical review.
 - [x] Approved 15-character passphrase minimum without arbitrary composition rules, plus local
       common-password/pattern/profile-name screening. A production breach corpus and independent
       threshold review remain patient-pilot gates.
-- [x] Atomic import, redundant manifest repair, atomic filesystem-path export, restart/unlock, and
-      error-path cleanup.
-- [x] Multiple patient profiles, nested folders, search, sorting, bulk moves, and drag-and-drop.
-- [x] Manual/background locking, immediate background visual concealment, and persisted
-      one-to-fifteen-minute inactivity configuration with the approved five-minute default.
-- [x] Passphrase change and typed-confirmation whole-vault reset.
+- [x] Atomic import with committed/degraded outcomes, redundant header and manifest repair,
+      recovery-mode unlock/export, atomic filesystem-path export, restart/unlock, and immediate
+      precommit error-path cleanup.
+- [x] Multiple patient profiles, nested folders, search, sorting, transactional bulk moves,
+      drag-and-drop, and keyboard folder movement.
+- [x] Manual/background locking with next-I/O-boundary streaming cancellation, immediate background visual
+      concealment, and persisted one-to-fifteen-minute inactivity configuration with the approved
+      five-minute default.
+- [x] Confirmed passphrase change and typed plus trusted-native-confirmation whole-vault reset.
 - [x] Confirmed individual deletion from the live vault with both manifest slots rewritten without
       the wrapped object key and ciphertext removed between the two durable commits.
 - [x] Abrupt-process-termination recovery matrix after object chunk writes, staging, object rename,
@@ -51,15 +54,15 @@ privacy, accessibility, or clinical review.
 - [x] Map every OWASP MASVS v2.1.0 control to current evidence and explicit gaps in
       [`MASVS_MAPPING.md`](MASVS_MAPPING.md). This engineering map is not an independent assessment.
 - [x] Generate reproducible CycloneDX npm/Cargo dependency inventories in CI, keep Actions commit
-      pinned, and run a high/critical production npm vulnerability gate.
+      pinned, require the Cargo lockfile, and run npm plus scheduled Rust vulnerability gates.
 - [x] Define content-provider export failure behavior: provider destinations may retain a partial
       readable copy and the returned patient-safe error requires deleting it before retrying.
 - [x] Record the evaluation's empty telemetry allow-list, incident handling, supported-version
       boundary, future support-bundle constraints and release-supply-chain gates in
       [`SECURITY_OPERATIONS.md`](SECURITY_OPERATIONS.md).
-- [x] Add WCAG A/AA automation across the browser library, Security, Health and document-dialog
-      states at desktop/phone sizes; fix the detected secondary-text contrast failures. Add a
-      hostile-filename regression proving metadata renders as text without off-origin requests.
+- [x] Add WCAG A/AA automation across browser and durable-vault states; implement modal focus
+      containment/return and keyboard folder movement; fix detected contrast failures. Add browser
+      and durable hostile-filename regressions proving metadata renders as text.
 
 ## Required before calling the synthetic MVP reviewed
 

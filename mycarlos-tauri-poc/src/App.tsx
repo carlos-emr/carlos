@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   createPlatformBridge,
   type PlatformBridge,
@@ -264,6 +264,8 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   const [trashItems, setTrashItems] = useState(sampleTrashItems);
   const [recentIds, setRecentIds] = useState(sampleRecentIds);
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
   const [cloudBackup, setCloudBackup] = useState(true);
   const [driveBackup, setDriveBackup] = useState(false);
   const [biometricUnlock, setBiometricUnlock] = useState(true);
@@ -284,11 +286,35 @@ export default function App({ bridge = defaultBridge }: AppProps) {
 
   useEffect(() => {
     if (!activeDocumentId) return;
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setActiveDocumentId(null);
+    dialogReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ) ?? []);
+    focusable()[0]?.focus();
+    function containFocus(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setActiveDocumentId(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = focusable();
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", containFocus);
+    return () => {
+      window.removeEventListener("keydown", containFocus);
+      dialogReturnFocusRef.current?.focus();
+    };
   }, [activeDocumentId]);
 
   const sessionFolderCount = useMemo(
@@ -514,13 +540,13 @@ export default function App({ bridge = defaultBridge }: AppProps) {
 
       <div className="page-wrap">
         <section className="app-window" aria-label="myCarlos record library evaluation">
-          <header className="titlebar">
+          <header className="titlebar" inert={activeDocument ? true : undefined}>
             <span className="window-dots" aria-hidden="true"><i /><i /><i /></span>
             <span className="window-title">myCarlos</span>
             <span className="unlock-pill"><Icon name="lock-open" /> Unlocked</span>
           </header>
 
-          <label className="mobile-section-picker">
+          <label className="mobile-section-picker" inert={activeDocument ? true : undefined}>
             <span>Section</span>
             <select
               aria-label="Section"
@@ -536,7 +562,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
             </select>
           </label>
 
-          <div className="app-body">
+          <div className="app-body" inert={activeDocument ? true : undefined}>
             <aside className="sidebar">
               <div className="brand">
                 <span className="brand-mark"><Icon name="activity" /></span>
@@ -881,7 +907,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                   <section className="setting-row">
                     <div>
                       <h2>Change passphrase</h2>
-                      <p>A real change would re-lock every record with the new passphrase.</p>
+                      <p>A real change would securely rewrap the vault master key without rewriting every encrypted record.</p>
                     </div>
                     <button className="button" type="button" onClick={() => noteDemoAction("Passphrase change")}><span>Show purpose</span></button>
                   </section>
@@ -947,6 +973,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
           {activeDocument && (
             <div className="dialog-backdrop" role="presentation" onMouseDown={() => setActiveDocumentId(null)}>
               <section
+                ref={dialogRef}
                 className="record-dialog"
                 role="dialog"
                 aria-modal="true"

@@ -10,7 +10,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{Emitter, Manager, State};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_fs::{FsExt, OpenOptions};
 use uuid::Uuid;
 use vault::{ImportSource, VaultError, VaultSnapshot, VaultStatus, VaultStore};
@@ -95,6 +95,14 @@ impl From<VaultError> for PublicError {
                 code: "storage",
                 message: "The storage operation could not be completed. Review the current vault state before retrying.",
             },
+            VaultError::Cancelled => Self {
+                code: "cancelled",
+                message: "The operation stopped because the vault was locked.",
+            },
+            VaultError::RecoveryMode => Self {
+                code: "recovery_mode",
+                message: "The vault is in read-only recovery mode. Export important records and free storage before retrying.",
+            },
         }
     }
 }
@@ -144,6 +152,13 @@ struct UpdateFolderRequest {
 #[serde(rename_all = "camelCase")]
 struct AssignFoldersRequest {
     record_id: Uuid,
+    folder_ids: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AssignFoldersBatchRequest {
+    record_ids: Vec<Uuid>,
     folder_ids: Vec<Uuid>,
 }
 
@@ -283,8 +298,12 @@ async fn vault_unlock(
 }
 
 #[tauri::command]
-fn vault_lock(store: State<'_, Arc<VaultStore>>) {
-    store.lock();
+async fn vault_lock(store: State<'_, Arc<VaultStore>>) -> CommandResult<()> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || store.lock())
+        .await
+        .map_err(|_| PublicError::from(VaultError::Storage))?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -355,11 +374,22 @@ fn vault_assign_folders(
 }
 
 #[tauri::command]
+fn vault_assign_folders_batch(
+    store: State<'_, Arc<VaultStore>>,
+    request: AssignFoldersBatchRequest,
+) -> CommandResult<()> {
+    store
+        .assign_folders_batch(request.record_ids, request.folder_ids)
+        .map_err(Into::into)
+}
+
+#[tauri::command]
 async fn vault_import_begin(
     app: tauri::AppHandle,
     store: State<'_, Arc<VaultStore>>,
     request: ImportRequest,
 ) -> CommandResult<vault::ImportOutcome> {
+    vault::validate_folder_assignment_count(request.folder_ids.len()).map_err(PublicError::from)?;
     let picker_app = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
         picker_app
@@ -501,11 +531,38 @@ fn vault_delete_record(
 }
 
 #[tauri::command]
-fn vault_reset(store: State<'_, Arc<VaultStore>>, request: ResetRequest) -> CommandResult<()> {
+async fn vault_reset(
+    app: tauri::AppHandle,
+    store: State<'_, Arc<VaultStore>>,
+    request: ResetRequest,
+) -> CommandResult<bool> {
     if request.confirmation != "RESET MYCARLOS VAULT" {
         return Err(PublicError::from(VaultError::Invalid));
     }
-    store.reset().map_err(Into::into)
+    let dialog_app = app.clone();
+    let confirmed = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app
+            .dialog()
+            .message("This permanently erases every encrypted document, profile, and folder in this vault. This cannot be undone.")
+            .title("Erase the entire myCarlos vault?")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Erase vault".to_owned(),
+                "Cancel".to_owned(),
+            ))
+            .blocking_show()
+    })
+    .await
+    .map_err(|_| PublicError::from(VaultError::Storage))?;
+    if !confirmed {
+        return Ok(false);
+    }
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || store.reset())
+        .await
+        .map_err(|_| PublicError::from(VaultError::Storage))?
+        .map_err(PublicError::from)?;
+    Ok(true)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -531,6 +588,7 @@ pub fn run() {
             vault_create_folder,
             vault_update_folder,
             vault_assign_folders,
+            vault_assign_folders_batch,
             vault_import_begin,
             vault_export_begin,
             vault_delete_record,
@@ -569,11 +627,16 @@ mod tests {
     }
 
     #[test]
-    fn native_selection_limit_is_available_before_files_are_opened() {
+    fn native_collection_limits_are_available_before_expensive_work() {
         assert!(vault::validate_import_count(vault::MAX_IMPORT_FILES).is_ok());
         assert!(matches!(
             vault::validate_import_count(vault::MAX_IMPORT_FILES + 1),
             Err(VaultError::ImportBatchLimit)
+        ));
+        assert!(vault::validate_folder_assignment_count(vault::MAX_FOLDER_ASSIGNMENTS).is_ok());
+        assert!(matches!(
+            vault::validate_folder_assignment_count(vault::MAX_FOLDER_ASSIGNMENTS + 1),
+            Err(VaultError::Invalid)
         ));
     }
 
@@ -636,6 +699,7 @@ mod tests {
             let _ = serde_json::from_slice::<FolderRequest>(&payload);
             let _ = serde_json::from_slice::<UpdateFolderRequest>(&payload);
             let _ = serde_json::from_slice::<AssignFoldersRequest>(&payload);
+            let _ = serde_json::from_slice::<AssignFoldersBatchRequest>(&payload);
             let _ = serde_json::from_slice::<ImportRequest>(&payload);
             let _ = serde_json::from_slice::<ExportRequest>(&payload);
             let _ = serde_json::from_slice::<DeleteRecordRequest>(&payload);

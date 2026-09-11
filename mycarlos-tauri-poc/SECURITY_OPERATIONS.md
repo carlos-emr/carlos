@@ -42,9 +42,11 @@ For an evaluation security incident:
 
 ## Release supply chain
 
-CI produces reproducible CycloneDX inventories for the locked npm and Cargo graphs and rejects high
-or critical production npm audit findings. GitHub Actions are commit pinned and checkout does not
-persist credentials. These are inventory and pull-request controls, not release provenance.
+CI produces reproducible CycloneDX inventories for the locked npm and Cargo graphs, rejects high or
+critical production npm findings, and runs a pinned Rust advisory scan on pull requests and weekly.
+The known `glib` advisory is ignored only for the exact internal draft PR while Linux remains an
+unsupported compatibility monitor. GitHub Actions are commit pinned and checkout does not persist
+credentials. These are inventory and pull-request controls, not release provenance.
 
 Before distribution, a dedicated protected repository must bind each signed platform artifact to
 its source revision, lockfiles, SBOM, build identity and provenance attestation. Signing/notarization,

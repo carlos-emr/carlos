@@ -6,6 +6,8 @@ on:
       - "mycarlos-tauri-poc/**"
       - ".github/workflows/mycarlos-tauri-poc.yml"
   workflow_dispatch:
+  schedule:
+    - cron: "23 9 * * 1"
 
 permissions:
   contents: read
@@ -22,7 +24,7 @@ jobs:
   supply-chain:
     name: Locked dependencies and SBOMs
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,14 +48,34 @@ jobs:
           jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' sbom-frontend.cdx.json
       - name: Install pinned Rust CycloneDX generator
         run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+      - name: Install pinned Rust advisory scanner
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Reject known Rust vulnerabilities
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.head_ref != 'poc/3474-tauri-v2' ||
+          github.event.pull_request.head.repo.full_name != github.repository ||
+          github.event.number != 3544
+        run: cargo audit --file src-tauri/Cargo.lock
+      - name: Reject known Rust vulnerabilities (exact draft Linux exception)
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.head_ref == 'poc/3474-tauri-v2' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.number == 3544
+        run: >-
+          cargo audit --file src-tauri/Cargo.lock
+          --ignore RUSTSEC-2024-0429
       - name: Generate reproducible native CycloneDX SBOM
         env:
           SOURCE_DATE_EPOCH: "0"
         run: |
+          cargo metadata --locked --manifest-path src-tauri/Cargo.toml --format-version 1 > /dev/null
           cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --target all
           cp src-tauri/mycarlos-tauri-poc.cdx.json /tmp/sbom-native-first.cdx.json
           cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --target all
           cmp /tmp/sbom-native-first.cdx.json src-tauri/mycarlos-tauri-poc.cdx.json
+          git diff --exit-code -- src-tauri/Cargo.lock
           jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' \
             src-tauri/mycarlos-tauri-poc.cdx.json
       - name: Collect native SBOM
@@ -85,6 +107,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run test:dev-data
+      - run: npm run test:android-security
       - run: npm run build
       - name: Install Playwright Chromium with bounded mirror retries
         run: |
@@ -143,9 +166,10 @@ jobs:
           --component rustfmt --component clippy
       - run: npm ci
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: npm run tauri build -- --debug --bundles deb
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
       - name: Report desktop artifact sizes
         run: find src-tauri/target/debug/bundle -type f -printf '%p %k KB\n' | sort
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -172,8 +196,9 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.98.0 --profile minimal
       - run: npm ci
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: npm run tauri build -- --debug --no-bundle
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
 
   macos:
     name: macOS native build
@@ -192,6 +217,7 @@ jobs:
         run: rustup toolchain install 1.98.0 --profile minimal
       - run: npm ci
       - run: npm run tauri build -- --debug --bundles app
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
 
   android:
     name: Android debug build
@@ -221,14 +247,11 @@ jobs:
       - run: npm ci
       - run: npm run tauri android init -- --ci
       - name: Disable Android cloud and device-transfer backup
-        shell: bash
-        run: >-
-          perl -0pi -e
-          's/<application\b/<application android:allowBackup="false" android:fullBackupContent="false"/'
-          src-tauri/gen/android/app/src/main/AndroidManifest.xml
+        run: npm run android:secure
       - name: Verify Android backup remains disabled
         run: grep -q 'android:allowBackup="false"' src-tauri/gen/android/app/src/main/AndroidManifest.xml
       - run: npm run tauri android build -- --debug --apk --target aarch64 --ci
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
       - name: Report Android artifact sizes
         run: find src-tauri/gen/android -type f -name '*.apk' -printf '%p %k KB\n' | sort
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -257,6 +280,7 @@ jobs:
       - run: npm ci
       - run: npm run tauri ios init -- --ci
       - run: npm run tauri ios build -- --debug --target aarch64-sim --no-sign --ci
+      - run: git diff --exit-code -- src-tauri/Cargo.lock
       - name: Report iOS simulator artifact sizes
         run: find src-tauri/gen/apple/build -type d -name '*.app' -exec du -sh {} \;
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -63,11 +63,11 @@ evaluation evidence and must not be distributed to patients.
 - A passphrase-unlocked, XChaCha20-Poly1305 encrypted local vault with an Argon2id key wrapper,
   encrypted metadata, chunked files, per-object keys, atomic manifest generations, and keyed
   duplicate detection.
-- Multiple patient profiles, nested folders, multiple folder assignments, manual/background/
+- Multiple patient profiles, nested folders, transactional bulk folder assignments, manual/background/
   persisted 1–15-minute inactivity locking with a 5-minute default, immediate background
-  concealment, passphrase change, and
-  typed-confirmation whole-vault reset. A background lock requested by a native picker is completed
-  immediately after that active import/export operation, avoiding a mid-operation lock race.
+  concealment, passphrase-confirmed rotation, and typed plus trusted-native-confirmation whole-vault
+  reset. Background locking requests cancellation immediately; streaming operations stop at their
+  next I/O boundary before the native key state is cleared.
 - Confirmed individual record deletion updates one durable manifest, unlinks the encrypted object,
   and then updates the redundant manifest. Both live slots omit the wrapped per-object key when the
   operation succeeds. Old external backups and future synchronized copies remain outside that
@@ -139,7 +139,8 @@ Install the platform prerequisites described by Tauri, then initialize and run t
 
 ```bash
 npm run tauri android init
-# CI then sets android:allowBackup="false" in the generated manifest.
+# Required after init; Android builds fail closed if these settings are absent.
+npm run android:secure
 npm run tauri android dev
 
 # macOS/Xcode only
@@ -149,7 +150,9 @@ npm run tauri ios dev
 
 The generated `src-tauri/gen/android` and `src-tauri/gen/apple` directories are build products of
 the pinned Tauri CLI rather than reviewed application source, so CI regenerates them on clean
-runners. Android debug builds run on Linux; the unsigned iOS simulator build runs on macOS.
+runners. A checked-in configuration script applies the Android backup policy and `build.rs` enforces
+it for every Android compilation. Android debug builds run on Linux; the unsigned iOS simulator
+build runs on macOS.
 
 ## Known evaluation findings
 

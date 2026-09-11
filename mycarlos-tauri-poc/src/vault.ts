@@ -31,6 +31,7 @@ export interface VaultSnapshot {
   profiles: PatientProfile[];
   folders: VaultFolder[];
   records: VaultRecord[];
+  degraded: boolean;
 }
 
 export interface ImportOutcome {
@@ -50,10 +51,11 @@ export interface VaultBridge {
   createFolder(profileId: string, parentId: string | null, name: string): Promise<string>;
   updateFolder(folderId: string, parentId: string | null, name: string): Promise<void>;
   assignFolders(recordId: string, folderIds: string[]): Promise<void>;
+  assignFoldersBatch(recordIds: string[], folderIds: string[]): Promise<void>;
   importFiles(profileId: string, folderIds: string[]): Promise<ImportOutcome>;
   exportFile(recordId: string): Promise<boolean>;
   deleteRecord(recordId: string): Promise<void>;
-  reset(confirmation: string): Promise<void>;
+  reset(confirmation: string): Promise<boolean>;
 }
 
 interface PublicError {
@@ -95,12 +97,14 @@ export function createVaultBridge(): VaultBridge {
       invoke<void>("vault_update_folder", { request: { folderId, parentId, name } }),
     assignFolders: (recordId, folderIds) =>
       invoke<void>("vault_assign_folders", { request: { recordId, folderIds } }),
+    assignFoldersBatch: (recordIds, folderIds) =>
+      invoke<void>("vault_assign_folders_batch", { request: { recordIds, folderIds } }),
     importFiles: (profileId, folderIds) =>
       invoke<ImportOutcome>("vault_import_begin", { request: { profileId, folderIds } }),
     exportFile: (recordId) =>
       invoke<boolean>("vault_export_begin", { request: { recordId } }),
     deleteRecord: (recordId) =>
       invoke<void>("vault_delete_record", { request: { recordId } }),
-    reset: (confirmation) => invoke<void>("vault_reset", { request: { confirmation } }),
+    reset: (confirmation) => invoke<boolean>("vault_reset", { request: { confirmation } }),
   };
 }
