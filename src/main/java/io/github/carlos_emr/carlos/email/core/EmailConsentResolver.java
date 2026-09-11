@@ -75,7 +75,7 @@ public class EmailConsentResolver {
             return null;
         }
         ConsentType consentType = patientConsentManager.getConsentType(property);
-        if (consentType == null || !Boolean.TRUE.equals(consentType.isActive())) {
+        if (consentType == null || !consentType.isActive()) {
             return null;
         }
         return consentType;

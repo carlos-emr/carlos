@@ -52,4 +52,13 @@ class EmailStatusResultUnitTest {
 
         assertThat(result.getConsentMessageKey()).isEqualTo("email.consent.status.optOut");
     }
+
+    @Test
+    @DisplayName("should identify legacy results when a consent snapshot is absent")
+    void shouldReturnNotRecordedMessageKey_whenSnapshotIsAbsent() {
+        EmailStatusResult result = new EmailStatusResult();
+
+        assertThat(result.getConsentMessageKey())
+                .isEqualTo("email.consent.status.notRecorded");
+    }
 }

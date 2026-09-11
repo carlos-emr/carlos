@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,9 +33,11 @@ import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -100,6 +103,32 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         verify(emailLogDao).merge(emailLog);
         verify(emailLogDao).updateEmailStatus(eq(emailLog.getId()), eq(EmailStatus.BLOCKED), any(), any(Date.class));
         verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should write distinct enriched audit entries when consent blocks a send")
+    void shouldWriteDistinctEnrichedAuditEntries_whenConsentBlocksSend() {
+        EmailData emailData = emailData();
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.OPT_OUT, 55, new Date()));
+
+        emailManager.sendEmail(loggedInInfo, emailData);
+
+        logActionMock.verify(() -> LogAction.addLog(
+                eq(loggedInInfo),
+                eq("EmailManager.prepareEmailForOutbox"),
+                eq("Email"),
+                contains("consentStatus=OPT_OUT&override=false"),
+                eq("123"),
+                eq("")));
+        logActionMock.verify(() -> LogAction.addLog(
+                eq(loggedInInfo),
+                eq("EmailManager.sendEmail.blocked"),
+                eq("Email"),
+                contains("consentStatus=OPT_OUT"),
+                eq("123"),
+                eq("")));
     }
 
     @Test
@@ -188,6 +217,28 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getConsentOverrideReason()).isEqualTo("Patient verbally confirmed email consent");
         verify(emailSender).send();
         verify(emailLogDao).updateEmailStatus(eq(emailLog.getId()), eq(EmailStatus.SUCCESS), eq(""), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should re-evaluate current consent before a repeated send")
+    void shouldReEvaluateCurrentConsent_beforeRepeatedSend() throws Exception {
+        EmailData emailData = emailData();
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.OPT_IN, 55, new Date()))
+                .thenReturn(new EmailConsentResult(
+                        "Email", EmailConsentStatus.OPT_OUT, 55, new Date()));
+        when(emailSenderFactory.create(any(), any(), any())).thenReturn(emailSender);
+
+        EmailLog firstAttempt = emailManager.sendEmail(loggedInInfo, emailData);
+        EmailLog repeatedAttempt = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(firstAttempt.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        assertThat(repeatedAttempt.getStatus()).isEqualTo(EmailStatus.BLOCKED);
+        assertThat(repeatedAttempt.getConsentStatus()).isEqualTo(EmailConsentStatus.OPT_OUT);
+        verify(emailConsentResolver, times(2)).resolve(loggedInInfo, 123);
+        verify(emailSenderFactory, times(1)).create(any(), any(), any());
+        verify(emailSender, times(1)).send();
     }
 
     private EmailData emailData() {

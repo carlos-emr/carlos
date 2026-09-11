@@ -46,6 +46,7 @@ class EmailComposeEncryptionDefaultUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = prepareComposer(null);
 
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
     }
 
     @Test
@@ -54,6 +55,7 @@ class EmailComposeEncryptionDefaultUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = prepareComposer(false);
 
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(false);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(false);
     }
 
     @Test
@@ -85,6 +87,7 @@ class EmailComposeEncryptionDefaultUnitTest extends CarlosUnitTestBase {
         request.getSession(false).setAttribute("emailPDFPasswordClue", "existing-clue");
         if (encryptionFlag != null) {
             request.getSession(false).setAttribute("isEmailEncrypted", encryptionFlag);
+            request.getSession(false).setAttribute("isEmailAttachmentEncrypted", encryptionFlag);
         }
         request.getSession(false).setAttribute("bodyEmail", bodyEmail);
         request.getSession(false).setAttribute("encryptedMessageEmail", encryptedMessageEmail);

@@ -19,13 +19,13 @@ public class EmailConsentResult {
      * Creates an immutable consent result, defensively copying the mutable update timestamp.
      *
      * @param consentName display name of the configured consent type
-     * @param status resolved consent status
+     * @param status resolved consent status; {@code null} is normalized to {@code UNKNOWN}
      * @param consentId identifier of the consent row, when present
      * @param consentLastUpdateDate last update time of the consent row, when present
      */
     public EmailConsentResult(String consentName, EmailConsentStatus status, Integer consentId, Date consentLastUpdateDate) {
         this.consentName = consentName;
-        this.status = status;
+        this.status = status != null ? status : EmailConsentStatus.UNKNOWN;
         this.consentId = consentId;
         this.consentLastUpdateDate = copyDate(consentLastUpdateDate);
     }
@@ -50,18 +50,14 @@ public class EmailConsentResult {
         return copyDate(consentLastUpdateDate);
     }
 
-    /** @return the stable consent-state code, falling back to {@code UNKNOWN} */
+    /** @return the stable, non-null consent-state code */
     public String getStatusCode() {
-        return getStatusOrUnknown().name();
+        return status.name();
     }
 
     /** @return the resource-bundle key for the consent-state label */
     public String getMessageKey() {
-        return getStatusOrUnknown().getMessageKey();
-    }
-
-    private EmailConsentStatus getStatusOrUnknown() {
-        return status != null ? status : EmailConsentStatus.UNKNOWN;
+        return status.getMessageKey();
     }
 
     private static Date copyDate(Date date) {

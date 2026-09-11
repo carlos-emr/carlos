@@ -53,6 +53,7 @@ class EmailConsentResultUnitTest {
     void shouldFallBackToUnknownKeys_whenStatusIsAbsent() {
         EmailConsentResult result = new EmailConsentResult("Email", null, null, null);
 
+        assertThat(result.getStatus()).isEqualTo(EmailConsentStatus.UNKNOWN);
         assertThat(result.getStatusCode()).isEqualTo("UNKNOWN");
         assertThat(result.getMessageKey()).isEqualTo("email.consent.status.unknown");
     }

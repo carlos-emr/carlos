@@ -431,10 +431,12 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         return consentOverrideReason;
     }
 
-    /** @return the resource-bundle key for the consent status, or an empty string */
+    /** @return the resource-bundle key for the consent status or a legacy not-recorded label */
     public String getConsentMessageKey() {
         EmailConsentStatus displayStatus = getConsentStatus();
-        return displayStatus != null ? displayStatus.getMessageKey() : "";
+        return displayStatus != null
+                ? displayStatus.getMessageKey()
+                : "email.consent.status.notRecorded";
     }
 
     /**

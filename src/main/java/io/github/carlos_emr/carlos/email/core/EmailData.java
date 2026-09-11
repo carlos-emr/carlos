@@ -46,7 +46,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-01-14
  */
 public class EmailData {
-    private static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
+    /** Maximum persisted length of a consent override justification. */
+    public static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
 
     private Integer senderConfigId;
     private String sender;
@@ -83,8 +84,10 @@ public class EmailData {
      * <p>The compose UI has one message field whose delivery is governed by the encryption toggle,
      * but the underlying EmailLog still stores the cleartext body and the encrypted-PDF
      * content in separate columns. When seeding the composer (fresh compose or resend), this picks
-     * the channel matching the already-resolved encryption state. The encrypted channel is never
-     * copied into an encryption-off draft; callers must first use
+     * the channel matching the already-resolved encryption state. If both channels are populated,
+     * only that preferred channel can be represented in the unified field; the protected channel
+     * therefore wins for encrypted drafts. The encrypted channel is never copied into an
+     * encryption-off draft; callers must first use
      * {@link #resolveMergedMessageEncryption(boolean, String, String)} so legacy protected content
      * fails closed instead of becoming cleartext.</p>
      *
@@ -568,7 +571,8 @@ public class EmailData {
     public void setConsentOverrideReason(String consentOverrideReason) {
         String reason = consentOverrideReason != null ? consentOverrideReason.trim() : "";
         if (reason.length() > CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
-            throw new IllegalArgumentException("Consent override reason must not exceed 255 characters");
+            throw new IllegalArgumentException("Consent override reason must not exceed "
+                    + CONSENT_OVERRIDE_REASON_MAX_LENGTH + " characters");
         }
         this.consentOverrideReason = reason;
     }
