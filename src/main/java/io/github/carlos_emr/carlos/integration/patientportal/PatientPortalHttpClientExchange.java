@@ -32,7 +32,6 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Set;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -65,7 +64,7 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
     private static final Logger logger = MiscUtils.getLogger();
 
     private static final String PINNING_ON =
-            "patient portal transport: certificate pinning active (%d pin(s))";
+            "patient portal transport: certificate pinning active ({} pin(s))";
     private static final String PINNING_OFF =
             "patient portal transport: certificate pinning NOT configured; the portal is trusted on"
                     + " CA validation alone";
@@ -114,10 +113,11 @@ class PatientPortalHttpClientExchange implements PatientPortalHttpExchange, Clos
                 PoolingHttpClientConnectionManagerBuilder.create()
                         .setDefaultConnectionConfig(connectionConfig);
         // Record whether optional pinning is active without logging configuration values.
-        logger.info(
-                certificatePins == null || certificatePins.isEmpty()
-                        ? PINNING_OFF
-                        : String.format(Locale.ROOT, PINNING_ON, certificatePins.size()));
+        if (certificatePins == null || certificatePins.isEmpty()) {
+            logger.info(PINNING_OFF);
+        } else {
+            logger.info(PINNING_ON, certificatePins.size());
+        }
         // Keep the default hostname verifier and explicitly require modern TLS on both paths.
         SSLConnectionSocketFactoryBuilder socketFactoryBuilder =
                 SSLConnectionSocketFactoryBuilder.create()

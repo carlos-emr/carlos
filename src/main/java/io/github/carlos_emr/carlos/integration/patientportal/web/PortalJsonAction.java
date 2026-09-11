@@ -118,6 +118,7 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     private static final String JSON = "application/json;charset=UTF-8";
+    private static final String NO_CACHE = "no-store, no-cache, must-revalidate";
 
     /** Jakarta's HttpServletResponse predates RFC 6585 and has no constant for this. */
     private static final int TOO_MANY_REQUESTS = 429;
@@ -150,7 +151,7 @@ public abstract class PortalJsonAction extends ActionSupport {
             The patient portal returned an error. This is a fault at the portal rather than a \
             problem with this request; it needs checking before retrying.""";
     private static final String FAILURE_LOG =
-            "patient portal call failed: kind=%s, answered %d to the browser";
+            "patient portal call failed: kind={}, answered {} to the browser";
     private static final String WRONG_METHOD =
             "This action must be requested with POST.";
     private static final String NOT_CONFIGURED =
@@ -216,6 +217,10 @@ public abstract class PortalJsonAction extends ActionSupport {
     String write(HttpServletResponse response, int status, ObjectNode payload) throws IOException {
         response.setStatus(status);
         response.setContentType(JSON);
+        // These actions use Struts's .do suffix, which is not among the global no-cache filter's
+        // configured .jsp/.jsf/.json endings. Set this explicitly so patient-linked portal state and
+        // mutation outcomes do not remain in a browser or intermediary cache.
+        response.setHeader("Cache-Control", NO_CACHE);
         PrintWriter writer = response.getWriter();
         writer.write(OBJECT_MAPPER.writeValueAsString(payload));
         writer.flush();
@@ -343,7 +348,9 @@ public abstract class PortalJsonAction extends ActionSupport {
                 };
         logger.log(
                 failureLogLevel(exception),
-                String.format(Locale.ROOT, FAILURE_LOG, exception.kind(), status),
+                FAILURE_LOG,
+                exception.kind(),
+                status,
                 exception);
         return failure(
                 response, status, exception.kind().name().toLowerCase(Locale.ROOT), message);
