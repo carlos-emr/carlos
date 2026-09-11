@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type FormEvent, type ReactNode } from "react";
 import App, { Icon, type IconName } from "./App";
+import { useModalFocus } from "./useModalFocus";
 import {
   createVaultBridge,
   vaultErrorMessage,
@@ -317,7 +318,6 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
   const [folderToMoveId, setFolderToMoveId] = useState("");
   const [folderDestinationId, setFolderDestinationId] = useState("");
   const dialogRef = useRef<HTMLElement | null>(null);
-  const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
   const profile = snapshot.profiles.find((candidate) => candidate.id === profileId) ?? snapshot.profiles[0];
   const folders = useMemo(
     () => snapshot.folders.filter((folder) => folder.profileId === profileId),
@@ -391,39 +391,7 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
     setQuery("");
   }, [currentFolderId]);
 
-  useEffect(() => {
-    if (!activeRecordId) return;
-    dialogReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const dialog = dialogRef.current;
-    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ) ?? []);
-    focusable()[0]?.focus();
-    const containFocus = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setActiveRecordId(null);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const controls = focusable();
-      if (!controls.length) return;
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", containFocus);
-    return () => {
-      window.removeEventListener("keydown", containFocus);
-      dialogReturnFocusRef.current?.focus();
-    };
-  }, [activeRecordId]);
+  useModalFocus(Boolean(activeRecordId), dialogRef, () => setActiveRecordId(null));
 
   const importFiles = () => run(async () => {
     const outcome = await bridge.importFiles(profileId, currentFolderId ? [currentFolderId] : []);

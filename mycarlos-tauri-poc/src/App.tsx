@@ -5,6 +5,7 @@ import {
   type RuntimeInfo,
   type SelectedDocument,
 } from "./platform";
+import { useModalFocus } from "./useModalFocus";
 
 type Category = "Test results" | "Letters" | "Imaging" | "Prescriptions" | "Other";
 type Filter = "All" | Category;
@@ -265,7 +266,6 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   const [recentIds, setRecentIds] = useState(sampleRecentIds);
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
-  const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
   const [cloudBackup, setCloudBackup] = useState(true);
   const [driveBackup, setDriveBackup] = useState(false);
   const [biometricUnlock, setBiometricUnlock] = useState(true);
@@ -284,38 +284,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
     };
   }, [bridge]);
 
-  useEffect(() => {
-    if (!activeDocumentId) return;
-    dialogReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ) ?? []);
-    focusable()[0]?.focus();
-    function containFocus(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setActiveDocumentId(null);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const controls = focusable();
-      if (!controls.length) return;
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-    window.addEventListener("keydown", containFocus);
-    return () => {
-      window.removeEventListener("keydown", containFocus);
-      dialogReturnFocusRef.current?.focus();
-    };
-  }, [activeDocumentId]);
+  useModalFocus(Boolean(activeDocumentId), dialogRef, () => setActiveDocumentId(null));
 
   const sessionFolderCount = useMemo(
     () => folders.filter((folder) => folder.sessionOnly).length,
