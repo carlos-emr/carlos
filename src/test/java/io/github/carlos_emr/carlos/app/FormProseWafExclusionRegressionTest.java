@@ -257,11 +257,10 @@ class FormProseWafExclusionRegressionTest {
                         break;
                     }
                     j = k + 2;
-                } else if (text.regionMatches(true, j, ENCODE_TAG, 0, ENCODE_TAG.length())
-                        && skipEncoderTag(text, j) > 0) {
-                    j = skipEncoderTag(text, j);
                 } else {
-                    j++;
+                    int afterEncoder = text.regionMatches(true, j, ENCODE_TAG, 0, ENCODE_TAG.length())
+                            ? skipEncoderTag(text, j) : -1;
+                    j = afterEncoder > 0 ? afterEncoder : j + 1;
                 }
             }
             if (end < 0) {

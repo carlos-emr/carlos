@@ -171,10 +171,9 @@ def find_tags(text):
                 if k < 0:
                     break
                 j = k + 2
-            elif text[j:j + len(ENCODE_TAG)].lower() == ENCODE_TAG and skip_encoder_tag(text, j) > 0:
-                j = skip_encoder_tag(text, j)
             else:
-                j += 1
+                after_encoder = skip_encoder_tag(text, j) if text[j:j + len(ENCODE_TAG)].lower() == ENCODE_TAG else -1
+                j = after_encoder if after_encoder > 0 else j + 1
         if end < 0:
             i = m.end()
             continue

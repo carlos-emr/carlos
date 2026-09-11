@@ -212,6 +212,15 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 demographicNo = request.getParameter(demographicNumSelected);
                 waitingListNote = request.getParameter(wlNoteSelected);
                 onListSince = request.getParameter(onListSinceSelected);
+                // Selectors mean "update this row", so a row without its patient number or date
+                // is a malformed edit, not a request to reposition the list. The page always
+                // carries the patient number; the date stays required because
+                // updateWaitingListRecord would silently replace a blank one with today.
+                if (isBlank(demographicNo) || isBlank(onListSince)) {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row update without its patient number or date"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
             }
 //	        demographicNo = (String)wlForm.get(demographicNumSelected);
 //	        waitingListNote = (String)wlForm.get(wlNoteSelected);
@@ -224,9 +233,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             try {
                 // A selected row is updated even when its note is empty: clearing the note
                 // is an edit, and treating the empty box as "no row selected" left the old
-                // note on the record. The date stays required, since updateWaitingListRecord
-                // would silently replace a blank one with today.
-                if (anySelector && !isBlank(demographicNo) && !isBlank(onListSince)) {
+                // note on the record.
+                if (anySelector) {
                     WLWaitingListUtil.updateWaitingListRecord(waitingListId,
                             waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
                 } else {

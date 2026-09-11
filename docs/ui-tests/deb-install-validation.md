@@ -182,7 +182,10 @@ a new `waitingList` row with the old one marked history
 selector contract). The action also refuses `update=Y` without a usable
 `waitingListId` (missing, non-numeric or non-positive) with a 400: the
 legacy null check around the mutation never fired, because the parsed id
-defaulted to an empty string, so the reposition and update ran against `""`. A
+defaulted to an empty string, so the reposition and update ran against `""`.
+Likewise a row edit whose selectors are present but whose patient number or
+date is blank answers 400 instead of falling through to a reposition the
+clinician did not ask for. A
 quick way to re-survey after a policy change is to POST each field
 through `:443` unauthenticated with a value that begins with
 `http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the
