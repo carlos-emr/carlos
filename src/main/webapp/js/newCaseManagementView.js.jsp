@@ -2028,7 +2028,7 @@ function updateCPPNote() {
         // tag or an image element with an onerror handler cannot close the element or
         // become markup.
         payload = escapeNoteText(payload);
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -2870,7 +2870,7 @@ function updateCPPNote() {
         var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
         // reason is the appointment reason as typed (ChartNotesAjax.jsp hands it over as a
         // JavaScript string), spliced into markup here: escape it like every other note text.
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";

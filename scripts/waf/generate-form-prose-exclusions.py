@@ -84,7 +84,9 @@ NOT_PROSE_INPUT_NAME = re.compile(
 # construction. FormProseWafExclusionRegressionTest mirrors it step for step.
 TAG_START_RE = re.compile(r"<(textarea|input|form)\b", re.IGNORECASE)
 ENCODE_TAG = "<carlos:encode"
-ATTR_RE = re.compile(r"""([a-zA-Z_:-]++)\s*=\s*("([^"]*)"|'([^']*)')""", re.DOTALL)
+# An attribute name starts only after a non-name character (the tag's attribute text begins
+# with whitespace), so each name character is scanned once even when no "=" follows.
+ATTR_RE = re.compile(r"""(?:^|[^a-zA-Z_:-])([a-zA-Z_:-]++)\s*=\s*("([^"]*)"|'([^']*)')""", re.DOTALL)
 DYNAMIC_RE = re.compile(r"<%|\$\{")
 # The only characters libmodsecurity accepts in a literal ctl target name.
 LITERAL_TARGET_RE = re.compile(r"^[A-Za-z0-9_.\-]+$")

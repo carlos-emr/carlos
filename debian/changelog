@@ -88,7 +88,7 @@ carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
     element it looked up under the wrong name. Reopening a saved note for
     editing also escapes the text it puts into the editor, so a note holding
     something like "</textarea>" cannot become markup when the next clinician
-    opens it.
+    opens it. Both script-built note boxes now carry an accessible label.
   * Editing a patient's note or date on a waiting list saves again. The page
     named its row fields plainly, so the update's row selectors came out as
     "waitingListBean[undefined]" and every update fell through to a

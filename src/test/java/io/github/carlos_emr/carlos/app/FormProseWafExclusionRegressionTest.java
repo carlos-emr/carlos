@@ -80,8 +80,10 @@ class FormProseWafExclusionRegressionTest {
     private static final Pattern JSP_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final String ENCODE_TAG = "<carlos:encode";
+    // An attribute name starts only after a non-name character (the tag's attribute text
+    // begins with whitespace), so each name character is scanned once even when no "=" follows.
     private static final Pattern ATTR = Pattern.compile(
-            "([a-zA-Z_:-]++)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
+            "(?:^|[^a-zA-Z_:-])([a-zA-Z_:-]++)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
     private static final Pattern DYNAMIC = Pattern.compile("<%|\\$\\{");
     private static final Pattern LITERAL_TARGET = Pattern.compile("^[A-Za-z0-9_.\\-]+$");
     private static final Pattern FORM_CLASS_ASSIGN = Pattern.compile(
