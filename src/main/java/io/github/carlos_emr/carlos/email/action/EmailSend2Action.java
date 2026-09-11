@@ -267,6 +267,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
         request.setAttribute(PARAM_INTERNAL_COMMENT, request.getParameter(PARAM_INTERNAL_COMMENT));
         request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
+        request.setAttribute("emailConsentName", request.getParameter("emailConsentName"));
         request.setAttribute("emailConsentStatus", request.getParameter("emailConsentStatus"));
         request.setAttribute("invalidReceiverEmailList", List.of());
 

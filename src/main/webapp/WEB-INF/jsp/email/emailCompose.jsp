@@ -309,6 +309,7 @@
                             </div>
                             <div class="card-footer">
                                 <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
+                                <input type="hidden" name="emailConsentName" value="${carlos:forHtmlAttribute(emailConsentName)}"/>
                                 <input type="hidden" name="emailConsentStatus" value="${carlos:forHtmlAttribute(emailConsentStatus)}"/>
                             </div>
                         </div>
@@ -739,7 +740,8 @@
     });
 
     document.addEventListener("keydown", function (event) {
-        if (event.key === "Enter" && event.target.tagName.toLowerCase() !== "textarea") {
+        const targetTag = event.target.tagName.toLowerCase();
+        if (event.key === "Enter" && targetTag !== "textarea" && targetTag !== "button") {
             event.preventDefault();
         }
     });

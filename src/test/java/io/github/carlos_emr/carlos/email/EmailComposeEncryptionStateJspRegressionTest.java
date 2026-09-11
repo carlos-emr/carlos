@@ -68,6 +68,15 @@ class EmailComposeEncryptionStateJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should allow Enter to activate confirmation modal buttons")
+    void shouldAllowEnter_whenConfirmationButtonFocused() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("targetTag !== \"textarea\" && targetTag !== \"button\"");
+    }
+
+    @Test
     @DisplayName("should contextually encode retry values at HTML and JavaScript sinks")
     void shouldEncodeRetryValues_atRenderedSinks() throws IOException {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
@@ -78,6 +87,7 @@ class EmailComposeEncryptionStateJspRegressionTest {
                 .contains("value=\"${carlos:forHtmlAttribute(openEFormAfterEmail)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(deleteEFormAfterEmail)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(transactionType)}\"")
+                .contains("name=\"emailConsentName\" value=\"${carlos:forHtmlAttribute(emailConsentName)}\"")
                 .contains("class=\"alert-link\">${carlos:forHtmlContent(receiverName)}</a>")
                 .contains("placeholder=\"${carlos:forHtmlAttribute(emailComposeMessagePlaceholder)}\"")
                 .contains("title=\"${carlos:forHtmlAttribute(emailComposeEncryptionTooltip)}\"")

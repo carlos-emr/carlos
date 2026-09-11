@@ -5,7 +5,6 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -23,9 +22,14 @@ import org.mockito.MockedStatic;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
@@ -62,16 +66,21 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
         emailData.setEncryptedMessage("Confidential clinical message");
         emailData.setAttachments(List.of());
 
-        Path encryptedMessage = null;
-        try (MockedStatic<ConvertToEdoc> converter = mockStatic(ConvertToEdoc.class)) {
+        Path encryptedMessage = tempDir.resolve("encrypted-message.pdf");
+        try (MockedStatic<ConvertToEdoc> converter = mockStatic(ConvertToEdoc.class);
+                MockedStatic<PathValidationUtils> pathValidation =
+                        mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             converter.when(() -> ConvertToEdoc.saveAsTempPDF(emailData))
                     .thenReturn(renderedMessage);
+            pathValidation.when(() -> PathValidationUtils.createSecureTempFile(
+                            anyString(), eq(".pdf")))
+                    .thenReturn(encryptedMessage.toFile());
 
             new EmailManager().encryptEmail(emailData);
 
             assertThat(emailData.getAttachments()).hasSize(1);
             Path encryptedAttachment = Path.of(emailData.getAttachments().get(0).getFilePath());
-            encryptedMessage = encryptedAttachment;
+            assertThat(encryptedAttachment).isEqualTo(encryptedMessage);
             assertThat(emailData.getAttachments()).singleElement().satisfies(attachment -> {
                 assertThat(attachment.getFileName()).isEqualTo("message.pdf");
                 assertThat(Path.of(attachment.getFilePath())).exists();
@@ -86,10 +95,24 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
 
             assertThat(emailData.getBody()).isEqualTo("SECURE_NOTICE");
             assertThat(emailData.getBody()).doesNotContain(emailData.getPasswordClue());
-        } finally {
-            if (encryptedMessage != null) {
-                Files.deleteIfExists(encryptedMessage);
-            }
+        }
+    }
+
+    @Test
+    @DisplayName("should report a controlled send failure when message PDF rendering fails")
+    void shouldReportControlledFailure_whenMessagePdfRenderingFails() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("SECURE_NOTICE");
+        emailData.setPassword("valid-password");
+        emailData.setEncryptedMessage("Confidential clinical message");
+        emailData.setAttachments(List.of());
+
+        try (MockedStatic<ConvertToEdoc> converter = mockStatic(ConvertToEdoc.class)) {
+            converter.when(() -> ConvertToEdoc.saveAsTempPDF(emailData)).thenReturn(null);
+
+            assertThatThrownBy(() -> new EmailManager().encryptEmail(emailData))
+                    .isInstanceOf(EmailSendingException.class)
+                    .hasMessage("Failed to render encrypted message attachment");
         }
     }
 }

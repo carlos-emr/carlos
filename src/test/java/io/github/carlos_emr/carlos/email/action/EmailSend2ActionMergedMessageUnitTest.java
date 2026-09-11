@@ -230,6 +230,8 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("demographicId", "42");
+        request.setParameter("emailConsentName", "Email consent");
+        request.setParameter("emailConsentStatus", "Explicit Opt-In");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         EmailAttachment originalAttachment = new EmailAttachment(
@@ -264,6 +266,8 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("subjectEmail")).isEqualTo("Retry subject");
+        assertThat(request.getAttribute("emailConsentName")).isEqualTo("Email consent");
+        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("Explicit Opt-In");
         assertThat(request.getAttribute("receiverEmailList"))
                 .isEqualTo(List.of("patient@example.test"));
         assertThat(request.getAttribute("senderAccounts"))
