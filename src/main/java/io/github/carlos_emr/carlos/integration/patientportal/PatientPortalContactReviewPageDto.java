@@ -69,6 +69,10 @@ public record PatientPortalContactReviewPageDto(
                 PortalJson.nonnegativeInt(node, "offset"),
                 PortalJson.nonnegativeInt(node, "total"),
                 next);
+        if (page.items().size() > page.limit()) {
+            throw new PortalContractException(
+                    "portal review page contains more items than its declared limit");
+        }
         long consumed = (long) page.offset() + page.items().size();
         boolean hasMore = consumed < page.total();
         if (hasMore != (next != null)) {
