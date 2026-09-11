@@ -33,7 +33,11 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
-/** Verifies that encrypted delivery does not add secrets or clues to the visible MIME body. */
+/**
+ * Verifies that encrypted delivery does not add secrets or clues to the visible MIME body.
+ *
+ * @since 2026-09-11
+ */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")
