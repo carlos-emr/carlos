@@ -712,6 +712,9 @@
             <%}%>
 
             function add2url(txt) {
+                // encodeURIComponent, not encodeURI: the typed reason lands in a query
+                // string, and encodeURI leaves & = + # intact, so a reason containing "&"
+                // was cut off there and spilled the remainder into stray parameters.
                 var reasonLabel = "reason=";
                 var encTypeLabel = "encType=";
                 var beg = encURL.indexOf(reasonLabel);
@@ -719,13 +722,13 @@
                 var end = encURL.indexOf("&", beg);
                 var part1 = encURL.substring(0, beg);
                 var part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
+                encURL = part1 + encodeURIComponent(txt) + part2;
                 beg = encURL.indexOf(encTypeLabel);
                 beg += encTypeLabel.length;
                 end = encURL.indexOf("&", beg);
                 part1 = encURL.substring(0, beg);
                 part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
+                encURL = part1 + encodeURIComponent(txt) + part2;
                 popupEChart(710, 1024, encURL);
                 return false;
             }
