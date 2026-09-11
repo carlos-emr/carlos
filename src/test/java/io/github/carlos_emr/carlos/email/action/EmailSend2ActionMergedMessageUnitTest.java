@@ -129,6 +129,29 @@ class EmailSend2ActionMergedMessageUnitTest extends CarlosUnitTestBase {
         assertThat(sent.getIsAttachmentEncrypted()).isFalse();
     }
 
+    @Test
+    @DisplayName("should reject attachment encryption when message encryption is off")
+    void shouldRejectAttachmentEncryption_whenMessageEncryptionOff() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Confidential note.");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString())
+                .contains("Attachment encryption requires message encryption");
+        verifyNoInteractions(emailManager);
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   "})

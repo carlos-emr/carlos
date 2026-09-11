@@ -344,7 +344,7 @@
                             <div class="modal-header">
                                 <h5 class="modal-title" id="errorMessageModalLabel">${empty receiverEmailList or empty senderAccounts ? emailComposeWarning : emailComposeAdditionalEmailAddressData}</h5>
                                 <button type="button" name="close" class="btn-close" data-bs-dismiss="modal"
-                                        aria-label="${emailComposeClose}"></button>
+                                        aria-label="${carlos:forHtmlAttribute(emailComposeClose)}"></button>
                             </div>
                             <div class="modal-body">
                                 <c:if test="${empty senderAccounts}">
@@ -358,14 +358,14 @@
                                         <p>${emailComposeNoValidEmail}
                                             ${emailComposeUpdateDemographic} (<a href="#"
                                                                                 onclick="openDemographicPage(event)"
-                                                                                class="alert-link">${carlos:forHtml(receiverName)}</a>)
+                                                                                class="alert-link">${carlos:forHtmlContent(receiverName)}</a>)
                                             ${emailComposeAndTryAgain}</p>
                                     </c:when>
                                     <c:when test="${empty receiverEmailList && not empty invalidReceiverEmailList}">
                                         <p>${emailComposeNoValidEmail}
                                             ${emailComposeAdditionalSnippets} <a
                                                     href="#" onclick="openDemographicPage(event)"
-                                                    class="alert-link">${carlos:forHtml(receiverName)}</a></p>
+                                                    class="alert-link">${carlos:forHtmlContent(receiverName)}</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
                                                 <li>${carlos:forHtml(invalidEmail)}</li>
@@ -375,7 +375,7 @@
                                     <c:when test="${not empty invalidReceiverEmailList}">
                                         <p><strong>${emailComposeWarning}:</strong> ${emailComposeWarningAdditionalSnippets}
                                             <a href="#" onclick="openDemographicPage(event)"
-                                                                class="alert-link">${carlos:forHtml(receiverName)}</a></p>
+                                                                class="alert-link">${carlos:forHtmlContent(receiverName)}</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
                                                 <li>${carlos:forHtml(invalidEmail)}</li>
@@ -435,7 +435,7 @@
                             <span>${emailComposeEncryptionLabel}</span>
                             <span id="encryptionOptionsInfo" class="fa-solid fa-circle-info"
                                   data-bs-toggle="tooltip" data-bs-placement="right"
-                                  title="${emailComposeEncryptionTooltip}"></span>
+                                  title="${carlos:forHtmlAttribute(emailComposeEncryptionTooltip)}"></span>
                             <div class="form-check form-switch mb-0">
                                 <input class="form-check-input" type="checkbox" id="encryptionSwitch"
                                        onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
@@ -455,7 +455,7 @@
                                     <label for="message" class="visually-hidden">${emailComposeMessageLabel}</label>
                                     <textarea class="form-control" name="message" id="message" rows="7"
                                               maxlength="10000"
-                                              placeholder="${emailComposeMessagePlaceholder}"><carlos:encode value="${message}"/></textarea>
+                                              placeholder="${carlos:forHtmlAttribute(emailComposeMessagePlaceholder)}"><carlos:encode value="${message}"/></textarea>
                                     <div class="error-message" id="messageError"></div>
                                 </div>
                             </div>
@@ -533,7 +533,7 @@
                                 <h5 class="modal-title text-danger" id="disableEncryptionModalLabel">
                                     <span class="fa-solid fa-triangle-exclamation me-2"></span>${emailComposeDisableEncryptionTitle}
                                 </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${emailComposeClose}"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${carlos:forHtmlAttribute(emailComposeClose)}"></button>
                             </div>
                             <div class="modal-body">
                                 <p class="mb-0">${emailComposeDisableEncryptionBody}</p>
@@ -835,8 +835,11 @@
     // message notice (green "secure PDF" when on) for the "encryption is off" warning (when off).
     function applyEncryptionState() {
         const checkbox = document.getElementById("encryptionSwitch");
+        const attachmentCheckbox = document.getElementById("encryptAttachmentSwitch");
         document.getElementById("encryptionOptions").classList.toggle('d-none', !checkbox.checked);
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
+        document.getElementById("isEmailAttachmentEncrypted").value =
+            checkbox.checked && attachmentCheckbox.checked ? "true" : "false";
         document.getElementById("isEncryption").innerHTML = checkbox.checked ? emailComposeStateOnMsg : emailComposeStateOffMsg;
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
         document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
@@ -866,7 +869,8 @@
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {
-        document.getElementById("isEmailAttachmentEncrypted").value = checkbox.checked ? "true" : "false";
+        document.getElementById("isEmailAttachmentEncrypted").value =
+            document.getElementById("encryptionSwitch").checked && checkbox.checked ? "true" : "false";
     }
 
     function removeReceiverEmail(button) {

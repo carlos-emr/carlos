@@ -34,12 +34,14 @@ class EmailComposeEncryptionStateJspRegressionTest {
 
         int domReady = jsp.indexOf("document.addEventListener(\"DOMContentLoaded\"");
         int applyState = jsp.indexOf("applyEncryptionState();", domReady);
-        int sendResultBranch = jsp.indexOf("// A successful send is terminal", domReady);
+        int errorBranch = jsp.indexOf(
+                "if (document.getElementById('isEmailError').value === 'true')", domReady);
 
         assertThat(domReady).isGreaterThanOrEqualTo(0);
+        assertThat(errorBranch).isGreaterThanOrEqualTo(0);
         assertThat(applyState)
                 .isGreaterThan(domReady)
-                .isLessThan(sendResultBranch);
+                .isLessThan(errorBranch);
     }
 
     @Test
@@ -56,6 +58,16 @@ class EmailComposeEncryptionStateJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should submit attachment encryption only while message encryption is on")
+    void shouldSubmitAttachmentEncryptionOnly_whenMessageEncryptionOn() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("checkbox.checked && attachmentCheckbox.checked ? \"true\" : \"false\"")
+                .contains("document.getElementById(\"encryptionSwitch\").checked && checkbox.checked");
+    }
+
+    @Test
     @DisplayName("should contextually encode retry values at HTML and JavaScript sinks")
     void shouldEncodeRetryValues_atRenderedSinks() throws IOException {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
@@ -66,7 +78,10 @@ class EmailComposeEncryptionStateJspRegressionTest {
                 .contains("value=\"${carlos:forHtmlAttribute(openEFormAfterEmail)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(deleteEFormAfterEmail)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(transactionType)}\"")
-                .contains("class=\"alert-link\">${carlos:forHtml(receiverName)}</a>")
+                .contains("class=\"alert-link\">${carlos:forHtmlContent(receiverName)}</a>")
+                .contains("placeholder=\"${carlos:forHtmlAttribute(emailComposeMessagePlaceholder)}\"")
+                .contains("title=\"${carlos:forHtmlAttribute(emailComposeEncryptionTooltip)}\"")
+                .contains("aria-label=\"${carlos:forHtmlAttribute(emailComposeClose)}\"")
                 .contains("fdid=${carlos:forJavaScript(carlos:forUriComponent(fdid))}")
                 .contains("demographic_no=${carlos:forJavaScript(carlos:forUriComponent(demographicId))}")
                 .contains("\"${carlos:forJavaScript(isEmailAutoSend)}\" === \"true\"")

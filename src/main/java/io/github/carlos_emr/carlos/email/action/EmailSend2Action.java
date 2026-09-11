@@ -395,10 +395,18 @@ public class EmailSend2Action extends ActionSupport {
      * must not discard attachments that the provider may need to recover.</p>
      *
      * @param request request containing the submitted encryption fields
-     * @throws EmailSendValidationException when encrypted delivery lacks a usable password or clue
+     * @throws EmailSendValidationException when the toggles conflict or encrypted delivery lacks
+     *         a usable password or clue
      */
     private void validateEncryptionRequirements(HttpServletRequest request) {
-        if (!isEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED))) {
+        boolean encrypted = isEncryptionEnabled(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED));
+        boolean attachmentEncrypted = isEncryptionEnabled(
+                request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED));
+        if (!encrypted && attachmentEncrypted) {
+            throw new EmailSendValidationException(
+                    "Attachment encryption requires message encryption");
+        }
+        if (!encrypted) {
             return;
         }
 

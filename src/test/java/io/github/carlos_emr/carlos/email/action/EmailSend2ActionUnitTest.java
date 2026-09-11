@@ -122,6 +122,7 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     private void prepareValidUnencryptedMessage() {
         request.setParameter("message", "Appointment reminder");
         request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
     }
 
     @Test
