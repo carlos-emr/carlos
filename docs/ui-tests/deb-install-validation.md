@@ -88,37 +88,40 @@ cells reach the application on all shapes; a Rourke cell posted under another
 form's `form_class`, the same cell with no `form_class`, the same cell on GET,
 and the structured fields on every form (`formId`, `demographic_no`,
 `form_class`) still block; Mental Health Form 1 and Rourke 2020 saved from the
-browser through `:443` with such prose are stored intact. The Vascular
-Tracker's `value(...)` cells cannot be named by a per-route `ctl` target
-(libmodsecurity rejects parentheses in one), so they go to a second generated
-file, `RESPONSE-998-FORM-PROSE-EXCLUSIONS-AFTER-CRS.conf`, as anchored
-config-time `SecRuleUpdateTargetByTag` patterns (each metacharacter bracketed,
-`value[(]subjective[)]`), the same mechanism the per-row fields in the 999 file
-use. Measured on the packaged install: `value(subjective)`, `value(plan)`,
-`value(24UAComments)` reach the application on all three shapes; `value(formId)`,
-`value(WTValue)`, `value(subjectivex)` still block.
+browser through `:443` with such prose are stored intact.
 
-The growth-chart and chart-checklist per-row cells (`comment_<n>`,
-`descOther<n>`) are a **deliberate residual**: they still answer 403 on scored
-prose, and this is a security decision, not a gap. A config-time
-`SecRuleUpdateTargetByTag` is not route-scoped, so a global `^comment_[0-9]+$`
-would exempt that name on **every** route — and `rx/prescribe.jsp` posts the
-prescription comment as `comment_<rand>`, so the pattern would unscore that
-field and hand a forged POST to any endpoint a rule-free parameter name.
-Exempting a generic row-indexed name globally trades a rare 403 on a
-growth-chart cell for a widened attack surface, which is the wrong trade on a
-PHI application. The clean fix is a per-form rename of those cells to fixed
-repeated names the 901 file can target by literal `ARGS` (which also needs the
-save action, keyed by row index, to change) — a form migration, out of scope
-here. The generator reports these cells as skipped so the residual is visible.
+Two groups of form cells are **deliberate residuals**: they still answer 403
+on scored prose, the generator reports each by name as skipped, and both are
+security decisions rather than gaps. The policy this deployment holds to is
+one route, one argument: an exemption is a `ctl` action chained on the route
+(and, on the shared form route, the `form_class`), naming one literal
+argument. A config-time `SecRuleUpdateTargetByTag` would accept an anchored
+regex for names a `ctl` target cannot carry, but it is not route-scoped and so
+exempts that name on **every** route; measured here, and rejected.
+
+- The Vascular Tracker's `value(...)` cells. libmodsecurity 3.0.14 rejects
+  `ARGS:value(subjective)` in a `ctl` action quoted, unquoted and
+  backslash-escaped (`Expecting an action` at `nginx -t` each time), so there
+  is no per-route spelling. A global pattern was tried and withdrawn on the
+  policy above. Nothing is lost today: the form cannot submit on this line at
+  all (next paragraph), and when it is restored its cells should be given
+  names the per-route file can target.
+- The growth-chart and chart-checklist per-row cells (`comment_<n>`,
+  `descOther<n>`). A global `^comment_[0-9]+$` was also tried and withdrawn:
+  `rx/prescribe.jsp` posts the prescription comment as `comment_<rand>`, so
+  the pattern would unscore that field and hand a forged POST to any endpoint
+  a rule-free generic name. The clean fix is a per-form rename to fixed
+  repeated names the 901 file can target by literal `ARGS`, which the save
+  action (keyed by row index) must follow — a form migration.
+
 The Rh-injection page under the form directory posts elsewhere
 (`/prevention/AddPrevention`, `reason` and `reasonOtherText`) and is covered by
 rule 1117; the lab requisition print view posts nothing; the generator reports
 both by name rather than as skipped.
 
-The Vascular Tracker's cells are exempted and probe-verified, but the form
-itself cannot be exercised from the browser on this line, for reasons that
-have nothing to do with the firewall and are NOT fixed here. Its Struts 2
+The Vascular Tracker form itself cannot be exercised from the browser on
+this line, for reasons that have nothing to do with the firewall and are NOT
+fixed here. Its Struts 2
 migration was never finished: the chart shortcut is stored as the Struts 1
 route (`../form/SetupForm.do?formName=VTForm&demographic_no=`), which the
 route resolver returns null for (`CARLOS Error: 400`); the setup and submit

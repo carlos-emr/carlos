@@ -76,6 +76,15 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
     }
 
     /**
+     * Whether a selector names the given field of a waiting-list row. Each of the three
+     * selectors has one field it may name: without this, a POST could point the demographic
+     * selector at the row's note and have the note text persisted as the patient number.
+     */
+    static boolean isRowSelectorFor(String selector, String field) {
+        return isRowSelector(selector) && selector.endsWith("." + field);
+    }
+
+    /**
      * The bracketed row index inside a valid selector name, or null when it is not one.
      * The three selectors a single update submits must all carry the SAME index: the shape
      * check alone would accept {@code waitingListBean[0].demographicNo} paired with
@@ -172,9 +181,10 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             boolean anySelector = !isBlank(demographicNumSelected) || !isBlank(wlNoteSelected)
                     || !isBlank(onListSinceSelected);
             if (anySelector) {
-                if (!isRowSelector(demographicNumSelected) || !isRowSelector(wlNoteSelected)
-                        || !isRowSelector(onListSinceSelected)) {
-                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row selector outside waitingListBean[n]"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                if (!isRowSelectorFor(demographicNumSelected, "demographicNo")
+                        || !isRowSelectorFor(wlNoteSelected, "note")
+                        || !isRowSelectorFor(onListSinceSelected, "onListSince")) {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row selector outside waitingListBean[n].<its field>"); // NOSONAR javasecurity:S5145 — fixed text, no request data
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                     return NONE;
                 }

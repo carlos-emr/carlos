@@ -325,13 +325,14 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             mockRequest.setParameter("waitingListBean[0].note", "reviewed & ready");
             mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
 
-            // The mutation runs first; the page render that follows needs a full session and DB
-            // that a unit test does not provide, so it is allowed to throw after the update under
-            // test. This is also the path the page's own indexed field names take, so it is the
-            // regression guard that a normal waiting-list save is NOT rejected by the selector check.
+            // The mutation runs first; the page render that follows reads the provider preference
+            // from a session this unit test does not populate and fails with an NPE there. Only
+            // that failure is tolerated: anything else is a regression and must surface. This is
+            // also the path the page's own indexed field names take, so it is the regression guard
+            // that a normal waiting-list save is NOT rejected by the selector check.
             try {
                 new WLSetupDisplayWaitingList2Action().execute();
-            } catch (Exception pageRenderNeedsSession) {
+            } catch (NullPointerException pageRenderNeedsSession) {
                 // intentional: only the mutation is under test here
             }
 
@@ -379,12 +380,44 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
 
             try {
                 new WLSetupDisplayWaitingList2Action().execute();
-            } catch (Exception pageRenderNeedsSession) {
-                // intentional: only the mutation is under test here
+            } catch (NullPointerException pageRenderNeedsSession) {
+                // intentional: only the mutation is under test here; see the update test above
             }
 
             waitingListUtilMock.verify(() -> WLWaitingListUtil.rePositionWaitingList("7"));
             assertThat(mockResponse.getStatus()).isNotEqualTo(400);
+        }
+
+        @Test
+        @DisplayName("should answer 400 and persist nothing when a selector names another field of the row")
+        void shouldReject400_whenSelectorNamesAnotherField() throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            // Same row, well-formed, but the demographic selector points at the row's NOTE.
+            mockRequest.setParameter("demographicNumSelected", "waitingListBean[0].note");
+            mockRequest.setParameter("wlNoteSelected", "waitingListBean[0].note");
+            mockRequest.setParameter("onListSinceSelected", "waitingListBean[0].onListSince");
+            mockRequest.setParameter("waitingListBean[0].note", "not a patient number");
+            mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
+
+            String result = new WLSetupDisplayWaitingList2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            waitingListUtilMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should accept a selector only for its own field")
+        void shouldAcceptSelector_onlyForItsOwnField() {
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("waitingListBean[0].note", "note")).isTrue();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("waitingListBean[0].note", "demographicNo")).isFalse();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("waitingListBean[0].demographicNo", "demographicNo")).isTrue();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("comments-1", "note")).isFalse();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor(null, "note")).isFalse();
         }
 
         @Test

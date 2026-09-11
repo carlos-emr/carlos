@@ -1923,6 +1923,16 @@ function updateCPPNote() {
      *
      * @param {Event} e - The click event on the note element
      */
+    // The plain text of a rendered note view: <br> elements as newlines, entities decoded.
+    function renderedNoteText(el) {
+        var clone = el.cloneNode(true);
+        var breaks = clone.getElementsByTagName("br");
+        while (breaks.length > 0) {
+            breaks[0].parentNode.replaceChild(document.createTextNode("\n"), breaks[0]);
+        }
+        return clone.textContent !== undefined ? clone.textContent : clone.innerText;
+    }
+
     function editNote(e) {
         var el = Event.element(e);
         var payload;
@@ -2000,9 +2010,12 @@ function updateCPPNote() {
         var txtId = "txt" + nId;
 
         if ($F(isFull) == "true") {
-            payload = $(txtId).innerHTML;
+            // Take the TEXT of the rendered note, not its innerHTML: the view HTML-escapes
+            // the note (escapeNoteText), and innerHTML would hand the entities back as
+            // literal "&amp;" / "&lt;" to be resaved corrupted. <br> elements become
+            // newlines first so line breaks survive the round trip.
+            payload = renderedNoteText($(txtId));
             payload = payload.replace(/^\s+|\s+$/g, "");
-            payload = payload.replace(/<br>/gi, "\n");
             payload += "\n";
         } else
             payload = "";

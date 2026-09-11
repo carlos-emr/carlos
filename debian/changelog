@@ -72,14 +72,16 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     antenatal, mental health, palliative care and the rest) are covered by a
     generated per-form list of their narrative cells, keyed on each form's
     save route and form class; a regression test keeps that list in step
-    with the form pages. The Vascular Tracker's bracketed cell names, which the
-    firewall cannot list per route, are exempted by anchored config-time name
-    patterns generated from the same pages. The growth-chart and chart-checklist
-    per-row cells are left inspected on purpose: their names are generic
-    (comment_<n>), a config-time pattern is not route-scoped, and a prescription
-    field shares that name shape, so exempting it globally would weaken an
-    unrelated route. The Rh-injection page's "other" reason is exempted on the
-    prevention route it posts to.
+    with the form pages. Two groups of cells are left inspected on purpose,
+    because the only way to exempt them would apply to every route: the
+    Vascular Tracker's bracketed cell names, which the firewall cannot list
+    per route (and whose form cannot be submitted on this line anyway, see
+    below), and the growth-chart and chart-checklist per-row cells, whose
+    generic names (comment_<n>) a prescription field shares, so exempting
+    them globally would weaken an unrelated route. The Rh-injection page
+    (form/addRhInjection.jsp) posts its
+    typed "other" reason as reason and reasonOtherText to the prevention route,
+    and both are exempted there.
   * Reading a measurement definition file (the Vascular Tracker's, or one
     given to the measurement-type import) no longer fails on its validation
     rules, which were bound to an untyped list. The Vascular Tracker form

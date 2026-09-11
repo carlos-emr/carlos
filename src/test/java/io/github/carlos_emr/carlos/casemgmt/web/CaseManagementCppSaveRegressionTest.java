@@ -238,6 +238,20 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
+    @DisplayName("reopening a saved note for editing should decode the rendered text, not copy its HTML")
+    void shouldDecodeRenderedNote_whenReopenedForEditing() throws IOException {
+        // editNote() used to take the view's innerHTML into the textarea, so a note holding
+        // "A&B" (or, once the view escapes, "<") came back as literal "&amp;B" and was resaved
+        // corrupted. It now reads the text of the rendered note with <br> as newlines.
+        String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(js)
+                .contains("function renderedNoteText(el)")
+                .contains("payload = renderedNoteText($(txtId));")
+                .doesNotContain("payload = $(txtId).innerHTML;");
+    }
+
+    @Test
     @DisplayName("save-on-switch should post the whole note as one noteTxt parameter")
     void shouldEncodeNoteTxt_asOneParameter() throws IOException {
         // ajaxSaveNote() is the save that runs when a note with unsaved text is left for
