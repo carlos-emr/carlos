@@ -104,6 +104,17 @@ NON_FORM_ROUTE_PAGES = {
 }
 INCLUDE_RE = re.compile(r"""<jsp:include\s+page\s*=\s*["']([^"']+)["']|<%@\s*include\s+file\s*=\s*["']([^"']+)["']""",
                         re.IGNORECASE)
+# A field that lives only inside a comment is not a submittable control, so it must not produce a
+# WAF exemption: a JSP <%-- --%> is stripped by the container before render, and a control inside
+# an HTML <!-- --> is never sent. strip_comments() removes both before the page is scanned. JSP
+# comments go first: a stray "<!--" inside one (as in formbcar2012pg2.jsp) must not be read as an
+# HTML comment opener once the surrounding JSP comment is gone.
+JSP_COMMENT_RE = re.compile(r"<%--.*?--%>", re.DOTALL)
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def strip_comments(text):
+    return HTML_COMMENT_RE.sub(" ", JSP_COMMENT_RE.sub(" ", text))
 
 
 def attrs(raw):
@@ -184,7 +195,7 @@ def include_key(page_key, target):
 
 
 def analyse(path, page_key):
-    text = open(path, encoding="utf-8", errors="replace").read()
+    text = strip_comments(open(path, encoding="utf-8", errors="replace").read())
     info = {"route": None, "form_class": None, "names": [], "dynamic": [], "has_form": False,
             "includes": [include_key(page_key, m.group(1) or m.group(2)) for m in INCLUDE_RE.finditer(text)]}
     for tag, raw in find_tags(text):

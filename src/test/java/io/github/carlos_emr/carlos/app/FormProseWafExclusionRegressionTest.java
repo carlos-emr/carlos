@@ -74,6 +74,11 @@ class FormProseWafExclusionRegressionTest {
 
     // Mirrors of the generator's patterns and its tag scanner. Keep them identical.
     private static final Pattern TAG_START = Pattern.compile("<(textarea|input|form)\\b", Pattern.CASE_INSENSITIVE);
+    // A field only inside a comment is not submittable, so it must not be exempted: a JSP
+    // <%-- --%> is stripped before render and a control in an HTML <!-- --> is never sent.
+    // JSP comments go first, so a stray "<!--" inside one is not read as an HTML opener.
+    private static final Pattern JSP_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
+    private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final String ENCODE_TAG = "<carlos:encode";
     private static final Pattern ATTR = Pattern.compile(
             "([a-zA-Z_:-]++)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
@@ -177,6 +182,7 @@ class FormProseWafExclusionRegressionTest {
 
     private static PageInfo analyse(Path file, String pageKey) throws IOException {
         String text = new String(Files.readAllBytes(file), StandardCharsets.UTF_8).replace("\r\n", "\n");
+        text = HTML_COMMENT.matcher(JSP_COMMENT.matcher(text).replaceAll(" ")).replaceAll(" ");
         PageInfo info = new PageInfo();
         Matcher inc = INCLUDE.matcher(text);
         while (inc.find()) {
