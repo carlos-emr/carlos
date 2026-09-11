@@ -115,7 +115,7 @@ class ClinicalProseWafExclusionRegressionTest {
                         List.of("admission.admissionNotes", "admission.dischargeNotes")),
                 // The one GET: the patient page's custom telephone-encounter reason travels on the
                 // GET link that opens the chart (demographic/edit.jsp add2url).
-                Arguments.of("1140", "/carlos/encounter/IncomingEncounter", "GET", List.of("reason", "encType")),
+                Arguments.of("1140", "/carlos/encounter/IncomingEncounter", "GET", List.of("reason")),
                 // The other GET: the tickler list's DataTables search term rides the query string.
                 Arguments.of("1141", "/carlos/tickler/ListTicklers", "GET", List.of("search[value]")));
     }

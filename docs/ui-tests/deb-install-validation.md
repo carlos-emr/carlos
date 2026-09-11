@@ -43,9 +43,9 @@ free-text field the application posts (consultation requests, ticklers,
 prescriptions and allergies, preventions, document and lab comments, HRM,
 messenger and patient email, appointment reasons and notes, master-record
 notes and alerts, billing comments, fax cover comments, program notes) found
-all 68 of them answering 403 on the same three shapes, and a consultation
+all 67 of them answering 403 on the same three shapes, and a consultation
 request save and a tickler add reproduced it in the browser. Exclusions
-1100-1140 close them per argument. `tickler-crud-playwright-checks.js` now
+1100-1141 close them per argument. `tickler-crud-playwright-checks.js` now
 types that scoring text too. Fields whose parameter names are generated per
 row (measurement `comments-<n>`, manual lab `test_<id>.labnotes`, contact
 `contact_<id>.note`, waiting-list notes, and the encounter forms under
