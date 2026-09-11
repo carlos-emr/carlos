@@ -329,6 +329,7 @@
             }
 
             function resetStash() {
+                cancelPendingFax();
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
                 fetch(url, {
                     method: 'POST',
@@ -362,6 +363,27 @@
              * can still see in the preview, is silently absent from the outgoing fax.
              */
             var pendingNotesSave = Promise.resolve();
+            var pendingFaxCancellation = null;
+
+            function cancelPendingFax() {
+                if (pendingFaxCancellation) {
+                    var cancel = pendingFaxCancellation;
+                    pendingFaxCancellation = null;
+                    cancel();
+                }
+            }
+
+            function bindFaxModalCancellation() {
+                var modal;
+                try { modal = parent.document.getElementById('carlosModal'); } catch (error) { return; }
+                if (!modal) return;
+                modal.addEventListener('hide.bs.modal', cancelPendingFax);
+                window.addEventListener('unload', function () {
+                    cancelPendingFax();
+                    modal.removeEventListener('hide.bs.modal', cancelPendingFax);
+                }, { once: true });
+            }
+            bindFaxModalCancellation();
 
             function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
                               previousUnloadHandler) {
@@ -389,12 +411,22 @@
                         return false;
                     }
                     var faxPostStarted = false;
+                    var cancelled = false;
+                    var cancelDeferred = function () {
+                        cancelled = true;
+                        resetFailedFaxSubmission(previousUnloadHandler);
+                    };
+                    pendingFaxCancellation = cancelDeferred;
                     var stopFaxResultWait = function () {};
                     // Only the fax waits. A print renders additNotes from the request, which
                     // addNotes() already updated synchronously, so there is nothing to wait for --
                     // and deferring a target="_blank" submit out of the click's user-gesture context
                     // would hand it to the popup blocker.
                     pendingNotesSave.then(function () {
+                        if (cancelled) return;
+                        // Once transport starts, dismissal cannot establish that a fax
+                        // was cancelled. Only the deferred pre-POST phase is cancellable.
+                        if (pendingFaxCancellation === cancelDeferred) pendingFaxCancellation = null;
                         // Set the target at submit time, not click time: a print in the same modal
                         // leaves target="_blank" on this shared form, and the fax must post back into
                         // the modal, never open a tab. Doing it here also covers a print that lands
@@ -471,6 +503,8 @@
                         faxPostStarted = true;
                         previewForm.submit();
                     }).catch(function (e) {
+                        if (pendingFaxCancellation === cancelDeferred) pendingFaxCancellation = null;
+                        if (cancelled) return;
                         stopFaxResultWait();
                         if (faxPostStarted) {
                             markFaxSubmissionUncertain(capturedPasteText);
@@ -824,6 +858,8 @@
                                 io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
                         canFaxScript = faxSecurityManager.hasPrivilege(faxLoggedInInfo,
                                         "_rx", "w", String.valueOf(faxTarget.getDemographicId()))
+                                && faxSecurityManager.hasPrivilege(faxLoggedInInfo,
+                                        "_demographic", "r", String.valueOf(faxTarget.getDemographicId()))
                                 && faxSecurityManager.hasPrivilege(faxLoggedInInfo, "_fax", "w", null);
                         faxTargetSigned = faxTarget.getDigitalSignatureId() != null;
                     }
@@ -1251,6 +1287,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                 </form>
                                     <script type="text/javascript">
                                         function clearPending(actionValue) {
+                                            cancelPendingFax();
                                             var form = document.forms["RxClearPendingForm"];
                                             if (form && form.elements["action"]) {
                                                 form.elements["action"].value = actionValue;

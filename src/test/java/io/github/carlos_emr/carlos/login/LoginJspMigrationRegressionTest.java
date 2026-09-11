@@ -104,7 +104,7 @@ class LoginJspMigrationRegressionTest {
 
     @Test
     @DisplayName("struts login config should expose the migrated page actions and internal view targets")
-    void strutsLoginConfigShouldExposeMigratedPageActions() throws IOException {
+    void shouldExposeMigratedPageActions_inStrutsLoginConfig() throws IOException {
         String struts = Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8);
 
         assertThat(struts).contains("<action name=\"index\"");

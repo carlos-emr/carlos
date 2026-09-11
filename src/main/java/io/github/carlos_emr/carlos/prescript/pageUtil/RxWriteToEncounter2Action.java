@@ -51,8 +51,6 @@ import java.util.Date;
 
 import java.util.Locale;
 
-import org.owasp.encoder.Encode;
-
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -112,7 +110,9 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         CaseManagementTmpSave tmpSave = caseManagementMgr.getTmpSave(loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo);
         Date today = new Date();
         if (tmpSave != null) {
-            String noteBody = generateNote(loggedInInfo, Encode.forJavaScript(request.getParameter("body")), false);
+            // Persist clinical text, not a JavaScript string literal. Apply output
+            // encoding at the rendering boundary, as for the non-draft paths below.
+            String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
 
             if (tmpSave.getNoteId() > 0) {
                 note = caseManagementMgr.getNote(String.valueOf(tmpSave.getNoteId()));

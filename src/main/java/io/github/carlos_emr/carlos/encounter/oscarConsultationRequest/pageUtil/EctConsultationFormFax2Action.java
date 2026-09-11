@@ -133,8 +133,10 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
         // Faxing PHI to a request-selected recipient is a fax mutation, so it must also carry _fax
         // write — the same gate Fax2Action enforces. _con read alone let a consult-only user queue
-        // PHI to an arbitrary fax number.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+        // PHI to an arbitrary fax number. Reading gateway accounts additionally
+        // requires _fax read, matching the preparation and UI gates.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_fax)");
         }
         // Reject GET/HEAD before any side effect (render, cover-page write, FaxJob persist): this

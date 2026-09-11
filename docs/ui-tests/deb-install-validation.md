@@ -56,9 +56,9 @@ stamping as `.github/workflows/deb-packages.yml` before building:
 
 ```bash
 git fetch origin
-# Update for each promotion. After handoff/deletion, use the retained release
-# tag or exact validated commit instead of this temporary candidate branch.
-promotion_ref=origin/codex/promote-2026-08-alpha12-to-main
+# Set PROMOTION_REF for each promotion. After the candidate branch is deleted,
+# use the retained release tag or exact validated commit.
+promotion_ref=${PROMOTION_REF:?Set PROMOTION_REF to the reviewed promotion ref or retained release tag/commit}
 git worktree add --detach ../carlos-package-validation "$promotion_ref"
 cd ../carlos-package-validation
 release_tag=2026.08.0-alpha12

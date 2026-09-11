@@ -167,6 +167,18 @@ class RxFaxPipelineRegressionUnitTest {
     }
 
     @Test
+    @DisplayName("should require patient demographic read permission before enabling fax buttons")
+    void shouldRequireDemographicRead_whenEnablingFaxButtons() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        int gateStart = viewScript2.indexOf("canFaxScript = faxSecurityManager.hasPrivilege");
+        int gateEnd = viewScript2.indexOf(';', gateStart);
+        assertThat(viewScript2.substring(gateStart, gateEnd))
+                .contains("\"_rx\", \"w\", String.valueOf(faxTarget.getDemographicId())")
+                .contains("\"_demographic\", \"r\", String.valueOf(faxTarget.getDemographicId())")
+                .contains("\"_fax\", \"w\", null");
+    }
+
+    @Test
     @DisplayName("should reapply every current fax prerequisite after a failed submission")
     void shouldReapplyFaxPrerequisites_afterFailedSubmission() throws IOException {
         String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
