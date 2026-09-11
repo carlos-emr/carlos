@@ -53,7 +53,7 @@ function createGracefulSignalCancellation({ signalProcess = process, graceMs = 1
 }
 
 // A rejected navigation/click must not abandon another already-started request.
-// Preserve Promise.all's ordered values/error behavior, but drain every branch first.
+// Preserve ordered values; drain every branch, then throw the first rejection in input order.
 async function settleOperations(operations) {
   const results = await Promise.allSettled(operations);
   const failure = results.find((result) => result.status === 'rejected');

@@ -54,6 +54,12 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
   const deferredTimeouts = [];
   const clearedTimeouts = [];
   const closedWindows = [];
+  const modalHandlers = new Map();
+  const unloadHandlers = [];
+  const modal = {
+    addEventListener: (event, handler) => modalHandlers.set(event, handler),
+    removeEventListener: (event) => modalHandlers.delete(event),
+  };
   let releaseSave;
   const saveGate = new Promise((resolve) => { releaseSave = resolve; });
   const context = vm.createContext({
@@ -63,7 +69,9 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
       getElementById: (id) => previewElements[id],
       getElementsByName: () => [{ value: '' }],
     } } },
-    window: { onbeforeunload: () => 'unsaved', top: { close: () => { closedWindows.push(true); } } },
+    window: { onbeforeunload: () => 'unsaved', top: { close: () => { closedWindows.push(true); } },
+      addEventListener: (_event, handler) => unloadHandlers.push(handler) },
+    parent: { document: { getElementById: () => modal } },
     setTimeout: (fn) => { deferredTimeouts.push(fn); return deferredTimeouts.length; },
     clearTimeout: (id) => { clearedTimeouts.push(id); },
     faxScriptNo: '12345',
@@ -72,6 +80,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     faxPreviewReloading: false,
     faxNotesState: null,
     pendingNotesSave: Promise.resolve(),
+    pendingFaxCancellation: null,
     faxQueued: false,
     faxPasteRetryText: null,
     lastFaxPasteText: null,
@@ -92,6 +101,8 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     },
   });
   for (const [name, next] of [
+    ['cancelPendingFax', 'bindFaxModalCancellation'],
+    ['bindFaxModalCancellation', 'onPrint2'],
     ['addNotes', 'printIframe'],
     ['lockFaxNotes', 'unlockFaxNotes'],
     ['unlockFaxNotes', 'setFaxControlsDisabled'],
@@ -102,7 +113,8 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     ['retryFaxPaste', 'refreshImage'],
     ['sendFax', 'unloadMess'],
   ]) vm.runInContext(browserFunction(name, next), context);
-  return { context, notes, save, elements, savedBodies, releaseSave, deferredTimeouts, clearedTimeouts, closedWindows };
+  return { context, notes, save, elements, savedBodies, releaseSave, deferredTimeouts, clearedTimeouts, closedWindows,
+    modalHandlers, unloadHandlers };
 }
 
 for (const pasteAfterSuccess of [false, true]) {
@@ -212,7 +224,7 @@ test('uncertain encounter outcome preserves text but cannot retry or resend', ()
   assert.equal(context.sendFax(true), false);
 });
 
-function faxResultFixture({ submitThrows = false, notesReject = false, script = '12345', patient = '1', missing = false } = {}) {
+function faxResultFixture({ submitThrows = false, notesReject = false, notesGate, script = '12345', patient = '1', missing = false } = {}) {
   const fixture = setup();
   const { context, elements } = fixture;
   const frame = elements.preview;
@@ -246,10 +258,45 @@ function faxResultFixture({ submitThrows = false, notesReject = false, script = 
   context.faxSubmissionPending = true;
   context.setFaxControlsDisabled(true);
   if (notesReject) context.pendingNotesSave = Promise.reject(new Error('notes not saved'));
+  if (notesGate) context.pendingNotesSave = notesGate;
   vm.runInContext(browserFunction('onPrint2', 'setComment'), context);
   context.onPrint2('oscarRxFax', '12345', 'attempt-id', false, 'captured prescription text', () => 'unsaved');
   return { ...fixture, submissions: () => submissions, load: (state) => { result = state; handler(); } };
 }
+
+for (const cancellation of ['modal hide', 'reset', 'unload']) {
+  test(`${cancellation} cancels a deferred fax without claiming an in-flight fax was cancelled`, async () => {
+    let finishNotes;
+    const notesGate = new Promise((resolve) => { finishNotes = resolve; });
+    const fixture = faxResultFixture({ notesGate });
+    if (cancellation === 'modal hide') fixture.modalHandlers.get('hide.bs.modal')();
+    else if (cancellation === 'unload') fixture.unloadHandlers[0]();
+    else fixture.context.cancelPendingFax();
+    finishNotes();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(fixture.submissions(), 0);
+    assert.equal(fixture.context.faxSubmissionPending, false);
+    assert.equal(fixture.notes.readOnly, false);
+    assert.equal(fixture.context.pendingFaxCancellation, null);
+    if (cancellation === 'unload') assert.equal(fixture.modalHandlers.size, 0);
+  });
+}
+
+test('dismissal after the fax POST starts never resets an uncertain in-flight operation', async () => {
+  const fixture = faxResultFixture();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(fixture.submissions(), 1);
+  fixture.modalHandlers.get('hide.bs.modal')();
+  assert.equal(fixture.context.faxSubmissionPending, true);
+  assert.equal(fixture.notes.readOnly, true);
+  fixture.load('markerless');
+  assert.equal(fixture.context.faxSubmissionUncertain, true);
+});
+
+test('prescription reset and clear actions cancel the deferred fax before changing the stash', () => {
+  assert.match(browserFunction('resetStash', 'resetReRxDrugList'), /function resetStash\(\)\s*\{\s*cancelPendingFax\(\);/);
+  assert.match(browserFunction('clearPending', 'clearPendingFax'), /function clearPending\(actionValue\)\s*\{\s*cancelPendingFax\(\);/);
+});
 
 for (const result of ['markerless', 'inaccessible']) {
   test(`inconclusive ${result} fax result never permits another transmission`, async () => {

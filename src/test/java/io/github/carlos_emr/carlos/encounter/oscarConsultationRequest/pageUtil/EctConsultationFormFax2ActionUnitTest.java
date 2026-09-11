@@ -141,10 +141,24 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject final fax submission before rendering when account read is denied")
+    void shouldRejectFax_beforeRenderingWhenFaxReadIsDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_fax)");
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao);
+        action.setMethod("cancel");
+        assertThat(action.execute()).isEqualTo("cancel");
+    }
+
+    @Test
     @DisplayName("should reject faxing before rendering when consultation fax is disabled")
     void shouldRejectFax_beforeRenderingWhenFeatureIsDisabled() {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull())).thenReturn(true);
         io.github.carlos_emr.CarlosProperties properties = mock(io.github.carlos_emr.CarlosProperties.class);
         when(properties.isConsultationFaxEnabled()).thenReturn(false);
         try (MockedStatic<io.github.carlos_emr.CarlosProperties> propertiesMock = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
@@ -165,6 +179,7 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         // Faxing now also requires _fax write (mirrors Fax2Action); grant it so the test reaches the
         // PDF-promotion path it is exercising rather than stopping at the authorization gate.
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull())).thenReturn(true);
         Path rendered = Paths.get("/tmp/consult-fax-source.pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(rendered);
         when(nioFileManager.promoteApplicationTempFile(rendered))

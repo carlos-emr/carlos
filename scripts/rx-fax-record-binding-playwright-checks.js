@@ -663,7 +663,7 @@ async function assertFaxConfirmationRecovery(modalFrame) {
     const originalSubmit = Object.getOwnPropertyDescriptor(form, 'submit');
     const originalGet = Object.getOwnPropertyDescriptor(previewDoc, 'getElementById');
     const getElement = previewDoc.getElementById;
-    const globals = ['pendingNotesSave', 'faxSubmissionPending', 'faxSubmissionUncertain',
+    const globals = ['pendingNotesSave', 'pendingFaxCancellation', 'faxSubmissionPending', 'faxSubmissionUncertain',
       'faxPreviewReloading', 'faxQueued', 'faxPasteCanRetry', 'faxNotesState',
       'lastFaxPasteText', 'hasPreview', 'setTimeout', 'clearTimeout', 'onbeforeunload'];
     const saved = Object.fromEntries(globals.map((key) => [key, w[key]]));
@@ -694,7 +694,7 @@ async function assertFaxConfirmationRecovery(modalFrame) {
     };
     const checks = [];
     try {
-      for (const outcome of ['markerless', 'inaccessible', 'timeout', 'wrong-script']) {
+      for (const outcome of ['markerless', 'inaccessible', 'timeout', 'wrong-script', 'cancelled-on-hide']) {
         restore();
         let submitted = 0;
         let timeout;
@@ -703,12 +703,25 @@ async function assertFaxConfirmationRecovery(modalFrame) {
         w.setTimeout = (callback) => { timeout = callback; return 1; };
         w.clearTimeout = () => { timerCleared = true; };
         form.submit = () => { submitted += 1; };
-        w.pendingNotesSave = Promise.resolve();
+        let releaseNotes;
+        w.pendingNotesSave = outcome === 'cancelled-on-hide'
+          ? new Promise((resolve) => { releaseNotes = resolve; }) : Promise.resolve();
         w.lockFaxNotes();
         w.faxSubmissionPending = true;
         w.setFaxControlsDisabled(true);
         if (outcome === 'wrong-script') form.setAttribute('data-script-id', 'not-the-displayed-script');
         w.onPrint2('oscarRxFax', w.faxScriptNo, 'NO-SUBMISSION-PROBE', true, 'RECOVERY PROBE');
+        if (outcome === 'cancelled-on-hide') {
+          // Dispatch the same lifecycle event as Bootstrap's Close/backdrop/Escape
+          // dismissal, without actually hiding or destroying this test's modal.
+          w.parent.document.getElementById('carlosModal').dispatchEvent(new w.parent.Event('hide.bs.modal'));
+          releaseNotes();
+          await Promise.resolve();
+          await Promise.resolve();
+          checks.push({ name: outcome, passed: submitted === 0 && !w.faxSubmissionPending
+            && !notes.readOnly && w.pendingFaxCancellation === null });
+          continue;
+        }
         await Promise.resolve();
         if (outcome === 'wrong-script') {
           checks.push({ name: outcome, passed: submitted === 0 && !w.hasPreview

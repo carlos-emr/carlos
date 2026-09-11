@@ -147,6 +147,29 @@ class RxWriteToEncounter2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPreserveExactPrescriptionText_whenAppendingToAnEncounterDraft() throws Exception {
+        String prescriptionText = "Take 1/2 tablet\nDon't repeat <PRN> & call \"clinic\".";
+        request.setParameter("body", prescriptionText);
+        CaseManagementTmpSave tmp = mock(CaseManagementTmpSave.class);
+        when(tmp.getNoteId()).thenReturn(7);
+        when(tmp.getUpdateDate()).thenReturn(new Date(1));
+        when(tmp.getNote()).thenReturn("draft text");
+        when(tmp.getProviderNo()).thenReturn("999998");
+        when(tmp.getDemographicNo()).thenReturn(42);
+        when(tmp.getProgramId()).thenReturn(0);
+        note.setUpdate_date(new Date(2));
+        when(notes.getTmpSave("999998", "42", "0")).thenReturn(tmp);
+        when(notes.getNote("7")).thenReturn(note);
+
+        assertThat(new RxWriteToEncounter2Action().execute()).isEqualTo("none");
+
+        assertThat(note.getNote()).isEqualTo("draft text\n" + prescriptionText);
+        verify(notes).saveNoteSimple(note);
+        verify(tmpDao).remove("999998", 42, 0);
+        assertThat(response.getHeader("X-Carlos-Encounter-Write")).isEqualTo("written");
+    }
+
+    @Test
     void shouldNeverClaimNoWrite_whenPostSaveCleanupFails() {
         CaseManagementTmpSave tmp = mock(CaseManagementTmpSave.class);
         when(tmp.getNoteId()).thenReturn(7);
