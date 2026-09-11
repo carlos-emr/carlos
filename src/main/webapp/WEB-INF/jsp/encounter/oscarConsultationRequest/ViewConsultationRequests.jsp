@@ -565,15 +565,16 @@
                                 if (bMultisites) {
                                     siteName = theRequests.siteName.get(i);
                                 }
-                                if (status.equals("1") && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
-                                    tickerList.add(demo);
-                                }
 
                                 //multisites. skip record if not belong to same site
                                 // (mgrSite is only populated under multisite; without it
                                 // this check would drop every row).
                                 if (bMultisites && restrictToSiteOrTeam) {
                                     if (!mgrSite.contains(siteName)) continue;
+                                }
+                                if (EctViewConsultationRequestsUtil.isTicklerDemographic(demo)
+                                        && "1".equals(status) && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
+                                    tickerList.add(demo);
                                 }
                                 overdue = false;
 

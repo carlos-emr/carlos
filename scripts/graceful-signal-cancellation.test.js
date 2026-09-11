@@ -12,7 +12,34 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const test = require('node:test');
-const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
+const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
+
+test('a rejected parallel branch waits for the submitted write before signal cleanup', async () => {
+  const signalProcess = new EventEmitter();
+  const cancellation = createGracefulSignalCancellation({ signalProcess });
+  const failure = new Error('navigation failed');
+  let finishWrite;
+  let cleaned = false;
+  const operation = cancellation.run(() => settleOperations([
+    Promise.reject(failure),
+    new Promise((resolve) => { finishWrite = resolve; }),
+  ])).finally(() => { cleaned = true; });
+  const rejected = assert.rejects(operation, (error) => error === failure);
+  try {
+    signalProcess.emit('SIGTERM');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(cleaned, false);
+    finishWrite();
+    await rejected;
+    assert.equal(cleaned, true);
+  } finally {
+    cancellation.dispose();
+  }
+});
+
+test('settled parallel operations retain their input order', async () => {
+  assert.deepEqual(await settleOperations([Promise.resolve('response'), Promise.resolve('click')]), ['response', 'click']);
+});
 
 for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
   test(`${signal} waits for a submitted write before cleanup and prevents the next write`, async () => {

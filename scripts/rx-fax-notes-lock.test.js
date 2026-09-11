@@ -11,7 +11,11 @@ const vm = require('node:vm');
 // implementation is needed to exercise the delayed-save/click/event ordering.
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp'), 'utf8');
 test('Print and Paste initially disables reprints and missing previews without fax JavaScript', () => {
-  const button = jsp.match(/<input type=button[\s\S]*?id="printPasteButton"[^>]*>/g)?.pop();
+  const marker = jsp.indexOf('id="printPasteButton"');
+  const start = jsp.lastIndexOf('<input ', marker);
+  const button = jsp.slice(start, jsp.indexOf('/>', marker) + 2);
+  assert.ok(marker > start && start >= 0);
+  assert.equal((button.match(/<input\b/g) || []).length, 1);
   assert.ok(button);
   assert.match(button, /reprint\.equals\("true"\) \|\| !previewAvailable \? "disabled='true'"/);
 });
