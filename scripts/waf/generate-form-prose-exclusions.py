@@ -50,6 +50,7 @@ How a form is resolved:
     found in the wrapper or in any page it includes.
 """
 import os
+import posixpath
 import re
 import sys
 from collections import OrderedDict, defaultdict
@@ -76,12 +77,13 @@ NOT_PROSE_INPUT_NAME = re.compile(
     r"dose|units?$|qty|quantity|score|total|count", re.IGNORECASE)
 
 # A tag's attribute list may embed a JSP scriptlet (<%= formClass %>) or an encoder tag
-# (<carlos:encode .../>, itself possibly wrapping a scriptlet), both of which contain '>'
-# — consume them whole so the tag does not end early. The alternatives are mutually
-# exclusive (a '<' is a scriptlet, an encoder tag, or a lone character, never two of
-# them), so the match runs in linear time. FormProseWafExclusionRegressionTest mirrors it.
-TAG_RE = re.compile(r"<(textarea|input|form)\b((?:<%(?:(?!%>).)*%>|<carlos:encode\b(?:<%(?:(?!%>).)*%>|[^<>])*/>|<(?!%|carlos:encode\b)|[^<>])*)>",
-                    re.IGNORECASE | re.DOTALL)
+# (<carlos:encode .../>, itself possibly wrapping a scriptlet), both of which contain '>',
+# so the '>' that ends the tag is the first one OUTSIDE them. find_tags() below walks the
+# text by hand instead of using one regex for the whole tag: the alternation such a regex
+# needs backtracks super-linearly (CodeQL and Sonar both flag it), and a scan is linear by
+# construction. FormProseWafExclusionRegressionTest mirrors it step for step.
+TAG_START_RE = re.compile(r"<(textarea|input|form)\b", re.IGNORECASE)
+ENCODE_TAG = "<carlos:encode"
 ATTR_RE = re.compile(r"""([a-zA-Z_:-]+)\s*=\s*("([^"]*)"|'([^']*)')""", re.DOTALL)
 DYNAMIC_RE = re.compile(r"<%|\$\{")
 # The only characters libmodsecurity accepts in a literal ctl target name.
@@ -111,12 +113,82 @@ def attrs(raw):
     return out
 
 
-def analyse(path):
+def skip_encoder_tag(text, start):
+    """Index just past the '/>' of the <carlos:encode .../> tag opening at start, or -1 when
+    the tag does not close that way: its body may hold a scriptlet, but no other '<' and no
+    '>' before the closing '/>'."""
+    j = start + len(ENCODE_TAG)
+    if j < len(text) and (text[j].isalnum() or text[j] == "_"):
+        return -1
+    n = len(text)
+    while j < n:
+        if text.startswith("<%", j):
+            k = text.find("%>", j + 2)
+            if k < 0:
+                return -1
+            j = k + 2
+        elif text[j] == ">":
+            return j + 1 if text[j - 1] == "/" else -1
+        elif text[j] == "<":
+            return -1
+        else:
+            j += 1
+    return -1
+
+
+def find_tags(text):
+    """(kind, attribute text) for every textarea/input/form start tag, in document order.
+
+    A scriptlet or an encoder tag inside the attribute list is stepped over whole; any
+    other '<' is an ordinary character. A tag with no closing '>' is skipped and the scan
+    resumes after its name, so tags inside it are still found."""
+    found = []
+    i = 0
+    n = len(text)
+    while True:
+        m = TAG_START_RE.search(text, i)
+        if not m:
+            return found
+        j = m.end()
+        end = -1
+        while j < n:
+            if text[j] == ">":
+                end = j
+                break
+            if text.startswith("<%", j):
+                k = text.find("%>", j + 2)
+                if k < 0:
+                    break
+                j = k + 2
+            elif text[j:j + len(ENCODE_TAG)].lower() == ENCODE_TAG and skip_encoder_tag(text, j) > 0:
+                j = skip_encoder_tag(text, j)
+            else:
+                j += 1
+        if end < 0:
+            i = m.end()
+            continue
+        found.append((m.group(1).lower(), text[m.end():end]))
+        i = end + 1
+
+
+def include_key(page_key, target):
+    """The key under which an included page is analysed: its path under the form directory,
+    resolved against the including page's own directory (an absolute /WEB-INF/jsp/form/...
+    target is taken from that root), so a nested page and its includer agree."""
+    prefix = "/WEB-INF/jsp/form/"
+    if target.startswith(prefix):
+        return posixpath.normpath(target[len(prefix):])
+    if target.startswith("/"):
+        return posixpath.basename(target)
+    return posixpath.normpath(posixpath.join(posixpath.dirname(page_key), target))
+
+
+def analyse(path, page_key):
     text = open(path, encoding="utf-8", errors="replace").read()
     info = {"route": None, "form_class": None, "names": [], "dynamic": [], "has_form": False,
-            "includes": [os.path.basename(m.group(1) or m.group(2)) for m in INCLUDE_RE.finditer(text)]}
-    for m in TAG_RE.finditer(text):
-        tag, a = m.group(1).lower(), attrs(m.group(2))
+            "includes": [include_key(page_key, m.group(1) or m.group(2)) for m in INCLUDE_RE.finditer(text)]}
+    for tag, raw in find_tags(text):
+        a = attrs(raw)
         if tag == "form":
             info["has_form"] = True
             action = a.get("action", "")
@@ -168,7 +240,7 @@ def collect():
     files = sorted(os.path.relpath(os.path.join(directory, name), FORM_DIR)
                    for directory, _, names in os.walk(FORM_DIR)
                    for name in names if name.endswith(".jsp"))
-    infos = {f: analyse(os.path.join(FORM_DIR, f)) for f in files}
+    infos = {f: analyse(os.path.join(FORM_DIR, f), f) for f in files}
     includers = {}
     for f in files:
         for page in infos[f]["includes"]:
@@ -203,6 +275,9 @@ def collect():
 
 def render(groups):
     out = []
+    # The generated file lives under debian/ and carries that tree's licence (debian/copyright:
+    # "Files: debian/*" is AGPL-3.0-only), which is why it differs from this script's own
+    # GPL-2.0-or-later header ("Files: *").
     out.append("# SPDX-License-Identifier: AGPL-3.0-only\n# Copyright (C) 2026 CARLOS Contributors\n#")
     out.append("# GENERATED FILE — do not edit by hand. Regenerate with\n"
                "#     python3 scripts/waf/generate-form-prose-exclusions.py\n"

@@ -72,10 +72,9 @@ class FormProseWafExclusionRegressionTest {
             "attack-sqli", "attack-rce", "attack-injection-php",
             "attack-protocol", "attack-lfi", "attack-rfi"};
 
-    // Mirrors of the generator's patterns. Keep them identical.
-    private static final Pattern TAG = Pattern.compile(
-            "<(textarea|input|form)\\b((?:<%(?:(?!%>).)*%>|<carlos:encode\\b(?:<%(?:(?!%>).)*%>|[^<>])*/>|<(?!%|carlos:encode\\b)|[^<>])*)>",
-            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    // Mirrors of the generator's patterns and its tag scanner. Keep them identical.
+    private static final Pattern TAG_START = Pattern.compile("<(textarea|input|form)\\b", Pattern.CASE_INSENSITIVE);
+    private static final String ENCODE_TAG = "<carlos:encode";
     private static final Pattern ATTR = Pattern.compile(
             "([a-zA-Z_:-]+)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
     private static final Pattern DYNAMIC = Pattern.compile("<%|\\$\\{");
@@ -169,24 +168,23 @@ class FormProseWafExclusionRegressionTest {
         // under the form directory, so a nested page cannot hide from the mirror.
         try (Stream<Path> files = Files.walk(FORM_DIR)) {
             for (Path file : files.filter(p -> p.getFileName().toString().endsWith(".jsp")).sorted().toList()) {
-                infos.put(FORM_DIR.relativize(file).toString().replace('\\', '/'), analyse(file));
+                String key = FORM_DIR.relativize(file).toString().replace('\\', '/');
+                infos.put(key, analyse(file, key));
             }
         }
         return infos;
     }
 
-    private static PageInfo analyse(Path file) throws IOException {
+    private static PageInfo analyse(Path file, String pageKey) throws IOException {
         String text = new String(Files.readAllBytes(file), StandardCharsets.UTF_8).replace("\r\n", "\n");
         PageInfo info = new PageInfo();
         Matcher inc = INCLUDE.matcher(text);
         while (inc.find()) {
-            String page = inc.group(inc.group(1) != null ? 1 : 2);
-            info.includes.add(Path.of(page).getFileName().toString());
+            info.includes.add(includeKey(pageKey, inc.group(inc.group(1) != null ? 1 : 2)));
         }
-        Matcher tag = TAG.matcher(text);
-        while (tag.find()) {
-            String kind = tag.group(1).toLowerCase();
-            Map<String, String> attrs = attrs(tag.group(2));
+        for (String[] tag : findTags(text)) {
+            String kind = tag[0];
+            Map<String, String> attrs = attrs(tag[1]);
             if (kind.equals("form")) {
                 info.hasForm = true;
                 Matcher route = ROUTE.matcher(attrs.getOrDefault("action", ""));
@@ -224,6 +222,96 @@ class FormProseWafExclusionRegressionTest {
             }
         }
         return info;
+    }
+
+    /**
+     * (kind, attribute text) of every textarea/input/form start tag, in document order. A
+     * scriptlet or an encoder tag inside the attribute list is stepped over whole, so the '>'
+     * that ends the tag is the first one outside them; any other '<' is an ordinary character.
+     * A tag with no closing '>' is skipped and the scan resumes after its name. A hand-written
+     * scan, like the generator's: the alternation a single regex needs backtracks super-linearly.
+     */
+    private static List<String[]> findTags(String text) {
+        List<String[]> found = new ArrayList<>();
+        int n = text.length();
+        int i = 0;
+        Matcher m = TAG_START.matcher(text);
+        while (m.find(i)) {
+            int j = m.end();
+            int end = -1;
+            while (j < n) {
+                char c = text.charAt(j);
+                if (c == '>') {
+                    end = j;
+                    break;
+                }
+                if (text.startsWith("<%", j)) {
+                    int k = text.indexOf("%>", j + 2);
+                    if (k < 0) {
+                        break;
+                    }
+                    j = k + 2;
+                } else if (text.regionMatches(true, j, ENCODE_TAG, 0, ENCODE_TAG.length())
+                        && skipEncoderTag(text, j) > 0) {
+                    j = skipEncoderTag(text, j);
+                } else {
+                    j++;
+                }
+            }
+            if (end < 0) {
+                i = m.end();
+                continue;
+            }
+            found.add(new String[] {m.group(1).toLowerCase(), text.substring(m.end(), end)});
+            i = end + 1;
+        }
+        return found;
+    }
+
+    /**
+     * Index just past the "/>" of the encoder tag opening at start, or -1 when the tag does not
+     * close that way: its body may hold a scriptlet, but no other '<' and no '>' before "/>".
+     */
+    private static int skipEncoderTag(String text, int start) {
+        int j = start + ENCODE_TAG.length();
+        int n = text.length();
+        if (j < n && (Character.isLetterOrDigit(text.charAt(j)) || text.charAt(j) == '_')) {
+            return -1;
+        }
+        while (j < n) {
+            if (text.startsWith("<%", j)) {
+                int k = text.indexOf("%>", j + 2);
+                if (k < 0) {
+                    return -1;
+                }
+                j = k + 2;
+            } else if (text.charAt(j) == '>') {
+                return text.charAt(j - 1) == '/' ? j + 1 : -1;
+            } else if (text.charAt(j) == '<') {
+                return -1;
+            } else {
+                j++;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The key an included page is analysed under: its path under the form directory, resolved
+     * against the including page's own directory (an absolute /WEB-INF/jsp/form/... target from
+     * that root), so a nested page and its includer agree.
+     */
+    private static String includeKey(String pageKey, String target) {
+        String prefix = "/WEB-INF/jsp/form/";
+        if (target.startsWith(prefix)) {
+            return Path.of(target.substring(prefix.length())).normalize().toString().replace('\\', '/');
+        }
+        if (target.startsWith("/")) {
+            return Path.of(target).getFileName().toString();
+        }
+        Path dir = Path.of(pageKey).getParent();
+        Path resolved = dir == null ? Path.of(target) : dir.resolve(target);
+        return resolved.normalize().toString().replace('\\', '/');
     }
 
     private static Map<String, String> attrs(String raw) {

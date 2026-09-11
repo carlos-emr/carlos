@@ -480,6 +480,9 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
                     .doesNotContain("name=\"note\"")
                     .doesNotContain("name=\"onListSince\"")
                     .doesNotContain("indexed=\"true\"")
+                    // setParameters() declared "wlcount" and assigned "wlCount", so the row index
+                    // was an implicit global; the guard is against that spelling coming back.
+                    .contains("var wlCount = 0;")
                     .doesNotContain("var wlcount = 0;");
             for (String field : new String[]{"demographicNo", "note", "onListSince"}) {
                 assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("waitingListBean[3]." + field, field))

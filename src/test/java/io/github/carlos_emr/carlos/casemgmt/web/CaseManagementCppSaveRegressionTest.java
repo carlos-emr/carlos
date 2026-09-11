@@ -252,6 +252,21 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
+    @DisplayName("the note escaper's behaviour should be pinned by the node test that runs it")
+    void shouldPinEscaperBehaviour_inNodeTest() throws IOException {
+        // The assertions here pin WHERE escapeNoteText() is called; what it does (the escape
+        // map, and that "</textarea>" cannot close the editor while the text still decodes
+        // back unchanged) is exercised by running the function itself under node, which a
+        // Java test cannot do. Keep the two in step: npm run test:scripts.
+        String nodeTest = read(Path.of("scripts", "note-text-escaping.test.js"));
+
+        assertThat(nodeTest)
+                .contains("function escapeNoteText(text)")
+                .contains("</textarea><img src=x onerror=alert(1)>")
+                .contains("decodeEntities(escapeNoteText(note))");
+    }
+
+    @Test
     @DisplayName("reopening a saved note for editing should HTML-escape the decoded text inside the textarea markup")
     void shouldEscapeDecodedNote_whenBuildingEditorMarkup() throws IOException {
         // renderedNoteText() hands back the raw note, and editNote() splices it into

@@ -30,11 +30,9 @@
 package io.github.carlos_emr.carlos.form.pageUtil;
 
 import java.io.IOException;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.prop.EctFormProp;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -99,20 +97,30 @@ public class FrmForm2Action extends ActionSupport {
     private String _dateFormat = "yyyy/MM/dd";
 
     /**
-     * Unmarshals {@code /form/<formName>.xml} the same way {@link FrmSetupForm2Action} does when it
-     * renders the form, so the save validates against the definitions of the form being saved.
+     * Unmarshals {@code /form/<formName>.xml}, the definition {@link FrmSetupForm2Action} rendered
+     * the form from, so the save validates against the rules of the form being saved. The file is
+     * read as a web resource rather than through {@code getRealPath}, which is null on a packaged
+     * deployment.
      *
      * @param trustedFormName a form name already passed through {@link #validateSetupFormName}
+     *                        (letters, digits and underscores only, so it cannot leave /form/)
+     * @throws IOException when the definition is missing or does not unmarshal; the save must not
+     *                     proceed against an empty rule set, which would validate nothing
      */
     private Vector<EctMeasurementTypesBean> loadMeasurementTypes(String trustedFormName) throws IOException {
-        String formDirPath = request.getSession().getServletContext().getRealPath("/form/");
-        if (formDirPath == null) {
-            throw new IOException("Cannot resolve form directory path — exploded WAR deployment required");
+        String resource = "/form/" + trustedFormName + ".xml";
+        InputStream is = request.getSession().getServletContext().getResourceAsStream(resource);
+        if (is == null) {
+            throw new IOException("Form definition " + resource + " is not deployed");
         }
-        File validatedForm = PathValidationUtils.validatePath(trustedFormName + ".xml", new File(formDirPath));
-        try (InputStream is = new FileInputStream(validatedForm)) {
-            return EctFindMeasurementTypeUtil.loadMeasurementTypes(is); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
+        EctFormProp formProp;
+        try (InputStream definition = is) {
+            formProp = EctFindMeasurementTypeUtil.getEctMeasurementsType(definition); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
         }
+        if (formProp == null || formProp.getMeasurements() == null) {
+            throw new IOException("Form definition " + resource + " could not be read");
+        }
+        return formProp.getMeasurements();
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
