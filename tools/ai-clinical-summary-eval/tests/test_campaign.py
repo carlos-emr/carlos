@@ -315,6 +315,107 @@ class CampaignTests(unittest.TestCase):
                     generated, case["bundle"]["sources"], case["expectations"])
                 self.assertTrue(result["metrics"]["hard_gate_pass"], result["findings"])
 
+    def test_normalized_delta_corrects_sections_and_groups_vitals(self):
+        path = BASE / "campaigns" / "optimize-normalized-delta-2b.json"
+        config = run_campaign.load_campaign(path)
+        case, candidate, _, _ = next(run_campaign.experiment_matrix(
+            config, path, {"holdout-observations-followup"}))
+        output = {"claims": [
+            {"text": "HR 74", "section_id": "clinical_overview",
+             "evidence": [{"source_id": "review-1", "quote": "HR 74"}]},
+            {"text": "BP 116/68", "section_id": "medications_allergies",
+             "evidence": [{"source_id": "review-1", "quote": "BP 116/68"}]},
+            {"text": "SpO2 98% on room air", "section_id": "clinical_overview",
+             "evidence": [{"source_id": "review-1", "quote": "SpO2 98% on room air"}]},
+            {"text": "Follow-up with the cardiology clinic is planned in four weeks.",
+             "section_id": "clinical_overview", "evidence": [{
+                 "source_id": "review-1",
+                 "quote": "Follow-up with the cardiology clinic is planned in four weeks."}]}
+        ]}
+        generated = run_campaign.materialize_candidate_output(output, case, candidate)
+        run_campaign.validate_candidate_output(generated, case, candidate)
+        result = run_campaign.evaluate(
+            generated, case["bundle"]["sources"], case["expectations"])
+        self.assertTrue(result["metrics"]["hard_gate_pass"], result["findings"])
+        additions = generated["claims"][1:]
+        self.assertEqual(2, len(additions))
+        self.assertIn("116/68", additions[0]["text"])
+        self.assertIn("98%", additions[0]["text"])
+
+    def test_normalized_delta_places_labs_medications_and_plans(self):
+        path = BASE / "campaigns" / "optimize-normalized-delta-2b.json"
+        config = run_campaign.load_campaign(path)
+        case, candidate, _, _ = next(run_campaign.experiment_matrix(
+            config, path, {"holdout-lab-medication"}))
+        rows = [
+            ("HbA1c is 48 mmol/mol, improved from 57 mmol/mol.",
+             "HbA1c is 48 mmol/mol, improved from 57 mmol/mol."),
+            ("Empagliflozin 10 mg daily was started today.",
+             "Empagliflozin 10 mg daily was started today."),
+            ("Repeat renal profile in two weeks.", "Repeat renal profile in two weeks.")]
+        output = {"claims": [
+            {"text": text, "section_id": "clinical_overview",
+             "evidence": [{"source_id": "clinic-1", "quote": quote}]}
+            for text, quote in rows]}
+        generated = run_campaign.materialize_candidate_output(output, case, candidate)
+        result = run_campaign.evaluate(
+            generated, case["bundle"]["sources"], case["expectations"])
+        self.assertTrue(result["metrics"]["hard_gate_pass"], result["findings"])
+        sections = {claim_id: section["id"] for section in generated["sections"]
+                    for claim_id in section["claim_ids"]}
+        additions = generated["claims"][2:]
+        self.assertEqual(["results_observations", "medications_allergies", "plan_follow_up"],
+                         [sections[claim["id"]] for claim in additions])
+
+    def test_normalized_delta_discards_ledger_duplicates_and_unclassified_text(self):
+        path = BASE / "campaigns" / "optimize-normalized-delta-2b.json"
+        config = run_campaign.load_campaign(path)
+        case, candidate, _, _ = next(run_campaign.experiment_matrix(
+            config, path, {"holdout-anticoagulation"}))
+        output = {"claims": [
+            {"text": "Warfarin was held after an INR of 4.8 on 8 September.",
+             "section_id": "results_observations", "evidence": [{
+                 "source_id": "anticoag-1",
+                 "quote": "INR was 4.8 on 8 September, so warfarin was held"}]},
+            {"text": "Some unrelated prose.", "section_id": "clinical_overview",
+             "evidence": [{"source_id": "anticoag-1", "quote": "INR is 2.6 today"}]}
+        ]}
+        generated = run_campaign.materialize_candidate_output(output, case, candidate)
+        self.assertEqual(1, len(generated["claims"]))
+
+    def test_scorer_accepts_us_orthopnea_spelling(self):
+        self.assertEqual("no orthopnoea", run_campaign.evaluate.__globals__["normalized"](
+            "No orthopnea"))
+
+    def test_normalized_delta_prioritizes_named_lab_over_change_verb(self):
+        self.assertEqual("results_observations",
+                         run_campaign.normalized_delta_section(
+                             "TSH is 9.2 mIU/L, increased from 5.1 mIU/L."))
+        self.assertEqual("medications_allergies",
+                         run_campaign.normalized_delta_section(
+                             "Levothyroxine was increased to 100 micrograms daily."))
+
+    def test_thyroid_validation_materializes_complete_grounded_delta(self):
+        path = BASE / "campaigns" / "validation-normalized-27b.json"
+        config = run_campaign.load_campaign(path)
+        case, candidate, _, _ = next(run_campaign.experiment_matrix(
+            config, path, {"validation-thyroid-adjustment"}))
+        texts = [
+            "TSH is 9.2 mIU/L, increased from 5.1 mIU/L.",
+            "Levothyroxine was increased from 75 micrograms to 100 micrograms daily today.",
+            "Repeat thyroid function tests in six weeks.",
+            "Follow-up with the endocrinology clinic is planned in eight weeks.",
+        ]
+        output = {"claims": [
+            {"text": text, "section_id": "clinical_overview",
+             "evidence": [{"source_id": "thyroid-1", "quote": text}]}
+            for text in texts]}
+        generated = run_campaign.materialize_candidate_output(output, case, candidate)
+        run_campaign.validate_candidate_output(generated, case, candidate)
+        result = run_campaign.evaluate(
+            generated, case["bundle"]["sources"], case["expectations"])
+        self.assertTrue(result["metrics"]["hard_gate_pass"], result["findings"])
+
     def test_guided_delta_aggregates_observations_and_discards_imaging(self):
         path = BASE / "campaigns" / "optimize-delta-2b-final.json"
         config = run_campaign.load_campaign(path)
@@ -402,9 +503,11 @@ class CampaignTests(unittest.TestCase):
                 repetition, (draft / "prompt.txt").read_text(),
                 json.loads((draft / "output-schema.json").read_text()))
             evaluation = json.loads(next(Path(directory).glob("**/evaluation.json")).read_text())
+            request = json.loads(next(Path(directory).glob("**/request.json")).read_text())
         self.assertFalse(metadata["metrics"]["hard_gate_pass"])
         self.assertEqual("transport_error", metadata["done_reason"])
         self.assertEqual("GENERATION_ERROR", evaluation["findings"][0]["code"])
+        self.assertEqual(0, request["keep_alive"])
 
     def test_campaign_stops_after_transport_error_to_protect_later_timings(self):
         failed = {

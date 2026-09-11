@@ -64,6 +64,16 @@ control with the broader host-ledger/evidence-delta contract over three holdout
 cases that were not used during 2B tuning. Both candidates use the same 8,192
 context and 1,024 output-token budgets.
 
+`optimize-normalized-delta-2b.json` and `checkpoint-normalized-27b.json` retain
+the filtered-source, exact-quotation delta contract but move final section
+placement and same-source physiological-observation grouping to deterministic
+host code. The host accepts only recognizable results, medication actions, and
+plans, rejects quotation/class mismatches, and suppresses near-duplicate ledger
+facts. `validation-normalized-27b.json` exercises the same frozen candidate on
+separate renal-monitoring and thyroid-adjustment cases.
+`stability-normalized-27b.json` adds two further seeds over the three regression
+cases after the single-seed checkpoint succeeds.
+
 ## Campaign tiers
 
 Qwen 2B is an iteration proxy. Qwen 27B remains the authority for promotion:
@@ -108,6 +118,18 @@ python3 tools/ai-clinical-summary-eval/run_campaign.py \
 python3 tools/ai-clinical-summary-eval/run_campaign.py \
   --config tools/ai-clinical-summary-eval/campaigns/checkpoint-27b.json
 
+# Check the host-normalized delta on the 27B regression cases.
+python3 tools/ai-clinical-summary-eval/run_campaign.py \
+  --config tools/ai-clinical-summary-eval/campaigns/checkpoint-normalized-27b.json
+
+# Run the two additional generalization cases.
+python3 tools/ai-clinical-summary-eval/run_campaign.py \
+  --config tools/ai-clinical-summary-eval/campaigns/validation-normalized-27b.json
+
+# Confirm the normalized candidate over two additional 27B seeds.
+python3 tools/ai-clinical-summary-eval/run_campaign.py \
+  --config tools/ai-clinical-summary-eval/campaigns/stability-normalized-27b.json
+
 # Run only surviving candidates on the 27B smoke cases.
 python3 tools/ai-clinical-summary-eval/run_campaign.py \
   --config tools/ai-clinical-summary-eval/campaigns/smoke-27b.json \
@@ -140,6 +162,11 @@ failed rows without aborting the remaining matrix. After a transport error or
 timeout, it writes a partial report and stops: Ollama can continue a request after
 the client disconnects, so restart Ollama and begin a new campaign before
 collecting more latency data. The runner never pulls or starts a model.
+Each generation request uses `keep_alive: 0`, forcing Ollama to unload the model
+after the response. This deliberately trades repeated load time for bounded
+memory and independent timings on machines that cannot safely retain Qwen 27B
+plus its prompt cache. Candidate ranking excludes model-load time while retaining
+wall time in the report.
 Only invented records belong in case files or run artifacts.
 The 2B smoke profile records any row exceeding ten minutes as a failed candidate
 and continues with the remaining matrix. It uses the medication-conflict and
