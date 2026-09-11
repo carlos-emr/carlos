@@ -145,6 +145,32 @@ class PatientPortalAccountAndSecretCallsUnitTest {
         }
 
         @Test
+        @DisplayName("should reject an unsafe account disable reason from the portal")
+        void shouldRejectAccountStatus_whenDisableReasonContainsFormattingControl() {
+            ScriptedExchange exchange =
+                    new ScriptedExchange()
+                            .reply(
+                                    200,
+                                    "{\"id\":5,\"clinic_id\":\"maplecreek\","
+                                            + "\"demographic_no\":123,\"status\":\"disabled\","
+                                            + "\"locked\":false,\"force_password_reset\":false,"
+                                            + "\"disabled_at\":\"2026-08-19T12:00:00Z\","
+                                            + "\"disabled_reason\":\"patient request\\u202Eapproved\"}");
+
+            assertThatThrownBy(
+                            () ->
+                                    service(exchange)
+                                            .findAccount(
+                                                    123,
+                                                    staff(
+                                                            PatientPortalStaffContext
+                                                                    .PERMISSION_ACCOUNT_MANAGE)))
+                    .isInstanceOf(PatientPortalException.class)
+                    .extracting(exception -> ((PatientPortalException) exception).kind())
+                    .isEqualTo(Kind.MALFORMED_RESPONSE);
+        }
+
+        @Test
         @DisplayName("should send the enabled flag and reason when access changes")
         void shouldSendEnabledAndReason_whenAccessIsChanged() throws Exception {
             ScriptedExchange exchange =

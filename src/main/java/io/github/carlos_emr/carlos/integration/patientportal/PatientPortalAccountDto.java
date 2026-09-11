@@ -53,6 +53,12 @@ public record PatientPortalAccountDto(
         Instant disabledAt,
         String disabledReason) {
 
+    /** Maximum length accepted by the portal for an account-access audit reason. */
+    public static final int MAX_DISABLED_REASON_LENGTH = 64;
+
+    private static final String INVALID_DISABLED_REASON =
+            "portal returned an invalid account disable reason";
+
     static PatientPortalAccountDto fromJson(JsonNode node) {
         return new PatientPortalAccountDto(
                 PortalJson.positiveLong(node, "id"),
@@ -62,7 +68,38 @@ public record PatientPortalAccountDto(
                 PortalJson.requiredBool(node, "locked"),
                 PortalJson.requiredBool(node, "force_password_reset"),
                 PortalJson.nullableTimestamp(node, "disabled_at"),
-                PortalJson.nullableText(node, "disabled_reason"));
+                validatedDisabledReason(PortalJson.nullableText(node, "disabled_reason")));
+    }
+
+    private static String validatedDisabledReason(String reason) {
+        if (reason != null
+                && (reason.length() > MAX_DISABLED_REASON_LENGTH
+                        || !hasSafeDisabledReasonCharacters(reason))) {
+            throw new PortalContractException(INVALID_DISABLED_REASON);
+        }
+        return reason;
+    }
+
+    /**
+     * Reports whether text is safe to preserve verbatim in the portal account audit trail.
+     *
+     * <p>Controls, line separators, and Unicode formatting characters can forge line-oriented
+     * audit output or make stored text appear to say something different when rendered.
+     *
+     * @param reason non-null audit reason
+     * @return {@code true} when the text contains none of those characters
+     */
+    public static boolean hasSafeDisabledReasonCharacters(String reason) {
+        return reason.codePoints()
+                .noneMatch(PatientPortalAccountDto::isUnsafeDisabledReasonCharacter);
+    }
+
+    private static boolean isUnsafeDisabledReasonCharacter(int codePoint) {
+        int type = Character.getType(codePoint);
+        return Character.isISOControl(codePoint)
+                || type == Character.FORMAT
+                || type == Character.LINE_SEPARATOR
+                || type == Character.PARAGRAPH_SEPARATOR;
     }
 
     private static final String DESCRIPTION =
