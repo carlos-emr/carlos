@@ -309,5 +309,67 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(400);
             waitingListUtilMock.verifyNoInteractions();
         }
+
+        @Test
+        @DisplayName("should update the record with the selector-named values when the selectors share one row")
+        void shouldUpdateRecord_whenSelectorsShareOneRow() throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            mockRequest.setParameter("demographicNumSelected", "waitingListBean[0].demographicNo");
+            mockRequest.setParameter("wlNoteSelected", "waitingListBean[0].note");
+            mockRequest.setParameter("onListSinceSelected", "waitingListBean[0].onListSince");
+            mockRequest.setParameter("waitingListBean[0].demographicNo", "42");
+            mockRequest.setParameter("waitingListBean[0].note", "reviewed & ready");
+            mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
+
+            // The mutation runs first; the page render that follows needs a full session and DB
+            // that a unit test does not provide, so it is allowed to throw after the update under
+            // test. This is also the path the page's own indexed field names take, so it is the
+            // regression guard that a normal waiting-list save is NOT rejected by the selector check.
+            try {
+                new WLSetupDisplayWaitingList2Action().execute();
+            } catch (Exception pageRenderNeedsSession) {
+                // intentional: only the mutation is under test here
+            }
+
+            waitingListUtilMock.verify(() ->
+                WLWaitingListUtil.updateWaitingListRecord("7", "reviewed & ready", "42", "2026-06-01"));
+            assertThat(mockResponse.getStatus()).isNotEqualTo(400);
+        }
+
+        @Test
+        @DisplayName("should answer 400 and persist nothing when the selectors span more than one row")
+        void shouldReject400_whenSelectorsSpanMultipleRows() throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            // Each selector is well-formed, but demographicNo names row 0 while note names row 1.
+            mockRequest.setParameter("demographicNumSelected", "waitingListBean[0].demographicNo");
+            mockRequest.setParameter("wlNoteSelected", "waitingListBean[1].note");
+            mockRequest.setParameter("onListSinceSelected", "waitingListBean[0].onListSince");
+            mockRequest.setParameter("waitingListBean[0].demographicNo", "42");
+            mockRequest.setParameter("waitingListBean[1].note", "smuggled from another row");
+            mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
+
+            String result = new WLSetupDisplayWaitingList2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            waitingListUtilMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should read the row index only from a well-formed selector")
+        void shouldReadRowIndex_onlyFromWellFormedSelector() {
+            assertThat(WLSetupDisplayWaitingList2Action.rowIndexOf("waitingListBean[0].note")).isEqualTo("0");
+            assertThat(WLSetupDisplayWaitingList2Action.rowIndexOf("waitingListBean[12].demographicNo")).isEqualTo("12");
+            assertThat(WLSetupDisplayWaitingList2Action.rowIndexOf("comments-1")).isNull();
+            assertThat(WLSetupDisplayWaitingList2Action.rowIndexOf(null)).isNull();
+        }
     }
 }

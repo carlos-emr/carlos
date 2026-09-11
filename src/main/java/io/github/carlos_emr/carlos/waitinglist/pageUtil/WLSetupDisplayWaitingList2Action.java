@@ -55,6 +55,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
@@ -67,11 +68,27 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
      * by pattern for other pages (comments-&lt;n&gt;, test_&lt;n&gt;.labnotes), and have that
      * value persisted as a waiting-list note.
      */
-    static final Pattern ROW_SELECTOR =
-            Pattern.compile("^waitingListBean\\[[0-9]+\\]\\.(demographicNo|note|onListSince)$");
+    private static final Pattern ROW_SELECTOR =
+            Pattern.compile("^waitingListBean\\[([0-9]+)\\]\\.(demographicNo|note|onListSince)$");
 
     static boolean isRowSelector(String selector) {
         return selector != null && ROW_SELECTOR.matcher(selector).matches();
+    }
+
+    /**
+     * The bracketed row index inside a valid selector name, or null when it is not one.
+     * The three selectors a single update submits must all carry the SAME index: the shape
+     * check alone would accept {@code waitingListBean[0].demographicNo} paired with
+     * {@code waitingListBean[1].note}, and {@link #execute()} would then look up row 0's
+     * patient while persisting row 1's note onto it. Callers compare this across the three
+     * selectors and reject a mismatch before reading any value.
+     */
+    static String rowIndexOf(String selector) {
+        if (selector == null) {
+            return null;
+        }
+        Matcher matcher = ROW_SELECTOR.matcher(selector);
+        return matcher.matches() ? matcher.group(1) : null;
     }
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -147,6 +164,16 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             if (!isRowSelector(demographicNumSelected) || !isRowSelector(wlNoteSelected)
                     || !isRowSelector(onListSinceSelected)) {
                 log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row selector outside waitingListBean[n]"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            // All three selectors must name the SAME row. Otherwise a crafted POST could pair
+            // one row's demographicNo with another row's note, and updateWaitingListRecord would
+            // persist the second row's note against the first row's patient.
+            String selectorRow = rowIndexOf(demographicNumSelected);
+            if (!selectorRow.equals(rowIndexOf(wlNoteSelected))
+                    || !selectorRow.equals(rowIndexOf(onListSinceSelected))) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected selectors spanning more than one waiting-list row"); // NOSONAR javasecurity:S5145 — fixed text, no request data
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
