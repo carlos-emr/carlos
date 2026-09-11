@@ -358,14 +358,14 @@
                                         <p>${emailComposeNoValidEmail}
                                             ${emailComposeUpdateDemographic} (<a href="#"
                                                                                 onclick="openDemographicPage(event)"
-                                                                                class="alert-link">${ receiverName }</a>)
+                                                                                class="alert-link">${carlos:forHtml(receiverName)}</a>)
                                             ${emailComposeAndTryAgain}</p>
                                     </c:when>
                                     <c:when test="${empty receiverEmailList && not empty invalidReceiverEmailList}">
                                         <p>${emailComposeNoValidEmail}
                                             ${emailComposeAdditionalSnippets} <a
                                                     href="#" onclick="openDemographicPage(event)"
-                                                    class="alert-link">${ receiverName }</a></p>
+                                                    class="alert-link">${carlos:forHtml(receiverName)}</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
                                                 <li>${carlos:forHtml(invalidEmail)}</li>
@@ -375,7 +375,7 @@
                                     <c:when test="${not empty invalidReceiverEmailList}">
                                         <p><strong>${emailComposeWarning}:</strong> ${emailComposeWarningAdditionalSnippets}
                                             <a href="#" onclick="openDemographicPage(event)"
-                                                                class="alert-link">${ receiverName }</a></p>
+                                                                class="alert-link">${carlos:forHtml(receiverName)}</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
                                                 <li>${carlos:forHtml(invalidEmail)}</li>
@@ -424,9 +424,9 @@
                      EmailSend2Action maps it to encryptedMessage) and the visible email body is a fixed,
                      PHI-free notice; when OFF it is sent as the cleartext MIME body. The initial value is
                      seeded server-side into the "message" request attribute (from bodyEmail/encryptedMessage
-                     on compose and resend) so the client can never populate both channels. All element ids
-                     are unchanged, so showEncryptionOptions() keeps swapping the options and footer
-                     notice/warning on toggle to keep the protection unambiguous. --%>
+                     on compose and resend) so the client can never populate both channels. The encryption
+                     control ids are unchanged, so showEncryptionOptions() keeps swapping the options and
+                     footer notice/warning on toggle to keep the protection unambiguous. --%>
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">${emailComposeMessageLabel}</h5>
@@ -643,7 +643,7 @@
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 ${emailComposeSend}
                             </button>
-                            <button formnovalidate="formnovalidate" id="btnCancel"
+                            <button type="button" id="btnCancel"
                                     class="btn btn-danger btn-md float-end" value="${emailComposeCancel}" name="close"
                                     onclick="cancelEmail()">
                                 <span class="btn-label"><i class="fa-solid fa-xmark"></i></span>
@@ -816,7 +816,7 @@
     function displayError(errorElementId, errorMessage) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = errorMessage;
-        errorElement.parentNode.firstElementChild.classList.add("is-invalid");
+        errorElement.previousElementSibling.classList.add("is-invalid");
         setTimeout(function () {
             errorElement.scrollIntoView({block: 'center'});
         }, 100);
@@ -825,7 +825,7 @@
     function clearError(errorElementId) {
         const errorElement = document.getElementById(errorElementId);
         errorElement.innerHTML = '';
-        errorElement.parentNode.firstElementChild.classList.remove("is-invalid");
+        errorElement.previousElementSibling.classList.remove("is-invalid");
     }
 
     let disableEncryptionConfirmed = false;
@@ -890,7 +890,7 @@
     // Auto-send email
     function autoSendEmail() {
         const emailComposeForm = document.getElementById('emailComposeForm');
-        const isAutoSend = "${isEmailAutoSend}" === "true";
+        const isAutoSend = "${carlos:forJavaScript(isEmailAutoSend)}" === "true";
         if (isAutoSend && validateForm()) {
             ShowSpin(true);
             emailComposeForm.submit();

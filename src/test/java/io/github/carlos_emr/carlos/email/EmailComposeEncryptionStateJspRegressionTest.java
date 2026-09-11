@@ -65,14 +65,29 @@ class EmailComposeEncryptionStateJspRegressionTest {
                 .contains("value=\"${carlos:forHtmlAttribute(openEFormAfterEmail)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(deleteEFormAfterEmail)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(transactionType)}\"")
+                .contains("class=\"alert-link\">${carlos:forHtml(receiverName)}</a>")
                 .contains("fdid=${carlos:forJavaScript(carlos:forUriComponent(fdid))}")
                 .contains("demographic_no=${carlos:forJavaScript(carlos:forUriComponent(demographicId))}")
+                .contains("\"${carlos:forJavaScript(isEmailAutoSend)}\" === \"true\"")
                 .doesNotContain("value=\"${demographicId}\"")
                 .doesNotContain("value=\"${fdid}\"")
                 .doesNotContain("value=\"${openEFormAfterEmail}\"")
                 .doesNotContain("value=\"${deleteEFormAfterEmail}\"")
                 .doesNotContain("value=\"${transactionType}\"")
+                .doesNotContain("class=\"alert-link\">${ receiverName }</a>")
+                .doesNotContain(">${receiverName}</a>")
                 .doesNotContain("fdid=${fdid}")
                 .doesNotContain("demographic_no=${demographicId}");
+    }
+
+    @Test
+    @DisplayName("should apply validation styling to the form control before each error element")
+    void shouldApplyValidationStylingToFormControl_whenFieldIsInvalid() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("errorElement.previousElementSibling.classList.add(\"is-invalid\")")
+                .contains("errorElement.previousElementSibling.classList.remove(\"is-invalid\")")
+                .doesNotContain("errorElement.parentNode.firstElementChild.classList");
     }
 }
