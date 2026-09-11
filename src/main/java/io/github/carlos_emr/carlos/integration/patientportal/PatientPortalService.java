@@ -89,11 +89,18 @@ public class PatientPortalService implements Closeable {
             "source reference was revoked", "source reference belongs to another patient",
             "unlock secret cannot be published", "contact review not found",
             "contact review revision conflict", "invalid account access request",
-            "unlock secret is temporarily unavailable");
+            "unlock secret is temporarily unavailable", "invite preparation conflicts",
+            "invite preparation unavailable", "invite delivery conflicts");
     private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
 
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
+    private static final String INVITE_PREPARE_PATH =
+            "/internal/carlos/patients/%d/invites/prepare";
     private static final String INVITE_RESEND_PATH = "/internal/carlos/invites/%d/resend";
+    private static final String INVITE_RESEND_PREPARE_PATH =
+            "/internal/carlos/invites/%d/resend/prepare";
+    private static final String INVITE_DELIVERY_COMMIT_PATH =
+            "/internal/carlos/invites/%d/commit-delivery";
     private static final String INVITE_REVOKE_PATH = "/internal/carlos/invites/%d/revoke";
     private static final String UNLOCK_PATH = "/internal/carlos/patients/%d/unlock";
     private static final String ACCOUNT_PATH = "/internal/carlos/patients/%d/portal-account";
@@ -109,6 +116,8 @@ public class PatientPortalService implements Closeable {
     private static final String POST = "POST";
     private static final int OK = 200;
     private static final int CREATED = 201;
+    private static final int MAX_DELIVERY_OPERATION_ID_LENGTH = 64;
+    private static final int MAX_DELIVERY_REFERENCE_LENGTH = 128;
 
     /** The portal caps a contact-review page at 100 records per request. */
     public static final int MAX_REVIEW_PAGE_SIZE = 100;
@@ -213,6 +222,92 @@ public class PatientPortalService implements Closeable {
                 staff,
                 node -> confirmedCreatedInvite(PatientPortalIssuedInviteDto.fromJson(node)),
                 demographicNo);
+    }
+
+    /**
+     * Prepares an inactive first invite for a durable email transaction.
+     *
+     * <p>The operation id is idempotent: retrying it before commit returns the same token. The
+     * token cannot activate an account until {@link #commitInviteDelivery(long, String, String,
+     * PatientPortalStaffContext)} confirms that CARLOS has durably recorded the outbound message.
+     */
+    public PatientPortalPreparedInviteDto prepareInvite(
+            int demographicNo,
+            String email,
+            LocalDate dateOfBirth,
+            String healthCardNumber,
+            String deliveryOperationId,
+            PatientPortalStaffContext staff) {
+        String operationId = deliveryIdentifier(
+                deliveryOperationId,
+                MAX_DELIVERY_OPERATION_ID_LENGTH,
+                "delivery operation id",
+                false);
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("demographic_no", demographicNo);
+        body.put("email", email);
+        body.put("date_of_birth", dateOfBirth == null ? null : dateOfBirth.toString());
+        body.put("health_card_number", healthCardNumber);
+        body.put("delivery_operation_id", operationId);
+        return fetch(
+                POST,
+                INVITE_PREPARE_PATH,
+                body.toString(),
+                CREATED,
+                staff,
+                node -> PatientPortalPreparedInviteDto.fromJson(node, operationId, null),
+                demographicNo);
+    }
+
+    /** Prepares a replacement without invalidating the invite the patient already has. */
+    public PatientPortalPreparedInviteDto prepareInviteResend(
+            long inviteId, String deliveryOperationId, PatientPortalStaffContext staff) {
+        String operationId = deliveryIdentifier(
+                deliveryOperationId,
+                MAX_DELIVERY_OPERATION_ID_LENGTH,
+                "delivery operation id",
+                false);
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("delivery_operation_id", operationId);
+        return fetch(
+                POST,
+                INVITE_RESEND_PREPARE_PATH,
+                body.toString(),
+                CREATED,
+                staff,
+                node -> PatientPortalPreparedInviteDto.fromJson(node, operationId, inviteId),
+                inviteId);
+    }
+
+    /**
+     * Activates a prepared invite after the referenced email job has committed durably.
+     *
+     * <p>The portal atomically changes the prepared invite to pending and supersedes its old invite.
+     * Repeating the exact operation and delivery reference is safe; changing either is rejected.
+     */
+    public PatientPortalInviteDto commitInviteDelivery(
+            long inviteId,
+            String deliveryOperationId,
+            String deliveryReference,
+            PatientPortalStaffContext staff) {
+        String operationId = deliveryIdentifier(
+                deliveryOperationId,
+                MAX_DELIVERY_OPERATION_ID_LENGTH,
+                "delivery operation id",
+                false);
+        String reference = deliveryIdentifier(
+                deliveryReference, MAX_DELIVERY_REFERENCE_LENGTH, "delivery reference", true);
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("delivery_operation_id", operationId);
+        body.put("delivery_reference", reference);
+        return fetch(
+                POST,
+                INVITE_DELIVERY_COMMIT_PATH,
+                body.toString(),
+                OK,
+                staff,
+                node -> confirmedCommittedInvite(node, inviteId, operationId, reference),
+                inviteId);
     }
 
     /** Lists the patient's latest 100 invites, newest first as the portal orders them. */
@@ -543,6 +638,45 @@ public class PatientPortalService implements Closeable {
                     "portal did not confirm the new invitation is pending");
         }
         return issued;
+    }
+
+    private static PatientPortalInviteDto confirmedCommittedInvite(
+            JsonNode payload, long inviteId, String operationId, String deliveryReference) {
+        PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(payload);
+        if (invite.id() != inviteId
+                || !"pending".equals(invite.status())
+                || !operationId.equals(PortalJson.requiredText(payload, "delivery_operation_id"))
+                || !deliveryReference.equals(
+                        PortalJson.requiredText(payload, "delivery_reference"))) {
+            throw new PortalContractException(
+                    "portal did not confirm the invite delivery commit");
+        }
+        return invite;
+    }
+
+    private static String deliveryIdentifier(
+            String value, int maximumLength, String label, boolean allowSlash) {
+        if (value == null
+                || value.isBlank()
+                || value.length() > maximumLength
+                || value.chars()
+                        .anyMatch(
+                                character ->
+                                        !isDeliveryIdentifierCharacter(character, allowSlash))) {
+            throw new IllegalArgumentException(label + " is invalid");
+        }
+        return value;
+    }
+
+    private static boolean isDeliveryIdentifierCharacter(int character, boolean allowSlash) {
+        return character >= 'A' && character <= 'Z'
+                || character >= 'a' && character <= 'z'
+                || character >= '0' && character <= '9'
+                || character == '.'
+                || character == '_'
+                || character == ':'
+                || character == '-'
+                || allowSlash && character == '/';
     }
 
     private static PatientPortalIssuedInviteDto confirmedResentInvite(
