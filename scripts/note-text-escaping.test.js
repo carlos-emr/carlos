@@ -38,11 +38,21 @@ const SOURCE = fs.readFileSync(
 function loadEscapeNoteText() {
   const start = SOURCE.indexOf('function escapeNoteText(text)');
   assert.ok(start >= 0, 'escapeNoteText() is defined in newCaseManagementView.js.jsp');
-  const end = SOURCE.indexOf('\n    }\n', start);
-  assert.ok(end > start, 'escapeNoteText() ends with the file\'s four-space-indented closing brace');
+  // Slice the function by balancing braces from its opening '{', so a reindent or a nested
+  // block cannot truncate it the way matching a fixed-indent '}' would.
+  const open = SOURCE.indexOf('{', start);
+  assert.ok(open > start, 'escapeNoteText() has an opening brace');
+  let depth = 0;
+  let end = -1;
+  for (let i = open; i < SOURCE.length; i++) {
+    const ch = SOURCE[i];
+    if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) { end = i + 1; break; }
+  }
+  assert.ok(end > open, 'escapeNoteText() has a balanced closing brace');
   const context = {};
   vm.createContext(context);
-  vm.runInContext(SOURCE.slice(start, end + '\n    }\n'.length), context);
+  vm.runInContext(SOURCE.slice(start, end), context);
   assert.equal(typeof context.escapeNoteText, 'function');
   return context.escapeNoteText;
 }

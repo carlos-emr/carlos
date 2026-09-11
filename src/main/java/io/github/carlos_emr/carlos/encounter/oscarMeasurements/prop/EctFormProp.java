@@ -78,7 +78,10 @@ public class EctFormProp {
      * concurrent unmarshal in the same JVM.
      */
     public Vector<EctMeasurementTypesBean> getMeasurements() {
-        return measurements;
+        // A copy, not the bound field: callers (the form save and the setup check) iterate it,
+        // and a caller that cleared it would corrupt this instance's JAXB state — afterUnmarshal
+        // still reads the field to fill the static accumulator.
+        return measurements == null ? null : new Vector<>(measurements);
     }
 
     /**

@@ -103,10 +103,11 @@ public class FrmForm2Action extends ActionSupport {
      *
      * @param trustedFormName a form name already passed through {@link #validateSetupFormName}
      *                        (letters, digits and underscores only, so it cannot leave /form/)
-     * @throws IOException           when the definition is not deployed
-     * @throws IllegalStateException when it does not unmarshal (from the utility); either way the
-     *                               save must not proceed against an empty rule set, which would
-     *                               validate nothing
+     * @throws IOException           when the definition is not deployed, or parses with no
+     *                               measurements (a measurement form must declare some)
+     * @throws IllegalStateException when it does not unmarshal (from the utility); in every case
+     *                               the save must not proceed against an empty rule set, which
+     *                               would validate nothing
      */
     private Vector<EctMeasurementTypesBean> loadMeasurementTypes(String trustedFormName) throws IOException {
         String resource = "/form/" + trustedFormName + ".xml";
@@ -114,9 +115,17 @@ public class FrmForm2Action extends ActionSupport {
         if (is == null) {
             throw new IOException("Form definition " + resource + " is not deployed");
         }
+        Vector<EctMeasurementTypesBean> measurementTypes;
         try (InputStream definition = is) {
-            return EctFindMeasurementTypeUtil.loadMeasurementTypes(definition); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
+            measurementTypes = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
         }
+        if (measurementTypes.isEmpty()) {
+            // A measurement form declares measurements; an empty list means a corrupt or wrong
+            // definition, and the save's per-measurement validation would run zero times. Fail
+            // closed rather than persist an unvalidated record.
+            throw new IOException("Form definition " + resource + " declares no measurements");
+        }
+        return measurementTypes;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
