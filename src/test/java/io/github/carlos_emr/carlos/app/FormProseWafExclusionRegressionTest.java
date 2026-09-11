@@ -52,6 +52,8 @@ import org.junit.jupiter.api.Test;
  * <p>The derivation is deliberately duplicated here rather than executed: the build must not
  * depend on a Python interpreter, and a second implementation of the same simple rules is what
  * catches a generator change that quietly widens the exemption.
+ *
+ * @since 2026-09-11
  */
 @Tag("unit")
 @Tag("security")

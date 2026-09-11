@@ -55,8 +55,24 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
+import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
+
+    /**
+     * The only shape the page's own JavaScript writes into the three selector parameters:
+     * the indexed field names of one waiting-list row. The selectors are request-controlled
+     * and are used as parameter NAMES for the lookup that follows, so without this check a
+     * caller could point one at any other parameter, including names the packaged WAF exempts
+     * by pattern for other pages (comments-&lt;n&gt;, test_&lt;n&gt;.labnotes), and have that
+     * value persisted as a waiting-list note.
+     */
+    static final Pattern ROW_SELECTOR =
+            Pattern.compile("^waitingListBean\\[[0-9]+\\]\\.(demographicNo|note|onListSince)$");
+
+    static boolean isRowSelector(String selector) {
+        return selector != null && ROW_SELECTOR.matcher(selector).matches();
+    }
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -128,6 +144,12 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSafe.sanitize(waitingListId));
         if (update != null && update.equalsIgnoreCase("Y")) {
+            if (!isRowSelector(demographicNumSelected) || !isRowSelector(wlNoteSelected)
+                    || !isRowSelector(onListSinceSelected)) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row selector outside waitingListBean[n]"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
 
             demographicNo = request.getParameter(demographicNumSelected);
             waitingListNote = request.getParameter(wlNoteSelected);

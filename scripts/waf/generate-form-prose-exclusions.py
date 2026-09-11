@@ -150,14 +150,16 @@ def collect():
     report = []
     for f in files:
         info = infos[f]
+        # Report first: a form whose prose cells are ALL dynamic has no names to group and
+        # would otherwise vanish from the report while staying blocked by the WAF.
+        for d in info["dynamic"]:
+            report.append(f"SKIPPED {f}: name {d!r} cannot be a literal ctl target")
         if not info["names"]:
             continue
         route, form_class = resolve(f, infos, includers)
         if route is None:
             report.append(f"SKIPPED {f}: prose cells but no /form/ save route ({len(info['names'])} names)")
             continue
-        for d in info["dynamic"]:
-            report.append(f"SKIPPED {f}: name {d!r} cannot be a literal ctl target")
         groups.setdefault((route, form_class), [])
         for n in info["names"]:
             if n not in groups[(route, form_class)]:

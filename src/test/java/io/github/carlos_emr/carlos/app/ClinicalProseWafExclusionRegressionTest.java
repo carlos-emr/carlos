@@ -53,6 +53,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * everyday clinical wording, 931100 on a value beginning with an internal IP link). The table
  * here is the policy contract: a route or argument that leaves the exclusion file without
  * leaving this table fails the build, and vice versa.</p>
+ *
+ * @since 2026-09-11
  */
 @Tag("unit")
 @Tag("security")
@@ -175,18 +177,27 @@ class ClinicalProseWafExclusionRegressionTest {
             }
         }
 
-        // No argument beyond the table: every ctl target in the rule must be one of the listed
-        // names, so a name slipped in without a row here fails.
+        // No argument beyond the table and no tag beyond the six: every ctl target in the
+        // rule must be one of the listed names, and each listed name must carry exactly the
+        // content-attack set — an extra family (attack-xss, say) on a listed argument fails
+        // just as a name slipped in without a row does.
+        Map<String, Set<String>> tagsByArgument = new HashMap<>();
         Stream.of(rule.split("\n"))
                 .map(String::trim)
                 .filter(line -> line.startsWith("ctl:"))
                 .forEach(line -> {
-                    String target = line.replaceAll("^ctl:ruleRemoveTargetByTag=[^;]+;ARGS:", "")
-                            .replaceAll("[,\"\\\\]+$", "");
+                    Matcher pair = Pattern.compile("^ctl:ruleRemoveTargetByTag=([^;]+);ARGS:(.+?)[,\"\\\\]*$").matcher(line);
+                    assertThat(pair.matches()).as("rule %s: unexpected ctl line %s", ruleId, line).isTrue();
                     assertThat(arguments)
-                            .as("rule %s names an argument that is not in the table: %s", ruleId, target)
-                            .contains(target);
+                            .as("rule %s names an argument that is not in the table: %s", ruleId, pair.group(2))
+                            .contains(pair.group(2));
+                    tagsByArgument.computeIfAbsent(pair.group(2), key -> new HashSet<>()).add(pair.group(1));
                 });
+        for (String argument : arguments) {
+            assertThat(tagsByArgument.get(argument))
+                    .as("rule %s removes exactly the six prose families from %s", ruleId, argument)
+                    .containsExactlyInAnyOrder(CONTENT_ATTACK_TAGS);
+        }
     }
 
     @Test

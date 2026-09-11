@@ -42,6 +42,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * prose-scoring rules removed from the argument that feeds it, the application's own encoder
  * is the only thing between a stored payload and the next reader, so the raw form must not
  * come back.
+ *
+ * @since 2026-09-11
  */
 @Tag("unit")
 @Tag("security")

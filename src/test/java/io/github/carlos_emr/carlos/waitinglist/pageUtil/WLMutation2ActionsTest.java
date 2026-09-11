@@ -270,4 +270,44 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
                 .hasPrivilege(mockLoggedInInfo, "_demographic", "w", null);
         }
     }
+
+    @Nested
+    @DisplayName("WLSetupDisplayWaitingList2Action row selectors")
+    class SetupDisplayWaitingListSelectors {
+
+        @Test
+        @DisplayName("should accept only the page's own indexed row field names as selectors")
+        void shouldAcceptIndexedRowFields_asSelectors() {
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("waitingListBean[0].note")).isTrue();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("waitingListBean[12].demographicNo")).isTrue();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("waitingListBean[3].onListSince")).isTrue();
+            // Names the packaged WAF exempts by pattern for other pages, and near misses.
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("comments-1")).isFalse();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("test_1.labnotes")).isFalse();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("contact_1.note")).isFalse();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("waitingListBean[0].notes")).isFalse();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("xwaitingListBean[0].note")).isFalse();
+            assertThat(WLSetupDisplayWaitingList2Action.isRowSelector(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should answer 400 and persist nothing when a selector points outside the row")
+        void shouldReject400_whenSelectorPointsOutsideRow() throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            mockRequest.setParameter("demographicNumSelected", "waitingListBean[0].demographicNo");
+            mockRequest.setParameter("wlNoteSelected", "comments-1");
+            mockRequest.setParameter("onListSinceSelected", "waitingListBean[0].onListSince");
+            mockRequest.setParameter("comments-1", "smuggled");
+
+            String result = new WLSetupDisplayWaitingList2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            waitingListUtilMock.verifyNoInteractions();
+        }
+    }
 }
