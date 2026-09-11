@@ -405,7 +405,7 @@
             <tr>
                 <td class="fieldValue" colspan="1">
                     <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="hard"
-                              onchange="setChangeFlag(true);">${caseNote.note}
+                              onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseNote.note)}
                             </textarea>
                 </td>
                 <td class="fieldTitle"></td>

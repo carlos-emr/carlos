@@ -41,6 +41,8 @@ class CaseManagementCppSaveRegressionTest {
             resolveProjectPath(Path.of("src/main/webapp/js/newCaseManagementView.js.jsp"));
     private static final Path NOTE_ISSUE_LIST_JSP =
             resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp"));
+    private static final Path CASE_MGMT_ENTRY_JSP =
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/CaseManagementEntry.jsp"));
 
     /**
      * Every clinician-authored free-text argument the note route accepts: the CPP editor body,
@@ -180,7 +182,33 @@ class CaseManagementCppSaveRegressionTest {
                 .doesNotContain("ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:reloadUrl")
                 // Per-argument only: nothing in this rule may drop a signature request-wide,
                 // wherever in the action list such a directive might sit.
-                .doesNotContain("ctl:ruleRemoveById=");
+                .doesNotContain("ctl:ruleRemoveById=")
+                .doesNotContain("ctl:ruleRemoveByTag=");
+        // The same for every tag family, by name: a ruleRemoveTargetByTag with the tag but
+        // no ";ARGS:<name>" target would switch that whole family off for the request while
+        // every per-argument assertion above still passed.
+        for (String tag : CONTENT_ATTACK_TAGS) {
+            assertThat(rule)
+                    .as("tag %s is not removed request-wide", tag)
+                    .doesNotContain("ctl:ruleRemoveTargetByTag=" + tag + ",")
+                    .doesNotContain("ctl:ruleRemoveTargetByTag=" + tag + "\"")
+                    .doesNotContain("ctl:ruleRemoveTargetByTag=" + tag + "\\");
+        }
+    }
+
+    @Test
+    @DisplayName("the legacy entry view should encode the note it puts back into the textarea")
+    void shouldEncodeNoteBody_inLegacyEntryTextarea() throws IOException {
+        // Exclusion 1010 stops the WAF scoring ARGS:caseNote_note for XSS, so the
+        // application's output encoding is the whole stored-XSS defence for that text. The
+        // Struts "view" result of the note route renders CaseManagementEntry.jsp, which used
+        // to write ${caseNote.note} raw inside its <textarea>: a note containing
+        // "</textarea><script>" would have run on the next open of that legacy view.
+        String jsp = Files.readString(CASE_MGMT_ENTRY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("${carlos:forHtmlContent(caseNote.note)}")
+                .doesNotContain("${caseNote.note}");
     }
 
     @Test

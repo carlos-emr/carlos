@@ -347,9 +347,13 @@ async function discardEncounterNoteDraft(page) {
   const cancelled = page.waitForResponse(
     (response) => isCaseManagementEntryPost(response, 'cancel'), { timeout: 15000 });
   await page.evaluate(() => {
-    if (typeof deleteAutoSave !== 'function') {
-      throw new Error('deleteAutoSave() is not defined on the chart page');
+    if (typeof clearAutoSaveTimer !== 'function' || typeof deleteAutoSave !== 'function') {
+      throw new Error('clearAutoSaveTimer()/deleteAutoSave() are not defined on the chart page');
     }
+    // deleteAutoSave() only posts the cancel; it neither stops the 5s timer nor aborts an
+    // autosave already on the wire. clearAutoSaveTimer() does both, so nothing can land
+    // after the cancel and recreate the draft this call is removing.
+    clearAutoSaveTimer();
     deleteAutoSave();
   });
   const response = await cancelled;
@@ -414,6 +418,15 @@ function isAutosaveResponse(response) {
   return isCaseManagementEntryPost(response, 'autosave');
 }
 
+/** An autosave whose posted note body carries this run's scored text. */
+function isScoredTextAutosaveResponse(response) {
+  if (!isAutosaveResponse(response)) {
+    return false;
+  }
+  const note = new URLSearchParams(response.request().postData() || '').get('note') || '';
+  return note.includes(CLINICAL_TEXT_THE_WAF_SCORES);
+}
+
 function isUnresolvedIssuesResponse(response) {
   const url = new URL(response.url());
   return url.pathname.endsWith('/encounter/displayIssues')
@@ -462,6 +475,10 @@ function isExpectedNoteLockDialog(issue) {
     let cleanupFailure = null;
     let saveConfirmed = false;
     let originalEncounterNote = null;
+    // Declared out here so the cleanup below can settle it: an autosave still in flight when
+    // the CPP save fails must land before the draft is restored or discarded, or it becomes
+    // the newest casemgmt_tmpsave row after cleanup has run.
+    let autosaveResponse = null;
     try {
       // Put clinical text the CRS scores into the ENCOUNTER note before touching the CPP
       // box. The CPP save is not self-contained: its issue-refresh callback re-serializes
@@ -478,7 +495,11 @@ function isExpectedNoteLockDialog(issue) {
       // unnoticed. Requiring the request also settles whether assigning textarea.value is
       // enough to trigger it — backup() polls the value against origCaseNote rather than
       // listening for input events, so no synthetic event is needed, and this proves it.
-      const autosaveResponse = echart.waitForResponse(isAutosaveResponse, { timeout: AUTOSAVE_WAIT_MS });
+      // The wait is for THIS run's autosave, the one carrying the scored text as ARGS:note.
+      // A draft restored by edit() for a clinician can be autosaved at any tick as well;
+      // matching any autosave POST would let that one satisfy the wait without the scored
+      // text ever crossing the WAF, and a re-broken exclusion would pass.
+      autosaveResponse = echart.waitForResponse(isScoredTextAutosaveResponse, { timeout: AUTOSAVE_WAIT_MS });
       // Mark the armed wait as handled. If the CPP save fails before it is awaited below, the
       // wait would otherwise reject (timeout, or the browser closing) with no handler and
       // Node would report an unhandled rejection over the failure that actually mattered.
@@ -504,6 +525,13 @@ function isExpectedNoteLockDialog(issue) {
       saveFailure = error;
     } finally {
       if (originalEncounterNote !== null) {
+        // First let the armed autosave land, one way or the other. If the CPP save failed
+        // while that request was still in flight, restoring or discarding the draft now
+        // would be undone by it a moment later: the run's text would be the newest draft
+        // again. On the success path it has already settled and this returns at once.
+        if (autosaveResponse !== null) {
+          await autosaveResponse.catch(() => {});
+        }
         // Restore the note text, then deal with the draft the autosave above deposited.
         // Restoring alone is not cleanup: the value now matches origCaseNote, so no later
         // tick overwrites the stored draft, and edit() restores it on the next open of this

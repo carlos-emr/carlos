@@ -100,10 +100,12 @@ class CaseManagementEmptyStateRegressionTest {
                     RESOURCES_DIRECTORY.resolve("oscarResources_" + locale + ".properties"),
                     StandardCharsets.UTF_8);
 
+            // Key presence is not enough: "key=" or a whitespace-only value satisfies a
+            // contains() check while <fmt:message> renders nothing, so require a real value.
             assertThat(resources)
                     .as("localized empty-state messages for %s", locale)
-                    .contains("casemgmt.showHistory.msgNoHistory=")
-                    .contains("casemgmt.viewNotes.msgNoNotes=");
+                    .containsPattern("(?m)^casemgmt\\.showHistory\\.msgNoHistory=\\s*\\S")
+                    .containsPattern("(?m)^casemgmt\\.viewNotes\\.msgNoNotes=\\s*\\S");
         }
 
         String english = Files.readString(

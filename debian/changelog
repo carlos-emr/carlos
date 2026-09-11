@@ -18,7 +18,8 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     firewall. The note body travels under four parameter names on the note
     route -- the serialized chart form, the draft autosave, the save that runs
     when unsaved text is left for another note, and the CPP editor -- and only
-    the last was exempt from the rule groups that read prose as an attack, so a note containing something as ordinary as a pasted link with
+    the last was exempt from the rule groups that read prose as an attack, so
+    a note containing something as ordinary as a pasted link with
     "&cmd" in its query string, or one that simply begins with a pasted PACS
     link on an internal IP address, was answered 403 at the front door. That broke
     the note save, silently stopped its autosave, and made saving a Social
@@ -42,6 +43,10 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     other argument and still blocks a probe injection. Per-row fields (measurement
     comments, manual lab notes, contact notes, encounter forms) are not yet
     covered and still answer 403 on such text.
+  * The legacy encounter-note entry view now encodes the note it puts back
+    into its text box. With the firewall no longer reading that note as a
+    script attack, the application's own output encoding is what keeps a
+    stored "</textarea><script>" from running on the next open of that view.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
 
