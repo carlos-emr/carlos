@@ -96,6 +96,18 @@ does not.
 
 ![Host name question](images/install/01-server-name.png)
 
+> **Reaching the server by IP address.** Clients on the practice LAN may use the
+> server's IP instead of a name — that is the common clinic setup and the
+> packaged WAF rules account for it (rule 1090 exempts private-range clients
+> from CRS 920350, which would otherwise spend 3 of the 5-point anomaly budget
+> on every request). Clients arriving from a **public** address get no such
+> exemption, by design: they start each request part-way to the blocking
+> threshold, so users see occasional unexplained `403` errors on ordinary
+> clinical work with nothing in the application log. **If anyone will reach this
+> server from outside the practice network, give it a DNS name and have them use
+> the name** — which is also what a real TLS certificate is issued for. See
+> "The web application firewall" in `README.Debian` for the full reasoning.
+
 **2. Listen address** — `0.0.0.0` serves every interface (the usual clinic
 setup); `127.0.0.1` keeps it local while staging or behind a separate proxy.
 The application server and database always listen on loopback only.
@@ -345,6 +357,7 @@ sudo carlos-ctl check
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |
 | eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-chromedriver -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
 | Drug search returns nothing when prescribing | `sudo carlos-ctl check` (DrugRef probe) | `carlos-emr-drugref` not installed, or its service is down |
+| Administration > Update Drugref reports a failed update, or stays "updating" | The message on that page; `sudo journalctl -u carlos-emr \| grep -E 'DrugRef (database update\|updateDB failed)'` | The Tomcat JVM has no outbound HTTPS to `www.canada.ca` (proxy not passed via `CARLOS_JAVA_OPTS`, see `/usr/share/doc/carlos-emr-drugref/README.Debian`). A failed run keeps the previous drug data |
 | "no space left on device" anywhere | `df -h /var` | Database, document store and the local backup tier all live under `/var` — grow the disk or move backups offsite |
 
 ## The full operator reference
