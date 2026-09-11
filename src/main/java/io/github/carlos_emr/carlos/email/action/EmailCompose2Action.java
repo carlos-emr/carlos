@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -170,6 +171,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>senderAccounts (List&lt;EmailConfig&gt;) - available sender account configurations</li>
      *   <li>emailPDFPassword (String) - generated or existing PDF password</li>
      *   <li>emailPDFPasswordClue (String) - password hint for recipient</li>
+     *   <li>message (String) - unified message selected from the legacy content channels</li>
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
@@ -281,16 +283,27 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
-        request.setAttribute("bodyEmail", bodyEmail);
-        request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
+        // The compose screen now has a single "Message" field (issue #3118). Seed it from the
+        // channel matching the encryption state. For encrypted drafts where both legacy channels
+        // contain content, the protected channel deliberately wins: there is no reliable way to
+        // distinguish a meaningful historical cleartext body from the fixed notice stored by the
+        // unified workflow.
+        // Fail closed when older entry points do not seed either session flag: only an explicit
+        // Boolean false may open the composer with message or attachment encryption disabled.
+        boolean isEmailEncrypted = !Boolean.FALSE.equals(session.getAttribute("isEmailEncrypted"));
+        boolean isEmailAttachmentEncrypted =
+                !Boolean.FALSE.equals(session.getAttribute("isEmailAttachmentEncrypted"));
+        isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
+                isEmailEncrypted, bodyEmail, encryptedMessageEmail);
+        request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
         request.setAttribute("demographicId", demographicId);
         request.setAttribute("fdid", session.getAttribute("fdid"));
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
-        request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
+        request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
         request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
