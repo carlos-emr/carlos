@@ -238,7 +238,21 @@ class MutatorActionGetRejectionContractUnitTest {
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
-                    "_form", "w")
+                    "_form", "w"),
+            // --- patient portal ---
+            // Issues, resends, and revokes portal invitations against the external portal service.
+            // Registered with the other unconditional portal mutators. Unconditional: reading the invite list belongs to a
+            // separate read action, so every route on this class mutates and the method check runs
+            // before authorization. A GET that reached create would mint a token and silently
+            // revoke the patient's existing one.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
+                    "_portal.invite", "w"),
+            // Clears a lockout or disables an account. Unconditional for the same reason: the panel
+            // read lives in PortalPanel2Action, so nothing on this class is a view route. The
+            // declared object is the account one; the unlock route gates on the narrower
+            // _portal.account.unlock, which the focused test covers.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action",
+                    "_portal.account", "w")
         );
     }
 
@@ -326,6 +340,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * {@link #CONDITIONAL_MUTATORS} entry instead.
      */
     private static final Set<String> NON_MUTATOR_GATES = Set.of(
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
@@ -351,6 +366,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * follow-up waves.
      */
     private static final List<String> IN_SCOPE_PACKAGE_PREFIXES = List.of(
+        "io.github.carlos_emr.carlos.integration.patientportal.web.",
         "io.github.carlos_emr.carlos.appointment.",
         "io.github.carlos_emr.carlos.decision.",
         "io.github.carlos_emr.carlos.documentManager.",
@@ -681,7 +697,7 @@ class MutatorActionGetRejectionContractUnitTest {
                 throw new IOException("Unable to read in-scope 2Action source during mutator discovery: "
                         + actionSource, e);
             }
-            if (source.contains("SC_METHOD_NOT_ALLOWED")
+            if ((source.contains("SC_METHOD_NOT_ALLOWED") || source.contains("methodNotAllowed("))
                     && (source.contains("\"POST\".equals(")
                         || source.contains("\"POST\".equalsIgnoreCase(")
                         || source.contains(".equalsIgnoreCase(\"POST\")"))) {
@@ -690,6 +706,23 @@ class MutatorActionGetRejectionContractUnitTest {
         }
         Collections.sort(out);
         return out;
+    }
+
+    @Test
+    void discoversNewPortalMutatorUsingSharedMethodGuard(
+            @org.junit.jupiter.api.io.TempDir Path sourceRoot) throws Exception {
+        Path source = sourceRoot.resolve(
+                "io/github/carlos_emr/carlos/integration/patientportal/web/FuturePortal2Action.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                class FuturePortal2Action {
+                    void execute() {
+                        if (!"POST".equals(request.getMethod())) return methodNotAllowed(response);
+                    }
+                }
+                """);
+        assertThat(scanCandidates(sourceRoot)).contains(
+                "io.github.carlos_emr.carlos.integration.patientportal.web.FuturePortal2Action");
     }
 
     private static boolean isInScope(String fullyQualifiedClassName) {
