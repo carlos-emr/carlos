@@ -302,7 +302,7 @@ function cleanupFixtures() {
     try {
       fn();
     } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${(error && error.message) || 'failed'}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}` });
     }
   };
   let ourScriptNos = new Set();
@@ -356,7 +356,7 @@ function sql(query) {
     return execFileSync(
       mysqlBin,
       [`--defaults-extra-file=${mysqlDefaultsFile}`, '-N', '-B', mysqlDatabase, '-e', query],
-      { encoding: 'utf8', timeout: 30000 },
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 },
     ).trim();
   } catch (error) {
     // Do not echo the full command/SQL (it can carry identifiers); surface a bounded reason.
@@ -570,8 +570,8 @@ async function runChecks(context) {
       visited.push({ label: 'fax-request', url: new URL(faxRequest.url()).pathname + ' (query redacted)', status: faxStatus });
     } catch (error) {
       // A captured request whose response never came is a different failure from no request at all.
-      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: `the Fax click's createcustomedpdf request got no response: ${error.message}` });
-      else findings.push({ label: 'fax-click', type: 'no-request', text: `Fax click produced no createcustomedpdf request: ${error.message}` });
+      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: browserErrorClass(error) });
+      else findings.push({ label: 'fax-click', type: 'no-request', text: browserErrorClass(error) });
     }
 
     if (faxRequest) {
@@ -593,7 +593,7 @@ async function runChecks(context) {
       if (faxStatus < 200 || faxStatus >= 300) {
         findings.push({ label: 'fax-gate', type: 'http-error', status: faxStatus, text: `signed fax returned HTTP ${faxStatus}` });
       } else if (!/fax-success/i.test(faxBody) && !/not signed/i.test(faxBody)) {
-        findings.push({ label: 'fax-gate', type: 'not-successful', text: `signed fax did not report fax-success: ${faxBody.replace(/\s+/g, ' ').slice(0, 160)}` });
+        findings.push({ label: 'fax-gate', type: 'not-successful', text: 'signed fax did not report fax-success', status: faxStatus });
       }
     }
 
@@ -640,10 +640,10 @@ async function runChecks(context) {
     if (!unsigned.hadToken) findings.push({ label: 'fax-gate', type: 'no-csrf-token', text: 'could not obtain a CSRFGuard token for the unsigned-fax POST' });
     if (unsigned.status >= 500) findings.push({ label: 'fax-gate', type: 'http-500', status: unsigned.status });
     if (/csrf|token/i.test(unsignedBody) && /reject|forbidden|invalid/i.test(unsignedBody)) {
-      findings.push({ label: 'fax-gate', type: 'csrf-rejected', text: `unsigned-fax POST was rejected by CSRF, not the signature gate: ${unsignedBody.replace(/\s+/g, ' ').slice(0, 160)}` });
+      findings.push({ label: 'fax-gate', type: 'csrf-rejected', text: 'unsigned-fax POST was rejected by CSRF, not the signature gate', status: unsigned.status });
     }
     if (/Signature not found/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'legacy-alert-unsigned', text: 'unsigned fax still shows the old "Signature not found" alert' });
-    if (!/not signed/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'not-refused', text: `unsigned fax was not refused: ${unsignedBody.replace(/\s+/g, ' ').slice(0, 160)}` });
+    if (!/not signed/i.test(unsignedBody)) findings.push({ label: 'fax-gate', type: 'not-refused', text: 'unsigned fax was not refused', status: unsigned.status });
 
     return { createdScriptId, faxDisabled, padPresent, persistedSignatureId: sigId };
   } finally {
@@ -685,7 +685,7 @@ async function runChecks(context) {
     removeSecretsDir();
   }
 })().catch((error) => {
-  console.error(error.stack || error.message);
+  console.error(`FAIL rx-fax-signature-stamp: ${browserErrorClass(error)}`);
   removeSecretsDir();
   process.exit(1);
 });

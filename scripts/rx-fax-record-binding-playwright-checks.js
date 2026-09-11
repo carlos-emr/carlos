@@ -225,7 +225,7 @@ function sql(query) {
     return execFileSync(
       mysqlBin,
       [`--defaults-extra-file=${mysqlDefaultsFile}`, '-N', '-B', mysqlDatabase, '-e', query],
-      { encoding: 'utf8', timeout: 30000 },
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 },
     ).trim();
   } catch (error) {
     // Neither the query nor raw stderr may reach the log: queries carry demographic and script
@@ -376,7 +376,7 @@ function seedPharmacyFax() {
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${(error && error.message) || 'failed'}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}` });
     }
   };
   let ourScriptNos = [];
@@ -834,7 +834,7 @@ async function faxThroughUi(page, modalFrame, scriptId) {
       findings.push({ label: 'ui-fax', type: 'wrong-script', text: 'the Fax button posted a different scriptId than the prescription just written' });
     }
   } catch (error) {
-    findings.push({ label: 'ui-fax', type: 'no-request', text: `Fax click produced no createcustomedpdf round trip: ${error.message}` });
+    findings.push({ label: 'ui-fax', type: 'no-request', text: `Fax round trip failed: ${browserErrorClass(error)}` });
   } finally {
     await page.unroute(/\/rx\/ViewAddRxComment/).catch(() => {});
   }
@@ -1111,7 +1111,7 @@ async function runChecks(context, cancellation) {
     await context.close();
   } catch (error) {
     if (!cancellation.isCancellation(error)) {
-      findings.push({ label: 'run', type: 'exception', text: (error && error.message) || String(error) });
+      findings.push({ label: 'run', type: 'exception', text: browserErrorClass(error) });
     }
   } finally {
     if (browser) await browser.close().catch(() => {});
@@ -1125,7 +1125,7 @@ async function runChecks(context, cancellation) {
     fs.writeFileSync(out, JSON.stringify(summary, null, 2));
     console.log(`artifact: ${out}`);
   } catch (error) {
-    console.log(`artifact not written: ${(error && error.message) || 'unknown error'}`);
+    console.log(`artifact not written: ${browserErrorClass(error)}`);
   }
   console.log(JSON.stringify({ visited }, null, 2));
   if (findings.length) {
