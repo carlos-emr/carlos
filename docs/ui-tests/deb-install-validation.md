@@ -60,12 +60,32 @@ the structured neighbours on the same rows (`test_<n>.lab_test_name`,
 `contact_<n>.contactId`, `waitingListBean[<n>].demographicNo`) and the
 un-indexed names (`comments`, `labnotes`, `note`) still block on the same
 shapes, and a measurement saved from the browser with such a comment lands in
-the `measurements` table intact. What remains uncovered is the encounter forms under `/form/*`: 136 form
-JSPs with 395 distinct `<textarea>` names all saving through `/form/formname`
-or `/form/SubmitForm`. Those names are fixed, so per-argument entries are the
-right shape, but a list that size has to be generated from the form JSPs and
-pinned by a test that re-derives it, or a newly added form field silently
-returns to 403; that is separate work and prose in those cells still 403s. A
+the `measurements` table intact.
+
+The encounter forms under `/form/*` are covered by a **generated** file,
+`REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf` (ids 1200-1399), written by
+`scripts/waf/generate-form-prose-exclusions.py` from the form JSPs: one rule per
+save route and, on the shared `/form/formname` route, per `form_class`, listing
+that form's `<textarea>` cells and the single-line inputs whose names mark them
+as narrative boxes (48 rules, 1,243 cells at the time of writing). The
+`form_class`-keyed rules run in phase 2, where the POST body is available.
+`FormProseWafExclusionRegressionTest` re-derives the same table from the JSPs
+and fails when the committed file is stale, so after editing a form run the
+generator and commit its output. Measured on the packaged install: config test
+85 ms and a normal reload with the file loaded (1,027 rules); Discharge
+Summary, Mental Health Form 1, Rourke 2020, BCAR 2020 and Vascular Tracker
+cells reach the application on all shapes; a Rourke cell posted under another
+form's `form_class`, the same cell with no `form_class`, the same cell on GET,
+and the structured fields on every form (`formId`, `demographic_no`,
+`form_class`) still block; Mental Health Form 1 and Rourke 2020 saved from the
+browser through `:443` with such prose are stored intact. Not covered, and
+reported by the generator: the Vascular Tracker's `value(...)` cells, because
+libmodsecurity rejects parentheses in a `ctl` target, and the growth-chart and
+chart-checklist cells whose names are generated per row. Those still 403 on
+such text. Two form JSPs open with a 500 on this install before any WAF is
+involved (Discharge Summary needs a program id in the session; every form needs
+`formId` on the URL, which the chart shortcut omits for a patient with no prior
+record); that is application behaviour, not part of this change. A
 quick way to re-survey after a policy change is to POST each field
 through `:443` unauthenticated with a value that begins with
 `http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the

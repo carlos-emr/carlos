@@ -43,8 +43,12 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     other argument and still blocks a probe injection. The four fields whose
     names carry a row number (measurement comments, manual lab notes, contact
     notes, waiting-list notes) are exempted by an anchored name pattern
-    instead, since the firewall cannot list them; the encounter forms are not
-    yet covered and still answer 403 on such text.
+    instead, since the firewall cannot list them. The encounter forms (Rourke,
+    antenatal, mental health, palliative care and the rest) are covered by a
+    generated per-form list of their narrative cells, keyed on each form's
+    save route and form class; a regression test keeps that list in step
+    with the form pages. The Vascular Tracker's bracketed cell names and the
+    growth-chart per-row comments cannot be listed and still answer 403.
   * The legacy encounter-note entry view now encodes the note it puts back
     into its text box. With the firewall no longer reading that note as a
     script attack, the application's own output encoding is what keeps a
