@@ -487,7 +487,7 @@
                 var url = '${carlos:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
-                var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
+                var params = "scriptNo=" + encodeURIComponent(faxScriptNo) + "&comment=" + comment + "&rand=" + ran_number;  //]
                 // CHAIN onto the previous save, never replace it. Two edits in quick succession
                 // (type, blur, type, blur) would otherwise leave pendingNotesSave holding only the
                 // second request: if that one resolved first the fax would submit while the first
@@ -822,6 +822,7 @@
             var POLL_TIME = 1500;
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
+            var faxScriptNo = "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>";
             var faxSubmissionPending = false;
             var faxNotesState = null;
             // A fax the server has accepted for this script. The prescription is with the
@@ -966,7 +967,7 @@
                 setFaxControlsDisabled(true);
                 try {
                     lockFaxNotes();
-                    onPrint2('oscarRxFax', "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>",
+                    onPrint2('oscarRxFax', faxScriptNo,
                             faxDocumentId, Boolean(pasteAfterSuccess), capturedPasteText,
                             previousUnloadHandler);
                 } catch (e) {

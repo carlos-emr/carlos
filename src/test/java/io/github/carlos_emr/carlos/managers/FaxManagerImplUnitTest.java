@@ -481,6 +481,21 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject pre-built consultation fax batches without fax write privilege")
+    void shouldRejectPrebuiltConsultationFaxBatch_withoutFaxWritePrivilege() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(false);
+        FaxJobDao faxJobDao = mock(FaxJobDao.class);
+        injectDependency(manager, "faxJobDao", faxJobDao);
+
+        assertThatThrownBy(() -> manager.persistAndLogConsultationFaxJobs(loggedInInfo, List.of(new FaxJob()), 123))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_fax)");
+
+        verifyNoInteractions(faxJobDao);
+    }
+
+    @Test
     @DisplayName("should delete the orphaned Cover_* file when PDF concatenation fails")
     void shouldDeleteOrphanCoverFile_whenConcatFails() throws Exception {
         FaxDocumentManager faxDocumentManager = mock(FaxDocumentManager.class);
