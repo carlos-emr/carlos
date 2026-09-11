@@ -212,6 +212,18 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
+    @DisplayName("the legacy entry view's autosave should post the note with encodeURIComponent")
+    void shouldEncodeLegacyAutosaveNote_asOneParameter() throws IOException {
+        // escape() leaves "+" alone and form decoding turns it into a space, so "H&P +1"
+        // arrived as "H&P  1" in the draft; encodeURIComponent keeps the note intact.
+        String jsp = Files.readString(CASE_MGMT_ENTRY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("\"&note=\" + encodeURIComponent(obj.value)")
+                .doesNotContain("escape(obj.value)");
+    }
+
+    @Test
     @DisplayName("save-on-switch should post the whole note as one noteTxt parameter")
     void shouldEncodeNoteTxt_asOneParameter() throws IOException {
         // ajaxSaveNote() is the save that runs when a note with unsaved text is left for

@@ -104,7 +104,7 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1106", "/carlos/web/dashboard/display/AssignTickler", "POST",
                         List.of("messageAppend", "comments")),
                 Arguments.of("1107", "/carlos/rx/writeScript", "POST", List.of("special", "customName")),
-                Arguments.of("1108", "/carlos/rx/WriteScript", "POST", List.of("specialInstruction")),
+                Arguments.of("1108", "/carlos/rx/WriteScript", "POST", List.of("specialInstruction", "customDrugName", "name")),
                 Arguments.of("1109", "/carlos/rx/UpdateScript", "POST", List.of("instruction")),
                 Arguments.of("1110", "/carlos/rx/deleteRx", "POST", List.of("comment", "reason", "drugSpecial")),
                 Arguments.of("1111", "/carlos/rx/ViewAddRxComment", "POST", List.of("comment")),

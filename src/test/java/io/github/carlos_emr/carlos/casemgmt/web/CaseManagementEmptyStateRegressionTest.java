@@ -104,8 +104,10 @@ class CaseManagementEmptyStateRegressionTest {
             // contains() check while <fmt:message> renders nothing, so require a real value.
             assertThat(resources)
                     .as("localized empty-state messages for %s", locale)
-                    .containsPattern("(?m)^\\s*casemgmt\\.showHistory\\.msgNoHistory\\s*[=:]\\s*\\S")
-                    .containsPattern("(?m)^\\s*casemgmt\\.viewNotes\\.msgNoNotes\\s*[=:]\\s*\\S");
+                    // Spaces and tabs only: \s would swallow the line break after an empty
+                    // value and let \S match the first character of the next property.
+                    .containsPattern("(?m)^[ \\t]*casemgmt\\.showHistory\\.msgNoHistory[ \\t]*[=:][ \\t]*\\S")
+                    .containsPattern("(?m)^[ \\t]*casemgmt\\.viewNotes\\.msgNoNotes[ \\t]*[=:][ \\t]*\\S");
         }
 
         String english = Files.readString(
