@@ -115,7 +115,9 @@ validation findings. CARLOS rejects extra fields, duplicate JSON keys, wrong
 request IDs/versions, non-completed statuses, invalid references, oversized output
 malformed responses, duplicate normalized claim prose or coverage reasons,
 fixture metadata presented as clinical claims, and claims without basic lexical
-overlap with their cited evidence. Agent exception messages and HTTP error bodies
+overlap with their cited evidence. The lexical check recognizes a small fixed set
+of common clinical abbreviations and their expanded forms. Agent exception
+messages and HTTP error bodies
 are not shown to the user. Failure preserves a newly authorized deterministic chart view.
 After generation, CARLOS reloads chart authorization and evidence; a changed source
 snapshot invalidates the draft. No draft is saved to the chart or session.
