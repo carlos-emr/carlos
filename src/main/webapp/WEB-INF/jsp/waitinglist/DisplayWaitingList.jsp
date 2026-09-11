@@ -188,7 +188,7 @@
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal_${ctr.index}">
                                             <script type="text/javascript">
                                                 Calendar.setup({
-                                                    inputField: "waitingListBean[${ctr.index}].onListSince",
+                                                    inputField: "waitingListOnListSince_${ctr.index}",
                                                     ifFormat: "%Y-%m-%d",
                                                     showsTime: false,
                                                     button: "referral_date_cal_${ctr.index}",

@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 import java.io.IOException;
 import java.io.InputStream;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
-import io.github.carlos_emr.carlos.encounter.oscarMeasurements.prop.EctFormProp;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -104,8 +103,10 @@ public class FrmForm2Action extends ActionSupport {
      *
      * @param trustedFormName a form name already passed through {@link #validateSetupFormName}
      *                        (letters, digits and underscores only, so it cannot leave /form/)
-     * @throws IOException when the definition is missing or does not unmarshal; the save must not
-     *                     proceed against an empty rule set, which would validate nothing
+     * @throws IOException           when the definition is not deployed
+     * @throws IllegalStateException when it does not unmarshal (from the utility); either way the
+     *                               save must not proceed against an empty rule set, which would
+     *                               validate nothing
      */
     private Vector<EctMeasurementTypesBean> loadMeasurementTypes(String trustedFormName) throws IOException {
         String resource = "/form/" + trustedFormName + ".xml";
@@ -113,14 +114,9 @@ public class FrmForm2Action extends ActionSupport {
         if (is == null) {
             throw new IOException("Form definition " + resource + " is not deployed");
         }
-        EctFormProp formProp;
         try (InputStream definition = is) {
-            formProp = EctFindMeasurementTypeUtil.getEctMeasurementsType(definition); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
+            return EctFindMeasurementTypeUtil.loadMeasurementTypes(definition); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
         }
-        if (formProp == null || formProp.getMeasurements() == null) {
-            throw new IOException("Form definition " + resource + " could not be read");
-        }
-        return formProp.getMeasurements();
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

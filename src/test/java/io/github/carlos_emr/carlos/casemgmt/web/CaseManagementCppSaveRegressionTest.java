@@ -282,6 +282,12 @@ class CaseManagementCppSaveRegressionTest {
         assertThat(editNote).as("editNote() is defined").isGreaterThanOrEqualTo(0);
         assertThat(escaped).as("editNote() escapes the payload").isGreaterThan(editNote);
         assertThat(spliced).as("editNote() splices the payload into the textarea markup").isGreaterThan(escaped);
+
+        // newNote() builds its textarea the same way from the pre-populated reason (an
+        // appointment reason, decoded into a JavaScript string), so it gets the same escape.
+        assertThat(js)
+                .contains("id='caseNote_note\" + safeNoteIdSuffix + \"'>\" + escapeNoteText(reason) + \"<\\/textarea>\"")
+                .doesNotContain("+ \"'>\" + reason + \"<\\/textarea>\"");
     }
 
     @Test

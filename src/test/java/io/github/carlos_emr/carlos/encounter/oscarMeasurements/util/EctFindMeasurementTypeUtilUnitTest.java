@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -83,12 +84,14 @@ class EctFindMeasurementTypeUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("a stream that does not unmarshal should yield an empty list, not the static accumulator")
-    void shouldReturnEmptyList_whenStreamIsNotAFormDefinition() {
-        Vector<EctMeasurementTypesBean> types = EctFindMeasurementTypeUtil.loadMeasurementTypes(
-                new java.io.ByteArrayInputStream("not xml".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    @DisplayName("a stream that does not unmarshal should fail closed, not yield an empty rule set")
+    void shouldThrow_whenStreamIsNotAFormDefinition() {
+        java.io.InputStream notXml = new java.io.ByteArrayInputStream(
+                "not xml".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-        assertThat(types).isEmpty();
+        assertThatThrownBy(() -> EctFindMeasurementTypeUtil.loadMeasurementTypes(notXml))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("could not be read");
     }
 
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;

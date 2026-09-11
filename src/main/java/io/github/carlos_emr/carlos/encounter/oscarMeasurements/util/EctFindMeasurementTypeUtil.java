@@ -79,14 +79,17 @@ public class EctFindMeasurementTypeUtil {
      * reset and refilled by every unmarshal in the JVM, so two forms opened at the same time could
      * see each other's definitions through it; callers must not fall back to it.
      *
-     * @return the declared measurement types, empty when the stream could not be unmarshalled
+     * @return the declared measurement types (a valid definition may declare none)
+     * @throws IllegalStateException when the stream does not unmarshal as a form definition;
+     *                               an empty rule set must not stand in for a broken file, since
+     *                               a save validated against it would check nothing
      */
     public static Vector<EctMeasurementTypesBean> loadMeasurementTypes(InputStream is) {
         EctFormProp formProp = getEctMeasurementsType(is);
-        if (formProp == null || formProp.getMeasurements() == null) {
-            return new Vector<>();
+        if (formProp == null) {
+            throw new IllegalStateException("form definition could not be read");
         }
-        return formProp.getMeasurements();
+        return formProp.getMeasurements() == null ? new Vector<>() : formProp.getMeasurements();
     }
 
     /**

@@ -335,11 +335,7 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             // that failure is tolerated: anything else is a regression and must surface. This is
             // also the path the page's own indexed field names take, so it is the regression guard
             // that a normal waiting-list save is NOT rejected by the selector check.
-            try {
-                new WLSetupDisplayWaitingList2Action().execute();
-            } catch (NullPointerException pageRenderNeedsSession) {
-                // intentional: only the mutation is under test here
-            }
+            executeThroughMutation();
 
             waitingListUtilMock.verify(() ->
                 WLWaitingListUtil.updateWaitingListRecord("7", "reviewed & ready", "42", "2026-06-01"));
@@ -364,11 +360,7 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             mockRequest.setParameter("waitingListBean[0].note", "");
             mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
 
-            try {
-                new WLSetupDisplayWaitingList2Action().execute();
-            } catch (NullPointerException pageRenderNeedsSession) {
-                // intentional: only the mutation is under test here (see the update test above)
-            }
+            executeThroughMutation();
 
             waitingListUtilMock.verify(() -> WLWaitingListUtil.updateWaitingListRecord("7", "", "42", "2026-06-01"));
             waitingListUtilMock.verify(() -> WLWaitingListUtil.rePositionWaitingList(any()), org.mockito.Mockito.never());
@@ -411,11 +403,7 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             mockRequest.setParameter("wlNoteSelected", "");
             mockRequest.setParameter("onListSinceSelected", "");
 
-            try {
-                new WLSetupDisplayWaitingList2Action().execute();
-            } catch (NullPointerException pageRenderNeedsSession) {
-                // intentional: only the mutation is under test here; see the update test above
-            }
+            executeThroughMutation();
 
             waitingListUtilMock.verify(() -> WLWaitingListUtil.rePositionWaitingList("7"));
             assertThat(mockResponse.getStatus()).isNotEqualTo(400);
@@ -488,6 +476,25 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
                 assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("waitingListBean[3]." + field, field))
                         .as("the page's %s selector satisfies the action's contract", field).isTrue();
             }
+        }
+    }
+
+    /**
+     * Runs the action through its mutation and stops at the page render, which reads a provider
+     * preference this unit test does not put in the session and fails there with a
+     * NullPointerException. Only THAT exception is tolerated, and only when it is raised directly
+     * by {@code execute()}: an NPE from any other frame (a DAO, a util, a helper) is a regression
+     * in the mutation path and fails the test.
+     */
+    private void executeThroughMutation() throws Exception {
+        try {
+            new WLSetupDisplayWaitingList2Action().execute();
+        } catch (NullPointerException renderNeedsSession) {
+            StackTraceElement origin = renderNeedsSession.getStackTrace()[0];
+            assertThat(origin.getClassName())
+                    .as("the only tolerated NPE is the page render's, raised in execute() itself")
+                    .isEqualTo(WLSetupDisplayWaitingList2Action.class.getName());
+            assertThat(origin.getMethodName()).isEqualTo("execute");
         }
     }
 
