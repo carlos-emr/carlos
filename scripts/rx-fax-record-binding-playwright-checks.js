@@ -79,7 +79,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
-const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
+const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { browserErrorClass } = require('./browser-error-class');
 const {
   appUrl,
@@ -765,6 +765,11 @@ async function faxThroughUi(page, modalFrame, scriptId) {
 
   const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: faxRoundTripTimeoutMs });
   const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: faxRoundTripTimeoutMs });
+  const roundTrip = settleOperations([faxRequestPromise, faxResponsePromise]);
+  // Attach immediately: a click/locator failure must not leave these observers
+  // unhandled. They are still awaited below before fixture cleanup can begin.
+  roundTrip.catch(() => {});
+  let clickFailure;
   // The click moves focus off the textarea, firing its onchange (addNotes -> delayed save) before
   // the click handler faxes: the same order a clinician's click produces.
   try {
@@ -789,6 +794,8 @@ async function faxThroughUi(page, modalFrame, scriptId) {
     if (!lock.controlsLocked || !lock.writeBlocked || !lock.valueRestored) {
       findings.push({ label: 'notes-pending-lock', type: 'late-edit-accepted', text: 'Additional Notes can change or enqueue a write while the fax is waiting for its saved note' });
     }
+  } catch (error) {
+    clickFailure = error;
   } finally {
     releaseNotesSave();
   }
@@ -797,12 +804,10 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   let status = 0;
   let body = '';
   try {
-    // Await BOTH together. Awaiting them one after the other leaves the second promise with no
-    // handler while the first is pending; when the click produces no round trip at all, both time
-    // out at once and the un-awaited rejection is an unhandled rejection that kills the process --
-    // before the finally-block cleanup below has run, leaving the pharmacy fax numbers, the
-    // fax_config row and the fixture prescription in the database.
-    const [request, response] = await Promise.all([faxRequestPromise, faxResponsePromise]);
+    // Drain BOTH observers even when one rejects. A failed click/navigation must
+    // not trigger cleanup while the other initiated request is still pending.
+    const [request, response] = await roundTrip;
+    if (clickFailure) throw clickFailure;
     status = response.status();
     body = await response.text().catch(() => '');
     const post = new URLSearchParams(request.postData() || '');

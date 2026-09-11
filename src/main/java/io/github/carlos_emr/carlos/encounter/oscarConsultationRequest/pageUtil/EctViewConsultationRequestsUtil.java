@@ -49,7 +49,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-public class EctViewConsultationRequestsUtil {  
+public class EctViewConsultationRequestsUtil {
+
+   /**
+    * Determines whether a list row has a usable patient identifier for bulk ticklers.
+    * Missing patients remain visible in consultation lists but cannot receive a tickler.
+    * @param demographicNo patient identifier from the consultation list
+    * @return true only for a positive decimal patient identifier
+    */
+   public static boolean isTicklerDemographic(String demographicNo) {
+      return demographicNo != null && demographicNo.matches("[1-9][0-9]*");
+   }
    public List<String> ids;
    public List<String> status;
    public List<String> patient;

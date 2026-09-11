@@ -70,6 +70,16 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     private static final String DEMO_NO = "42";
     private static final Integer DEMO_ID = 42;
 
+    @Test
+    @DisplayName("should exclude missing and malformed patient identifiers from bulk ticklers")
+    void shouldExcludeInvalidPatients_whenBuildingBulkTicklers() {
+        assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(null)).isFalse();
+        for (String value : List.of("", " ", "0", "-1", "unknown", "1&demo=2")) {
+            assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(value)).as(value).isFalse();
+        }
+        assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic("42")).isTrue();
+    }
+
     private ConsultationRequestDao consultationRequestDao;
     private ConsultationRequestExtDao consultationRequestExtDao;
     private ProviderDao providerDao;

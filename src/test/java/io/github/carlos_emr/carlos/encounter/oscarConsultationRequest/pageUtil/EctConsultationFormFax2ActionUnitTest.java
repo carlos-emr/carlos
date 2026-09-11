@@ -146,10 +146,12 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
         io.github.carlos_emr.CarlosProperties properties = mock(io.github.carlos_emr.CarlosProperties.class);
+        when(properties.isConsultationFaxEnabled()).thenReturn(false);
         try (MockedStatic<io.github.carlos_emr.CarlosProperties> propertiesMock = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
             propertiesMock.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(properties);
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.execute())
                     .isInstanceOf(SecurityException.class).hasMessage("consultation fax is disabled");
+            verify(properties).isConsultationFaxEnabled();
             org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxJobDao);
             action.setMethod("cancel");
             assertThat(action.execute()).isEqualTo("cancel");

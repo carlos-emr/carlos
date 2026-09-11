@@ -68,7 +68,7 @@ const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
+const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 
 /*
  * Hosts that are unambiguously this machine or its compose network. The teardown below
@@ -289,7 +289,7 @@ async function login(context) {
   await page.locator('#username').fill(config.testUser);
   await page.locator('#password').fill(config.testPassword);
   await page.locator('#pin').fill(config.testPin);
-  await Promise.all([
+  await settleOperations([
     page.waitForURL(/providercontrol/, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
@@ -381,7 +381,7 @@ async function addDocument(page, pdfPath) {
   const expectedFunction = await page.locator('#addDocDiv input[name="function"]').inputValue();
   const expectedFunctionId = await page.locator('#addDocDiv input[name="functionId"]').inputValue();
 
-  const [postResponse] = await Promise.all([
+  const [postResponse] = await settleOperations([
     page.waitForResponse(
       (response) => response.url().includes('/documentManager/addEditDocument')
         && response.request().method() === 'POST',
@@ -405,7 +405,7 @@ async function deleteDocument(page) {
   const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) }).first();
   await row.waitFor({ state: 'visible', timeout: 15000 });
   page.once('dialog', (dialog) => dialog.accept());
-  const [response] = await Promise.all([
+  const [response] = await settleOperations([
     page.waitForResponse((result) => new URL(result.url()).pathname.endsWith('/documentManager/DocumentDelete')
       && result.request().method() === 'POST', { timeout: 30000 }),
     page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
@@ -415,7 +415,7 @@ async function deleteDocument(page) {
 }
 
 async function selectDocumentStatus(page, status) {
-  const [response] = await Promise.all([
+  const [response] = await settleOperations([
     page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
     page.locator('#viewstatus').selectOption(status),
   ]);
@@ -429,7 +429,7 @@ async function restoreDocument(page) {
   await selectDocumentStatus(page, 'deleted');
   const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) });
   assert(await row.count() === 1, 'Deleted list did not contain exactly the uploaded fixture');
-  const [response] = await Promise.all([
+  const [response] = await settleOperations([
     page.waitForResponse((result) => new URL(result.url()).pathname.endsWith('/documentManager/DocumentUndelete')
       && result.request().method() === 'POST', { timeout: 30000 }),
     page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
@@ -461,7 +461,7 @@ async function addLink(page) {
   await form.locator('#html').fill('http://example.invalid/carlos-nav-probe');
   const expectedFunction = await form.locator('input[name="function"]').inputValue();
   const expectedFunctionId = await form.locator('input[name="functionid"]').inputValue();
-  const [response] = await Promise.all([
+  const [response] = await settleOperations([
     page.waitForResponse((result) => new URL(result.url()).pathname.endsWith('/documentManager/addLink')
       && result.request().method() === 'POST', { timeout: 30000 }),
     page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),

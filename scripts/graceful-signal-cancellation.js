@@ -52,4 +52,13 @@ function createGracefulSignalCancellation({ signalProcess = process, graceMs = 1
   };
 }
 
-module.exports = { createGracefulSignalCancellation };
+// A rejected navigation/click must not abandon another already-started request.
+// Preserve Promise.all's ordered values/error behavior, but drain every branch first.
+async function settleOperations(operations) {
+  const results = await Promise.allSettled(operations);
+  const failure = results.find((result) => result.status === 'rejected');
+  if (failure) throw failure.reason;
+  return results.map((result) => result.value);
+}
+
+module.exports = { createGracefulSignalCancellation, settleOperations };
