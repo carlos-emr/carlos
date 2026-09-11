@@ -224,6 +224,20 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
+    @DisplayName("the save-on-switch view should HTML-escape the note before splicing it into markup")
+    void shouldEscapeNoteText_beforeInsertingSavedNote() throws IOException {
+        // noteIssueList.jsp hands completeChangeToView() the typed note as a JavaScript
+        // string, and the function used to splice it straight into a <span> via
+        // insertAdjacentHTML/update. With attack-xss off ARGS:noteTxt, that was a DOM XSS.
+        String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(js)
+                .contains("function escapeNoteText(text)")
+                .contains("note = escapeNoteText(note).replace(/\\n/g, \"<br>\");")
+                .doesNotContain("note = note.replace(/\\n/g, \"<br>\");");
+    }
+
+    @Test
     @DisplayName("save-on-switch should post the whole note as one noteTxt parameter")
     void shouldEncodeNoteTxt_asOneParameter() throws IOException {
         // ajaxSaveNote() is the save that runs when a note with unsaved text is left for

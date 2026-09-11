@@ -89,7 +89,7 @@ class FormProseWafExclusionRegressionTest {
     private static final Pattern PROSE_INPUT_NAME = Pattern.compile(
             "comment|note|observ|remark|plan|reason|detail|finding|history|hx|other|desc|explain|"
                     + "concern|summary|text|assess|impression|recommend|complaint|diagnos|problem|allerg|"
-                    + "medic|social|family|advice|counsel", Pattern.CASE_INSENSITIVE);
+                    + "medic|social|family|advice|counsel|consider", Pattern.CASE_INSENSITIVE);
     private static final Pattern NOT_PROSE_INPUT_NAME = Pattern.compile(
             "date|time|dob|phone|fax|postal|hin\\b|_no$|no$|id$|num$|code|weight|height|\\bbp\\b|"
                     + "dose|units?$|qty|quantity|score|total|count", Pattern.CASE_INSENSITIVE);

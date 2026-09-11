@@ -59,7 +59,7 @@ CONTENT_ATTACK_TAGS = ("attack-sqli", "attack-rce", "attack-injection-php",
 PROSE_INPUT_NAME = re.compile(
     r"comment|note|observ|remark|plan|reason|detail|finding|history|hx|other|desc|explain|"
     r"concern|summary|text|assess|impression|recommend|complaint|diagnos|problem|allerg|"
-    r"medic|social|family|advice|counsel", re.IGNORECASE)
+    r"medic|social|family|advice|counsel|consider", re.IGNORECASE)
 # ...unless the name also says it holds a date, an identifier, a phone number or a
 # measurement, which is never prose however it is labelled (medicationDate, allergyCode).
 NOT_PROSE_INPUT_NAME = re.compile(
