@@ -56,6 +56,8 @@ stamping as `.github/workflows/deb-packages.yml` before building:
 
 ```bash
 git fetch origin
+# Update for each promotion. After handoff/deletion, use the retained release
+# tag or exact validated commit instead of this temporary candidate branch.
 promotion_ref=origin/codex/promote-2026-08-alpha12-to-main
 git worktree add --detach ../carlos-package-validation "$promotion_ref"
 cd ../carlos-package-validation
@@ -568,6 +570,16 @@ lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
 ```
 
 ## Diagnosing failures
+
+**Fax recovery safety.** A lost response or a database commit-acknowledgement
+error is an unknown fax outcome, not proof that transmission failed. The page
+disables resend and encounter paste and retains captured text for verification.
+Once persistence has been attempted, prepared fax files are retained because a
+committed job may already be using them. Check the fax outbox and have an
+administrator reconcile the job/audit record before sending again or removing
+any retained files. Only failures proven to occur before persistence clean up
+their owned files automatically. A historical reprint must remain ineligible
+for ordinary Print and Paste after any signature event or recovery.
 
 **A "timed-out" save with a clean application log usually means the WAF ate the
 request.** A ModSecurity block returns nginx's 403 page and the request **never

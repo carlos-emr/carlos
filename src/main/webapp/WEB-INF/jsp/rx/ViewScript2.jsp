@@ -581,7 +581,7 @@
 
             function printPaste2Parent(print, fax, pasteRx, capturedPasteText, useCapturedPasteTextAsIs) {
                 //console.log("in printPaste2Parent");
-                if (faxSubmissionUncertain || faxPreviewReloading || ((!hasPreview || faxQueued || faxSubmissionPending) && !fax)) return Promise.resolve(false);
+                if (faxSubmissionUncertain || faxPreviewReloading || ((isReprint || !hasPreview || faxQueued || faxSubmissionPending) && !fax)) return Promise.resolve(false);
                 // A retry is safe only until an insertion or request may have written text.
                 // Network failures and editor callbacks can fail AFTER their side effect.
                 faxPasteCanRetry = true;
@@ -872,6 +872,9 @@
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
             var faxScriptNo = "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>";
+            // Ordinary Print and Paste also needs these, even when Rx faxing is disabled.
+            var hasPreview = <%= previewAvailable ? "true" : "false" %>;
+            var isReprint = <%= "true".equals(reprint) ? "true" : "false" %>;
             var faxSubmissionPending = false;
             var faxSubmissionUncertain = false;
             var faxPreviewReloading = false;
@@ -927,7 +930,7 @@
                 // Printing/pasting needs neither a fax account nor a signature.
                 var printPasteButton = document.getElementById('printPasteButton');
                 if (printPasteButton) {
-                    printPasteButton.disabled = !hasPreview || faxSubmissionPending || faxQueued
+                    printPasteButton.disabled = isReprint || !hasPreview || faxSubmissionPending || faxQueued
                             || faxSubmissionUncertain || faxPreviewReloading;
                 }
             }
@@ -1118,9 +1121,6 @@
             // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
             // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
             var hasStoredSignature = <%= faxTargetSigned ? "true" : "false" %>;
-            // Same stash term the server-rendered disabled attribute uses, so a pad event cannot
-            // re-enable Fax on a page that has no #preview iframe for sendFax() to read.
-            var hasPreview = <%= previewAvailable ? "true" : "false" %>;
             <% } %>
 
             function signatureHandler(e) {
