@@ -176,8 +176,9 @@ describe("myCarlos Tauri evaluation", () => {
     await user.click(cloudBackup);
     expect(cloudBackup).toHaveAttribute("aria-pressed", "false");
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Automatic lock delay" }), "5 minutes");
     expect(screen.getByRole("combobox", { name: "Automatic lock delay" })).toHaveValue("5 minutes");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Automatic lock delay" }), "1 minute");
+    expect(screen.getByRole("combobox", { name: "Automatic lock delay" })).toHaveValue("1 minute");
 
     await user.click(screen.getByRole("button", { name: "Preview sheet" }));
     expect(screen.getByText(/no security material was created or changed/i)).toBeVisible();

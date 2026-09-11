@@ -50,15 +50,15 @@ describe("durable vault UI", () => {
     await screen.findByRole("heading", { name: "Create your encrypted vault" });
     await user.type(screen.getByLabelText("First patient profile"), "Jamie");
     const passwords = screen.getAllByLabelText(/passphrase/i);
-    await user.type(passwords[0], "Correct-Horse-8!");
+    await user.type(passwords[0], "river-azimuth-cobalt-sparrow-934");
     await user.type(passwords[1], "different");
     expect(screen.getByRole("button", { name: "Create vault" })).toBeDisabled();
     await user.clear(passwords[1]);
-    await user.type(passwords[1], "Correct-Horse-8!");
+    await user.type(passwords[1], "river-azimuth-cobalt-sparrow-934");
     await user.click(screen.getByRole("button", { name: "Create vault" }));
 
     await screen.findByRole("heading", { name: "My records" });
-    expect(bridge.create).toHaveBeenCalledWith("Correct-Horse-8!", "Jamie");
+    expect(bridge.create).toHaveBeenCalledWith("river-azimuth-cobalt-sparrow-934", "Jamie");
   });
 
   it("unlocks and imports through the native bridge", async () => {
@@ -73,7 +73,7 @@ describe("durable vault UI", () => {
     render(<VaultApp bridge={bridge} />);
 
     await screen.findByRole("heading", { name: "Unlock your vault" });
-    await user.type(screen.getByLabelText("Passphrase"), "Correct-Horse-8!");
+    await user.type(screen.getByLabelText("Passphrase"), "river-azimuth-cobalt-sparrow-934");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
     await user.click(await screen.findByRole("button", { name: "Choose files to import" }));
 
@@ -163,17 +163,24 @@ describe("durable vault UI", () => {
     let visibilityState: DocumentVisibilityState = "visible";
     const visibility = vi.spyOn(document, "visibilityState", "get")
       .mockImplementation(() => visibilityState);
-    render(<VaultApp bridge={bridge} />);
+    try {
+      render(<VaultApp bridge={bridge} />);
 
-    await user.click(await screen.findByRole("button", { name: "Choose files to import" }));
-    visibilityState = "hidden";
-    document.dispatchEvent(new Event("visibilitychange"));
-    expect(bridge.lock).not.toHaveBeenCalled();
+      await user.click(await screen.findByRole("button", { name: "Choose files to import" }));
+      await act(async () => {
+        visibilityState = "hidden";
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      expect(bridge.lock).not.toHaveBeenCalled();
+      expect(screen.queryByRole("heading", { name: "My records" })).not.toBeInTheDocument();
+      expect(screen.getByText(/Vault content is hidden/)).toBeVisible();
 
-    await act(async () => finishImport({ imported: [], skippedDuplicates: [] }));
-    await waitFor(() => expect(bridge.lock).toHaveBeenCalledOnce());
-    expect(await screen.findByRole("heading", { name: "Unlock your vault" })).toBeVisible();
-    visibility.mockRestore();
+      await act(async () => finishImport({ imported: [], skippedDuplicates: [] }));
+      await waitFor(() => expect(bridge.lock).toHaveBeenCalledOnce());
+      expect(await screen.findByRole("heading", { name: "Unlock your vault" })).toBeVisible();
+    } finally {
+      visibility.mockRestore();
+    }
   });
 
   it("requires confirmation before permanently deleting a durable record", async () => {
@@ -202,7 +209,7 @@ describe("durable vault UI", () => {
     confirm.mockRestore();
   });
 
-  it("ignores window blur and locks after 15 minutes of inactivity", async () => {
+  it("ignores window blur and locks after 5 minutes of inactivity", async () => {
     vi.useFakeTimers();
     try {
       const bridge = nativeBridge({ status: vi.fn().mockResolvedValue("unlocked") });
@@ -214,7 +221,7 @@ describe("durable vault UI", () => {
       await act(async () => undefined);
       expect(bridge.lock).not.toHaveBeenCalled();
 
-      await act(async () => vi.advanceTimersByTime(15 * 60 * 1000));
+      await act(async () => vi.advanceTimersByTime(5 * 60 * 1000));
       expect(bridge.lock).toHaveBeenCalledOnce();
     } finally {
       vi.useRealTimers();

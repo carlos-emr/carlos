@@ -17,12 +17,14 @@ privacy, accessibility, or clinical review.
       encryption and no arbitrary per-file size cap.
 - [x] XChaCha20-Poly1305 encrypted chunked objects and encrypted metadata manifests.
 - [x] Argon2id passphrase wrapper, independent object keys, and keyed duplicate detection.
-- [x] Approved 15-character passphrase minimum without arbitrary composition rules; compromised-
-      passphrase screening remains a patient-pilot gate.
+- [x] Approved 15-character passphrase minimum without arbitrary composition rules, plus local
+      common-password/pattern/profile-name screening. A production breach corpus and independent
+      threshold review remain patient-pilot gates.
 - [x] Atomic import, redundant manifest repair, atomic filesystem-path export, restart/unlock, and
       error-path cleanup.
 - [x] Multiple patient profiles, nested folders, search, sorting, bulk moves, and drag-and-drop.
-- [x] Manual, background, and 15-minute inactivity locking.
+- [x] Manual/background locking, immediate background visual concealment, and the approved
+      five-minute default inactivity lock. Persisted one-to-fifteen-minute configuration remains.
 - [x] Passphrase change and typed-confirmation whole-vault reset.
 - [x] Confirmed individual deletion from the live vault with both manifest slots rewritten without
       the wrapped object key and ciphertext removed between the two durable commits.
@@ -41,6 +43,8 @@ privacy, accessibility, or clinical review.
       validated before their object names drive filesystem operations.
 - [x] Production CSP excludes development WebSocket access, freezes the JavaScript prototype, and
       grants the main webview no unused Tauri core command permissions.
+- [x] Property-based malformed-input coverage for header, manifest, object, and IPC envelopes;
+      unsupported header/manifest versions fail closed and a future migration protocol is recorded.
 
 ## Required before calling the synthetic MVP reviewed
 
@@ -52,7 +56,8 @@ privacy, accessibility, or clinical review.
 - [ ] Reproduce genuine full-filesystem behavior and test OS backup/restore. Deterministic
       `NoSpace` injection, Unix permission modes, and the local corruption matrix are automated;
       platform filesystem and policy inspection remains.
-- [ ] Benchmark Argon2id on the oldest supported device class.
+- [ ] Benchmark Argon2id on the oldest supported device class. A repeatable release-mode harness and
+      result template are in [`ARGON2_BENCHMARK.md`](ARGON2_BENCHMARK.md); physical results remain.
 - [ ] Inspect platform logs, crash artifacts, app-switcher snapshots, and backups for plaintext
       canaries. Recursive application-storage canary inspection is automated.
 - [ ] Decide whether passphrase-only recovery and permanent loss are acceptable product behavior.

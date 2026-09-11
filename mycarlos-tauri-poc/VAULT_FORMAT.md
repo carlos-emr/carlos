@@ -24,9 +24,12 @@ Rust zeroizes passphrase request strings and long-lived secret-key buffers where
 that practical.
 
 New and replacement passphrases must contain at least 15 Unicode characters, contain no control
-characters, and encode to no more than 1,024 bytes. There are no composition rules. Unlock remains
-compatible with a shorter passphrase created by an earlier evaluation build. Compromised-passphrase
-screening and the patient-held recovery key remain patient-pilot work.
+characters, and encode to no more than 1,024 bytes. There are no composition rules. Before the KDF
+runs, local zxcvbn analysis rejects scores below three using its common-password/name/pattern data
+plus myCarlos and the current profile names as context. No proposed passphrase leaves the process.
+Unlock remains compatible with a shorter passphrase created by an earlier evaluation build. A
+production breach corpus, independent threshold review, and the patient-held recovery key remain
+patient-pilot work.
 
 ## Files and transactions
 
@@ -109,7 +112,9 @@ portable backup flow exists.
   chunk, staging, rename, manifest, and deletion boundaries is automated, along with deterministic
   `NoSpace` failures around object and metadata commits. True power-cut and genuinely full
   filesystem behavior inside platform primitives still require target-device testing.
-- Argon2id settings require performance measurements on the oldest supported device class.
-- The format has not received independent cryptographic or privacy review and has no migration
-  implementation beyond rejecting unsupported versions.
+- Argon2id settings require performance measurements on the oldest supported device class; the
+  repeatable harness and result record are in [`ARGON2_BENCHMARK.md`](ARGON2_BENCHMARK.md).
+- The format has not received independent cryptographic or privacy review. [`MIGRATIONS.md`](MIGRATIONS.md)
+  defines the future staged, verified, rollback-safe protocol and version/interruption matrix;
+  activation code awaits an actual v2.
 - An application extraction into the dedicated myCarlos repository is required before release.

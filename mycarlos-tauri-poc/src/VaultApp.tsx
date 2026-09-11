@@ -10,7 +10,7 @@ import {
   type VaultStatus,
 } from "./vault";
 
-const AUTO_LOCK_MS = 15 * 60 * 1000;
+const AUTO_LOCK_MS = 5 * 60 * 1000;
 
 export interface VaultAppProps {
   bridge?: VaultBridge;
@@ -65,6 +65,7 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   const [snapshot, setSnapshot] = useState<VaultSnapshot | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [concealed, setConcealed] = useState(false);
   const busyRef = useRef(false);
   const pendingLockRef = useRef(false);
 
@@ -72,11 +73,13 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
     await bridge.lock();
     pendingLockRef.current = false;
     setSnapshot(null);
+    setConcealed(false);
     setStatus("locked");
     setNotice("Vault locked.");
   }, [bridge]);
 
-  const requestLock = useCallback(() => {
+  const requestLock = useCallback((concealImmediately = false) => {
+    if (concealImmediately) setConcealed(true);
     if (busyRef.current) {
       pendingLockRef.current = true;
       return;
@@ -109,13 +112,13 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
       timer = window.setTimeout(requestLock, AUTO_LOCK_MS);
     };
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") requestLock();
+      if (document.visibilityState === "hidden") requestLock(true);
     };
     for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
       window.addEventListener(event, restart, { passive: true });
     }
     document.addEventListener("visibilitychange", onVisibility);
-    if (document.visibilityState === "hidden") requestLock();
+    if (document.visibilityState === "hidden") requestLock(true);
     return () => {
       window.clearTimeout(timer);
       for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
@@ -155,6 +158,7 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   if (status === "absent") {
     return <CreateVault busy={busy} notice={notice} onCreate={(profile, passphrase) => run(async () => {
       setSnapshot(await bridge.create(passphrase, profile));
+      setConcealed(false);
       setStatus("unlocked");
       setNotice("Encrypted vault created. Keep your passphrase safe; it cannot be recovered.");
     })} />;
@@ -163,6 +167,7 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
   if (status === "locked" || !snapshot) {
     return <UnlockVault busy={busy} notice={notice} onUnlock={(passphrase) => run(async () => {
       setSnapshot(await bridge.unlock(passphrase));
+      setConcealed(false);
       setStatus("unlocked");
       setNotice("Vault unlocked.");
     })} onReset={(confirmation) => run(async () => {
@@ -170,6 +175,10 @@ function NativeVault({ bridge }: { bridge: VaultBridge }) {
       setStatus("absent");
       setNotice("");
     })} />;
+  }
+
+  if (concealed) {
+    return <VaultAuthFrame state="Locked"><p>Vault content is hidden while myCarlos finishes locking…</p></VaultAuthFrame>;
   }
 
   return <VaultLibrary bridge={bridge} snapshot={snapshot} busy={busy} notice={notice}
@@ -200,7 +209,7 @@ function CreateVault({ busy, notice, onCreate }: {
       <form onSubmit={submit}>
         <label>First patient profile<input required maxLength={120} value={profile} onChange={(e) => setProfile(e.target.value)} /></label>
         <label>Passphrase<input required type="password" autoComplete="new-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} /></label>
-        <small>Use at least 15 characters. Long, memorable phrases work well; spaces are allowed.</small>
+        <small>Use at least 15 characters. Spaces are allowed; common passwords, names, and predictable patterns are rejected locally.</small>
         <label>Confirm passphrase<input required type="password" autoComplete="new-password" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></label>
         {confirmation && passphrase !== confirmation && <p role="alert">Passphrases do not match.</p>}
         {notice && <p role="status">{notice}</p>}
@@ -228,7 +237,7 @@ function UnlockVault({ busy, notice, onUnlock, onReset }: {
     <section className="vault-card" aria-labelledby="unlock-title">
       <p className="vault-kicker">myCarlos private records</p>
       <h1 id="unlock-title">Unlock your vault</h1>
-      <p>The vault locks after 15 minutes of inactivity and whenever the app is backgrounded.</p>
+      <p>The vault locks after 5 minutes of inactivity and whenever the app is backgrounded.</p>
       <form onSubmit={submit}>
         <label>Passphrase<input autoFocus required type="password" autoComplete="current-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} /></label>
         {notice && <p role="status">{notice}</p>}
@@ -582,8 +591,8 @@ function VaultLibrary({ bridge, snapshot, busy, notice, setNotice, run, refresh,
             <p className="status-line" role="status" aria-live="polite">{notice}</p>
             <div className="setting-list">
               <section className="setting-row"><div><h2>Encryption <span className="state-pill">On — always</span></h2><p>Files, names, folders, and record details are encrypted on this device.</p></div></section>
-              <section className="setting-row"><div><h2>Lock automatically <span className="state-pill">15 minutes</span></h2><p>The vault locks after 15 minutes without keyboard, pointer, or touch activity.</p></div><button className="button" type="button" onClick={() => void onLock()}>Lock now</button></section>
-              <section className="setting-row native-setting-form"><div><h2>Change passphrase</h2><p>Re-lock the vault key with a new passphrase of at least 15 characters.</p></div><form onSubmit={(event) => { event.preventDefault(); const current = currentPassphrase; const replacement = newPassphrase; setCurrentPassphrase(""); setNewPassphrase(""); void run(async () => { await bridge.changePassphrase(current, replacement); setNotice("Passphrase changed."); }); }}><label>Current passphrase<input required type="password" autoComplete="current-password" value={currentPassphrase} onChange={(event) => setCurrentPassphrase(event.target.value)} /></label><label>New passphrase<input required type="password" autoComplete="new-password" value={newPassphrase} onChange={(event) => setNewPassphrase(event.target.value)} /></label><button className="button" disabled={busy}>Change passphrase</button></form></section>
+              <section className="setting-row"><div><h2>Lock automatically <span className="state-pill">5 minutes</span></h2><p>The vault locks after 5 minutes without keyboard, pointer, or touch activity.</p></div><button className="button" type="button" onClick={() => void onLock()}>Lock now</button></section>
+              <section className="setting-row native-setting-form"><div><h2>Change passphrase</h2><p>Use at least 15 characters and avoid common names or predictable phrases.</p></div><form onSubmit={(event) => { event.preventDefault(); const current = currentPassphrase; const replacement = newPassphrase; setCurrentPassphrase(""); setNewPassphrase(""); void run(async () => { await bridge.changePassphrase(current, replacement); setNotice("Passphrase changed."); }); }}><label>Current passphrase<input required type="password" autoComplete="current-password" value={currentPassphrase} onChange={(event) => setCurrentPassphrase(event.target.value)} /></label><label>New passphrase<input required type="password" autoComplete="new-password" value={newPassphrase} onChange={(event) => setNewPassphrase(event.target.value)} /></label><button className="button" disabled={busy}>Change passphrase</button></form></section>
               <section className="setting-row native-setting-form"><div><h2>Patient profiles</h2><p>Keep each person’s filing cabinet separate inside this vault.</p></div><form onSubmit={(event) => { event.preventDefault(); const name = profileName; setProfileName(""); void run(async () => { await bridge.createProfile(name); await refresh(); setNotice(`${name} was added.`); }); }}><label>New profile name<input required maxLength={120} value={profileName} onChange={(event) => setProfileName(event.target.value)} /></label><button className="button" disabled={busy}>Add profile</button></form></section>
               <section className="setting-row native-danger-setting"><div><h2>Erase entire vault</h2><p>Permanently deletes every encrypted document, profile, and folder. This cannot be undone.</p></div><details><summary>Show reset controls</summary><label>Type RESET MYCARLOS VAULT<input value={resetText} onChange={(event) => setResetText(event.target.value)} /></label><button className="button danger" disabled={busy || resetText !== "RESET MYCARLOS VAULT"} onClick={() => void run(async () => { await bridge.reset(resetText); window.location.reload(); })}>Erase entire vault</button></details></section>
             </div>

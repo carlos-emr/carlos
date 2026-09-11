@@ -1,6 +1,8 @@
 mod vault;
 
 use serde::{Deserialize, Serialize};
+#[cfg(windows)]
+use std::os::windows::fs::{MetadataExt as _, OpenOptionsExt as _};
 #[cfg(desktop)]
 use std::{fs, io, path::Path};
 use std::{
@@ -13,6 +15,11 @@ use tauri_plugin_fs::{FsExt, OpenOptions};
 use uuid::Uuid;
 use vault::{ImportSource, VaultError, VaultSnapshot, VaultStatus, VaultStore};
 use zeroize::Zeroize;
+
+#[cfg(windows)]
+const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
+#[cfg(windows)]
+const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,6 +69,10 @@ impl From<VaultError> for PublicError {
             VaultError::Invalid => Self {
                 code: "invalid",
                 message: "Check the requested information and try again.",
+            },
+            VaultError::WeakPassphrase => Self {
+                code: "weak_passphrase",
+                message: "Choose a less predictable passphrase that is not based on common passwords, names, or myCarlos.",
             },
             VaultError::ImportBatchLimit => Self {
                 code: "import_batch_limit",
@@ -179,7 +190,7 @@ fn now_ms() -> u64 {
 #[cfg(desktop)]
 fn open_regular_local_file(path: &Path) -> io::Result<fs::File> {
     let metadata = fs::symlink_metadata(path)?;
-    if !metadata.file_type().is_file() {
+    if !is_regular_local_file(&metadata) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "selected path is not a regular file",
@@ -192,14 +203,28 @@ fn open_regular_local_file(path: &Path) -> io::Result<fs::File> {
         use std::os::unix::fs::OpenOptionsExt as _;
         options.custom_flags(libc::O_NOFOLLOW);
     }
+    #[cfg(windows)]
+    options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
     let file = options.open(path)?;
-    if !file.metadata()?.file_type().is_file() {
+    if !is_regular_local_file(&file.metadata()?) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "selected handle is not a regular file",
         ));
     }
     Ok(file)
+}
+
+#[cfg(desktop)]
+fn is_regular_local_file(metadata: &fs::Metadata) -> bool {
+    if !metadata.file_type().is_file() {
+        return false;
+    }
+    #[cfg(windows)]
+    if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return false;
+    }
+    true
 }
 
 #[tauri::command]
@@ -509,6 +534,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     #[test]
     fn runtime_info_contains_only_non_sensitive_build_data() {
         let info = current_runtime_info();
@@ -522,6 +548,10 @@ mod tests {
         let error = PublicError::from(VaultError::Storage);
         assert_eq!(error.code, "storage");
         assert!(!error.message.contains('/'));
+
+        let weak = PublicError::from(VaultError::WeakPassphrase);
+        assert_eq!(weak.code, "weak_passphrase");
+        assert!(weak.message.contains("less predictable"));
     }
 
     #[test]
@@ -576,5 +606,26 @@ mod tests {
         let capability: serde_json::Value =
             serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
         assert_eq!(capability["permissions"], serde_json::json!([]));
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        #[test]
+        fn arbitrary_ipc_payloads_never_panic_during_deserialization(
+            payload in prop::collection::vec(any::<u8>(), 0..8192),
+        ) {
+            let _ = serde_json::from_slice::<CreateVaultRequest>(&payload);
+            let _ = serde_json::from_slice::<PassphraseRequest>(&payload);
+            let _ = serde_json::from_slice::<ChangePassphraseRequest>(&payload);
+            let _ = serde_json::from_slice::<NameRequest>(&payload);
+            let _ = serde_json::from_slice::<FolderRequest>(&payload);
+            let _ = serde_json::from_slice::<UpdateFolderRequest>(&payload);
+            let _ = serde_json::from_slice::<AssignFoldersRequest>(&payload);
+            let _ = serde_json::from_slice::<ImportRequest>(&payload);
+            let _ = serde_json::from_slice::<ExportRequest>(&payload);
+            let _ = serde_json::from_slice::<DeleteRecordRequest>(&payload);
+            let _ = serde_json::from_slice::<ResetRequest>(&payload);
+        }
     }
 }

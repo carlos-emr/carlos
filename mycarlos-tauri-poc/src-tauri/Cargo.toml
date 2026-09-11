@@ -31,8 +31,10 @@ tauri-plugin-fs = "2"
 thiserror = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
 zeroize = { version = "1", features = ["derive"] }
+zxcvbn = { version = "3.1.1", default-features = false }
 
 [dev-dependencies]
+proptest = { version = "1.11", default-features = false, features = ["std"] }
 tempfile = "3"
 
 [profile.release]

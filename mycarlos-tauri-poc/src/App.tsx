@@ -266,7 +266,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
   const [cloudBackup, setCloudBackup] = useState(true);
   const [driveBackup, setDriveBackup] = useState(false);
   const [biometricUnlock, setBiometricUnlock] = useState(true);
-  const [autoLock, setAutoLock] = useState("15 minutes");
+  const [autoLock, setAutoLock] = useState("5 minutes");
   const [appleHealth, setAppleHealth] = useState(false);
   const [healthConnect, setHealthConnect] = useState(false);
 
@@ -332,7 +332,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
     !cloudBackup ||
     driveBackup ||
     !biometricUnlock ||
-    autoLock !== "15 minutes" ||
+    autoLock !== "5 minutes" ||
     appleHealth ||
     healthConnect;
   const libraryTitle =
@@ -399,7 +399,7 @@ export default function App({ bridge = defaultBridge }: AppProps) {
     setCloudBackup(true);
     setDriveBackup(false);
     setBiometricUnlock(true);
-    setAutoLock("15 minutes");
+    setAutoLock("5 minutes");
     setAppleHealth(false);
     setHealthConnect(false);
     setNotice("Evaluation reset. Only the built-in sample records are shown.");
@@ -861,8 +861,6 @@ export default function App({ bridge = defaultBridge }: AppProps) {
                         <option>1 minute</option>
                         <option>5 minutes</option>
                         <option>15 minutes</option>
-                        <option>1 hour</option>
-                        <option>Never</option>
                       </select>
                     </label>
                   </section>

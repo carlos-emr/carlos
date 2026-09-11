@@ -61,9 +61,9 @@ evaluation evidence and must not be distributed to patients.
   encrypted metadata, chunked files, per-object keys, atomic manifest generations, and keyed
   duplicate detection.
 - Multiple patient profiles, nested folders, multiple folder assignments, manual/background/
-  15-minute inactivity locking, passphrase change, and typed-confirmation whole-vault reset. A
-  background lock requested by a native picker is completed immediately after that active
-  import/export operation, avoiding a mid-operation lock race.
+  5-minute inactivity locking, immediate background concealment, passphrase change, and
+  typed-confirmation whole-vault reset. A background lock requested by a native picker is completed
+  immediately after that active import/export operation, avoiding a mid-operation lock race.
 - Confirmed individual record deletion updates one durable manifest, unlinks the encrypted object,
   and then updates the redundant manifest. Both live slots omit the wrapped per-object key when the
   operation succeeds. Old external backups and future synchronized copies remain outside that
