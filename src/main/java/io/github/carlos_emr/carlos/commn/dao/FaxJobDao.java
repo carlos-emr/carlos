@@ -37,6 +37,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 
 public interface FaxJobDao extends AbstractDao<FaxJob> {
+    /**
+     * Locks and refreshes one fax row within the caller's transaction.
+     * @param id local fax identifier
+     * @return current locked row, or null when absent
+     */
+    FaxJob findForUpdate(int id);
 
     public List<FaxJob> getFaxStatusByDateDemographicProviderStatusTeam(String demographic_no, String provider_no,
                                                                         String status, String team, Date beginDate, Date endDate);

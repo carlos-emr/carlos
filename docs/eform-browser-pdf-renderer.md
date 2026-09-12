@@ -705,9 +705,10 @@ sudo journalctl -u carlos-emr-chromedriver -n 50
 
 At startup the application probes the browser exactly once and reports the outcome. That report is
 visible at default verbosity **only because `log4j2.xml` gives this package its own INFO level** —
-the root logger defaults to ERROR (`LOG_VERBOSITY`), which previously hid a passing probe entirely
-and hid the summary line of a failing one. If you are reading logs from a build that predates that,
-raise `LOG_VERBOSITY` to `info` before concluding the probe did not run.
+the root logger defaults to WARN (`LOG_VERBOSITY`; it was ERROR in builds before 2026.09), and
+either default hid a passing probe entirely because the probe reports at INFO. If you are reading
+logs from a build that predates the per-package level, raise `LOG_VERBOSITY` to `info` before
+concluding the probe did not run.
 
 The line to look for is:
 

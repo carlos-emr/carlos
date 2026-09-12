@@ -123,6 +123,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
 
             assertThat(metadata.getDemographicId()).isEqualTo(123);
             assertThat(metadata.getModuleType()).isEqualTo(ModuleType.PRESCRIPTION);
+            assertThat(metadata.getProviderNo()).isEqualTo("999998");
         }
 
         @Test
@@ -200,6 +201,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
 
             assertThat(metadata.getDemographicId()).isEqualTo(456);
             assertThat(metadata.getModuleType()).isEqualTo(ModuleType.PRESCRIPTION);
+            assertThat(metadata.getProviderNo()).isEqualTo("999998");
         }
 
         @Test

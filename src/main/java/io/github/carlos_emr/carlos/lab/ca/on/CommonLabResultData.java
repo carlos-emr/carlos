@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
-import java.sql.Connection;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -46,7 +45,6 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionChain;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
@@ -430,7 +428,7 @@ public class CommonLabResultData {
      * @param comment comment for {@code labNo}, may be null or empty
      * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
      * @param skipCommentOnUpdate true to leave an existing comment untouched
-     * @param multiId the client's version chain; only consulted for types with no server-side chain
+     * @param multiId the client's version chain, retained for caller compatibility but not trusted
      * @return how many of this provider's routing rows this call took OUT of the NEW state.
      *         The inbox counters count NEW routing rows, not the collapsed list rows, so a
      *         caller adjusting them live has to know this number rather than assume one per
@@ -441,74 +439,81 @@ public class CommonLabResultData {
     public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                           String comment, String labType,
                                                           boolean skipCommentOnUpdate, String multiId) {
+        // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
+        // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
+        org.springframework.transaction.support.TransactionTemplate transaction =
+                new org.springframework.transaction.support.TransactionTemplate(
+                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        // MariaDB 11.8 enables snapshot isolation: a REPEATABLE_READ snapshot taken
+        // while resolving versions can reject rows committed before our lock is acquired.
+        // Report locks serialize writers; each subsequent read must see their committed rows.
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return transaction.execute(transactionStatus -> updateReportChainInTransaction(
+                labNo, providerNo, status, comment, labType, skipCommentOnUpdate, multiId));
+    }
+
+    private static int updateReportChainInTransaction(int labNo, String providerNo, char status,
+                                                       String comment, String labType,
+                                                       boolean skipCommentOnUpdate, String multiId) {
         // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
         // that fails after the reviewed row is already stamped, the caller reports a failure
         // while the acknowledgement is half-applied: the lab is acknowledged, its older
         // versions are still NEW, and the collapsed inbox row comes back. Failing here leaves
-        // nothing written. (These are still separate writes, not one transaction — a failure
-        // partway through the loop below can still file some versions and not others.)
+        // nothing written. The outer transaction also rolls back every routing/archive write
+        // if any subsequent version fails, rather than leaving a partly filed chain.
+        // Membership is fixed at this lookup: a report imported afterward is newly available
+        // clinical information, even if its result date sorts before the reviewed report.
+        // Do not silently expand the filing set while waiting for routing locks. Such a new
+        // arrival stays NEW for review; report locks serialize writes to the selected members,
+        // not accession-wide ingestion or future chain membership.
         List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
 
-        // Counted BEFORE each write, and only for rows that were actually NEW. updateReportStatus
-        // reports nothing usable here — every path in it returns TRUE, including the one that
-        // CREATES a routing row that never existed — so "one per version" would count a chain
-        // whose older versions somebody had already filed, and the badge would read low until
-        // the next page load recomputed it.
-        int clearedFromNew = status == 'N' ? 0 : countNewRoutingRows(labNo, labType, providerNo);
-        updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
-        for (Integer olderLabNo : olderLabNos) {
-            clearedFromNew += countNewRoutingRows(olderLabNo, labType, providerNo);
-            updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
+        // Count the conditional UPDATE, never a preceding snapshot SELECT: two concurrent
+        // acknowledgements must not both report clearing the same NEW routing row. Acquire
+        // chain write locks in numeric order, including when callers reviewed different versions.
+        java.util.SortedSet<Integer> versions = new java.util.TreeSet<>(olderLabNos);
+        versions.add(labNo);
+        for (Integer version : versions) {
+            providerLabRoutingDao.lockRoutingReport(version);
+        }
+        int clearedFromNew = 0;
+        for (Integer version : versions) {
+            char destination = version == labNo ? status : 'F';
+            if (destination != 'N') {
+                clearedFromNew += providerLabRoutingDao.transitionNewRoutingRows(
+                        version, labType, providerNo, destination);
+            }
+        }
+        for (Integer version : versions) {
+            if (version == labNo) {
+                updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
+            } else {
+                updateReportStatus(version, providerNo, 'F', "", labType);
+            }
         }
         return clearedFromNew;
     }
 
     /**
-     * How many of this provider's routing rows for one lab version are currently NEW.
-     *
-     * <p>Package-private so the acknowledge tests can drive the arithmetic above without
-     * standing up a routing DAO; nothing outside this class should call it.
-     *
-     * <p>Normally nought or one; the list tolerates more because
-     * {@code providerLabRouting} has no uniqueness constraint on (lab, type, provider) and
-     * duplicate rows do exist in older data — each one is counted by the inbox badge, so each
-     * one has to be counted here too.
-     */
-    static int countNewRoutingRows(int labNo, String labType, String providerNo) {
-        List<ProviderLabRoutingModel> rows =
-                providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
-        if (rows == null) {
-            return 0;
-        }
-        int newRows = 0;
-        for (ProviderLabRoutingModel row : rows) {
-            if ("N".equals(row.getStatus())) {
-                newRows++;
-            }
-        }
-        return newRows;
-    }
-
-    /**
      * Resolves the versions of {@code labNo} that are OLDER than it, oldest first.
      *
-     * <p>For HL7 labs the chain is ALWAYS derived server side from the accession number and the
+     * <p>For labs the chain is ALWAYS derived server side from the accession number and the
      * posted {@code multiID} is ignored. That is the same source the view used to build
      * {@code multiID}, so the result is identical for an honest client — but a forged or stale
      * chain can no longer name unrelated labs and have them filed. A chain is not a hint here;
      * every id in it becomes a write to another lab's routing row.
      *
-     * <p>Other report types have no accession chain to derive, so they fall back to the posted
-     * value (a BC lab display posts one). Those types are read no more trustingly than before
-     * this method existed, and a chain that does not contain {@code labNo} files nothing.
+     * <p>The shared lookup also supports MDS, CML and BC PathNet. Documents and HRM reports
+     * have no version chain; unknown types have no trusted lookup. None may fall back to a
+     * posted chain: a forged chain containing the reviewed id could otherwise file unrelated
+     * clinical records. A missing or unusable server chain files no additional versions.
      *
      * <p>Exact type match, not a case-insensitive one: the routing rows are looked up by this
      * same lab_type string, so accepting a spelling the lookup would miss buys nothing.
      */
     static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
-        String chain = LabResultData.HL7TEXT.equals(labType)
-                ? Hl7textResultsData.getMatchingLabs(String.valueOf(labNo))
-                : multiId;
+        String chain = labType == null ? null
+                : new CommonLabResultData().getMatchingLabs(String.valueOf(labNo), labType);
         return LabVersionChain.olderThan(labNo, chain);
     }
 
@@ -519,17 +524,26 @@ public class CommonLabResultData {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType, boolean skipCommentOnUpdate) {
+        org.springframework.transaction.support.TransactionTemplate transaction =
+                new org.springframework.transaction.support.TransactionTemplate(
+                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return Boolean.TRUE.equals(transaction.execute(transactionStatus -> {
+            providerLabRoutingDao.lockRoutingReport(labNo);
+            return updateReportStatusInTransaction(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
+        }));
+    }
 
+    private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
+                                                            String comment, String labType, boolean skipCommentOnUpdate) {
         if (comment == null) {
             comment = "";
         }
 
-        comment = comment.trim();
-
         /*
          * Update an existing entry
          */
-        List<ProviderLabRoutingModel> providerLabRoutingModelList = providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
+        List<ProviderLabRoutingModel> providerLabRoutingModelList = providerLabRoutingDao.findRoutingForUpdate(labNo, labType, providerNo);
         if (providerLabRoutingModelList != null && !providerLabRoutingModelList.isEmpty()) {
             for (ProviderLabRoutingModel providerLabRoutingModel : providerLabRoutingModelList) {
                 providerLabRoutingModel.setStatus("" + status);
@@ -541,8 +555,10 @@ public class CommonLabResultData {
                 }
 
                 // use the new incoming comment on these conditions.
-                if (!comment.isEmpty() && !comment.equalsIgnoreCase(currentComment.trim())) {
-                    providerLabRoutingModel.setComment(comment.replaceAll(currentComment, currentComment));
+                if (!skipCommentOnUpdate && !comment.isBlank()
+                        && !comment.equals(currentComment)) {
+                    // Clinical text is not a regular expression or replacement template.
+                    providerLabRoutingModel.setComment(comment);
                 }
                 providerLabRoutingModel.setTimestamp(new Date());
                 providerLabRoutingDao.merge(providerLabRoutingModel);
@@ -558,7 +574,7 @@ public class CommonLabResultData {
             providerLabRouting.setProviderNo(providerNo);
             providerLabRouting.setLabNo(labNo);
             providerLabRouting.setStatus(String.valueOf(status));
-            providerLabRouting.setComment(comment.trim());
+            providerLabRouting.setComment(comment);
             providerLabRouting.setLabType(labType);
             providerLabRouting.setTimestamp(new Date());
             providerLabRoutingDao.persist(providerLabRouting);
@@ -571,7 +587,7 @@ public class CommonLabResultData {
             // destroy a routing row without a successful audit copy. recordRowsToBeDeleted returns -1
             // on failure, >= 0 on success.
             List<ProviderLabRoutingModel> rowsToDelete =
-                    providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0");
+                    providerLabRoutingDao.findRoutingForUpdate(labNo, labType, "0");
             if (rowsToDelete != null && !rowsToDelete.isEmpty()) {
                 ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
                 int archived = adr.recordRowsToBeDeleted(rowsToDelete, "0", "providerLabRouting");
@@ -702,35 +718,25 @@ public class CommonLabResultData {
     }
 
     public static boolean updateLabRouting(ArrayList<String[]> flaggedLabs, String[] providersArray) {
-        boolean result;
-
         try {
             CommonLabResultData data = new CommonLabResultData();
             ProviderLabRouting plr = new ProviderLabRouting();
-            try (Connection connection = LegacyJdbcQuery.getConnection()) {
-                // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
-                for (int i = 0; i < flaggedLabs.size(); i++) {
-                    String[] strarr = flaggedLabs.get(i);
-                    String lab = strarr[0];
-                    String labType = strarr[1];
+            // Routing owns its Spring transaction; do not reserve an unused legacy
+            // JDBC connection for the duration of the forwarding loop.
+            for (String[] flaggedLab : flaggedLabs) {
+                String lab = flaggedLab[0];
+                String labType = flaggedLab[1];
 
-                    // Forward all versions of the lab
-                    String matchingLabs = data.getMatchingLabs(lab, labType);
-                    String[] labIds = matchingLabs.split(",");
-                    // MiscUtils.getLogger().info(labIds.length+"labIds --");
-                    for (int k = 0; k < labIds.length; k++) {
-
-                        for (int j = 0; j < providersArray.length; j++) {
-                            plr.route(labIds[k], providersArray[j], connection, labType);
-                        }
-
-                        // delete old entries
-                        for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labIds[k]), labType, "0")) {
-                            providerLabRoutingDao.remove(p.getId());
-                        }
-
+                // Forward all versions of the lab.
+                String[] labIds = data.getMatchingLabs(lab, labType).split(",");
+                for (String labId : labIds) {
+                    for (String provider : providersArray) {
+                        plr.route(labId, provider, labType);
                     }
-
+                    // Delete old unassigned entries after forwarding this version.
+                    for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labId), labType, "0")) {
+                        providerLabRoutingDao.remove(p.getId());
+                    }
                 }
             }
 
@@ -850,7 +856,7 @@ public class CommonLabResultData {
                 ret = true;
             }
         } catch (Exception e) {
-            logger.error("exception in isLabLinkedWithPatient", e);
+            logger.error("exception in isLabLinkedWithPatient ({})", e.getClass().getSimpleName());
 
         }
         return ret;

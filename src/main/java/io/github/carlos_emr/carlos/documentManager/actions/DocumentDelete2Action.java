@@ -75,7 +75,8 @@ public class DocumentDelete2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc w)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             return METHOD_NOT_ALLOWED;
         }
 

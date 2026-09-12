@@ -1,3 +1,72 @@
+carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
+
+  * Saving a provider's encounter-note template (Administration > Provider
+    Templates) no longer trips the web application firewall on ordinary
+    clinical prose. The template body is exempted per argument on its own
+    route, on the same terms as the other free-text fields; the template name
+    and every other argument stay inspected, and a probe injection is still
+    blocked.
+  * Printing the chart no longer stops the encounter note's draft autosave.
+    The print is a form submit whose response is a download, and the browser
+    fires the page-hide event for it even though the chart stays open; the
+    chart released its note lock on that event, so every autosave after a
+    print answered 409 and the status line said the note was being edited in
+    another window. The lock is now held across the print.
+  * The front door no longer answers 502 to the first save or print after a
+    short pause. nginx kept a pooled connection to Tomcat idle for up to 60s
+    while Tomcat closed it at 20s, so a POST issued in that window landed on a
+    connection being closed, and nginx does not retry a POST. The pool now
+    gives up an idle connection at 15s, before Tomcat does.
+  * Two browser checks now guard the chart print and the free-text saves
+    through the packaged front door. One prints a chart whose note carries
+    each phrase the firewall is known to misread, once per print selection,
+    and requires a PDF back rather than any 200; the other replays a
+    consultation request and the patient's Alert and Notes with the same
+    phrases. Both prove something only on a packaged install, and the
+    validation runbook says how to run them and what they write.
+  * The packaging README now describes the encounter-form firewall coverage
+    as it is -- generated per form, with the two cell groups that remain
+    inspected named -- instead of calling the forms uncovered.
+  * A new consultation request with no consultant chosen is saved again. With
+    the Health Care Team bridge off (the shipped carlos.properties default) the
+    save looked the consultant up with a null id, which the persistence layer
+    rejects, and the request died in the framework's silent error mapping:
+    nothing stored, nothing logged, and the "form could not be printed" alert.
+    Editing a request with a blank consultant no longer inserts an empty
+    specialist row and points the request at it; it clears the consultant.
+    That alert now says the request could not be saved or printed, and the
+    form's own rejections (a malformed id, a request that is not this
+    patient's) come back to the form with their message instead of falling
+    through to the generic error page for want of an "input" result.
+  * Uncaught exceptions that a module maps to the error page are logged at
+    ERROR with their stack trace and an incident reference instead of being
+    mapped there silently; the error page shows the same reference and answers
+    500 (403, and a WARN line, for an authorization refusal), and nothing about
+    the failure beyond that reference reaches the browser or the log line's
+    request detail. A module's own typed mappings (the billing validation,
+    file-write and data-load pages) keep their message and status. Modules
+    without a generic mapping still use the container error path. The application's default log level is WARN rather than
+    ERROR. The
+    "property is missing" warning is reported once per key per start, not on
+    every page render, so WARN stays readable; Hibernate's per-column
+    deprecation notice is held at ERROR for the same reason. LOG_VERBOSITY
+    still overrides the default.
+  * The free-text browser check now requires the consultation save to answer
+    with its confirmation redirect, so a request the front door accepted but
+    the application then discarded fails the check instead of passing as
+    "not a 403". It files one request per phrase; the runbook gives the
+    cleanup SQL keyed on the run stamp.
+  * Printing a chart with its labs includes the labs again. Each lab was
+    rendered under the document directory and then refused by the embedding
+    step, which admits temp locations only, so every lab was silently left
+    out of the printed chart and the refusal was logged with a file name
+    built from the patient's name. The labs are now rendered as temp files,
+    removed one by one as the print proceeds, and the log line carries no
+    name. The spurious "failed to delete temporary print PDF" warning on
+    every chart print is gone with it.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
 
   * Searching for an allergy and clicking a result now records it. The allergy
@@ -129,14 +198,12 @@ carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
     every other reader of the key accepted true/yes/on -- so true enabled the
     whole workflow except the buttons that launch it. The buttons now go
     through the same boolean check as the rest of the page.
-  * The upgrade normalises the flag in /etc/carlos-emr/carlos.properties: the
-    old stock consultation_fax_enabled=false is flipped to true once (sentinel
-    guarded, upgrade only, byte-exact whole-line match, so an operator's own
-    edit is left alone), and the legacy yes/no/on/off spellings are rewritten
-    to true/false. That rewrite is semantics-preserving in both directions --
-    a site that had disabled faxing with "no" keeps it disabled as "false".
-    Faxing only becomes VISIBLE; sending still needs an active account under
-    Administration > Faxes > Configure Fax and the _fax security object.
+  * New installations receive the new true default. Upgrades preserve the
+    persistent consultation_fax_enabled value because an exact false line may
+    be an operator's deliberate choice, not an untouched stock default. Legacy
+    yes/no/on/off spellings are rewritten to true/false without changing their
+    meaning. Sending still needs an active account under Administration >
+    Faxes > Configure Fax and the _fax security object.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
 

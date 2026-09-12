@@ -11,9 +11,16 @@ and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
 dataset (the seeded `_site_access_privacy` grant was applied without multisite mode;
 `consultation-nullable-fields-playwright-checks.js` now asserts the list has rows). Last validated end-to-end 2026-08-31 with
-**41/41 scripts passing** on 2026.09.0~snapshot18.
+**41/41 scripts passing** on 2026.09.0~snapshot18. That is the historical
+full-suite baseline: the count and the date are that run's, not this release's.
+The two checks added since, `echart-print-playwright-checks.js` and
+`clinical-freetext-playwright-checks.js`, were run on 2026-09-12 against a
+2026.09.0~snapshot22 package built from the #3623 branch (DrugRef and the eForm
+renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
+through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
+has not been re-run on a later snapshot.
 
-That 37/37 is also the cautionary tale for this document. A tester found six
+That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
 download failure, a false "0 error" banner on a successful delete, a DataTables
 warning, a drug search 502, and a document upload 500 — and the suite was green
@@ -45,7 +52,9 @@ messenger and patient email, appointment reasons and notes, master-record
 notes and alerts, billing comments, fax cover comments, program notes) found
 all 67 of them answering 403 on the same three shapes, and a consultation
 request save and a tickler add reproduced it in the browser. Exclusions
-1100-1141 close them per argument. `tickler-crud-playwright-checks.js` now
+1100-1142 close them per argument (73 arguments across 43 rules once the
+per-route table and the provider template body are counted; the regression
+test pins the table). `tickler-crud-playwright-checks.js` now
 types that scoring text too. Fields whose parameter names are generated per
 row (measurement `comments-<n>`, manual lab `test_<n>.labnotes`, contact
 `contact_<n>.note`, waiting-list `waitingListBean[<n>].note`) cannot be literal
@@ -77,7 +86,8 @@ The encounter forms under `/form/*` are covered by a **generated** file,
 `scripts/waf/generate-form-prose-exclusions.py` from the form JSPs: one rule per
 save route and, on the shared `/form/formname` route, per `form_class`, listing
 that form's `<textarea>` cells and the single-line inputs whose names mark them
-as narrative boxes (48 rules, 1,250 cells at the time of writing). The
+as narrative boxes (46 rules, 1,236 cells at the time of writing). The `other`
+classifier is token-bounded, so mother identity/measurement fields retain inspection. The
 `form_class`-keyed rules run in phase 2, where the POST body is available.
 `FormProseWafExclusionRegressionTest` re-derives the same table from the JSPs
 and fails when the committed file is stale, so after editing a form run the
@@ -219,31 +229,64 @@ and answers a different question**. Every check below goes through `:443`.
 
 ## 1. Build the packages
 
-From the repo root:
+For a promotion, start from the **promotion candidate** (whose Maven version
+and SCM tag are already the release tag), not the correction branch's
+`-SNAPSHOT` version. Use an isolated worktree and apply the same release-version
+stamping as `.github/workflows/deb-packages.yml` before building:
+
+```bash
+git fetch origin
+# Set PROMOTION_REF for each promotion. After the candidate branch is deleted,
+# use the retained release tag or exact validated commit.
+promotion_ref=${PROMOTION_REF:?Set PROMOTION_REF to the reviewed promotion ref or retained release tag/commit}
+git worktree add --detach ../carlos-package-validation "$promotion_ref"
+cd ../carlos-package-validation
+release_tag=2026.08.0-alpha12
+deb_version="${release_tag//-/~}"
+printf 'carlos-emr (%s) resolute; urgency=medium\n\n  * Validation package of release %s.\n\n -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' \
+  "$deb_version" "$release_tag" "$(date -R)" > debian/changelog
+test "$(dpkg-parsechangelog -SVersion)" = "$deb_version"
+```
+
+This replaces the snapshot changelog in the **isolated packaging worktree
+only**; do not commit that generated stamp. The tracked changelog can start at
+`2026.09.0~snapshot21`, which is newer than alpha12, so retaining it below the
+release stanza would violate Debian version ordering. Git retains the history.
+An unstamped development build is valid for development, but is not an alpha12
+release artifact and cannot satisfy the exact About-page assertion below.
+
+Then, from that packaging worktree:
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export MAVEN_OPTS="-Xmx3g"
-dpkg-buildpackage -us -uc -b
+env -u DRUGREF_WAR -u DRUGREF_SRC -u DRUGREF_REF dpkg-buildpackage -us -uc -b
 ```
 
 This compiles the CARLOS WAR, fetches and builds DrugRef at the ref pinned in
 `debian/drugref.pin`, and downloads the Chromium revision pinned in
 `debian/chromium.pin`. The three `.deb` files land in the parent directory.
 
-For iterative rebuilds, cache the parts that do not change and skip their
-network fetches (see the header of [`debian/rules`](../../debian/rules) for the
-full input list):
+For iterative rebuilds, optionally reuse Chromium downloaded by this build
+while `debian/chromium.pin` is unchanged. Refresh that cache whenever the pin
+changes. Keep DrugRef on the default pinned-source build for promotion
+validation:
 
 ```bash
 mkdir -p ../build-cache
-cp    debian/build/drugref2.war ../build-cache/
 cp -a debian/build/chromium     ../build-cache/chromium
 # later rebuilds:
-DRUGREF_WAR=$PWD/../build-cache/drugref2.war \
 CHROMIUM_DIST=$PWD/../build-cache/chromium \
-dpkg-buildpackage -us -uc -b
+env -u DRUGREF_WAR -u DRUGREF_SRC -u DRUGREF_REF dpkg-buildpackage -us -uc -b
 ```
+
+The local `DRUGREF_WAR` and `DRUGREF_SRC` overrides in
+[`debian/rules`](../../debian/rules) bypass the pinned-source fetch. A prebuilt
+WAR's filename or package version does not establish that it contains the
+revision in `debian/drugref.pin`; an old unversioned cache can silently omit
+DrugRef fixes even when the CARLOS build is current. Do not use an unverified
+DrugRef WAR as evidence for a promotion. The commands above clear those
+overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 
 ## 2. Create the test VM
 
@@ -260,11 +303,11 @@ lxc config device add carlos-test carlosrepo disk \
 
 ## 3. Install the packages (non-interactive)
 
-Preseed debconf so the install runs unattended. `reset-seed-admin=false` is the
-critical answer: it keeps the published dev credential
-(`carlosdoc` / `carlos2026` / PIN `2026`) that every check logs in with. Decline
-it **only** on a disposable machine that will never hold patient data — which
-this VM is.
+Preseed debconf so the install runs unattended. Release validation deliberately
+keeps `reset-seed-admin=true`, the package's secure default: it proves that a
+fresh install replaces the source-published seed password/PIN, creates the
+root-only handoff file, and enforces the first-login password reset. The suite
+consumes that credential once in section 6 and then uses the reset password.
 
 The preseed below answers the province question with `on`. To validate the
 `other` alias instead, substitute `carlos-emr/province select other` and assert
@@ -293,7 +336,7 @@ carlos-emr carlos-emr/province select on
 carlos-emr carlos-emr/tls-mode select selfsigned
 carlos-emr carlos-emr/acme-email string
 carlos-emr carlos-emr/java-heap string 2g
-carlos-emr carlos-emr/reset-seed-admin boolean false
+carlos-emr carlos-emr/reset-seed-admin boolean true
 carlos-emr carlos-emr/install-demo-data boolean true
 EOF
 lxc file push /tmp/carlos-preseed.txt carlos-test/root/
@@ -344,17 +387,9 @@ lxc exec carlos-test -- ls -la /var/lib/carlos-emr/CarlosDocument/carlos/documen
 # expect six *_LabReport.pdf and demo-hrm-diagnostic-imaging.xml
 ```
 
-One database tweak and three fixtures remain:
-
-```bash
-# The seed row ships forcePasswordReset=1; the checks need a direct login.
-# (login-playwright-checks.js exercises the forced-reset flow itself and
-# restores whatever state it changes.)
-lxc exec carlos-test -- mariadb -u root carlos \
-  -e "UPDATE security SET forcePasswordReset=0 WHERE user_name='carlosdoc';"
-```
-
-Fixtures the dataset alone does not provide:
+Three fixtures the dataset alone does not provide remain. Do not clear
+`forcePasswordReset` in SQL: section 6 exercises the package's real first-login
+handoff before the suite runs.
 
 ```bash
 # a) (Demo document files: seeded by carlos-ctl demo-data, see above. On a
@@ -408,9 +443,15 @@ lxc exec carlos-test -- carlos-ctl restart
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y nodejs npm
-  cd /root && npm init -y && npm install playwright
-  npx --yes playwright install --with-deps chromium'
+  cd /root && npm init -y && npm install --save-exact playwright@1.60.0
+  /usr/lib/carlos-emr/chromium/chrome --version'
 ```
+
+Do not run `playwright install` on Ubuntu 26.04 with Playwright 1.60.0: that
+Playwright release does not recognise the `ubuntu26.04-x64` host platform. The
+`carlos-emr-eform-renderer` package already supplies the release-pinned Chromium
+and its runtime dependencies. Using it also makes the suite exercise the exact
+browser shipped to operators instead of a second downloaded browser.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
 paths resolve; Node still finds Playwright via `/root/node_modules`.
@@ -422,15 +463,44 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
-# Devcontainer seed values. On a FRESH DEB INSTALL the package randomises the password and the
-# PIN for carlosdoc -- read both from /etc/carlos-emr/initial-admin.txt and use those instead,
-# starting with the one-time forced-reset step further down.
-export TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
+export CHROME_PATH=/usr/lib/carlos-emr/chromium/chrome
+# A secure fresh install randomises both secrets. Read the root-only handoff file,
+# then perform the mandatory first-login reset once before any suite loop.
+if [ ! -r /etc/carlos-emr/initial-admin.txt ]; then
+  echo "FAIL initial administrator handoff file is not readable"
+  exit 1
+fi
+export TEST_USER="$(sed -n 's/^ *user: *//p' /etc/carlos-emr/initial-admin.txt)"
+export TEST_PASSWORD="$(sed -n 's/^ *password: *//p' /etc/carlos-emr/initial-admin.txt)"
+export TEST_PIN="$(sed -n 's/^ *PIN: *//p' /etc/carlos-emr/initial-admin.txt)"
+if [ -z "$TEST_USER" ] || [ -z "$TEST_PASSWORD" ] \
+    || ! printf '%s' "$TEST_PIN" | grep -Eq '^[0-9]{4}$'; then
+  echo "FAIL initial administrator handoff credentials are incomplete or invalid"
+  exit 1
+fi
+if ! RESET_PASSWORD='Carlos2026!Verify' DRUGREF_UPDATE_REQUIRE_STATUS=true \
+    node scripts/drugref-update-playwright-checks.js; then
+  echo "FAIL mandatory first-login password reset"
+  exit 1
+fi
+export TEST_PASSWORD='Carlos2026!Verify'
 # DB-backed checks: root over the MariaDB unix socket (the password value is
 # ignored by unix_socket auth but the scripts require it to be set).
 export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=carlos
-# Published seed hash for carlos2026 (from database/mysql/migration/on/V1.0.2__on_data.sql)
-export TEST_PASSWORD_HASH='{bcrypt}$2a$10$RcoNeqhcLzkfBzAoTQ5C5.nnsOs15iOasQCp0/smjDAuTtkMQ.Uju'
+# Remove this run's unreferenced signature/image and uniquely named uploaded PDF,
+# using explicit local database access and the mounted server document directory.
+export PRESCRIPTION_SIGNATURE_CLEANUP=true
+export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
+# default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
+# login-playwright-checks mutates and restores this account; give it the hash of
+# the password that the forced-reset step above actually installed.
+export TEST_PASSWORD_HASH="$(mariadb -u root carlos -Nse \
+  "SELECT password FROM security WHERE user_name='${TEST_USER}' LIMIT 1")"
+if [ -z "$TEST_PASSWORD_HASH" ]; then
+  echo "FAIL could not read the reset administrator password hash"
+  exit 1
+fi
 # Record pointers into the demo dataset:
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
@@ -472,11 +542,12 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # section head reveals a cell that starts hidden, and that link only renders with `_rx` write
 # access. It tolerates one known pre-existing page error (issue #3578, expandPreview writing into
 # the preview iframe before it has parsed) and fails on any other.
-# Optional: RX_EXPECTED_BUILD_TAG makes the About-page assertion exact instead of merely
-# "looks like a version" — set it to the tag the packaged WAR should carry, which is
+# Required for a release gate: RX_EXPECTED_BUILD_TAG makes the About-page assertion exact.
+# Set it to the tag the packaged WAR should carry, which is
 # "<pom version> (carlos-emr-deb <debian/changelog version>)", e.g.
-#   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha11-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot18)'
-# Leave it unset when validating a WAR you did not build through the packaging.
+#   export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha12 (carlos-emr-deb 2026.08.0~alpha12)'
+# Never leave it unset for promotion validation: that can accept a stale WAR/package pair.
+export RX_EXPECTED_BUILD_TAG='2026.08.0-alpha12 (carlos-emr-deb 2026.08.0~alpha12)'
 # Rx fax record-binding check (rx-fax-record-binding-playwright-checks.js). Pins the
 # guarantees of PR #3606: a forged patient identity, prescription date, clinic block, reprint
 # annotation or satellite-clinic block on the fax POST never reaches the faxed PDF (the
@@ -514,71 +585,101 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 # First Nations stored-XSS check (first-nations-encoding-playwright-checks.js). It seeds an
 # attribute-breaking payload into this patient's demographicExt First Nations fields, asserts the
-# rendered inputs carry it back whole with no markup, and restores the original rows in a finally.
+# rendered inputs carry it back whole with no markup, and restores the original rows in a finally
+# (byte for byte, via HEX/UNHEX, so a stored tab, newline, backslash or SQL NULL survives).
 # Defaults to the lowest demographic_no in the database, so the export is only needed to pin a
 # different patient. The check always asserts the gate route
 # (/demographic/ViewManageFirstNationsModule); it additionally asserts the patient master record
 # when FIRST_NATIONS_MODULE=true in /etc/carlos-emr/carlos.properties (then `carlos-ctl restart`),
 # which is the path a clinician actually sees -- set it if you want that half covered, since the
 # property ships false and the module is simply absent from the master record without it.
+# The community <option> half is skipped, and says so in its PASS line, on an install that
+# already has a firstNationCommunity lookup list (the DAO caches it) or that runs
+# showBandNumberOnly=true (the control is not rendered at all).
 export FIRST_NATIONS_DEMOGRAPHIC_NO=1
-# FRESH INSTALL ONLY: clear the forced password reset BEFORE the loop below, not inside it.
-#
-# The packaged admin credential (/etc/carlos-emr/initial-admin.txt) is flagged for a forced
-# reset, so TEST_PASSWORD alone cannot log in -- every check lands on /forcepasswordreset and
-# fails there before testing anything. Doing it inside the loop does not work, in both
-# directions: the loop runs scripts in glob order, so several run before drugref-update and
-# abort on the reset; and once one of them has reset the credential, every later script in the
-# same invocation is still using the OLD TEST_PASSWORD and fails too. The reset is a one-time,
-# persistent change to the account, so it belongs outside the loop entirely.
-#
-# The reset logs in with the CURRENT credential, so TEST_PASSWORD and TEST_PIN must be the
-# package-generated ones from /etc/carlos-emr/initial-admin.txt for this one command -- NOT the
-# carlos2026 / 2026 in the environment block above, which are the devcontainer seed values. The
-# package replaces both (the username stays carlosdoc; the password and the PIN are random per
-# install), so with the block's values the login fails on a wrong password before it ever
-# reaches /forcepasswordreset, and the reset silently does not happen. Set them inline so the
-# block's exports cannot shadow them:
-#
-#   sudo sed -n 's/^ *\(user\|password\|PIN\):/\1:/p' /etc/carlos-emr/initial-admin.txt
-#
-#   TEST_PASSWORD='<password from initial-admin.txt>' \
-#   TEST_PIN='<PIN from initial-admin.txt>' \
-#   RESET_PASSWORD='Carlos2026!Verify' \
-#     node scripts/drugref-update-playwright-checks.js      # completes the reset, then checks
-#
-# Then re-export both for the loop below and every rerun -- the PIN does not change during the
-# reset, so it keeps the generated value for the rest of the suite:
-#
-#   export TEST_PASSWORD='Carlos2026!Verify'
-#   export TEST_PIN='<PIN from initial-admin.txt>'
-#
-# Not needed on the devcontainer, whose carlosdoc is not flagged and does keep carlos2026/2026.
-
+# A browser failure may be the first symptom of the JVM being killed and
+# restarted. Record the service counter so the suite cannot finish green after
+# silently testing two different application processes.
+service_restarts_before="$(systemctl show carlos-emr -p NRestarts --value)"
+suite_failed=0
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
-  case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
+  case "$s" in
+    *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
+    *login-playwright-checks*) continue ;; # run its deliberate failed-login probes last
+  esac
   # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
   # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
   t=300; case "$s" in *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;; esac
-  timeout "$t" node "$s" && echo "PASS $s" || echo "FAIL $s"
+  # Signal the Node runner so its cleanup can keep using the browser.
+  if timeout --foreground "$t" node "$s"; then
+    echo "PASS $s"
+  else
+    rc=$?
+    echo "FAIL ($rc) $s"
+    suite_failed=1
+  fi
 done
+service_restarts_after="$(systemctl show carlos-emr -p NRestarts --value)"
+if [ "$service_restarts_after" != "$service_restarts_before" ]; then
+  echo "FAIL carlos-emr restarted during suite ($service_restarts_before -> $service_restarts_after)"
+  suite_failed=1
+fi
+if [ "$suite_failed" -ne 0 ]; then
+  echo "FAIL positive Playwright suite; refusing to mask it with the isolated login phase"
+  exit 1
+fi
+
+# This security check deliberately submits two bad passwords. Run it after the
+# positive suite against a freshly started process so a prior harness mistake
+# cannot supply the third failure that locks the shared test account, and leave
+# it last so its own negative probes cannot affect another check.
+if ! systemctl restart carlos-emr; then
+  echo "FAIL could not restart carlos-emr before the isolated login phase"
+  exit 1
+fi
+login_phase_ready=0
+for attempt in $(seq 1 90); do
+  if curl -skf --max-time 5 -o /dev/null https://127.0.0.1/carlos/; then
+    login_phase_ready=1
+    break
+  fi
+  sleep 2
+done
+if [ "$login_phase_ready" -ne 1 ]; then
+  echo "FAIL carlos-emr did not become ready for the isolated login phase"
+  exit 1
+fi
+if timeout 300 node scripts/login-playwright-checks.js; then
+  echo "PASS isolated login Playwright phase"
+else
+  rc=$?
+  echo "FAIL ($rc) isolated login Playwright phase"
+  exit 1
+fi
 ```
 
 Notes on the contract:
 
 - **`BASE_URL` uses `127.0.0.1`, deliberately.** The scripts set
   `ignoreHTTPSErrors`, and Chromium is lenient about loopback certificates, so
-  every script works against the self-signed cert. The cost: a numeric-IP
-  `Host:` header trips CRS rule **920350** (+3 anomaly on every request), which
-  a production hostname never sees. When judging any WAF block found this way,
-  discount 920350 and look at the *other* matched rules. Using the real
-  `server_name` FQDN instead avoids 920350 but fails the handful of scripts
-  that create a browser context without `ignoreHTTPSErrors`.
+  every script works against the self-signed cert. A direct loopback/private
+  client with no forwarding headers is deliberately exempted from CRS rule
+  **920350**; seeing 920350 for this suite is a regression. The exemption must
+  disappear when `Forwarded`, `X-Forwarded-*`, `X-Real-IP`, or `Via` is present,
+  because a proxied/public numeric-host request still requires CRS inspection.
 - **`PRESCRIPTION_SCRIPT_ID` must point at a prescription that has `drugs`
   rows.** The demo dump contains drugless `prescription` rows (46+); a
   drugless script renders no preview and the check times out. Script 45 has
   drugs; verify with
   `SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no`.
+- **`rx-med-history-playwright-checks.js` needs a patient with an existing
+  prescription, not a script id.** It reads `RX_MED_HISTORY_DEMOGRAPHIC_NO`,
+  falling back to `PRESCRIPTION_DEMOGRAPHIC_NO` and then `1`, and stages
+  whichever drug the profile lists first by ticking its ReRx box — so the
+  "Rx Examples" window it opens is asked for a drug that HAS history. A
+  patient with no drug profile fails the check at staging rather than
+  silently measuring the empty state. It stages in memory only: nothing is
+  saved, so it seeds and cleans up nothing.
 - **`CONSULT_UNSIGNED_REQUEST_ID` is consumed.** The stamp-update scenario
   signs that consultation, so a second back-to-back run needs the fixture
   reset: `UPDATE consultationRequests SET signature_img=NULL WHERE requestId=3;`
@@ -588,13 +689,21 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
-- **`allergy-rx-alert-playwright-checks.js` leaves two allergies on its patient
-  per run**, by design: it records one allergen from the allergy search results
-  and a second through "Custom Allergy", then prescribes against the second. The
-  allergy list is append-only from the UI (rows are archived, never removed), so
-  repeat runs accumulate; that is harmless for the check but clear the strays on
-  a demo box with
-  `UPDATE allergies SET archived=1 WHERE reaction LIKE '%allergen check%';`
+- **`allergy-rx-alert-playwright-checks.js` cleans up both allergies it records.**
+  Each run uses cryptographically unique reaction markers and, in `finally`,
+  inactivates every active row carrying one of those exact markers through the
+  product's supported UI path. Rows remain archived because that is the allergy
+  list's normal audit-preserving semantics, but repeat runs do not accumulate
+  active clinical data. SIGINT/SIGTERM sent to the Node runner PID stop new
+  fixture writes, allow the current submit to settle, and run that same cleanup
+  before closing Chromium, exiting with code 130/143. The loop uses
+  `timeout --foreground` to target the runner; signalling the browser or its
+  process group directly can prevent browser-based cleanup. Shutdown has a
+  three-minute grace deadline; a hung request,
+  cleanup failure, SIGKILL, or host panic can still leave a row. A timeout does
+  not prove that the server abandoned a pending write. In these cases,
+  clear only those generated markers on a disposable demo box with
+  `UPDATE allergies SET archived=1 WHERE archived=0 AND (reaction LIKE 'Rash typed check %' OR reaction LIKE 'Rash free-text check %');`
   Run it on a **loopback** `BASE_URL`: like `billing-on-third-party`, it relaxes
   certificate verification only for loopback, so a host opted in with
   `ALLOW_NON_LOCAL_BASE_URL` must present a certificate the browser trusts.
@@ -618,6 +727,118 @@ Notes on the contract:
   is not HTTPS. It creates its own timestamped probe eForm and deletes only
   that one; a failing run leaves the probe behind on purpose, so clear strays
   with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
+- **`echart-print-playwright-checks.js` must be run through `:443`.** It is the
+  guard for package exclusion 1010, and like 1045/1050 the defect it pins exists
+  *only* behind the WAF: the chart print POSTs the whole encounter form, so CRS
+  scored the clinician's own note prose in `ARGS:caseNote_note` and answered
+  every print with a 403 — "the chart print button gives a 403 no matter what
+  you choose to print" on 2026.08.0-alpha11. Each of its eight note bodies is a
+  phrase measured to trip a different CRS family, the pasted-PACS-link body
+  included now that 1010 also unhooks attack-rfi; against bare Tomcat they are
+  just ordinary notes and the check degrades to covering the print path itself.
+  It types into the open encounter note but never saves it as a note; the
+  chart's own 5-second draft autosave still posts what it typed as the
+  patient's draft, so before it opens the chart it applies the same
+  synthetic-patient gate as the free-text check (`FAKE-`/`PLAYWRIGHT-` name
+  prefix on `ECHART_DEMOGRAPHIC_NO`, override with
+  `ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true`), and it reads the note before its first print and, when
+  the prints are done, puts that text back and either writes it back over the
+  draft (a clinician's restored draft) or deletes the draft through the page's
+  cancel path (a fresh note). Because of that write, its `BASE_URL` guard is
+  the same as the free-text check's: loopback only unless
+  `ALLOW_NON_LOCAL_BASE_URL=true`, a non-loopback target must be HTTPS, and
+  like `billing-on-third-party` it relaxes certificate verification only for
+  loopback, so an opted-in host must present a certificate the browser trusts.
+  The two dimensions run in sequence rather than as a matrix -- each body once,
+  then each selection with the worst-case body, 15 prints in all -- because the
+  403 rides on the note in the serialized form, not on any print checkbox.
+  Driving fifteen prints through one open encounter
+  outlives the note lock, so the eChart's own autosave answering 409 partway
+  through is expected and tolerated; a 403 from any of them is not. Each print
+  must come back as a download whose bytes start with `%PDF-` and run to at
+  least 1 KB: the action sets `application/pdf` before it generates, so the
+  Content-Type alone would pass a truncated body. It also waits, per note
+  body, for the chart's draft autosave carrying that body, so its `ARGS:note`
+  coverage is a POST it observed rather than a timer it assumed; and like
+  `echart-playwright-checks.js` it flags whether any response carried the
+  nginx `Server` header, warning when none did and failing when
+  `EXPECT_FRONT_DOOR=true` is set, so a run against bare Tomcat cannot be
+  mistaken for a WAF result. Two things it found on the package are worth
+  knowing when reading its output. Printing used to stop the chart's draft
+  autosave (the print's form submit fires page-hide, which released the note
+  lock; every later autosave answered 409): the chart now holds the lock across
+  a print, and the check's per-body autosave status shows 200 throughout on a
+  fixed build. And a run that aborts mid-way (a 502, a crash) leaves this
+  provider's note lock behind, so the next open of the chart raises the
+  "edit this note in another window ... continue?" prompt; the check accepts it
+  as a clinician would and lists it under `Notices` rather than failing, so a
+  rerun needs no manual `casemgmt_note_lock` cleanup.
+- **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
+  the browser guard for the survey block (exclusions 1100-1199, the clinician
+  free text OUTSIDE the eChart), driven through the two rules with the most
+  prose: 1100, the consultation request, and 1131, the demographic master
+  record. It opens each page, serialises the real form (hidden fields and the
+  injected CSRF token included), and replays that body once per prose phrase
+  with only the free-text fields swapped — clicking through each form's own
+  required-field JS seven times would measure that validation rather than the
+  WAF. Its corpus deliberately carries no HTML markup: the survey block keeps
+  the CRS XSS family on (pinned by `ClinicalProseWafExclusionRegressionTest`),
+  so a `<span>` pasted into a referral is expected to 403 there, and a phrase
+  that carried one would fail the check against a correct rule set.
+  Both replays are real saves, and the check treats that as its own problem to
+  contain rather than the operator's. Its `BASE_URL` guard admits only loopback
+  and refuses anything else — a private LAN address, `host.docker.internal` and
+  the compose name `carlos` included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is
+  set deliberately, and even then a plain-http target is refused because the
+  login would send credentials in cleartext; but loopback bounds the host, not
+  the data, and a local
+  install can hold real patient records. So before its first write it opens the
+  master record of `CLINICAL_DEMOGRAPHIC_NO` (default 1) and refuses to run
+  unless the first or last name carries the synthetic-data prefix the demo
+  dataset writes on every person name (`FAKE-`, see
+  `.devcontainer/db/scripts/demo-name-sanitization.sql`) or the `PLAYWRIGHT-`
+  prefix the fixture-owning checks use; `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true`
+  overrides that only for a record you know to be test data. It then writes the
+  corpus, each phrase stamped `(Playwright clinical-freetext run <epoch>)`,
+  into the patient's Alert/Notes and puts the original text back at the end,
+  on the failure path as well as the success path (the restore is a save
+  through the same route and a failed restore fails the run). **The two
+  workflows write different things, measured on a packaged install:** the
+  demographic save runs in place (a seven-phrase run leaves eight
+  `demographicArchive` rows for the patient, the replays plus the restore),
+  while the consultation replay **files a new request per phrase** -- seven
+  `consultationRequests` rows for the patient per run, each with the phrase
+  and the run stamp in its `reason` -- and the check requires the application's
+  confirmation redirect back for every one of them. A 200 on that route is the
+  form re-rendered with its error alert, which is how the blank-consultant save
+  defect fixed in #3623 presented (the front door accepted the prose; the
+  application then threw and stored nothing), so the check reports it as a
+  failure and points at the application log. There is no delete route for a
+  consultation request, so the rows stay until you remove them; the stamp is
+  the key:
+
+  ```sql
+  -- <n> is CLINICAL_DEMOGRAPHIC_NO (default 1). Ext rows first: no FK cascades.
+  DELETE e FROM consultationRequestExt e
+    JOIN consultationRequests r ON r.requestId = e.requestId
+   WHERE r.demographicNo = <n> AND r.reason LIKE '%(Playwright clinical-freetext run %';
+  DELETE FROM consultationRequests
+   WHERE demographicNo = <n> AND reason LIKE '%(Playwright clinical-freetext run %';
+  ```
+  After each workflow's replays it re-opens that page and requires
+  its free-text control to render again, because a session that lapsed mid-run
+  would answer every replay with an opaque redirect indistinguishable from a
+  save. Like
+  `echart-print`, it relaxes certificate verification only for loopback, so such
+  a target must present a certificate the browser trusts.
+  `CLINICAL_CONSULT_SERVICE_ID` (default `1`) names the other record it
+  assumes; override it if the install's `consultationServices` table does not
+  start at 1. Against bare
+  Tomcat the phrases are ordinary notes and the check degrades to guarding the
+  two save paths. It flags the packaged front door the same way as the
+  eChart checks (nginx `Server` header; warning when absent, failure with
+  `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
+  mistaken for coverage of 1100/1131.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
@@ -668,7 +889,33 @@ lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
                                            # new migrations counted in flyway_schema_history
 ```
 
+Two things a same-day rebuild does NOT do for you, both met while validating
+#3623. First, `apt-get install --reinstall` of the same version replaces the
+files but, with `policy-rc.d` denying starts in the container, leaves the
+already-running JVM alone: run `carlos-ctl restart` (or check
+`systemctl show carlos-emr -p ExecMainStartTimestamp`) before believing that
+what you are exercising is the build you just installed. Second, the package is
+built reproducibly, so every shipped file carries the changelog entry's date
+as its mtime; Tomcat decides whether to recompile a JSP by comparing that mtime
+with the one it recorded at the last compile, and two builds from the same
+changelog entry carry the same date, so an edited JSP keeps serving its
+previous compiled form. `touch` the JSPs you changed under
+`/usr/share/carlos-emr/webapp/carlos/WEB-INF/jsp/` (or clear
+`/var/lib/carlos-emr/catalina/work/Catalina/localhost/carlos/`) and Tomcat
+recompiles them on the next request. Neither applies to a real upgrade, whose
+changelog entry carries a new date.
+
 ## Diagnosing failures
+
+**Fax recovery safety.** A lost response or a database commit-acknowledgement
+error is an unknown fax outcome, not proof that transmission failed. The page
+disables resend and encounter paste and retains captured text for verification.
+Once persistence has been attempted, prepared fax files are retained because a
+committed job may already be using them. Check the fax outbox and have an
+administrator reconcile the job/audit record before sending again or removing
+any retained files. Only failures proven to occur before persistence clean up
+their owned files automatically. A historical reprint must remain ineligible
+for ordinary Print and Paste after any signature event or recovery.
 
 **A "timed-out" save with a clean application log usually means the WAF ate the
 request.** A ModSecurity block returns nginx's 403 page and the request **never

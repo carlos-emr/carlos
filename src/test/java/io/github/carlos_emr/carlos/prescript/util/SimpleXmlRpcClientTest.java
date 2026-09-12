@@ -304,4 +304,18 @@ class SimpleXmlRpcClientTest {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("503");
     }
+
+    @Test
+    @DisplayName("should omit configured endpoint credentials from an HTTP failure")
+    void shouldOmitEndpointCredentials_whenHttpRequestFails() {
+        serveHttpStatus(503);
+        SimpleXmlRpcClient credentialClient = new SimpleXmlRpcClient("http://fixture-user:fixture-secret@localhost:"
+                + mockServer.getAddress().getPort() + "/?token=fixture-token");
+        assertThatThrownBy(() -> credentialClient.execute("atc", new Vector()))
+                .isInstanceOf(IOException.class)
+                .hasMessage("DrugRef XML-RPC server returned HTTP 503 for 'atc'")
+                .hasMessageNotContaining("fixture-user")
+                .hasMessageNotContaining("fixture-secret")
+                .hasMessageNotContaining("fixture-token");
+    }
 }

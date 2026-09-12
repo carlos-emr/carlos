@@ -18,6 +18,8 @@
     "test:logout-broadcast-playwright": "node scripts/logout-broadcast-playwright-checks.js",
     "test:echart-playwright": "node scripts/echart-playwright-checks.js",
     "test:echart-new-patient-playwright": "node scripts/echart-new-patient-notes-playwright-checks.js",
+    "test:echart-print-playwright": "node scripts/echart-print-playwright-checks.js",
+    "test:clinical-freetext-playwright": "node scripts/clinical-freetext-playwright-checks.js",
     "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
     "test:eform-admin-playwright": "node scripts/eform-admin-playwright-checks.js",
     "test:eform-admin-crud-playwright": "node scripts/eform-admin-crud-playwright-checks.js",
@@ -60,6 +62,7 @@
     "test:select-forms-panel-playwright": "node scripts/select-forms-panel-playwright-checks.js",
     "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js",
     "test:billing-on-third-party-playwright": "node scripts/billing-on-third-party-playwright-checks.js",
+    "test:rx-med-history-playwright": "node scripts/rx-med-history-playwright-checks.js",
     "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js"
   },
   "dependencies": {
@@ -116,8 +119,8 @@
     "launch-editor": "2.14.1",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
-    "postcss-selector-parser@<7.0.0": "6.1.3",
-    "postcss-selector-parser@>=7.0.0 <8.0.0": "7.1.3",
+    "postcss-selector-parser@>=6.1.0 <7.0.0": "6.1.3",
+    "postcss-selector-parser@>=7.1.0 <8.0.0": "7.1.3",
     "shell-quote": "1.9.0",
     "uuid": "11.1.1",
     "webpack-dev-server": "5.2.6",

@@ -51,8 +51,6 @@ import jakarta.servlet.http.HttpSession;
 
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
-import org.apache.commons.io.FileUtils;
-
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
@@ -118,10 +116,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
-    private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
-
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
-    private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
+    private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
+    private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -190,52 +187,70 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return;
         }
 
-        // The prescription named by scriptId is loaded ONCE here and shared by the privilege
-        // pre-check, the signature gate and the fax content binding below.
-        Prescription prescription = requestedPrescription(req);
-
-        // An authorization refusal must be reported as one. resolveSignatureImage withholds the
-        // signature for a caller without _rx write on the patient, and reporting that as "not
-        // signed" would send a read-only user to sign a script that IS signed (and that they could
-        // not sign anyway). Only a caller who may already READ the script gets that specific
-        // message. A caller WITHOUT read falls through to the "not signed" reply below — the very
-        // same answer an id that matches no prescription produces — so the wording cannot be used
-        // to tell an existing script from one that does not exist.
-        if (isFax && isFaxDeniedByPrivilege(prescription, loggedInInfo)) {
-            res.setContentType("text/html");
-            res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
-            return;
-        }
-
-        // Resolve the prescriber's signature before touching the document: a fax is an outbound
-        // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
-        byte[] signatureImage = resolveSignatureImage(req, loggedInInfo, prescription);
-        if (isFax && signatureImage == null) {
-            res.setContentType("text/html");
-            res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription is not signed. Sign it before faxing.</h3></div>");
-            return;
-        }
-
-        // A fax is rendered from the prescription RECORD, never from the request body: the stored
-        // signature drawn on it belongs to that record, so the drug lines above it and the signing
-        // name must be the record's too (see bindFaxContentToRecord).
+        byte[] signatureImage;
+        Prescription prescription;
         HttpServletRequest pdfRequest = req;
-        if (isFax) {
-            pdfRequest = bindFaxContentToRecord(req, prescription);
-            if (pdfRequest == null) {
+        try {
+            // The prescription named by scriptId is loaded ONCE here and shared by the privilege
+            // pre-check, the signature gate and the fax content binding below.
+            prescription = requestedPrescription(req);
+
+            // An authorization refusal must be reported as one. resolveSignatureImage withholds the
+            // signature for a caller without _rx write on the patient, and reporting that as "not
+            // signed" would send a read-only user to sign a script that IS signed (and that they could
+            // not sign anyway). Only a caller who may already READ the script gets that specific
+            // message. A caller WITHOUT read falls through to the "not signed" reply below — the very
+            // same answer an id that matches no prescription produces — so the wording cannot be used
+            // to tell an existing script from one that does not exist.
+            if (isFax && isFaxDeniedByPrivilege(prescription, loggedInInfo)) {
                 res.setContentType("text/html");
-                res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription record has no drugs to fax.</h3></div>");
+                res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
                 return;
             }
+
+            // Resolve the prescriber's signature before touching the document: a fax is an outbound
+            // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
+            signatureImage = resolveSignatureImage(req, loggedInInfo, prescription);
+            if (isFax && signatureImage == null) {
+                res.setContentType("text/html");
+                res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription is not signed. Sign it before faxing.</h3></div>");
+                return;
+            }
+
+            // A fax is rendered from the prescription RECORD, never from the request body: the stored
+            // signature drawn on it belongs to that record, so the drug lines above it and the signing
+            // name must be the record's too (see bindFaxContentToRecord).
+            if (isFax) {
+                pdfRequest = bindFaxContentToRecord(req, prescription);
+                if (pdfRequest == null) {
+                    res.setContentType("text/html");
+                    res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription record is incomplete and cannot be faxed.</h3></div>");
+                    return;
+                }
+            }
+
+        } catch (RuntimeException failure) {
+            if (!isFax) {
+                throw failure;
+            }
+            // No PDF/file/queue writes have started: unlike a failed persistence response,
+            // a record/signature/provider lookup failure is definitely safe to retry.
+            res.setContentType("text/html");
+            reportFaxFailure(res, res.getWriter(), "Prescription fax record preparation failed", failure);
+            return;
         }
 
-        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(pdfRequest, this.getServletContext(), signatureImage)) {
+        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytesOrReportFaxFailure(pdfRequest, signatureImage, isFax, res)) {
+            if (baosPDF == null) {
+                return;
+            }
 
             if (isFax) {
                 // this fax method shouldn't be here and will be removed in future edits.
                 res.setContentType("text/html");
                 PrintWriter writer = res.getWriter();
                 String faxNo = req.getParameter("pharmaFax");
+                String rawFaxNo = faxNo;
                 if (faxNo != null) {
                     faxNo = faxNo.trim().replaceAll("\\D", "");
                 }
@@ -244,66 +259,102 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 if (faxNumber != null) {
                     faxNumber = faxNumber.trim().replaceAll("\\D", "");
                 }
-                String demo = req.getParameter("demographic_no");
-
-                if (faxNo != null && faxNo.length() < 7) {
+                if (faxNo == null || faxNo.length() < 7) {
+                    res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
                 } else {
                     // write to file
                     String pdfid = req.getParameter("pdfId");
-                    // Sanitize pdfId to prevent path traversal
-                    if (pdfid != null) {
-                        pdfid = pdfid.replaceAll("[^a-zA-Z0-9_-]", "");
+                    // Reject, rather than rewrite, an invalid identifier. A missing identifier used
+                    // to create prescription_null.pdf and rewriting could make two distinct caller
+                    // values collide on one already-signed clinical document.
+                    if (pdfid == null || !pdfid.matches("[a-zA-Z0-9_-]{1,128}")) {
+                        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3></div>");
+                        writer.flush();
+                        return;
                     }
-                    String pdfFile = "prescription_" + pdfid + ".pdf";
-                    String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                    
-                    Path filepath = prepareValidatedFaxFilesOrReportFailure(document_dir, pdfid, pdfFile, faxNo,
-                            baosPDF, res, writer);
-                    if (filepath == null) {
+                    FaxConfig selectedFaxConfig;
+                    try {
+                        selectedFaxConfig = faxConfigDao.getActiveConfigByNumber(faxNumber);
+                    } catch (RuntimeException failure) {
+                        reportFaxFailure(res, writer, "Prescription fax account lookup failed", failure);
+                        return;
+                    }
+                    if (selectedFaxConfig == null) {
+                        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        writer.println("<div id='fax-failure'><h3>Error: the selected fax line is not configured.</h3></div>");
+                        writer.flush();
                         return;
                     }
 
-                    List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
-                    String provider_no = LoggedInInfo.getLoggedInInfoFromSession(req).getLoggedInProviderNo();
-                    FaxJob faxJob;
-                    boolean validFaxNumber = false;
+                    try {
+                        faxNo = io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                                rawFaxNo, selectedFaxConfig.getProviderType());
+                    } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
+                        writer.flush();
+                        return;
+                    }
 
-                    for (FaxConfig faxConfig : faxConfigs) {
+                    String pdfFile = "prescription_" + pdfid + ".pdf";
+                    String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
-                        if (faxConfig.getFaxNumber().equals(faxNumber)) {
+                    PreparedFaxFiles preparedFiles = prepareValidatedFaxFilesOrReportFailure(document_dir, pdfid, pdfFile, faxNo,
+                            baosPDF, res, writer);
+                    if (preparedFiles == null) {
+                        return;
+                    }
 
-                            int numPages;
-                            try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
-                                numPages = pdfReader.getNumberOfPages();
-                            }
-
-                            faxJob = new FaxJob();
-                            faxJob.setDestination(faxNo);
-                            faxJob.setFax_line(faxNumber);
-                            faxJob.setFile_name(pdfFile);
-                            faxJob.setUser(faxConfig.getFaxUser());
-                            faxJob.setRecipient(pharmaName);
-                            faxJob.setNumPages(numPages);
-                            faxJob.setStamp(new Date());
-                            faxJob.setStatus(FaxJob.STATUS.WAITING);
-                            faxJob.setOscarUser(provider_no);
-                            faxJob.setDemographicNo(Integer.parseInt(demo));
-
-                            faxJob.setSenderEmail(faxConfig.getSenderEmail());
-                            faxJob.setDirection(Direction.OUT);
-
-                            faxJobDao.persist(faxJob);
-                            faxManager.logFaxJob(loggedInInfo, faxJob, TransactionType.RX, -1);
-                            validFaxNumber = true;
-                            break;
+                    String provider_no = loggedInInfo.getLoggedInProviderNo();
+                    boolean persistenceAttempted = false;
+                    try {
+                        int numPages;
+                        try (PdfReader pdfReader = new PdfReader(preparedFiles.getDocumentPdf().toString())) {
+                            numPages = pdfReader.getNumberOfPages();
                         }
+
+                        FaxJob faxJob = new FaxJob();
+                        faxJob.setDestination(faxNo);
+                        faxJob.setFax_line(faxNumber);
+                        faxJob.setFile_name(pdfFile);
+                        faxJob.setUser(selectedFaxConfig.getFaxUser());
+                        faxJob.setRecipient(pharmaName);
+                        faxJob.setNumPages(numPages);
+                        faxJob.setStamp(new Date());
+                        faxJob.setStatus(FaxJob.STATUS.WAITING);
+                        faxJob.setOscarUser(provider_no);
+                        faxJob.setDemographicNo(prescription.getDemographicId());
+                        faxJob.setSenderEmail(selectedFaxConfig.getSenderEmail());
+                        faxJob.setDirection(Direction.OUT);
+
+                        // A commit acknowledgement can be lost after the job becomes visible.
+                        // Once persistence starts, an exception does not prove rollback: retain
+                        // the files and report uncertainty rather than inviting a duplicate fax.
+                        persistenceAttempted = true;
+                        faxManager.persistAndLogFaxJob(loggedInInfo, faxJob, TransactionType.RX, prescription.getId());
+                    } catch (IOException | RuntimeException e) {
+                        if (persistenceAttempted) {
+                            reportFaxUncertain(res, writer, e);
+                        } else {
+                            preparedFiles.cleanupAfterFailure(e);
+                            reportFaxFailure(res, writer, "Prescription fax preparation failed", e);
+                        }
+                        return;
                     }
 
-                    if (validFaxNumber) {
+                    // The fax is committed and queueable now. A secondary legacy audit failure must
+                    // not turn the response into a failure (which would invite a duplicate retry),
+                    // and its document must not be removed out from under FaxSender. The
+                    // transaction above already wrote the correlated FaxClientLog audit row.
+                    try {
                         LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "PRESCRIPTION " + pdfFile);
-						writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + Encode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(() => window.top.close(), 3000);</script>");
+                    } catch (RuntimeException e) {
+                        logger.error("Prescription fax was queued, but the legacy SENT audit entry failed ({})",
+                                e.getClass().getSimpleName());
                     }
+					writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + SafeEncode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close after follow-up processing completes.</p></div>");
                 }
                 writer.flush();
             } else {
@@ -339,8 +390,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             if (responseOutputStreamOpened) {
                 throw new IOException("PDF response failed after output stream was opened", dex);
             }
-            // Log the detailed error for debugging
-            logger.error("PDF generation error in FrmCustomedPDFServlet", dex);
+            logger.error("PDF generation error in FrmCustomedPDFServlet ({})", dex.getClass().getSimpleName());
             
             // Return generic error message to user
             res.setContentType("text/html");
@@ -354,7 +404,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 throw dex;
             }
             // Log the error
-            logger.debug("Signature file not found", dex);
+            logger.debug("Signature file not found ({})", dex.getClass().getSimpleName());
             
             res.setContentType("text/html");
             PrintWriter writer = res.getWriter();
@@ -363,60 +413,155 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     }
 
-    private Path prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
-            String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
+    private ByteArrayOutputStream generatePDFDocumentBytesOrReportFaxFailure(HttpServletRequest request,
+            byte[] signatureImage, boolean isFax, HttpServletResponse response) throws DocumentException, IOException {
         try {
-            return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
-        } catch (SecurityException | IOException e) {
-            logger.warn("Prescription fax file preparation failed: type={}, message={}",
-                    e.getClass().getSimpleName(), LogSafe.sanitize(e.getMessage(), 1024), e);
-            res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
-            writer.flush();
+            return generatePDFDocumentBytes(request, getServletContext(), signatureImage);
+        } catch (IOException | RuntimeException failure) {
+            // org.openpdf.text.DocumentException in OpenPDF 3 is a RuntimeException,
+            // so this includes it (unlike the separate legacy com.lowagie API).
+            if (!isFax) {
+                throw failure;
+            }
+            // This boundary is strictly before file preparation and persistence. Rendering
+            // failures are safe to retry, unlike a lost acknowledgement of the queue commit.
+            response.setContentType("text/html");
+            reportFaxFailure(response, response.getWriter(), "Prescription fax PDF generation failed", failure);
             return null;
         }
     }
 
-    private Path prepareValidatedFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
+    private PreparedFaxFiles prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
+            String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
+        // A missing file does not mean its name is unowned: an older WAITING job
+        // may still reference it after partial cleanup. Never republish new clinical
+        // content under that job's filename, even if every artifact is missing.
+        try {
+            if (!faxJobDao.findByFileName(pdfFile).isEmpty()) {
+                reportFaxUncertain(res, writer, new IllegalStateException("Fax artifact name is already owned by a job"));
+                return null;
+            }
+        } catch (RuntimeException e) {
+            reportFaxUncertain(res, writer, e);
+            return null;
+        }
+        try {
+            return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
+        } catch (FileAlreadyExistsException e) {
+            // A replay can collide with artifacts from an already queued job. Reject
+            // without overwriting them, but never claim that another send is safe.
+            reportFaxUncertain(res, writer, e);
+            return null;
+        } catch (IOException | RuntimeException e) {
+            reportFaxFailure(res, writer, "Prescription fax file preparation failed", e);
+            return null;
+        }
+    }
+
+    private PreparedFaxFiles prepareValidatedFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
             ByteArrayOutputStream baosPDF) throws IOException {
-        // Use PathValidationUtils for proper path validation
+        // Resolve and validate EVERY target before the first write. A bad spool directory must not
+        // leave a valid-looking orphan in DOCUMENT_DIR that rejects a retry of the same attempt id.
         File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(documentDir, "DOCUMENT_DIR");
         File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
         Path filepath = validatedPdfFile.toPath();
 
-        writePdfFileIfMissing(filepath, baosPDF);
-
-        // write to temporary file
         String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
         File tempDirFile = PathValidationUtils.resolveConfiguredDirectory(tempPath, "fax_file_location");
         File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
         Path tempPdf = validatedTempPdf.toPath();
-
-        // Copying the fax pdf.
-        if (Files.exists(filepath) && !Files.exists(tempPdf)) {
-            FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
-        }
-
         File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
-        writeFaxTrackingFile(validatedTxtFile, faxNo);
-        return filepath;
-    }
+        Path trackingFile = validatedTxtFile.toPath();
 
-    private void writePdfFileIfMissing(Path filepath, ByteArrayOutputStream baosPDF) throws IOException {
-        try (java.io.OutputStream fileOut = Files.newOutputStream(filepath,
-                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
-        } catch (FileAlreadyExistsException e) {
-            // Preserve the existing PDF if another request created it first.
+        List<Path> createdFiles = new ArrayList<>(3);
+        try {
+            // Claim the spool names first. Publishing DOCUMENT_DIR before a later
+            // collision would briefly expose new content to an older queue entry.
+            // CREATE_NEW retains exclusive ownership for concurrent submissions,
+            // including when spool and document directories are the same target.
+            if (!sameFileTarget(filepath, tempPdf)) {
+                writeNewPdfFile(tempPdf, baosPDF, createdFiles);
+            }
+            writeFaxTrackingFile(trackingFile, faxNo, createdFiles);
+            writeNewPdfFile(filepath, baosPDF, createdFiles);
+            return new PreparedFaxFiles(filepath, createdFiles);
+        } catch (IOException | RuntimeException e) {
+            cleanupCreatedFiles(createdFiles, e);
+            throw e;
         }
     }
 
-    private void writeFaxTrackingFile(File trackingFile, String faxNo) throws IOException {
-        try (BufferedWriter out = Files.newBufferedWriter(trackingFile.toPath(), StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+    private boolean sameFileTarget(Path first, Path second) throws IOException {
+        if (first.toAbsolutePath().normalize().equals(second.toAbsolutePath().normalize())) {
+            return true;
+        }
+        return first.getFileName().equals(second.getFileName())
+                && Files.isSameFile(first.getParent(), second.getParent());
+    }
+
+    private void writeNewPdfFile(Path filepath, ByteArrayOutputStream baosPDF, List<Path> createdFiles)
+            throws IOException {
+        try (OutputStream fileOut = Files.newOutputStream(filepath,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            createdFiles.add(filepath);
+            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
+        }
+    }
+
+    private void writeFaxTrackingFile(Path trackingFile, String faxNo, List<Path> createdFiles) throws IOException {
+        try (BufferedWriter out = Files.newBufferedWriter(trackingFile, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            createdFiles.add(trackingFile);
             if (faxNo != null) {
                 out.write(faxNo);
             }
+        }
+    }
+
+    private void reportFaxUncertain(HttpServletResponse res, PrintWriter writer, Exception failure) {
+        logger.error("Prescription fax outcome is uncertain; preserving existing fax artifacts ({})", failure.getClass().getSimpleName());
+        res.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        writer.println("<div id='fax-uncertain'><h3>The fax result could not be confirmed.</h3>"
+                + "<p>The job may already be queued. Check the fax outbox before sending again.</p></div>");
+        writer.flush();
+    }
+
+    private void reportFaxFailure(HttpServletResponse res, PrintWriter writer, String stage, Exception failure) {
+        logger.warn("{}: type={}", stage, failure.getClass().getSimpleName());
+        res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
+        writer.flush();
+    }
+
+    private static void cleanupCreatedFiles(List<Path> createdFiles, Throwable originalFailure) {
+        ListIterator<Path> iterator = createdFiles.listIterator(createdFiles.size());
+        while (iterator.hasPrevious()) {
+            Path createdFile = iterator.previous();
+            try {
+                Files.deleteIfExists(createdFile);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                originalFailure.addSuppressed(cleanupFailure);
+                logger.warn("Unable to clean up failed prescription fax artifact ({})",
+                        cleanupFailure.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private static final class PreparedFaxFiles {
+        private final Path documentPdf;
+        private final List<Path> createdFiles;
+
+        private PreparedFaxFiles(Path documentPdf, List<Path> createdFiles) {
+            this.documentPdf = documentPdf;
+            this.createdFiles = List.copyOf(createdFiles);
+        }
+
+        private Path getDocumentPdf() {
+            return documentPdf;
+        }
+
+        private void cleanupAfterFailure(Throwable failure) {
+            cleanupCreatedFiles(createdFiles, failure);
         }
     }
 
@@ -748,7 +893,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 columnText.go();
 
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Prescription PDF field population failed ({})", e.getClass().getSimpleName());
             }
         }
     }
@@ -764,19 +909,20 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      */
     static HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
-        String[] ar = s.split("</b>");
-        String[] ar2 = ar[1].split("<br>");
+        String[] ar = s.split("</b>", 2);
+        String[] ar2 = ar[1].split("<br>", -1);
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
         lst.remove(0);
+        // Values may literally contain <br>, </b> or entity text. Split only the
+        // composed structure, then decode each field exactly once for plain PDF text.
+        lst.replaceAll(org.apache.commons.text.StringEscapeUtils::unescapeHtml4);
         // The block carries the page's LOCALIZED labels ("Tel", "Tél", "Telefone"...) and the header
         // adds its own localized label when it prints these, so strip whatever label precedes the
         // first colon rather than the English ones only -- the French page used to fax "Tél: Tél: ...".
         String tel = lst.get(3).replaceFirst("^[^:]*:\\s*", "");
         String fax = lst.get(4).replaceFirst("^[^:]*:\\s*", "");
         String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
-        logger.debug("tel: {}", LogSafe.sanitize(tel));
-        logger.debug("fax: {}", LogSafe.sanitize(fax));
-        logger.debug("clinicName: {}", LogSafe.sanitize(clinicName));
+        logger.debug("Prescription PDF clinic header details loaded");
         hm.put("clinicName", clinicName);
         hm.put("clinicTel", tel);
         hm.put("clinicFax", fax);
@@ -801,11 +947,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *         (nothing legitimate to fax) or cannot be loaded
      */
     HttpServletRequest bindFaxContentToRecord(HttpServletRequest req) {
-        return bindFaxContentToRecord(req, requestedPrescription(req));
+        return bindFaxContentToRecord(req, requestedPrescription(req), false);
     }
 
     /** As {@link #bindFaxContentToRecord(HttpServletRequest)} with the prescription already loaded. */
     HttpServletRequest bindFaxContentToRecord(HttpServletRequest req, Prescription prescription) {
+        return bindFaxContentToRecord(req, prescription, true);
+    }
+
+    private HttpServletRequest bindFaxContentToRecord(HttpServletRequest req, Prescription prescription,
+            boolean requirePatientIdentity) {
         if (prescription == null || prescription.getDemographicId() == null) {
             return null;
         }
@@ -892,7 +1043,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         bound.put("additNotes", prescription.getComments() == null ? "" : prescription.getComments());
         bound.put("pracNo", collegeId);
         bound.put("billingNumber", billingNo);
-        bindPatientIdentity(req, prescription.getDemographicId(), bound);
+        if (!bindPatientIdentity(req, prescription.getDemographicId(), bound) && requirePatientIdentity) {
+            return null;
+        }
         bindFaxHeaderToRecord(req, prescription, recordDrugs, bound);
         return new RecordBoundRequest(req, bound);
     }
@@ -965,19 +1118,20 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // the main clinic bound above.
         String offeredBlock = null;
         if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
-            String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
             String tel = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel"));
             String fax = SafeEncode.forHtml(LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgFax"));
-            offeredBlock = RxSatelliteClinicAddress.offeredBlock(RxSatelliteClinicAddress.blocksFor(user, tel, fax), req.getParameter("scAddress"));
+            // A covering provider may legitimately refax this stored prescription. The callback
+            // header still belongs to the persisted prescriber whose name and signature are on the
+            // document, never to the covering provider who happened to open the fax dialog.
+            offeredBlock = RxSatelliteClinicAddress.offeredBlock(
+                    RxSatelliteClinicAddress.blocksFor(prescriber, tel, fax), req.getParameter("scAddress"));
             if (offeredBlock == null) {
-                logger.warn("Fax for prescription {} named a satellite clinic block this provider is not offered; using the main clinic header",
+                logger.warn("Fax for prescription {} named a satellite clinic block its prescriber is not offered; using the main clinic header",
                         LogSafe.sanitize(String.valueOf(prescription.getId())));
             }
         }
-        // Render the OFFERED block, not the request's copy of it: the match decodes entities on both
-        // sides, so the request may spell the same clinic with entity text that parseSCAddress would
-        // otherwise print verbatim.
+        // Render the original encoded OFFERED block, not the request's copy: the parser
+        // separates structural delimiters before decoding each field exactly once.
         bound.put("useSC", offeredBlock != null ? "true" : "false");
         bound.put("scAddress", offeredBlock != null ? offeredBlock : "");
 
@@ -1027,7 +1181,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * text an attacker chose. Leaving it caller-controlled would reopen the same hole in the one
      * identity slot that has no record source here.</p>
      */
-    private void bindPatientIdentity(HttpServletRequest req, Integer demographicId, Map<String, String> bound) {
+    private boolean bindPatientIdentity(HttpServletRequest req, Integer demographicId, Map<String, String> bound) {
         // Every identity slot is overridden, including the ones that come back empty. A field left
         // unbound is a field the request still controls, so the blanks are part of the control:
         // absent demographic data must print as absent, never as whatever the caller supplied.
@@ -1043,18 +1197,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         } catch (PatientDirectiveException e) {
             // The manager's read is gated by its own privilege check, which surfaces a consent directive
             // as PatientDirectiveException. resolveSignatureImage has already authorized this caller for
-            // this patient on the same check, so this is defence in depth rather than an expected path;
-            // when it does fire, the heading stays blank -- the same outcome as a missing row, and never
-            // the request's values. ONLY that exception is absorbed: a database or wiring failure must
-            // abort the fax loudly, not send a prescription with no patient on it.
-            logger.warn("Faxing prescription for demographic {} with a blank patient heading: a directive refused the demographic read",
-                    LogSafe.sanitize(String.valueOf(demographicId)), e);
-            return;
+            // this patient on the same check, so this is defence in depth rather than an expected path.
+            // Fail closed: a signed prescription without patient identity is not a valid outbound fax.
+            logger.warn("Refusing to fax prescription: a directive refused the demographic read ({})",
+                    e.getClass().getSimpleName());
+            return false;
         }
         if (demographic == null) {
-            logger.warn("Faxing prescription for demographic {} with a blank patient heading: its demographic row is missing",
+            logger.warn("Refusing to fax prescription for demographic {}: its demographic row is missing",
                     LogSafe.sanitize(String.valueOf(demographicId)));
-            return;
+            return false;
         }
         String first = demographic.getFirstName() == null ? "" : demographic.getFirstName();
         String surname = demographic.getLastName() == null ? "" : demographic.getLastName();
@@ -1070,6 +1222,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         bound.put("patientCityPostal", formatCityPostal(city, province, postal));
         bound.put("patientHIN", demographic.getHin() == null ? "" : demographic.getHin());
         bound.put("patientPhone", LocaleUtils.getMessage(req.getLocale(), "RxPreview.msgTel") + ": " + phone);
+        return true;
     }
 
     /**
@@ -1197,7 +1350,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     /**
      * True only when the prescription named by {@code scriptId} exists with a patient and the
-     * caller may READ it but lacks {@code _rx} WRITE for that patient. A missing session,
+     * caller may READ it but lacks {@code _rx} WRITE for that patient, {@code _demographic}
+     * READ for that patient, or global {@code _fax} WRITE. A missing session,
      * malformed id, absent row, or a caller without READ is NOT reported as a privilege denial
      * (it returns {@code false}) and is left to the signature gate, which reports those as
      * "not signed" exactly as before.
@@ -1208,8 +1362,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     /**
      * As {@link #isFaxDeniedByPrivilege(HttpServletRequest, LoggedInInfo)} with the prescription
-     * already loaded. True only for a caller who holds {@code _rx} READ but not WRITE for the
-     * prescription's patient.
+     * already loaded. True only for a caller who holds {@code _rx} READ but lacks one of the
+     * rights required to send the prescription.
      *
      * <p>A caller without READ answers {@code false} here and is therefore told the prescription is
      * "not signed" — identical to the answer for a {@code scriptId} that matches no prescription at
@@ -1229,7 +1383,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // half-way through the fax — into the same deliberate permission refusal.
             return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, patient)
                     && (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient)
-                        || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, patient));
+                        || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, patient)
+                        || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null));
         } catch (PatientDirectiveException e) {
             // hasPrivilege rethrows PatientDirectiveException (SecurityInfoManagerImpl); unguarded it
             // would crash the servlet instead of refusing the fax. Answer "not denied HERE" so the
@@ -1239,7 +1394,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // that wording would confirm the script exists. ONLY the directive is absorbed: a database
             // or wiring failure in the privilege lookup must abort the request, not let it proceed to
             // the later gates as if the caller had simply lacked a privilege.
-            logger.warn("A directive refused the fax permission check; deferring to the signature gate", e);
+            logger.warn("A directive refused the fax permission check; deferring to the signature gate ({})", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -1352,8 +1507,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // hasPrivilege rethrows PatientDirectiveException; unguarded it would abort PDF generation
             // with a 500 instead of the deliberate refusal below. Any failure to establish the right
             // means the signature is not released — the same outcome as lacking it outright.
-            logger.warn("Privilege check failed while resolving the signature for prescription {}; withholding it",
-                    LogSafe.sanitize(String.valueOf(scriptNo)), e);
+            logger.warn("Privilege check failed while resolving a prescription signature; withholding it ({})",
+                    e.getClass().getSimpleName());
             authorized = false;
         }
         if (!authorized) {
@@ -1361,11 +1516,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     LogSafe.sanitize(String.valueOf(scriptNo)), requiredRight);
             return null;
         }
-        // The caller-supplied demographic_no is what the fax branch stamps onto the FaxJob (its audit
-        // linkage). For a FAX it MUST be present, positive, and equal to the prescription's patient —
-        // an absent/invalid value would otherwise reach FaxJob.demographicNo unchecked, so it is
-        // required, not merely validated when present. For a print/preview the value is not
-        // persisted, so only a positive mismatch is rejected (an absent one is harmless).
+        // The caller-supplied demographic_no is validation input only; the fax branch stamps the
+        // loaded prescription's patient onto FaxJob for its audit linkage. For a FAX the parameter
+        // MUST still be present, positive, and equal to that patient so the submitted form cannot
+        // cross records. For a print/preview the value is not persisted, so only a positive mismatch
+        // is rejected (an absent one is harmless).
         int requestDemographic = parsePositiveInt(req.getParameter("demographic_no"));
         boolean badDemographic = isFax
                 ? (requestDemographic <= 0 || demographicId.intValue() != requestDemographic)
@@ -1409,9 +1564,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     logger.debug("Signature pad file not present or not a pad capture; falling back to the stored prescription signature");
                 }
             } catch (SecurityException e) {
-                logger.warn("Blocked signature pad file path; falling back to the stored prescription signature", e);
+                logger.warn("Blocked signature pad file path; falling back to the stored prescription signature ({})", e.getClass().getSimpleName());
             } catch (IOException e) {
-                logger.warn("Unable to read signature pad file; falling back to the stored prescription signature", e);
+                logger.warn("Unable to read signature pad file; falling back to the stored prescription signature ({})", e.getClass().getSimpleName());
             }
         }
 
@@ -1423,7 +1578,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(signatureId);
         if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
                 || metadata.getDemographicId() == null
-                || !metadata.getDemographicId().equals(demographicId)) {
+                || !metadata.getDemographicId().equals(demographicId)
+                || prescribingProviderNo == null || prescribingProviderNo.isBlank()
+                || !prescribingProviderNo.equals(metadata.getProviderNo())) {
             logger.debug("Stored signature does not belong to prescription {}; not rendering it", LogSafe.sanitize(String.valueOf(scriptNo)));
             return null;
         }
@@ -1474,16 +1631,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             numPrint = req.getParameter("numPrints");
         }
 
-        logger.debug("method in generatePDFDocumentBytes {}", LogSafe.sanitize(method));
         String clinicName;
         String clinicTel;
         String clinicFax;
         // check if satellite clinic is used
         String useSatelliteClinic = req.getParameter("useSC");
-        logger.debug("useSatelliteClinic: {}", LogSafe.sanitize(useSatelliteClinic));
         if (useSatelliteClinic != null && useSatelliteClinic.equalsIgnoreCase("true")) {
             String scAddress = req.getParameter("scAddress");
-            logger.debug("clinic detail={}", LogSafe.sanitize(scAddress));
             HashMap<String, String> hm = parseSCAddress(scAddress);
             clinicName = hm.get("clinicName");
             clinicTel = hm.get("clinicTel");
@@ -1491,7 +1645,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         } else {
             // parameters need to be passed to header and footer
             clinicName = req.getParameter("clinicName");
-            logger.debug("clinicName={}", LogSafe.sanitize(clinicName));
             clinicTel = req.getParameter("clinicPhone");
             clinicFax = req.getParameter("clinicFax");
         }

@@ -84,6 +84,9 @@ function assert(condition, message) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
@@ -263,10 +266,16 @@ async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   if (await page.locator('#pin').count()) {
     await page.locator('#pin').fill(testPin);
+  }
+  assert(await page.locator('#username').inputValue() === testUser, 'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === testPassword, 'login password field changed before submit');
+  if (await page.locator('#pin').count()) {
+    assert(await page.locator('#pin').inputValue() === testPin, 'login PIN field changed before submit');
   }
   await Promise.all([
     page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
@@ -676,7 +685,13 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     }
     assert(eformPreviewResponses.some((response) => response.status === 200), `Consultation attachment preview never produced a 200 renderEFormPDF response: ${JSON.stringify(eformPreviewResponses, null, 2)}`);
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
-    const renderConsoleIssues = consoleIssues.filter((issue) => ['add-eform', 'saved-direct', 'patient-list-popup', 'consult-new'].includes(issue.label));
+    // A raw stored eForm has no icon declaration, so Chromium probes the
+    // origin-root favicon outside the CARLOS context. The HTTP recorder already
+    // permits only its 404; mirror that exact exception for the console event.
+    const renderConsoleIssues = consoleIssues.filter((issue) => ['add-eform', 'saved-direct', 'patient-list-popup', 'consult-new'].includes(issue.label)
+      && !(issue.type === 'error'
+        && /Failed to load resource.*404/i.test(issue.text || '')
+        && issue.location && issue.location.url === `${baseUrl.origin}/favicon.ico`));
     assert(renderConsoleIssues.length === 0, `unexpected render-surface browser console failures: ${JSON.stringify(renderConsoleIssues, null, 2)}`);
 
     console.log('PASS eForm consultation acceptance workflow preserved saved values, reopened the saved fdid, reused that same saved eForm in the consultation attachment workflow, and probed the existing Signature trick library form for its stored image-layer template');
