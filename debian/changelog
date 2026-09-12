@@ -27,12 +27,14 @@ carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
     form's own rejections (a malformed id, a request that is not this
     patient's) come back to the form with their message instead of falling
     through to the generic error page for want of an "input" result.
-  * Uncaught exceptions in any action are logged at ERROR with their stack
-    trace and an incident reference instead of being mapped to the error page
-    silently; the error page shows the same reference and answers 500 (403,
-    and a WARN line, for an authorization refusal), and nothing about the
-    failure beyond that reference reaches the browser or the log line's
-    request detail. The application's default log level is WARN rather than
+  * Uncaught exceptions that a module maps to the error page are logged at
+    ERROR with their stack trace and an incident reference instead of being
+    mapped there silently; the error page shows the same reference and answers
+    500 (403, and a WARN line, for an authorization refusal), and nothing about
+    the failure beyond that reference reaches the browser or the log line's
+    request detail. A module's own typed mappings (the billing validation,
+    file-write and data-load pages) keep their message and status. Modules
+    without a generic mapping still use the container error path. The application's default log level is WARN rather than
     ERROR. The
     "property is missing" warning is reported once per key per start, not on
     every page render, so WARN stays readable; Hibernate's per-column

@@ -36,6 +36,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionInvocation;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.config.entities.ExceptionMappingConfig;
+import org.apache.struts2.interceptor.ExceptionHolder;
 import org.apache.struts2.interceptor.ExceptionMappingInterceptor;
 
 /**
@@ -68,6 +69,13 @@ import org.apache.struts2.interceptor.ExceptionMappingInterceptor;
  *       result JSP fixed it up. It is 500 now, and 403 for a {@link SecurityException}, set before
  *       the result renders when the response is still open, so AJAX callers and monitoring see the
  *       failure too.</li>
+ *   <li><b>A package's own typed mapping is left to the package.</b> All of the above applies to
+ *       the generic {@value #ERROR_RESULT} and {@value #SECURITY_RESULT} results. A mapping to any
+ *       other result (the billing package maps its validation, file-write and data-load exceptions
+ *       to pages that render the exception's server-composed message) is that package handling an
+ *       expected condition, not an unexpected failure: the exception is published to the value
+ *       stack exactly as struts-default did so the page can read it, the status is left as the
+ *       action set it, and the log gets one WARN line with the incident id and no message.</li>
  * </ul>
  *
  * <p>An exception no mapping covers is rethrown, exactly as before, and reaches the container's
@@ -84,6 +92,9 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
 
     /** The result every module package maps its authorization-refusal exceptions to. */
     public static final String SECURITY_RESULT = "securityError";
+
+    /** The generic result every module package maps {@code Exception} to. */
+    public static final String ERROR_RESULT = "error";
 
     private static final Logger LOGGER = LogManager.getLogger(CarlosExceptionMappingInterceptor.class);
 
@@ -105,20 +116,46 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
             String incidentId = newIncidentId();
             HttpServletRequest request = ServletActionContext.getRequest();
             HttpServletResponse response = ServletActionContext.getResponse();
-            boolean securityRefusal = e instanceof SecurityException || SECURITY_RESULT.equals(mapping.getResult());
+            Classification classification = classify(e, mapping);
 
-            logIncident(incidentId, e, securityRefusal, invocation, request);
+            logIncident(incidentId, e, classification, invocation, request);
 
             if (request != null) {
                 request.setAttribute(INCIDENT_ID_ATTRIBUTE, incidentId);
             }
+            if (classification == Classification.HANDLED) {
+                // The package's own result page reads the exception (request attribute "exception"
+                // resolves through the value stack); without this it renders with no message.
+                publishException(invocation, new ExceptionHolder(e));
+                return mapping.getResult();
+            }
             if (response != null && !response.isCommitted()) {
-                response.setStatus(securityRefusal
+                response.setStatus(classification == Classification.REFUSAL
                         ? HttpServletResponse.SC_FORBIDDEN
                         : HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
             return mapping.getResult();
         }
+    }
+
+    /** What a mapped exception is, which decides the log level, the status, and what the page sees. */
+    enum Classification {
+        /** An authorization refusal: 403, WARN, no trace, message withheld. */
+        REFUSAL,
+        /** An unexpected failure mapped to the generic error page: 500, ERROR with the trace. */
+        UNEXPECTED,
+        /** A typed exception the package maps to its own result: struts-default behaviour, WARN. */
+        HANDLED
+    }
+
+    static Classification classify(Exception e, ExceptionMappingConfig mapping) {
+        if (e instanceof SecurityException || SECURITY_RESULT.equals(mapping.getResult())) {
+            return Classification.REFUSAL;
+        }
+        if (ERROR_RESULT.equals(mapping.getResult())) {
+            return Classification.UNEXPECTED;
+        }
+        return Classification.HANDLED;
     }
 
     /**
@@ -130,7 +167,7 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
         return UUID.randomUUID().toString();
     }
 
-    private static void logIncident(String incidentId, Exception e, boolean securityRefusal,
+    private static void logIncident(String incidentId, Exception e, Classification classification,
                                     ActionInvocation invocation, HttpServletRequest request) {
         String actionName = LogSafe.sanitize(invocation.getProxy().getActionName());
         String method = request == null ? "n/a" : LogSafe.sanitize(request.getMethod());
@@ -139,7 +176,12 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
         String provider = LogSafe.sanitize(providerNo(request));
         String exceptionType = e.getClass().getName();
 
-        if (securityRefusal) {
+        if (classification == Classification.HANDLED) {
+            // An expected condition the package renders itself; the message is the page's to show,
+            // not the log's. One line so the incident id still ties the page to the log.
+            LOGGER.warn("Handled {} [incident {}] in action {} ({} {}) provider={}",
+                    exceptionType, incidentId, actionName, method, path, provider);
+        } else if (classification == Classification.REFUSAL) {
             // There is nothing a trace would add to "this provider lacks this privilege", and the
             // message itself is not logged as-is: most refusals carry the fixed
             // "missing required sec object (_con)" text, but a SecurityException can also be built

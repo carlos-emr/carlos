@@ -307,6 +307,9 @@ public class CaseManagementPrint {
 
         FileOutputStream fos = null;
         List<Object> pdfDocs = new ArrayList<Object>();
+        // Intermediate lab PDFs (PHI) whose per-iteration delete failed; the finally block retries
+        // them, since clearing file2 below would otherwise lose the only reference.
+        List<File> undeletedLabPdfs = new ArrayList<File>();
 
 
         try {
@@ -399,7 +402,9 @@ public class CaseManagementPrint {
 
                         // One lab per iteration: the finally block below only sees the last file2, so
                         // every earlier lab's intermediate PDF (PHI) used to outlive the print.
-                        deleteTempPdf(file2, "temporary lab PDF");
+                        if (!deleteTempPdf(file2, "temporary lab PDF")) {
+                            undeletedLabPdfs.add(file2);
+                        }
                         file2 = null;
                     }
                 }
@@ -431,6 +436,11 @@ public class CaseManagementPrint {
             }
             if (file2 != null) {
                 file2.delete();
+            }
+            // Second attempt for any intermediate lab PDF the loop could not delete: a transient
+            // filesystem refusal is the usual cause, and these files hold lab results.
+            for (File leftover : undeletedLabPdfs) {
+                deleteTempPdf(leftover, "temporary lab PDF (retry)");
             }
             for (Object o : pdfDocs) {
                 // Resolve+delete must never throw out of this finally: a malformed temp path would
@@ -740,11 +750,14 @@ public class CaseManagementPrint {
      * deleted through two handles) and never throwing out of cleanup: a failure is a warning with
      * the reason, which {@code File#delete}'s boolean never gave.
      */
-    private static void deleteTempPdf(File tempPdf, String description) {
+    /** Deletes a temp PDF if it exists; returns false, after a WARN, when the delete failed. */
+    private static boolean deleteTempPdf(File tempPdf, String description) {
         try {
             Files.deleteIfExists(tempPdf.toPath());
+            return true;
         } catch (IOException ex) {
             logger.warn("Failed to delete {}; leaving it for the OS temp sweep", description, ex);
+            return false;
         }
     }
 }

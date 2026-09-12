@@ -740,12 +740,16 @@ eForm print, fax or archive fails
   DEBUG can put request parameters, which is to say PHI, into the journal, so
   put it back afterwards). The renderer's startup probe reports at INFO and is
   exempted from the default so its result is visible without turning up
-  logging everywhere. An action that dies in an uncaught exception is logged
-  at ERROR with its stack trace and an incident reference, and the error page
-  the clinician sees shows that same reference (an authorization refusal is a
-  WARN line and a 403, with its reference). Earlier builds mapped these to the
-  error page silently, which is why "it just did nothing" reports had no trace
-  to go with them. To find the entry behind a reference:
+  logging everywhere. An action that dies in an exception its module maps to
+  the error page is logged at ERROR with its stack trace and an incident
+  reference, and the error page the clinician sees shows that same reference
+  (an authorization refusal is a WARN line and a 403, with its reference).
+  Earlier builds mapped these to the error page silently, which is why "it
+  just did nothing" reports had no trace to go with them. A failure in a
+  module with no such mapping (the provider module maps only authorization
+  refusals) still takes the container's error path: HTTP 500, logged with its
+  stack trace, but with no reference on the page. To find the entry behind a
+  reference:
 
       carlos-ctl logs | grep '<reference>'
 

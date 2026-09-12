@@ -377,7 +377,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 try {
                     demographicId = Integer.parseInt(demographicNo);
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
+                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", LogSafe.sanitize(demographicNo));
                     rejectInput(INVALID_DEMOGRAPHIC_NUMBER);
                     return INPUT;
                 }

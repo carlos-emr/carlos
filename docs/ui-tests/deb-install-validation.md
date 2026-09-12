@@ -424,6 +424,10 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+# The WAF checks (echart, echart-print, clinical-freetext) detect the packaged nginx
+# front door by its Server header and, with this set, FAIL a run that never saw one:
+# against bare Tomcat their scored phrases pass because nothing inspected them.
+export EXPECT_FRONT_DOOR=true
 # Devcontainer seed values. On a FRESH DEB INSTALL the package randomises the password and the
 # PIN for carlosdoc -- read both from /etc/carlos-emr/initial-admin.txt and use those instead,
 # starting with the one-time forced-reset step further down.
@@ -640,7 +644,13 @@ Notes on the contract:
   through is expected and tolerated; a 403 from any of them is not. Each print
   must come back as a download whose bytes start with `%PDF-` and run to at
   least 1 KB: the action sets `application/pdf` before it generates, so the
-  Content-Type alone would pass a truncated body.
+  Content-Type alone would pass a truncated body. It also waits, per note
+  body, for the chart's draft autosave carrying that body, so its `ARGS:note`
+  coverage is a POST it observed rather than a timer it assumed; and like
+  `echart-playwright-checks.js` it flags whether any response carried the
+  nginx `Server` header, warning when none did and failing when
+  `EXPECT_FRONT_DOOR=true` is set, so a run against bare Tomcat cannot be
+  mistaken for a WAF result.
 - **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
   the browser guard for the survey block (exclusions 1100-1199, the clinician
   free text OUTSIDE the eChart), driven through the two rules with the most
@@ -703,7 +713,10 @@ Notes on the contract:
   assumes; override it if the install's `consultationServices` table does not
   start at 1. Against bare
   Tomcat the phrases are ordinary notes and the check degrades to guarding the
-  two save paths.
+  two save paths. It flags the packaged front door the same way as the
+  eChart checks (nginx `Server` header; warning when absent, failure with
+  `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
+  mistaken for coverage of 1100/1131.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the

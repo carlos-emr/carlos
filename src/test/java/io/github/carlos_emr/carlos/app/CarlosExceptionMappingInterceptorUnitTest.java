@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -39,6 +40,8 @@ import org.apache.struts2.ActionProxy;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.config.entities.ActionConfig;
 import org.apache.struts2.config.entities.ExceptionMappingConfig;
+import org.apache.struts2.interceptor.ExceptionHolder;
+import org.apache.struts2.util.ValueStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -198,6 +201,47 @@ class CarlosExceptionMappingInterceptorUnitTest {
                 .startsWith("Authorization refused")
                 .doesNotContain("Access is denied")
                 .contains("refusal message withheld");
+    }
+
+    /**
+     * struts-billing.xml maps BillingValidationException (and two siblings) to result pages that read
+     * the caught exception off the value stack to show its server-composed message. That is the
+     * package handling an expected condition, so the hardened treatment must not apply: the
+     * exception is published as struts-default did, the status stays what the action set, and the
+     * log gets a WARN line without the message.
+     */
+    @Test
+    @DisplayName("leaves a package's own typed mapping to the package: exception published, status kept, WARN without the message")
+    void shouldPreserveTypedMapping_forPackageHandledException() throws Exception {
+        ActionConfig config = new ActionConfig.Builder("billing", "billing/CreateBill", "Some2Action")
+                .addExceptionMapping(new ExceptionMappingConfig.Builder("validation", IllegalStateException.class.getName(), "billingValidationError").build())
+                .addExceptionMapping(new ExceptionMappingConfig.Builder("any", Exception.class.getName(), "error").build())
+                .build();
+        ActionProxy proxy = mock(ActionProxy.class);
+        when(proxy.getConfig()).thenReturn(config);
+        when(proxy.getActionName()).thenReturn("billing/CreateBill");
+        ValueStack stack = mock(ValueStack.class);
+        when(invocation.getProxy()).thenReturn(proxy);
+        when(invocation.getStack()).thenReturn(stack);
+        when(invocation.invoke()).thenThrow(new IllegalStateException("Service code A007 is not billable on this date"));
+
+        String result;
+        List<String> messages;
+        try (LogCapture logCapture = LogCapture.forLogger(CarlosExceptionMappingInterceptor.class)) {
+            result = interceptor.intercept(invocation);
+            messages = logCapture.messages();
+        }
+
+        assertThat(result).isEqualTo("billingValidationError");
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE)).isNotNull();
+        verify(stack).push(any(ExceptionHolder.class));
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0))
+                .startsWith("Handled")
+                .contains("IllegalStateException")
+                .contains("billing/CreateBill")
+                .doesNotContain("A007");
     }
 
     /**

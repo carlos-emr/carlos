@@ -101,6 +101,12 @@ const RUN_STAMP = `(Playwright clinical-freetext run ${Date.now()})`;
 
 const saveResults = [];
 const badResponses = [];
+// Set when a response arrives through the packaged nginx front door. Against bare
+// Tomcat every phrase saves for the boring reason that nothing inspected it, so a
+// green run there says nothing about rules 1100/1131. EXPECT_FRONT_DOOR=true makes
+// a run that never saw an nginx-served response FAIL, as in echart-playwright-checks.js.
+let frontDoorObserved = false;
+const expectFrontDoor = /^(1|true|yes)$/i.test(process.env.EXPECT_FRONT_DOOR || '');
 
 // Each phrase is a sentence a clinician would actually write, measured through
 // the packaged front door to score over the CRS inbound threshold on its own.
@@ -207,6 +213,9 @@ function wirePage(page, label) {
     await dialog.accept();
   });
   page.on('response', (response) => {
+    if (/nginx/i.test(response.headers()['server'] || '')) {
+      frontDoorObserved = true;
+    }
     if (response.status() >= 400 && !isExpectedMissingFixture(response.status(), response.url())) {
       badResponses.push({ label, status: response.status(), url: response.url() });
     }
@@ -542,6 +551,12 @@ async function runWorkflow(context, workflow) {
 
     assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${JSON.stringify(badResponses, null, 2)}`);
 
+    if (expectFrontDoor && !frontDoorObserved) {
+      throw new Error('EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the packaged front door');
+    }
+    console.log(frontDoorObserved
+      ? 'Front door observed: responses carried an nginx Server header, so the WAF was in the path of every save'
+      : 'WARNING: no response carried an nginx Server header, so this run did NOT exercise the packaged WAF; rules 1100/1131 are unverified');
     console.log(`PASS ${WORKFLOWS.length} clinical free-text workflows saved `
       + `${PROSE_CORPUS.length} prose variants each without a WAF rejection`);
     const filed = saveResults.filter((result) => redirectRequired.has(result.workflow)).length;

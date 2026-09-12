@@ -75,10 +75,14 @@
          died in a NullPointerException rendered the module's error page and left no trace in the
          application log, so a request that quietly did nothing looked identical to one that never
          happened (the consultation save in #3623 was found this way). CarlosExceptionMappingInterceptor
-         keeps the mapping and adds what was missing: one log line per failure with an incident id
-         (ERROR with the trace; WARN without one for a SecurityException), the same id handed to the
-         error page as a request attribute, a real 500 or 403 status, and no exception detail on the
-         value stack or in the browser (see the class Javadoc). The two stacks below are
+         keeps the mapping and adds what was missing: one log line per MAPPED failure with an
+         incident id (ERROR with the trace; WARN without one for a SecurityException), the same id
+         handed to the error page as a request attribute, a real 500 or 403 status, and no exception
+         detail on the value stack or in the browser (see the class Javadoc). A package's own typed
+         mapping to a result other than error/securityError (billing's validation pages) keeps
+         struts-default's behaviour, exception on the value stack included, with a WARN line. An
+         exception no package mapping covers is rethrown to the container error path, as before,
+         with no incident id: the provider package maps only SecurityException. The two stacks below are
          struts-default's defaultStack and basicStack, entry for entry and parameter for parameter,
          with that interceptor in the exception slot; StrutsGlobalConfigUnitTest reads struts-default.xml
          from the Struts jar and fails the build if they drift apart on an upgrade. A module package
