@@ -375,8 +375,8 @@ public class AddEForm2Action extends ActionSupport {
             }
 
             if (fax) {
-                redirectToPreparedFax(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return NONE;
+                prepareFaxHandoff(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "faxPreparation";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
@@ -441,8 +441,8 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                redirectToPreparedFax(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return NONE;
+                prepareFaxHandoff(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+                return "faxPreparation";
             } else if (isDownloadEForm) {
                 /*
                  * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
@@ -519,9 +519,8 @@ public class AddEForm2Action extends ActionSupport {
         return closeWithPdfPreview(loggedInInfo, demographic_no, fdid);
 	}
 	
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin fax action path built from the current context path with encoded query parameters.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin fax action path built from the current context path with encoded query parameters")
-    private void redirectToPreparedFax(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
+    /** Prepares a narrow POST handoff only after the original protected eForm save. */
+    private void prepareFaxHandoff(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
         StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
         faxForward.append("?method=").append("prepareFax");
         faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
@@ -537,10 +536,10 @@ public class AddEForm2Action extends ActionSupport {
         if (letterheadFax != null && !letterheadFax.isEmpty()) {
             faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
         }
-        // Keep the CSRF-protected submission's method/body when handing it to
-        // preparation. A 302 changes POST to GET and would make staging a GET side effect.
-        response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
-        response.setHeader("Location", response.encodeRedirectURL(faxForward.toString()));
+        // Do not replay the saved form body with a 307: signatures and rich text have
+        // save-route-specific WAF allowances and are not inputs to fax preparation.
+        request.setAttribute("preparedFaxTarget", faxForward.toString());
+        response.setHeader("Cache-Control", "no-store");
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.

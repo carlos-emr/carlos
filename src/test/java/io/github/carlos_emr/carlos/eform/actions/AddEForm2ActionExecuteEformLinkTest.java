@@ -138,8 +138,8 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         // Set required request parameters — minimal set for a clean execute() path
         mockRequest.setParameter("efmfid", "1");
         mockRequest.setParameter("efmdemographic_no", "123");
-        // Use faxEForm=true to exit cleanly after the session write (the fax branch redirects and
-        // returns NONE before the EctProgram DB lookup and MatchManager). print=true used to serve
+        // Use faxEForm=true to exit cleanly after the session write (the fax branch returns
+        // the narrow POST handoff before the EctProgram DB lookup and MatchManager). print=true used to serve
         // this purpose, but it is now the legacy alias of the save-and-download workflow and renders
         // a PDF, which is not what these tests are about.
         mockRequest.setParameter("faxEForm", "true");
@@ -192,7 +192,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest.setParameter("eform_link", validLink);
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         HttpSession session = mockRequest.getSession();
         assertThat(session.getAttribute(validLink))
@@ -207,7 +207,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest.setParameter("eform_link", invalidLink);
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         HttpSession session = mockRequest.getSession();
         assertThat(session.getAttribute(invalidLink))
@@ -229,7 +229,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         }
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         // Capture session attribute names after execute
         java.util.Set<String> attrsAfter = new java.util.HashSet<>();
@@ -250,7 +250,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest.setParameter("eform_link", poisonKey);
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         HttpSession session = mockRequest.getSession();
         assertThat(session.getAttribute(poisonKey))

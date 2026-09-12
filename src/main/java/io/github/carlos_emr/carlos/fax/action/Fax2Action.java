@@ -131,13 +131,12 @@ public class Fax2Action extends ActionSupport {
      * getPageCount} stay verb-open: {@code CoverPage.jsp}
      * builds {@code <img src>}/link GETs for {@code getPreview} and polls {@code
      * getPageCount}. Preparation writes a staged PDF and session capabilities, so
-     * it also requires POST. The eForm save handoff uses a same-origin 307 redirect
-     * to preserve the protected POST and its body.
+     * it also requires POST. After the protected eForm save, a narrow same-origin
+     * POST handoff sends only saved-form references and a server-rendered CSRF token.
      *
      * @return the Struts result name for the dispatched operation, or {@link #NONE}
      *         after a direct-response write or a 405 rejection
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
     public String execute() {
         String method = request.getParameter("method");
         boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method);
@@ -146,7 +145,7 @@ public class Fax2Action extends ActionSupport {
             // queue() persists fax jobs and promotes files; cancel() (also the no-method
             // fall-through below) deletes temp files and PHI preview caches -- mutations must
             // require POST. CoverPage submits queue/cancel by POST, and the eForm
-            // handoff preserves its protected POST when redirecting to preparation.
+            // handoff submits a narrow protected POST to preparation.
             response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             return NONE;

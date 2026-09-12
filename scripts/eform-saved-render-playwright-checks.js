@@ -411,15 +411,21 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
         'fax preparation must reject GET/HEAD before staging');
       await rejected.dispose();
     }
-    const handoffPromise = page.waitForResponse(response => response.status() === 307
-      && response.headers().location?.includes('/fax/faxAction?method=prepareFax'), { timeout: 180000 });
+    const handoffPromise = page.waitForResponse(response => response.status() === 200
+      && new URL(response.url()).pathname.endsWith('/eform/addEForm')
+      && response.request().method() === 'POST', { timeout: 180000 });
     const preparedPromise = page.waitForResponse(response => response.url().startsWith(endpoint)
       && new URL(response.url()).searchParams.get('method') === 'prepareFax'
       && response.request().method() === 'POST', { timeout: 180000 });
     const [handoff, prepared] = await Promise.all([
       handoffPromise, preparedPromise, page.locator('#remoteFaxButton').click(),
     ]);
-    assert(handoff.request().method() === 'POST', 'eForm fax handoff must preserve the protected POST');
+    assert((await handoff.text()).includes('id="eform-fax-preparation"'),
+      'protected eForm save must return the narrow fax handoff');
+    const preparationBody = new URLSearchParams(prepared.request().postData() || '');
+    assert([...preparationBody.keys()].every(key => key === 'CSRF-TOKEN')
+      && Boolean(preparationBody.get('CSRF-TOKEN')),
+    'fax preparation must carry its CSRF token without replaying saved form fields or signature data');
     assert(prepared && prepared.status() === 200, 'eForm fax preview preparation must succeed');
     await page.locator('#btnCancel').waitFor({ state: 'visible' });
     faxFilePath = await page.locator('input[name="faxFilePath"]').inputValue();
