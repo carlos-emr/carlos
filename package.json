@@ -75,7 +75,8 @@
     "test:form-rourke2017-playwright": "node scripts/form-rourke2017-playwright-checks.js",
     "test:allergy-add-penicillin-playwright": "node scripts/allergy-add-penicillin-playwright-checks.js",
     "test:lab-macro-tickler-playwright": "node scripts/lab-macro-tickler-playwright-checks.js",
-    "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js"
+    "test:schedule-quick-search-appointment-playwright": "node scripts/schedule-quick-search-appointment-playwright-checks.js",
+    "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
