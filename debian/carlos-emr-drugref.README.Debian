@@ -51,9 +51,11 @@ Updating the dataset from Health Canada
 ---------------------------------------
 Administration > Update Drugref (in CARLOS) asks DrugRef to rebuild its
 database from Health Canada's current Drug Product Database extract. The page
-follows the run and reports how it ended; a failed run keeps the previous
-dataset and says why it failed. The run takes 15 to 60 minutes, during which
-drug lookups when prescribing are limited, so start it outside clinic hours.
+follows the run and reports how it ended. A failed run attempts to restore the
+previous dataset and says why it failed. Recovery can also fail: follow the
+reported recovery instructions and confirm drug search before relying on the
+dataset. The run takes 15 to 60 minutes, during which drug lookups when
+prescribing are limited, so start it outside clinic hours.
 
 What it needs from this host:
 
@@ -75,8 +77,11 @@ What it needs from this host:
 
 The run's log lines are prefixed "DrugRef database update" in
 journalctl -u carlos-emr. Every table the update rebuilds is kept as
-<table>_prev until the run succeeds; an interrupted run (a service restart
-mid-import) is rolled back automatically at the next start.
+<table>_prev until the new dataset is committed; an interrupted run (a service
+restart mid-import) is automatically restored at the next start if recovery
+succeeds. If the dataset was already committed, startup finishes discarding
+the previous tables instead. A failed recovery requires operator attention;
+check the service log before relying on the dataset.
 
 Deployment fix baked into the webapp
 ------------------------------------

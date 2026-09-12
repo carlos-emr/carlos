@@ -115,7 +115,9 @@ public class ProviderLabRoutingModel extends AbstractModel<Integer> implements S
     }
 
     public void setComment(String comment) {
-        this.comment = StringUtils.trimToNull(comment);
+        // Clinical acknowledgement text is literal; identifier normalization does
+        // not apply to intentional whitespace or case in a clinician's comment.
+        this.comment = comment;
     }
 
     public Date getTimestamp() {

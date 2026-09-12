@@ -191,9 +191,21 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             return Integer.parseInt(rawValue);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().error(logMessage, LogSafe.sanitize(rawValue));
-            addActionError(actionErrorMessage);
+            rejectInput(actionErrorMessage);
             return null;
         }
+    }
+
+    /**
+     * Records why the submission is being turned away. The action error is the Struts-side record;
+     * the request attribute is what the form's alert actually reads, because the {@code input}
+     * result forwards to another action (ViewRequest) and the value stack does not survive that.
+     * Before this the {@code input} result had no mapping at all, so every one of these rejections
+     * ended in the framework's error page.
+     */
+    private void rejectInput(String message) {
+        addActionError(message);
+        request.setAttribute(ATTR_ERROR_MESSAGE, message);
     }
 
     private void requireConsultWritePrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
@@ -212,7 +224,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
     private String consultationUpdateUnavailable(int consultationRequestId) {
         MiscUtils.getLogger().error("Consultation request unavailable for update: {}", consultationRequestId);
-        addActionError(CONSULTATION_REQUEST_UNAVAILABLE);
+        rejectInput(CONSULTATION_REQUEST_UNAVAILABLE);
         return INPUT;
     }
 
@@ -309,13 +321,27 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         response = ServletActionContext.getResponse();
 
         // Mutator: every legitimate entry (form submit and the AJAX print-preview fetch) is a POST.
-        // Reject GET/HEAD before any side effect fires. See MutatorActionGetRejectionContractUnitTest.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // Reject every other verb before any side effect. See MutatorActionGetRejectionContractUnitTest.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String submission = this.getSubmission();
+        // Fax preparation reads gateway accounts and the final send requires
+        // WRITE. Refuse before creating/archiving a consultation, not after save.
+        if (submission != null && submission.endsWith("And Fax")
+                && (loggedInInfo == null
+                    || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
+                    || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null))) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
+        if (submission != null && submission.endsWith("And Fax")
+                && !CarlosProperties.getInstance().isConsultationFaxEnabled()) {
+            throw new SecurityException("consultation fax is disabled");
+        }
 
         String appointmentHour = this.getAppointmentHour();
         String appointmentPm = this.getAppointmentPm();
@@ -333,7 +359,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
 
         String sendTo = this.getSendTo();
-        String submission = this.getSubmission();
         String providerNo = this.getProviderNo();
         String demographicNo = this.getDemographicNo();
         String submittedRequestId = this.getRequestId();
@@ -365,8 +390,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 try {
                     demographicId = Integer.parseInt(demographicNo);
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
-                    addActionError(INVALID_DEMOGRAPHIC_NUMBER);
+                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", LogSafe.sanitize(demographicNo));
+                    rejectInput(INVALID_DEMOGRAPHIC_NUMBER);
                     return INPUT;
                 }
                 demographicNo = String.valueOf(demographicId);
@@ -431,7 +456,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                             date = DateUtils.setMinutes(date, Integer.valueOf(this.getAppointmentMinute()));
                             consult.setAppointmentTime(date);
                         } catch (NumberFormatException nfEx) {
-                            MiscUtils.getLogger().error("Invalid Time", nfEx);
+                            MiscUtils.getLogger().error("Invalid Time ({})", nfEx.getClass().getSimpleName());
                         }
                     }
                 } else {
@@ -497,8 +522,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     }
                 }
 
-                // only add the professionalSpecialist if it checks out. 0 will obviously return a null.
-                ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(specId);
+                // Look the specialist up only when there is an id to look up. specId is still null here
+                // whenever the consultant was left blank and the Health Care Team bridge above is off,
+                // which is the shipped carlos.properties default; entityManager.find(null) throws
+                // IllegalArgumentException rather than returning null, and that exception escaped into
+                // the Struts global Exception -> error mapping, so an unfilled consultant discarded the
+                // referral with nothing persisted and nothing logged. The bridge's 0 ("unknown") still
+                // resolves to null through the DAO, which is the "no specialist" outcome either way.
+                ProfessionalSpecialist professionalSpecialist =
+                        specId == null ? null : professionalSpecialistDao.find(specId);
 
                 if (professionalSpecialist != null) {
                     request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
@@ -528,7 +560,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
                 documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
             } catch (ParseException e) {
-                MiscUtils.getLogger().error("Invalid Date", e);
+                MiscUtils.getLogger().error("Invalid Date ({})", e.getClass().getSimpleName());
             }
             request.setAttribute("reqId", requestId);
             request.setAttribute("transType", "2");
@@ -639,16 +671,18 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     }
                 }
 
-                // only add the professionalSpecialist if it checks out.
-                ProfessionalSpecialist professionalSpecialist = new ProfessionalSpecialist();
-                if (specId != null) {
-                    professionalSpecialist = professionalSpecialistDao.find(specId);
-                }
-
+                // On an edit the consultant field is authoritative: blank, the bridge's 0 ("unknown"),
+                // or an id that no longer resolves all mean "no consultant", so the link is cleared
+                // rather than left pointing at whoever was there before. The previous placeholder, a
+                // bare new ProfessionalSpecialist() whenever specId was null, was attached to the
+                // consultation, and because the association cascades MERGE every such edit INSERTed
+                // an all-NULL professionalSpecialists row and re-pointed the request at it.
+                ProfessionalSpecialist professionalSpecialist =
+                        specId == null ? null : professionalSpecialistDao.find(specId);
                 if (professionalSpecialist != null) {
                     request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
-                    consult.setProfessionalSpecialist(professionalSpecialist);
                 }
+                consult.setProfessionalSpecialist(professionalSpecialist);
 
 
                 if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
@@ -659,7 +693,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         date = DateUtils.setMinutes(date, Integer.valueOf(this.getAppointmentMinute()));
                         consult.setAppointmentTime(date);
                     } catch (NumberFormatException nfEx) {
-                        MiscUtils.getLogger().error("Invalid Time", nfEx);
+                        MiscUtils.getLogger().error("Invalid Time ({})", nfEx.getClass().getSimpleName());
                     }
                 } else {
                     consult.setAppointmentDate(null);
@@ -706,7 +740,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
                 documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
             } catch (ParseException e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
             }
 
             request.setAttribute("transType", "1");
@@ -729,9 +763,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         renderConsultationFormWithAttachments(request, response, requestId, previewDemographicNo);
                     }
                 } catch (RuntimeException e) {
-                    // Log the full exception server-side only; do not surface e.getMessage() to the
-                    // browser (it can carry internal/identifier detail and renders "null" when absent).
-                    logger.error("Error generating consultation print preview for requestId={}", LogSafe.sanitize(requestId), e);
+                    // Renderer exceptions can contain clinical text and attachment paths;
+                    // neither the browser response nor operational logs may disclose them.
+                    logger.error("Consultation print preview failed ({})", e.getClass().getSimpleName());
                     request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
                 }
             }
@@ -960,9 +994,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
             base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
         } catch (PDFGenerationException e) {
-            // Log the full exception server-side only; the browser-facing message must not echo
-            // e.getMessage() (internal/identifier leakage, and renders "null" when absent).
-            logger.error(e.getMessage(), e);
+            // Neither application logs nor the browser may receive renderer paths or causes.
+            logger.error("Consultation attachment rendering failed ({})", e.getClass().getSimpleName());
             request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
             return false;
         }
@@ -999,14 +1032,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         } catch (IOException | IllegalStateException e) {
             // IOException: write/flush failed (often a client disconnect). IllegalStateException:
             // a response-pipeline state bug or a post-commit client disconnect.
-            logger.error("Unable to write consultation print preview JSON response", e);
+            logger.error("Unable to write consultation print preview JSON response ({})", e.getClass().getSimpleName());
             // Own the error response: if nothing has been committed yet, send a real 500 so the
             // client's response.json() handler surfaces the failure instead of a truncated 200.
             if (!response.isCommitted()) {
                 try {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 } catch (IOException | IllegalStateException sendErrorException) {
-                    logger.error("Unable to send error response for consultation print preview", sendErrorException);
+                    logger.error("Unable to send error response for consultation print preview ({})", sendErrorException.getClass().getSimpleName());
                 }
             }
         }

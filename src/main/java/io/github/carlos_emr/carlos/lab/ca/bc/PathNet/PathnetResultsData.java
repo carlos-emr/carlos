@@ -129,7 +129,7 @@ public class PathnetResultsData {
                 lbData = new LabResultData(LabResultData.EXCELLERIS);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate:", e);
+            logger.error("exception in CMLPopulate: ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -217,7 +217,7 @@ public class PathnetResultsData {
                 labResults.add(lbData);
             }
         } catch (Exception e) {
-            logger.error("exception in pathnetPopulate", e);
+            logger.error("exception in pathnetPopulate ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -257,19 +257,29 @@ public class PathnetResultsData {
         }
     }
 
+    /**
+     * Finds the accession's report versions within the legacy four-month date window.
+     * @param labId reviewed PathNet message identifier
+     * @return comma-separated matching message identifiers, or labId when no accession/date
+     *         is available or lookup fails; may be empty when no candidate matches
+     */
     public String getMatchingLabs(String labId) {
         String ret = "";
         String accessionNum = "";
-        String labDate = "";
+        Date labDate = null;
         int monthsBetween = 0;
 
         try {
             // find the accession number
-            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labDate))) {
+            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labId))) {
                 String fillerOrderNumber = String.valueOf(o[0]);
-                Date date = (Date) o[1];
                 accessionNum = justGetAccessionNumber(fillerOrderNumber);
-                labDate = ConversionUtils.toDateString(date);
+                labDate = (Date) o[1];
+            }
+
+            // No matching lab/accession means no version chain, not a wildcard search.
+            if (accessionNum.isBlank() || labDate == null) {
+                return labId;
             }
 
             Hl7PidDao pidDao = SpringUtils.getBean(Hl7PidDao.class);
@@ -279,7 +289,7 @@ public class PathnetResultsData {
                 Date resultsReportStatusChange = (Date) o[1];
 
                 Date dateA = resultsReportStatusChange;
-                Date dateB = UtilDateUtilities.StringToDate(labDate, "yyyy-MM-dd HH:mm:ss");
+                Date dateB = labDate;
                 if (dateA.before(dateB)) {
                     monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
                 } else {
@@ -294,7 +304,7 @@ public class PathnetResultsData {
                 }
             }
         } catch (Exception e) {
-            logger.error("exception in PathnetResultsData", e);
+            logger.error("exception in PathnetResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }
         return ret;
@@ -341,7 +351,7 @@ public class PathnetResultsData {
             }
 
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
         return ret.toString();
     }

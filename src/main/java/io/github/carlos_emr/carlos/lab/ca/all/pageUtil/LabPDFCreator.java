@@ -280,6 +280,14 @@ public class LabPDFCreator extends PdfPageEventHelper {
         os.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream flush
     }
 
+    /**
+     * Writes {@code currentPDF} followed by the lab's embedded documents to {@code os}.
+     *
+     * <p>{@code currentPDF} must live in an allowed temp directory (see
+     * {@link PathValidationUtils#validateUpload(File)}); every caller renders the lab into a
+     * secure temp file first. A source anywhere else is refused and nothing is written, and the
+     * refusal is logged without the path: the lab file name is built from the patient's name.</p>
+     */
     public void addEmbeddedDocuments(File currentPDF, OutputStream os) {
         List<Object> alist = new ArrayList<Object>();
 
@@ -296,7 +304,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 ConcatPDF.concat(alist, os);
             }
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Security violation: PDF temp file path rejected: {}", currentPDF, e);
+            // Deliberately no path: it carries the patient's name (PHI) into the log.
+            MiscUtils.getLogger().error("Security violation: lab PDF source rejected; it must be in an allowed temp directory", e);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }

@@ -9,26 +9,20 @@ import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.fax.action.Fax2Action;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpSessionEvent;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 
 import java.util.Collections;
 
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -40,8 +34,7 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
     private static final String EXPECTED_SESSION_LOG_REFERENCE = "abcdefgh...";
 
     private CasemgmtNoteLockDao casemgmtNoteLockDao;
-    private Logger logger;
-    private MockedStatic<MiscUtils> miscUtilsMock;
+    private LogCapture logs;
 
     @BeforeEach
     void setUp() {
@@ -49,15 +42,15 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
         registerMock(CasemgmtNoteLockDao.class, casemgmtNoteLockDao);
         registerMock(UserSessionManager.class, mock(UserSessionManager.class));
         registerMock(EFormRenderApprovalService.class, mock(EFormRenderApprovalService.class));
-        logger = mock(Logger.class);
-        miscUtilsMock = mockStatic(MiscUtils.class);
-        miscUtilsMock.when(MiscUtils::getLogger).thenReturn(logger);
+        // Session destruction also initializes Fax2Action. Mocking MiscUtils.getLogger()
+        // here would permanently replace that class's static logger with the test mock.
+        logs = LogCapture.forLogger(OscarSessionListener.class);
     }
 
     @AfterEach
     void tearDown() {
-        if (miscUtilsMock != null) {
-            miscUtilsMock.close();
+        if (logs != null) {
+            logs.close();
         }
     }
 
@@ -69,10 +62,10 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
 
         new OscarSessionListener().sessionCreated(new HttpSessionEvent(session));
 
-        verify(logger).info("Creating new OSCAR session.");
-        verify(logger).info("Session id: {}", EXPECTED_SESSION_LOG_REFERENCE);
-        verify(logger, never()).info(contains(RAW_SESSION_ID));
-        verify(logger, never()).info(anyString(), eq(RAW_SESSION_ID));
+        assertThat(logs.messages()).contains("Creating new OSCAR session.",
+                "Session id: " + EXPECTED_SESSION_LOG_REFERENCE);
+        assertThat(logs.messages().toString()).doesNotContain(RAW_SESSION_ID);
+        assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
     }
 
     @Test
@@ -84,8 +77,19 @@ class OscarSessionListenerLoggingUnitTest extends CarlosUnitTestBase {
 
         new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
 
-        verify(logger).info("session is being destroyed - {}", EXPECTED_SESSION_LOG_REFERENCE);
-        verify(logger, never()).info(contains(RAW_SESSION_ID));
-        verify(logger, never()).info(anyString(), eq(RAW_SESSION_ID));
+        assertThat(logs.messages()).contains("session is being destroyed - " + EXPECTED_SESSION_LOG_REFERENCE);
+        assertThat(logs.messages().toString()).doesNotContain(RAW_SESSION_ID);
+        assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+
+        // Exercise real fax diagnostics after the exact session-destruction sequence
+        // that formerly poisoned its static logger in a shared Surefire fork.
+        try (var faxLogs = LogCapture.forLogger(Fax2Action.class)) {
+            Fax2Action action = mock(Fax2Action.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(action,
+                    "deleteRejectedClaimedFaxFile", "PRIVATE_CLINICAL_PATH\u0000.pdf");
+            assertThat(faxLogs.messages()).anyMatch(message -> message.contains("InvalidPathException"));
+            assertThat(faxLogs.messages().toString()).doesNotContain("PRIVATE_CLINICAL_PATH");
+            assertThat(faxLogs.events()).allMatch(event -> event.getThrown() == null);
+        }
     }
 }

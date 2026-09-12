@@ -572,6 +572,16 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * @throws FaxProviderException when the value cannot be normalized to a dialable number
      */
     String toDialableNumber(String rawNumber) throws FaxProviderException {
+        return normalizeDestinationNumber(rawNumber);
+    }
+
+    /**
+     * Validates and normalizes a destination using the same rules as transmission.
+     * @param rawNumber formatted domestic or explicit international destination
+     * @return provider-ready dial string
+     * @throws FaxProviderException if the destination cannot be dialed by SRFax
+     */
+    public static String normalizeDestinationNumber(String rawNumber) throws FaxProviderException {
         String trimmed = rawNumber == null ? "" : rawNumber.trim();
         boolean explicitInternational = trimmed.startsWith("+");
         String digits = trimmed.replaceAll("\\D", "");

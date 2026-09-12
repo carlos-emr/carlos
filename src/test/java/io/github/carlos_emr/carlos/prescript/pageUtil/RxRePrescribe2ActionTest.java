@@ -23,6 +23,9 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -76,6 +79,9 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
     private PrescriptionManager mockPrescriptionManager;
 
     @Mock
+    private DigitalSignatureManager mockDigitalSignatureManager;
+
+    @Mock
     private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest request;
@@ -97,6 +103,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(PrescriptionManager.class, mockPrescriptionManager);
+        replaceSpringUtilsBean(DigitalSignatureManager.class, mockDigitalSignatureManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -107,7 +114,13 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         io.github.carlos_emr.carlos.commn.model.Prescription targetPrescription =
                 new io.github.carlos_emr.carlos.commn.model.Prescription();
         targetPrescription.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        targetPrescription.setProviderNo("999998");
         when(mockPrescriptionManager.getPrescription(any(), eq(SCRIPT_ID))).thenReturn(targetPrescription);
+        DigitalSignature signature = new DigitalSignature();
+        signature.setProviderNo("999998");
+        signature.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        signature.setModuleType(ModuleType.PRESCRIPTION);
+        when(mockDigitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID)).thenReturn(signature);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"),
                 eq(String.valueOf(SIGNATURE_DEMOGRAPHIC_NO)))).thenReturn(true);
 
@@ -158,7 +171,8 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
         verify(mockSecurityInfoManager)
@@ -195,6 +209,7 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         io.github.carlos_emr.carlos.commn.model.Prescription target =
                 new io.github.carlos_emr.carlos.commn.model.Prescription();
         target.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        target.setProviderNo("999998");
         when(mockPrescriptionManager.getPrescription(any(), eq(tenDigitScript))).thenReturn(target);
         when(mockPrescriptionManager.setPrescriptionSignature(any(), eq(tenDigitScript), any())).thenReturn(true);
         request.setParameter("scriptId", String.valueOf(tenDigitScript));
@@ -202,9 +217,31 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, tenDigitScript, SIGNATURE_ID);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "wrong-module", "wrong-patient", "null-module", "null-patient"})
+    @DisplayName("should independently reject missing or incorrectly bound signature metadata")
+    void shouldRejectInvalidSignatureMetadata_withoutWriting(String scenario) throws Exception {
+        DigitalSignature signature = new DigitalSignature();
+        signature.setProviderNo("999998");
+        signature.setDemographicId("null-patient".equals(scenario) ? null
+                : "wrong-patient".equals(scenario) ? SIGNATURE_DEMOGRAPHIC_NO + 1 : SIGNATURE_DEMOGRAPHIC_NO);
+        signature.setModuleType("null-module".equals(scenario) ? null
+                : "wrong-module".equals(scenario) ? ModuleType.CONSULTATION
+                        : ModuleType.PRESCRIPTION);
+        when(mockDigitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID))
+                .thenReturn("missing".equals(scenario) ? null : signature);
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+        assertThat(action.saveDigitalSignature()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isNull();
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
     }
 
     @Test
@@ -219,6 +256,41 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
+    @Test
+    @DisplayName("should accept the maximum signed-int digital signature id")
+    void shouldAcceptDigitalSignatureId_atSignedIntMaximum() throws Exception {
+        int tenDigitSignatureId = Integer.MAX_VALUE;
+        DigitalSignature signature = new DigitalSignature();
+        signature.setProviderNo("999998");
+        signature.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        signature.setModuleType(ModuleType.PRESCRIPTION);
+        when(mockDigitalSignatureManager.getDigitalSignatureMetadata(tenDigitSignatureId)).thenReturn(signature);
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(tenDigitSignatureId));
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verify(mockPrescriptionManager)
+                .setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, tenDigitSignatureId);
+    }
+
+    @Test
+    @DisplayName("should reject the first digital signature id above the signed-int range")
+    void shouldRejectDigitalSignatureId_aboveSignedIntMaximum() throws Exception {
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", "2147483648");
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(mockDigitalSignatureManager, never()).getDigitalSignatureMetadata(any(Integer.class));
         verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
     }
 
@@ -242,7 +314,8 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, null);
     }
@@ -261,6 +334,60 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         assertThatThrownBy(() -> action.saveDigitalSignature())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_rx");
+
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
+    @Test
+    @DisplayName("should reject a signature captured by another provider")
+    void shouldRejectSignature_whenItBelongsToAnotherProvider() throws Exception {
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+        DigitalSignature foreignSignature = new DigitalSignature();
+        foreignSignature.setProviderNo("888888");
+        foreignSignature.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        foreignSignature.setModuleType(ModuleType.PRESCRIPTION);
+        when(mockDigitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID))
+                .thenReturn(foreignSignature);
+
+        assertThat(action.saveDigitalSignature()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
+    @Test
+    @DisplayName("should reject signature replay by a covering provider")
+    void shouldRejectSignatureReplay_whenCallerIsNotPrescriber() {
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+        io.github.carlos_emr.carlos.commn.model.Prescription target =
+                new io.github.carlos_emr.carlos.commn.model.Prescription();
+        target.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        target.setProviderNo("111111");
+        when(mockPrescriptionManager.getPrescription(any(), eq(SCRIPT_ID))).thenReturn(target);
+
+        assertThatThrownBy(() -> action.saveDigitalSignature())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("prescriber");
+
+        verify(mockDigitalSignatureManager, never()).getDigitalSignatureMetadata(any(Integer.class));
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
+    @Test
+    @DisplayName("should reject clearing another prescriber's signature")
+    void shouldRejectSignatureClear_whenCallerIsNotPrescriber() {
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        io.github.carlos_emr.carlos.commn.model.Prescription target =
+                new io.github.carlos_emr.carlos.commn.model.Prescription();
+        target.setDemographicId(SIGNATURE_DEMOGRAPHIC_NO);
+        target.setProviderNo("111111");
+        when(mockPrescriptionManager.getPrescription(any(), eq(SCRIPT_ID))).thenReturn(target);
+
+        assertThatThrownBy(() -> action.saveDigitalSignature())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("prescriber");
 
         verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
     }
