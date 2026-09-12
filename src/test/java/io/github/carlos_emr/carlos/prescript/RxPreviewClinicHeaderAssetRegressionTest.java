@@ -68,6 +68,13 @@ class RxPreviewClinicHeaderAssetRegressionTest {
     }
 
     @Test
+    void shouldPreserveEncodedSatelliteFieldsOnThePrintAndFaxWire() throws IOException {
+        String page = executableJsp(read(PREVIEW2_JSP.resolveSibling("ViewScript2.jsp")));
+        assertThat(page).contains("scAddress = \"<carlos:encode value='<%= (String)vecAddress.get(i) %>' context=\"uriComponent\"/>");
+        assertThat(page).doesNotContain("StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i))");
+    }
+
+    @Test
     @DisplayName("should convert the clinic header's <br> joins with a literal newline, not a regex replacement")
     void shouldConvertHeaderBreaks_withLiteralNewline() throws IOException {
         String page = executableJsp(read(PREVIEW2_JSP));

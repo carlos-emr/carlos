@@ -89,34 +89,31 @@ public final class RxSatelliteClinicAddress {
 
     /**
      * The offered block that {@code requestedBlock} names, in the form the page puts on the wire, or
-     * {@code null} when it names none. The page unescapes the composed block exactly once before
-     * posting it. Match that actual wire representation first, including literal entity text in
-     * stored clinic values. Only then canonicalize BOTH wire values to accept alternate entity
-     * spellings; reject an ambiguous canonical match. Always render the returned offered wire
-     * block, never the caller's spelling.
+     * {@code null} when it names none. The page preserves the encoded field values on the wire.
+     * Match that representation first, including literal entity text in stored clinic values.
+     * Only then canonicalize BOTH values to accept alternate entity spellings; reject an
+     * ambiguous canonical match. Return the original encoded block so the PDF parser can split
+     * structural delimiters BEFORE decoding field values. Never parse the caller's spelling.
      */
     public static String offeredBlock(List<String> offeredBlocks, String requestedBlock) {
         String requested = clinicPart(requestedBlock);
         if (requested == null || offeredBlocks == null) {
             return null;
         }
-        List<String> wireBlocks = new ArrayList<>();
         for (String block : offeredBlocks) {
-            String wire = StringEscapeUtils.unescapeHtml4(block);
-            if (requested.equals(clinicPart(wire))) {
-                return wire;
+            if (requested.equals(clinicPart(block))) {
+                return block;
             }
-            wireBlocks.add(wire);
         }
         String wanted = StringEscapeUtils.unescapeHtml4(requested);
         String match = null;
-        for (String wire : wireBlocks) {
-            String part = clinicPart(wire);
+        for (String block : offeredBlocks) {
+            String part = clinicPart(block);
             if (part != null && StringEscapeUtils.unescapeHtml4(part).equals(wanted)) {
                 if (match != null && !clinicPart(match).equals(part)) {
                     return null;
                 }
-                match = wire;
+                match = block;
             }
         }
         return match;

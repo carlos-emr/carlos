@@ -89,9 +89,9 @@ class RxSatelliteClinicAddressUnitTest extends CarlosUnitTestBase {
                 "7055551111", "7055552222", "Tel", "Fax");
         String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(offered);
 
-        // The match answers with the offered block in wire form, so callers render that, never the request.
-        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted)).isEqualTo(posted);
-        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted.replace("Smith & Jones", "Smith &#38; Jones"))).isEqualTo(posted);
+        // Legacy/raw or alternate entity spellings may match, but parsing needs encoded fields.
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted)).isEqualTo(offered);
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted.replace("Smith & Jones", "Smith &#38; Jones"))).isEqualTo(offered);
         assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), posted.replace("Barrie", "Elsewhere"))).isNull();
         assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), null)).isNull();
         assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), "no bold name")).isNull();
@@ -110,12 +110,33 @@ class RxSatelliteClinicAddressUnitTest extends CarlosUnitTestBase {
                 "7055551111", "7055552222", "Tel", "Fax");
         String plain = RxSatelliteClinicAddress.html("Dr A", "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1",
                 "7055551111", "7055552222", "Tel", "Fax");
-        String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(literal);
-        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(literal), posted)).isEqualTo(posted);
+        String posted = literal;
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(literal), posted)).isEqualTo(literal);
         // Exact wire identity wins even when another site's canonical text would also match.
-        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(plain, literal), posted)).isEqualTo(posted);
-        String ambiguous = posted.replace("&amp;", "&#38;");
-        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(plain, literal), ambiguous)).isNull();
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(plain, literal), posted)).isEqualTo(literal);
+        String alternateLiteral = posted.replace("&amp;amp;", "&#38;amp;");
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(plain, literal), alternateLiteral)).isEqualTo(literal);
+        String alternatePlain = plain.replace("&amp;", "&#38;");
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(plain, literal), alternatePlain)).isEqualTo(plain);
+    }
+
+    @Test
+    void shouldKeepEncodedDelimiterTextInOfferedFields() {
+        String offered = RxSatelliteClinicAddress.html("Dr A", "North <br> &amp; </b> Clinic",
+                "2 <br> North Ave", "Barrie", "ON", "L4M 1A1", "7055551111", "7055552222", "Tel", "Fax");
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), offered)).isEqualTo(offered);
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(offered), offered.replace("&lt;", "&#60;")))
+                .isEqualTo(offered);
+        assertThat(RxSatelliteClinicAddress.clinicPart(offered)).contains("&lt;br&gt;", "&lt;/b&gt;", "&amp;amp;");
+    }
+
+    @Test
+    void shouldRejectAnAmbiguousNonExactEntityMatch() {
+        String offered = RxSatelliteClinicAddress.html("Dr A", "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1",
+                "7055551111", "7055552222", "Tel", "Fax");
+        assertThat(RxSatelliteClinicAddress.offeredBlock(
+                List.of(offered, offered.replace("&amp;", "&#38;")), offered.replace("&amp;", "&#x26;")))
+                .isNull();
     }
 
     @Test

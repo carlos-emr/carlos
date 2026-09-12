@@ -909,10 +909,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      */
     static HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
-        String[] ar = s.split("</b>");
-        String[] ar2 = ar[1].split("<br>");
+        String[] ar = s.split("</b>", 2);
+        String[] ar2 = ar[1].split("<br>", -1);
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
         lst.remove(0);
+        // Values may literally contain <br>, </b> or entity text. Split only the
+        // composed structure, then decode each field exactly once for plain PDF text.
+        lst.replaceAll(org.apache.commons.text.StringEscapeUtils::unescapeHtml4);
         // The block carries the page's LOCALIZED labels ("Tel", "Tél", "Telefone"...) and the header
         // adds its own localized label when it prints these, so strip whatever label precedes the
         // first colon rather than the English ones only -- the French page used to fax "Tél: Tél: ...".
@@ -1127,9 +1130,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         LogSafe.sanitize(String.valueOf(prescription.getId())));
             }
         }
-        // Render the OFFERED block, not the request's copy of it: the match decodes entities on both
-        // sides, so the request may spell the same clinic with entity text that parseSCAddress would
-        // otherwise print verbatim.
+        // Render the original encoded OFFERED block, not the request's copy: the parser
+        // separates structural delimiters before decoding each field exactly once.
         bound.put("useSC", offeredBlock != null ? "true" : "false");
         bound.put("scAddress", offeredBlock != null ? offeredBlock : "");
 

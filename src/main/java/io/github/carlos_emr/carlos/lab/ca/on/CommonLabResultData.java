@@ -461,6 +461,11 @@ public class CommonLabResultData {
         // versions are still NEW, and the collapsed inbox row comes back. Failing here leaves
         // nothing written. The outer transaction also rolls back every routing/archive write
         // if any subsequent version fails, rather than leaving a partly filed chain.
+        // Membership is fixed at this lookup: a report imported afterward is newly available
+        // clinical information, even if its result date sorts before the reviewed report.
+        // Do not silently expand the filing set while waiting for routing locks. Such a new
+        // arrival stays NEW for review; report locks serialize writes to the selected members,
+        // not accession-wide ingestion or future chain membership.
         List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
 
         // Count the conditional UPDATE, never a preceding snapshot SELECT: two concurrent
