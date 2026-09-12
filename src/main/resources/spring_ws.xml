@@ -186,6 +186,18 @@
 		    <ref bean="jaxb"/>
 			<ref bean="jsonProvider"/>
 			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>
+			<!-- Exception mappers: render uncaught exceptions as uniform JSON ErrorResponse
+			     bodies instead of the container's default HTML error page (issue #242).
+			     This is the /ws/rs/* server, so the mappers must be registered here (not only
+			     in applicationContextREST.xml's /services server). JAX-RS selects the most
+			     specific mapper per thrown type, so the Throwable fallback only handles what
+			     the domain mappers do not. -->
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.AccessDeniedExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.SecurityExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.PatientDirectiveExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.ConversionExceptionMapper"/>
 		</jaxrs:providers>
 		
 	
@@ -283,12 +295,23 @@
             <util:constant static-field="com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL"/>
         </property> -->
 
-        <!-- If you rely on JAXB-style annotations (@XmlRootElement, etc.) -->
-        <!-- This lets Jackson 2 understand them -->
+        <!-- Combined introspector so BOTH Jackson and JAXB annotations are honored.
+             Jackson is primary (so @JsonInclude, @JsonPropertyOrder, @JsonProperty, etc.
+             take effect — e.g. ErrorResponse omits null "details"); JAXB is secondary so
+             existing @XmlRootElement/@XmlElement DTOs still serialize. This mirrors the
+             jacksonObjectMapper in applicationContextREST.xml; keeping the two in sync
+             avoids order-dependent bean-override drift between the /rs and /services servers. -->
         <property name="annotationIntrospector">
-            <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
+            <bean class="com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair">
                 <constructor-arg>
-                    <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
+                    <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
+                </constructor-arg>
+                <constructor-arg>
+                    <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
+                        <constructor-arg>
+                            <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
+                        </constructor-arg>
+                    </bean>
                 </constructor-arg>
             </bean>
         </property>
