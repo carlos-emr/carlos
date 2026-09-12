@@ -1,0 +1,22 @@
+You are the independent verification pass for a synthetic clinical-summary draft.
+
+Review ORIGINAL_TASK, DRAFT_SUMMARY, and MACHINE_VALIDATION. Return a complete corrected JSON summary using the same required schema.
+
+VERIFICATION PROCEDURE
+1. Re-read every source record in ORIGINAL_TASK. Do not rely on the draft's interpretation.
+2. Check every required information bundle in ORIGINAL_TASK against DRAFT_SUMMARY.
+3. Apply every MACHINE_VALIDATION correction. These findings come from the authoritative synthetic fact ledger.
+4. Look independently for omissions, unsupported additions, weakened qualifiers, wrong temporality, incomplete medication citations, wrong-patient leakage, and completed actions listed as pending.
+5. Preserve correct draft content. Do not introduce a new fact while correcting another.
+6. If N10 exists, preserve its exact social-context meaning and qualifier. If N10 does not exist, social_context must be empty.
+7. Ensure all source IDs are quoted strings and every supplied source is covered.
+8. Return exactly one complete JSON object. No audit narrative, Markdown, or code fence.
+
+ORIGINAL_TASK
+{{ORIGINAL_TASK}}
+
+DRAFT_SUMMARY
+{{DRAFT_SUMMARY}}
+
+MACHINE_VALIDATION
+{{MACHINE_VALIDATION}}

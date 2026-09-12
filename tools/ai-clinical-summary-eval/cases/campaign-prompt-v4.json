@@ -1,0 +1,23 @@
+{
+  "schema_version": 3,
+  "campaign_id": "carlos-qwen-safety-prompt-v4",
+  "models": ["qwen3.5:27b"],
+  "seeds": [42],
+  "think": false,
+  "options": {
+    "temperature": 0.05,
+    "top_p": 0.8,
+    "presence_penalty": 0.0,
+    "num_ctx": 8192,
+    "num_predict": 2500
+  },
+  "baseline": {
+    "case_id": "evelyn-safety-v4",
+    "prompt_file": "../prompt-v4.txt",
+    "facts_file": "../authoritative-facts-v3.json"
+  },
+  "counterfactuals_file": "counterfactuals-v3.json",
+  "pair_filter": ["disability", "substance-use"],
+  "output_schema_file": "summary-schema-v3.json",
+  "self_check_prompt_file": "../self-check-v4.txt"
+}
