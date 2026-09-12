@@ -80,6 +80,12 @@
                     if (drugName == null || drugName.equalsIgnoreCase("null") || drugName.trim().length() == 0)
                         drugName = rx.getCustomName();
                     List<HashMap<String, String>> listMedHistory = (List<HashMap<String, String>>) bean.getListMedHistory();
+                    // The action always sets a list, but a null here would throw out of the
+                    // loop below and be swallowed by the catch at the foot of the page --
+                    // rendering the blank window this page exists to stop rendering.
+                    if (listMedHistory == null) {
+                        listMedHistory = new ArrayList<HashMap<String, String>>();
+                    }
 %>
 
 <a onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
@@ -99,6 +105,11 @@
     </tr>
     <%
         int i = 0;
+        // Rows rendered, NOT entries iterated: an entry whose instruction and special
+        // instruction are both blank renders no row at all, so a list of those would
+        // leave a header with nothing under it -- which is "the modal shows nothing"
+        // from where the prescriber sits.
+        int renderedRows = 0;
         for (HashMap<String, String> hm : listMedHistory) {
             String ins = hm.get("instruction");
             String specIns = hm.get("special_instruction");
@@ -136,7 +147,20 @@
     </tr>
     <%}%>
     <%
+                    if (instructionExist || specialInstructionExist) {
+                        renderedRows++;
+                    }
                     i++;
+                }
+                if (renderedRows == 0) {
+    %>
+    <tr>
+        <td colspan="2" align="center"
+            style="font-style:normal;font-family:sans-serif;font-size:80%;padding:0.75em;">
+            No previous instructions recorded for this medication.
+        </td>
+    </tr>
+    <%
                 }
     %>
 </table>

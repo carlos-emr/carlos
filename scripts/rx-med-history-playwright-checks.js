@@ -28,8 +28,8 @@
  * was last written with so the prescriber can click one instead of retyping it.
  *
  * The reported defect (#955) was that the asterisk did "nada": the window
- * either never opened or opened empty. Both halves are pinned here, because
- * they are two different failures with the same symptom:
+ * either never opened or opened empty. All three shapes are pinned here,
+ * because they are different failures wearing the same symptom:
  *
  *   1. The POST behind the asterisk (WriteScript?parameterValue=
  *      listPreviousInstructions) must answer 2xx. The modal is opened from the
@@ -42,15 +42,19 @@
  *      try/catch that logs and swallows, so a null prescription used to
  *      produce a 200 with an empty body — a blank white box, indistinguishable
  *      to the user from nothing happening.
+ *   3. A drug with no prescribing history must SAY so. The table rendered its
+ *      header and then stopped, leaving two column titles over nothing, which
+ *      reads as a broken control rather than an empty result.
  *
  * Reaching the modal the way a prescriber does matters as much as asserting on
  * it. The asterisk only exists on a STAGED prescription, so this check stages
  * one from the patient's own drug profile (tick ReRx, "Stage medication") and
  * then clicks the rendered anchor. A check that navigated straight to
  * rx/ViewDisplayMedHistory would exercise neither the action nor the callback
- * that decides whether the window is shown, and a check that staged a fresh
- * CUSTOM drug would assert against a drug with no history by construction —
- * the empty state would pass while real lookups stayed broken.
+ * that decides whether the window is shown. The custom drug this check also
+ * stages is for case 3 ONLY, and must not be the drug case 1 asserts against:
+ * a freshly-invented name has no history by construction, so an empty result
+ * would satisfy the main path while real lookups stayed broken.
  *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN
@@ -118,6 +122,28 @@ async function modalVisibleText(page) {
 }
 
 /**
+ * Wait for the modal to put something readable on screen.
+ *
+ * Tolerant on purpose: a modal that stays blank is a finding for the assertion
+ * that follows to report in full, not a bare timeout here.
+ */
+async function waitForModalText(page) {
+  await page.waitForFunction(
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed predicate over the page's own DOM, no interpolation
+    () => {
+      const frame = document.getElementById('xmaskframe');
+      const body = frame && frame.contentDocument && frame.contentDocument.body;
+      if (!body) return false;
+      const clone = body.cloneNode(true);
+      clone.querySelectorAll('script, style').forEach((node) => node.remove());
+      return (clone.textContent || '').trim().length > 0;
+    },
+    null,
+    { timeout: 20000 },
+  ).catch(() => {});
+}
+
+/**
  * Stage one of the patient's EXISTING prescriptions, the operator way: tick its
  * ReRx box in the drug profile and confirm with "Stage medication".
  *
@@ -145,6 +171,48 @@ async function stageExistingPrescription(page) {
   const randomId = (instructionsId || '').split('_')[1];
   assert(/^\d+$/.test(randomId), `Staged prescription exposed no usable randomId (id="${instructionsId}")`);
   return randomId;
+}
+
+/** The randomIds of everything currently staged on the prescription pane. */
+async function stagedRandomIds(page) {
+  return page.evaluate(() => Array.from(document.querySelectorAll("[id^='instructions_']")) // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed function over the page's own DOM, nothing interpolated
+    .map((el) => el.id.split('_')[1])
+    .filter((id) => /^\d+$/.test(id)));
+}
+
+/**
+ * Stage a CUSTOM drug under a name nothing has ever been prescribed as, so its
+ * history lookup is legitimately empty — the one remaining shape of "the modal
+ * shows nothing", where the prescription resolves fine but has no instructions
+ * to offer.
+ *
+ * Driven through the CustomDrug button rather than the endpoint behind it, so
+ * the check keeps measuring the path a prescriber takes. That button confirms
+ * first, and wirePage's recorder DISMISSES every dialog — which would silently
+ * cancel the staging and leave this section asserting against the previous
+ * prescription. Swap the handler for the duration.
+ */
+async function stageUnprescribedCustomDrug(page, recorder, drugName) {
+  const before = new Set(await stagedRandomIds(page));
+
+  page.removeAllListeners('dialog');
+  page.on('dialog', async (dialog) => {
+    recorder.dialogs.push({ label: 'rx-med-history', type: dialog.type(), text: dialog.message() });
+    await dialog.accept().catch(() => {});
+  });
+
+  await page.locator('#searchString').fill(drugName);
+  await page.locator('#customDrug').click();
+  await page.waitForFunction(
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the count is passed as an argument, never interpolated into the page script
+    (previousCount) => document.querySelectorAll("[id^='instructions_']").length > previousCount,
+    before.size,
+    { timeout: 30000 },
+  );
+
+  const added = (await stagedRandomIds(page)).filter((id) => !before.has(id));
+  assert(added.length === 1, `Staging a custom drug added ${added.length} prescriptions, expected 1`);
+  return added[0];
 }
 
 /**
@@ -201,6 +269,7 @@ async function openPreviousInstructions(page, randomId) {
     const iframe = rxPage.locator('#xmaskframe');
     await iframe.waitFor({ state: 'visible', timeout: 20000 });
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
+    await waitForModalText(rxPage);
 
     // The whole defect is "the window is empty", so measure the rendered text,
     // not the presence of the frame.
@@ -247,7 +316,42 @@ async function openPreviousInstructions(page, randomId) {
         + 'cannot hand its selection back to the prescription.',
     );
 
-    // --- 2. the hardened unresolvable path ---------------------------------
+    // --- 2. a prescription with no history ---------------------------------
+    // The lookup succeeds and the prescription resolves; there is simply
+    // nothing to offer. The table used to render its header and then stop, so
+    // the prescriber got a box with two column titles and no content — the
+    // same "nothing happened" as a blank window.
+    const customDrugName = `ZZ Check Drug ${Date.now()}`;
+    const customRandomId = await stageUnprescribedCustomDrug(rxPage, recorder, customDrugName);
+    const customResponse = await openPreviousInstructions(rxPage, customRandomId);
+    assert(
+      customResponse.status() < 400,
+      `The previous-instructions POST for a history-less drug returned HTTP ${customResponse.status()}.`,
+    );
+
+    await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
+    await waitForModalText(rxPage);
+    const customText = await modalVisibleText(rxPage);
+    assert(
+      /Rx\s*Examples/i.test(customText),
+      `A history-less drug rendered "${customText.slice(0, 200)}" instead of its Rx Examples table. `
+        + 'The prescription is in the stash, so the table — not the unavailable fallback — belongs here.',
+    );
+    assert(
+      /No previous instructions recorded/i.test(customText),
+      `A drug with no prescribing history rendered "${customText.slice(0, 200)}" — a header with no `
+        + 'row under it and no explanation. It must say so in words, or the prescriber cannot tell '
+        + 'an empty history from a broken control.',
+    );
+    assert(
+      (await modalFrame(rxPage).locator("a[id^='mhInst_'], a[id^='mhSpecInst_']").count()) === 0,
+      'A drug with no prescribing history offered instructions to click; the empty-state row is '
+        + 'being rendered alongside real content, which means the row counter is wrong.',
+    );
+
+    await screenshot(rxPage, config.screenshotDir, 'rx-med-history-no-history');
+
+    // --- 3. the hardened unresolvable path ---------------------------------
     // A randomId the session stash does not know (a stale modal, a second tab
     // whose prescription was removed, a hand-edited request) used to throw an
     // NPE out of the action — 500, no modal, "nada". It must now answer 2xx and
@@ -270,19 +374,7 @@ async function openPreviousInstructions(page, randomId) {
     );
 
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
-    await rxPage.waitForFunction(
-      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed predicate over the page's own DOM, no interpolation
-      () => {
-        const frame = document.getElementById('xmaskframe');
-        const body = frame && frame.contentDocument && frame.contentDocument.body;
-        if (!body) return false;
-        const clone = body.cloneNode(true);
-        clone.querySelectorAll('script, style').forEach((node) => node.remove());
-        return (clone.textContent || '').trim().length > 0;
-      },
-      null,
-      { timeout: 20000 },
-    ).catch(() => {});
+    await waitForModalText(rxPage);
     const strayText = await modalVisibleText(rxPage);
     assert(
       /Medication history is unavailable/i.test(strayText),
@@ -300,8 +392,8 @@ async function openPreviousInstructions(page, randomId) {
     console.log(
       `PASS rx med history: staged prescription ${randomId} for demographic ${demographicNo}, `
       + `asterisk answered HTTP ${postStatus} and listed ${rowCount} previous instruction(s), `
-      + `selection applied to the prescription, unresolvable id answered HTTP ${strayStatus} `
-      + 'with the explicit empty state',
+      + 'selection applied to the prescription; a drug with no history said so in words; '
+      + `unresolvable id answered HTTP ${strayStatus} with the explicit empty state`,
     );
   } catch (error) {
     console.error('FAIL rx med history Playwright check');
