@@ -636,16 +636,27 @@ Notes on the contract:
   the CRS XSS family on (pinned by `ClinicalProseWafExclusionRegressionTest`),
   so a `<span>` pasted into a referral is expected to 403 there, and a phrase
   that carried one would fail the check against a correct rule set.
-  Both replays are real saves: a run rewrites demographic 1's Alert/Notes with
-  the last phrase in the corpus, and files seven new consultation requests
-  against that patient (the consultation page renders the new-request form, so
-  each replay creates a record rather than editing one). That is harmless on a
-  throwaway VM but is why it names `CLINICAL_DEMOGRAPHIC_NO`
-  (default 1) rather than assuming a patient, and why its `BASE_URL` guard is
-  narrower than the other checks': it admits only loopback and refuses anything
-  else — a private LAN address, `host.docker.internal` and the compose name
-  `carlos` included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is set
-  deliberately. After each workflow's replays it re-opens that page and requires
+  Both replays are real saves, and the check treats that as its own problem to
+  contain rather than the operator's. Its `BASE_URL` guard admits only loopback
+  and refuses anything else — a private LAN address, `host.docker.internal` and
+  the compose name `carlos` included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is
+  set deliberately; but loopback bounds the host, not the data, and a local
+  install can hold real patient records. So before its first write it opens the
+  master record of `CLINICAL_DEMOGRAPHIC_NO` (default 1) and refuses to run
+  unless the first or last name carries the synthetic-data prefix the demo
+  dataset writes on every person name (`FAKE-`, see
+  `.devcontainer/db/scripts/demo-name-sanitization.sql`) or the `PLAYWRIGHT-`
+  prefix the fixture-owning checks use; `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true`
+  overrides that only for a record you know to be test data. It then writes the
+  corpus, each phrase stamped `(Playwright clinical-freetext run <epoch>)`,
+  into the patient's Alert/Notes and puts the original text back at the end
+  (the restore is a save through the same route and a failed restore fails the
+  run), and files seven new consultation requests against that patient (the
+  consultation page renders the new-request form, so each replay creates a
+  record rather than editing one). Those requests have no delete path in the UI;
+  clear them with
+  `DELETE FROM consultationRequests WHERE reason LIKE '%(Playwright clinical-freetext run %';`.
+  After each workflow's replays it re-opens that page and requires
   its free-text control to render again, because a session that lapsed mid-run
   would answer every replay with an opaque redirect indistinguishable from a
   save. Like

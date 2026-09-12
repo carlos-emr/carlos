@@ -40,6 +40,20 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not
  *     loopback — this check writes, so a private LAN address, host.docker.internal
  *     and the compose name `carlos` all need the opt-in too
+ *   CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true only when the target patient is
+ *     known to be test data but does not carry the FAKE-/PLAYWRIGHT- name prefix
+ *
+ * What it writes, and what it leaves behind. Both workflows are real saves. The
+ * loopback guard bounds the HOST, not the data: a local install can hold real
+ * patient records, so before the first write the check opens the patient's
+ * master record and refuses to run unless the first or last name carries the
+ * synthetic-data prefix the demo dataset uses (FAKE-, see
+ * .devcontainer/db/scripts/demo-name-sanitization.sql) or the PLAYWRIGHT- prefix
+ * the other checks give their own fixtures. The Alert and Notes are put back to
+ * the values the page rendered once the replays are done. The consultation
+ * requests it files cannot be deleted through the UI, so each replayed phrase
+ * carries a "(Playwright clinical-freetext run <epoch>)" stamp and the runbook
+ * gives the SQL that removes them.
  */
 
 const { chromium } = require('playwright');
@@ -51,6 +65,16 @@ const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = requireDigits(process.env.CLINICAL_DEMOGRAPHIC_NO || '1', 'CLINICAL_DEMOGRAPHIC_NO');
 const consultationServiceId = requireDigits(process.env.CLINICAL_CONSULT_SERVICE_ID || '1', 'CLINICAL_CONSULT_SERVICE_ID');
+const allowNonSyntheticPatient = process.env.CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT === 'true';
+
+// Name prefixes that mark a patient as test data: FAKE- is what the demo dataset's
+// sanitisation writes on every person name, PLAYWRIGHT- is what the fixture-owning
+// checks name the patients they create. A real patient carries neither.
+const SYNTHETIC_NAME_PREFIXES = ['FAKE-', 'PLAYWRIGHT-'];
+// Appended to every replayed phrase so what this run wrote can be found again. Plain
+// words and parentheses only: nothing in it is a shape the CRS scores, so the phrase
+// in front of it is still what the WAF is measured on.
+const RUN_STAMP = `(Playwright clinical-freetext run ${Date.now()})`;
 
 const saveResults = [];
 const badResponses = [];
@@ -230,8 +254,48 @@ const WORKFLOWS = [
     action: '/demographic/DemographicUpdate',
     fields: ['alert', 'notes'],
     overrides: () => ({ displaymode: 'Update Record', dboperation: 'update_record' }),
+    // An update overwrites the record in place, so the captured body, replayed
+    // unchanged, puts the Alert and Notes back exactly as the page rendered them.
+    restoreAfterReplays: true,
   },
 ];
+
+/**
+ * Refuses to write into a patient that does not look like test data.
+ *
+ * Opens the master record this run is about to overwrite and reads the names off
+ * the form's own controls (not FormData: a name field the role cannot edit is
+ * disabled and would be skipped). Either name carrying a synthetic prefix is
+ * enough; a record with neither is refused unless the operator has said, with
+ * CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true, that they know what it is.
+ */
+async function verifySyntheticPatient(context) {
+  const page = await context.newPage();
+  wirePage(page, 'fixture check');
+  try {
+    const demographicWorkflow = WORKFLOWS.find((workflow) => workflow.formName === 'updatedelete');
+    await page.goto(demographicWorkflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
+    await page.locator(demographicWorkflow.ready).first().waitFor({ state: 'attached', timeout: 30000 });
+    const names = await page.evaluate(() => {
+      const form = document.forms['updatedelete'];
+      const read = (name) => (form && form.elements[name] ? String(form.elements[name].value || '') : '');
+      return { firstName: read('first_name'), lastName: read('last_name') };
+    });
+    const synthetic = [names.firstName, names.lastName].some((name) =>
+      SYNTHETIC_NAME_PREFIXES.some((prefix) => name.trim().toUpperCase().startsWith(prefix)));
+    if (!synthetic && !allowNonSyntheticPatient) {
+      // Deliberately does not print the names: if this is a real patient, the
+      // whole point is not to spread that record any further.
+      throw new Error(`demographic ${demographicNo} does not carry a synthetic-data name prefix `
+        + `(${SYNTHETIC_NAME_PREFIXES.join(' or ')}), so this check will not overwrite its Alert/Notes or file `
+        + 'consultation requests against it. Point CLINICAL_DEMOGRAPHIC_NO at a test patient, or set '
+        + 'CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true only if you know this record is test data');
+    }
+    return synthetic;
+  } finally {
+    await page.close();
+  }
+}
 
 /**
  * Serialises the named form in the page, exactly as the browser would on submit.
@@ -247,18 +311,20 @@ async function captureForm(page, formName) {
 
 /**
  * Replays a captured body with the free-text fields carrying `phrase`, from
- * inside the page so the request uses the same session and origin.
+ * inside the page so the request uses the same session and origin. With no
+ * phrase the captured body goes back unchanged, which is how the demographic
+ * workflow restores what it overwrote.
  */
 async function replay(page, workflow, entries, phrase) {
   return page.evaluate(async ({ pairs, action, fields, text, overrides }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal; the arguments are the form body this same page just rendered plus constants from this file, structured-cloned rather than interpolated into page script
     const body = new URLSearchParams();
-    const replaced = new Set(fields);
+    const replaced = new Set(text === null ? [] : fields);
     for (const [key, value] of pairs) {
       if (replaced.has(key)) continue;
       if (Object.prototype.hasOwnProperty.call(overrides, key)) continue;
       body.append(key, value);
     }
-    for (const field of fields) body.append(field, text);
+    if (text !== null) for (const field of fields) body.append(field, text);
     for (const [key, value] of Object.entries(overrides)) body.append(key, value);
 
     const token = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -292,7 +358,7 @@ async function replay(page, workflow, entries, phrase) {
     pairs: entries,
     action: new URL(appUrlForPage(workflow.action)).pathname,
     fields: workflow.fields,
-    text: phrase.text,
+    text: phrase === null ? null : `${phrase.text} ${RUN_STAMP}`,
     overrides: workflow.overrides(),
   });
 }
@@ -349,6 +415,15 @@ async function runWorkflow(context, workflow) {
       });
     }
 
+    // Put back what the replays overwrote, where the route updates in place. The
+    // restore is itself a save through the same route, so it is recorded with the
+    // rest and a failure fails the run: a record left holding the last corpus
+    // phrase is a worse outcome than a red check.
+    if (workflow.restoreAfterReplays) {
+      const status = await replay(page, workflow, entries, null);
+      saveResults.push({ workflow: workflow.name, phrase: 'restore original text', crs: 'n/a', status });
+    }
+
     // An opaque redirect carries no destination, so a session that lapsed mid-run
     // would score every replay as a quiet 'redirect' and the check would pass
     // having measured nothing. Re-open the workflow's own page and require its
@@ -379,6 +454,12 @@ async function runWorkflow(context, workflow) {
 
   try {
     await login(context);
+    // Before the first write: refuse a patient that does not look like test data.
+    const syntheticPatient = await verifySyntheticPatient(context);
+    if (!syntheticPatient) {
+      console.log(`WARNING demographic ${demographicNo} carries no synthetic-data name prefix; `
+        + 'proceeding because CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true');
+    }
 
     for (const workflow of WORKFLOWS) {
       await runWorkflow(context, workflow);
@@ -403,6 +484,7 @@ async function runWorkflow(context, workflow) {
 
     console.log(`PASS ${WORKFLOWS.length} clinical free-text workflows saved `
       + `${PROSE_CORPUS.length} prose variants each without a WAF rejection`);
+    console.log(`Alert/Notes restored; the consultation requests this run filed carry the stamp "${RUN_STAMP}"`);
   } finally {
     await browser.close();
   }
