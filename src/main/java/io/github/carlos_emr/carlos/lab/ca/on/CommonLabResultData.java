@@ -48,6 +48,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionChain;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
 import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
@@ -385,6 +386,130 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         labs = populateLabsData(loggedInInfo, providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, scannedDocStatus);
         return labs;
+    }
+
+    /**
+     * Acknowledges one lab report and files every OLDER version of the same lab.
+     *
+     * <p>Labs arrive as a chain of versions that share an accession number (preliminary, final,
+     * corrected). The inbox collapses that chain to a single row for the newest version, so
+     * acknowledging only the version the clinician opened leaves the older rows at status
+     * {@code N}: the collapsed row simply re-appears pointing at the previous version and the
+     * lab looks like it was never acknowledged. Filing the older versions is what actually
+     * clears the item from the inbox, and BOTH acknowledge paths (the Acknowledge button and a
+     * lab macro) must do it, or they disagree about what an acknowledgement means.
+     *
+     * <p>Newer versions are deliberately left alone. A corrected result that arrived after this
+     * one is a NEW clinical fact and has to stay in the inbox until somebody reads it.
+     *
+     * @param labNo the version the clinician reviewed; acknowledged as {@code A}
+     * @param providerNo acknowledging provider (session-derived, never client-supplied)
+     * @param comment acknowledgement comment, may be null or empty
+     * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
+     * @param skipCommentOnUpdate true to leave an existing comment untouched
+     * @param multiId the client's comma-separated version chain, oldest first; may be null
+     */
+    public static int acknowledgeReport(int labNo, String providerNo, String comment, String labType,
+                                        boolean skipCommentOnUpdate, String multiId) {
+        return updateReportStatusWithOlderVersions(labNo, providerNo, 'A', comment, labType,
+                skipCommentOnUpdate, multiId);
+    }
+
+    /**
+     * Applies {@code status} to one lab report and files every OLDER version of the same lab.
+     *
+     * <p>Splitting this out from {@link #acknowledgeReport} keeps the status-update endpoint's
+     * long-standing behaviour intact: it filed the preceding versions for whatever status it
+     * was given, not only for an acknowledgement, and a filing that dropped that step would
+     * leave the older versions NEW and put the collapsed row straight back in the inbox — the
+     * same defect this routine exists to prevent.
+     *
+     * @param labNo the version the clinician acted on
+     * @param providerNo acting provider (session-derived, never client-supplied)
+     * @param status status to apply to {@code labNo}; older versions are always filed as {@code F}
+     * @param comment comment for {@code labNo}, may be null or empty
+     * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
+     * @param skipCommentOnUpdate true to leave an existing comment untouched
+     * @param multiId the client's version chain; only consulted for types with no server-side chain
+     * @return how many of this provider's routing rows this call took OUT of the NEW state.
+     *         The inbox counters count NEW routing rows, not the collapsed list rows, so a
+     *         caller adjusting them live has to know this number rather than assume one per
+     *         acknowledged item. Rows that were already filed, rows this call creates, and —
+     *         when {@code status} is itself {@code N} — the reviewed row are all excluded,
+     *         because none of them leaves a total the badge was counting.
+     */
+    public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
+                                                          String comment, String labType,
+                                                          boolean skipCommentOnUpdate, String multiId) {
+        // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
+        // that fails after the reviewed row is already stamped, the caller reports a failure
+        // while the acknowledgement is half-applied: the lab is acknowledged, its older
+        // versions are still NEW, and the collapsed inbox row comes back. Failing here leaves
+        // nothing written. (These are still separate writes, not one transaction — a failure
+        // partway through the loop below can still file some versions and not others.)
+        List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
+
+        // Counted BEFORE each write, and only for rows that were actually NEW. updateReportStatus
+        // reports nothing usable here — every path in it returns TRUE, including the one that
+        // CREATES a routing row that never existed — so "one per version" would count a chain
+        // whose older versions somebody had already filed, and the badge would read low until
+        // the next page load recomputed it.
+        int clearedFromNew = status == 'N' ? 0 : countNewRoutingRows(labNo, labType, providerNo);
+        updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
+        for (Integer olderLabNo : olderLabNos) {
+            clearedFromNew += countNewRoutingRows(olderLabNo, labType, providerNo);
+            updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
+        }
+        return clearedFromNew;
+    }
+
+    /**
+     * How many of this provider's routing rows for one lab version are currently NEW.
+     *
+     * <p>Package-private so the acknowledge tests can drive the arithmetic above without
+     * standing up a routing DAO; nothing outside this class should call it.
+     *
+     * <p>Normally nought or one; the list tolerates more because
+     * {@code providerLabRouting} has no uniqueness constraint on (lab, type, provider) and
+     * duplicate rows do exist in older data — each one is counted by the inbox badge, so each
+     * one has to be counted here too.
+     */
+    static int countNewRoutingRows(int labNo, String labType, String providerNo) {
+        List<ProviderLabRoutingModel> rows =
+                providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
+        if (rows == null) {
+            return 0;
+        }
+        int newRows = 0;
+        for (ProviderLabRoutingModel row : rows) {
+            if ("N".equals(row.getStatus())) {
+                newRows++;
+            }
+        }
+        return newRows;
+    }
+
+    /**
+     * Resolves the versions of {@code labNo} that are OLDER than it, oldest first.
+     *
+     * <p>For HL7 labs the chain is ALWAYS derived server side from the accession number and the
+     * posted {@code multiID} is ignored. That is the same source the view used to build
+     * {@code multiID}, so the result is identical for an honest client — but a forged or stale
+     * chain can no longer name unrelated labs and have them filed. A chain is not a hint here;
+     * every id in it becomes a write to another lab's routing row.
+     *
+     * <p>Other report types have no accession chain to derive, so they fall back to the posted
+     * value (a BC lab display posts one). Those types are read no more trustingly than before
+     * this method existed, and a chain that does not contain {@code labNo} files nothing.
+     *
+     * <p>Exact type match, not a case-insensitive one: the routing rows are looked up by this
+     * same lab_type string, so accepting a spelling the lookup would miss buys nothing.
+     */
+    static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
+        String chain = LabResultData.HL7TEXT.equals(labType)
+                ? Hl7textResultsData.getMatchingLabs(String.valueOf(labNo))
+                : multiId;
+        return LabVersionChain.olderThan(labNo, chain);
     }
 
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType) {
