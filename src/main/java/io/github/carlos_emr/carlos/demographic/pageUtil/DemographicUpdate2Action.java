@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
@@ -182,12 +183,10 @@ public class DemographicUpdate2Action extends ActionSupport {
         demographic.setSex(request.getParameter("sex"));
         demographic.setPcnIndicator(request.getParameter("pcn_indicator"));
         demographic.setHcType(request.getParameter("hc_type"));
-        demographic.setFamilyDoctor(
-                "<rdohip>" + request.getParameter("r_doctor_ohip") + "</rdohip>" +
-                "<rd>" + request.getParameter("r_doctor") + "</rd>" +
-                (request.getParameter("family_doc") != null
-                        ? "<family_doc>" + request.getParameter("family_doc") + "</family_doc>"
-                        : ""));
+        demographic.setFamilyDoctor(DemographicXml.familyDoctor(
+                request.getParameter("r_doctor_ohip"),
+                request.getParameter("r_doctor"),
+                request.getParameter("family_doc")));
         demographic.setCountryOfOrigin(request.getParameter("countryOfOrigin"));
         demographic.setNewsletter(request.getParameter("newsletter"));
         demographic.setSin(request.getParameter("sin"));
@@ -395,7 +394,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             demographicCust.setNurse(request.getParameter("nurse"));
             demographicCust.setAlert(request.getParameter("alert"));
             demographicCust.setMidwife(request.getParameter("midwife"));
-            demographicCust.setNotes("<unotes>" + request.getParameter("notes") + "</unotes>");
+            demographicCust.setNotes(DemographicXml.userNotes(request.getParameter("notes")));
             demographicCustDao.merge(demographicCust);
         } else {
             demographicCust = new DemographicCust();
@@ -403,7 +402,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             demographicCust.setNurse(request.getParameter("nurse"));
             demographicCust.setAlert(request.getParameter("alert"));
             demographicCust.setMidwife(request.getParameter("midwife"));
-            demographicCust.setNotes("<unotes>" + request.getParameter("notes") + "</unotes>");
+            demographicCust.setNotes(DemographicXml.userNotes(request.getParameter("notes")));
             demographicCust.setId(demographicNo);
             demographicCustDao.persist(demographicCust);
         }
