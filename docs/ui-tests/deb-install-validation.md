@@ -632,6 +632,9 @@ Notes on the contract:
   `ALLOW_NON_LOCAL_BASE_URL=true`, a non-loopback target must be HTTPS, and
   like `billing-on-third-party` it relaxes certificate verification only for
   loopback, so an opted-in host must present a certificate the browser trusts.
+  The two dimensions run in sequence rather than as a matrix -- each body once,
+  then each selection with the worst-case body, 15 prints in all -- because the
+  403 rides on the note in the serialized form, not on any print checkbox.
   Driving fifteen prints through one open encounter
   outlives the note lock, so the eChart's own autosave answering 409 partway
   through is expected and tolerated; a 403 from any of them is not. Each print

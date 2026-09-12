@@ -251,7 +251,11 @@ const WORKFLOWS = [
     ready: 'textarea[name="reasonForConsultation"]',
     formName: 'EctConsultationFormRequest2Form',
     action: '/encounter/RequestConsultation',
-    fields: ['reasonForConsultation', 'clinicalInformation', 'concurrentProblems', 'currentMedications', 'allergies'],
+    // Every prose argument rule 1100 exempts, appointmentNotes included: a field
+    // the exclusion covers but the replay never fills is a target that can regress
+    // or be dropped from the packaged rule with this guard still green.
+    fields: ['reasonForConsultation', 'clinicalInformation', 'concurrentProblems', 'currentMedications',
+      'allergies', 'appointmentNotes'],
     // checkForm() sets `service` before it submits and refuses without one (it also
     // flips the page's `saved` flag, but that input has an id and no name, so the
     // browser never posts it and the replay must not either). The action branches on the `submission`

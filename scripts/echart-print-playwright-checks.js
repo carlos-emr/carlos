@@ -18,7 +18,11 @@
  * debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.
  *
  * So the note bodies below are not arbitrary: each one is a phrase measured to
- * trip a different CRS family on ARGS:caseNote_note. Against the devcontainer
+ * trip a different CRS family on ARGS:caseNote_note. The two dimensions are run
+ * in sequence, not as a matrix: every body is printed once, then every print
+ * selection is printed with the worst-case body. The 403 rides on the note in the
+ * serialized form rather than on any print checkbox, so one scored body is enough
+ * to carry each selection, and 15 prints cover what 56 would. Against the devcontainer
  * (no WAF) this check still guards the print path itself — that every selection
  * returns a real PDF rather than an HTML error page. Against a packaged install
  * it is the guard for the WAF exclusion.
@@ -519,8 +523,13 @@ async function printChart(page, noteText, flags) {
     assert(cleanupFailure === null,
       `every print passed, but the note draft this run left behind could not be cleaned up: ${cleanupFailure && cleanupFailure.message}`);
 
-    console.log(`PASS chart print returned a PDF for ${NOTE_BODIES.length} note bodies `
-      + `and ${PRINT_SELECTIONS.length} print selections; ${cleanupOutcome}`);
+    // Say the shape plainly: this is NOT a body x selection matrix. Each body is
+    // printed once with no extra selection, and the worst-case body is printed once
+    // per selection, because the defect rides on the form rather than on any
+    // checkbox -- one scored body proves every selection carries it.
+    console.log(`PASS chart print returned a PDF in all ${printResults.length} cases `
+      + `(${NOTE_BODIES.length} note bodies, then ${PRINT_SELECTIONS.length} print selections `
+      + `on the worst-case body); ${cleanupOutcome}`);
   } finally {
     await browser.close();
   }
