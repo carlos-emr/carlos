@@ -324,7 +324,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         logger.error("Prescription fax was queued, but the legacy SENT audit entry failed: file={}",
                                 LogSafe.sanitize(pdfFile), e);
                     }
-					writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + Encode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close after follow-up processing completes.</p></div>");
+					writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + SafeEncode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close after follow-up processing completes.</p></div>");
                 }
                 writer.flush();
             } else {

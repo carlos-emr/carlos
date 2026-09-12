@@ -584,10 +584,26 @@
                         }
                     });
                 });
-                var additNotesEl = frames['preview'].document.getElementById('additNotes');
-                additNotesEl.style.whiteSpace = 'pre-wrap';
-                additNotesEl.textContent = document.getElementById('additionalNotes').value;
-                frames['preview'].document.getElementsByName('additNotes')[0].value = document.getElementById('additionalNotes').value.replace(/\n/g, "\r\n");
+                // The persisted save is independent of an omitted, loading or inaccessible
+                // preview. Updating the preview is best effort; fax submission still awaits
+                // pendingNotesSave and independently validates the preview's record binding.
+                try {
+                    var previewFrame = frames['preview'];
+                    var previewDocument = previewFrame && previewFrame.document;
+                    if (previewDocument) {
+                        var additNotesEl = previewDocument.getElementById('additNotes');
+                        if (additNotesEl) {
+                            additNotesEl.style.whiteSpace = 'pre-wrap';
+                            additNotesEl.textContent = document.getElementById('additionalNotes').value;
+                        }
+                        var additNotesInput = previewDocument.getElementsByName('additNotes')[0];
+                        if (additNotesInput) {
+                            additNotesInput.value = document.getElementById('additionalNotes').value.replace(/\n/g, "\r\n");
+                        }
+                    }
+                } catch (previewError) {
+                    // Do not turn a preview access failure into a failed or duplicated save.
+                }
             }
 
 

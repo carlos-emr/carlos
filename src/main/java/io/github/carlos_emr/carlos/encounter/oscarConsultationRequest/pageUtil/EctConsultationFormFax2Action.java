@@ -111,9 +111,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
      * @return String "success" on successful fax queuing, "cancel" if cancelled,
      *         "error" on failure, or null on unexpected error
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "method-name comparison is the HTTP verb gate, not an identity decision")
     @Override
     public String execute() {
 
@@ -139,12 +136,10 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_fax)");
         }
-        // Reject GET/HEAD before any side effect (render, cover-page write, FaxJob persist): this
-        // action queues a PHI fax to a request-supplied number, and CSRFGuard validates non-GET
-        // requests only — a bare <img src="...ConsultationFormFax?..."> in the clinician's browser
-        // could otherwise fire a fax with no CSRF token. CoverPage.jsp submits via <form method="post">.
-        String httpMethod = request.getMethod();
-        if ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod)) {
+        // Only the POST form submission may render, promote files or queue a fax.
+        // Reject every other verb, not just GET/HEAD, before any of those side effects.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             return NONE;
         }
@@ -561,7 +556,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
     /**
      * Writes an HTTP error status without letting an {@link IOException} escape into the Struts
-     * result pipeline (mirrors {@code Fax2Action.sendErrorQuietly}). Used by the GET/HEAD method gate.
+     * result pipeline (mirrors {@code Fax2Action.sendErrorQuietly}). Used by the POST-only gate.
      */
     private void sendErrorQuietly(int statusCode, String message) {
         try {
