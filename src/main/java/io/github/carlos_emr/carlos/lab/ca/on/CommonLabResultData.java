@@ -529,14 +529,11 @@ public class CommonLabResultData {
         }));
     }
 
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of clinical comment text, not an authorization decision")
     private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
                                                             String comment, String labType, boolean skipCommentOnUpdate) {
         if (comment == null) {
             comment = "";
         }
-
-        comment = comment.trim();
 
         /*
          * Update an existing entry
@@ -553,8 +550,8 @@ public class CommonLabResultData {
                 }
 
                 // use the new incoming comment on these conditions.
-                if (!skipCommentOnUpdate && !comment.isEmpty()
-                        && !comment.equalsIgnoreCase(currentComment.trim())) {
+                if (!skipCommentOnUpdate && !comment.isBlank()
+                        && !comment.equals(currentComment)) {
                     // Clinical text is not a regular expression or replacement template.
                     providerLabRoutingModel.setComment(comment);
                 }
@@ -572,7 +569,7 @@ public class CommonLabResultData {
             providerLabRouting.setProviderNo(providerNo);
             providerLabRouting.setLabNo(labNo);
             providerLabRouting.setStatus(String.valueOf(status));
-            providerLabRouting.setComment(comment.trim());
+            providerLabRouting.setComment(comment);
             providerLabRouting.setLabType(labType);
             providerLabRouting.setTimestamp(new Date());
             providerLabRoutingDao.persist(providerLabRouting);

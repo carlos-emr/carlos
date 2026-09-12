@@ -40,9 +40,11 @@ import static org.mockito.Mockito.when;
 @DisplayName("Lab macro post-commit audit outcomes")
 class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
-    @CsvSource({"true,false", "false,true", "true,true"})
+    @CsvSource({"true,false,present", "false,true,present", "true,true,present",
+            "true,false,missing", "true,true,missing", "true,false,nullComment", "true,true,nullComment",
+            "true,false,nullAcknowledgement", "true,true,nullAcknowledgement"})
     @DisplayName("should preserve completed macro effects and JSON counters when audit logging fails")
-    void shouldReturnCommittedOutcome_whenAuditFails(boolean acknowledge, boolean tickler) throws Exception {
+    void shouldReturnCommittedOutcome_whenAuditFails(boolean acknowledge, boolean tickler, String commentShape) throws Exception {
         var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
         var response = new MockHttpServletResponse();
         request.setParameter("name", "fixture");
@@ -62,7 +64,17 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(info, "_lab", "w", null)).thenReturn(true);
         var mapper = new ObjectMapper();
         var macro = mapper.createObjectNode().put("name", "fixture");
-        if (acknowledge) macro.putObject("acknowledge").put("comment", "fixture comment");
+        String expectedComment = "present".equals(commentShape) ? "fixture comment" : "";
+        if (acknowledge) {
+            var ack = macro.putObject("acknowledge");
+            switch (commentShape) {
+                case "present" -> ack.put("comment", expectedComment);
+                case "missing" -> { /* Optional comment omitted by saved preferences. */ }
+                case "nullComment" -> ack.putNull("comment");
+                case "nullAcknowledgement" -> macro.putNull("acknowledge");
+                default -> throw new IllegalArgumentException("Unknown fixture comment shape");
+            }
+        }
         if (tickler) macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
         var property = new UserProperty();
         property.setValue(mapper.createArrayNode().add(macro).toString());
@@ -79,7 +91,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
-            routing.when(() -> CommonLabResultData.acknowledgeReport(123, "999998", "fixture comment", "HL7", false, null))
+            routing.when(() -> CommonLabResultData.acknowledgeReport(123, "999998", expectedComment, "HL7", false, null))
                     .thenReturn(3);
             logActionMock.when(() -> LogAction.addLogSynchronous(anyString(), anyString(), anyString(), anyString(), anyString()))
                     .thenThrow(new IllegalStateException("PRIVATE_AUDIT_MESSAGE", new IllegalArgumentException("PRIVATE_AUDIT_CAUSE")));
