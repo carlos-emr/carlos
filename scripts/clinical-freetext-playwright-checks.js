@@ -413,20 +413,35 @@ async function runWorkflow(context, workflow) {
         + 'so this run would not measure what the check claims');
     }
 
-    for (const phrase of PROSE_CORPUS) {
-      const status = await replay(page, workflow, entries, phrase);
-      saveResults.push({
-        workflow: workflow.name, phrase: phrase.label, crs: phrase.crs, status,
-      });
-    }
-
-    // Put back what the replays overwrote, where the route updates in place. The
+    // Put back what the replays overwrote, where the route updates in place, and
+    // do it on the failure path as well: a replay that throws after an earlier
+    // phrase saved would otherwise leave the record holding that phrase. The
     // restore is itself a save through the same route, so it is recorded with the
-    // rest and a failure fails the run: a record left holding the last corpus
-    // phrase is a worse outcome than a red check.
-    if (workflow.restoreAfterReplays) {
-      const status = await replay(page, workflow, entries, null);
-      saveResults.push({ workflow: workflow.name, phrase: 'restore original text', crs: 'n/a', status });
+    // rest and a failed restore fails the run; when the replays themselves threw,
+    // that error stays the headline and the restore failure is printed beside it.
+    let replayStarted = false;
+    let restoreFailure = null;
+    try {
+      for (const phrase of PROSE_CORPUS) {
+        replayStarted = true;
+        const status = await replay(page, workflow, entries, phrase);
+        saveResults.push({
+          workflow: workflow.name, phrase: phrase.label, crs: phrase.crs, status,
+        });
+      }
+    } finally {
+      if (workflow.restoreAfterReplays && replayStarted) {
+        try {
+          const status = await replay(page, workflow, entries, null);
+          saveResults.push({ workflow: workflow.name, phrase: 'restore original text', crs: 'n/a', status });
+        } catch (error) {
+          restoreFailure = error;
+          console.error(`${workflow.name}: restoring the original text failed: ${error.message}`);
+        }
+      }
+    }
+    if (restoreFailure) {
+      throw new Error(`${workflow.name}: the replays ran but the original text could not be restored`, { cause: restoreFailure });
     }
 
     // An opaque redirect carries no destination, so a session that lapsed mid-run

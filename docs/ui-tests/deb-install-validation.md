@@ -621,7 +621,10 @@ Notes on the contract:
   just ordinary notes and the check degrades to covering the print path itself.
   It types into the open encounter note but never saves it as a note; the
   chart's own 5-second draft autosave still posts what it typed as the
-  patient's draft, so the check reads the note before its first print and, when
+  patient's draft, so before it opens the chart it applies the same
+  synthetic-patient gate as the free-text check (`FAKE-`/`PLAYWRIGHT-` name
+  prefix on `ECHART_DEMOGRAPHIC_NO`, override with
+  `ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true`), and it reads the note before its first print and, when
   the prints are done, puts that text back and either writes it back over the
   draft (a clinician's restored draft) or deletes the draft through the page's
   cancel path (a fresh note). Because of that write, its `BASE_URL` guard is
@@ -631,7 +634,10 @@ Notes on the contract:
   loopback, so an opted-in host must present a certificate the browser trusts.
   Driving fifteen prints through one open encounter
   outlives the note lock, so the eChart's own autosave answering 409 partway
-  through is expected and tolerated; a 403 from any of them is not.
+  through is expected and tolerated; a 403 from any of them is not. Each print
+  must come back as a download whose bytes start with `%PDF-` and run to at
+  least 1 KB: the action sets `application/pdf` before it generates, so the
+  Content-Type alone would pass a truncated body.
 - **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
   the browser guard for the survey block (exclusions 1100-1199, the clinician
   free text OUTSIDE the eChart), driven through the two rules with the most
@@ -659,9 +665,10 @@ Notes on the contract:
   prefix the fixture-owning checks use; `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true`
   overrides that only for a record you know to be test data. It then writes the
   corpus, each phrase stamped `(Playwright clinical-freetext run <epoch>)`,
-  into the patient's Alert/Notes and puts the original text back at the end
-  (the restore is a save through the same route and a failed restore fails the
-  run), and files seven new consultation requests against that patient (the
+  into the patient's Alert/Notes and puts the original text back at the end,
+  on the failure path as well as the success path (the restore is a save
+  through the same route and a failed restore fails the run), and files seven
+  new consultation requests against that patient (the
   consultation page renders the new-request form, so each replay creates a
   record rather than editing one). Those requests have no delete path in the UI;
   clear them with

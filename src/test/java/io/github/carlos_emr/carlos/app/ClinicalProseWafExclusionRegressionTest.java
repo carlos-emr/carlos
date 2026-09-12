@@ -222,13 +222,35 @@ class ClinicalProseWafExclusionRegressionTest {
     void shouldMatchTable_forSurveyRuleIds() throws IOException {
         String exclusions = read();
         long rulesInFile = Stream.of(exclusions.split("\n"))
-                .filter(line -> line.matches("\\s*\"id:11\\d\\d,phase:1,pass,nolog,chain\""))
+                // Route-only rules are phase 1; a rule keyed on a body argument as well (1142
+                // on dboperation) is phase 2, like the form_class rules in the generated file.
+                .filter(line -> line.matches("\\s*\"id:11\\d\\d,phase:[12],pass,nolog,chain\""))
                 .count();
         long rulesInTable = exemptedProseRoutes().count();
 
         assertThat(rulesInFile)
                 .as("every id:11xx rule in the file has a row in this test's table")
                 .isEqualTo(rulesInTable);
+    }
+
+    @Test
+    @DisplayName("the provider template rule should apply only to the Save operation")
+    void shouldChainOnSaveOperation_forProviderTemplateRule() throws IOException {
+        // ProviderTemplate2Action stores ARGS:value on exactly one branch, dboperation=Save
+        // (posted as " Save " and trimmed). Edit and Delete ignore the argument, so the
+        // exemption must not reach them: a body-argument key needs phase 2, and the
+        // operator match must tolerate the page's padding but nothing else.
+        String rule = readExclusionRule("1142");
+        assertThat(rule)
+                .contains("\"id:1142,phase:2,pass,nolog,chain\"")
+                .contains("SecRule ARGS:dboperation \"@rx ^\\s*[Ss][Aa][Vv][Ee]\\s*$\"");
+        int operationClause = rule.indexOf("SecRule ARGS:dboperation");
+        int firstRemoval = rule.indexOf("ctl:ruleRemoveTargetByTag");
+        assertThat(operationClause).as("the Save match precedes every target removal").isLessThan(firstRemoval);
+        // Every other survey rule stays route-and-method only: no other body-argument key.
+        String exclusions = read();
+        String survey = exclusions.substring(exclusions.indexOf("Clinician free text on the rest of the application"));
+        assertThat(survey.split("SecRule ARGS:dboperation", -1)).as("one operation-keyed rule in the survey block").hasSize(2);
     }
 
     @Test

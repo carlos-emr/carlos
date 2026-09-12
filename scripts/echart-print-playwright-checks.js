@@ -34,6 +34,8 @@
  *   TEST_PIN=2026
  *   ECHART_DEMOGRAPHIC_NO=1
  *   ECHART_PROVIDER_NO=999998
+ *   ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true only when the target patient is known
+ *     to be test data but does not carry the FAKE-/PLAYWRIGHT- name prefix
  *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not
  *     loopback — the chart's draft autosave writes what this check types, so a
  *     private LAN address, host.docker.internal and the compose name `carlos`
@@ -41,12 +43,16 @@
  *
  * What it writes. Nothing is saved as a note, but the eChart's own 5s draft
  * autosave posts whatever is in the textarea, so the corpus phrases land in the
- * patient's draft (casemgmt_tmpsave) while the prints run. The check reads the
- * note before its first print and, when the prints are done, puts that text back
- * and either writes it back over the draft (a clinician's restored draft) or
- * deletes the draft through the page's own cancel path (a fresh note).
+ * patient's draft (casemgmt_tmpsave) while the prints run. Because the loopback
+ * guard bounds the host and not the data, the check first opens the patient's
+ * master record and refuses to run unless the first or last name carries the
+ * synthetic-data prefix (FAKE-, PLAYWRIGHT-). It reads the note before its first
+ * print and, when the prints are done, puts that text back and either writes it
+ * back over the draft (a clinician's restored draft) or deletes the draft through
+ * the page's own cancel path (a fresh note).
  */
 
+const fs = require('fs');
 const { chromium } = require('playwright');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -56,6 +62,15 @@ const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = requireDigits(process.env.ECHART_DEMOGRAPHIC_NO || '1', 'ECHART_DEMOGRAPHIC_NO');
 const providerNo = requireDigits(process.env.ECHART_PROVIDER_NO || '999998', 'ECHART_PROVIDER_NO');
+const allowNonSyntheticPatient = process.env.ECHART_ALLOW_NON_SYNTHETIC_PATIENT === 'true';
+
+// Name prefixes that mark a patient as test data: FAKE- is what the demo dataset's
+// sanitisation writes on every person name, PLAYWRIGHT- is what the fixture-owning
+// checks name the patients they create. A real patient carries neither.
+const SYNTHETIC_NAME_PREFIXES = ['FAKE-', 'PLAYWRIGHT-'];
+// A chart print with even one note and the patient header comes out well above
+// this; a PDF-typed 200 whose body is a stub or a truncated stream does not.
+const MIN_PDF_BYTES = 1024;
 
 const badResponses = [];
 const printResults = [];
@@ -204,6 +219,40 @@ async function login(context) {
   return page;
 }
 
+/**
+ * Refuses to type into a patient that does not look like test data.
+ *
+ * Opens the master record and reads the names off the form's own controls (not
+ * FormData: a name field the role cannot edit is disabled and would be skipped).
+ * Either name carrying a synthetic prefix is enough; a record with neither is
+ * refused unless ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true says the operator knows
+ * what it is. The refusal deliberately does not print the names.
+ */
+async function verifySyntheticPatient(page) {
+  const search = new URLSearchParams({
+    demographic_no: demographicNo, displaymode: 'edit', dboperation: 'search_detail',
+  }).toString();
+  await page.goto(appUrl('/demographic/DemographicEdit', search), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
+  await page.locator('form[name="updatedelete"]').first().waitFor({ state: 'attached', timeout: 30000 });
+  const names = await page.evaluate(() => {
+    const form = document.forms['updatedelete'];
+    const read = (name) => (form && form.elements[name] ? String(form.elements[name].value || '') : '');
+    return { firstName: read('first_name'), lastName: read('last_name') };
+  });
+  const synthetic = [names.firstName, names.lastName].some((name) =>
+    SYNTHETIC_NAME_PREFIXES.some((prefix) => name.trim().toUpperCase().startsWith(prefix)));
+  if (!synthetic && !allowNonSyntheticPatient) {
+    throw new Error(`demographic ${demographicNo} does not carry a synthetic-data name prefix `
+      + `(${SYNTHETIC_NAME_PREFIXES.join(' or ')}), so this check will not type into its chart. Point `
+      + 'ECHART_DEMOGRAPHIC_NO at a test patient, or set ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true only if you '
+      + 'know this record is test data');
+  }
+  if (!synthetic) {
+    console.log(`WARNING demographic ${demographicNo} carries no synthetic-data name prefix; `
+      + 'proceeding because ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true');
+  }
+}
+
 async function openEchart(page) {
   // The encounter entry point the appointment screen uses. It redirects through
   // ViewForward into CaseManagementEntry?method=setUpMainEncounter.
@@ -301,7 +350,13 @@ async function cleanUpNoteDraft(page, originalNote) {
 
 /**
  * Types the note body, opens the print dialog with the given selection, presses
- * Print, and returns the print POST's response.
+ * Print, and returns the print POST's response together with what the browser
+ * downloaded: whether the bytes start with the PDF signature, and how many.
+ *
+ * The Content-Type alone does not prove a print. CaseManagementEntry.print() sets
+ * application/pdf before it generates, so a failure after the response is
+ * committed can still answer a PDF-typed 200 with a truncated or empty body. A
+ * successful print arrives as a download, so the bytes are read from that.
  *
  * The print dialog is positioned by printSetup() off a mouse event and the flag
  * icons are toggled by printInfo(), so the selection is set through the hidden
@@ -335,8 +390,22 @@ async function printChart(page, noteText, flags) {
       && /(?:^|&)method=print(?:&|$)/.test(response.request().postData() || ''),
     { timeout: 40000 },
   );
+  // Armed before the click. Left dangling on purpose when no download comes (a
+  // 403, or an HTML error page): the catch keeps the timeout from surfacing as an
+  // unhandled rejection, and the result below records that nothing was received.
+  const downloadPromise = page.waitForEvent('download', { timeout: 40000 }).catch(() => null);
   await page.locator('#printOp').click();
-  return printResponse;
+  const response = await printResponse;
+  const pdf = { signature: false, bytes: 0 };
+  if (response.status() === 200 && /application\/pdf/i.test(response.headers()['content-type'] || '')) {
+    const download = await downloadPromise;
+    if (download) {
+      const bytes = fs.readFileSync(await download.path());
+      pdf.signature = bytes.subarray(0, 5).toString('latin1') === '%PDF-';
+      pdf.bytes = bytes.length;
+    }
+  }
+  return { response, pdf };
 }
 
 (async () => {
@@ -354,6 +423,8 @@ async function printChart(page, noteText, flags) {
 
   try {
     const page = await login(context);
+    // Before anything is typed into a chart: refuse a patient that is not test data.
+    await verifySyntheticPatient(page);
     await openEchart(page);
 
     // What the note held before this run typed into it: a clinician's restored
@@ -374,10 +445,11 @@ async function printChart(page, noteText, flags) {
     try {
       for (const note of NOTE_BODIES) {
         if (!printsRemainUseful) break;
-        const response = await printChart(page, note.text, []);
+        const { response, pdf } = await printChart(page, note.text, []);
         printResults.push({
           dimension: 'note body', label: note.label, crs: note.crs,
           status: response.status(), contentType: response.headers()['content-type'] || '',
+          pdfSignature: pdf.signature, pdfBytes: pdf.bytes,
         });
         printsRemainUseful = response.status() === 200;
       }
@@ -385,10 +457,11 @@ async function printChart(page, noteText, flags) {
       const worstCaseNote = NOTE_BODIES.find((note) => note.label === 'sentence semicolon').text;
       for (const selection of PRINT_SELECTIONS) {
         if (!printsRemainUseful) break;
-        const response = await printChart(page, worstCaseNote, selection.flags);
+        const { response, pdf } = await printChart(page, worstCaseNote, selection.flags);
         printResults.push({
           dimension: 'selection', label: selection.label, crs: 'n/a',
           status: response.status(), contentType: response.headers()['content-type'] || '',
+          pdfSignature: pdf.signature, pdfBytes: pdf.bytes,
         });
         printsRemainUseful = response.status() === 200;
       }
@@ -419,6 +492,14 @@ async function printChart(page, noteText, flags) {
     assert(notPdf.length === 0,
       `chart print returned HTTP 200 but not a PDF — the action answered with something else, `
       + `probably an HTML error page: ${JSON.stringify(notPdf, null, 2)}`);
+
+    // And a PDF Content-Type alone is not a PDF: the header is set before the
+    // bytes are generated. Require the downloaded bytes to carry the %PDF- signature
+    // and a size no real chart print comes under.
+    const corrupt = printResults.filter((result) => !result.pdfSignature || result.pdfBytes < MIN_PDF_BYTES);
+    assert(corrupt.length === 0,
+      `chart print answered application/pdf but the downloaded bytes are not a usable PDF `
+      + `(no %PDF- signature, or under ${MIN_PDF_BYTES} bytes): ${JSON.stringify(corrupt, null, 2)}`);
 
     assert(printResults.length === NOTE_BODIES.length + PRINT_SELECTIONS.length,
       `only ${printResults.length} of ${NOTE_BODIES.length + PRINT_SELECTIONS.length} print cases ran`);
