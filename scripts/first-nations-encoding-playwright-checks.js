@@ -322,15 +322,21 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     await assertNotErrorPage(searchPage, 'patient-search-results');
 
     // Match the row by its exact link text, not by a substring of the onclick
-    // URL: demographic_no=1 is a substring of demographic_no=11.
-    const resultLink = searchPage
-      .locator('a[title="Master Demographic File"]')
-      .filter({ hasText: new RegExp(`^\\s*${demographicNo}\\s*$`) })
-      .first();
-    assert(
-      await resultLink.count() > 0,
-      `The patient search returned no master-record link for demographic ${demographicNo}`,
+    // URL: demographic_no=1 is a substring of demographic_no=11. Compare the
+    // text in JS rather than building a RegExp out of the id -- a hardcoded
+    // pattern is not possible here and a dynamic one is both needless and a
+    // ReDoS smell, even with the digits-only assertion above.
+    const candidateLinks = searchPage.locator('a[title="Master Demographic File"]');
+    const linkTexts = await candidateLinks.evaluateAll(
+      (nodes) => nodes.map((node) => (node.textContent || '').trim()),
     );
+    const rowIndex = linkTexts.indexOf(String(demographicNo));
+    assert(
+      rowIndex >= 0,
+      `The patient search returned no master-record link for demographic ${demographicNo};`
+        + ` the results page listed ${JSON.stringify(linkTexts)}`,
+    );
+    const resultLink = candidateLinks.nth(rowIndex);
     const masterPopup = context.waitForEvent('page', { timeout: 20000 }).catch(() => null);
     await resultLink.click();
     const masterPage = await masterPopup;
