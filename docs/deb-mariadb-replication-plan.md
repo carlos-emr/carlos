@@ -12,29 +12,32 @@ phase B0 needs.** Implemented: `carlos-ctl replica add|remove|status`,
 `db-apply-settings --no-restart` and its primary-role compare set, the
 `check` replication section, the preseed questions, the `demo-data` /
 `destroy-data` / `rotate` guards, and stdlib unit tests under
-`debian/tests/unit/`. Deliberately NOT yet done from phase 0: the
-`carlos-emr-ctl` package split and `role.py` — nothing in phase 1 needs
-them, and open question 1 is still the maintainer's. This document is the
-design the `carlos-emr` packaging follows to add an *optional*, turnkey MariaDB
-replica to a single-host install — either right after the first install or
-added to an established site later. Nothing here changes what a site that
-never asks for a replica gets from `apt install carlos-emr`.
+`debian/tests/unit/`. Not yet done: the `carlos-emr-ctl` package split and
+`role.py` (decision 1: next, as phase B1). This document is the design the
+`carlos-emr` packaging follows to add *optional*, turnkey database
+redundancy to a single-host install — either right after the first install
+or added to an established site later. Nothing here changes what a site
+that never asks for it gets from `apt install carlos-emr`.
 
-Scope of the first deliverable, in the maintainer's words: **database side
-only, CARLOS keeps talking to the primary.** A second machine holds a live,
-continuously updated copy of the clinical database. Failover is an operator
-decision with a scripted, fenced promotion — not automatic.
+Scope, in the maintainer's words: **database side only; CARLOS keeps
+talking to one database at a time.** Path B (a local Galera cluster) gives
+automatic database failover with zero data loss and no application code;
+Path A (an offsite asynchronous replica) gives a distant copy with a
+scripted, fenced, operator-run promotion. Both are optional, independent,
+and combinable.
 
 ## 0. Properties that hold in every phase
 
 **Optional.** A site that never asks for a replica gets exactly what it gets
 today:
 
-- no new debconf question is shown at normal priority, and the two
-  replication questions added for preseeding default to empty (= off);
+- no new debconf question is shown at normal priority, and every
+  replication or cluster question added for preseeding defaults to empty
+  (= off);
 - MariaDB keeps listening on loopback only, no certificate material is
   generated, no account is created, no drop-in is rendered, no timer runs;
-- `carlos-emr-db-replica` is never pulled in by `Depends` or `Recommends`;
+- none of `carlos-emr-db-node`, `carlos-emr-db-arbiter` or
+  `carlos-emr-db-replica` is ever pulled in by `Depends` or `Recommends`;
   the only visible change from the `carlos-emr-ctl` split is a second
   package in `apt list --installed`, which apt installs automatically as a
   dependency;
@@ -48,9 +51,10 @@ replica only; cluster *plus* offsite replica (section 13). None is pulled in
 by `Depends` or `Recommends`, each is enabled by one verb and removed by one
 verb, and removing one never touches the other or the data.
 
-**Easy to add at the start or later.** Enabling is the same one verb in both
-cases, `carlos-ctl replica add`, and it is idempotent and reversible
-(`replica remove`). On a fresh install it can be preseeded so `apt install`
+**Easy to add at the start or later.** Enabling is one verb per layer —
+`carlos-ctl cluster init` for local high availability (section 12.3),
+`carlos-ctl replica add` for an offsite copy — and each is idempotent and
+reversible (`cluster disband`, `replica remove`). For the offsite copy: On a fresh install it can be preseeded so `apt install`
 finishes with the primary side ready and the join token written. On an
 established site it changes nothing in the schema or the application; the
 only interruption is one MariaDB restart to bind the extra address, which is
@@ -74,48 +78,44 @@ design must stay consistent with).
 | Multi-writer at the application | **No.** All Galera nodes are writable, but CARLOS writes to one at a time | The application has no retry for certification conflicts; with one writer they never happen. The failover list gives automatic switching without it |
 | "Judge" / arbiter node | **Yes, for Path B**: `garbd` on a third small host (`carlos-emr-db-arbiter`) | Two voters cannot survive losing one; the arbitrator holds no data and needs no MariaDB |
 | Automatic failover | **Path B: yes, at the driver** (`failOverReadOnly=false` over the node list). **Path A: no**, manual fenced promotion | On a Galera cluster every surviving node in the primary component is writable, so a driver switch is safe; on an async pair it is not |
-| Packaging | **Split the admin tool into its own package (`carlos-emr-ctl`), add one new role package (`carlos-emr-db-replica`)**; `carlos-ctl` becomes role-aware | One tool, one code path, on every host. A db-only host cannot depend on `carlos-emr` (it would pull Tomcat, nginx, the WAR) |
-| Role model | Derived, not declared twice: *app present?* (webapp installed) × *database role* (`standalone` / `primary` / `replica`) recorded in `/etc/carlos-emr/replication.env` | Leaves room for "app host with a remote database" and "warm-standby app host whose local MariaDB is a replica" without new packages |
+| Packaging | **Split the admin tool into its own package (`carlos-emr-ctl`); add role packages `carlos-emr-db-node` and `carlos-emr-db-arbiter` (Path B) and `carlos-emr-db-replica` (Path A)**; `carlos-ctl` becomes role-aware | One tool, one code path, on every host. A db-only host cannot depend on `carlos-emr` (it would pull Tomcat, nginx, the WAR) |
+| Role model | Derived, not declared twice: *app present?* (webapp installed) × *database role* (`standalone` / `primary` / `replica` / `cluster` / `arbiter`) recorded in `/etc/carlos-emr/replication.env` | Leaves room for "app host with a remote database" and "warm-standby app host whose local MariaDB is a replica or cluster node" without new packages |
 | Network exposure | MariaDB keeps loopback; a primary or cluster node additionally binds **one** operator-named LAN/VPN address; accounts are host-restricted and `REQUIRE SSL`; certificates pinned. **Cluster verbs refuse a public address outright; only the asynchronous `replica add` accepts one, behind `--allow-public`** | The loopback posture is preserved: the only new listener is the one the operator explicitly asked for, and a Galera cluster is a LAN design by nature |
 | Seeding a new replica | **Logical dump pulled by the replica over the replication port** (TLS, `--single-transaction --gtid`) in phase 1; physical (`mariadb-backup` over ssh) and restore-from-restic as later options | No ssh trust between hosts, no second port, works over a VPN; the replica pulls exactly what the nightly backup already dumps |
-| Credentials | Join token carries the replication credential **and** the three local account passwords (`carlos`, `drugref`, `backup`) | Account DDL is deliberately *not* binlogged (PITR contract), so the replica must provision the same passwords itself or promotion would strand the app's `carlos.properties` |
+| Credentials | Path A join token carries the replication credential **and** the three local account passwords (`carlos`, `drugref`, `backup`); Path B tokens carry the SST credential and a node certificate, never application passwords | Account DDL is deliberately *not* binlogged (PITR contract), so an async replica must provision the same passwords itself; Galera replicates account DDL, so cluster nodes already have them |
 
-### 1.1 Why not multi-master, in more detail
+### 1.1 Multi-writer versus single-writer, in more detail
 
-The maintainer asked whether multi-master is an option. It is technically
-possible with Galera Cluster (in Ubuntu's `galera-4` package, recommended by
-`mariadb-server`), and it would give synchronous, zero-data-loss copies with
-automatic quorum. It is the wrong first step for this deployment:
+The maintainer asked whether active-active is possible. The answer has two
+halves, and the plan keeps them apart:
 
-- **The application has one writer.** CARLOS on one host connects to one
-  JDBC URL. Multi-master only pays when several application hosts write
-  concurrently, and then only if the application tolerates certification
-  failures (Galera aborts one side of a conflicting commit with a deadlock
-  error). The OSCAR-lineage code base does not retry transactions.
-- **Schema constraints.** Galera requires InnoDB (satisfied: all 389 baseline
-  tables are InnoDB) and a primary key on every table (not satisfied: 22
-  baseline tables have none — DELETEs on those are unsupported and can
-  diverge nodes). An audit and migration adding surrogate keys would come
-  first.
-- **Three voters.** Split-brain avoidance needs 3 nodes or 2 + `garbd`. That
-  is the "judge node" role. For a clinic with one server room it is a third
-  machine whose only job is to vote.
-- **Commit latency** becomes the slowest node's round trip. For an offsite
-  copy that is the WAN.
-- **Operational surface.** SST/IST state transfers, `wsrep_*` tuning, and a
-  failure vocabulary the current `carlos-ctl check` and README do not cover.
+**Database-level active-active is possible and is Path B.** Galera Cluster
+(Ubuntu's `galera-4`, MariaDB's own wsrep provider) keeps every node
+writable and synchronous. With the application pinned to one node it needs
+no application code: there is one writer, so certification conflicts —
+which Galera resolves by aborting one side with a deadlock error the
+OSCAR-lineage code would not retry — never arise. What it does need is a
+primary key on every table (24 are missing; phase B0), `innodb_autoinc_lock_mode
+= 2`, three voters (two nodes plus `garbd`), and LAN latency between nodes.
+Section 11.
 
-The asynchronous replica gives most of the operational value — a live copy on
-separate hardware, the ability to take backups off the primary, a fast manual
-failover with seconds of data loss at worst (zero with semi-sync) — with none
-of the above. Galera stays a documented future option (section 6, phase 4) for a site
-that reaches "two application hosts" and has done the primary-key audit.
+**Application-level active-active is not possible today** and is not
+attempted: two live CARLOS instances would need shared HTTP sessions,
+de-duplicated scheduled jobs (fax polling, lab imports, the backup timers),
+a shared document store, and retry logic for certification conflicts. None
+of that exists, and none of it is needed for the failover the maintainer
+wants. It stays out of scope.
 
-Proxies (MaxScale, ProxySQL) are also out of scope for phase 1: MaxScale
-25.01 and later are under a proprietary commercial licence (earlier releases
-were BSL 1.1 and convert to GPL only on their change dates), it is not in the
-Ubuntu archive, and no proxy is needed while the application talks to
-exactly one database host.
+**Bidirectional asynchronous replication** (two primaries replicating each
+other) is ruled out outright: MariaDB permits it but detects no conflicts,
+so two clinicians editing one chart on different nodes would produce two
+silently different databases.
+
+**Proxies** (MaxScale, ProxySQL) are not used: MaxScale 25.01 and later are
+under a proprietary commercial licence (earlier releases were BSL 1.1 and
+convert to GPL only on their change dates), it is not in the Ubuntu
+archive, and the Connector/J failover list already does the one thing a
+proxy would add here.
 
 ---
 
@@ -165,8 +165,9 @@ Facts the design builds on, with where they live:
   owns key generation and a mode file; it gets a MariaDB-facing sub-command
   rather than a second key-handling tool.
 - **`carlos-podman`'s `carlos_ctl`** is the sibling tool with the same verb
-  vocabulary and a pytest suite (`tests/unit/`). The deb tool has no unit
-  tests yet; phase 0 adds them in the same shape.
+  vocabulary and a pytest suite (`tests/unit/`). The deb tool's unit tests
+  (standard-library `unittest`, added in phase 1) mirror that shape without
+  adding a build dependency.
 - **Single-host assumptions that a remote database breaks** (must be handled
   before a promoted replica is used as the app's database, section 7):
   `carlos-emr-backup` dumps and drills over the unix socket only;
@@ -194,6 +195,16 @@ T1  (phase 1)         T2  (phase 3)                  T3  (future)
 │ replica      │      │ PROMOTED     │               │ app idle,    │
 │ read_only    │      │ primary      │               │ db replica   │
 └──────────────┘      └──────────────┘               └──────────────┘
+```
+
+```
+T4  (Path B, chosen)
+┌──────────────┐  wsrep (sync, TLS)  ┌──────────────┐        ┌──────────────┐
+│ A: full      │◀───────────────────▶│ B: db-only   │◀──────▶│ C: arbiter   │
+│ app + db     │                     │ cluster node │  vote  │ garbd, no db │
+│ node 1       │─ ─ ─ JDBC failover ▶│ node 2       │        │              │
+└──────────────┘  (A first, then B)  └──────────────┘        └──────────────┘
+        │  optional Path A: async replica (TLS, GTID) to an offsite host, section 13
 ```
 
 - **T1** — A is what `apt install carlos-emr` produces today plus
@@ -224,7 +235,8 @@ T1  (phase 1)         T2  (phase 3)                  T3  (future)
 |---|---|---|
 | `carlos-emr-ctl` (new) | python3, mariadb-client, openssl, curl, iproute2, procps, adduser (the sysusers file is applied by systemd on a systemd host, with the same `adduser` fallback `carlos-emr.postinst` already carries for chroots) | `carlos_ctl/` Python package, `/usr/sbin/carlos-ctl` shim, `carlos-emr-cert`, the shared MariaDB drop-in `60-carlos-emr.cnf`, `carlos-ctl.8`, the **sysusers declaration for `carlos` and `carlos-backup`** (today in `carlos-emr.sysusers`; `db-users` and `init-config` chown credential files to the `carlos` group, so a db-only host needs the accounts too), the **`carlos.properties` skeleton** (today staged from the built WAR into `carlos-emr`'s `skel/`; `db-users` refuses to run without the file, so the ctl package stages its own copy from the same WAR at build time), the **`carlos-emr.env` skeleton** (see the hazard below), `backup.env` and `replication.env` skeletons, and the `carlos-emr-db-tls-renew.timer` |
 | `carlos-emr` | `carlos-emr-ctl (= ${binary:Version})` | Everything it ships today minus what moved. `Breaks`/`Replaces: carlos-emr (<< <first split version>)` on `carlos-emr-ctl` so the file move is clean on upgrade |
-| `carlos-emr-db-replica` (new, `Architecture: all`) | `carlos-emr-ctl (= ${binary:Version})`, mariadb-server (>= 1:11.4), mariadb-client, `Conflicts: carlos-emr` **in phase 2 only** (lifted in T3 work) | The `carlos-emr-replica-watch.service/.timer`, `replica-watch` README section. No WAR, no Tomcat, no nginx |
+| `carlos-emr-db-replica` (Path A, `Architecture: all`) | `carlos-emr-ctl (= ${binary:Version})`, mariadb-server (>= 1:11.4), mariadb-client, `Conflicts: carlos-emr` **in phase 2 only** (lifted in T3 work) | The `carlos-emr-replica-watch.service/.timer`, `replica-watch` README section. No WAR, no Tomcat, no nginx |
+| `carlos-emr-db-node`, `carlos-emr-db-arbiter` (Path B) | see 11.3 | see 11.3 |
 | `carlos-emr-drugref`, `carlos-emr-eform-renderer` | unchanged | unchanged |
 
 **Silent-default hazard, and why the replica gets a `carlos-emr.env`.**
@@ -250,7 +262,7 @@ durability settings as the primary — a replica on distribution defaults
 ```
 has_app        = os.path.isdir("/usr/share/carlos-emr/webapp/carlos")
 db_role        = env_get("/etc/carlos-emr/replication.env", "CARLOS_DB_ROLE") or "standalone"
-                 # standalone | primary | replica
+                 # standalone | primary | replica | cluster | arbiter
 db_is_local    = CARLOS_DB_HOST in ("127.0.0.1", "localhost", "::1")   # from carlos-emr.env when has_app
 ```
 
@@ -269,6 +281,10 @@ CARLOS_DB_REPL_PRIMARY=10.0.0.5:3306   # replica: where it streams from
 CARLOS_DB_REPL_ALERT_WEBHOOK=     # replica: where lag/broken-thread alerts go
 CARLOS_DB_REPL_ALERT_EMAIL=
 CARLOS_DB_REPL_MAX_LAG_SECONDS=300
+CARLOS_DB_CLUSTER_NAME=           # cluster/arbiter: section 11.3
+CARLOS_DB_CLUSTER_ADDRESS=
+CARLOS_DB_CLUSTER_NODES=
+CARLOS_DB_REPL_PRIMARY_CANDIDATES=   # replica of a cluster: section 13
 ```
 
 Per-replica state on the primary lives under `/var/lib/carlos-emr/replicas/`
@@ -293,7 +309,9 @@ ssl_key             = /etc/mysql/carlos-emr-tls/server.key
 # semi-sync (phase 3, opt-in): rpl_semi_sync_master_enabled = ON, rpl_semi_sync_master_timeout = 10000
 ```
 
-`server_id` stays 1 (already in the 60- file). `require_secure_transport` is
+`server_id` stays 1 on a *standalone* primary (the shared 60- file's
+value); a primary that is also a cluster node carries the per-node id of
+11.3. `require_secure_transport` is
 deliberately **not** set: it would force TLS on the application's loopback
 connection too. TLS is required per account instead (`REQUIRE SSL` on the
 replication account).
@@ -302,7 +320,7 @@ replication account).
 
 ```
 [mariadbd]
-server_id           = <random 32-bit, generated at join, never 1>
+server_id           = <derived from this host's replication IP, never 1 (11.3)>
 read_only           = ON        # MariaDB has no super_read_only; root over the socket can still write, by design
 log_slave_updates   = ON        # a promoted replica must already own a complete binlog chain
 relay_log           = relay     # relative, same datadir-following reason as log_bin
@@ -326,8 +344,8 @@ IP) so the bind succeeds before the interface exists; and `check` asserts
 the sysctl is in effect while a listen IP is configured. `replica remove`
 of the last replica removes the sysctl file. The alternative — a systemd
 ordering drop-in on `mariadb.service` after the VPN unit — is fragile
-(there is no single unit name to order after) and is not used. Open
-question 7 records the trade-off.
+(there is no single unit name to order after) and is not used. Decision 7
+records the trade-off.
 
 **Replication protocol:** GTID (`MASTER_USE_GTID = slave_pos`), ROW events,
 TLS with the pinned CA and `MASTER_SSL_VERIFY_SERVER_CERT = 1`. Both schemas
@@ -647,9 +665,10 @@ safe way to re-join a host that has taken writes is to re-seed it.
 
 ---
 
-## 5. Operator experience (the turnkey flow)
+## 5. Operator experience (the turnkey flow, Path A)
 
-Two machines, A (existing or fresh full install) and B (new, Ubuntu with
+The cluster flow (Path B) is in section 12.3. For an offsite copy: two
+machines, A (existing or fresh full install) and B (new, Ubuntu with
 the CARLOS apt source). Six commands, all of which are idempotent and safe to
 re-run:
 
@@ -765,11 +784,11 @@ installed base working unchanged.
    `carlos-emr-backup`, in Python, used by the watch timer (the bash backup
    script keeps its own copy until a later cleanup).
 4. **Unit tests for the deb `carlos_ctl`** under `debian/tests/unit/`
-   (pytest, mirroring `carlos-podman/tests/unit/` — `conftest.py` stubs for
-   `run()`, filesystem fixtures for the env/properties writers). Cover
-   `role.py`, `config.Settings`, `env_get/env_set/prop_*`, and the
-   drop-in renderers added below. Wire into the existing lint job that
-   already runs on PRs (maintainer task in `.github/`).
+   (standard-library `unittest`, no build dependency; `pytest` also
+   discovers them; runner `debian/tests/run-unit-tests.sh` — done in
+   phase 1 for `replication.py`). Extend to `role.py`, `config.Settings`,
+   `env_get/env_set/prop_*`, and every renderer. Wire into the existing
+   lint job that already runs on PRs (maintainer task in `.github/`).
 5. **`carlos-emr-cert db-tls`**: CA + server certificate generation under
    `/etc/mysql/carlos-emr-tls/`, `status` reports it, `renew` renews it and
    issues `FLUSH SSL`; `carlos-emr-db-tls-renew.timer` in `carlos-emr-ctl`.
@@ -805,7 +824,8 @@ installed base working unchanged.
    `replication.env` on reconfigure; postinst calls `replica add` for each
    preseeded replica after provisioning (non-fatal, like the other
    provisioning steps).
-9. **Docs**: `README.Debian` section "8. Replication (optional)";
+9. **Docs**: `README.Debian` section 13 "A standby database replica
+   (optional)";
    `docs/carlos-ctl.md` verb reference; `docs/install-deb.md` pointer;
    `carlos-ctl.8`.
 
@@ -821,10 +841,11 @@ installed base working unchanged.
   bootstrap`; the 63- Galera drop-in; wsrep TLS from the existing
   `carlos-emr-cert db-tls` CA; `carlos-emr-db-node` and
   `carlos-emr-db-arbiter` packages; the cluster watch timer; `check`.
-- **B3** application side: `CARLOS_DB_HOSTS` failover list rendered into
-  `carlos.properties` and `drugref2.properties`, the start wrapper's
-  any-of database wait, the restore drill's cluster-aware load, `db-migrate`
-  pinned to one node.
+- **B3** application side: `CARLOS_DB_HOSTS` failover list with TLS and
+  timeouts rendered into `carlos.properties` and `drugref2.properties`
+  (11.5; this pulls phase 3's DrugRef rendering forward), the failover-path
+  accounts, the start wrapper's any-of database wait, the restore drill's
+  Aria load, `db-migrate` pinned to the writer.
 - **B4** two-node-plus-arbiter integration test (11.9), then the README's
   cluster runbook.
 
@@ -876,9 +897,7 @@ channel; the ufw handling of 12.4.
     app on such a host must refuse to start while `CARLOS_DB_ROLE=replica`
     and `CARLOS_DB_HOST` is local (it would only get read-only errors).
 21. Physical and restic seed methods.
-22. Galera evaluation (primary-key audit for the 22 PK-less baseline
-    tables first), with `carlos-emr-db-arbiter` as the `garbd` role package
-    if that path is ever chosen.
+22. (Superseded: the Galera cluster is Path B, phases B0–B4 above.)
 
 ---
 
@@ -904,12 +923,16 @@ Listed so no phase forgets one:
 | `config.Settings` silently defaults `db_name`/`province`/`server_name` when `carlos-emr.env` is missing | `util.env_get` returns `None` on `OSError`; `config.py` | 0 (`role.py` refuses non-standalone roles without the file), 2 (`join` writes it from the token) |
 | Flyway verbs assume the WAR and a writable schema are local | `dbops.run_flyway` | 0 (refused on the replica role; DDL arrives by replication) |
 | The PITR restore runbook assumes no downstream consumer of the binlog | `carlos-emr-backup`, README section 7 | 2 (restore prints the re-seed instruction on a primary) |
+| `server_id = 1` on every host | `60-carlos-emr.cnf` | 2 and B2: per-host id derived from the address on every replica and cluster node; `check` asserts it (11.3) |
+| Application accounts exist only as `@localhost`/`@127.0.0.1`, and the JDBC path is loopback without TLS | `dbops.py`, `config.py` | B2/B3: `@<app-host-ip>` entries with `REQUIRE SSL`; truststore and TLS parameters in the URL; connect/socket timeouts (11.5) |
+| Backups run on one host and that host cannot report its own absence | `carlos-emr-backup`, `validate.py` | B2: the surviving members' `DEGRADED` message names it (11.6, 12.1) |
+| DrugRef seed loads as Aria before conversion | `carlos-emr-drugref.postinst` | B0: created as InnoDB up front; install DrugRef before adding cluster nodes (11.2) |
 
 ---
 
 ## 8. Test plan
 
-- **Unit** (phase 0 onward, pytest): drop-in renderers are byte-exact;
+- **Unit** (standard-library `unittest`, phase 1 onward): drop-in renderers are byte-exact;
   token round-trips and rejects expired/foreign-version tokens; listen-IP
   validation; `SHOW SLAVE STATUS` parsing by column name for both spellings;
   role detection matrix; fence logic in `promote` with a stubbed
@@ -1045,6 +1068,7 @@ implementation does not re-derive them from memory:
 | Debian/Ubuntu `mariadbd` AppArmor profile grants `/etc/mysql/** r`, `/var/lib/mariadb/** rwk`, `/var/lib/mysql/** rwk`, `/etc/ssl/openssl.cnf r` only, `include if exists <local/mariadbd>`; enforcing from 1:11.8.6-4 and in Ubuntu 26.04 | Debian packaging MR !150 (`debian/apparmor/mariadbd`), Debian bug #1130272 |
 | MaxScale 25.01+ is proprietary; earlier BSL releases convert to GPL on their change dates | MariaDB BSL FAQ, MaxScale licence texts |
 | `carlos-emr-tomcat` waits on `CARLOS_DB_HOST:CARLOS_DB_PORT` over TCP; `env_get` returns `None` for a missing file; `init-config` never touches `drugref2.properties`; the DrugRef seed load is binlogged while its grants are not | this repository, `debian/assets/` |
+| 22 baseline + 2 BC tables lack a primary key (listed in 11.2); all 389 baseline tables are InnoDB; no `LOCK TABLES`, `GET_LOCK`/`RELEASE_LOCK` or XA in the Java tree; no runtime MyISAM/Aria creation; 341 `GenerationType.IDENTITY` entities, one `GenerationType.TABLE` (`Product`), 14 `SELECT MAX(id)+1` sites; the DrugRef seed SQL creates Aria tables | this repository: `database/mysql/migration/**`, `src/main/java/**`, `database/mysql/development-drugref.sql` |
 
 ---
 
@@ -1356,7 +1380,7 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
   loads into InnoDB specifically (InnoDB-only limits such as row size would
   not be exercised). The plan takes **(e)** as the turnkey answer and keeps
   (c) as the option for a site that wants an InnoDB-faithful drill; the
-  README states the trade-off in one sentence. Open question 9.
+  README states the trade-off in one sentence. Decision 9.
 - A point-in-time restore is now a *cluster* rebuild: restore on node 1
   with `wsrep_on = OFF`, then `cluster bootstrap`, then `cluster join
   --reseed` on node 2 (its SST wipes and re-copies). The runbook says so.
