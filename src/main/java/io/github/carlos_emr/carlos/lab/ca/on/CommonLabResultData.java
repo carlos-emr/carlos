@@ -446,6 +446,10 @@ public class CommonLabResultData {
         org.springframework.transaction.support.TransactionTemplate transaction =
                 new org.springframework.transaction.support.TransactionTemplate(
                         SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        // MariaDB 11.8 enables snapshot isolation: a REPEATABLE_READ snapshot taken
+        // while resolving versions can reject rows committed before our lock is acquired.
+        // Report locks serialize writers; each subsequent read must see their committed rows.
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
         return transaction.execute(transactionStatus -> updateReportChainInTransaction(
                 labNo, providerNo, status, comment, labType, skipCommentOnUpdate, multiId));
     }
@@ -520,6 +524,7 @@ public class CommonLabResultData {
         org.springframework.transaction.support.TransactionTemplate transaction =
                 new org.springframework.transaction.support.TransactionTemplate(
                         SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
         return Boolean.TRUE.equals(transaction.execute(transactionStatus -> {
             providerLabRoutingDao.lockRoutingReport(labNo);
             return updateReportStatusInTransaction(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
