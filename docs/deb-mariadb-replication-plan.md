@@ -89,9 +89,11 @@ failover with seconds of data loss at worst (zero with semi-sync) — with none
 of the above. Galera stays a documented future option (section 6, phase 4) for a site
 that reaches "two application hosts" and has done the primary-key audit.
 
-Proxies (MaxScale, ProxySQL) are also out of scope for phase 1: MaxScale is
-BSL-licensed and not in the Ubuntu archive, and none of them are needed while
-the application talks to exactly one database host.
+Proxies (MaxScale, ProxySQL) are also out of scope for phase 1: MaxScale
+25.01 and later are under a proprietary commercial licence (earlier releases
+were BSL 1.1 and convert to GPL only on their change dates), it is not in the
+Ubuntu archive, and no proxy is needed while the application talks to
+exactly one database host.
 
 ---
 
@@ -282,7 +284,7 @@ gtid_strict_mode    = ON
 report_host         = <this host's replication IP>   # so the primary's SHOW SLAVE HOSTS lists it
 slave_net_timeout   = 60
 slave_parallel_threads = 4
-slave_parallel_mode = conservative                   # optimistic retries are avoidable risk on a clinical record
+slave_parallel_mode = conservative                   # the default is optimistic since 10.5.1; its retries are avoidable risk here
 bind-address        = 127.0.0.1                      # until promoted; promotion adds the listen IP
 ```
 
@@ -324,9 +326,10 @@ are refused on the replica role (there is no WAR to validate against, and
 a migration run there would diverge the copy). Consequently the
 `carlos-emr-ctl` versions on the two hosts do not need to match — the
 token carries its own schema version and both sides refuse a token they
-do not understand — but the **MariaDB** rule is directional: the replica
-must run the same or a newer MariaDB series than the primary (replicating
-from newer to older is unsupported). `join` refuses an older replica and
+do not understand — but the **MariaDB** rule is directional, and documented: the replica
+should be the same or a later version than the primary, a constraint that
+also applies to minor/patch releases (replicating from newer to older is
+not supported). `join` refuses an older replica and
 merely notes a newer one; the earlier "same major.minor" wording was too
 strict and would have blocked the normal rolling-upgrade path.
 
@@ -362,7 +365,9 @@ outright past it. The retention value is not changed by this work.
 - A private **replication CA** and a server certificate for the primary are
   generated once by a new `carlos-emr-cert db-tls` sub-command into
   `/etc/mysql/carlos-emr-tls/` (root:mysql, 0640 keys), 10-year CA, 2-year
-  server certificate with the listen IP and host name as SANs. **The CA is
+  server certificate with the listen IP and host name as SANs (MariaDB
+  verifies IP-address SANs since 10.4.5, MDEV-18131, so `MASTER_HOST=<ip>`
+  with `MASTER_SSL_VERIFY_SERVER_CERT=1` validates). **The CA is
   per primary host and its private key never leaves that host.** Only the
   CA's public certificate travels in the join token; the replica pins it.
   A promoted replica generates its *own* CA and server certificate during
@@ -378,12 +383,17 @@ outright past it. The retention value is not changed by this work.
   the replica reports the pinned certificate's remaining validity.
 - Client certificates (mutual TLS, `REQUIRE SUBJECT`) are a phase-3
   hardening option, not phase 1.
-- **AppArmor:** Ubuntu's `mariadbd` profile confines file access; the 60-
-  drop-in's own comments record that a new path is how the server fails to
-  start after an upgrade. The certificate directory location must be
-  verified against the enforcing profile on the target release before the
-  path is fixed (implementation task; `/etc/mysql/` is the expected
-  permitted tree, and `check` already asserts the profile is enforcing).
+- **AppArmor (verified against the Debian profile that Ubuntu 26.04
+  ships):** the `mariadbd` profile (`/etc/apparmor.d/mariadbd`, from the
+  Debian packaging's `debian/apparmor/mariadbd`, enforcing since
+  1:11.8.6-4) grants `/etc/mysql/** r`, so
+  `/etc/mysql/carlos-emr-tls/` is readable without any local override.
+  It grants **nothing else** under `/etc/ssl` except `openssl.cnf`, and
+  nothing under `/etc/carlos-emr/`, which is why the MariaDB material
+  cannot share the nginx certificate directory. Site overrides go in
+  `/etc/apparmor.d/local/mariadbd` (`include if exists`), which the plan
+  does not need. `check` already asserts the profile is loaded and
+  enforcing; the smoke test keeps one line for it.
 
 ### 4.4 Credentials and the join token
 
@@ -464,26 +474,42 @@ project already trusts to restore. `max_allowed_packet = 1G` is in the
 shared drop-in on both sides. The dump streams straight into the local
 server; nothing lands on disk.
 
-Two mechanics that are easy to get silently wrong:
+Two mechanics that are easy to get silently wrong, both checked against
+the 11.4 client source (`client/mysqldump.cc`: `check_consistent_binlog_pos`,
+`do_show_master_status`, `do_print_set_gtid_slave_pos`):
 
-- **The primary is briefly locked.** `--single-transaction` together with
-  `--master-data` issues `FLUSH TABLES WITH READ LOCK` to pin the snapshot
-  to a binlog/GTID position, then releases it once the consistent snapshot
-  is open. That is milliseconds on an idle server but it *waits for every
-  running statement to finish first* and blocks writes while it waits — so
-  a long report on the primary turns the seed into a visible stall. The
-  README will say to seed outside clinic hours for this reason (not only
-  for network load), and `join` prints "acquiring a short global lock on
-  the primary" so a stall is attributable.
-- **Capturing the position.** With `--master-data=2` the `CHANGE MASTER`
-  line and (with `--gtid`) the `SET GLOBAL gtid_slave_pos` line are emitted
-  as comments in the dump header. `join` tees the first kilobytes of the
-  stream, parses `gtid_slave_pos` from that comment, loads the body, and
-  only then runs its own explicit `SET GLOBAL gtid_slave_pos = '<value>'`
-  and `CHANGE MASTER TO … MASTER_USE_GTID = slave_pos`. It never lets the
-  dump's own `CHANGE MASTER` execute (`--master-data=1` would set
-  file+position, silently bypassing GTID). A missing or unparsable
-  position aborts the join before `START SLAVE`; it is never defaulted.
+- **No global read lock on a MariaDB primary.** With `--single-transaction`
+  and `--master-data`, `mariadb-dump` first asks the server for the
+  `Binlog_snapshot_file` / `Binlog_snapshot_position` status variables; when
+  they exist (every MariaDB with binary logging on, i.e. every CARLOS
+  primary) it opens `START TRANSACTION WITH CONSISTENT SNAPSHOT`, reads the
+  position from inside that snapshot and converts it with
+  `BINLOG_GTID_POS()` — no `FLUSH TABLES WITH READ LOCK` is issued. The lock
+  *is* taken if `--flush-logs` is passed or binary logging is off, so
+  `join` never passes `--flush-logs` and refuses a primary whose
+  `SHOW STATUS LIKE 'binlog_snapshot_%'` comes back empty. (MySQL's
+  `mysqldump` does lock here; the difference is why this is stated
+  explicitly.) The dump's `REPEATABLE READ` snapshot holds open a read view
+  for the duration: DDL on the primary must not run while a seed is in
+  progress (`join` says so), and "seed outside clinic hours" is advice
+  about network and I/O load, not locking.
+- **Capturing the position.** With `--master-data=2 --gtid` the dump
+  carries three commented lines: near the head,
+  `-- CHANGE MASTER TO MASTER_USE_GTID=slave_pos;` and
+  `-- CHANGE MASTER TO MASTER_LOG_FILE='…', MASTER_LOG_POS=…;`, and **at
+  the very end of the dump** — deferred until after the `mysql.gtid_slave_pos`
+  placeholder table has been dumped — `-- SET GLOBAL gtid_slave_pos='<gtid>';`.
+  A head-only tee would therefore never see the GTID. `join` streams the
+  dump through a line filter that passes everything to the local `mariadb`
+  client unchanged and records those comment lines wherever they occur;
+  after the load completes it validates that a GTID was captured, then
+  issues its own `SET GLOBAL gtid_slave_pos = '<gtid>'` and
+  `CHANGE MASTER TO … MASTER_USE_GTID = slave_pos` with host, port,
+  credentials and TLS. It never uses `--master-data=1` (which would execute
+  a `CHANGE MASTER` lacking host and credentials, and a `SET GLOBAL
+  gtid_slave_pos` at the tail outside the tool's control). A missing or
+  unparsable position aborts the join before `START SLAVE`; it is never
+  defaulted.
 
 Refusals before any byte moves: MariaDB version mismatch, the `carlos`
 schema already holds tables (unless `--reseed`, which requires the
@@ -659,10 +685,11 @@ length of time:
   deferrable: `replica add --no-restart` renders everything and prints the
   one command to run in the maintenance window. The application's pool
   (`testOnBorrow`) reconnects on its own after the restart;
-- the seed dump runs as `--single-transaction`, so the copy itself takes
-  no locks, but pinning its position takes one **brief global read lock**
-  that waits for in-flight statements (section 4.5); run `replica join`
-  outside clinic hours;
+- the seed dump runs as `--single-transaction` against a binlogging
+  MariaDB primary, which takes **no global read lock** (section 4.5); it
+  does hold a long read view, so no schema migration may run on the primary
+  during the seed, and it moves the whole database over the wire — run
+  `replica join` outside clinic hours for the load, not for locking;
 - `replica remove <ip>` undoes all of it (account, token, listen address
   once the last replica is gone), leaving only the certificate material
   behind for a future re-enable.
@@ -829,19 +856,24 @@ Listed so no phase forgets one:
   validation; `SHOW SLAVE STATUS` parsing by column name for both spellings;
   role detection matrix; fence logic in `promote` with a stubbed
   reachability probe.
-- **MariaDB 11.4 smoke** (once, recorded in the module docstring; nothing
-  in this plan is shipped on the strength of documentation alone):
-  - the exact comment lines `mariadb-dump --gtid --master-data=2` emits
-    (`gtid_slave_pos` value, `CHANGE MASTER` form) — the parser in
-    `join` is written against the captured output, not the manual;
-  - which `SLAVE`/`REPLICA` spellings the server accepts for every
-    statement the tool issues;
-  - `bind_address` accepts a comma-separated list, and **what happens when
-    one listed address is absent** (expected: startup failure — this is
-    what the `ip_nonlocal_bind` sysctl exists for; confirm the sysctl
-    makes it start);
-  - the enforcing `mariadbd` AppArmor profile permits reading
-    `/etc/mysql/carlos-emr-tls/` and `FLUSH SSL` picks up a renewed pair;
+- **Already verified from primary sources** (recorded in section 10 so
+  nobody re-derives them): the dump's three comment lines and their
+  positions, the no-lock `Binlog_snapshot_*` path, `bind_address` lists
+  (10.11.1, MDEV-24377), the `REPLICA` synonyms (10.5.1) and the absence of
+  `CHANGE REPLICATION SOURCE TO`, IP-SAN verification (10.4.5), the
+  semi-sync variable names and 10 s default timeout, `FLUSH SSL`, the
+  row-format `binlog_ignore_db` semantics, `slave_parallel_mode`'s
+  optimistic default, the version-direction rule, the `/etc/mysql/** r`
+  AppArmor grant, and the Galera primary-key and quorum limitations.
+- **MariaDB 11.4 smoke** (once, on a live server, recorded in the module
+  docstring — these are behaviours no document states precisely):
+  - **what happens when one listed `bind_address` is absent** (expected:
+    startup failure — this is what the `ip_nonlocal_bind` sysctl exists
+    for; confirm the sysctl makes it start);
+  - the enforcing `mariadbd` profile really is in enforce mode on the
+    installed release (the packaging file itself says `flags=(complain)`
+    and the switch to enforce is a later packaging revision), and
+    `FLUSH SSL` picks up a renewed pair;
   - `REQUIRE SSL` refuses a plaintext login for the `repl` account;
   - `read_only = ON` does not block the replication SQL thread and does
     block the `carlos` account, while root over the socket still writes;
@@ -924,3 +956,27 @@ Listed so no phase forgets one:
    leaks before use is as sensitive as `backup.env` (it grants the whole
    binlog stream) until `replica add --reissue` or `replica remove` is run.
    The README will say so in the same tone as the `RESTIC_PASSWORD` warning.
+
+---
+
+## 10. Verification record
+
+Facts this plan relies on, and where each was checked, so the
+implementation does not re-derive them from memory:
+
+| Fact | Source |
+|---|---|
+| `mariadb-dump --single-transaction --master-data` takes no `FLUSH TABLES WITH READ LOCK` when `Binlog_snapshot_*` status variables exist; position via `BINLOG_GTID_POS()`; `--flush-logs` or no binlog forces the lock | `client/mysqldump.cc` (11.4): `check_consistent_binlog_pos`, `get_binlog_gtid_pos`, the `opt_single_transaction && opt_master_data` branch in `main` |
+| With `--master-data=2 --gtid`: `-- CHANGE MASTER TO MASTER_USE_GTID=slave_pos;` and the commented file/position line at the head; `-- SET GLOBAL gtid_slave_pos='…';` deferred to the end of the dump | `client/mysqldump.cc` (11.4): `fmt_gtid_pos`, `do_show_master_status`, `do_print_set_gtid_slave_pos` |
+| `bind_address` accepts a comma-separated list from 10.11.1 | MariaDB KB server system variables; MDEV-24377 |
+| `REPLICA` synonyms for `START`/`STOP`/`RESET SLAVE`, `SHOW SLAVE STATUS` from 10.5.1; `CHANGE MASTER TO` remains the statement | MariaDB KB `START REPLICA`, `CHANGE MASTER TO` |
+| `MASTER_SSL_VERIFY_SERVER_CERT` validates IP-address SANs since 10.4.5 | MDEV-18131 |
+| Replica should be the same or a later version than the primary, minor releases included | MariaDB KB, replication with different versions |
+| `slave_parallel_mode` default `optimistic` since 10.5.1; `slave_net_timeout` default 60 s; `report_host` semantics | MariaDB KB replication system variables |
+| Semi-sync: `rpl_semi_sync_master_enabled`, `rpl_semi_sync_slave_enabled`, `rpl_semi_sync_master_timeout` default 10000 ms | MariaDB KB semisynchronous replication |
+| `binlog_ignore_db` under row-based logging filters on the database actually affected | MariaDB KB replication filters |
+| `FLUSH SSL` reloads `ssl_cert`/`ssl_key`/`ssl_ca` without restart | MariaDB KB `FLUSH` |
+| Galera: InnoDB only; every table should have a primary key; `DELETE` unsupported without one; quorum is >50 % of the last membership, so two nodes have no fault tolerance without `garbd` | MariaDB KB Galera known limitations; quorum/`garbd` docs |
+| Debian/Ubuntu `mariadbd` AppArmor profile grants `/etc/mysql/** r`, `/var/lib/mariadb/** rwk`, `/var/lib/mysql/** rwk`, `/etc/ssl/openssl.cnf r` only, `include if exists <local/mariadbd>`; enforcing from 1:11.8.6-4 and in Ubuntu 26.04 | Debian packaging MR !150 (`debian/apparmor/mariadbd`), Debian bug #1130272 |
+| MaxScale 25.01+ is proprietary; earlier BSL releases convert to GPL on their change dates | MariaDB BSL FAQ, MaxScale licence texts |
+| `carlos-emr-tomcat` waits on `CARLOS_DB_HOST:CARLOS_DB_PORT` over TCP; `env_get` returns `None` for a missing file; `init-config` never touches `drugref2.properties`; the DrugRef seed load is binlogged while its grants are not | this repository, `debian/assets/` |
