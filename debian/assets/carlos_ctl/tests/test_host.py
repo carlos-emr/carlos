@@ -40,7 +40,7 @@ class TestTheDebsOwnAnswers(unittest.TestCase):
         self.assertEqual(self.host.state_dir,
                          "/var/lib/carlos-emr/o19-import")
         self.assertEqual(self.host.documents_root,
-                         "/var/lib/carlos-emr/OscarDocument")
+                         "/var/lib/carlos-emr/CarlosDocument")
 
     def test_the_client_runs_over_the_unix_socket_as_root(self):
         self.assertEqual(self.host.client_base_argv(None),

@@ -47,7 +47,7 @@
  *   O19_STATE_DIR=/var/lib/carlos-emr/o19-import
  *   O19_ADMIN_CREDENTIALS=$O19_STATE_DIR/admin-credentials.txt
  *   O19_SMOKE_SCREENSHOT_DIR=  (unset: no screenshots)
- *   MYSQL_DATABASE=oscar  MYSQL_USER=root  MYSQL_HOST=  MYSQL_SOCKET=
+ *   MYSQL_DATABASE=carlos  MYSQL_USER=root  MYSQL_HOST=  MYSQL_SOCKET=
  *   O19_ARCHIVE_SCHEMA=o19_archive
  *   MYSQL_PASSWORD=       (omit for socket/root auth)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
@@ -64,7 +64,7 @@ const chromePath = process.env.CHROME_PATH || '';
 const stateDir = process.env.O19_STATE_DIR || '/var/lib/carlos-emr/o19-import';
 const credentialsPath = process.env.O19_ADMIN_CREDENTIALS || path.join(stateDir, 'admin-credentials.txt');
 const screenshotDir = process.env.O19_SMOKE_SCREENSHOT_DIR || '';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlHost = process.env.MYSQL_HOST || '';
 const mysqlSocket = process.env.MYSQL_SOCKET || '';

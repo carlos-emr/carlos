@@ -707,7 +707,7 @@ clinic's sign-off.
   image asset that is not there, or an HRM report is missing; the names
   are in `documents-details.txt` (root-only), the console and the report
   carry counts. Fix the tree **in place** under
-  `/var/lib/carlos-emr/OscarDocument/carlos/` and `--resume`; the import
+  `/var/lib/carlos-emr/CarlosDocument/carlos/` and `--resume`; the import
   never goes live with unreadable documents. Restoring a *different* tar
   is not a recovery path — the phase records the tar it restored and
   refuses another one; that needs the pre-import snapshot first.

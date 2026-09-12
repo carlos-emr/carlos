@@ -10,7 +10,7 @@ default (O19_DEFAULTS in the generated module):
   carry-secret  copied, but masked in the human report and listed under a
                 "credentials imported — rotate/verify" heading
   translate     value rewritten (t: "docpath" rewrites the O19 OscarDocument
-                context path to /var/lib/carlos-emr/OscarDocument/carlos/…;
+                context path to /var/lib/carlos-emr/CarlosDocument/carlos/…;
                 t: "drugref" points at this deployment's drugref2026)
   deploy-owned  refused even if present — the deb deployment provisions it
   dropped-flag  not carried; itemized in the report (module removed).
@@ -215,6 +215,11 @@ KEYS = {
     "carlos.flyway.locations": {"d": "deploy-owned"},
     "carlos.flyway.onBoot": {"d": "deploy-owned"},
     "eform_pdf_browser_startup_check": {"d": "deploy-owned"},
+    # the renderer package's install decides these two (config.py writes
+    # them when carlos-emr-eform-renderer is present, comments them out
+    # otherwise); a clinic's OSCAR 19 file never carried them
+    "eform_pdf_browser_chromium_path": {"d": "deploy-owned"},
+    "eform_pdf_browser_service_url": {"d": "deploy-owned"},
     # the AES key for fax credentials, MFA secrets and signature images:
     # generated once per host by config.py and escrowed with the backup
     "encryption.util.secret.key": {"d": "deploy-owned"},

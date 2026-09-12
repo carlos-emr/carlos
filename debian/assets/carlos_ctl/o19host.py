@@ -36,7 +36,10 @@ STATE_DIR = os.path.join(STATE, "o19-import")
 #: the deb's patient document tree (o19docs/o19props default to the same
 #: path; the import passes this one through the phase context so a
 #: deployment that stores documents elsewhere is not a special case)
-DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
+# release/2026.08 renamed the store OscarDocument -> CarlosDocument
+# (#3554); config.cmd_init_config writes BASE_DOCUMENT_DIR under this
+# same path, so the restore lands where the application reads.
+DOCUMENTS_ROOT = os.path.join(STATE, "CarlosDocument")
 
 #: the throwaway account the dump is restored as: all privileges on the
 #: staging schema and nothing else, created for the restore and dropped

@@ -76,27 +76,29 @@ check ''                                           1 "empty file -> GATE (fail c
 # against a postinst whose gate tested the wrong path (`-f .../o19-WRONG/`),
 # which can never fire: dpkg would clobber an in-progress import, and this
 # harness would still have said 30/30.
-GATE_START='/^        if \[ -s \/var\/lib\/carlos-emr\/o19-import\/state.json \]/'
-COND_RAW=$(sed -n "$GATE_START,/^        then\$/p" debian/carlos-emr.postinst)
+# The predicate lives in one shell function so configure and the abort-*
+# restart cannot drift apart; lift its BODY and eval that.
+FN_START='/^o19_import_in_progress() {$/'
+COND_RAW=$(sed -n "$FN_START,/^}\$/p" debian/carlos-emr.postinst)
 LEDGER=/var/lib/carlos-emr/o19-import/state.json
 COND_LAST=$(printf '%s\n' "$COND_RAW" | tail -1)
 COND_N=$(printf '%s\n' "$COND_RAW" | wc -l)
 COND=""
-# A sed RANGE whose end pattern never matches runs to END OF FILE. Fold
-# the `then` onto the condition's last line -- a reformat `dash -n`
+# A sed RANGE whose end pattern never matches runs to END OF FILE. Put
+# the closing brace on the condition's last line -- a reformat `dash -n`
 # accepts -- and the range swallows the rest of the postinst: 280-odd
 # lines including `rm -f /etc/nginx/sites-enabled/default`, a live
 # `mariadb --user=root` and `deb-systemd-invoke start`, all of it handed
 # to the `eval` below in a harness people run as root. `grep -c` counts
 # LINES, so the "exactly twice" guard scored 2 on that runaway text and
 # said PASS. These three bounds are what make the lift safe to eval: it
-# must have terminated on the real `then`, it must be about the size of
+# must have terminated on the real `}`, it must be about the size of
 # the real gate, and it must still name the ledger where both references
 # are.
 if [ -z "$COND_RAW" ]; then
   bad "could not lift the gate condition from the postinst (shape changed?)"
-elif [ "$COND_LAST" != "        then" ]; then
-  bad "the gate lift ran past its 'then' ($COND_N lines) - refusing to eval"
+elif [ "$COND_LAST" != "}" ]; then
+  bad "the gate lift ran past its closing brace ($COND_N lines) - refusing to eval"
 elif [ "$COND_N" -gt 25 ]; then
   bad "the lifted gate condition is $COND_N lines (expected under 25)"
 elif [ "$(printf '%s\n' "$COND_RAW" | grep -c -- "$LEDGER")" != 2 ]; then
@@ -104,7 +106,7 @@ elif [ "$(printf '%s\n' "$COND_RAW" | grep -c -- "$LEDGER")" != 2 ]; then
   # substitution below would quietly test something else
   bad "the postinst gate no longer references $LEDGER exactly twice"
 else
-  COND=$(printf '%s\n' "$COND_RAW" | sed '$d')
+  COND=$(printf '%s\n' "$COND_RAW" | sed '1d;$d')
   ok "gate condition lifted from the postinst (bounded, both references)"
 fi
 # The condition is only half the gate. Flipping the branch body to
@@ -113,8 +115,8 @@ fi
 # service" -- while postinst then runs Flyway and starts the webapp into
 # the half-copied schema anyway. So assert the consequent too, and that
 # the variable it sets is the one the migrate and start steps read.
-CONSEQ=$(sed -n "$GATE_START,\$p" debian/carlos-emr.postinst \
-         | sed -n '/^        then$/{n;p;q;}')
+CONSEQ=$(sed -n '/^        if o19_import_in_progress; then$/{n;p;q;}' \
+         debian/carlos-emr.postinst)
 verdict "$([ "$CONSEQ" = "            MIGRATION_OK=0" ]; echo $?)" \
   "the gate branch clears MIGRATION_OK" \
   "the gate branch no longer sets MIGRATION_OK=0 (got: ${CONSEQ:-<none>})"
@@ -128,10 +130,19 @@ verdict "$(grep -q '^            if \[ "${MIGRATION_OK}" = 1 \] && ! carlos-ctl 
   "db-migrate no longer consults MIGRATION_OK"
 # shellcheck disable=SC2016  # literal postinst text, as above (a
 # directive covers only the command that follows it, so this repeats)
-verdict "$(grep -q '^    if \[ "${MIGRATION_OK:-1}" = 0 \]' \
+verdict "$(grep -q '^    \(if\|elif\) \[ "${MIGRATION_OK:-1}" = 0 \]' \
              debian/carlos-emr.postinst; echo $?)" \
   "the service start is guarded by MIGRATION_OK" \
   "the service start no longer consults MIGRATION_OK"
+# release/2026.08's abort-* path restarts the application after a failed
+# apt transaction (#3557); an import in progress must hold there too, or
+# an unrelated package's abort starts the EMR into a half-copied schema.
+ABORT_BLOCK=$(sed -n '/^    abort-upgrade|abort-remove|abort-deconfigure)$/,/^        ;;$/p' \
+         debian/carlos-emr.postinst)
+verdict "$(printf '%s\n' "$ABORT_BLOCK" \
+         | grep -q '^            elif o19_import_in_progress; then$'; echo $?)" \
+  "the abort-* restart consults the same predicate" \
+  "the abort-* restart no longer consults o19_import_in_progress"
 # Substitute a VARIABLE REFERENCE, not the path itself. `eval` reparses
 # whatever it is handed, so a scratch directory holding a space (a
 # perfectly valid TMPDIR) turned the lifted `[ -s /tmp/has space/... ]`
@@ -150,7 +161,7 @@ gate() { # file-content, expected "GATE"/"nogate"
   printf '%s' "$1" > "$T/state.json"
   # the lifted condition is `[ -s L ] && ! python3 ...`, so it succeeds
   # exactly when the postinst would enter its gate branch
-  if eval "${COND_T#*if }"; then echo GATE; else echo nogate; fi
+  if eval "$COND_T"; then echo GATE; else echo nogate; fi
 }
 shell_gate() { # file-content, expected, pass-message, fail-message
   got=$(gate "$1")

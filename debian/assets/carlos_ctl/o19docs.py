@@ -3,7 +3,7 @@
 """Documents phase (P5) of the OSCAR 19 importer (experimental).
 
 Restores the clinic's OscarDocument tree into the deb layout
-(/var/lib/carlos-emr/OscarDocument/carlos/…), renames the O19 context
+(/var/lib/carlos-emr/CarlosDocument/carlos/…), renames the O19 context
 directory, relocates HRM reports flat under document/ (refusing when two
 HRMDocument rows would reach the same basename by different paths) and
 rewrites their absolute paths, then runs the BLOCKING
@@ -32,7 +32,7 @@ from typing import Callable, Dict, List, Optional, Set, Tuple
 from . import o19bundle, o19digest, o19etl
 from .util import STATE, die, log, run, sql_escape, warn
 
-DOCUMENTS_ROOT = os.path.join(STATE, "OscarDocument")
+DOCUMENTS_ROOT = os.path.join(STATE, "CarlosDocument")
 TARGET_CTX = "carlos"
 
 # derived caches are regenerated on demand by the application

@@ -31,7 +31,7 @@ FIXTURE = os.path.join(
     "migration", "o19", "fixtures", "properties",
     "oscar-clinic-example.properties")
 
-ROOT = "/var/lib/carlos-emr/OscarDocument"
+ROOT = "/var/lib/carlos-emr/CarlosDocument"
 
 
 def carlos_bundle_keys():
@@ -80,7 +80,7 @@ DIVERGENT_CARRY_DEFAULTS = (
     "NEW_CONTACTS_UI",
     "NEW_CONTACTS_UI_EXTERNAL_CONTACT",
     "confidentiality_statement.v1",
-    "consultation_signature_enabled",
+    "consultation_fax_enabled",
     "faxPollInterval",
     "save_as_xml",
 )
@@ -131,7 +131,7 @@ class TestDivergentCarlosDefaults(unittest.TestCase):
     def test_a_stock_value_is_reported_when_the_carlos_default_differs(self):
         result = o19props.translate_all(
             [("CONSULTATION_AUTO_INCLUDE_ALLERGIES", "true"),
-             ("consultation_signature_enabled", "true"),
+             ("consultation_fax_enabled", "false"),
              ("billregion", "ON")],
             documents_root=ROOT)
         # nothing is carried: the fragment is unchanged by this rule
@@ -147,7 +147,7 @@ class TestDivergentCarlosDefaults(unittest.TestCase):
         self.assertNotIn("billregion", rows)
         report = o19props.render_report(result)
         self.assertIn("carlos-default (2):", report)
-        self.assertIn("consultation_signature_enabled", report)
+        self.assertIn("consultation_fax_enabled", report)
 
     def test_a_clinic_value_that_differs_still_carries(self):
         # the rule fires only on the untouched stock value; a clinic that

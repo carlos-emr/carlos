@@ -111,9 +111,9 @@ class TestHrmRewrite(unittest.TestCase):
 
     def test_rewrite_points_every_report_into_document_dir(self):
         update, select = o19docs.hrm_rewrite_sql(
-            "carlos", "/var/lib/carlos-emr/OscarDocument")
+            "carlos", "/var/lib/carlos-emr/CarlosDocument")
         self.assertIn("UPDATE `carlos`.HRMDocument SET reportFile = CONCAT("
-                      "'/var/lib/carlos-emr/OscarDocument/carlos/document/', "
+                      "'/var/lib/carlos-emr/CarlosDocument/carlos/document/', "
                       "SUBSTRING_INDEX(REPLACE(reportFile, '\\\\', '/'), "
                       "'/', -1))", update)
         self.assertIn("WHERE reportFile IS NOT NULL AND reportFile <> ''",
@@ -587,7 +587,7 @@ class TestMergeMove(unittest.TestCase):
         self.work = tempfile.mkdtemp(prefix="o19docs-test-")
         self.addCleanup(shutil.rmtree, self.work)
         self.src = os.path.join(self.work, "incoming", "oscar_mcmaster")
-        self.dst = os.path.join(self.work, "OscarDocument", "carlos")
+        self.dst = os.path.join(self.work, "CarlosDocument", "carlos")
         os.makedirs(os.path.join(self.src, "document"))
         os.makedirs(os.path.join(self.src, "document_cache"))
         with open(os.path.join(self.src, "document", "a.pdf"), "w") as fh:

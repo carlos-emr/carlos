@@ -83,6 +83,11 @@ work, with no top-N cut.
   of one another raised by different dimensions (the merge-override report
   bucket was found four times, the `--cleanup` accept set four times); they
   share a commit and are listed separately so the count is honest.
+- The SHAs in **Commit** are on the development history this work was built
+  on: branch `claude/oscar19-carlos-migration-46ij4y-develop-history`
+  (208 commits on `develop`, head `0f8e27b3`). PR #3583 carries the same
+  work rebuilt on `release/2026.08` as two commits, so `git show <sha>`
+  needs that branch fetched.
 - Locations are as reported against `008acdc4` and will not match current line
   numbers.
 

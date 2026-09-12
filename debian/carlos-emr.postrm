@@ -205,7 +205,7 @@ case "$1" in
         # something this probe can interpolate into SQL, so fall back
         # rather than guess -- as does an empty or absent assignment.
         case "${O19_DBNAME}" in
-            "" | *[!A-Za-z0-9_]* ) O19_DBNAME=oscar ;;
+            "" | *[!A-Za-z0-9_]* ) O19_DBNAME=carlos ;;
         esac
         O19_DB=unknown
         if command -v mariadb >/dev/null 2>&1; then
@@ -241,7 +241,7 @@ NOTICE
         they were still present -- this purge did not touch them (the
         database could not be reached to confirm)" >&2 ;;
         esac
-        # `carlos-ctl destroy-data` empties OscarDocument, heapdumps and the
+        # `carlos-ctl destroy-data` empties CarlosDocument, heapdumps and the
         # tomcat/modsec log trees and recreates the bare skeleton, so after
         # that path these paths still EXIST while holding nothing. Reporting
         # them as "kept: patient documents" would be the same false comfort
@@ -264,7 +264,7 @@ NOTICE
                 echo "  empty: $1  (nothing left to keep)" >&2
             fi
         }
-        kept_or_empty "${STATE}/OscarDocument" "patient documents"
+        kept_or_empty "${STATE}/CarlosDocument" "patient documents"
         kept_or_empty "${STATE}/heapdumps" "JVM heap dumps — treat as PHI"
         kept_or_empty /var/log/carlos-emr "access and WAF audit logs"
         cat >&2 <<'NOTICE'
@@ -320,7 +320,7 @@ NOTICE
         fi
 
         # unquoted: the schema name below is the configured one, not a
-        # literal `oscar`. Nothing else in this block expands.
+        # literal `carlos`. Nothing else in this block expands.
         cat >&2 <<NOTICE
 
 To destroy the data deliberately, reinstall the package and run

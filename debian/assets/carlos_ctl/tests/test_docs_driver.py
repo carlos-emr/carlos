@@ -128,7 +128,7 @@ class DocsDriverBase(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.state_dir = os.path.join(self.tmp, "state")
         os.makedirs(self.state_dir, mode=0o700)
-        self.docs_root = os.path.join(self.tmp, "OscarDocument")
+        self.docs_root = os.path.join(self.tmp, "CarlosDocument")
         os.makedirs(os.path.join(self.docs_root, CTX), mode=0o750)
         self.tar = make_tar(os.path.join(self.tmp, "docs.tar.gz"),
                             dict(self.FILES))

@@ -6,7 +6,7 @@
 
 """OSCAR 19 -> CARLOS properties manifest."""
 
-PROPS_MAP_VERSION = 'o19map-2+5c666fbb'
+PROPS_MAP_VERSION = 'o19map-2+47eba883'
 
 # active keys of the stock O19 oscar_mcmaster.properties — the baseline-diff
 # reference: clinic keys equal to these defaults are ignored (CARLOS defaults win)
@@ -484,7 +484,7 @@ CARLOS_DEFAULTS = {
     'NEW_CONTACTS_UI': 'true',
     'NEW_CONTACTS_UI_EXTERNAL_CONTACT': 'true',
     'confidentiality_statement.v1': 'The information transmitted is intended only for the person to whom it is addressed and may contain confidential, proprietary and/or privileged material. Any unauthorized review, distribution or other use of or the taking of any action in reliance upon this information is prohibited. The contents of this message may be subject to privilege and all rights to that privilege are expressly claimed and not waived. If you receive this in error, please contact the sender  and delete or destroy this message and any copies. Thank you.',
-    'consultation_signature_enabled': 'false',
+    'consultation_fax_enabled': 'true',
     'faxPollInterval': '60000',
     'save_as_xml': 'false',
 }
@@ -971,6 +971,12 @@ KEYS = {
         'd': 'translate',
         't': 'docpath',
         'as': 'EFORM_IMAGES_DIR',
+    },
+    'eform_pdf_browser_chromium_path': {
+        'd': 'deploy-owned',
+    },
+    'eform_pdf_browser_service_url': {
+        'd': 'deploy-owned',
     },
     'eform_pdf_browser_startup_check': {
         'd': 'deploy-owned',

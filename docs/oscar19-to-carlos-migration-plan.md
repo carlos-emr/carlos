@@ -77,7 +77,7 @@ flow is therefore:
                                             │
                     ETL: INSERT INTO carlos.t (cols…) SELECT cols… FROM o19_import.t
                                             │
- o19-documents.tar.gz ──► /var/lib/OscarDocument/carlos/… + reconciliation
+ o19-documents.tar.gz ──► /var/lib/carlos-emr/CarlosDocument/carlos/… + reconciliation
                                             │
                               verification report + archival schema `o19_archive`
 ```
@@ -349,10 +349,10 @@ tar -C /var/lib/OscarDocument -czf o19-documents.tar.gz <contextname>/
 
 Import steps:
 
-1. Untar under `BASE_DOCUMENT_DIR` (default `/var/lib/OscarDocument/`), renaming
+1. Untar under `BASE_DOCUMENT_DIR` (`/var/lib/carlos-emr/CarlosDocument/` on the deb), renaming
    the O19 context directory (often `oscar`, `oscar_mcmaster`, or the clinic db
    name) to `carlos` to match `carlos.properties`
-   (`DOCUMENT_DIR=/var/lib/OscarDocument/carlos/document/`,
+   (`DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document/`,
    `INCOMINGDOCUMENT_DIR=…/carlos/incomingdocs`). Subtrees that ride along:
    `document/`, `eform/images/` (eForm image assets), `incomingdocs/`,
    `billing/download/`, HRM report files, faxes, export dirs.
@@ -609,7 +609,7 @@ have no CARLOS counterpart at all.
 4. **`translate`** — value rewritten, not copied:
    - any value containing the O19 document root
      (`/var/lib/OscarDocument/<oldctx>/…`, `/usr/local/…/OscarDocument/…`) →
-     the CARLOS context path `/var/lib/OscarDocument/carlos/…`
+     the CARLOS context path `/var/lib/carlos-emr/CarlosDocument/carlos/…`
      (`ONEDT_INBOX/OUTBOX/SENT/ARCHIVE`, `INVOICE_DIR`, `hl7_a04_build_dir`,
      `INCOMINGDOCUMENT_DIR`, eform image paths);
    - `drugref_url` → the new drugref2026 endpoint for this deployment;
@@ -793,7 +793,7 @@ passing tests, including generation over every real manifest entry.
 
 **Milestone 5 — documents phase (done):**
 `o19docs.py` — single-context-dir detection (loose files or two contexts
-refuse), merge-move into `OscarDocument/carlos/` that never clobbers a
+refuse), merge-move into `CarlosDocument/carlos/` that never clobbers a
 non-empty subtree, derived-cache directories (`document_cache`) skipped with
 a report line, service-user ownership (2750 dirs / 0640 files),
 `HRMDocument.reportFile` rewrite keyed on the old context marker with
