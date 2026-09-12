@@ -1179,9 +1179,11 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
   means two writers), the writer node per `CARLOS_DB_CLUSTER_NODES`, and
   which node's `grastate.dat` says `safe_to_bootstrap: 1`.
 - `cluster remove <ip>`: drops the node from the list on every reachable
-  node, revokes its certificate by regenerating… no — certificates are not
-  revoked (no CRL machinery); the node's SST credential is rotated and the
-  operator is told to power the host off. Documented plainly.
+  node and rotates the SST credential. Its certificate is **not** revoked
+  (there is no CRL machinery in this design), so the README says plainly:
+  power the removed host off or wipe its `/etc/mysql/carlos-emr-tls`; a
+  host holding a valid node certificate and the old SST credential could
+  otherwise rejoin until the credential rotation lands.
 - `cluster bootstrap --confirm <server-name>`: the one dangerous verb. After
   a full outage (every node down) Galera refuses to start until one node is
   declared the seed; after a partition that lost quorum the survivor is
