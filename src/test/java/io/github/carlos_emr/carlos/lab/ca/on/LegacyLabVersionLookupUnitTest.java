@@ -51,6 +51,16 @@ class LegacyLabVersionLookupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFallBackToRequestedLab_whenAccessionLookupThrows() {
+        MdsMSHDao dao = mock(MdsMSHDao.class);
+        registerMock(MdsMSHDao.class, dao);
+        MDSResultsData data = mock(MDSResultsData.class, CALLS_REAL_METHODS);
+        doThrow(new IllegalStateException("fixture lookup failure")).when(data).findMDSAccessionNumber("42");
+        assertThat(data.getMatchingLabs("42")).isEqualTo("42");
+        verifyNoInteractions(dao);
+    }
+
+    @Test
     void shouldUseRequestedPathnetLab_notEmptyDateAsId() throws Exception {
         Hl7OrcDao orcDao = mock(Hl7OrcDao.class);
         Hl7PidDao pidDao = mock(Hl7PidDao.class);

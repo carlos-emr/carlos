@@ -8,6 +8,24 @@ public final class FaxDestination {
     private FaxDestination() {}
 
     /**
+     * Selects a compatible sender explicitly instead of depending on browser selection of
+     * the first option, which might be disabled.
+     * @param accounts accounts in display order
+     * @param usableNumbers sender numbers already validated for this destination
+     * @param preferredNumber provider's preferred sender, possibly null or unavailable
+     * @return preferred usable number, otherwise the first usable number, or null
+     */
+    public static String selectSenderNumber(java.util.List<FaxConfig> accounts,
+                                            java.util.Set<String> usableNumbers, String preferredNumber) {
+        if (preferredNumber != null && usableNumbers.contains(preferredNumber)) return preferredNumber;
+        for (FaxConfig account : accounts) {
+            String number = account.getFaxNumber();
+            if (number != null && usableNumbers.contains(number)) return number;
+        }
+        return null;
+    }
+
+    /**
      * Returns a compact queue value without losing the international dialing signal.
      * SRFax validation delegates to its transmission normalizer, but expansion to 011 is
      * deferred until transmission so a long international number is not normalized twice.

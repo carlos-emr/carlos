@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * This software is published under the GPL GNU General Public License.
  * You may redistribute it and/or modify it under version 2 of the License,

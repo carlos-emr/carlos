@@ -81,6 +81,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private NioFileManager nioFileManager;
     @Mock private FaxConfigDao faxConfigDao;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.FaxJobDao faxJobDao;
     @Mock private ClinicDAO clinicDAO;
     @Mock private LoggedInInfo loggedInInfo;
 
@@ -95,6 +96,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "nioFileManager", nioFileManager);
         injectDependency(manager, "faxConfigDao", faxConfigDao);
+        injectDependency(manager, "faxJobDao", faxJobDao);
         injectDependency(manager, "clinicDAO", clinicDAO);
 
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
@@ -122,6 +124,67 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             if (mocks != null) mocks.close();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {SecurityInfoManager.READ, SecurityInfoManager.WRITE})
+    @DisplayName("should reject resend before locking or saving when either fax permission is missing")
+    void shouldRejectResend_whenPermissionIsMissing(String deniedPermission) {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", deniedPermission, null)).thenReturn(false);
+        assertThatThrownBy(() -> manager.resendFax(loggedInInfo, "123", "+442079460100"))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(faxJobDao);
+        verify(manager, never()).saveFaxJob(any(), any(FaxJob.class));
+    }
+
+    private FaxJob stubResendSource() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        faxConfigDao.getActiveConfigByNumber("1234567890").setProviderType(FaxConfig.ProviderType.SRFAX);
+        FaxJob source = new FaxJob();
+        source.setId(123);
+        source.setDirection(FaxJob.Direction.OUT);
+        source.setStatus(FaxJob.STATUS.ERROR);
+        source.setFax_line("1234567890");
+        source.setDestination("+442079460100");
+        source.setJobId(99L);
+        when(faxJobDao.findForUpdate(123)).thenReturn(source);
+        return source;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"+44 20 7946 0100", "011442079460100"})
+    @DisplayName("should preserve international intent for unchanged and replacement resend destinations")
+    void shouldPreserveInternationalDestination_whenResending(String replacement) {
+        FaxJob source = stubResendSource();
+        java.util.List<FaxJob> saves = new java.util.ArrayList<>();
+        org.mockito.Mockito.doAnswer(call -> {
+            FaxJob job = call.getArgument(1);
+            if (job.getId() == null) job.setId(124);
+            saves.add(job);
+            return job;
+        }).when(manager).saveFaxJob(eq(loggedInInfo), any(FaxJob.class));
+        assertThat(manager.resendFax(loggedInInfo, "123", replacement)).isTrue();
+        assertThat(saves).hasSize(2);
+        assertThat(saves.get(0).getDestination()).isEqualTo("+442079460100");
+        assertThat(saves.get(0).getJobId()).isNull();
+        assertThat(source.getStatus()).isEqualTo(FaxJob.STATUS.RESENT);
+        assertThat(manager.resendFax(loggedInInfo, "123", replacement)).isFalse();
+        assertThat(saves).hasSize(2);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"short", "inactive", "inbound", "waiting", "resent"})
+    @DisplayName("should not clone invalid, inactive, inbound, pending, or already resent fax jobs")
+    void shouldRejectResend_beforeSaving(String scenario) {
+        FaxJob source = stubResendSource();
+        if ("inactive".equals(scenario)) when(faxConfigDao.getActiveConfigByNumber("1234567890")).thenReturn(null);
+        if ("inbound".equals(scenario)) source.setDirection(FaxJob.Direction.IN);
+        if ("waiting".equals(scenario)) source.setStatus(FaxJob.STATUS.WAITING);
+        if ("resent".equals(scenario)) source.setStatus(FaxJob.STATUS.RESENT);
+        assertThat(manager.resendFax(loggedInInfo, "123", "short".equals(scenario) ? "12345678" : null)).isFalse();
+        verify(manager, never()).saveFaxJob(any(), any(FaxJob.class));
     }
 
     @org.junit.jupiter.params.ParameterizedTest

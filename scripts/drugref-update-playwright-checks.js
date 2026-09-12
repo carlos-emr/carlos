@@ -149,7 +149,7 @@ async function callStatus(page) {
   }, ENDPOINT);
 }
 
-async function checkRollbackFailureDisplay(context, pageUrl, recorder) {
+async function checkRollbackFailureDisplay(context, recorder) {
   const page = await context.newPage();
   wirePage(page, 'drugref-rollback-failure-display', recorder);
   const message = 'failed during importing DPD data -- AND the previous dataset could NOT be restored: '
@@ -181,7 +181,7 @@ async function checkRollbackFailureDisplay(context, pageUrl, recorder) {
         }
       },
     );
-    await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await gotoApp(page, config.baseUrl, '/admin/ViewUpdateDrugref');
     await assertNotErrorPage(page, 'DrugRef rollback failure page');
     await page.waitForFunction(
       (expected) => document.getElementById('updateResult')?.textContent.includes(expected),
@@ -203,7 +203,7 @@ async function checkRollbackFailureDisplay(context, pageUrl, recorder) {
   }
 }
 
-async function checkUncertainUpdateResponse(context, pageUrl) {
+async function checkUncertainUpdateResponse(context) {
   for (const failure of ['transport', 'null-result']) {
     const page = await context.newPage();
     let state = 'SUCCEEDED'; // Intentionally stale: must not confirm this request.
@@ -225,7 +225,7 @@ async function checkUncertainUpdateResponse(context, pageUrl) {
           return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reply) });
         },
       );
-      await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await gotoApp(page, config.baseUrl, '/admin/ViewUpdateDrugref');
       await page.locator('#updatedb').waitFor({ state: 'visible', timeout: 20000 });
       await page.locator('#updatedb').click();
       await page.waitForFunction(() => window.updateRequestUncertain === true);
@@ -288,7 +288,10 @@ async function checkUncertainUpdateResponse(context, pageUrl) {
     wirePage(popup, 'update-drugref', recorder);
     await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
     await assertNotErrorPage(popup, 'Update Drugref page');
-    assert(/\/admin\/ViewUpdateDrugref/.test(popup.url()), `popup opened ${popup.url()}, expected /admin/ViewUpdateDrugref`);
+    const popupUrl = new URL(popup.url());
+    assert(popupUrl.origin === config.baseUrl.origin
+      && popupUrl.pathname === config.baseUrl.pathname.replace(/\/$/, '') + '/admin/ViewUpdateDrugref',
+    'administration link opened an unexpected origin or path');
 
     // Step 1: the verify probe answered and the panel shows a real dataset.
     const verifyResponse = await verifyResponsePromise;
@@ -338,8 +341,8 @@ async function checkUncertainUpdateResponse(context, pageUrl) {
     // rather than merely never having hidden it.
     assert(await popup.locator('#updatedb').isVisible(), 'the Update Drugref button is not visible');
 
-    await checkRollbackFailureDisplay(context, popup.url(), recorder);
-    await checkUncertainUpdateResponse(context, popup.url());
+    await checkRollbackFailureDisplay(context, recorder);
+    await checkUncertainUpdateResponse(context);
 
     if (!trigger) {
       await screenshot(popup, config.screenshotDir, 'drugref-update-page');

@@ -12,6 +12,17 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("unit")
 @DisplayName("Provider-aware fax destination validation")
 class FaxDestinationUnitTest {
+    @ParameterizedTest
+    @CsvSource(value = {"NULL,2222222222", "1111111111,2222222222", "missing,2222222222", "3333333333,3333333333"}, nullValues = "NULL")
+    @DisplayName("should explicitly select the preferred usable sender or the first usable fallback")
+    void shouldSelectUsableSender_whenPreferredIsUnavailable(String preferred, String expected) {
+        java.util.List<FaxConfig> accounts = java.util.stream.Stream.of("1111111111", "2222222222", "3333333333")
+                .map(number -> { FaxConfig account = new FaxConfig(); account.setFaxNumber(number); return account; }).toList();
+        assertThat(FaxDestination.selectSenderNumber(accounts, java.util.Set.of("2222222222", "3333333333"), preferred))
+                .isEqualTo(expected);
+        assertThat(FaxDestination.selectSenderNumber(accounts, java.util.Set.of(), preferred)).isNull();
+    }
+
     @org.junit.jupiter.api.Test
     @DisplayName("should widen fax destinations without changing existing numbers or null values")
     void shouldPreserveStoredDestinations_whenApplyingInternationalMigration() throws Exception {
