@@ -242,7 +242,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         try {
             delegatingResponse.discardDeferredContentLength();
-            appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+            appendScript(delegatingResponse, httpRequest, httpRequest.getContextPath(), httpRequest.getLocale());
             httpRequest.setAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE, Boolean.TRUE);
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
@@ -453,14 +453,17 @@ public class LogoutBroadcastFilter implements Filter {
      * Appends the inline logout broadcast and session heartbeat script through the wrapped response.
      *
      * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param request HttpServletRequest the current request, read only for a page-published
+     *                CSP nonce
      * @param contextPath String the servlet context path
      * @param locale Locale the user's locale for i18n message lookup
      * @throws IOException if I/O error occurs writing the script
      */
-    private void appendScript(DelegatingServletResponse delegatingResponse, String contextPath, Locale locale)
+    private void appendScript(DelegatingServletResponse delegatingResponse, HttpServletRequest request,
+                              String contextPath, Locale locale)
             throws IOException {
 
-        String script = buildScript(contextPath, locale);
+        String script = buildScript(contextPath, locale, cspNonce(request));
 
         if (delegatingResponse.isResponseWriterObtained()) {
             writeScriptToWriter(delegatingResponse, script);
@@ -538,6 +541,29 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
+     * Renders the {@code nonce} attribute for the injected block, or an empty string.
+     *
+     * <p>This script is inline, so a page that sends a {@code script-src} without
+     * {@code 'unsafe-inline'} drops it — and with it idle logout and cross-tab logout on that
+     * page, silently, reported only on the browser console. A page with such a policy
+     * publishes its nonce as the {@code cspNonce} request attribute (see
+     * {@code annotateDocument.jsp}); this reuses it so the control keeps working under a
+     * strict policy. Pages that publish nothing get exactly the markup they got before.
+     *
+     * <p>The value is encoded for an HTML attribute even though pages generate it from
+     * {@code SecureRandom}: it reaches here as an opaque request attribute, and this filter
+     * runs on every page.
+     */
+    private static String cspNonce(HttpServletRequest request) {
+        Object published = request.getAttribute("cspNonce");
+        if (published == null) {
+            return "";
+        }
+        String value = SafeEncode.forHtmlAttribute(String.valueOf(published));
+        return value.isEmpty() ? "" : " nonce=\"" + value + "\"";
+    }
+
+    /**
      * Builds the inline JavaScript for logout broadcast and session heartbeat.
      *
      * <p>The script uses an IIFE to avoid polluting the global scope. It sets a
@@ -549,12 +575,13 @@ public class LogoutBroadcastFilter implements Filter {
      *
      * @param contextPath String the servlet context path for URL construction
      * @param locale Locale the user's locale for the logout overlay message
+     * @param nonce String a CSP nonce published by the page, or empty when it published none
      * @return String the complete {@code <script>} block to inject
      */
-    private String buildScript(String contextPath, Locale locale) {
+    private String buildScript(String contextPath, Locale locale, String nonce) {
         int inactivityLimitMins = getInactivityLimitMins();
 
-        return "<script>" +
+        return "<script" + nonce + ">" +
                 "(function(){" +
                 "if(window.__carlosLogoutActive)return;" +
                 "window.__carlosLogoutActive=true;" +

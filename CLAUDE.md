@@ -190,6 +190,19 @@ Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" sty
 
 Header validation takes precedence over body-parameter validation when both are present.
 
+**Content-Security-Policy interaction.** The bootstrap fragment is an *inline* `<script>`. A page
+that sets its own `script-src` without `'unsafe-inline'` silently gets no token: the input stays
+empty, every POST is rejected with an HTML error page, and nothing is reported except a console
+message the user never sees. Such a page must generate a per-response nonce, include
+`'nonce-<value>'` in its `script-src`, and publish the same value as the `cspNonce` **request
+attribute before the include**. `csrf-token.jspf` and `LogoutBroadcastFilter` both read that
+attribute and emit a matching `nonce` on their inline blocks; pages that publish nothing are
+unaffected and render exactly as before. Prefer a nonce over `'unsafe-inline'` — the latter also
+admits injected script, which is the thing the policy exists to stop. Reference implementation:
+`src/main/webapp/WEB-INF/jsp/documentManager/annotateDocument.jsp`. Because the failure is
+invisible in the DOM, assert it in a browser check: the header is present, it carries a nonce, the
+inline blocks actually executed, and the console logged no CSP violation.
+
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
 ### PathValidationUtils - File Path Security

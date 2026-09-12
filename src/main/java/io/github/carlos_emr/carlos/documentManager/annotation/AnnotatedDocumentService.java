@@ -1,0 +1,405 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.documentManager.annotation;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.UUID;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Path;
+import java.util.List;
+
+/**
+ * Saves a provider's annotations as a <strong>new</strong> document in the chart.
+ *
+ * <p>The received document is a clinical record and is never modified. Composition runs
+ * against a read-only copy, the result is filed as its own {@code document} row for the
+ * same patient, and the source row and file are left exactly as they were. The new row's
+ * {@code source} column records {@code annotated-copy-of:&lt;sourceDocNo&gt;} so the copy
+ * can be traced back without a schema change.
+ *
+ * <p>Ordering matters here. Authorisation runs first, then the file is composed and
+ * written, and only once bytes are safely on disk is the database row created. A crash
+ * between the two leaves an orphaned file, which is harmless; the reverse order would
+ * leave a row pointing at a file that does not exist, which surfaces to a clinician as a
+ * missing document.
+ *
+ * <p>Because PDFBox parses attacker-controllable input — an inbound fax is whatever the
+ * sender chose to transmit — composition is bounded by {@link #COMPOSE_TIMEOUT_SECONDS}
+ * and the feature is offered only for documents within {@link #MAX_ANNOTATABLE_PAGES}
+ * and {@link #MAX_ANNOTATABLE_BYTES}.
+ *
+ * @since 2026-09
+ */
+public class AnnotatedDocumentService {
+
+    private static final Logger logger = MiscUtils.getLogger();
+
+    /** Hard ceiling on one composition, after which the worker is cancelled. */
+    public static final int COMPOSE_TIMEOUT_SECONDS = 60;
+
+    /** Documents beyond this are viewable and faxable, but not annotatable. */
+    public static final int MAX_ANNOTATABLE_PAGES = 200;
+
+    /** Matches the multipart ceiling used elsewhere in the document module. */
+    public static final long MAX_ANNOTATABLE_BYTES = 50L * 1024 * 1024;
+
+    /** Retries before giving up on a unique destination name; a collision is already rare. */
+    private static final int MAX_FILENAME_ATTEMPTS = 5;
+
+    private static final String SOURCE_PREFIX = "annotated-copy-of:";
+    private static final String ANNOTATED_SUFFIX = " (annotated)";
+    private static final String DOCUMENT_DIR_LABEL = "DOCUMENT_DIR";
+    private static final String SIGNATURE_PREFIX = "consult_sig_";
+
+    /**
+     * Shipped with the eForm assets. DejaVu covers the Latin Extended-A range the
+     * French, Polish and Portuguese locales need; the PDF base-14 fonts do not.
+     */
+    private static final String FONT_RELATIVE_PATH =
+            "library/eforms/dejavufonts/ttf/DejaVuSans.ttf";
+
+    private final SecurityInfoManager securityInfoManager;
+    private final AnnotatedDocumentComposer composer;
+    private final String webappRoot;
+
+    /**
+     * @param webappRoot absolute path of the exploded web application, used to locate the
+     *                   bundled DejaVu font. Supplied by the caller because this class is
+     *                   deliberately free of any servlet dependency.
+     */
+    public AnnotatedDocumentService(SecurityInfoManager securityInfoManager,
+                                    AnnotatedDocumentComposer composer,
+                                    String webappRoot) {
+        this.securityInfoManager = securityInfoManager;
+        this.composer = composer;
+        this.webappRoot = webappRoot;
+    }
+
+    /**
+     * Composes and files the annotated copy.
+     *
+     * @param loggedInInfo the saving provider
+     * @param sourceDocNo  the document being annotated
+     * @param annotations  validated marks from {@link DocumentAnnotationParser}
+     * @return the new document number
+     * @throws SecurityException        if the provider lacks {@code _edoc} write, or access to
+     *                                  the document's patient
+     * @throws IllegalArgumentException if the document is missing, is not a PDF, or is beyond
+     *                                  the annotatable limits
+     * @throws IOException              if composition or the file write fails
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // Sonar S2629: this one governs a logger.info call, not an error. INFO is enabled in every
+    // CARLOS configuration (the filing of an annotated copy is an audit line that must appear),
+    // and LogSafe.sanitize is a cheap CRLF/length guard that is required rather than optional --
+    // gating it behind isInfoEnabled() would make a security control conditional.
+    @SuppressWarnings("java:S2629") // INFO is enabled here; LogSafe.sanitize is required, not optional
+    public int save(LoggedInInfo loggedInInfo, int sourceDocNo,
+                    List<DocumentAnnotationDto> annotations) throws IOException {
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
+        EDoc source = EDocUtil.getDoc(String.valueOf(sourceDocNo));
+        if (source == null || StringUtils.isBlank(source.getFileName())) {
+            throw new IllegalArgumentException("The document could not be found.");
+        }
+
+        // The patient comes from the document's own module link, never from the request.
+        // Trusting a submitted demographic would let a caller pair their own patient's
+        // number with another patient's document.
+        int linkedDemographicNo = DocumentPatientLink.demographicNoOf(source);
+        if (linkedDemographicNo > 0 && !securityInfoManager.isAllowedAccessToPatientRecord(
+                loggedInInfo, linkedDemographicNo)) {
+            throw new SecurityException("Unauthorized access to patient record");
+        }
+        String demographicNo = linkedDemographicNo > 0 ? String.valueOf(linkedDemographicNo) : null;
+
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getDocumentDirectory(), DOCUMENT_DIR_LABEL);
+        File sourceFile = PathValidationUtils.validateExistingPath(
+                new File(documentDir, source.getFileName()), documentDir);
+
+        assertAnnotatable(source, sourceFile);
+
+        Path readOnlyCopy = createPrivateWorkingCopy(sourceFile.toPath());
+        byte[] composed;
+        int actualPageCount;
+        try {
+            actualPageCount = assertPageCountWithinLimit(readOnlyCopy);
+            composed = composeBounded(readOnlyCopy, annotations,
+                    signatureFor(loggedInInfo.getLoggedInProviderNo()), fontPath());
+        } finally {
+            Files.deleteIfExists(readOnlyCopy);
+            // createTempFileFrom allocates a directory per staging; without this the temp root
+            // accumulates one empty directory per annotation save until the purge job runs.
+            Path staged = readOnlyCopy.getParent();
+            if (staged != null) {
+                try {
+                    Files.deleteIfExists(staged);
+                } catch (IOException e) {
+                    logger.warn("Could not remove the annotation staging directory");
+                }
+            }
+        }
+
+        File target = createUniqueTarget(documentDir, composed);
+        String newFileName = target.getName();
+
+        int newDocNo;
+        try {
+            newDocNo = Integer.parseInt(EDocUtil.addDocumentSQL(buildCopy(source, newFileName,
+                    loggedInInfo.getLoggedInProviderNo(), sourceDocNo, actualPageCount)));
+        } catch (RuntimeException e) {
+            // The row is the thing that makes the file reachable; without it the bytes are
+            // unreferenced PHI sitting in the document store.
+            Files.deleteIfExists(target.toPath());
+            throw e;
+        }
+
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT,
+                String.valueOf(newDocNo), null, demographicNo);
+        logger.info("Annotated copy {} filed from document {} by provider {}",
+                newDocNo, sourceDocNo, LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
+
+        return newDocNo;
+    }
+
+    /**
+     * Runs composition under the package's hard deadline. A crafted PDF can drive a parser into
+     * pathological work; without a ceiling that consumes a request thread indefinitely.
+     */
+    private byte[] composeBounded(Path source, List<DocumentAnnotationDto> annotations,
+                                  Path signature, Path font) throws IOException {
+        return BoundedPdfTask.runWithin(COMPOSE_TIMEOUT_SECONDS, "annotated-document-composer",
+                () -> composer.compose(source, annotations, signature, font));
+    }
+
+    /**
+     * Reads a stored document's true page count, bounded like every other parse of untrusted
+     * input.
+     *
+     * <p>Static because the view gate needs the number before it has any reason to build a
+     * composing service; it resolves the file through the same validated document directory
+     * the save path uses.
+     *
+     * @return the page count, or 0 when the row names no file
+     * @throws IOException if the document cannot be opened within the deadline
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public static int pageCountOf(EDoc doc) throws IOException {
+        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
+            return 0;
+        }
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getDocumentDirectory(), DOCUMENT_DIR_LABEL);
+        File file = PathValidationUtils.validateExistingPath(
+                new File(documentDir, doc.getFileName()), documentDir);
+        AnnotatedDocumentComposer probe = new AnnotatedDocumentComposer();
+        return BoundedPdfTask.runWithin(COMPOSE_TIMEOUT_SECONDS, "annotated-document-pagecount",
+                () -> probe.pageCount(file.toPath()));
+    }
+
+    /**
+     * Enforces the page ceiling against the FILE, not against the {@code document} row.
+     *
+     * <p>The row's page count is metadata: legacy rows carry zero and a row can drift from the
+     * file it names, so a check against it can be satisfied by a document that is far longer.
+     * The real count also becomes the copy's own page count, so the new row is not born holding
+     * the same wrong number.
+     *
+     * @return the document's true page count
+     */
+    private int assertPageCountWithinLimit(Path source) throws IOException {
+        int pages = BoundedPdfTask.runWithin(COMPOSE_TIMEOUT_SECONDS, "annotated-document-pagecount",
+                () -> composer.pageCount(source));
+        if (pages > MAX_ANNOTATABLE_PAGES) {
+            throw new IllegalArgumentException(
+                    "Documents longer than " + MAX_ANNOTATABLE_PAGES + " pages cannot be annotated.");
+        }
+        return pages;
+    }
+
+    /**
+     * Writes the composed bytes to a destination no other request can be holding.
+     *
+     * <p>A timestamp alone is not unique: two saves completing in the same millisecond would
+     * pick the same name, and because a plain write truncates an existing file both document
+     * rows would end up pointing at whichever request finished last. On a shared chart that
+     * silently replaces one patient's document with another's. {@link StandardOpenOption#CREATE_NEW}
+     * makes creation atomic, so a collision fails rather than overwrites, and the loop then
+     * takes a fresh name.
+     */
+    private File createUniqueTarget(File documentDir, byte[] composed) throws IOException {
+        for (int attempt = 0; attempt < MAX_FILENAME_ATTEMPTS; attempt++) {
+            String candidate = PathValidationUtils.validateGeneratedFileName(
+                    "document_" + System.currentTimeMillis() + "_"
+                            + UUID.randomUUID().toString().replace("-", "") + "_annotated.pdf");
+            File target = PathValidationUtils.validateGeneratedChildPath(candidate, documentDir);
+            try {
+                Files.write(target.toPath(), composed, StandardOpenOption.CREATE_NEW,
+                        StandardOpenOption.WRITE);
+                return target;
+            } catch (FileAlreadyExistsException collision) {
+                logger.warn("Annotated copy filename collided; retrying with a new name");
+            }
+        }
+        throw new IOException("Could not allocate a filename for the annotated document.");
+    }
+
+    /**
+     * Stages a private working copy of the patient's document for the composition window.
+     *
+     * <p>Delegates to {@link NioFileManager#createTempFileFrom} rather than creating the temp
+     * root here. Deriving {@code <java.io.tmpdir>/carlos-temp} directly and calling
+     * {@code Files.createDirectories} skipped the three guards
+     * {@code NioFileManagerImpl.applicationTempParent()} applies to that same root: 0700
+     * creation, rejection of a leaf symlink, and a NOFOLLOW ownership check. On a host where
+     * nothing had created the root yet, an annotation save was its first creator — at 0755, and
+     * following a pre-planted symlink silently. The confidentiality of the file itself was not
+     * the exposure; the integrity of the directory was, because whoever owns it can substitute
+     * the PDF between the copy and the parse, and the substituted document is what gets composed
+     * and filed into the patient's chart.
+     *
+     * <p>The mode is then tightened explicitly. {@code Files.copy} recreates the destination
+     * with the SOURCE's permissions, so a 0644 source — which
+     * {@link #createUniqueTarget} and {@code EDoc.getFileOutputStream} both produce, making
+     * re-annotation of an annotated copy the ordinary trigger — would otherwise leave a
+     * world-readable copy of a clinical PDF for the length of the composition.
+     */
+    private Path createPrivateWorkingCopy(Path source) throws IOException {
+        Path copy = nioFileManager().createTempFileFrom("carlos-annotate-src.pdf", source);
+        try {
+            Files.setPosixFilePermissions(copy, PosixFilePermissions.fromString("rw-------"));
+        } catch (UnsupportedOperationException notPosix) {
+            // Non-POSIX filesystem: the hardened parent directory is the remaining control.
+            logger.debug("Filesystem does not support POSIX permissions on the staging copy");
+        }
+        return copy;
+    }
+
+    private NioFileManager nioFileManager() {
+        return SpringUtils.getBean(NioFileManager.class);
+    }
+
+    // IMPROPER_UNICODE: case-insensitive comparison of the stored content type against "application/pdf", an ASCII protocol/domain
+    // constant. String.equalsIgnoreCase is locale-independent, and the detector fires on the
+    // call shape regardless of Locale, so it cannot be cleared in code.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ASCII protocol/domain constant; equalsIgnoreCase is locale-independent")
+    private void assertAnnotatable(EDoc source, File sourceFile) {
+        if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(source.getContentType()))) {
+            throw new IllegalArgumentException("Only PDF documents can be annotated.");
+        }
+        // No page check here on purpose: the stored count is metadata and cannot be trusted to
+        // bound work. assertPageCountWithinLimit reads the file itself, under a deadline.
+        if (sourceFile.length() > MAX_ANNOTATABLE_BYTES) {
+            throw new IllegalArgumentException("This document is too large to annotate.");
+        }
+    }
+
+    /**
+     * Copies the filing attributes of the source so the annotated version lands in the same
+     * place in the chart. The observation date is carried over deliberately: the clinical
+     * date of the underlying report has not changed just because a provider marked it up.
+     * Review state is left clear, so the copy does not inherit a sign-off it never received.
+     */
+    private EDoc buildCopy(EDoc source, String fileName, String providerNo, int sourceDocNo, int pageCount) {
+        EDoc copy = new EDoc();
+        copy.setFileName(fileName);
+        copy.setDescription(StringUtils.trimToEmpty(source.getDescription()) + ANNOTATED_SUFFIX);
+        copy.setType(source.getType());
+        copy.setDocClass(source.getDocClass());
+        copy.setDocSubClass(source.getDocSubClass());
+        copy.setContentType("application/pdf");
+        copy.setCreatorId(providerNo);
+        copy.setResponsibleId(source.getResponsibleId());
+        copy.setSource(SOURCE_PREFIX + sourceDocNo);
+        copy.setSourceFacility(source.getSourceFacility());
+        copy.setProgramId(source.getProgramId());
+        copy.setStatus('A');
+        copy.setDocPublic(source.getDocPublic());
+        copy.setObservationDate(source.getObservationDate());
+        // The count read from the file, not the source row's, which may be stale or zero.
+        copy.setNumberOfPages(pageCount);
+        copy.setModule(source.getModule());
+        copy.setModuleId(source.getModuleId());
+        copy.setContentDateTime(new java.util.Date());
+        copy.setDateTimeStampAsDate(new java.util.Date());
+        return copy;
+    }
+
+    /**
+     * @return the provider's stored stamp, or {@code null} when they have not set one.
+     *         A null is only an error if the model actually contains a signature mark,
+     *         which the composer decides.
+     */
+    private Path signatureFor(String providerNo) {
+        try {
+            File imageDir = PathValidationUtils.resolveConfiguredDirectory(
+                    CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGE_DIR");
+            File stamp = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName(
+                            SIGNATURE_PREFIX + providerNo + ".png"), imageDir);
+            return stamp.isFile() ? stamp.toPath() : null;
+        } catch (RuntimeException e) {
+            logger.warn("Signature stamp directory could not be resolved for the annotation composer");
+            return null;
+        }
+    }
+
+    // PATH_TRAVERSAL_IN: unlike save() and pageCountOf(), this method calls no validator and does
+    // not need one -- both components are application-controlled (the ServletContext real path and
+    // a compile-time constant), so no request data reaches the path. Saying "validated via
+    // PathValidationUtils" here, as this justification previously did, described code that does
+    // not exist.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path is built from the servlet context root and a compile-time constant; no request data reaches it")
+    private Path fontPath() {
+        if (StringUtils.isBlank(webappRoot)) {
+            return null;
+        }
+        Path font = new File(webappRoot, FONT_RELATIVE_PATH).toPath();
+        return Files.isReadable(font) ? font : null;
+    }
+}

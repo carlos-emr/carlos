@@ -217,6 +217,9 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- schedule ---
             Arguments.of("io.github.carlos_emr.carlos.schedule.web.ScheduleDateSave2Action",
                     "_appointment", "w"),
+            // --- document manager ---
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
+                    "_edoc", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
@@ -332,6 +335,12 @@ class MutatorActionGetRejectionContractUnitTest {
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
+        // Opens the annotation viewer. Requires _edoc write because reaching it is the
+        // first step of authoring a new document, but it only renders a page; the
+        // mutation lives in SaveAnnotatedDocument2Action.
+        "io.github.carlos_emr.carlos.documentManager.actions.AnnotateDocument2Action",
+        // Returns word bounding boxes for snap-to-text highlighting. Read-only.
+        "io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action",
         "io.github.carlos_emr.carlos.report.gate.ViewReport2Action"
     );
 

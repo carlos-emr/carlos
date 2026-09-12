@@ -119,6 +119,23 @@
             <result name="nextIncomingDoc">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
             <result name="error">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
+        <!-- Fax a stored document as it is. Redirects into the shared fax pipeline
+             (Fax2Action prepareFax), which stages its own copy; this action never
+             hands a document-store path to the browser. -->
+        <action name="documentManager/FaxDocument" class="io.github.carlos_emr.carlos.documentManager.actions.FaxDocument2Action">
+            <result name="noFax">/WEB-INF/jsp/documentManager/faxNotAvailable.jsp</result>
+        </action>
+        <!-- Annotation viewer gate (GET, _edoc w). The page renders server-produced
+             page images; no PDF bytes are ever sent to the browser. -->
+        <action name="documentManager/AnnotateDocument" class="io.github.carlos_emr.carlos.documentManager.actions.AnnotateDocument2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/annotateDocument.jsp</result>
+            <result name="noAnnotate">/WEB-INF/jsp/documentManager/faxNotAvailable.jsp</result>
+        </action>
+        <!-- Word boxes for snap-to-text highlighting (GET, _edoc r). Writes JSON directly. -->
+        <action name="documentManager/DocumentTextBoxes" class="io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action"/>
+        <!-- Receives the annotation model as JSON and files the composed result as a NEW
+             document (POST, _edoc w). The source document is never modified. -->
+        <action name="documentManager/SaveAnnotatedDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action"/>
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
             <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>
         </action>

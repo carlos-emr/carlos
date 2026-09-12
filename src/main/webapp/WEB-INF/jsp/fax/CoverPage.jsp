@@ -1,4 +1,3 @@
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -36,7 +35,8 @@
     Purpose:
       Renders the "compose fax" screen shown before an eForm (and any attachments) is queued for
       faxing. The user reviews the assembled document, sets the recipient/cover-page details, and
-      submits the job.
+      submits the job. Also reached from the document fax flow: FaxAnnotateViewer.jsp navigates
+      the browser (GET) to FaxDocument?faxReady=true, whose Struts action forwards here.
 
     Access control:
       Requires the _fax READ security object. The gate scriptlet redirects to
@@ -55,12 +55,14 @@
       demographicNo - patient the fax relates to
       letterheadFax - clinic/sender fax number used to select and prefill the sending fax account
       fax           - recipient fax number prefilled into the form
+      docId         - document number when arriving from the document fax flow
 
     @since 2014-08-29
 --%>
 
 <!DOCTYPE html>
 
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -85,20 +87,33 @@
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <title>CARLOS Fax</title>
+    <fmt:setBundle basename="oscarResources"/>
+<%-- Attribute-context localized strings are resolved into variables here and rendered below
+     through carlos:forHtmlAttribute. fmt:message writes the bundle value raw, so a future
+     translation containing a quote would break out of the attribute it sits in. The bundles are
+     developer-controlled, so this is hardening rather than a live XSS, but the encoder is what
+     keeps it that way. --%>
+<fmt:message key="coverPage.ph.nameSearch" var="phNameSearch"/>
+<fmt:message key="coverPage.ph.faxNumber" var="phFaxNumber"/>
+<fmt:message key="coverPage.btn.addRecipient" var="btnAddRecipient"/>
+<fmt:message key="coverPage.btn.close" var="btnClose"/>
+
+    <title><fmt:message key="coverPage.title"/></title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet" type="text/css"/>
+    <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css" type="text/css"/>
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate-1.21.0.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/js/faxRecipientAutocomplete.js"></script>
 
     <script type="text/javascript">
 
-        top.window.resizeTo("800", "850");
+        top.window.resizeTo("1050", "850");
 
         // Action to remove additional recipients from the form.
         function removeRecipient(element) {
@@ -144,7 +159,7 @@
             width: auto \9;
         }
 
-        #additionalRecipientControlPanel, #form-control-buttons {
+        #form-control-buttons {
             margin-bottom: 15px;
         }
 
@@ -230,7 +245,7 @@
 
             <table id="oscarFaxHeader">
                 <tr>
-                    <td id="oscarFaxHeaderLeftColumn"><h1>CARLOS Fax</h1></td>
+                    <td id="oscarFaxHeaderLeftColumn"><h1><fmt:message key="coverPage.title"/></h1></td>
 
                     <td id="oscarFaxHeaderCenterColumn"><carlos:encode value='${ transactionType }' context="forHtml"/></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>
@@ -259,7 +274,7 @@
 				<input type="hidden" name="transactionId" value="<carlos:encode value='${ not empty reqId ? reqId : transactionId }' context="htmlAttribute"/>" />
 				<input type="hidden" name="transactionType" value="<carlos:encode value='${ transactionType }' context="htmlAttribute"/>" />
 				<input type="hidden" name="demographicNo" value="<carlos:encode value='${ not empty demographicNo ? demographicNo : param.demographicNo }' context="htmlAttribute"/>" />
-		  		<input type="hidden" name="faxFilePath" value="<carlos:encode value='${ faxFilePath }' context="htmlAttribute"/>" />
+				<input type="hidden" name="faxFilePath" value="<carlos:encode value='${ faxFilePath }' context="htmlAttribute"/>" />
 		  		
 		  		<%-- to be removed soon below --%>
 		  		<input type="hidden" name="documents" value="<carlos:encode value='${ documents }' context="htmlAttribute"/>" />
@@ -267,13 +282,13 @@
 							
 				<div class="card">
 				  	<div class="card-header">
-						<h3 class="card-title">From</h3>
+						<h3 class="card-title"><fmt:message key="coverPage.card.from"/></h3>
 					</div>
 					<div class="card-body">
 						<div class="container">
-							<div class="row">	
-							<div class="col-sm-12">				
-							  <label for="senderFaxAccount">Fax account</label>
+							<div class="row">
+							<div class="col-sm-12 mb-3">
+							  <label for="senderFaxAccount"><fmt:message key="coverPage.lbl.faxAccount"/></label>
 							  <select class="form-select" name="senderFaxNumber"  id="senderFaxAccount">
 									<c:forEach items="${ requestScope.accounts }" var="account">
 							    		<option value="<carlos:encode value='${ account.faxNumber }' context="htmlAttribute"/>" ${ account.id eq requestScope.faxAccount or account.faxNumber eq param.letterheadFax ? 'selected' : '' } >
@@ -309,20 +324,21 @@
 				
 				<div class="card">
 				  	<div class="card-header">
-						<h3 class="card-title">To</h3>
+						<h3 class="card-title"><fmt:message key="coverPage.card.to"/></h3>
 					</div>
 				  	<div class="card-body">
 						<div class="container">
-						  	<div class="row" id="fax-recipients">	
-								<div class="col-sm-6 mb-3">
-									<label for="searchProfessionalSpecialist_name">Name</label>
-								 	<input class="autocomplete form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
-								 		id="searchProfessionalSpecialist_name" placeholder="Search: last, first" required/>
-								 </div>	
-								 <div class="col-sm-6 mb-3">
-									<label for="searchProfessionalSpecialist_fax">Fax</label>
+						  	<div class="row" id="fax-recipients">
+								<div class="col-sm-8 mb-3" style="position:relative;">
+									<label for="searchProfessionalSpecialist_name"><fmt:message key="coverPage.lbl.name"/></label>
+								 	<input class="form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
+								 		id="searchProfessionalSpecialist_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" required autocomplete="off"/>
+								 	<div id="faxRecipientDropdown" class="fax-ac-dropdown"></div>
+								 </div>
+								 <div class="col-sm-4 mb-3">
+									<label for="searchProfessionalSpecialist_fax"><fmt:message key="coverPage.lbl.fax"/></label>
 									<input class="form-control" type="text" name="recipientFaxNumber" value="<carlos:encode value='${ not empty fax ? fax : param.fax }' context="htmlAttribute"/>"
-										id="searchProfessionalSpecialist_fax" placeholder="xxx-xxx-xxxx"  required/>
+										id="searchProfessionalSpecialist_fax" placeholder="${carlos:forHtmlAttribute(phFaxNumber)}" required/>
 								</div>
 							</div>
 						</div>
@@ -331,26 +347,27 @@
 		
 				<div class="card">
 				  	<div class="card-header">
-						<h3 class="card-title">Copy(s) to</h3>
+						<h3 class="card-title"><fmt:message key="coverPage.card.copies"/></h3>
 					</div>
 				  	<div class="card-body">
 				  		<div class="container" id="fax-additional-recipients" >
-	
-				  			<div class="row" id="additionalRecipientControlPanel">			  			
-				  				<div class="col-sm-5 mb-3">
-						  			<label for="additionalRecipient_name" >Name</label>
-								 	<input class="autocomplete form-control" type="text" value=""  
-								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="Search: last, first"  />
+
+				  			<div class="row" id="additionalRecipientControlPanel">
+				  				<div class="col-sm-7 mb-3" style="position:relative;">
+						  			<label for="additionalRecipient_name"><fmt:message key="coverPage.lbl.name"/></label>
+								 	<input class="form-control" type="text" value=""
+								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" autocomplete="off"/>
+								 	<div id="faxCcDropdown" class="fax-ac-dropdown"></div>
 								</div>
-									<div class="col-sm-5 mb-3">	
-								 	<label for="additionalRecipient_fax">Fax</label>
-								 	<input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""  
-								 		id="additionalRecipient_fax" placeholder="xxx-xxx-xxxx"  />
+									<div class="col-sm-3 mb-3">
+								 	<label for="additionalRecipient_fax"><fmt:message key="coverPage.lbl.fax"/></label>
+								 	<input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""
+								 		id="additionalRecipient_fax" placeholder="${carlos:forHtmlAttribute(phFaxNumber)}"/>
 								</div>
 								<div class="col-sm-2 mb-3">
 									<label for="additionalRecipient_fax_btn">&nbsp;</label>
-							        <button class="btn btn-primary" id="additionalRecipient_fax_btn" title="Add recipient to list" type="button">
-							        	<span class="fa-solid fa-plus"></span>
+							        <button class="btn btn-primary" id="additionalRecipient_fax_btn" title="${carlos:forHtmlAttribute(btnAddRecipient)}" type="button">
+							        	<i class="fa-solid fa-plus"></i>
 							        </button>
 							   </div>
 						 	</div>
@@ -363,7 +380,7 @@
 								  				<label></label>
 											      <input type="text" class="form-control" value="<carlos:encode value='${ recipient.name }' context="htmlAttribute"/> <carlos:encode value='${ recipient.fax }' context="htmlAttribute"/>" disabled/>
 											      <button class="btn btn-danger" type="button">
-											        <span class="fa-solid fa-xmark"></span>
+											        <i class="fa-solid fa-xmark"></i>
 											      </button>
 	                                    </div>
 	                                    <input type="hidden" name="copyToRecipients"
@@ -382,7 +399,7 @@
                 <c:if test="${ not empty documents and transactionType eq 'CONSULTATION' }">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">Attachments</h3>
+                            <h3 class="card-title"><fmt:message key="coverPage.card.attachments"/></h3>
                         </div>
                         <div class="card-body">
                             <div class="container">
@@ -401,7 +418,7 @@
 
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Cover page</h3>
+                        <h3 class="card-title"><fmt:message key="coverPage.card.coverPage"/></h3>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -410,19 +427,19 @@
                                     <div class="form-check form-check-inline">
                                         <input class="form-check-input" type="radio" name="coverpage" id="coverpageyes" value="true"
                                                onchange="document.getElementById('comments_container').style.display = 'block';"/>
-                                        <label class="form-check-label" for="coverpageyes">Yes</label>
+                                        <label class="form-check-label" for="coverpageyes"><fmt:message key="coverPage.lbl.yes"/></label>
                                     </div>
                                     <div class="form-check form-check-inline">
                                         <input class="form-check-input" type="radio" checked="checked" name="coverpage" id="coverpageno"
                                                value="false"
                                                onchange="document.getElementById('comments_container').style.display = 'none';"/>
-                                        <label class="form-check-label" for="coverpageno">No</label>
+                                        <label class="form-check-label" for="coverpageno"><fmt:message key="coverPage.lbl.no"/></label>
                                     </div>
                                 </div>
                             </div>
                             <div class="row" id="comments_container" style="display:none;">
                                 <div class="col-sm-12">
-                                    <label for="commentsTextArea">Comments</label>
+                                    <label for="commentsTextArea"><fmt:message key="coverPage.lbl.comments"/></label>
                                     <textarea class="form-control" name="comments" id="commentsTextArea"
                                               rows="5"><%= CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "") %></textarea>
                                 </div>
@@ -435,14 +452,14 @@
                         <div class="col-sm-12">
                             <input type="hidden" id="submitMethod" name="method" value="queue"/>
                             <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send">
-                                <span class="btn-label"><i class="fa-solid fa-paper-plane"></i></span>
-                                Send
+                                <i class="fa-solid fa-paper-plane"></i>
+                                <fmt:message key="coverPage.btn.send"/>
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel" type="submit"
                                     class="btn btn-danger btn-md float-end" value="Cancel"
                                     onclick="document.getElementById('submitMethod').value = 'cancel'">
-                                <span class="btn-label"><i class="fa-solid fa-circle-xmark"></i></span>
-                                Cancel
+                                <i class="fa-solid fa-circle-xmark"></i>
+                                <fmt:message key="coverPage.btn.cancel"/>
                             </button>
                         </div>
                     </div>
@@ -452,7 +469,7 @@
             <c:if test="${ transactionType ne 'CONSULTATION' and (empty faxSuccessful or not faxSuccessful) }">
                 <div class="card" id="preview-panel">
                     <div class="card-header">
-                        <h3 class="card-title">Preview</h3>
+                        <h3 class="card-title"><fmt:message key="coverPage.card.preview"/></h3>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -476,17 +493,25 @@
                 <c:choose>
                     <c:when test="${ faxJob.status eq 'ERROR' }">
                         <div class="alert alert-danger" role="alert">
-                            Failed to add fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)} ${carlos:forHtml(faxJob.status)}: ${carlos:forHtml(faxJob.statusString)}
+                            <fmt:message key="coverPage.msg.faxError">
+                                <fmt:param value="${carlos:forHtml(faxJob.recipient)}"/>
+                                <fmt:param value="${carlos:forHtml(faxJob.destination)}"/>
+                                <fmt:param value="${carlos:forHtml(faxJob.status)}"/>
+                                <fmt:param value="${carlos:forHtml(faxJob.statusString)}"/>
+                            </fmt:message>
                         </div>
                     </c:when>
                     <c:otherwise>
                         <div class="alert alert-success" role="alert">
-                            Successfully added fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)}
+                            <fmt:message key="coverPage.msg.faxSuccess">
+                                <fmt:param value="${carlos:forHtml(faxJob.recipient)}"/>
+                                <fmt:param value="${carlos:forHtml(faxJob.destination)}"/>
+                            </fmt:message>
                         </div>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
-            <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
+            <input type="button" class="btn btn-danger btn-md float-end" value="${carlos:forHtmlAttribute(btnClose)}" onclick="window.close();"/>
         </c:if>
 
         <%-- cancel() no longer redirects (and silently discards the message) when
@@ -626,44 +651,23 @@
         }
 
         /*
-        * Auto complete methods.
+        * Fax recipient autocomplete (pharmacy + specialist) for the primary To field.
         */
-        $("#fax-additional-recipients .autocomplete, #fax-recipients .autocomplete").autocomplete({
-            source: function (request, response) {
-                var url = ctx + "/demographic/Contact?method=searchAllContacts&searchMode=search_name&orderBy=c.lastName,c.firstName";
-                jQuery.ajax({
-                    url: url,
-                    type: "GET",
-                    dataType: "json",
-                    data: {
-                        term: request.term
-                    },
-                    contentType: "application/json",
-                    success: function (data) {
-                        response(jQuery.map(data, function (item) {
-                            return {
-                                label: item.lastName + ", "
-                                    + item.firstName + " :: "
-                                    + item.residencePhone
-                                    + " :: " + item.address
-                                    + " " + item.city,
-                                value: item.id,
-                                contact: item
-                            }
-                        }));
-                    }
-                });
-            },
-            minLength: 2,
-            focus: function (event, ui) {
-                event.preventDefault();
-                return false;
-            },
-            select: function (event, ui) {
-                event.preventDefault();
-                $("#" + this.id).val(ui.item.contact.lastName + ", " + ui.item.contact.firstName);
-                $("#" + this.id.split("_")[0] + "_fax").val(ui.item.contact.fax);
-            }
+        setupFaxRecipientAutocomplete({
+            contextPath: ctx,
+            nameInputId: 'searchProfessionalSpecialist_name',
+            faxInputId:  'searchProfessionalSpecialist_fax',
+            dropdownId:  'faxRecipientDropdown'
+        });
+
+        /*
+        * Fax recipient autocomplete for the CC field.
+        */
+        setupFaxRecipientAutocomplete({
+            contextPath: ctx,
+            nameInputId: 'additionalRecipient_name',
+            faxInputId:  'additionalRecipient_fax',
+            dropdownId:  'faxCcDropdown'
         });
 
         /*
