@@ -100,13 +100,14 @@ override_dh_auto_configure:
 	mkdir -p $(BUILDDIR) $(MVN_REPO)
 
 override_dh_auto_build:
+	# Clean source builds so stale versioned WARs cannot make the output glob ambiguous.
 	set -e; \
 	if [ -n "$$CARLOS_WAR" ]; then \
 	  echo "using prebuilt CARLOS WAR: $$CARLOS_WAR"; \
 	  cp -f "$$CARLOS_WAR" $(BUILDDIR)/carlos.war; \
 	else \
 	  JOB_NAME=carlos-emr-deb BUILD_NUMBER="$$(dpkg-parsechangelog -SVersion)" \
-	    $(MVN) $(MVN_FLAGS) package; \
+	    $(MVN) $(MVN_FLAGS) clean package; \
 	  cp -f target/carlos-*.war $(BUILDDIR)/carlos.war; \
 	fi
 	# The Flyway migration runner: a ~100-line launcher compiled against the
