@@ -45,7 +45,9 @@ messenger and patient email, appointment reasons and notes, master-record
 notes and alerts, billing comments, fax cover comments, program notes) found
 all 67 of them answering 403 on the same three shapes, and a consultation
 request save and a tickler add reproduced it in the browser. Exclusions
-1100-1142 close them per argument. `tickler-crud-playwright-checks.js` now
+1100-1142 close them per argument (73 arguments across 43 rules once the
+per-route table and the provider template body are counted; the regression
+test pins the table). `tickler-crud-playwright-checks.js` now
 types that scoring text too. Fields whose parameter names are generated per
 row (measurement `comments-<n>`, manual lab `test_<n>.labnotes`, contact
 `contact_<n>.note`, waiting-list `waitingListBean[<n>].note`) cannot be literal
@@ -617,11 +619,17 @@ Notes on the contract:
   phrase measured to trip a different CRS family, the pasted-PACS-link body
   included now that 1010 also unhooks attack-rfi; against bare Tomcat they are
   just ordinary notes and the check degrades to covering the print path itself.
-  It types into the open encounter note but never saves it, so it seeds nothing
-  and cleans nothing up. Run it on a **loopback** `BASE_URL`: like
-  `billing-on-third-party`, it relaxes certificate verification only for
-  loopback, so a host opted in with `ALLOW_NON_LOCAL_BASE_URL` must present a
-  certificate the browser trusts. Driving fifteen prints through one open encounter
+  It types into the open encounter note but never saves it as a note; the
+  chart's own 5-second draft autosave still posts what it typed as the
+  patient's draft, so the check reads the note before its first print and, when
+  the prints are done, puts that text back and either writes it back over the
+  draft (a clinician's restored draft) or deletes the draft through the page's
+  cancel path (a fresh note). Because of that write, its `BASE_URL` guard is
+  the same as the free-text check's: loopback only unless
+  `ALLOW_NON_LOCAL_BASE_URL=true`, a non-loopback target must be HTTPS, and
+  like `billing-on-third-party` it relaxes certificate verification only for
+  loopback, so an opted-in host must present a certificate the browser trusts.
+  Driving fifteen prints through one open encounter
   outlives the note lock, so the eChart's own autosave answering 409 partway
   through is expected and tolerated; a 403 from any of them is not.
 - **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
@@ -640,7 +648,9 @@ Notes on the contract:
   contain rather than the operator's. Its `BASE_URL` guard admits only loopback
   and refuses anything else — a private LAN address, `host.docker.internal` and
   the compose name `carlos` included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is
-  set deliberately; but loopback bounds the host, not the data, and a local
+  set deliberately, and even then a plain-http target is refused because the
+  login would send credentials in cleartext; but loopback bounds the host, not
+  the data, and a local
   install can hold real patient records. So before its first write it opens the
   master record of `CLINICAL_DEMOGRAPHIC_NO` (default 1) and refuses to run
   unless the first or last name carries the synthetic-data prefix the demo

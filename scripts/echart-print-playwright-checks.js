@@ -34,7 +34,17 @@
  *   TEST_PIN=2026
  *   ECHART_DEMOGRAPHIC_NO=1
  *   ECHART_PROVIDER_NO=999998
- *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not
+ *     loopback — the chart's draft autosave writes what this check types, so a
+ *     private LAN address, host.docker.internal and the compose name `carlos`
+ *     all need the opt-in too, and a non-loopback target must be HTTPS
+ *
+ * What it writes. Nothing is saved as a note, but the eChart's own 5s draft
+ * autosave posts whatever is in the textarea, so the corpus phrases land in the
+ * patient's draft (casemgmt_tmpsave) while the prints run. The check reads the
+ * note before its first print and, when the prints are done, puts that text back
+ * and either writes it back over the draft (a clinician's restored draft) or
+ * deletes the draft through the page's own cancel path (a fresh note).
  */
 
 const { chromium } = require('playwright');
@@ -92,28 +102,34 @@ function validateBaseUrl(rawBaseUrl) {
     throw new Error('BASE_URL must not contain embedded credentials');
   }
 
+  // Loopback only without the opt-in. This check is not read-only: the eChart's
+  // draft autosave posts whatever it types into the note as the patient's draft
+  // (casemgmt_tmpsave), so a shared install on a private LAN, host.docker.internal
+  // and the compose name `carlos` all need ALLOW_NON_LOCAL_BASE_URL=true like any
+  // other remote host, the same line clinical-freetext-playwright-checks.js draws.
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  if (!localHosts.has(host) && !isPrivateIpv4(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  if (!isLoopback(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional, disposable test target`);
+  }
+  // The login sends TEST_USER and TEST_PASSWORD. Off this machine that has to be
+  // over TLS; the opt-in above covers the target, not a cleartext hop to it.
+  if (!isLoopback(host) && parsed.protocol !== 'https:') {
+    throw new Error(`Refusing plain-http BASE_URL to non-loopback host ${host}: the login would send credentials in cleartext`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
 }
 
 /**
- * A private address has to be a real four-octet IPv4 literal. Matching a numeric
- * prefix instead would admit a DNS name like `10.attacker.example`, which is a
- * remote host this check would then log in to.
+ * Loopback only: localhost, any 127.0.0.0/8 literal (four real octets, so a DNS
+ * name like `127.attacker.example` does not pass), ::1 in either spelling, 0.0.0.0.
  */
-function isPrivateIpv4(host) {
+function isLoopback(host) {
+  if (['localhost', '::1', '0:0:0:0:0:0:0:1', '0.0.0.0'].includes(host)) return true;
   const octets = host.split('.');
-  if (octets.length !== 4) return false;
-  if (!octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)) return false;
-  const [first, second] = octets.map(Number);
-  return first === 10
-    || (first === 192 && second === 168)
-    || (first === 172 && second >= 16 && second <= 31);
+  return octets.length === 4
+    && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+    && Number(octets[0]) === 127;
 }
 
 function requireDigits(value, name) {
@@ -210,6 +226,80 @@ async function openEchart(page) {
 }
 
 /**
+ * True when the response answers a POST to the note route whose form body carries
+ * `method=<name>`; the method travels in the body on every call this check watches.
+ */
+function isCaseManagementEntryPost(response, method) {
+  const request = response.request();
+  if (request.method() !== 'POST') return false;
+  if (!new URL(response.url()).pathname.endsWith('/CaseManagementEntry')) return false;
+  return new URLSearchParams(request.postData() || '').getAll('method').includes(method);
+}
+
+// A fresh encounter note opens with only its generated header, "[12-Sep-2026 .:
+// Tel-Progress Note]" and a newline. A note holding nothing but that header is
+// nobody's unsaved work; anything beyond it may be a clinician's restored draft.
+const GENERATED_NOTE_HEADER_ONLY = /^\s*\[\d{2}-[A-Za-z]{3}-\d{4} \.: [^\]]*\]\s*$/;
+
+function holdsClinicianText(noteText) {
+  return noteText.trim() !== '' && !GENERATED_NOTE_HEADER_ONLY.test(noteText);
+}
+
+/** Reads the encounter note textarea's current value, or null when the page has none. */
+async function readNoteText(page) {
+  return page.evaluate(() => {
+    const textareas = document.getElementsByName('caseNote_note');
+    return textareas.length ? textareas[0].value : null;
+  });
+}
+
+/**
+ * Undoes what the run's typing left in the patient's draft.
+ *
+ * This check never saves a note, but it does not need to: the chart's 5s draft
+ * autosave posts the textarea whenever it differs from what the chart loaded, so
+ * the corpus phrases land in casemgmt_tmpsave and edit() would hand them to the
+ * next reader of this chart as their own unsaved note. Put the original text back
+ * first. Then, if that original was a clinician's restored draft, write it back
+ * over ours with the page's own autoSave(); if it was only the generated header,
+ * no draft existed before this run, so the page's own cancel path deletes ours.
+ * The same split, and the same page functions, as echart-playwright-checks.js.
+ */
+async function cleanUpNoteDraft(page, originalNote) {
+  await page.evaluate((text) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the argument is the value this script read out of the same textarea; it is assigned to .value, never used to build a URL or a request target
+    const textareas = document.getElementsByName('caseNote_note');
+    if (!textareas.length) throw new Error('encounter note textarea is no longer on the page');
+    textareas[0].value = text;
+  }, originalNote);
+  if (holdsClinicianText(originalNote)) {
+    const saved = page.waitForResponse((response) => isCaseManagementEntryPost(response, 'autosave'), { timeout: 15000 });
+    await page.evaluate(() => {
+      if (typeof autoSave !== 'function') throw new Error('autoSave() is not defined on the chart page');
+      autoSave();
+    });
+    const response = await saved;
+    // 409 is the note lock this long run outlives (see isExpectedNoteLockConflict);
+    // a locked draft is not overwritten by us either, so it is not a cleanup failure.
+    assert(response.ok() || response.status() === 409,
+      `re-saving the original note draft failed with HTTP ${response.status()}`);
+    return response.status() === 409 ? 'original draft left as the lock holder saved it' : 'original draft written back';
+  }
+  const cancelled = page.waitForResponse((response) => isCaseManagementEntryPost(response, 'cancel'), { timeout: 15000 });
+  await page.evaluate(() => {
+    if (typeof clearAutoSaveTimer !== 'function' || typeof deleteAutoSave !== 'function') {
+      throw new Error('clearAutoSaveTimer()/deleteAutoSave() are not defined on the chart page');
+    }
+    // deleteAutoSave() only posts the cancel; clearAutoSaveTimer() stops the 5s
+    // timer and aborts an autosave on the wire, so nothing lands after the delete.
+    clearAutoSaveTimer();
+    deleteAutoSave();
+  });
+  const response = await cancelled;
+  assert(response.ok(), `discarding the run's note draft failed with HTTP ${response.status()}`);
+  return "run's draft discarded";
+}
+
+/**
  * Types the note body, opens the print dialog with the given selection, presses
  * Print, and returns the print POST's response.
  *
@@ -255,16 +345,23 @@ async function printChart(page, noteText, flags) {
   // install serves its own self-signed cert. A target opted in with
   // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
   // check logs in with real credentials. Same contract as
-  // billing-on-third-party and allergy-rx-alert.
-  const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  // billing-on-third-party and allergy-rx-alert, and the same loopback test as
+  // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
   const context = await browser.newContext({
-    ignoreHTTPSErrors: loopback.has(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
     acceptDownloads: true,
   });
 
   try {
     const page = await login(context);
     await openEchart(page);
+
+    // What the note held before this run typed into it: a clinician's restored
+    // draft, or just the generated header. Read once, before the first print.
+    const originalNote = await readNoteText(page);
+    assert(originalNote !== null, 'the eChart opened without its encounter note textarea');
+    let cleanupOutcome = null;
+    let cleanupFailure = null;
 
     // A successful chart print is a download, so the page stays put and the next
     // case can reuse it. A REJECTED one is a navigation to the rejecter's error
@@ -274,25 +371,36 @@ async function printChart(page, noteText, flags) {
     // names which of the two dimensions broke.
     let printsRemainUseful = true;
 
-    for (const note of NOTE_BODIES) {
-      if (!printsRemainUseful) break;
-      const response = await printChart(page, note.text, []);
-      printResults.push({
-        dimension: 'note body', label: note.label, crs: note.crs,
-        status: response.status(), contentType: response.headers()['content-type'] || '',
-      });
-      printsRemainUseful = response.status() === 200;
-    }
+    try {
+      for (const note of NOTE_BODIES) {
+        if (!printsRemainUseful) break;
+        const response = await printChart(page, note.text, []);
+        printResults.push({
+          dimension: 'note body', label: note.label, crs: note.crs,
+          status: response.status(), contentType: response.headers()['content-type'] || '',
+        });
+        printsRemainUseful = response.status() === 200;
+      }
 
-    const worstCaseNote = NOTE_BODIES.find((note) => note.label === 'sentence semicolon').text;
-    for (const selection of PRINT_SELECTIONS) {
-      if (!printsRemainUseful) break;
-      const response = await printChart(page, worstCaseNote, selection.flags);
-      printResults.push({
-        dimension: 'selection', label: selection.label, crs: 'n/a',
-        status: response.status(), contentType: response.headers()['content-type'] || '',
-      });
-      printsRemainUseful = response.status() === 200;
+      const worstCaseNote = NOTE_BODIES.find((note) => note.label === 'sentence semicolon').text;
+      for (const selection of PRINT_SELECTIONS) {
+        if (!printsRemainUseful) break;
+        const response = await printChart(page, worstCaseNote, selection.flags);
+        printResults.push({
+          dimension: 'selection', label: selection.label, crs: 'n/a',
+          status: response.status(), contentType: response.headers()['content-type'] || '',
+        });
+        printsRemainUseful = response.status() === 200;
+      }
+    } finally {
+      // Whatever the prints did, do not leave the run's phrases as the patient's
+      // draft. A rejected print has navigated the page away, so this can fail too;
+      // record it and let the print failure below stay the headline.
+      try {
+        cleanupOutcome = await cleanUpNoteDraft(page, originalNote);
+      } catch (error) {
+        cleanupFailure = error;
+      }
     }
 
     const blocked = printResults.filter((result) => result.status === 403);
@@ -327,8 +435,11 @@ async function printChart(page, noteText, flags) {
 
     assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${JSON.stringify(badResponses, null, 2)}`);
 
+    assert(cleanupFailure === null,
+      `every print passed, but the note draft this run left behind could not be cleaned up: ${cleanupFailure && cleanupFailure.message}`);
+
     console.log(`PASS chart print returned a PDF for ${NOTE_BODIES.length} note bodies `
-      + `and ${PRINT_SELECTIONS.length} print selections`);
+      + `and ${PRINT_SELECTIONS.length} print selections; ${cleanupOutcome}`);
   } finally {
     await browser.close();
   }

@@ -128,6 +128,11 @@ function validateBaseUrl(rawBaseUrl) {
     throw new Error(`Refusing non-local BASE_URL host ${host}: this check overwrites clinical free text and files `
       + 'consultation requests. Set ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test install');
   }
+  // The login sends TEST_USER and TEST_PASSWORD. Off this machine that has to be
+  // over TLS; the opt-in above covers the target, not a cleartext hop to it.
+  if (!isLoopback(host) && parsed.protocol !== 'https:') {
+    throw new Error(`Refusing plain-http BASE_URL to non-loopback host ${host}: the login would send credentials in cleartext`);
+  }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
 }
@@ -445,10 +450,10 @@ async function runWorkflow(context, workflow) {
   // install serves its own self-signed cert. A target opted in with
   // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
   // check logs in with real credentials. Same contract as
-  // billing-on-third-party and allergy-rx-alert.
-  const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  // billing-on-third-party and allergy-rx-alert, and the same loopback test as
+  // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
   const context = await browser.newContext({
-    ignoreHTTPSErrors: loopback.has(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
     acceptDownloads: true,
   });
 
