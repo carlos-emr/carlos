@@ -114,12 +114,18 @@ function modalFrame(page) {
  *     text that has nothing to do with what it just asked for. Every read is
  *     therefore pinned to the document whose URL carries the requested id;
  *     anything else reads as empty, which is what the assertions report.
+ *
+ * The id is compared as a parsed query PARAMETER, not as a substring of the
+ * URL: the custom drug's id comes from Math.random() and can be short, so
+ * "randomId=4" would otherwise match a frame still showing randomId=42 and
+ * reintroduce the staleness this guard exists to remove.
  */
 async function modalVisibleText(page, randomId) {
   const text = await page.evaluate((id) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the id is passed as an argument, never interpolated into the page script
     const frame = document.getElementById('xmaskframe');
     const doc = frame && frame.contentDocument;
-    if (!doc || !(doc.URL || '').includes(`randomId=${id}`) || !doc.body) return '';
+    if (!doc || !doc.body) return '';
+    if (new URL(doc.URL).searchParams.get('randomId') !== id) return '';
     const clone = doc.body.cloneNode(true);
     clone.querySelectorAll('script, style').forEach((node) => node.remove());
     return clone.textContent || '';
@@ -141,8 +147,8 @@ async function waitForModalDocument(page, randomId) {
     (id) => {
       const frame = document.getElementById('xmaskframe');
       const doc = frame && frame.contentDocument;
-      if (!doc || doc.readyState !== 'complete') return false;
-      if (!(doc.URL || '').includes(`randomId=${id}`) || !doc.body) return false;
+      if (!doc || doc.readyState !== 'complete' || !doc.body) return false;
+      if (new URL(doc.URL).searchParams.get('randomId') !== id) return false;
       const clone = doc.body.cloneNode(true);
       clone.querySelectorAll('script, style').forEach((node) => node.remove());
       return (clone.textContent || '').trim().length > 0;
