@@ -138,7 +138,12 @@ function rawGet(pathname, search, hostHeader) {
         // default; the other checks in this suite use ignoreHTTPSErrors for the
         // same reason. Host-header behaviour is what is under test, not the cert.
         rejectUnauthorized: false,
-        servername: config.baseUrl.hostname,
+        // RFC 6066 forbids an IP literal as an SNI server name, and Node warns and will
+        // eventually ignore one. BASE_URL is loopback by default, so send SNI only when the
+        // host is a real name.
+        ...(/^[\d.]+$/.test(config.baseUrl.hostname) || config.baseUrl.hostname.includes(':')
+          ? {}
+          : { servername: config.baseUrl.hostname }),
         timeout: 30000,
       },
       (response) => {
