@@ -351,8 +351,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     try {
                         LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "PRESCRIPTION " + pdfFile);
                     } catch (RuntimeException e) {
-                        logger.error("Prescription fax was queued, but the legacy SENT audit entry failed: file={}",
-                                LogSafe.sanitize(pdfFile), e);
+                        logger.error("Prescription fax was queued, but the legacy SENT audit entry failed ({})",
+                                e.getClass().getSimpleName());
                     }
 					writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + SafeEncode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close after follow-up processing completes.</p></div>");
                 }
@@ -390,8 +390,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             if (responseOutputStreamOpened) {
                 throw new IOException("PDF response failed after output stream was opened", dex);
             }
-            // Log the detailed error for debugging
-            logger.error("PDF generation error in FrmCustomedPDFServlet", dex);
+            logger.error("PDF generation error in FrmCustomedPDFServlet ({})", dex.getClass().getSimpleName());
             
             // Return generic error message to user
             res.setContentType("text/html");
@@ -405,7 +404,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 throw dex;
             }
             // Log the error
-            logger.debug("Signature file not found", dex);
+            logger.debug("Signature file not found ({})", dex.getClass().getSimpleName());
             
             res.setContentType("text/html");
             PrintWriter writer = res.getWriter();
@@ -894,7 +893,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 columnText.go();
 
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Prescription PDF field population failed ({})", e.getClass().getSimpleName());
             }
         }
     }
@@ -920,9 +919,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String tel = lst.get(3).replaceFirst("^[^:]*:\\s*", "");
         String fax = lst.get(4).replaceFirst("^[^:]*:\\s*", "");
         String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
-        logger.debug("tel: {}", LogSafe.sanitize(tel));
-        logger.debug("fax: {}", LogSafe.sanitize(fax));
-        logger.debug("clinicName: {}", LogSafe.sanitize(clinicName));
+        logger.debug("Prescription PDF clinic header details loaded");
         hm.put("clinicName", clinicName);
         hm.put("clinicTel", tel);
         hm.put("clinicFax", fax);
@@ -1200,8 +1197,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // as PatientDirectiveException. resolveSignatureImage has already authorized this caller for
             // this patient on the same check, so this is defence in depth rather than an expected path.
             // Fail closed: a signed prescription without patient identity is not a valid outbound fax.
-            logger.warn("Refusing to fax prescription for demographic {}: a directive refused the demographic read",
-                    LogSafe.sanitize(String.valueOf(demographicId)), e);
+            logger.warn("Refusing to fax prescription: a directive refused the demographic read ({})",
+                    e.getClass().getSimpleName());
             return false;
         }
         if (demographic == null) {
@@ -1395,7 +1392,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // that wording would confirm the script exists. ONLY the directive is absorbed: a database
             // or wiring failure in the privilege lookup must abort the request, not let it proceed to
             // the later gates as if the caller had simply lacked a privilege.
-            logger.warn("A directive refused the fax permission check; deferring to the signature gate", e);
+            logger.warn("A directive refused the fax permission check; deferring to the signature gate ({})", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -1508,8 +1505,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             // hasPrivilege rethrows PatientDirectiveException; unguarded it would abort PDF generation
             // with a 500 instead of the deliberate refusal below. Any failure to establish the right
             // means the signature is not released — the same outcome as lacking it outright.
-            logger.warn("Privilege check failed while resolving the signature for prescription {}; withholding it",
-                    LogSafe.sanitize(String.valueOf(scriptNo)), e);
+            logger.warn("Privilege check failed while resolving a prescription signature; withholding it ({})",
+                    e.getClass().getSimpleName());
             authorized = false;
         }
         if (!authorized) {
@@ -1565,9 +1562,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     logger.debug("Signature pad file not present or not a pad capture; falling back to the stored prescription signature");
                 }
             } catch (SecurityException e) {
-                logger.warn("Blocked signature pad file path; falling back to the stored prescription signature", e);
+                logger.warn("Blocked signature pad file path; falling back to the stored prescription signature ({})", e.getClass().getSimpleName());
             } catch (IOException e) {
-                logger.warn("Unable to read signature pad file; falling back to the stored prescription signature", e);
+                logger.warn("Unable to read signature pad file; falling back to the stored prescription signature ({})", e.getClass().getSimpleName());
             }
         }
 
@@ -1632,16 +1629,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             numPrint = req.getParameter("numPrints");
         }
 
-        logger.debug("method in generatePDFDocumentBytes {}", LogSafe.sanitize(method));
         String clinicName;
         String clinicTel;
         String clinicFax;
         // check if satellite clinic is used
         String useSatelliteClinic = req.getParameter("useSC");
-        logger.debug("useSatelliteClinic: {}", LogSafe.sanitize(useSatelliteClinic));
         if (useSatelliteClinic != null && useSatelliteClinic.equalsIgnoreCase("true")) {
             String scAddress = req.getParameter("scAddress");
-            logger.debug("clinic detail={}", LogSafe.sanitize(scAddress));
             HashMap<String, String> hm = parseSCAddress(scAddress);
             clinicName = hm.get("clinicName");
             clinicTel = hm.get("clinicTel");
@@ -1649,7 +1643,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         } else {
             // parameters need to be passed to header and footer
             clinicName = req.getParameter("clinicName");
-            logger.debug("clinicName={}", LogSafe.sanitize(clinicName));
             clinicTel = req.getParameter("clinicPhone");
             clinicFax = req.getParameter("clinicFax");
         }

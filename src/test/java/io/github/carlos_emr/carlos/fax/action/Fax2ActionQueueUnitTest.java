@@ -61,6 +61,37 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    @DisplayName("should keep malformed rejected-preview paths out of cleanup diagnostics")
+    void shouldRedactRejectedPreviewPath_whenPathParsingFails() {
+        var action = mock(Fax2Action.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(Fax2Action.class)) {
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(action,
+                    "deleteRejectedClaimedFaxFile", "PRIVATE_CLINICAL_PATH\u0000.pdf");
+            assertThat(logs.messages()).anyMatch(message -> message.contains("InvalidPathException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_CLINICAL_PATH");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    @DisplayName("should retain an unremovable owned preview without disclosing its filename or exception")
+    void shouldRedactStagedPreviewPath_whenCleanupFails(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        var staged = java.nio.file.Files.createDirectory(directory.resolve("PRIVATE_STAGED_FILENAME"));
+        var child = java.nio.file.Files.writeString(staged.resolve("fixture.txt"), "fixture");
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(Fax2Action.class);
+             var paths = mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.isInApplicationTempDirectory(staged.toFile()))
+                    .thenReturn(true);
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(Fax2Action.class,
+                    "deleteUnownedStagedFaxPreview", staged);
+            assertThat(java.nio.file.Files.exists(child)).isTrue();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("DirectoryNotEmptyException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_STAGED_FILENAME", directory.toString());
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
     private static final String APP_TEMP_ROOT =
             java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "carlos-temp").toString();
 
