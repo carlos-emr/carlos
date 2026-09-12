@@ -140,7 +140,7 @@ public final class RxViewScript2Action extends ActionSupport {
         // again here created a SECOND prescription — and duplicate drugs rows — for a single
         // prescribing action. Only save when the stash is not yet persisted.
         String scriptId = persistedScriptId(bean);
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             // Preview navigation, reload and prefetch must never create a prescription or
             // associate a signature. Do not render an unsaved re-prescription under the old
             // script number carried in its stash or in an untrusted query parameter.

@@ -15,6 +15,7 @@ function localFixtureSql(query, env = process.env) {
   }
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-fixture-sql-'));
   const options = path.join(directory, 'mysql.cnf');
+  let databaseFailed = false;
   try {
     const password = env.MYSQL_PASSWORD.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     fs.writeFileSync(options, `[client]\npassword="${password}"\n`, { mode: 0o600 });
@@ -22,10 +23,18 @@ function localFixtureSql(query, env = process.env) {
       '-u', env.MYSQL_USER || 'root', env.MYSQL_DATABASE || 'carlos', '-NBse', query],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
   } catch (_) {
+    databaseFailed = true;
     throw new Error('Fixture artifact database cleanup failed');
   } finally {
-    fs.rmSync(options, { force: true });
-    fs.rmdirSync(directory);
+    try {
+      // Remove only this invocation's private mkdtemp directory, including any
+      // unexpected client-created file. Never leak a path or credential in errors.
+      fs.rmSync(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 50 });
+    } catch (_) {
+      throw new Error(databaseFailed
+        ? 'Fixture artifact database cleanup failed; temporary credential cleanup also failed'
+        : 'Temporary fixture database credentials could not be removed');
+    }
   }
 }
 

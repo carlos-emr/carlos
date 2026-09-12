@@ -39,3 +39,46 @@ for (const scenario of ['uninitialized', 'empty', 'missing-frame', 'ready', 'leg
 test('ordinary Print is server-rendered disabled when no prescription preview exists', () => {
   assert.match(jsp, /id="printButton"\s+<%= !previewAvailable \? "disabled='true'" : "" %>/);
 });
+
+const commentStart = jsp.indexOf('function setComment(');
+const commentEnd = jsp.indexOf('function setDefaultAddr(', commentStart);
+assert(commentStart >= 0 && commentEnd > commentStart);
+const literalComment = '  <img src=x onerror=alert(1)> & "clinical"\nnext line  ';
+const commentSource = jsp.slice(commentStart, commentEnd)
+  .replace("'<%=SafeEncode.forJavaScript(comment)%>'", JSON.stringify(literalComment));
+
+for (const scenario of ['empty', 'missing-frame', 'missing-document', 'missing-fields', 'inaccessible', 'ready']) {
+  test(`initial prescription comment safely handles ${scenario} preview and stays literal`, () => {
+    const notes = { style: {}, set innerHTML(value) { throw new Error('Clinical text must not be parsed as HTML'); } };
+    const hidden = {};
+    const frames = {};
+    if (!['empty', 'missing-frame'].includes(scenario)) {
+      frames.preview = {};
+      if (scenario === 'inaccessible') Object.defineProperty(frames.preview, 'document', {
+        get() { throw new Error('Preview document unavailable'); },
+      });
+      else if (scenario !== 'missing-document') frames.preview.document = {
+        getElementById: () => scenario === 'ready' ? notes : null,
+        getElementsByName: () => scenario === 'ready' ? [hidden] : [],
+      };
+    }
+    const context = vm.createContext({ frames, hasPreview: scenario !== 'empty' });
+    vm.runInContext(commentSource, context);
+    assert.doesNotThrow(() => context.setComment());
+    if (scenario === 'ready') {
+      assert.equal(notes.textContent, literalComment);
+      assert.equal(notes.style.whiteSpace, 'pre-wrap');
+      assert.equal(hidden.value, literalComment.replace(/\n/g, '\r\n'));
+    } else {
+      assert.equal(notes.textContent, undefined);
+      assert.equal(hidden.value, undefined);
+    }
+  });
+}
+
+test('empty prescription address initialization returns before default-address and iframe access', () => {
+  const addressStart = jsp.indexOf('function addressSelect(');
+  const addressEnd = jsp.indexOf('function popupPrint(', addressStart);
+  const source = jsp.slice(addressStart, addressEnd);
+  assert.match(source, /function addressSelect\(\)\s*\{\s*if \(typeof hasPreview === 'undefined' \|\| !hasPreview \|\| !frames\['preview'\]\) return;/);
+});
