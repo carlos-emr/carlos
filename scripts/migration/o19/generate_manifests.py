@@ -22,8 +22,10 @@ test (debian/assets/carlos_ctl/tests/test_manifest_integrity.py) fails on —
 forcing every table to be consciously classified before the manifest ships.
 
 Usage:
-    python3 scripts/migration/o19/generate_manifests.py --oscar-src /path/to/oscar
-    python3 scripts/migration/o19/generate_manifests.py --oscar-src /path/to/oscar --check
+    python3 scripts/migration/o19/generate_manifests.py \\
+        --oscar-src /path/to/oscar
+    python3 scripts/migration/o19/generate_manifests.py \\
+        --oscar-src /path/to/oscar --check
 
 --check regenerates in memory and exits non-zero if the committed outputs
 differ (drift detection for reviews).
@@ -75,7 +77,8 @@ PREVENTION_TYPE_SCRIPT = (
     / "update-2026-03-10-standardize-prevention-types.sql")
 PREVENTION_ITEMS_XML = (REPO_ROOT / "src" / "main" / "resources" / "oscar"
                         / "prevention" / "PreventionItems.xml")
-CARLOS_PROPERTIES = REPO_ROOT / "src" / "main" / "resources" / "carlos.properties"
+CARLOS_PROPERTIES = (REPO_ROOT / "src" / "main" / "resources"
+                     / "carlos.properties")
 
 MARKER_BEGIN = "# === BEGIN GENERATED DATA (generate_manifests.py) ==="
 MARKER_END = "# === END GENERATED DATA ==="
@@ -533,8 +536,9 @@ class Schema:
                 if victim is not None:
                     del cols[victim]
                 continue
-            m = re.match(r"change\s+(?:column\s+)?`?(\w+)`?\s+`?(\w+)`?\s+(.+)",
-                         clause, re.I | re.S)
+            m = re.match(
+                r"change\s+(?:column\s+)?`?(\w+)`?\s+`?(\w+)`?\s+(.+)",
+                clause, re.I | re.S)
             if m:
                 old, new, ctype = m.group(1), m.group(2), m.group(3)
                 # `change name NAME ...` renames the column declared `name`:
@@ -1113,7 +1117,8 @@ def default_nondefault_expr(coltype: str, col: str) -> str:
     This is what lets the preflight say "dropped, and empty in your
     data" rather than warning about every dropped column."""
     t = coltype.lower()
-    if re.match(r"(tiny|small|medium|big)?int|decimal|double|float|numeric", t):
+    if re.match(r"(tiny|small|medium|big)?int|decimal|double|float|numeric",
+                t):
         return "s.`{0}` IS NOT NULL AND s.`{0}` <> 0".format(col)
     return "s.`{0}` IS NOT NULL AND s.`{0}` <> ''".format(col)
 
@@ -1866,7 +1871,8 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
     out.append("TABLES = " + _fmt(tables) + "\n")
     out.append("CARLOS_COLUMNS = " + _fmt(carlos_columns) + "\n")
     out.append("# rows the CARLOS Flyway migrations seed into copy/merge-class"
-               " tables, counted from\n# literal VALUES tuples. The P0 pristine"
+               " tables, counted from\n# literal VALUES tuples."
+               " The P0 pristine"
                " sweep requires copy-class tables to hold\n# EXACTLY these"
                " rows (else none) and merge-class tables AT LEAST these rows:"
                " merge\n# tables are CARLOS reference seeds that later"
@@ -1925,7 +1931,8 @@ def emit_schema_module(tables, carlos: Schema, seed_counts, ov,
     out.append("ROLE_TEMPLATE_MIN_JACCARD = {!r}\n".format(
         getattr(ov, "ROLE_TEMPLATE_MIN_JACCARD", 0.3)))
     out.append("# legacy preventions.prevention_type spellings -> Health"
-               " Canada code, from\n# database/mysql/updates/update-2026-03-10-"
+               " Canada code, from\n# database/mysql/updates/"
+               "update-2026-03-10-"
                "standardize-prevention-types.sql; the\n# roles post-step"
                " applies them to imported rows (Flyway never sees clinic"
                " data)")
@@ -2560,8 +2567,10 @@ def main() -> int:
     if args.check:
         rc = 0
         for path, content in targets:
-            if not path.is_file() or path.read_text(encoding="utf-8") != content:
-                print("DRIFT: {} differs from regenerated content".format(path))
+            if (not path.is_file()
+                    or path.read_text(encoding="utf-8") != content):
+                print("DRIFT: {} differs from regenerated content"
+                      .format(path))
                 rc = 1
         # the embedded preflight data is generated too — drift there is
         # exactly the stale-classification case --check exists to catch
@@ -2583,7 +2592,8 @@ def main() -> int:
         if rewrite_markers(preflight, preflight_block):
             print("rewrote generated-data block in {}".format(preflight))
         else:
-            print("generated-data block in {} already current".format(preflight))
+            print("generated-data block in {} already current"
+                  .format(preflight))
     else:
         print("note: {} does not exist yet — generated-data block skipped"
               .format(preflight))

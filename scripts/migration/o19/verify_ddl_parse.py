@@ -284,7 +284,8 @@ def introspect(client: Client, db: str) -> Tuple[Dict[str, List[str]],
         cols.setdefault(t, []).append(c)
     pks: Dict[str, List[str]] = {}
     for t, c in client.rows(
-            "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.STATISTICS "
+            "SELECT TABLE_NAME, COLUMN_NAME "
+            "FROM information_schema.STATISTICS "
             "WHERE TABLE_SCHEMA='{0}' AND INDEX_NAME='PRIMARY' "
             "ORDER BY TABLE_NAME, SEQ_IN_INDEX".format(db)):
         pks.setdefault(t, []).append(c)
@@ -383,7 +384,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     client = Client(args.mysql_cmd, args.mysql_args, args.db)
     rc, _out, err = client.run(
-        "DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;".format(args.db),
+        "DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}`;"
+        .format(args.db),
         db="mysql")
     if rc != 0:
         print("cannot prepare the scratch schema: {0}".format(err[:400]),
