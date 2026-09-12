@@ -620,6 +620,10 @@
 
 
             function printIframe() {
+                // Empty/new prescriptions have no preview. Programmatic callers must
+                // obey the same boundary as the disabled ordinary Print control.
+                if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
+                var previewFrame = frames['preview'];
                 var browserName = navigator.appName;
                 if (browserName == "Microsoft Internet Explorer") {
                     alert('${carlos:forJavaScript(msg_msieNotPermitted)}')
@@ -628,8 +632,8 @@
                         window.onbeforeunload = null;
                     }
 
-                    preview.focus();
-                    preview.print();
+                    previewFrame.focus();
+                    previewFrame.print();
 
                     self.onfocus = function () {
                         self.setTimeout(
@@ -1516,6 +1520,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         </tr>
                                         <tr>
                                             <td style="padding-bottom: 0"><span><input type=button
+                                                                                       id="printButton"
+                                                                                       <%= !previewAvailable ? "disabled='true'" : "" %>
                                                                                        value="<fmt:message key="ViewScript.msgPrint"/>"
                                                                                        class="btn btn-outline-secondary"
                                                                                        style="width: 210px"

@@ -124,6 +124,12 @@ public final class RxViewScript2Action extends ActionSupport {
             return "viewScript";
         }
 
+        // Viewing an empty/new prescription is not a write. In particular, do not
+        // create an orphan prescription row or apply a stamp when there are no drugs.
+        if (bean.getStashSize() == 0) {
+            return "viewScript";
+        }
+
         RxPrescriptionData.Prescription rx;
         RxPrescriptionData prescription = new RxPrescriptionData();
 

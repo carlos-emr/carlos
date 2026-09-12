@@ -219,6 +219,28 @@ async function postReprintSession(page) {
   }
 }
 
+async function checkEmptyPrescriptionPrint(page) {
+  await choosePrescriptionPatient(page);
+  const countQuery = `SELECT COUNT(*) FROM prescription WHERE demographic_no=${prescriptionDemographicNo}`;
+  const before = process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true' ? localFixtureSql(countQuery) : null;
+  await gotoApp(page, '/rx/viewScript');
+  await assertNoErrorPage(page, 'empty-prescription-view');
+  const state = await page.evaluate(() => {
+    const button = document.getElementById('printButton');
+    const state = { hasPreview: window.hasPreview, framePresent: !!document.getElementById('preview'),
+      printDisabled: !!button && button.disabled, helperPresent: typeof window.printIframe === 'function' };
+    if (state.helperPresent) window.printIframe();
+    return state;
+  });
+  if (state.hasPreview !== false || state.framePresent || !state.printDisabled || !state.helperPresent) {
+    throw new Error('Empty prescription must disable Print and safely handle a programmatic print attempt');
+  }
+  if (before !== null && localFixtureSql(countQuery) !== before) {
+    throw new Error('Viewing an empty prescription must not create an orphan prescription row');
+  }
+  visited.push({ label: 'empty-prescription-print-guard', databaseUnchanged: before === null ? 'not-checked' : true });
+}
+
 async function openPrescriptionView(page, label) {
   await choosePrescriptionPatient(page);
   await postReprintSession(page);
@@ -413,6 +435,7 @@ async function runPrescriptionSignatureCheck(context) {
       // Check the explicitly enabled local database access before creating a signature.
       localFixtureSql('SELECT 1');
     }
+    await checkEmptyPrescriptionPrint(page);
     await openPrescriptionView(page, 'initial-prescription-view');
     const initialPreview = await readPreviewSignature(page, { requireLoaded: false });
     if (initialPreview.storedSignatureId) {

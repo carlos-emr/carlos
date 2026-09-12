@@ -310,9 +310,15 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         Path rendered = Paths.get("/tmp/consult-fax-source.pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(rendered);
         when(nioFileManager.promoteApplicationTempFile(rendered))
-                .thenThrow(new FilePromotionException("test failure"));
+                .thenThrow(new FilePromotionException("SensitiveFixturePatient /private/fax.pdf", new java.io.IOException("fixture-secret")));
 
-        String result = action.execute();
+        String result;
+        try (var capture = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormFax2Action.class)) {
+            result = action.execute();
+            assertThat(capture.messages().toString()).contains("aborting fax (FilePromotionException)")
+                    .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
 
         assertThat(result).isEqualTo("error");
         assertThat(request.getAttribute("errorMessage")).asString()

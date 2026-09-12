@@ -28,7 +28,7 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2})
     @DisplayName("should audit an acknowledgement only after the routing transaction succeeds")
-    void shouldAuditOnlySuccessfulAcknowledgement(int failureStage) {
+    void shouldAuditOnlyAfterSuccessfulRouting_whenAcknowledging(int failureStage) {
         boolean mutationFails = failureStage == 1;
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oscarMDS/UpdateStatus");
         MockHttpServletResponse response = new MockHttpServletResponse();

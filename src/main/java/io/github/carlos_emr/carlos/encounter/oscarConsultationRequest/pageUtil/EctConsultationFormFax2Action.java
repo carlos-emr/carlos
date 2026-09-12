@@ -274,7 +274,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             faxPdf = nioFileManager.promoteApplicationTempFile(faxPdf);
             attemptFiles.add(faxPdf);
         } catch (FilePromotionException e) {
-            logger.error("Consultation fax PDF could not be stored in the document directory; aborting fax", e);
+            logger.error("Consultation fax PDF could not be stored in the document directory; aborting fax ({})", e.getClass().getSimpleName());
             request.setAttribute("errorMessage",
                     "This fax could not be sent. \n\nThe fax document could not be stored for sending; please retry or contact your administrator.");
             return "error";
@@ -361,7 +361,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             // secondary legacy log must not turn a queued fax into a retryable failure.
             LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
         } catch (RuntimeException e) {
-            logger.warn("Consultation fax queued; secondary legacy audit logging failed", e);
+            logger.warn("Consultation fax queued; secondary legacy audit logging failed ({})", e.getClass().getSimpleName());
         }
         request.setAttribute("faxSuccessful", true);
         return SUCCESS;
@@ -375,7 +375,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             Path validated = PathValidationUtils.validateApplicationTempPath(renderedSource.toFile()).toPath();
             Files.deleteIfExists(validated);
         } catch (IOException | SecurityException e) {
-            logger.warn("Unable to remove the rendered consultation fax temporary file", e);
+            logger.warn("Unable to remove the rendered consultation fax temporary file ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -401,8 +401,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                         attemptFile.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY)).toPath();
                 Files.deleteIfExists(validated);
             } catch (IOException | SecurityException e) {
-                logger.warn("Unable to remove an unqueued consultation fax file: {}",
-                        LogSafe.sanitize(attemptFileName.toString()), e);
+                logger.warn("Unable to remove an unqueued consultation fax file ({})", e.getClass().getSimpleName());
             }
         }
     }
@@ -605,7 +604,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         try {
             response.sendError(statusCode, message);
         } catch (IOException ex) {
-            logger.error("Failed to send HTTP error response for the consultation fax method gate", ex);
+            logger.error("Failed to send HTTP error response for the consultation fax method gate ({})", ex.getClass().getSimpleName());
         }
     }
 

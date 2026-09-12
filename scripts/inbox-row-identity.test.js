@@ -35,6 +35,11 @@ function setup(rows, modern = true) {
 const rows = ['DOC', 'HL7', 'HRM'].map(type => ({ id: `labdoc_${type}_170`,
   'data-segment-id': '170', 'data-lab-type': type, checkbox: `170:${type}` }));
 
+test('legacy inbox rejects duplicate rows with the same segment and report type', () => {
+  const duplicate = { id: 'labdoc_170', 'data-lab-type': 'HL7', checkbox: '170:HL7' };
+  assert.deepEqual(setup([duplicate, { ...duplicate }], false)('170', 'HL7'), []);
+});
+
 for (const operation of ['FileLabs', 'ArchiveLabs']) {
   test(`bulk ${operation} clears live checkbox properties only for the returned report type`, () => {
     const checks = { DOC: { checked: true }, HL7: { checked: true }, all: { checked: true } };

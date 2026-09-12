@@ -151,6 +151,18 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should render an empty prescription without persisting or stamping for a read-only caller")
+    void shouldRenderEmptyStash_withoutCreatingPrescription() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
+
+        assertThat(newAction().execute()).isEqualTo("viewScript");
+        assertThat(request.getAttribute("scriptId")).isNull();
+        assertThat(request.getAttribute(PrescriptionSignatureStampService.RX_STAMP_SIGNATURE_APPLIED)).isNull();
+        verifyNoInteractions(prescriptionDao, stampService);
+        verify(securityInfoManager, org.mockito.Mockito.never()).hasPrivilege(any(), eq("_rx"), eq("w"), isNull());
+    }
+
+    @Test
     @DisplayName("should reuse a fully persisted stash and stamp that script without saving again")
     void shouldReusePersistedScript_whenEveryStashItemIsSaved() throws Exception {
         liveBean.getStashList().add(savedItem(5, "789"));

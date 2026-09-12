@@ -41,28 +41,22 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ForwardingRules;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author wrighd
  */
 public class ProviderLabRouting {
 
-    Logger logger = MiscUtils.getLogger();
     private ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
 
     public ProviderLabRouting() {
@@ -90,48 +84,42 @@ public class ProviderLabRouting {
         routeMagic(labId, provider_no, labType);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Creates missing provider routing and forwarding rows in the acknowledgement lock domain.
+     * Existing clinical routing status is preserved on repeated delivery.
+     * @param labId report identifier
+     * @param provider_no destination provider identifier
+     * @param labType exact routing type
+     */
     public void routeMagic(int labId, String provider_no, String labType) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.executeWithoutResult(status -> {
+            providerLabRoutingDao.lockRoutingReport(labId);
+            routeInTransaction(labId, provider_no, labType);
+        });
+    }
+
+    private void routeInTransaction(int labId, String provider_no, String labType) {
+        List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, provider_no);
+        // Delivery is idempotent, not a request to reopen an acknowledged/filed report.
+        // The current locking read also sees a concurrent acknowledgement after waiting.
+        if (!routings.isEmpty()) return;
         ForwardingRules fr = new ForwardingRules();
-        CarlosProperties props = CarlosProperties.getInstance();
-        String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
+        String status = fr.getStatus(provider_no);
+        ArrayList<ArrayList<String>> forwardProviders = fr.getProviders(provider_no);
 
-        ProviderLabRoutingDao dao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-        List<ProviderLabRoutingModel> routings = dao.findByLabNoAndLabTypeAndProviderNo(labId, labType, provider_no);
+        ProviderLabRoutingModel p = new ProviderLabRoutingModel();
+        p.setProviderNo(provider_no);
+        p.setLabNo(labId);
+        p.setStatus(status);
+        p.setLabType(labType);
+        providerLabRoutingDao.persist(p);
 
-        if (routings.isEmpty()) {
-            String status = fr.getStatus(provider_no);
-            ArrayList<ArrayList<String>> forwardProviders = fr.getProviders(provider_no);
-
-            ProviderLabRoutingModel p = new ProviderLabRoutingModel();
-            p.setProviderNo(provider_no);
-            p.setLabNo(labId);
-            p.setStatus(status);
-            p.setLabType(labType);
-            providerLabRoutingDao.persist(p);
-
-            //forward lab to specified providers
-            for (int j = 0; j < forwardProviders.size(); j++) {
-                logger.info("FORWARDING PROVIDER: " + ((forwardProviders.get(j)).get(0)));
-                routeMagic(labId, ((forwardProviders.get(j)).get(0)), labType);
-            }
-
-            // If the lab has already been sent to this providers check to make sure that
-            // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the carlos.properties file
-        } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
-            List<ProviderLabRoutingModel> moreRoutings = dao.findByLabNoTypeAndStatus(labId, labType, "N");
-            if (!moreRoutings.isEmpty()) {
-                ProviderLabRoutingModel plr = providerLabRoutingDao.findByLabNoAndLabType(labId, labType);
-                if (plr != null) {
-                    plr.setStatus("N");
-                    plr.setTimestamp(new Date());
-                    providerLabRoutingDao.merge(plr);
-                }
-            }
+        // All forwarded providers share this report lock and outer transaction.
+        for (ArrayList<String> forwardedProvider : forwardProviders) {
+            routeInTransaction(labId, forwardedProvider.get(0), labType);
         }
-
     }
 
     public static Hashtable<String, Object> getInfo(String lab_no) {
@@ -150,44 +138,8 @@ public class ProviderLabRouting {
         return info;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void route(String labId, String provider_no, String labType) throws SQLException {
-        ForwardingRules fr = new ForwardingRules();
-        CarlosProperties props = CarlosProperties.getInstance();
-        String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
-
-        ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-        List<ProviderLabRoutingModel> rs = providerLabRoutingDao.getProviderLabRoutingForLabProviderType(Integer.parseInt(labId), provider_no, labType);
-
-        if (!rs.isEmpty()) {
-            String status = fr.getStatus(provider_no);
-            ArrayList<ArrayList<String>> forwardProviders = fr.getProviders(provider_no);
-
-            ProviderLabRoutingModel newRouted = new ProviderLabRoutingModel();
-            newRouted.setProviderNo(provider_no);
-            newRouted.setLabNo(Integer.parseInt(labId));
-            newRouted.setLabType(labType);
-            newRouted.setStatus(status);
-
-            providerLabRoutingDao.persist(newRouted);
-
-            //forward lab to specified providers
-            for (int j = 0; j < forwardProviders.size(); j++) {
-                logger.info("FORWARDING PROVIDER: " + ((forwardProviders.get(j)).get(0)));
-                route(labId, ((forwardProviders.get(j)).get(0)), labType);
-            }
-
-            // If the lab has already been sent to this providers check to make sure that
-            // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the carlos.properties file
-        } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
-            rs = providerLabRoutingDao.getProviderLabRoutingForLabAndType(Integer.parseInt(labId), labType);
-            if (rs.isEmpty()) {
-                providerLabRoutingDao.updateStatus(Integer.parseInt(labId), labType);
-            }
-        }
-
+        routeMagic(Integer.parseInt(labId), provider_no, labType);
     }
 
     public static HashMap<String, Object> getInfo(String lab_no, String lab_type) {
