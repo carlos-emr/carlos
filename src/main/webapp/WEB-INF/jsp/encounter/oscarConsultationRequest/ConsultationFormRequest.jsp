@@ -2073,6 +2073,10 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                 };
                 signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
             } else if (!hasPendingManualSignature()) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                if (!signatureImgTag || !signatureImgTag.getAttribute('src')) {
+                    return true;
+                }
                 var signatureProviderNo = document.getElementById('signatureProviderNo');
                 if (signatureProviderNo) {
                     updateSignatureProvider(signatureProviderNo.value);
@@ -2190,9 +2194,14 @@ if (userAgent != null) {
             if (btn) btn.disabled = disabled;
         }
 
+        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewAttachmentsUnavailable" var="previewAttachmentsUnavailableMessage"/>
+        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewRequestFailed" var="previewRequestFailedMessage"/>
+
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
-        function getConsultFormPrintPreview(form) {
-            form.submission.value = "And Print Preview";
+	        function getConsultFormPrintPreview(form) {
+	            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
+	            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
+	            form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
@@ -2213,19 +2222,34 @@ if (userAgent != null) {
                         if (newSignature) {
                             newSignature.value = 'false';
                         }
-                        isSignatureSaved = true;
-                    }
-                    showPreview(data.consultPDF, data.consultPDFName);
-                    if (data.warningMessage) {
-                        alert(data.warningMessage.replace(/\\n/g, '\n'));
-                    }
-                },
-                error: function (xhr, status, error) {
-                    HideSpin();
-                    alert("Preview request failed: " + status + ", " + error);
-                }
-            });
-        }
+	                        isSignatureSaved = true;
+	                    }
+	                    showPreview(data.consultPDF, data.consultPDFName);
+	                    if (data.attachmentWarnings && data.attachmentWarnings.length > 0) {
+	                        alert(formatPreviewMessage(previewAttachmentsUnavailableMessage, data.attachmentWarnings.join("\n")));
+	                    }
+	                    if (data.warningMessage) {
+	                        alert(data.warningMessage.replace(/\\n/g, '\n'));
+	                    }
+	                },
+	                error: function (xhr, status, error) {
+	                    HideSpin();
+	                    alert(formatPreviewMessage(previewRequestFailedMessage, status, error));
+	                }
+	            });
+	        }
+
+	        function formatPreviewMessage(template) {
+	            var formatted = template;
+	            for (var i = 1; i < arguments.length; i++) {
+	                var value = arguments[i];
+	                if (value === null || typeof value === 'undefined') {
+	                    value = '';
+	                }
+	                formatted = formatted.split('{' + (i - 1) + '}').join(value);
+	            }
+	            return formatted.replace(/\\n/g, '\n');
+	        }
 
         function showPreview(base64PDF, pdfName) {
             const pdfData = new Uint8Array(atob(base64PDF).split('').map(char => char.charCodeAt(0)));

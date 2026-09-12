@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.managers.*;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateUtils;
@@ -44,6 +45,8 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -55,10 +58,17 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import jakarta.persistence.PersistenceException;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -121,6 +131,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String ATTR_PREVIEW_SIGNATURE_IMG = "consultPreviewSignatureImg";
     private static final String SIGNATURE_NOT_APPLIED_WARNING = "The captured signature could not be saved and will not appear on the PDF.";
     private static final String INVALID_DEMOGRAPHIC_NUMBER = "Invalid demographic number";
+    private static final String PRINT_PREVIEW_ERROR_MESSAGE = "A print preview of this consultation could not be generated. Please try again or contact support.";
     private static final String INVALID_CONSULTATION_REQUEST_ID = "Invalid consultation request id";
     private static final String CONSULTATION_REQUEST_UNAVAILABLE = "Consultation request unavailable";
     private static final String CONSULT_PREVIEW_UNAVAILABLE_PREFIX = "A print preview of this consultation could not be generated. \n\n";
@@ -258,36 +269,51 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
-    private String resolveConsultationPreviewDemographicNoOrSetError(LoggedInInfo loggedInInfo, ConsultationRequestDao consultationRequestDao, String requestId, String demographicNo) {
+    private String resolveConsultationPreviewDemographicNoOrSetError(LoggedInInfo loggedInInfo,
+            ConsultationRequestDao consultationRequestDao, String requestId, String demographicNo,
+            boolean newSignature) {
         if (StringUtils.isBlank(requestId)) {
             request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Missing consultation request id.");
             return null;
         }
 
-        ConsultationWriteTargetVerification verification;
-        try {
-            verification = verifyConsultationWriteTarget(loggedInInfo, consultationRequestDao, requestId, demographicNo,
-                    "Invalid demographic number for consultation print preview: {}",
-                    "Invalid consultation request id for print preview: {}");
-        } catch (SecurityException e) {
+        if (newSignature) {
+            ConsultationWriteTargetVerification verification;
+            try {
+                verification = verifyConsultationWriteTarget(
+                        loggedInInfo, consultationRequestDao, requestId, demographicNo,
+                        "Invalid demographic number for consultation print preview: {}",
+                        "Invalid consultation request id for print preview: {}");
+            } catch (SecurityException e) {
+                request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+                return null;
+            }
+            if (verification.isVerified()) {
+                return verification.target().demographicNo();
+            }
             request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
             return null;
         }
 
-        if (verification.status() == ConsultationWriteTargetStatus.VERIFIED) {
-            return verification.target().demographicNo();
-        }
-        if (verification.status() == ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Invalid demographic number.");
-            return null;
-        }
-        if (verification.status() == ConsultationWriteTargetStatus.INVALID_CONSULTATION_REQUEST_ID) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
+        Resolution resolution = ConsultationDemographicResolver.resolve(
+                consultationRequestDao, requestId, demographicNo, "preview", logger);
+        if (!resolution.isResolved()) {
+            if (resolution.failureReason() == ConsultationDemographicResolver.FailureReason.INVALID_REQUEST_ID) {
+                request.setAttribute(ATTR_ERROR_MESSAGE,
+                        CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
+            } else {
+                request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+            }
             return null;
         }
 
-        request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
-        return null;
+        try {
+            requireConsultWritePrivilege(loggedInInfo, resolution.demographicId());
+        } catch (SecurityException e) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+            return null;
+        }
+        return resolution.demographicId();
     }
 
     /**
@@ -713,8 +739,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         } else if (submission.equalsIgnoreCase("And Print Preview")) {
             requestId = submittedRequestId;
-            String previewDemographicNo = resolveConsultationPreviewDemographicNoOrSetError(loggedInInfo, consultationRequestDao, requestId, demographicNo);
+            String previewDemographicNo = resolveConsultationPreviewDemographicNoOrSetError(
+                    loggedInInfo, consultationRequestDao, requestId, demographicNo, newSignature);
             if (previewDemographicNo != null) {
+                request.setAttribute("demographicId", previewDemographicNo);
                 try {
                     if (persistManualSignatureForRendering(loggedInInfo, requestId, previewDemographicNo,
                             newSignature, trimmedSignatureImg, manualSignatureRequestId,
@@ -726,13 +754,21 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                                 request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                             }
                         }
-                        renderConsultationFormWithAttachments(request, response, requestId, previewDemographicNo);
+                        HttpServletResponse renderResponse = createRenderOnlyResponse(response);
+                        HttpServletResponse previousResponse = ServletActionContext.getResponse();
+                        ServletActionContext.setResponse(renderResponse);
+                        try {
+                            renderConsultationFormWithAttachments(
+                                    request, renderResponse, requestId, previewDemographicNo);
+                        } finally {
+                            ServletActionContext.setResponse(previousResponse);
+                        }
                     }
                 } catch (RuntimeException e) {
                     // Log the full exception server-side only; do not surface e.getMessage() to the
                     // browser (it can carry internal/identifier detail and renders "null" when absent).
                     logger.error("Error generating consultation print preview for requestId={}", LogSafe.sanitize(requestId), e);
-                    request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
+                    request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
                 }
             }
             generatePDFResponse(request, response);
@@ -951,26 +987,31 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      */
     private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
         request.setAttribute("reqId", requestId);
         request.setAttribute("demographicId", demographicNo);
-        String fileName = generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
-        String base64PDF = "";
         try {
             Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
-            base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
+            // The renderer normalizes demographicId to the persisted consultation patient.
+            String consultationDemographicNo = Objects.toString(request.getAttribute("demographicId"), "");
+            int parsedConsultationDemographicNo = Integer.parseInt(consultationDemographicNo);
+            String fileName = generateFileName(loggedInInfo, parsedConsultationDemographicNo);
+            String base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
+            request.setAttribute("consultPDFName", fileName);
+            request.setAttribute("consultPDF", base64PDF);
+            request.setAttribute("isPreviewReady", "true");
+            return true;
         } catch (PDFGenerationException e) {
             // Log the full exception server-side only; the browser-facing message must not echo
             // e.getMessage() (internal/identifier leakage, and renders "null" when absent).
-            logger.error(e.getMessage(), e);
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
+            logger.error("Error generating consultation print preview PDF", e);
+            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
+            return false;
+        } catch (NumberFormatException e) {
+            logger.error("Invalid consultation demographic while generating print preview for requestId={}",
+                    LogSafe.sanitize(requestId), e);
+            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             return false;
         }
-
-        request.setAttribute("consultPDFName", fileName);
-        request.setAttribute("consultPDF", base64PDF);
-        request.setAttribute("isPreviewReady", "true");
-        return true;
     }
 
     /**
@@ -988,14 +1029,26 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
         json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
         json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_PREVIEW_SIGNATURE_IMG));
+        ArrayNode attachmentWarnings = json.putArray(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
+        Object warningAttribute = request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
+        if (warningAttribute instanceof List<?>) {
+            for (Object warning : (List<?>) warningAttribute) {
+                if (warning != null) {
+                    attachmentWarnings.add(String.valueOf(warning));
+                }
+            }
+        }
         try {
             if (!response.isCommitted()) {
                 response.resetBuffer();
             }
+            response.setStatus(HttpServletResponse.SC_OK);
             response.setCharacterEncoding("UTF-8");
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write(json.toString());
-            response.getWriter().flush();
+            byte[] jsonBytes = json.toString().getBytes(StandardCharsets.UTF_8);
+            response.setContentLength(jsonBytes.length);
+            response.getOutputStream().write(jsonBytes);
+            response.getOutputStream().flush();
         } catch (IOException | IllegalStateException e) {
             // IOException: write/flush failed (often a client disconnect). IllegalStateException:
             // a response-pipeline state bug or a post-commit client disconnect.
@@ -1009,6 +1062,161 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     logger.error("Unable to send error response for consultation print preview", sendErrorException);
                 }
             }
+        }
+    }
+
+    private HttpServletResponse createRenderOnlyResponse(HttpServletResponse response) {
+        return new RenderOnlyResponseWrapper(response);
+    }
+
+    private static final class RenderOnlyResponseWrapper extends HttpServletResponseWrapper {
+        private final StringWriter body = new StringWriter();
+        private final PrintWriter writer = new PrintWriter(body);
+        private final ServletOutputStream outputStream = new ServletOutputStream() {
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener writeListener) {
+                // Intentionally ignored; this wrapper discards nested render output.
+            }
+
+            @Override
+            public void write(int value) {
+                // Intentionally ignored; the final AJAX response is written separately.
+            }
+        };
+        private int status = HttpServletResponse.SC_OK;
+        private String contentType;
+        private String characterEncoding;
+
+        RenderOnlyResponseWrapper(HttpServletResponse response) {
+            super(response);
+        }
+
+        @Override
+        public PrintWriter getWriter() {
+            return writer;
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            return outputStream;
+        }
+
+        @Override
+        public void sendError(int statusCode) {
+            status = statusCode;
+        }
+
+        @Override
+        public void sendError(int statusCode, String message) {
+            status = statusCode;
+        }
+
+        @Override
+        public void sendRedirect(String location) {
+            status = HttpServletResponse.SC_FOUND;
+        }
+
+        @Override
+        public void setStatus(int statusCode) {
+            status = statusCode;
+        }
+
+        @Override
+        public int getStatus() {
+            return status;
+        }
+
+        @Override
+        public void flushBuffer() {
+            writer.flush();
+        }
+
+        @Override
+        public void resetBuffer() {
+            body.getBuffer().setLength(0);
+        }
+
+        @Override
+        public void reset() {
+            resetBuffer();
+            status = HttpServletResponse.SC_OK;
+            contentType = null;
+            characterEncoding = null;
+        }
+
+        @Override
+        public boolean isCommitted() {
+            return false;
+        }
+
+        @Override
+        public void addCookie(Cookie cookie) {
+            // Intentionally ignored; nested cookies must not leak to the caller response.
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
+        }
+
+        @Override
+        public void setDateHeader(String name, long date) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
+        }
+
+        @Override
+        public void addDateHeader(String name, long date) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
+        }
+
+        @Override
+        public void setContentLength(int length) {
+            // Intentionally ignored; nested content length must not leak to JSON output.
+        }
+
+        @Override
+        public void setContentLengthLong(long length) {
+            // Intentionally ignored; nested content length must not leak to JSON output.
+        }
+
+        @Override
+        public void setContentType(String contentType) {
+            this.contentType = contentType;
+        }
+
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+
+        @Override
+        public void setCharacterEncoding(String characterEncoding) {
+            this.characterEncoding = characterEncoding;
+        }
+
+        @Override
+        public String getCharacterEncoding() {
+            return characterEncoding != null ? characterEncoding : super.getCharacterEncoding();
         }
     }
 

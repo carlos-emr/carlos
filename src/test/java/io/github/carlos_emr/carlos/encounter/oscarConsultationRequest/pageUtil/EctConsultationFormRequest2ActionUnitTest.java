@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -138,9 +139,15 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationSignatureService.resolveSignatureProviderNo("999998", "999998", "999998"))
                 .thenReturn("999998");
         when(demographicManager.getDemographicFormattedName(loggedInInfo, 1)).thenReturn("Patient, Test");
+        ConsultationRequest previewConsultation = new ConsultationRequest();
+        previewConsultation.setDemographicId(1);
+        when(consultationRequestDao.find(9)).thenReturn(previewConsultation);
 
         pdfPath = Files.createTempFile("consult-preview", ".pdf");
-        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdfPath);
+        doAnswer(invocation -> {
+            request.setAttribute("demographicId", "1");
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
         when(documentAttachmentManager.convertPDFToBase64(pdfPath)).thenReturn(PDF_BASE64);
         when(consultationRequestDao.find(9)).thenReturn(consultationRequest(1));
 
@@ -196,7 +203,79 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"signatureImg\":\"77\"");
         verify(consultationSignatureService).saveManualSignatureForPreview(
                 loggedInInfo, 9, 1, "9999981000", "9999981000", "999998");
-        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+    }
+
+    @Test
+    @DisplayName("uses the saved consultation demographic for print preview rendering")
+    void shouldUseSavedConsultationDemographic_whenSubmittedDemographicDoesNotMatch() throws Exception {
+        action.setDemographicNo("999");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        verify(demographicManager).getDemographicFormattedName(loggedInInfo, 1);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+    }
+
+    @Test
+    @DisplayName("returns attachment warnings in the print preview JSON")
+    void shouldReturnAttachmentWarnings_whenPreviewSkipsUnavailableAttachments() throws Exception {
+        doAnswer(invocation -> {
+            request.setAttribute("demographicId", "1");
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    List.of("Document attachment 80 is unavailable and was not included."));
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"attachmentWarnings\":[\"Document attachment 80 is unavailable and was not included.\"]");
+    }
+
+    @Test
+    @DisplayName("isolates renderer response mutations from direct print preview JSON")
+    void shouldIsolateRendererResponseMutations_whenDirectPrintPreviewSucceeds() throws Exception {
+        doAnswer(invocation -> {
+            HttpServletResponse renderResponse = invocation.getArgument(1, HttpServletResponse.class);
+            renderResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            renderResponse.setContentType("text/html;charset=UTF-8");
+            renderResponse.setHeader("Content-Disposition", "attachment; filename=bad.html");
+            renderResponse.getWriter().write("renderer body");
+            renderResponse.flushBuffer();
+            request.setAttribute("demographicId", "1");
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    List.of("Form attachment 3 is unavailable and was not included."));
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getContentAsString())
+                .contains("\"consultPDF\":\"" + PDF_BASE64 + "\"")
+                .contains("Form attachment 3 is unavailable and was not included.")
+                .doesNotContain("renderer body");
+    }
+
+    @Test
+    @DisplayName("resets stale response errors when direct print preview succeeds")
+    void shouldResetStaleResponseError_whenDirectPrintPreviewSucceeds() throws Exception {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
     }
 
     @Test
@@ -237,7 +316,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
         assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
         verify(consultationRequestDao, never()).merge(any());
-        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
     }
 
     @Test
@@ -258,7 +337,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
         assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
         assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
-        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
     }
 
     @Test
@@ -314,7 +393,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("keeps print preview errors generic when rendering fails")
     void shouldReturnGenericErrorMessage_whenDirectPrintPreviewFails() throws Exception {
-        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class)))
                 .thenThrow(new RuntimeException("sensitive internal path /var/lib/OscarDocument/consult.pdf"));
 
         String result = action.execute();
