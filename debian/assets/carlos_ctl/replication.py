@@ -507,8 +507,14 @@ def _cmd_add(rest: List[str]) -> int:
     existing = list_replicas()
     listen = o["listen"] or rs.listen_ip
     if not listen:
-        die("no listen address: pass --listen <primary-ip> (the address, besides loopback, "
-            "that MariaDB will bind for replicas — a VPN address for an offsite replica)")
+        # Never guess the address, but never leave a technician to find it
+        # either: list what this host has and name the flag.
+        candidates = [a for a in local_addresses()
+                      if not ipaddress.ip_address(a).is_loopback
+                      and not ipaddress.ip_address(a).is_link_local]
+        die("no listen address. Re-run with --listen <ip>, the address (besides loopback) "
+            "MariaDB will bind for replicas — a VPN address for an offsite replica. "
+            "This host has: " + (", ".join(candidates) or "no non-loopback address"))
     listen_ip = parse_ip(listen)
     listen = str(listen_ip)
     if rs.listen_ip and listen != rs.listen_ip:

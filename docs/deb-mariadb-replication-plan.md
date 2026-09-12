@@ -1044,10 +1044,16 @@ but CARLOS uses one at a time, so the certification conflicts that the
 application cannot retry never occur. This is why no application code
 changes are needed.
 
-It does **not** protect the application host. If the machine running
-Tomcat dies, the surviving database node has the record but nobody is
-serving pages; that is the warm-standby topology (T3) and remains separate
-work. It does not replace backups either (a `DELETE` is on both nodes in
+It does **not** protect the application host, and in T4 the application
+runs *on node 1*. Be precise about what the automatic failover therefore
+covers: a MariaDB process failure or planned MariaDB maintenance on node 1
+(the application keeps serving from node 2, zero loss), and the loss of
+node 2 or the arbitrator (nothing visible). Losing the node 1 *machine*
+still stops the clinic until the application runs elsewhere — that is the
+warm-standby topology (T3), which Path B makes trivial on the database
+side (a standby application host simply lists node 2 first) but which is
+separate work. Say this in the README in those words; it is the first
+question a technician asks. It does not replace backups either (a `DELETE` is on both nodes in
 milliseconds). And it is a **local** design: every commit waits one round
 trip for certification, so the nodes belong on the same LAN or campus, not
 across a WAN — an offsite copy stays Path A.
@@ -1156,12 +1162,17 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
   re-renders the drop-in with the real node list. Refuses if the
   primary-key migration is pending (`db-validate`) or
   `innodb_autoinc_lock_mode` is not 2.
-- `cluster add <node-ip> [--arbiter]` on any synced node: issues a token
-  (CA, a node certificate/key for that IP, cluster name, node list, SST
-  credentials, `wsrep_gtid_domain_id`, expected MariaDB series, data size)
-  and appends the IP to `CARLOS_DB_CLUSTER_NODES` cluster-wide (the env file
-  is per host; the tool re-renders on every node it can reach, and `status`
-  reports drift).
+- `cluster add <node-ip> [--arbiter]` on node 1 (the writer; refused
+  elsewhere so there is one place tokens come from): issues a token (CA, a
+  node certificate/key for that IP, cluster name, the current node list,
+  SST credentials, `wsrep_gtid_domain_id`, expected MariaDB series, data
+  size, the alert channel) and records the IP locally. **No host ever
+  writes another host's files.** Membership truth is the cluster's own
+  `wsrep_incoming_addresses`; every node's watch timer and `status`
+  re-render that node's own `gcomm://` list and `CARLOS_DB_CLUSTER_NODES`
+  from it, so a node added or removed anywhere is reflected everywhere
+  within one timer tick without ssh, and a node restarted after a long
+  absence still finds the current members.
 - `cluster join <token>` on `carlos-emr-db-node`: preflight (version, disk
   ≥ 2× data — SST via `mariabackup` is a full physical copy), render the
   drop-in with the full `gcomm://` list, start MariaDB, watch
@@ -1178,12 +1189,25 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
   `wsrep_local_cert_failures` (must stay 0 with one writer — a rising count
   means two writers), the writer node per `CARLOS_DB_CLUSTER_NODES`, and
   which node's `grastate.dat` says `safe_to_bootstrap: 1`.
-- `cluster remove <ip>`: drops the node from the list on every reachable
-  node and rotates the SST credential. Its certificate is **not** revoked
+- `cluster remove <ip>` (on node 1): drops the node from node 1's list,
+  rotates the SST credential (replicated as DDL), and the other nodes'
+  lists follow from `wsrep_incoming_addresses` once the node is gone. Its certificate is **not** revoked
   (there is no CRL machinery in this design), so the README says plainly:
   power the removed host off or wipe its `/etc/mysql/carlos-emr-tls`; a
   host holding a valid node certificate and the old SST credential could
   otherwise rejoin until the credential rotation lands.
+- `cluster leave --confirm <server-name>` on a node: stop MariaDB, remove
+  the 63- drop-in and the cluster ports from the firewall it manages, set
+  the role back to standalone; **the data stays** (the policy that only
+  `destroy-data` destroys data holds here too), so a left node can be
+  wiped with `destroy-data` or re-joined with `cluster join --reseed`.
+- `cluster disband --confirm <server-name>` on node 1: the whole thing off
+  in one command — node 1 continues as a standalone MariaDB with all its
+  data, the application's host list collapses to loopback, the arbitrator
+  and node 2 are told (in the printed output) to run `cluster leave`, and
+  the certificate material stays for a future re-enable. A junior
+  technician must be able to undo the cluster as easily as it was
+  enabled, without a runbook.
 - `cluster bootstrap --confirm <server-name>`: the one dangerous verb. After
   a full outage (every node down) Galera refuses to start until one node is
   declared the seed; after a partition that lost quorum the survivor is
@@ -1207,8 +1231,34 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
   connector's behaviour for a *pooled* connection (DBCP2 `testOnBorrow`
   runs `db_validationQuery` on checkout, so a dead node's connections are
   evicted one checkout at a time) are pinned by the smoke test in 11.9.
-- `drugref2.properties` `db_url` gets the same list — `init-config` renders
-  it from now on (the phase 3 item, pulled forward).
+- **Accounts for the failover path.** Today `carlos`, `drugref` and
+  `backup` exist only as `@localhost`/`@127.0.0.1`. When the driver fails
+  over, the application on node 1 connects to node 2 *from node 1's cluster
+  IP*, and without `carlos@<node1-ip>` the failover "works" at the driver
+  and then fails authentication — the exact silent failure this design must
+  not have. `cluster init` therefore extends `db-users` to create the
+  `@<cluster IP of every application host>` entries (replicated as DDL to
+  every node) **with `REQUIRE SSL`**, and `check` proves the account set on
+  every node matches the recorded application hosts.
+- **The application-to-database path leaves loopback.** Node 1 to node 2
+  is a LAN hop carrying PHI, so the JDBC connection must use TLS on that
+  hop. `init-config` builds a Java truststore from the cluster CA
+  (`keytool` ships with the JDK the package depends on) and renders
+  `sslMode=VERIFY_CA&trustCertificateKeyStoreUrl=file:…&trustCertificateKeyStorePassword=…`
+  into the URL parameters. The loopback hop uses the same settings (the
+  server certificate carries `IP:127.0.0.1`), so there is one configuration,
+  not a special case. The truststore password is not a secret (the store
+  holds only a public certificate) and lives in `carlos.properties` like the
+  rest.
+- **Failover must be fast, not eventual.** A node whose host is down hard
+  answers nothing, and a driver waiting on the kernel's SYN timeout turns
+  a seconds-long failover into minutes of a frozen EMR. The URL carries
+  `connectTimeout=3000&socketTimeout=…` chosen against the longest
+  legitimate query the application runs (a large report), and the smoke
+  test measures time-to-first-successful-write after killing node 1's
+  MariaDB and after pulling its network — both must be under 30 s.
+- `drugref2.properties` `db_url` gets the same list and TLS parameters —
+  `init-config` renders it from now on (the phase 3 item, pulled forward).
 - `carlos-emr-tomcat`'s database wait probes any host in the list, not
   only the first.
 - `carlos-ctl db-migrate` runs on the writer only (`check` and the verb
@@ -1237,11 +1287,17 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
   cluster weekly, roughly doubling the dataset in transit and stalling the
   writer under flow control. Options: (a) accept it; (b) run the drill's
   load step with `wsrep_on = OFF` for the session, which needs a privilege
-  the backup account deliberately lacks; (c) run the drill on the
-  non-writer node with (b) via root over the socket, which keeps the load
-  off the writer and the binlog. The plan takes **(c)** — the drill's load
-  becomes a `carlos-ctl` helper the drill unit calls, and `check` reports
-  the drill's node. Open question 9.
+  the backup account deliberately lacks; (c) a root-owned helper unit that
+  does (b) on the non-writer node — more machinery for the least-privilege
+  drill to call; (e) load the drill's copy into **Aria** tables: Galera
+  does not replicate Aria writes unless `wsrep_mode` asks for it (it does
+  not, by default), so the drill stays local, unprivileged, and unchanged
+  in shape — one `sed` on the dump's `ENGINE=InnoDB` at load time. The
+  trade-off is that the drill then proves the dump *loads*, not that it
+  loads into InnoDB specifically (InnoDB-only limits such as row size would
+  not be exercised). The plan takes **(e)** as the turnkey answer and keeps
+  (c) as the option for a site that wants an InnoDB-faithful drill; the
+  README states the trade-off in one sentence. Open question 9.
 - A point-in-time restore is now a *cluster* rebuild: restore on node 1
   with `wsrep_on = OFF`, then `cluster bootstrap`, then `cluster join
   --reseed` on node 2 (its SST wipes and re-copies). The runbook says so.
@@ -1257,8 +1313,15 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
 - Two of three lose each other (partition): the side without a majority
   goes non-Primary and **refuses every query** — CARLOS shows errors rather
   than accepting writes that could later conflict. That is the correct
-  outcome for a clinical record; `cluster bootstrap --confirm` is how an
-  operator forces the survivor when the other side is known dead.
+  outcome for a clinical record, and it is also the scenario a technician
+  will meet as "the server is fine but the EMR says database error":
+  node 2 *and* the arbitrator unreachable (a switch failure, both on one
+  hypervisor) leaves a perfectly healthy node 1 refusing to serve. So
+  `carlos-ctl status` must say, in those words, what happened and the one
+  command that fixes it, and `cluster bootstrap --confirm` must itself
+  probe the other members and refuse without `--force` if either still
+  answers — the tool, not the technician, is the one that decides whether
+  forcing is safe.
 - Full power loss: no node starts serving until `cluster bootstrap` on the
   node whose `grastate.dat` has `safe_to_bootstrap: 1` (Galera marks the
   last node to leave). `status` names it.
@@ -1294,7 +1357,12 @@ counter — the last is the fingerprint of an accidental second writer.
 - The DrugRef seed created as InnoDB replicates row-for-row.
 - The primary-key migration applies cleanly on a populated demo database
   and the JPA entities on those tables still load.
-- Cost of the restore drill under option (c) versus (a), measured.
+- Cost of the restore drill under option (e) versus (a), measured, and
+  that `wsrep_mode`'s default really leaves Aria writes local on 11.4/11.8.
+- Failover latency with the chosen `connectTimeout`/`socketTimeout`, for a
+  killed MariaDB process and for a pulled network cable, under 30 s each.
+- The JDBC TLS parameters against the WAR's Connector/J version
+  (`sslMode=VERIFY_CA` with a file truststore).
 
 Integration test: three systemd containers (node 1 = full server with demo
 data and DrugRef, node 2 = `carlos-emr-db-node`, arbiter), `cluster init`,
@@ -1321,3 +1389,118 @@ crossed to the writer.
 12. **Should Path A remain in the roadmap at all** once Path B exists, or
     only the "offsite copy" use of it? The phase-1 code stays either way
     (an async replica *of a Galera node* is a supported MariaDB topology).
+13. **Firewall automation scope** (12.4): manage `ufw` rules when it is
+    active, print for everything else — or never touch a firewall the tool
+    did not install? The plan's answer is the former, opt-out by flag.
+14. **JDBC TLS on loopback too** (11.5): one configuration for both hops,
+    at the cost of TLS overhead on the local connection — or TLS only for
+    the failover hop, which the Connector/J URL cannot express per host?
+    The plan takes one configuration.
+
+---
+
+## 12. Turnkey and junior-technician requirements (binding on every phase)
+
+The bar the maintainer set: enable, operate, and remove by a junior
+technician, with no silent failure. These rules are checked in review and
+tested in section 8/11.9; they are not aspirations.
+
+### 12.1 The vocabulary is fixed
+
+`carlos-ctl status` (and the first line of `check`) reports the redundancy
+state in exactly one of four words, followed by one sentence and, when
+action is needed, one command:
+
+| Word | Meaning | Example second line |
+|---|---|---|
+| `NOT CONFIGURED` | standalone; nothing to do | `Enable a cluster: sudo carlos-ctl cluster init --listen <ip>` |
+| `HEALTHY` | every recorded member present and in sync | `3 of 3 members; database on node1; node2 in sync` |
+| `DEGRADED` | the clinic keeps working, something needs fixing | `node2 unreachable since 10:14 — fix node2; the clinic is running on node1 only` |
+| `DOWN` | the database refuses service | `this node lost quorum (node2 and the arbitrator are unreachable). If they are really off, run: sudo carlos-ctl cluster bootstrap --confirm emr.clinic` |
+
+The watch timer sends the same words to the alert channel, once per
+transition, with the same command.
+
+### 12.2 Every refusal names the next command
+
+No verb exits non-zero with a diagnosis alone. The message ends with the
+exact command to run next (`re-run ... after ...`, `on node2 run ...`), the
+way the phase-1 `replica add` and the existing postinst messages already
+do. A message that cannot name a next command is a design defect.
+
+### 12.3 The happy path is short and the flags are optional
+
+Enable (three hosts):
+
+```
+node1:    sudo carlos-ctl cluster init --listen 10.0.0.5 --alert-webhook https://…
+node1:    sudo carlos-ctl cluster add 10.0.0.6
+node1:    sudo carlos-ctl cluster add 10.0.0.7 --arbiter
+          (each prints the scp line for its token)
+node2:    sudo apt install carlos-emr-db-node && sudo carlos-ctl cluster join ./join.token
+arbiter:  sudo apt install carlos-emr-db-arbiter && sudo carlos-ctl cluster join ./join.token
+anywhere: sudo carlos-ctl status
+```
+
+Remove (two commands): `cluster disband --confirm <name>` on node 1, then
+`cluster leave --confirm <name>` on each other host — or just `apt remove`
+them; the data stays until `destroy-data`.
+
+Rules that keep it short:
+
+- `--listen` omitted: the verb **lists this host's addresses** and refuses
+  with "re-run with --listen <one of these>" — never guesses.
+- `--alert-webhook`/`--alert-email` omitted on `cluster init`: refused,
+  unless `--no-alerts` is given, because a cluster nobody hears about is a
+  hidden single point of failure. `check` keeps nagging.
+- `cluster` with no subcommand prints the state and the next sensible
+  step for this host.
+- Every verb accepts `--explain`: it prints what it would do, file by
+  file and statement by statement, and exits 0 without doing it. This is
+  how a technician (or a reviewer) sees the plan before the change.
+- Every verb is idempotent and says "already done" instead of failing when
+  re-run.
+
+### 12.4 The firewall is handled, not delegated
+
+Printing nft rules and walking away is how a junior technician gets a join
+that hangs on SST forever. So:
+
+- `cluster join` and `cluster add` **test the ports first** (3306, 4567
+  tcp+udp, 4568, 4444 to every member) and refuse with the exact blocked
+  port and the exact rule, before MariaDB is touched.
+- When `ufw` is installed and active, the verbs **add the rules
+  themselves** (`--no-firewall` opts out), scoped to the member addresses,
+  and `cluster leave`/`disband` remove them. With nftables or another
+  firewall the rules are printed as today.
+- SST and IST have **timeouts with progress**: `join` shows the donor's
+  transfer progress and fails with a named cause after a bound, never a
+  silent hang.
+
+### 12.5 Preflight checks with remedies
+
+`cluster init`, `add` and `join` refuse, each with a remedy, on: a
+different MariaDB series; clocks unsynchronised (`timedatectl`, because
+TLS validation fails silently on a wrong clock); free disk under 2× the
+data size (SST is a full physical copy); the pending primary-key
+migration; `innodb_autoinc_lock_mode` not 2; DrugRef installed *after*
+another node joined (its Aria seed would be missing there — 11.2); a
+cluster IP not currently assigned; a public address without
+`--allow-public`.
+
+### 12.6 The two traps are named in the tool, not only in the README
+
+- **Healthy node, refusing service** (11.7): `status` prints `DOWN` with
+  the bootstrap command; `bootstrap` probes the other members and refuses
+  to force while any answers.
+- **A second writer by accident** (11.2): `check` fails on any application
+  host whose node list order differs, and the watch timer alerts on a
+  rising `wsrep_local_cert_failures`.
+
+### 12.7 Applies to phase 1 too
+
+The shipped `replica add` already lists nothing when `--listen` is missing;
+it now prints the host's candidate addresses (implemented alongside this
+review). Its firewall handling and the mandatory alert channel follow the
+rules above in the next phase-1 touch, so the two paths behave the same
+way.
