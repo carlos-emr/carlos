@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.app;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -83,6 +85,11 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
 
     private static final Logger LOGGER = LogManager.getLogger(CarlosExceptionMappingInterceptor.class);
 
+    /** Canonical refusal text (see CLAUDE.md); the object name is a bare identifier. */
+    private static final Pattern SECURITY_OBJECT_REFUSAL =
+            Pattern.compile("^missing required sec object \\(([A-Za-z0-9_.]+)\\)$");
+    private static final String REFUSAL_MESSAGE_WITHHELD = "refusal message withheld";
+
     @Override
     public String intercept(ActionInvocation invocation) throws Exception {
         try {
@@ -131,15 +138,35 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
         String exceptionType = e.getClass().getName();
 
         if (securityRefusal) {
-            // The message is the application's own static text ("missing required sec object (_con)"),
-            // and there is nothing a trace would add to "this provider lacks this privilege".
-            String refusal = LogSafe.sanitize(e.getMessage());
+            // There is nothing a trace would add to "this provider lacks this privilege", and the
+            // message itself is not logged as-is: most refusals carry the fixed
+            // "missing required sec object (_con)" text, but a SecurityException can also be built
+            // from a filename or a resource name, which is PHI here. Only the security object,
+            // validated to a bare identifier, reaches the log; anything else is withheld.
+            String refusal = refusalDetail(e);
             LOGGER.warn("Authorization refused [incident {}] {} in action {} ({} {}) provider={}: {}",
                     incidentId, exceptionType, actionName, method, path, provider, refusal);
         } else {
             LOGGER.error("Unhandled {} [incident {}] in action {} ({} {}) provider={}",
                     exceptionType, incidentId, actionName, method, path, provider, e);
         }
+    }
+
+    /**
+     * The one piece of a refusal message that is safe to log: the security object name from the
+     * canonical {@code missing required sec object (_name)} form, re-emitted from the validated
+     * capture rather than the message. Any other message is replaced by a fixed marker, because its
+     * content is whatever the throwing site interpolated.
+     */
+    static String refusalDetail(Exception e) {
+        String message = e.getMessage();
+        if (message != null) {
+            Matcher matcher = SECURITY_OBJECT_REFUSAL.matcher(message);
+            if (matcher.matches()) {
+                return "missing required sec object (" + matcher.group(1) + ")";
+            }
+        }
+        return REFUSAL_MESSAGE_WITHHELD;
     }
 
     private static String providerNo(HttpServletRequest request) {

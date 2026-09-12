@@ -146,7 +146,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
     }
 
     @Test
-    @DisplayName("maps a SecurityException to the security result with a 403 and a WARN line carrying its message")
+    @DisplayName("maps a SecurityException to the security result with a 403 and a WARN line naming the security object")
     void shouldMapSecurityException_toSecurityErrorWith403() throws Exception {
         when(invocation.invoke()).thenThrow(new SecurityException("missing required sec object (_con)"));
 
@@ -194,7 +194,34 @@ class CarlosExceptionMappingInterceptorUnitTest {
         assertThat(result).isEqualTo("securityError");
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(messages).hasSize(1);
-        assertThat(messages.get(0)).startsWith("Authorization refused").contains("Access is denied");
+        assertThat(messages.get(0))
+                .startsWith("Authorization refused")
+                .doesNotContain("Access is denied")
+                .contains("refusal message withheld");
+    }
+
+    /**
+     * Not every SecurityException carries the canonical static text: document and fax sites build
+     * theirs from a filename or a resource name, which can carry a patient's name. The WARN line
+     * must never repeat such a message.
+     */
+    @Test
+    @DisplayName("withholds a refusal message that is not the canonical security-object form")
+    void shouldWithholdRefusalMessage_whenNotCanonicalSecurityObjectForm() throws Exception {
+        when(invocation.invoke()).thenThrow(new SecurityException("Invalid filename: FAKE-Patient-lab-report.pdf"));
+
+        List<String> messages;
+        try (LogCapture logCapture = LogCapture.forLogger(CarlosExceptionMappingInterceptor.class)) {
+            interceptor.intercept(invocation);
+            messages = logCapture.messages();
+        }
+
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0))
+                .startsWith("Authorization refused")
+                .doesNotContain("FAKE-Patient")
+                .doesNotContain("Invalid filename")
+                .contains("refusal message withheld");
     }
 
     @Test
