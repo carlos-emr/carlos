@@ -25,8 +25,12 @@ carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
     specialist row and points the request at it; it clears the consultant.
     That alert now says the request could not be saved or printed.
   * Uncaught exceptions in any action are logged at ERROR with their stack
-    trace instead of being mapped to the error page silently, and the
-    application's default log level is WARN rather than ERROR. The
+    trace and an incident reference instead of being mapped to the error page
+    silently; the error page shows the same reference and answers 500 (403,
+    and a WARN line, for an authorization refusal), and nothing about the
+    failure beyond that reference reaches the browser or the log line's
+    request detail. The application's default log level is WARN rather than
+    ERROR. The
     "property is missing" warning is reported once per key per start, not on
     every page render, so WARN stays readable; Hibernate's per-column
     deprecation notice is held at ERROR for the same reason. LOG_VERBOSITY

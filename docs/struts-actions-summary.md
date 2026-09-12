@@ -190,6 +190,38 @@ Do not return an unmapped `failure`/`error` result from a download route. PR
 resolution can render `errorpage.jsp` with `CARLOS Error: 0` because no real
 HTTP status was set.
 
+## Uncaught exceptions: what an action's failure looks like
+
+Every module package maps `java.lang.SecurityException` to `securityError` and
+`java.lang.Exception` to `error`, and every CARLOS stack runs
+`io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptor` in the
+exception slot (`carlosException`, declared in `struts.xml`'s `carlos-default`).
+struts-default's own interceptor performed the same mapping silently; the CARLOS
+one keeps the mapping and adds the contract below. Do not work around it with a
+per-action `try/catch` that swallows and returns `"error"`: that is the silence
+this replaced.
+
+| | Unexpected exception | `SecurityException` |
+|---|---|---|
+| Result | the package's `error` | the package's `securityError` |
+| HTTP status | 500 (set before the result renders, unless the response is already committed) | 403 |
+| Log | one ERROR line with the stack trace | one WARN line, no trace, the (static) message |
+| Log line carries | incident id, exception class, action name, HTTP method, request path (no query string, no path parameters), provider number (sanitised) | the same |
+| Log line never carries | request parameters, the query string, the exception message | request parameters, the query string |
+| Result page gets | request attribute `carlosIncidentId` | `carlosIncidentId` |
+| Value stack gets | nothing (no `exception` / `exceptionStack`) | nothing |
+
+`errorpage.jsp` and `securityError.jsp` print the incident id as "Reference";
+a page that maps `error` to its own view (the consultation form does) should
+append it to whatever it tells the user. To find the trace behind a reference:
+
+```bash
+carlos-ctl logs | grep '<incident id>'
+```
+
+An exception no mapping covers is rethrown unchanged and reaches the container's
+error page through `web.xml`, where `ErrorPageLogger` records it.
+
 ## Maintenance Recommendations
 
 1. **Orphaned Actions**: 18 additional orphaned actions remain that could be cleaned up

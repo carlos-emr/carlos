@@ -741,9 +741,13 @@ eForm print, fax or archive fails
   put it back afterwards). The renderer's startup probe reports at INFO and is
   exempted from the default so its result is visible without turning up
   logging everywhere. An action that dies in an uncaught exception is logged
-  at ERROR with its stack trace -- earlier builds mapped it to the error page
-  silently, which is why "it just did nothing" reports had no trace to go with
-  them.
+  at ERROR with its stack trace and an incident reference, and the error page
+  the clinician sees shows that same reference (an authorization refusal is a
+  WARN line and a 403, with its reference). Earlier builds mapped these to the
+  error page silently, which is why "it just did nothing" reports had no trace
+  to go with them. To find the entry behind a reference:
+
+      carlos-ctl logs | grep '<reference>'
 
   If the renderer package is not installed at all, that is expected and the
   application says so once at startup rather than failing a print later.

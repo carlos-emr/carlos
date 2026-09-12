@@ -250,6 +250,12 @@
                 // the form "could not be printed" when it had not been saved.
                 errorMessage = "The consultation request could not be saved or printed due to an error. Please refer to the server logs for more details.";
             }
+            // When the "error" result was reached through an uncaught exception, the interceptor
+            // left the incident id that names the log entry; give the clinician that to quote.
+            Object incidentId = request.getAttribute("carlosIncidentId");
+            if (incidentId != null) {
+                errorMessage = errorMessage + " Reference: " + incidentId + ".";
+            }
     %>
     <SCRIPT LANGUAGE="JavaScript">
         alert('<carlos:encode value='<%= errorMessage %>' context="javaScriptBlock"/>');
