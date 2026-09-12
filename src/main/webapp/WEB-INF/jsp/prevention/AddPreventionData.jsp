@@ -326,6 +326,7 @@
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/popupLink.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
@@ -632,8 +633,8 @@
                         </td>
                         <td style="text-align:right; background-color:silver;">
                             <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" class="js-popup" data-popup-width="400" data-popup-height="300"><fmt:message key="global.about"/></a>
+                            | <a href="<%=request.getContextPath()%>/encounter/ViewLicense" class="js-popup" data-popup-width="400" data-popup-height="300"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
