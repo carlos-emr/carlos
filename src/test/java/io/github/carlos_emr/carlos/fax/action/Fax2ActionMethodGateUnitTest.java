@@ -104,6 +104,25 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PUT", "PATCH", "DELETE", "OPTIONS", "TRACE"})
+    @DisplayName("should reject every non-POST mutation before dispatch or side effects")
+    void shouldRejectMutation_whenVerbIsNotPost(String verb) {
+        for (String method : new String[] {"queue", "cancelStagedEFormFax", "cancel", "", "prepareFax"}) {
+            setUpCommonMocks();
+            request.setMethod(verb);
+            if (!method.isEmpty()) request.setParameter("method", method);
+            if ("prepareFax".equals(method)) request.setParameter("renderApproval", "fixture-token");
+            try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+                servlet.when(ServletActionContext::getRequest).thenReturn(request);
+                servlet.when(ServletActionContext::getResponse).thenReturn(response);
+                assertThat(new Fax2Action().execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(405);
+                verifyNoInteractions(faxManager, documentAttachmentManager, securityInfoManager);
+            }
+        }
+    }
+
     @Test
     @DisplayName("should send 405 on HEAD with method queue before any side effect")
     void shouldSend405_onHeadQueue() {

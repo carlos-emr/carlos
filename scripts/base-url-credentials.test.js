@@ -6,7 +6,14 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 // Execute each real validator without starting its browser or touching fixtures.
-const scripts = fs.readdirSync(__dirname).filter(name => name.endsWith('.js') && !name.endsWith('.test.js'));
+function collectScripts(directory, prefix = '') {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const relative = path.join(prefix, entry.name);
+    if (entry.isDirectory() && entry.name !== 'node_modules') return collectScripts(path.join(directory, entry.name), relative);
+    return entry.isFile() && entry.name.endsWith('.js') && !entry.name.endsWith('.test.js') ? [relative] : [];
+  });
+}
+const scripts = collectScripts(__dirname);
 for (const name of scripts) {
   const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
   const start = source.indexOf('function validateBaseUrl(');

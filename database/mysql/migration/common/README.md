@@ -25,10 +25,14 @@ Default Facility (a deliberate one-time default change; see the file header).
 rationale in `docs/database-index-review-2026-09-04.md`).
 `V1.0.20__widen_fax_destination_for_international_numbers.sql` preserves international fax
 destinations by widening the queue column to 32 characters without changing existing values.
+`V1.0.21__serialize_missing_lab_routing_creation.sql` adds transaction-scoped coordination
+keys for acknowledgement/status writes, including missing routing rows and unassigned-row
+cleanup. It preserves all existing routing records and comments. All application nodes must
+run the updated acknowledgement code to participate in this coordination protocol.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.20`
-(also the highest shared one), so the next free version for ANY location is `V1.0.21`
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.21`
+(also the highest shared one), so the next free version for ANY location is `V1.0.22`
 (see `../README.md`).
