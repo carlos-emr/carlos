@@ -410,27 +410,18 @@ public class CaseManagementPrint {
                 }
 
             }
-            int skippedSections = ConcatPDF.concat(pdfDocs, os);
-            if (skippedSections > 0) {
-                logger.warn("Chart print: {} document section(s) omitted from the printed output", skippedSections);
-            }
-        } catch (IOException | SecurityException e) {
-            // Every failure here occurs before any byte is written to the response stream (os is only
-            // written by ConcatPDF.concat above), so propagate instead of silently returning an empty,
-            // HTTP-200 PDF. The Struts direct-response caller resets the response and sends a real error;
+            ConcatPDF.concatRequired(pdfDocs, os);
+        } catch (IOException | RuntimeException e) {
+            // Missing inputs fail before the response stream is written. Propagate assembly failures
+            // instead of returning a successful incomplete PDF. The Struts direct-response caller
+            // resets an uncommitted response and sends a real error;
             // the REST StreamingOutput caller logs and closes. Mapped to IOException per the method contract.
-            logger.error("Chart print generation failed before any output was written", e);
-            throw new IOException("Failed to generate chart print PDF", e);
+            logger.error("Chart print generation failed ({})", e.getClass().getSimpleName());
+            throw new IOException("Failed to generate complete chart print PDF");
         } finally {
-            if (out != null) {
-                out.close();
-            }
-            if (os2 != null) {
-                os2.close();
-            }
-            if (fos != null) {
-                fos.close();
-            }
+            closeTempStream(out);
+            closeTempStream(os2);
+            closeTempStream(fos);
             // File.delete() fails silently; these are the encounter PDF and, on the exception
             // path, the lab PDF that was in flight, both PHI, so a refusal must at least be logged.
             if (file != null) {
@@ -454,7 +445,7 @@ public class CaseManagementPrint {
                     // file here is the normal case for it, not a failed delete worth a warning.
                     deleteTempPdf(tempPdf, "temporary print PDF");
                 } catch (RuntimeException ex) {
-                    logger.warn("Could not delete temporary print PDF; leaving it for the OS temp sweep", ex);
+                    logger.warn("Could not delete temporary print PDF ({})", ex.getClass().getSimpleName());
                 }
             }
         }
@@ -747,6 +738,16 @@ public class CaseManagementPrint {
     }
 
 
+    private static void closeTempStream(java.io.Closeable stream) {
+        if (stream == null) return;
+        try {
+            stream.close();
+        } catch (IOException | RuntimeException failure) {
+            // Keep cleaning every PHI-bearing file and preserve the original print failure.
+            logger.warn("Could not close temporary chart print stream ({})", failure.getClass().getSimpleName());
+        }
+    }
+
     /**
      * Deletes a temp PDF that holds PHI, tolerating one that is already gone (the encounter PDF is
      * deleted through two handles) and never throwing out of cleanup: a failure is a warning with
@@ -759,8 +760,8 @@ public class CaseManagementPrint {
         try {
             Files.deleteIfExists(tempPdf.toPath());
             return true;
-        } catch (IOException ex) {
-            logger.warn("Failed to delete {}; leaving it for the OS temp sweep", description, ex);
+        } catch (IOException | RuntimeException ex) {
+            logger.warn("Failed to delete {}; leaving it for the OS temp sweep ({})", description, ex.getClass().getSimpleName());
             return false;
         }
     }

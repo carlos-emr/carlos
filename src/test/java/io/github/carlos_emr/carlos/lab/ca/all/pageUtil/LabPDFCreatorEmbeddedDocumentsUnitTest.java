@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -88,21 +89,35 @@ class LabPDFCreatorEmbeddedDocumentsUnitTest {
     @Test
     @DisplayName("refuses a source outside the temp directories, writes nothing, and keeps the file name out of the log")
     void shouldRefuseSource_whenSourceIsOutsideTempDirectories() throws IOException {
-        // target/ is the build's own scratch space: writable, project-local, and not a temp dir.
-        outsideDir = Files.createDirectories(Path.of("target", "lab-embed-outside"));
+        // Keep this fixture in the source checkout: target may be redirected into a temp filesystem.
+        outsideDir = Files.createTempDirectory(Path.of(".").toAbsolutePath(), "lab-embed-outside-");
         File outsideSource = outsideDir.resolve(PATIENT_NAME_FRAGMENT + "_2026-01-01_LabReport.pdf").toFile();
         writeOnePagePdf(outsideSource);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try (LogCapture logCapture = LogCapture.forLogger(LabPDFCreator.class)) {
-            new LabPDFCreator().addEmbeddedDocuments(outsideSource, out);
+            assertThatThrownBy(() -> new LabPDFCreator().addEmbeddedDocuments(outsideSource, out))
+                    .isInstanceOf(IOException.class).hasMessage("Lab PDF could not be assembled completely")
+                    .hasNoCause();
 
+            assertThat(logCapture.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
             assertThat(out.size()).as("a refused source must not be copied to the output").isZero();
             assertThat(logCapture.messages()).anySatisfy(message -> assertThat(message).contains("rejected"));
             assertThat(logCapture.messages())
                     .as("the lab file name is built from the patient's name and must stay out of the log")
                     .noneSatisfy(message -> assertThat(message).contains(PATIENT_NAME_FRAGMENT));
         }
+    }
+
+    @Test
+    @DisplayName("rejects a corrupt lab PDF rather than returning empty or partial clinical output")
+    void shouldFail_whenRequiredLabPdfIsCorrupt() throws IOException {
+        tempSource = PathValidationUtils.createSecureTempFile("lab-embed-test-", ".pdf");
+        Files.writeString(tempSource.toPath(), "corrupt synthetic lab");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        assertThatThrownBy(() -> new LabPDFCreator().addEmbeddedDocuments(tempSource, out))
+                .isInstanceOf(IOException.class).hasNoCause();
+        assertThat(out.size()).isZero();
     }
 
     private static void writeOnePagePdf(File file) throws IOException {
