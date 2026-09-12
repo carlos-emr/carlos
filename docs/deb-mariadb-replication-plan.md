@@ -11,6 +11,32 @@ only, CARLOS keeps talking to the primary.** A second machine holds a live,
 continuously updated copy of the clinical database. Failover is an operator
 decision with a scripted, fenced promotion — not automatic.
 
+## 0. Two properties that hold in every phase
+
+**Optional.** A site that never asks for a replica gets exactly what it gets
+today:
+
+- no new debconf question is shown at normal priority, and the two
+  replication questions added for preseeding default to empty (= off);
+- MariaDB keeps listening on loopback only, no certificate material is
+  generated, no account is created, no drop-in is rendered, no timer runs;
+- `carlos-emr-db-replica` is never pulled in by `Depends` or `Recommends`;
+  the only visible change from the `carlos-emr-ctl` split is a second
+  package in `apt list --installed`, which apt installs automatically as a
+  dependency;
+- `carlos-ctl check`, backups, PITR and the restore drill behave and report
+  as before.
+
+**Easy to add at the start or later.** Enabling is the same one verb in both
+cases, `carlos-ctl replica add`, and it is idempotent and reversible
+(`replica remove`). On a fresh install it can be preseeded so `apt install`
+finishes with the primary side ready and the join token written. On an
+established site it changes nothing in the schema or the application; the
+only interruption is one MariaDB restart to bind the extra address, which is
+done through the existing compare-then-restart path, refused while a backup
+is running, and can be deferred with `--no-restart` to a maintenance window.
+Section 5 walks both paths.
+
 Companion documents: [`install-deb.md`](install-deb.md) (what exists today),
 [`carlos-ctl.md`](carlos-ctl.md) (the verb set this extends), and the
 installed `README.Debian` (sections 6 "Database" and 7 "Backups", which this
@@ -458,10 +484,56 @@ sudo carlos-ctl check          # replication section: IO/SQL running, lag 0, rea
 sudo carlos-ctl replica status
 ```
 
-`dpkg-reconfigure carlos-emr` does not ask about replication: the answer
-needs the replica's address, which is a day-two fact. An unattended
-first-install path can still do it in one shot by running `replica add`
-from the provisioning script after `apt install`.
+### 5.1 At first install (fresh server)
+
+Two low-priority debconf questions on `carlos-emr`, never shown at the
+default priority, both defaulting to empty (off), for unattended or scripted
+installs:
+
+```
+carlos-emr/replica-listen-ip     string   10.0.0.5        # bind this ONE extra address
+carlos-emr/replica-allow-from    string   10.0.0.6        # comma-separated replica IPs
+```
+
+When both are preseeded (`debconf-set-selections`), the postinst runs
+`carlos-ctl replica add <ip> --listen <listen-ip>` for each replica after
+provisioning, so the fresh install ends with the primary side ready and the
+tokens written under `/var/lib/carlos-emr/replicas/`. The interactive
+installer does not ask; a fresh interactive install simply runs `replica
+add` right after `apt install` (no restart penalty: MariaDB has just been
+restarted for the CARLOS drop-in anyway, and the two restarts fold into
+one when the drop-ins are rendered in the same configure run).
+
+The replica side mirrors it: `carlos-emr-db-replica` accepts a preseeded
+`carlos-emr-db-replica/join-token` path (a file placed on the host before
+`apt install`) and its postinst runs `replica join` against it, so a fully
+unattended two-host bring-up is `apt install` on each machine plus one
+`scp` between them. Interactive installs run `replica join` by hand as
+above.
+
+### 5.2 On an established site
+
+The same `replica add`, on a server that has been in production for any
+length of time:
+
+- no schema change, no Flyway migration, no application restart;
+- one MariaDB restart to bind the listen address and load the TLS
+  material, through `db-apply-settings`'s compare-then-restart path — so a
+  re-run never bounces the server again — refused while a backup or drill
+  is running (the existing `_refuse_while_backup_runs` guard), and
+  deferrable: `replica add --no-restart` renders everything and prints the
+  one command to run in the maintenance window. The application's pool
+  (`testOnBorrow`) reconnects on its own after the restart;
+- the seed dump runs as `--single-transaction`, so it does not lock the
+  live database; on a large site run `replica join` outside clinic hours
+  for the network load, not for locking;
+- `replica remove <ip>` undoes all of it (account, token, listen address
+  once the last replica is gone), leaving only the certificate material
+  behind for a future re-enable.
+
+`dpkg-reconfigure carlos-emr` shows the two replication questions only at
+low priority; existing answers are seeded from `replication.env` so an
+upgrade never resets a configured listen address.
 
 Promotion, when needed, is section 4.7's single command on B followed by
 the three-line runbook on A.
@@ -515,30 +587,36 @@ installed base working unchanged.
    - `replica remove <ip>`: drop account, delete state; if it was the last
      replica, drop the listen address from the drop-in (TLS material
      stays);
-   - firewall hint printer.
+   - firewall hint printer;
+   - `--no-restart` (render and print the deferred restart command).
 7. **`check`**: loopback assertion accepts the configured listen IP;
    `replication` section for the primary role.
-8. **Docs**: `README.Debian` section "8. Replication (optional)";
+8. **Preseed path**: the two low-priority debconf questions in
+   `carlos-emr.templates` / `carlos-emr.config`, seeded from
+   `replication.env` on reconfigure; postinst calls `replica add` for each
+   preseeded replica after provisioning (non-fatal, like the other
+   provisioning steps).
+9. **Docs**: `README.Debian` section "8. Replication (optional)";
    `docs/carlos-ctl.md` verb reference; `docs/install-deb.md` pointer;
    `carlos-ctl.8`.
 
 ### Phase 2 — replica package and join
 
-9. **`carlos-emr-db-replica`** binary package: depends, `Conflicts:
+10. **`carlos-emr-db-replica`** binary package: depends, `Conflicts:
    carlos-emr` (phase 2 only), postinst that creates
    `/etc/carlos-emr/` from the shared skeletons, applies the shared 60-
    drop-in via `db-apply-settings`, installs the watch timer disabled until
    `join` succeeds. `postrm` never drops the replicated schema (same
    contract as `carlos-emr`: only `destroy-data` destroys data).
-10. **`replica join <token> [--reseed --confirm <name>] [--credentials-only]`**:
+11. **`replica join <token> [--reseed --confirm <name>] [--credentials-only]`**:
     preflight → replica drop-in → local accounts with injected passwords and
     app-host entries → streamed seed → `gtid_slave_pos` → `CHANGE MASTER`
     (TLS, pinned CA, GTID) → `START SLAVE` → wait for lag 0 → write
     `replication.env` → enable timer → shred token.
-11. **`carlos-emr-replica-watch`** service + timer, `replica status`
+12. **`carlos-emr-replica-watch`** service + timer, `replica status`
     (replica role), `check` replication section (replica role).
-12. **`replica promote --confirm <name> [--force]`** as in 4.7.
-13. **Integration test** (section 8) exercised end to end.
+13. **`replica promote --confirm <name> [--force]`** as in 4.7.
+14. **Integration test** (section 8) exercised end to end.
 
 ### Phase 3 — remote database on the app host, hardening
 
