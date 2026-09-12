@@ -1395,8 +1395,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         // The stamp is NOT applied here. saveDrug is a separate AJAX request whose response is JSON,
         // so the RX_STAMP_SIGNATURE_APPLIED signal it would set could not reach the ViewScript2
         // render that follows (opened by popForm2 -> RxViewScript2Action), and the pad would be
-        // hidden. The stamp is applied in RxViewScript2Action, which reuses this same script row and
-        // renders the page — keeping the pad available to override the stamp.
+        // hidden. The stamp is applied by the CSRF-protected POST to RxViewScript2Action,
+        // which reuses this same script row and renders the page — keeping the pad available
+        // to override the stamp. Ordinary GET/HEAD preview navigation never stamps or saves.
 
         List<String> reRxDrugList = new ArrayList<String>();
         reRxDrugList = bean.getReRxDrugIdList();

@@ -127,16 +127,21 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"0,false", "1,false", "2,false", "1,true", "2,true"})
-    @DisplayName("should delete prepared fax files only after a confirmed rollback")
-    void shouldRetainPreparedFiles_untilRollbackIsKnown(int completion, boolean persistenceThrows,
+    @org.junit.jupiter.params.provider.CsvSource({"0,false,false", "1,false,false", "2,false,false", "1,true,false", "2,true,false",
+            "0,false,true", "1,false,true", "2,false,true", "1,true,true", "2,true,true"})
+    @DisplayName("should defer intermediate cleanup until commit and preserve all prepared files for an unknown outcome")
+    void shouldRetainPreparedFiles_untilCompletionIsKnown(int completion, boolean persistenceThrows, boolean covered,
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path pdf = Files.writeString(directory.resolve("fax.pdf"), "fixture fax");
+        Path coveredPdf = covered ? Files.writeString(directory.resolve("covered.pdf"), "fixture covered fax") : null;
         FaxJob job = new FaxJob();
         job.setStatus(FaxJob.STATUS.WAITING);
         job.setFile_name("fax.pdf");
         doReturn(job).when(manager).createFaxJob(eq(loggedInInfo), anyMap());
         when(nioFileManager.getOscarDocument(Path.of("fax.pdf"))).thenReturn(pdf);
+        if (covered) {
+            doReturn(coveredPdf).when(manager).addCoverPage(eq(loggedInInfo), any(), any(), any(), eq(Path.of("fax.pdf")));
+        }
         if (persistenceThrows) doThrow(new IllegalStateException("injected persistence failure"))
                 .when(manager).saveFaxJob(eq(loggedInInfo), anyList());
         else doReturn(List.of(job)).when(manager).saveFaxJob(eq(loggedInInfo), anyList());
@@ -145,15 +150,20 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                 Mockito.mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
             paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.isInApplicationTempDirectory(any(java.io.File.class)))
                     .thenReturn(true);
-            Map<String, Object> params = Map.of("faxFilePath", pdf.toString(), "coverpage", "false");
+            Map<String, Object> params = Map.of("faxFilePath", pdf.toString(), "coverpage", Boolean.toString(covered));
             if (persistenceThrows) assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, params))
                     .isInstanceOf(IllegalStateException.class);
             else assertThat(manager.createAndSaveFaxJob(loggedInInfo, params)).singleElement().isSameAs(job);
             assertThat(pdf).exists();
+            if (covered) assertThat(coveredPdf).exists();
             var callbacks = org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
             assertThat(callbacks).hasSize(1);
             callbacks.get(0).afterCompletion(completion);
-            assertThat(Files.exists(pdf)).isEqualTo(completion != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+            assertThat(Files.exists(pdf)).isEqualTo(
+                    completion == org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN
+                    || (!covered && completion == org.springframework.transaction.support.TransactionSynchronization.STATUS_COMMITTED));
+            if (covered) assertThat(Files.exists(coveredPdf)).isEqualTo(
+                    completion != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
         } finally {
             org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
         }

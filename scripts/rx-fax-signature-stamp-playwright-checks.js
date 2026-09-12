@@ -470,8 +470,30 @@ async function writeCustomRxThroughUi(page) {
   // The custom drug injects the prescribe fragment and stages the drug.
   await page.locator("[id^='drugName_'], [id^='quantity_']").first().waitFor({ state: 'attached', timeout: 30000 });
 
+  // A staged prescription is not a persisted preview. Navigation and prefetch must
+  // neither save it nor apply a signature, even while the session can prescribe.
+  const previewStateQuery = `SELECT script_no,COALESCE(digital_signature_id,0) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} ORDER BY script_no;`;
+  const beforePreview = sql(previewStateQuery);
+  for (const method of ['GET', 'HEAD']) {
+    const response = await page.request.fetch(appUrl('/rx/viewScript'), { method });
+    try {
+      if (response.status() !== 409 || sql(previewStateQuery) !== beforePreview) {
+        throw new Error('Unsaved prescription preview navigation must reject without saving or stamping');
+      }
+    } finally {
+      await response.dispose();
+    }
+  }
+  visited.push({ label: 'unsaved-preview-get-head-read-only', databaseUnchanged: true });
+
   // Real control: "Save And Print" — writes the script and opens ViewScript2 in the modal.
-  await page.locator('#saveButton').click();
+  const [previewRequest] = await Promise.all([
+    page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/rx/viewScript'), { timeout: 30000 }),
+    page.locator('#saveButton').click(),
+  ]);
+  if (previewRequest.method() !== 'POST') {
+    throw new Error('Save And Print must open its stamping preview through POST');
+  }
 
   // The Bootstrap preview modal loads ViewScript2 in an iframe.
   const modalFrame = page.frameLocator('#carlosModalBody iframe');

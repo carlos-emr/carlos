@@ -224,7 +224,7 @@ public class FaxStatusUpdater {
                             faxJobDao.merge(faxJob);
                         } catch (RuntimeException mergeEx) {
                             log.error("CRITICAL: Failed to persist status update for fax id {} - "
-                                    + "provider reports {} but database still shows old status ({})",
+                                    + "provider reports {} but database still shows old status (type={})",
                                     faxJob.getId(), faxJob.getStatus(), mergeEx.getClass().getSimpleName());
                         }
                     } catch (FaxProviderException e) {
