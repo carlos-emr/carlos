@@ -274,6 +274,23 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not expose renderer exception details to the browser")
+    void shouldHideRendererDetails_whenPdfGenerationFails() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException(
+                        "SensitiveFixturePatient /private/attachment.pdf token=fixture-secret"));
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(request.getAttribute("errorMessage")).asString()
+                .contains("consultation PDF could not be prepared")
+                .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret", "attachment.pdf");
+        org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
     @DisplayName("should return the error result when the rendered fax PDF cannot be promoted into the document store")
     void shouldReturnError_whenFaxPdfPromotionReturnsNull() throws Exception {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);

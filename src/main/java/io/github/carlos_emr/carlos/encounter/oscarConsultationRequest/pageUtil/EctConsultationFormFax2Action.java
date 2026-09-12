@@ -265,7 +265,8 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
         } catch (PDFGenerationException e) {
             logger.error(e.getMessage(), e);
-            request.setAttribute("errorMessage", "This fax could not be sent. \n\n" + e.getMessage());
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe consultation PDF could not be prepared; please retry or contact your administrator.");
             return "error";
         }
         Path renderedSource = faxPdf;
