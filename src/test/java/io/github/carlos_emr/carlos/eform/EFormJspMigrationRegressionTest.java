@@ -391,8 +391,14 @@ class EFormJspMigrationRegressionTest {
         String jsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
-        assertThat(jsp).contains("<carlos:encode value='<%= error %>' context=\"html\"/>");
+        // The multipart-rejection loop was renamed from `error` to `uploadError` when it moved
+        // OUT of the importErrors guard: reaching this page through the action's "input" result
+        // means the action never ran, so importErrors is never set and a block nested inside its
+        // guard could not report the rejection. The encoding requirement is what this test is
+        // for, and it still holds on both loops.
+        assertThat(jsp).contains("<carlos:encode value='<%= uploadError %>' context=\"html\"/>");
         assertThat(jsp).contains("<carlos:encode value='<%= importError %>' context=\"html\"/>");
+        assertThat(jsp).doesNotContain("<li><%= uploadError %></li>");
         assertThat(jsp).doesNotContain("<li><%= error %></li>");
         assertThat(jsp).doesNotContain("<%=importError%>");
     }

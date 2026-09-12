@@ -40,6 +40,17 @@ final class RenderLogRedaction {
     /** Placeholder substituted for filesystem paths in redacted diagnostics (SonarCloud S1192). */
     private static final String REDACTED_PATH = "[redacted-path]";
 
+    // Precompiled once: redactUrls runs on hot paths (per severe console entry during a render,
+    // inside the render deadline), and String.replaceAll compiles its pattern on every call.
+    private static final java.util.regex.Pattern SCHEME_URL =
+            java.util.regex.Pattern.compile("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+");
+    private static final java.util.regex.Pattern UNC_PATH =
+            java.util.regex.Pattern.compile("\\\\\\\\[^\\s'\"<>]+");
+    private static final java.util.regex.Pattern DRIVE_PATH =
+            java.util.regex.Pattern.compile("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*");
+    private static final java.util.regex.Pattern BARE_PATH =
+            java.util.regex.Pattern.compile("(?<![\\w./])/[\\w./~%-]{2,}");
+
     private RenderLogRedaction() {
     }
 
@@ -52,11 +63,14 @@ final class RenderLogRedaction {
         // UNC) that a WebDriver/settle error could embed, so no URL or local path reaches the logs.
         // Order matters: the scheme://... rule runs first so a c://… URL is consumed before the
         // drive-letter rule can see it.
-        return text
-                .replaceAll("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+", "[redacted-url]")
-                .replaceAll("\\\\\\\\[^\\s'\"<>]+", REDACTED_PATH)
-                .replaceAll("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*", REDACTED_PATH)
-                .replaceAll("(?<![\\w./])/[\\w./-]{2,}", REDACTED_PATH);
+        String redacted = SCHEME_URL.matcher(text).replaceAll("[redacted-url]");
+        redacted = UNC_PATH.matcher(redacted).replaceAll(REDACTED_PATH);
+        redacted = DRIVE_PATH.matcher(redacted).replaceAll(REDACTED_PATH);
+        // BARE_PATH includes ~ and % because the --url-base capability-token grammar
+        // (validateBrowserServiceUrl: A-Za-z0-9._~-) permits ~, and percent-escapes appear
+        // in path segments — a token containing either must not survive a bare-path (no
+        // scheme) appearance in a third-party error message.
+        return BARE_PATH.matcher(redacted).replaceAll(REDACTED_PATH);
     }
 
     /**

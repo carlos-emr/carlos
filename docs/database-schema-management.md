@@ -18,7 +18,7 @@ single source of truth. The legacy script build (`createdatabase_*.sh`, `oscarin
 
 ## The authoritative baseline (V1)
 
-> V1 is the **complete, frozen genesis** of the CARLOS `oscar` schema — structure **and** required
+> V1 is the **complete, frozen genesis** of the CARLOS `carlos` schema — structure **and** required
 > reference data — **minus demo data** (`development.sql`, FAKE-name/RTL demo seeds) **and minus
 > dead tables** from removed modules (`migration/pruned-tables.txt`).
 

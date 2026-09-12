@@ -48,7 +48,7 @@ only):
 | Variable             | Meaning                                                           |
 |----------------------|------------------------------------------------------------------|
 | `MARIADB`            | mariadb launcher, e.g. `sudo mariadb` (default `mariadb`)         |
-| `CARLOS_DB_NAME`     | application schema (default `oscar`)                              |
+| `CARLOS_DB_NAME`     | application schema (default `carlos`)                              |
 | `CARLOS_DOCUMENT_DIR`| document dir for staged outbound PDFs                             |
 | `STAGE_AS`           | launcher to write into a dir the runner does not own, e.g. `sudo -u carlos` |
 | `DEDUP_WAIT_MS`      | how long `dedup-no-reimport.js` watches for a re-import (default 150000) |
@@ -58,7 +58,7 @@ only):
 Run them in this order against a freshly provisioned deployment with
 `fixtures.sql` loaded:
 
-    sudo mariadb oscar < scripts/e2e/fax/fixtures.sql
+    sudo mariadb carlos < scripts/e2e/fax/fixtures.sql
     set -a; . /secure/path/srfax.env; set +a
     export MARIADB="sudo mariadb" STAGE_AS="sudo -u carlos"
 

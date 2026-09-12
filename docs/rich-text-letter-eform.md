@@ -81,27 +81,27 @@ is resolved by `CarlosProperties.getEformImageDirectory()` using a two-tier look
 1. **Explicit property**: `EFORM_IMAGES_DIR` in `carlos.properties` (if set)
 2. **Fallback**: `Paths.get(BASE_DOCUMENT_DIR, "eform", "images")` — i.e., `BASE_DOCUMENT_DIR/eform/images/`
 
-The devcontainer explicitly sets `EFORM_IMAGES_DIR=/var/lib/OscarDocument/oscar/eform/images/`
+The devcontainer explicitly sets `EFORM_IMAGES_DIR=/var/lib/CarlosDocument/carlos/eform/images/`
 in its `carlos.properties`. On a fresh install where only `BASE_DOCUMENT_DIR` is configured,
 the path would be `BASE_DOCUMENT_DIR/eform/images/` (no context segment).
 
 For the default devcontainer:
 
 ```bash
-/var/lib/OscarDocument/oscar/eform/images/
+/var/lib/CarlosDocument/carlos/eform/images/
 ```
 
 ### Creating the Directory
 
 **DevContainer setup** (add to `populate_db.sh` or container init):
 ```bash
-mkdir -p /var/lib/OscarDocument/oscar/eform/images/
+mkdir -p /var/lib/CarlosDocument/carlos/eform/images/
 ```
 
 **Production setup**: The directory should be created as part of the initial CARLOS deployment.
 The `EFormAssetDeployer` logs a warning and skips deployment if the directory doesn't exist:
 ```
-WARN EFormAssetDeployer - eForm image directory does not exist: /var/lib/OscarDocument/oscar/eform/images/; skipping asset deployment
+WARN EFormAssetDeployer - eForm image directory does not exist: /var/lib/CarlosDocument/carlos/eform/images/; skipping asset deployment
 ```
 
 If you see this warning in the Tomcat logs after a fresh install, create the directory and

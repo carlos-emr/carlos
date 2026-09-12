@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# The browser half of the eForm PDF renderer.
+#
+# WHY THIS UNIT EXISTS. Chromium sandboxes its renderer processes with an
+# unprivileged user namespace. carlos-emr.service denies namespace creation
+# (RestrictNamespaces=yes) because it runs a PHI-handling Tomcat, and a browser
+# the JVM forks inherits that. Measured on a clean 26.04 VM: sandboxed Chromium
+# started directly as an unprivileged user works in about a second; spawned by
+# the JVM under that unit it fails every boot on the renderer's 30s budget.
+#
+# Loosening carlos-emr.service would trade the whole JVM's confinement for one
+# subprocess. Instead the browser lives here, where namespaces are permitted and
+# nothing else is, and the application connects to it over loopback.
+
+[Unit]
+Description=CARLOS EMR eForm render browser (chromedriver)
+Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+# No network-online.target: this listens on loopback only and would just delay
+# boot waiting for an address it never uses.
+#
+# Without this, Restart=always is a misnomer: the default limit is 5 starts in
+# 10s, so a chromedriver that exits immediately (an empty port, a missing binary)
+# burns its budget in seconds and then stays failed until someone runs
+# `systemctl reset-failed`. A render browser must keep trying.
+StartLimitIntervalSec=0
+# PartOf: stopping or restarting the EMR stops or restarts this browser with it.
+# This is the guarantee that replaces the one lost when the JVM stopped owning
+# the chromedriver process -- WITHOUT it, `systemctl restart carlos-emr` (which
+# this package's own postinst does) leaves every in-flight render browser alive
+# under carlos-render, each holding a fully rendered patient page in memory,
+# indefinitely. Not Requires=/BindsTo=: the EMR must still start and serve when
+# the browser is broken.
+PartOf=carlos-emr.service
+
+[Service]
+Type=exec
+User=carlos-render
+Group=carlos-render
+UMask=0077
+# CARLOS_RENDER_PORT and CARLOS_RENDER_URL_BASE. The url-base is a random path
+# prefix generated at install and shared with the application through
+# carlos.properties — a bearer credential on the path, because chromedriver has
+# no authentication of its own and any local uid can reach a loopback port.
+EnvironmentFile=/etc/carlos-emr/render-browser.env
+Environment=LANG=C.UTF-8
+Environment=LC_ALL=C.UTF-8
+# Chromium HANGS without a writable HOME (its crashpad handler cannot create its
+# database); it does not fail cleanly. Same lesson as carlos-emr.service.
+Environment=HOME=/var/lib/carlos-emr/render
+
+# NO --allowed-ips and NO --allowed-origins. chromedriver already binds loopback
+# only and already rejects mismatched Origins; passing either flag with an EMPTY
+# value historically means "allow everything", which is a one-character-looking
+# way to expose this to the network. Do not "harden" this line by adding them.
+#
+# NO --verbose and NO --enable-chrome-logs: verbose output prints the url-base
+# secret into the journal.
+# Refuse to start without the url-base token rather than silently serving every
+# endpoint at the bare root. chromedriver normalises an empty --url-base to "/",
+# so an absent or blanked value would quietly drop the path prefix -- a security
+# downgrade with no error anywhere. Everything else in this design fails closed;
+# so does this.
+ExecStartPre=/bin/sh -c 'test -n "$CARLOS_RENDER_URL_BASE" || { echo "CARLOS_RENDER_URL_BASE is empty in /etc/carlos-emr/render-browser.env; refusing to start without it" >&2; exit 1; }'
+ExecStart=/usr/lib/carlos-emr/chromium/chromedriver \
+    --port=${CARLOS_RENDER_PORT} \
+    --url-base=${CARLOS_RENDER_URL_BASE} \
+    --log-level=WARNING \
+    --readable-timestamp
+Restart=always
+RestartSec=5s
+# Back off toward 5 minutes on a persistent failure (a blanked token, a deleted
+# env file — the ExecStartPre guard refuses those on purpose). Without this,
+# Restart=always plus StartLimitIntervalSec=0 retried a non-self-healing
+# misconfiguration every 5s forever (~17k journal entries/day). The transient
+# cases the fast retry exists for (the install-window race before the renderer
+# postinst writes the env file, an OOM-killed driver) recover within the first
+# few attempts, before the delay has grown past a few seconds.
+RestartSteps=10
+RestartMaxDelaySec=5min
+TimeoutStopSec=20
+# Stated explicitly although it is the default: `systemctl stop|restart` on this
+# unit tears down chromedriver AND every browser it launched. That is the
+# operator's "kill every render browser now" control, and it is the backstop of
+# last resort for a browser left holding a rendered page — the one the JVM lost
+# when it stopped owning the process.
+KillMode=control-group
+# One browser killed by the OOM killer (a pathological form) must not take
+# chromedriver down with it.
+OOMPolicy=continue
+
+# --- sandboxing ------------------------------------------------------------
+# Namespaces are PERMITTED here and nowhere else. This single allowance is the
+# entire reason the unit exists; everything below it stays as tight as the EMR's.
+RestrictNamespaces=~cgroup
+# Chromium's sandbox mkdtemp()s a new root and pivot_root()s into it, so it needs
+# a writable private /tmp. Not a tidiness setting — remove it and the sandbox
+# cannot start.
+PrivateTmp=yes
+PrivateUsers=no
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ReadWritePaths=/var/lib/carlos-emr/render
+ProtectHome=yes
+# Same posture as carlos-emr.service. Does not hide THIS process from others --
+# see the token note in README.Debian -- but it does stop a compromised browser
+# reading every other process on the host.
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+IPAddressAllow=localhost
+IPAddressDeny=any
+DevicePolicy=closed
+SystemCallArchitectures=native
+# @mount is REQUIRED and was measured, not guessed. @system-service alone makes
+# every session fail with "Chrome instance exited" and chromedriver logging
+# "Timed out receiving message from renderer". Chromium's Layer-1 sandbox builds
+# its own root: it mkdtemp()s a directory and pivot_root()s into it, which needs
+# chroot, pivot_root, mount and umount2 — exactly what @mount carries.
+#
+# Bisected against a live session-create: @system-service fails; adding @sandbox
+# does not help; adding unshare+setns alone does not help; @mount is what fixes
+# it, and @sandbox is then unnecessary. Narrow it further only with the same
+# test in hand.
+SystemCallFilter=@system-service @mount @sandbox
+# NO SystemCallErrorNumber=EPERM here, unlike carlos-emr.service. EPERM turns a
+# denied syscall into a quiet failure the browser reports as a generic hang --
+# which is exactly why the @mount omission above read as "Chromium times out"
+# instead of "seccomp denied chroot". The default SIGSYS kill names the syscall
+# in the journal, and for a component this hard to diagnose that is worth more
+# than a graceful degradation nobody can interpret.
+TasksMax=4096
+LimitNOFILE=16384
+# Memory ceiling for the WHOLE browser tree (chromedriver + every Chromium it
+# spawns share this cgroup). Above MemoryHigh the kernel throttles and reclaims;
+# at MemoryMax it OOM-kills inside this unit instead of letting an ungoverned
+# render push the host into memory pressure -- on a small clinic box the browser
+# must be the thing that dies, never the EMR next to it. A kill mid-render
+# surfaces as a failed (retryable) render via the JVM's fail-closed error path,
+# and Restart=always recycles the driver. Sized for the steady state: up to two
+# concurrent renders (each further bounded by the JVM's --js-flags V8 heap cap
+# and --renderer-process-limit) plus chromedriver, with headroom.
+MemoryAccounting=yes
+MemoryHigh=1G
+MemoryMax=1536M
+
+[Install]
+WantedBy=multi-user.target

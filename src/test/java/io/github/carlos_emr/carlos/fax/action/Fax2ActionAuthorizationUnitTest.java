@@ -411,7 +411,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", "/var/lib/OscarDocument/oscar/document/123.pdf");
+        request.setParameter("faxFilePath", "/var/lib/CarlosDocument/carlos/document/123.pdf");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -513,7 +513,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", "/var/lib/OscarDocument/oscar/document/123.pdf");
+        request.setParameter("faxFilePath", "/var/lib/CarlosDocument/carlos/document/123.pdf");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -592,7 +592,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         Files.write(storedDoc, pdfBytes);
 
         FaxJob faxJob = new FaxJob();
-        faxJob.setFile_name("/var/lib/OscarDocument/oscar/document/stored-fax.pdf");
+        faxJob.setFile_name("/var/lib/CarlosDocument/carlos/document/stored-fax.pdf");
         faxJob.setDemographicNo(42);
         when(faxManager.getFaxJob(any(LoggedInInfo.class), eq(77))).thenReturn(faxJob);
         when(faxManager.resolveAndValidateFilePath(faxJob.getFile_name())).thenReturn(storedDoc);
@@ -634,7 +634,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         FaxJob faxJob = new FaxJob();
-        faxJob.setFile_name("/var/lib/OscarDocument/oscar/document/other-patient-fax.pdf");
+        faxJob.setFile_name("/var/lib/CarlosDocument/carlos/document/other-patient-fax.pdf");
         faxJob.setDemographicNo(99);
         when(faxManager.getFaxJob(any(LoggedInInfo.class), eq(88))).thenReturn(faxJob);
 

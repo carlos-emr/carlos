@@ -28,7 +28,17 @@ that the services are running, that no component is running as root, that
 Tomcat and MariaDB listen on loopback only, that the certificate is valid, that
 the security response headers are served, that the WAF blocks a probe
 SQL\-injection request, that DrugRef is not reachable through the front door,
+that the web\-service surface is gated (the CXF service catalog is hidden and an
+unauthenticated SOAP call is refused), that a dot\-segment path\-normalisation
+bypass is rejected, that the application unit is enabled as well as running,
 that the schema has a Flyway history, and that backups are fresh. Start here.
+.IP
+A web\-service line reported as
+.B NOTE
+rather than
+.B OK
+means the probe could not reach the application to prove the invariant (a WAF
+block, a redirect, or a restart in progress), not that a check failed.
 .TP
 .B status
 Systemd status of the EMR, nginx, MariaDB and the package's timers.
@@ -84,6 +94,27 @@ verb).
 Write a consistent dump to standard output. It is never written to a default
 path: a dump is the entire clinical record in one file and the operator must
 choose, and secure, where it lands.
+.TP
+.B demo-data
+Load the fictitious demonstration dataset (~3000 patients whose names all
+carry a
+.B FAKE\-
+prefix, demonstration providers, and 60 clearly\-fake referral specialists)
+into an
+.B empty,
+freshly migrated database. This is what answering yes to the
+.B carlos\-emr/install\-demo\-data
+debconf question runs at install time. It refuses to run against any database
+that already holds a demographic record, and a completed load leaves a marker
+table that makes re\-runs no\-ops. The load only adds to the reference data
+the migrations install, with one exception: on a British Columbia install it
+replaces the seeded provincial specialist directory
+.RI ( billingreferral ", " professionalSpecialists " and their " serviceSpecialists " links)"
+with the fake demonstration list. A system holding this dataset carries known
+development credentials and must
+.B never
+hold real patient data; the only supported removal is
+.BR "destroy-data" .
 .SS Certificates
 .TP
 .B cert status

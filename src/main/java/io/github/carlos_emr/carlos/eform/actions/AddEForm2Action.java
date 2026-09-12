@@ -84,6 +84,8 @@ public class AddEForm2Action extends ActionSupport {
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
     private static final String ERROR_ATTRIBUTE = "error";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
+    private static final String PDF_EDOC_FAILURE_MESSAGE =
+            "This eForm (and attachments, if applicable) could not be added to this patient’s documents.";
     private static final String PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE =
             "Some content of this eForm could not be rendered. Review the omissions below before downloading it.";
     private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
@@ -346,7 +348,7 @@ public class AddEForm2Action extends ActionSupport {
                     // general handler this was a dead end with no way to review and proceed.
                     return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
-                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
+                    setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
                     return "error";
                 }
             }
@@ -477,7 +479,7 @@ public class AddEForm2Action extends ActionSupport {
                     // general handler this was a dead end with no way to review and proceed.
                     return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
-                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
+                    setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
                     return "error";
                 }
             }
@@ -623,7 +625,14 @@ public class AddEForm2Action extends ActionSupport {
         try {
             requestFdid = Integer.parseInt(fdid);
         } catch (NumberFormatException | NullPointerException parseFailure) {
-            setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
+            // This helper is shared by the download and the save-as-eDoc paths, so the fallback
+            // has to follow the operation. It used to be hardcoded to the download wording, which
+            // told a clinician who had clicked "Add to documents" that the eForm "could not be
+            // downloaded" -- naming an action they never took and leaving them unsure whether the
+            // document had been filed.
+            setPdfError(operation == EFormRenderApprovalService.Operation.EDOC
+                    ? PDF_EDOC_FAILURE_MESSAGE
+                    : PDF_DOWNLOAD_FAILURE_MESSAGE, e);
             return "error";
         }
         String token = approvalService.issue(request, loggedInInfo, requestFdid, demographicNo,
@@ -641,7 +650,12 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("failedContentResources", report.failedContentResources());
         request.setAttribute("excludedContentElements", report.excludedContentElements());
         request.setAttribute("severeConsoleErrors", report.severeConsoleErrors());
+        // PHI-safe per-error descriptions (type + line:col) for the informed-override screen.
+        // Display only: NOT part of the completeness report and NOT bound into the approval
+        // digest, which stays anchored to the counts above.
+        request.setAttribute("severeConsoleErrorDetails", e.getSevereConsoleDetails());
         request.setAttribute("containedInteractions", report.containedInteractions());
+        request.setAttribute("decorativeExcludedElements", report.decorativeExcludedElements());
         request.setAttribute("signatureMissing", report.signatureMissing());
         request.setAttribute("timerCompatibilityFailure", report.timerCompatibilityFailure());
         request.setAttribute("stabilizationCapped", report.stabilizationCapped());

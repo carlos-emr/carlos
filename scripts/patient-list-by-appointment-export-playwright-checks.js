@@ -115,13 +115,17 @@ const testPin = process.env.TEST_PIN || (loopbackTarget ? '2026' : '');
 
 // The locally seeded LOCAL_SEED_OBEC_REPORT_* appointments, all with a NULL
 // appointment type on purpose. Names are FAKE-* synthetic dev data, not PHI.
+// The provider name for 9 carries the FAKE- prefixes because the canonical
+// demo load (devcontainer populate_db.sh and the deb's carlos-ctl demo-data)
+// runs demo-name-sanitization.sql over the provider table too — only the
+// functional accounts (-1, 999998 carlosdoc) are exempt and keep their names.
 const SEED_DATE_FROM = '2026-08-07';
 const SEED_DATE_TO = '2026-08-10';
 const PROVIDER_ALL = 'all';
 const PROVIDER_WELCH = '9';
 const PROVIDER_CARLOSDOC = '999998';
 const EXPECTED_ROWS = {
-  [PROVIDER_WELCH]: ['FAKE-Abbott,FAKE-Jerilyn,555-555-5555,555-555-5555,09:00:00,2026-08-07,,Kristen Welch,'],
+  [PROVIDER_WELCH]: ['FAKE-Abbott,FAKE-Jerilyn,555-555-5555,555-555-5555,09:00:00,2026-08-07,,FAKE-Kristen FAKE-Welch,'],
   [PROVIDER_CARLOSDOC]: [
     'FAKE-Altenwerth,FAKE-Izola,555-555-5555,555-555-5555,10:00:00,2026-08-08,,doctor carlosdoc,',
     'FAKE-Altenwerth,FAKE-Josh,555-555-5555,555-555-5555,11:00:00,2026-08-10,,doctor carlosdoc,',

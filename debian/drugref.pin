@@ -3,7 +3,14 @@
 # release build: a branch name makes two builds weeks apart ship different
 # code under one package version.
 #
-# The current pin is the master merge commit of the EntityManager-leak fix
-# (carlos-emr/drugref2026#8): without it, drug searches exhaust the JDBC pool
+# The current pin is the master merge commit of the pre-release security
+# hardening (carlos-emr/drugref2026#10). It must not be moved back below this
+# revision: earlier DrugRef builds ship the bundled `root` superuser credential
+# with a password published in that source tree, browser JSPs that run a
+# destructive database re-import on an unauthenticated GET and reflect a request
+# parameter unencoded, and JPQL built by string concatenation — including an
+# unquoted numeric-context injection reachable from the unauthenticated XML-RPC
+# surface. It also carries the earlier EntityManager-leak fix
+# (carlos-emr/drugref2026#8), without which drug searches exhaust the JDBC pool
 # after one or two calls and permanently return "None found".
-ref=e1d867a9a6f13cd321218fe3510de20c2e7ad61c
+ref=566a46eec559a0ba02f40afbc37ff14440bbc098

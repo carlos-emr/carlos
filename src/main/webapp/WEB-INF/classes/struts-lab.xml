@@ -60,9 +60,19 @@
             <result name="success">/WEB-INF/jsp/admin/labforwardingrules.jsp</result>
         </action>
         <action name="lab/labUpload" class="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.pageUtil.LabUpload2Action">
+            <!-- "input": where the workflow interceptor lands when the multipart layer
+                 rejects the upload (e.g. an empty file) before the action runs; without
+                 it the request falls through to errorpage.jsp as a raw 500. -->
+            <result name="input">/WEB-INF/jsp/lab/CA/BC/LabUpload.jsp</result>
             <result name="success">/WEB-INF/jsp/lab/CA/BC/LabUpload.jsp</result>
         </action>
         <action name="lab/newLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action">
+            <!-- "input": the multipart layer rejects before the action runs (empty part,
+                 maxStringLength, maxFiles, maxSize, parse failure). Without a mapping the
+                 request falls through to errorpage.jsp as a raw 500. It must NOT point at
+                 uploadComplete.jsp, which would tell the operator a rejected lab file was
+                 processed. -->
+            <result name="input">/WEB-INF/jsp/common/uploadRejected.jsp</result>
             <result name="success">/WEB-INF/jsp/lab/CA/ALL/uploadComplete.jsp</result>
         </action>
         <action name="lab/CA/ALL/insideLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action">
@@ -71,6 +81,9 @@
             <result name="input">/WEB-INF/jsp/lab/CA/ALL/testUploader.jsp</result>
         </action>
         <action name="lab/CMLlabUpload" class="io.github.carlos_emr.carlos.lab.ca.on.CML.Upload.LabUpload2Action">
+            <!-- "input": see lab/newLabUpload above. Same gap, same reason not to reuse
+                 the uploadComplete.jsp success view. -->
+            <result name="input">/WEB-INF/jsp/common/uploadRejected.jsp</result>
             <result name="success">/WEB-INF/jsp/lab/CA/ON/uploadComplete.jsp</result>
         </action>
         <action name="oscarMDS/SubmitLab" class="io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action">

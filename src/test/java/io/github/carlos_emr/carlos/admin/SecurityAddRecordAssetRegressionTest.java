@@ -47,29 +47,35 @@ class SecurityAddRecordAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "admin", "securityaddarecord.jsp");
 
     @Test
-    @DisplayName("should offer same-site providers without login records when site access privacy is enabled")
-    void shouldOfferSameSiteProviders_withoutLoginRecordsWhenSiteAccessPrivacyEnabled() throws IOException {
+    @DisplayName("should offer same-site providers without login records only when site access privacy and multisites are enabled")
+    void shouldOfferSameSiteProviders_whenSiteAccessPrivacyAndMultisitesEnabled() throws IOException {
         String jsp = readSecurityAddRecordJsp();
 
         assertThat(jsp)
                 .contains("ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);")
-                .contains("List<Security> s = securityDao.findByProviderNo(p.getProviderNo());")
-                .contains("if (s.isEmpty()) {")
-                .containsPattern("if \\(isSiteAccessPrivacy\\) \\{\\s+"
-                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersBySharedSites\\(curProvider_no\\)\\)")
-                .doesNotContain("if (s.size() > 0) {")
+                // Existing login records are loaded once into a set, not queried per provider
+                // (avoids N+1 while rendering the dropdown).
+                .contains("securityDao.findAllOrderBy(\"userName\")")
+                // The multisites gate is load-bearing: providersite rows only exist in multisite
+                // deployments, so site-scoped filtering on a standalone install yields an empty
+                // provider dropdown (2026.08 alpha regression).
+                .containsPattern("if \\(isSiteAccessPrivacy && IsPropertiesOn\\.isMultisitesEnable\\(\\)\\) \\{\\s+"
+                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersBySharedSites\\(curProvider_no\\)\\) \\{\\s+"
+                        + "if \\(!providerNosWithLogin\\.contains\\(p\\.getProviderNo\\(\\)\\)\\) \\{")
+                .doesNotContain("securityDao.findByProviderNo(p.getProviderNo())")
                 .doesNotContain("providerSiteDao.findActiveProvidersWithSites(curProvider_no)")
-                .doesNotContain("if (isSiteAccessPrivacy) {\n"
-                        + "                                for (Provider p : providerDao.getActiveProviders()) {");
+                .doesNotContainPattern("if \\(isSiteAccessPrivacy\\) \\{\\s+"
+                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersBySharedSites");
     }
 
     @Test
-    @DisplayName("should keep all active providers when site access privacy is disabled")
-    void shouldKeepAllActiveProviders_whenSiteAccessPrivacyDisabled() throws IOException {
+    @DisplayName("should keep all active providers without login records when site filtering does not apply")
+    void shouldKeepAllActiveProviders_whenSiteFilteringDoesNotApply() throws IOException {
         String jsp = readSecurityAddRecordJsp();
 
         assertThat(jsp)
-                .containsPattern("\\} else \\{\\s+for \\(Provider p : providerDao\\.getActiveProviders\\(\\)\\) \\{");
+                .containsPattern("\\} else \\{\\s+for \\(Provider p : providerDao\\.getActiveProviders\\(\\)\\) \\{\\s+"
+                        + "if \\(!providerNosWithLogin\\.contains\\(p\\.getProviderNo\\(\\)\\)\\) \\{");
     }
 
     private static String readSecurityAddRecordJsp() throws IOException {

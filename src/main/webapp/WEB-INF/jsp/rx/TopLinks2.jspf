@@ -62,7 +62,14 @@ function getDrugRefStatus() {
 	})
 		.then(response => response.json())
 		.then(json => {
-			if (!json || json.lastUpdate === 'updating' ) {
+			// !json.lastUpdate, not === 'updating'. RxUpdateDrugref2Action.verify()
+			// answers HTTP 200 with lastUpdate null when the DrugRef lookup itself
+			// failed, so the old test never matched a real outage: it fell through
+			// to the else branch and rendered new Date(null), i.e. a 1969 date,
+			// while the "unavailable" banner stayed unreachable except via the
+			// .catch below. 'updating' is still covered -- it is truthy and is
+			// handled by the same banner.
+			if (!json || !json.lastUpdate || json.lastUpdate === 'updating' ) {
 				let statusDisplay = document.getElementById('statusDisplay');
 				statusDisplay.innerHTML = msgDrugrefUnavailable;
 				statusDisplay.style.color = 'red';

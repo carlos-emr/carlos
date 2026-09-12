@@ -122,6 +122,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
     private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
     private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
+    private static final String ERROR_DUPLICATE_KEY = "dms.addDocument.errorDuplicate";
     private static final String PARAM_FUNCTION = "function";
     private static final String PARAM_FUNCTION_ID = "functionid";
     private static final String PARAM_CUR_USER = "curUser";
@@ -211,7 +212,28 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         File file;
         try {
             file = writeValidatedUpload(validatedSource, storedFileName, false);
-        } catch (IOException e) {
+        } catch (FileAlreadyExistsException e) {
+            // The stored name is the upload's own name prefixed with yyyyMMddHHmmss, so its
+            // resolution is one second: two uploads of the same file inside the same second --
+            // a double-clicked button, a browser retry -- collide. That is the user's situation
+            // to resolve, not a server fault, so it gets 409 and a message that says what to do
+            // instead of the generic "File could not be saved" behind a 500.
+            //
+            // Logged WITHOUT the exception: its message is the destination path, which ends in
+            // the uploader's own filename, and scanned clinical documents are routinely named
+            // after the patient. A collision is a user-recoverable condition with a single
+            // possible cause, so the stack trace adds nothing that would justify writing a
+            // potential patient name into the log.
+            MiscUtils.getLogger().warn("Uploaded document name already taken; asking the user to retry");
+            sendHtml5UploadError(props, HttpServletResponse.SC_CONFLICT, ERROR_DUPLICATE_KEY);
+            return NONE;
+        } catch (IOException | RuntimeException e) {
+            // RuntimeException belongs here too, now that writeValidatedUpload rethrows
+            // unwrapped instead of laundering everything into IOException. Without it a
+            // FileValidationException -- which extends SecurityException -- escapes to the
+            // global securityError mapping, and securityError.jsp sets no status. The XHR
+            // client treats anything under 400 as success, so a rejected upload would be
+            // reported to the user as "Upload complete".
             MiscUtils.getLogger().error("Failed to write uploaded document file", e);
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
@@ -415,7 +437,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             File writtenFile;
             try {
                 writtenFile = writeValidatedUpload(validatedDocFile, fileName2, false);
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
+                // RuntimeException too, not just IOException: writeValidatedUpload now rethrows
+                // RuntimeException (e.g. a SecurityException from the path validator) unwrapped
+                // rather than laundering it into IOException, so without this the form path would
+                // land in the trailing catch(Exception) with an EMPTY errors map and render
+                // failAdd with no message. This method converts every failure to failAdd anyway.
                 errors.put("uploaderror", "dms.error.uploadError");
                 addActionError(getText("dms.error.uploadError"));
                 throw e;
@@ -624,7 +651,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 File writtenFile;
                 try {
                     writtenFile = writeValidatedUpload(uploadForUpdate, fileName);
-                } catch (IOException e) {
+                } catch (IOException | RuntimeException e) {
+                    // See addDocument: RuntimeException must set the error before it reaches the
+                    // trailing catch(Exception), or the edit form re-renders with no message.
                     errors.put("uploaderror", "dms.error.uploadError");
                     addActionError(getText("dms.error.uploadError"));
                     throw e;
@@ -952,9 +981,27 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return writeValidatedUpload(validatedUpload, fileName, true);
     }
 
+    /**
+     * Writes the validated upload into the document store.
+     *
+     * <p>writeLocalFile is declared {@code throws Exception}, so something has to narrow it here.
+     * This used to be a blanket {@code catch (Exception)} that rewrapped everything as
+     * {@code IOException("Failed to write uploaded document")}, which erased the distinction
+     * between a name collision, a permissions problem and a missing directory — every one of them
+     * reached the browser as the same opaque 500 and the same "File could not be saved" text, so a
+     * report could only ever say "upload gives a 500". The specific types are now preserved for the
+     * caller to act on: {@link java.nio.file.FileAlreadyExistsException} in particular is a
+     * user-recoverable condition, not a server fault.</p>
+     */
     private File writeValidatedUpload(File validatedUpload, String fileName, boolean replaceExisting) throws IOException {
         try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(validatedUpload)) {
             return writeLocalFile(inputStream, fileName, replaceExisting);
+        } catch (IOException | RuntimeException e) {
+            // IOException subtypes (FileAlreadyExistsException, AccessDeniedException,
+            // NoSuchFileException) carry the diagnosis; SecurityException from the path validator
+            // is a security violation the caller must not see as a write failure. Both pass
+            // through untouched.
+            throw e;
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
         }
@@ -1017,7 +1064,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private void sendHtml5UploadError(ResourceBundle props, int statusCode, String errorKey) throws IOException {
         String message = props.getString(errorKey);
-        response.setHeader("oscar_error", message);
+        // Servlet response headers are ISO-8859-1, so a localized message reaches the browser
+        // mangled the moment it leaves Latin-1 -- the Polish and Portuguese bundles do. Strip the
+        // header copy to printable ASCII (which also removes CR/LF, so nothing in the message can
+        // inject a header) and leave the body, which the client shows, intact.
+        response.setHeader("oscar_error", message.replaceAll("[^\\x20-\\x7E]", "?"));
         response.sendError(statusCode, message);
     }
 
@@ -1095,6 +1146,26 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
+    }
+
+    /**
+     * Lowercase binding alias for {@code functionid}, and it is load-bearing — without it the
+     * eDocs upload silently loses the patient.
+     *
+     * <p>addDocument.jsp posts BOTH {@code functionId} and {@code functionid} (a long-standing
+     * duplication), and Struts 7's {@code HttpParameters} keys parameters case-insensitively, so
+     * the two collapse into a single entry whose surviving key is the lowercase spelling. The
+     * {@code @StrutsParameter} annotation lookup is case-sensitive, found no member named
+     * {@code functionid}, and dropped the value — verified live on a packaged install:
+     * "No matching annotated method found for property [functionid]". The document then saved
+     * with {@code module_id=0} (attached to no patient, invisible in every chart) and the
+     * post-save redirect carried an empty {@code functionid}, which the ViewDocumentReport gate
+     * rejects with 400. The operator sees an error page, the chart shows nothing, and the
+     * document exists orphaned.</p>
+     */
+    @StrutsParameter
+    public void setFunctionid(String functionId) {
+        setFunctionId(functionId);
     }
 
     public String getDocType() {

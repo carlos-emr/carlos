@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# HOME for the render browser.
+#
+# Chromium will not start without a writable home — and does not fail cleanly
+# either: its crashpad handler cannot create its database, so the browser hangs
+# until the renderer's startup budget expires. Mode 0700 because a rendered
+# patient page passes through this process.
+#
+# Safe under the layout rule in carlos-emr.tmpfiles: /var/lib/carlos-emr is
+# root-owned, so the transition into a directory owned by a different
+# unprivileged user is one systemd-tmpfiles will make.
+d /var/lib/carlos-emr/render 0700 carlos-render carlos-render -

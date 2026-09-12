@@ -24,7 +24,7 @@
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -43,7 +43,7 @@ const testPin = requiredEnv('TEST_PIN');
 const mysqlHost = process.env.MYSQL_HOST || 'db';
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = requiredEnv('MYSQL_PASSWORD');
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const resetPasswordNoCsrf = ['Carlos', '2026', '!NoCsrf'].join('');
 const resetPasswordRetry = ['Carlos', '2026', '!Retry'].join('');
 const resetPasswordValid = ['Carlos', '2026', '!Valid'].join('');

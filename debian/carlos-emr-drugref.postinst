@@ -122,7 +122,16 @@ case "$1" in
         # is-active is a query, not a lifecycle action, so systemctl is the
         # right tool for it; the restart itself goes through deb-systemd-invoke
         # so policy-rc.d is honoured.
-        if [ -d /run/systemd/system ] && systemctl is-active --quiet carlos-emr.service; then
+        # is-failed as well as is-active: three packages in this transaction each
+        # restart carlos-emr.service, so an earlier one may already have spent
+        # the unit's StartLimitBurst and left it failed. Skipping here would then
+        # leave the EMR down for good. reset-failed clears the start counter (and
+        # the failed state) so a restart we asked for on purpose is never refused
+        # as a crash loop — see the same guard in carlos-emr.postinst.
+        if [ -d /run/systemd/system ] && \
+           { systemctl is-active --quiet carlos-emr.service || \
+             systemctl is-failed --quiet carlos-emr.service; }; then
+            systemctl reset-failed carlos-emr.service >/dev/null 2>&1 || true
             deb-systemd-invoke restart carlos-emr.service || {
                 echo "carlos-emr-drugref: WARNING: the EMR did not restart — DrugRef will not" >&2
                 echo "carlos-emr-drugref: serve until it does (journalctl -u carlos-emr)." >&2

@@ -663,8 +663,12 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             return li;
         }
 
-        // Attach code autocomplete with custom rendering to a jQuery set
-        function initCodeAutocomplete($inputs, ajaxUrl) {
+        // Attach code autocomplete with custom rendering to a jQuery set.
+        // maxCodeLength (optional): the field doubles as the submitted claim value, whose
+        // maxlength is widened so description searches (e.g. "hypertension") fit; a term
+        // left behind without picking a suggestion must never be submitted as a code, so
+        // anything longer than a real code is cleared on blur.
+        function initCodeAutocomplete($inputs, ajaxUrl, maxCodeLength) {
             $inputs.each(function () {
                 var $input = jQuery(this);
                 $input.attr("placeholder", searchLabel);
@@ -678,14 +682,20 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                         this.value = ui.item.code;
                         if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
                         return false;
+                    },
+                    change: function (event, ui) {
+                        if (maxCodeLength && !ui.item && this.value.length > maxCodeLength) {
+                            this.value = "";
+                            if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
+                        }
                     }
                 }).data("ui-autocomplete");
                 if (inst) inst._renderItem = renderCodeItem;
             });
         }
 
-        // Dx diagnosis code fields
-        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax");
+        // Dx diagnosis code fields (diagnostic codes are at most 5 characters)
+        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax", 5);
 
         // Billing service code fields
         initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/ViewBillingCodeSearchAjax");
@@ -900,7 +910,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                 <td style="width: 15%"><fmt:message key="oscar.billing.ca.on.billingON.dx"/>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            onchange="changeCodeDesc();"
                                                            value="<carlos:encode value='${formModel.visit.dxCodeDefault}' context='htmlAttribute'/>"/>
                                                 </td>
@@ -908,14 +918,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode1\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode2\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>

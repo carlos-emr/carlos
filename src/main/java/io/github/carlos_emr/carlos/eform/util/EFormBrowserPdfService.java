@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -43,6 +44,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -60,12 +64,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeDriverService;
+import org.openqa.selenium.chrome.AddHasCdp;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.chromium.ChromiumDriver;
 import org.openqa.selenium.logging.LogEntry;
 import org.openqa.selenium.logging.LogType;
 import org.openqa.selenium.logging.LoggingPreferences;
+import org.openqa.selenium.remote.HttpCommandExecutor;
+import org.openqa.selenium.remote.SessionId;
 import org.openqa.selenium.remote.http.ClientConfig;
 import org.springframework.stereotype.Service;
 
@@ -75,6 +81,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -143,6 +150,46 @@ public class EFormBrowserPdfService {
      * the render slot. Kept independent of {@link #WEBDRIVER_COMMAND_READ_TIMEOUT} because a legitimate
      * render command (navigation up to {@link #PAGE_LOAD_TIMEOUT}) needs the longer per-command read.
      */
+    /**
+     * Deadline for the teardown backstop. Short on purpose: it runs when something is already
+     * wedged, and it must never become a second place a render can hang.
+     */
+    /** Cause chains are third-party here and may be cyclic; walking one must always terminate. */
+    private static final int MAX_CAUSE_DEPTH = 32;
+    /**
+     * V8 old-space cap (MB) for each renderer process. An eForm is a single small document; a page
+     * that genuinely needs more heap than this is runaway form script, and capping it turns a
+     * box-wide memory squeeze into that one render failing (surfaced through the normal
+     * fail-closed render error, which is retryable).
+     */
+    static final int RENDERER_V8_HEAP_MB = 256;
+    /**
+     * Cap on renderer processes per browser. All render content is same-origin loopback (off-origin
+     * is dead-proxied), so Chromium's default one-renderer-per-site-instance fan-out cannot pay for
+     * itself here; four covers the page plus embedded same-origin iframes with room to spare.
+     */
+    static final int RENDERER_PROCESS_LIMIT = 4;
+    /** Cap on per-error console descriptions shown for informed override; the count is unbounded. */
+    private static final int MAX_CONSOLE_DETAILS = 10;
+    // describeConsoleError parses Chrome's structural entry header only:
+    //   "<source> <line>:<col> [Uncaught ]<Type>: <body>"
+    // Both patterns are anchored to the start of the URL-redacted entry (source already replaced with
+    // [redacted-url]/[redacted-path]) so the free-text <body> — which a form controls and may carry
+    // PHI — can never contribute the surfaced type or location. Compiled once, not per call.
+    private static final java.util.regex.Pattern CONSOLE_HEADER_PATTERN = java.util.regex.Pattern.compile(
+            "^\\s*(?:\\[redacted-(?:url|path)\\]\\s+)?"          // optional redacted source token
+            + "(?:(\\d{1,7}):(\\d{1,7})\\s+)?"                   // optional Chrome line:col (groups 1,2)
+            + "(?:Uncaught\\s+)?"                                // optional Chrome "Uncaught" prefix
+            + "([A-Z][A-Za-z0-9_]{0,40}(?:Error|Exception))\\b"); // group 3: the error type
+    private static final java.util.regex.Pattern CONSOLE_LEADING_LOCATION_PATTERN =
+            java.util.regex.Pattern.compile(
+            "^\\s*(?:\\[redacted-(?:url|path)\\]\\s+)?(\\d{1,7}):(\\d{1,7})\\b");
+    static final Duration BACKSTOP_TIMEOUT = Duration.ofSeconds(5);
+    /**
+     * How long the late-session reaper waits for an abandoned session-create to finish. Longer than
+     * the start budget it follows: the point is to learn the session id that budget gave up on.
+     */
+    static final Duration LATE_SESSION_REAP_TIMEOUT = Duration.ofSeconds(90);
     static final Duration DRIVER_START_TIMEOUT = Duration.ofSeconds(30);
 
     /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
@@ -161,7 +208,15 @@ public class EFormBrowserPdfService {
 
     private static final String BASE_URL_PROPERTY = "eform_pdf_browser_base_url";
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
-    private static final String CHROMEDRIVER_PATH_PROPERTY = "eform_pdf_browser_chromedriver_path";
+    /**
+     * URL of an ALREADY-RUNNING chromedriver on loopback. The application connects to it; it never
+     * spawns one. That is the whole point: a chromedriver the JVM forks inherits this service's
+     * cgroup and systemd confinement, and Chromium's sandbox — which is built on user namespaces —
+     * cannot initialise under {@code RestrictNamespaces=yes}. Running the browser under its own unit
+     * is what lets it be sandboxed without loosening the EMR's own hardening.
+     */
+    private static final String SERVICE_URL_PROPERTY = "eform_pdf_browser_service_url";
+    private static final String DEFAULT_SERVICE_URL = "http://127.0.0.1:9515";
     private static final String CATALINA_BASE_PROPERTY = "catalina.base";
     /**
      * Enables hard failure for contained off-origin HTTP attempts, non-content resource failures,
@@ -530,6 +585,57 @@ public class EFormBrowserPdfService {
             + "  .filter((el) => /^page\\d+$/i.test(el.id));\n"
             + "let excludedCount = 0;\n"
             + "let excludedHeight = 0;\n"
+            + "let decorativeExcludedCount = 0;\n"
+            // Structural descriptors of the elements the two buckets counted, so a withheld render
+            // can be diagnosed. STRUCTURE ONLY -- tag, id, class, height and the LENGTH of the text.
+            // Never the text itself: an off-page block is exactly where clinical prose ends up, and
+            // this string reaches the application log. The length is what distinguishes a spacer
+            // from a paragraph, which is all the diagnosis needs.
+            + "const carlosDescribe = (el, rect) => {\n"
+            + "  const cls = (typeof el.className === 'string' && el.className) ? '.' + el.className.trim().split(/\\s+/).join('.') : '';\n"
+            + "  const id = el.id ? '#' + el.id : '';\n"
+            + "  return el.tagName + id + cls + ' h=' + Math.round(rect.height) + 'px'\n"
+            + "    + ' chars=' + (el.textContent || '').trim().length;\n"
+            + "};\n"
+            // Bounded: a pathological form must not turn one render into thousands of log lines.
+            + "const CARLOS_MAX_DESCRIBED = 20;\n"
+            + "const excludedDetails = [];\n"
+            + "const decorativeDetails = [];\n"
+            + "const carlosPageOrder = (a, b) => a.compareDocumentPosition(b);\n"
+            + "const carlosOffPageDecoration = (el) => {\n"
+            + "  const firstPage = pageNodes[0];\n"
+            + "  const lastPage = pageNodes[pageNodes.length - 1];\n"
+            + "  const beforeFirst = (carlosPageOrder(el, firstPage) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;\n"
+            + "  const afterLast = (carlosPageOrder(el, lastPage) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;\n"
+            + "  if (!beforeFirst && !afterLast) { return false; }\n"
+            // Position CANNOT establish that content is non-clinical. This predicate used to treat an
+            // off-page element as decoration whenever it merely LACKED a control and a media element,
+            // with no length or content test of any kind, so a plain <div> of clinical prose authored
+            // before page1 or after the last page div was reclassified as decoration, hidden by the
+            // classList.add below like any other off-page node, and disclosed only through the
+            // ADVISORY decorativeExcludedElements component -- which withholdsDocument never acts on.
+            // Print, fax and archive therefore shipped a PDF with that clinical text silently missing.
+            // Decoration is now OPT-IN: an off-page element qualifies only when the form marks it as
+            // such, and everything else stays in the BLOCKING bucket where a clinician approves before
+            // it ships. Authors mark genuine badges, mastheads and boilerplate disclaimers with either
+            // spelling of the marker; an unmarked off-page block is treated as clinical content.
+            + "  const carlosDecorationMarker = '.carlos-print-decoration, [data-carlos-print-decoration]';\n"
+            + "  if (!el.matches(carlosDecorationMarker)) { return false; }\n"
+            // Defence in depth below the marker: an explicitly marked container must still not carry a
+            // control or a media element out of the document. A marker is an author assertion about
+            // boilerplate, not a licence to drop a field or a signature.
+            + "  const carlosControls = 'input, textarea, select, button, [contenteditable]';\n"
+            // Self AND descendants, exactly like the media check below: a BARE off-page control
+            // (a top-level textarea holding clinical default text) must stay in the BLOCKING
+            // bucket, and querySelector alone only sees descendants.
+            + "  if (el.matches(carlosControls) || el.querySelector(carlosControls)) { return false; }\n"
+            // Off-page imagery is far more likely a signature preview or a rendered clinical
+            // figure than a badge logo, and unlike short text it cannot be judged from a count
+            // alone -- media keeps the element in the BLOCKING excludedContentElements bucket.
+            + "  const carlosMedia = 'img, canvas, svg, video, iframe, object, embed';\n"
+            + "  if (el.matches(carlosMedia) || el.querySelector(carlosMedia)) { return false; }\n"
+            + "  return true;\n"
+            + "};\n"
             // DESCEND, don't skip, through elements that merely CONTAIN a page div. Scanning only
             // document.body.children made this whole pass dead on almost the entire real corpus:
             // eformGenerator.jsp wraps the form body in <form id="FormName"> (emitted at its line
@@ -568,9 +674,17 @@ public class EFormBrowserPdfService {
             + "      const substantive = isVisible(child) && rect.height > 4 && (\n"
             + "        (child.textContent || '').trim().length > 0\n"
             + "        || child.querySelector('img, canvas, svg, video, input, textarea, select') !== null);\n"
-            + "      if (substantive) {\n"
+            + "      if (substantive && carlosOffPageDecoration(child)) {\n"
+            + "        decorativeExcludedCount += 1;\n"
+            + "        if (decorativeDetails.length < CARLOS_MAX_DESCRIBED) {\n"
+            + "          decorativeDetails.push(carlosDescribe(child, rect));\n"
+            + "        }\n"
+            + "      } else if (substantive) {\n"
             + "        excludedCount += 1;\n"
             + "        excludedHeight += rect.height;\n"
+            + "        if (excludedDetails.length < CARLOS_MAX_DESCRIBED) {\n"
+            + "          excludedDetails.push(carlosDescribe(child, rect));\n"
+            + "        }\n"
             + "      }\n"
             + "      child.classList.add('carlos-render-nonpage');\n"
             + "    }\n"
@@ -631,6 +745,9 @@ public class EFormBrowserPdfService {
             + "  }),\n"
             + "  excludedCount: excludedCount,\n"
             + "  excludedHeight: excludedHeight,\n"
+            + "  decorativeExcludedCount: decorativeExcludedCount,\n"
+            + "  excludedDetails: excludedDetails,\n"
+            + "  decorativeDetails: decorativeDetails,\n"
             + "  signatureBroken: signatureBroken,\n"
             + "  timerCompatibilityFailure: timerCompatibilityFailure,\n"
             + "  timerCompatShimMissing: timerCompatShimMissing,\n"
@@ -667,7 +784,8 @@ public class EFormBrowserPdfService {
      * structural — every production path is created via {@code createSecureTempFile} under
      * {@code resolveRendererTempRoot()}.</p>
      */
-    public record RenderedEformPdf(Path path, EFormRenderCompletenessReport completeness)
+    public record RenderedEformPdf(Path path, EFormRenderCompletenessReport completeness,
+            List<String> severeConsoleDetails)
             implements AutoCloseable {
         /**
          * Rejects any path that is not this renderer's own output. {@link #close()} deletes the
@@ -685,6 +803,9 @@ public class EFormBrowserPdfService {
          */
         public RenderedEformPdf {
             completeness = completeness == null ? EFormRenderCompletenessReport.complete() : completeness;
+            // PHI-safe per-error descriptions for the informed-override screen; display only,
+            // never part of the completeness report or the approval digest.
+            severeConsoleDetails = severeConsoleDetails == null ? List.of() : List.copyOf(severeConsoleDetails);
             Objects.requireNonNull(path, "rendered eForm PDF path must not be null");
             Path fileNamePath = path.getFileName();
             String fileName = fileNamePath == null ? "" : fileNamePath.toString();
@@ -705,7 +826,12 @@ public class EFormBrowserPdfService {
          * same statement here.</p>
          */
         public RenderedEformPdf(Path path) {
-            this(path, EFormRenderCompletenessReport.complete());
+            this(path, EFormRenderCompletenessReport.complete(), List.of());
+        }
+
+        /** Convenience for callers that produced no console-error detail. */
+        public RenderedEformPdf(Path path, EFormRenderCompletenessReport completeness) {
+            this(path, completeness, List.of());
         }
 
         @Override
@@ -850,8 +976,10 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException("Browser renderer base URL configuration is invalid: " + reason);
         }
         Path outputPdfPath = null;
-        ChromeDriver driver = null;
-        ChromeDriverService driverService = null;
+        ChromiumDriver driver = null;
+        // Held for the finally: teardown needs the session id and endpoint captured at
+        // creation, not just the driver handle.
+        RendererBrowser browser = null;
         boolean success = false;
         long startNanos = System.nanoTime();
         long deadlineNanos = startNanos + RENDER_TIMEOUT.toNanos();
@@ -882,9 +1010,8 @@ public class EFormBrowserPdfService {
                         + "set EFORM_RENDER_SANDBOX=true on a non-root deployment with unprivileged user "
                         + "namespaces to enable it). OS-level containment is delegated to the container boundary.");
             }
-            RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), unsandboxed, allowedOrigin));
+            browser = createDriver(buildChromeOptions(resolveChromiumPath(), unsandboxed, allowedOrigin));
             driver = browser.driver();
-            driverService = browser.service();
             long driverStartedNanos = System.nanoTime();
             logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
                     fdid, unsandboxed ? "disabled" : "enabled");
@@ -926,16 +1053,50 @@ public class EFormBrowserPdfService {
             // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            // Emitted HERE, immediately after the scan and before any branch below can throw.
+            // The withheld case is the one that most needs this, and it exits through
+            // EformContentUnavailableException a few lines down — logging it later would make the
+            // identity unavailable in exactly the situation it exists for.
+            //
+            // The counts reach the operator through the completeness report, which is counts and
+            // booleans by construction: enough to withhold a clinical document, not enough to fix
+            // one. Nobody can act on "1 element" without knowing which. This is the only place the
+            // identity exists at all — the scan runs inside the render browser, against a URL the
+            // front door cannot reach.
+            //
+            // Structure only: tag, id, class, height, and the character COUNT of the text. Never
+            // the text: an off-page block is exactly where clinical prose ends up, and this line
+            // goes to the application log.
+            if (!geometry.excludedDetails().isEmpty()) {
+                logger.debug("Browser eForm renderer excluded element(s): fdid={} elements={}",
+                        fdid, geometry.excludedDetails());
+            }
+            if (!geometry.decorativeDetails().isEmpty()) {
+                logger.debug("Browser eForm renderer decoration element(s): fdid={} elements={}",
+                        fdid, geometry.decorativeDetails());
+            }
+            if (geometry.decorativeExcludedCount() > 0) {
+                // An off-page element the FORM EXPLICITLY MARKED as decoration (a license or
+                // attribution badge, a masthead, a boilerplate disclaimer) was treated as
+                // non-clinical: it does NOT withhold the document, but
+                // it is never silent either — the count enters the completeness report as the
+                // ADVISORY decorativeExcludedElements component below, so every delivery surface
+                // discloses that something was removed. A count only (no content/PHI).
+                logger.info("Browser eForm renderer excluded {} off-page element(s) as non-clinical "
+                        + "decoration (advisory, disclosed): fdid={}", geometry.decorativeExcludedCount(), fdid);
+            }
             int containedInteractions = readContainedInteractionCount(
                     js.executeScript("return window.__carlosRendererInteractionCount || 0;"));
             drainPerformanceLog(driver, performanceEntries);
+            List<String> severeConsoleDetails = new ArrayList<>();
             EFormRenderCompletenessReport completeness = enforceRenderGates(
-                    driver, performanceEntries, latchedMainStatus, baseUrl, fdid)
+                    driver, performanceEntries, latchedMainStatus, baseUrl, fdid, severeConsoleDetails)
                     .merge(new EFormRenderCompletenessReport(
                             0,
                             geometry.excludedCount(),
                             0,
                             containedInteractions,
+                            geometry.decorativeExcludedCount(),
                             geometry.signatureBroken(),
                             geometry.timerCompatibilityFailure(),
                             stabilizationCapped,
@@ -949,7 +1110,7 @@ public class EFormBrowserPdfService {
                         completeness.describe(true));
                 throw new EformContentUnavailableException(
                         "The eForm could not be fully rendered. Review the reported omissions before proceeding.",
-                        fdid, completeness);
+                        fdid, completeness, List.copyOf(severeConsoleDetails));
             }
             if (completeness.hasBlockingOmissions()) {
                 logger.warn("Browser eForm renderer proceeding with approved incomplete output: fdid={} issues={}",
@@ -1005,7 +1166,7 @@ public class EFormBrowserPdfService {
                     (printedNanos - gatesFinishedNanos) / 1_000_000L);
             // Carry the report out with the file rather than in a field: renders run concurrently
             // under the slot semaphore, so any per-service mutable state would cross-talk.
-            return new RenderedEformPdf(outputPdfPath, completeness);
+            return new RenderedEformPdf(outputPdfPath, completeness, List.copyOf(severeConsoleDetails));
         } catch (EformContentUnavailableException e) {
             // Re-throw incomplete renders without relabeling them as renderer-integrity failures;
             // the caller displays the sanitized issue report and requires exact approval.
@@ -1044,11 +1205,11 @@ public class EFormBrowserPdfService {
         } finally {
             // The render grant was already invalidated by the RenderLease's close() (the lease is the
             // first resource of the try above, so it closes before this finally runs).
-            quitQuietly(driver);
             // Belt-and-braces after quit: if the quit command timed out against a wedged Chromium,
-            // stopping the caller-owned chromedriver service is what actually tears the processes
-            // down before the render slot is released.
-            stopServiceQuietly(driverService);
+            // a targeted force-delete of THIS session is what tears the browser down before the
+            // render slot is released. Killing the chromedriver process is no longer available --
+            // this JVM does not own it -- so the session id captured at creation is the handle.
+            teardownQuietly(browser);
             if (!success) {
                 deleteQuietly(outputPdfPath);
             }
@@ -1072,8 +1233,7 @@ public class EFormBrowserPdfService {
     public void verifyRendererReady() throws PDFGenerationException {
         RendererBrowser browser = createDriver(
                 buildChromeOptions(resolveChromiumPath(), !sandboxEnabled(), "http://127.0.0.1"));
-        ChromeDriver driver = browser.driver();
-        ChromeDriverService driverService = browser.service();
+        ChromiumDriver driver = browser.driver();
         try {
             driver.get("about:blank");
         } catch (RuntimeException e) {
@@ -1085,10 +1245,9 @@ public class EFormBrowserPdfService {
                     "The eForm browser renderer started but failed a basic navigation readiness probe: "
                     + e.getClass().getName() + " " + RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         } finally {
-            quitQuietly(driver);
-            // Belt-and-braces after quit (mirrors renderWithSlot): stopping the caller-owned
-            // chromedriver service is what actually tears the processes down if quit() timed out.
-            stopServiceQuietly(driverService);
+            // Mirrors renderWithSlot: quit, and escalate to a targeted force-delete of this
+            // session if quit() could not end it.
+            teardownQuietly(browser);
         }
     }
 
@@ -1130,7 +1289,18 @@ public class EFormBrowserPdfService {
                 "--disable-background-networking",
                 "--disable-extensions",
                 "--no-first-run",
-                "--no-default-browser-check");
+                "--no-default-browser-check",
+                // Memory governors. This surface renders ONE small same-origin document per session,
+                // so Chromium's desktop-scale defaults (unbounded V8 heaps, one renderer per site
+                // instance, a GPU process) are pure overhead — and on small deployments the burst of
+                // an ungoverned browser tree is what pushes the whole box into memory pressure.
+                // Deliberately NOT --single-process/--no-zygote (would break the sandbox) and NOT
+                // disabling site isolation (a security posture change): these only cap size/fan-out.
+                "--js-flags=--max-old-space-size=" + RENDERER_V8_HEAP_MB,
+                "--renderer-process-limit=" + RENDERER_PROCESS_LIMIT,
+                // Headless print-to-PDF rasters through Skia in software; the GPU process buys
+                // nothing here and costs a process plus its mappings.
+                "--disable-gpu");
         if (unsandboxed) {
             // Default posture: OS-level containment is delegated to the container boundary. The operator
             // can restore Chromium's OS sandbox with EFORM_RENDER_SANDBOX=true — see sandboxEnabled().
@@ -1195,12 +1365,51 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * A started renderer browser plus the caller-owned chromedriver service behind it.
-     * {@code service} is non-null on both the pinned and Selenium-Manager paths; holding it lets
-     * the render {@code finally} stop the chromedriver process even when {@code quit()} times out
-     * against a wedged Chromium, so a hung render can never orphan a driver process.
+     * A started render-browser session plus everything teardown needs.
+     *
+     * <p>INVARIANT (this replaces the old "service is non-null on both paths"): {@code serviceUri}
+     * and {@code sessionId} are both non-null and are captured HERE, at creation.
+     * <ul>
+     *   <li>{@code serviceUri} is the exact endpoint this session was created against. The teardown
+     *       backstop MUST use this value rather than re-reading the property: a property edited
+     *       mid-render would otherwise send the force-delete to a different chromedriver and leave a
+     *       browser holding a rendered PHI page alive.</li>
+     *   <li>{@code sessionId} is captured here because {@code RemoteWebDriver.quit()} nulls its own
+     *       session id in a {@code finally} EVEN WHEN THE QUIT FAILS. By the time
+     *       {@link #quitQuietly} reports failure, {@code driver.getSessionId()} is already null and
+     *       the backstop would have nothing to address.</li>
+     * </ul>
      */
-    record RendererBrowser(ChromeDriver driver, ChromeDriverService service) {
+    record RendererBrowser(ChromiumDriver driver, URI serviceUri, SessionId sessionId) {
+        RendererBrowser {
+            Objects.requireNonNull(driver, "driver");
+            Objects.requireNonNull(serviceUri, "serviceUri captured at session creation");
+            Objects.requireNonNull(sessionId, "sessionId captured at session creation");
+        }
+    }
+
+    /**
+     * A ChromiumDriver bound to an already-running chromedriver instead of one this JVM spawned.
+     *
+     * <p>Why this exists rather than {@code new RemoteWebDriver(...)}: {@code executeCdpCommand} is
+     * declared on {@code HasCdp}, which {@code RemoteWebDriver} does not implement. The obvious
+     * workarounds do not work either — {@code new Augmenter().augment(driver)} yields a proxy that
+     * implements the interface but never registers the CDP command on the executor (Augmenter reads
+     * {@code AugmenterProvider}, never {@code AdditionalHttpCommands}, and {@code HttpCommandExecutor}
+     * performs no service lookup), so the first CDP call throws {@code UnsupportedCommandException};
+     * and {@code getExecuteMethod()} is {@code protected}, reachable only from a subclass.
+     */
+    static final class RemoteRenderBrowser extends ChromiumDriver {
+        RemoteRenderBrowser(URL chromedriverUrl, ChromeOptions options, ClientConfig clientConfig) {
+            super(new HttpCommandExecutor(new AddHasCdp().getAdditionalCommands(), chromedriverUrl, clientConfig),
+                  options, ChromeOptions.CAPABILITY, clientConfig);
+            // LOAD-BEARING, and silent if omitted. ChromiumDriver.executeCdpCommand returns
+            // Map.of() -- NOT an error -- when `cdp` is null (verified in bytecode:
+            // getfield cdp; ifnonnull; invokestatic Map.of; areturn). Without this assignment every
+            // Page.printToPDF hands back an empty map and printToPdf() reports "returned an empty
+            // PDF" for EVERY render, forever, while pointing at the wrong cause.
+            this.cdp = new AddHasCdp().getImplementation(getCapabilities(), getExecuteMethod());
+        }
     }
 
     /**
@@ -1215,27 +1424,24 @@ public class EFormBrowserPdfService {
     }
 
     private RendererBrowser createDriver(ChromeOptions options) throws PDFGenerationException {
-        // Validate the configured chromedriver path (if any) BEFORE the sandbox-guarded start below,
-        // so a bad eform_pdf_browser_chromedriver_path surfaces as a config-specific error instead of
-        // being caught by the broad catch and misreported as a Chromium sandbox failure that sends
-        // operators to change user namespaces.
-        File chromedriver = null;
-        String chromedriverPath = resolveChromedriverPath();
-        if (chromedriverPath != null) {
-            try {
-                chromedriver = PathValidationUtils.validateConfiguredFile(chromedriverPath, CHROMEDRIVER_PATH_PROPERTY);
-            } catch (RuntimeException e) {
-                throw new PDFGenerationException(
-                        "The configured " + CHROMEDRIVER_PATH_PROPERTY + " does not point to a usable chromedriver "
-                        + "executable. Fix the property, or unset it to let Selenium Manager resolve a matching "
-                        + "chromedriver.", e);
-            }
+        // Validate the configured service URL FIRST and in its own narrow catch, so a bad
+        // eform_pdf_browser_service_url surfaces as a config-specific error naming the property
+        // instead of being swallowed by the broad catch below and misreported as a Chromium sandbox
+        // failure that sends operators to change user namespaces.
+        URI serviceUri;
+        try {
+            serviceUri = validateBrowserServiceUrl(resolveBrowserServiceUrl());
+        } catch (IllegalArgumentException e) {
+            // Name the PROPERTY, never the value: the URL may carry the chromedriver --url-base
+            // capability token, and this message reaches clinician-visible surfaces.
+            throw new PDFGenerationException(
+                    "The configured " + SERVICE_URL_PROPERTY + " is not a usable loopback chromedriver "
+                    + "URL: " + RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }
         // Pre-validate the configured Chromium binary path (if any) with the same up-front,
-        // config-specific treatment as the chromedriver path above. A bad eform_pdf_browser_chromium_path
-        // must surface as a clear configuration error naming the property — not get swallowed by the
-        // broad sandbox-guarded catch below and misreported as a kernel/user-namespace problem that
-        // sends operators chasing the wrong fix.
+        // config-specific treatment. Note this check is now ADVISORY: chromedriver resolves the
+        // binary on the browser host, so its own error is authoritative. It still earns its place
+        // because both run on the same host and a typo is worth catching here.
         String chromiumPath = resolveChromiumPath();
         if (chromiumPath != null) {
             try {
@@ -1243,70 +1449,147 @@ public class EFormBrowserPdfService {
             } catch (RuntimeException e) {
                 throw new PDFGenerationException(
                         "The configured " + CHROME_PATH_PROPERTY + " does not point to a usable Chromium "
-                        + "binary. Fix the property, or unset it to let Selenium resolve the browser.", e);
+                        + "binary. Fix the property, or unset it to let chromedriver resolve the browser.", e);
             }
         }
         try {
-            if (chromedriver != null) {
-                ChromeDriverService service = new ChromeDriverService.Builder()
-                        .usingDriverExecutable(chromedriver)
-                        .build();
-                return new RendererBrowser(startSessionWithinBudget(service, options), service);
-            }
-            // No pinned chromedriver: Selenium Manager resolves one when the driver starts (the
-            // DriverFinder consults it for an executable-less service). Build a caller-owned
-            // service anyway so the render finally can stop the chromedriver process even when
-            // quit() times out against a wedged Chromium — without the handle, that leak (a
-            // browser holding a rendered PHI page) was invisible below DEBUG and unkillable.
-            // Intended for dev/CI; production deployments should still pin
-            // eform_pdf_browser_chromedriver_path.
-            ChromeDriverService managerResolvedService = new ChromeDriverService.Builder().build();
-            return new RendererBrowser(startSessionWithinBudget(managerResolvedService, options), managerResolvedService);
+            return startSessionWithinBudget(serviceUri, options);
         } catch (RuntimeException e) {
-            // The redacted detail line below is the ONLY place the underlying startup failure (a
-            // version mismatch, a missing shared library, a sandbox that cannot start) surfaces:
-            // it is deliberately NOT chained into the PDFGenerationException (a downstream logger
-            // that logs the throwable could re-emit a path embedded in its message), matching the
-            // render path and verifyRendererReady. Log the type, redacted message, and a
-            // frame-only stack summary here so an operator can actually diagnose the failure.
-            logger.error("Chromium startup failure detail: type={} error={} at={}",
-                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
+            // causeChain is REQUIRED here, not decoration: for a connect failure the informative part
+            // ("Connection refused") is always a nested cause, so type+message alone would log a
+            // useless top-level WebDriverException. Still never chained into the thrown exception --
+            // a downstream handler that logs the chain would re-emit an embedded URL unredacted.
+            logger.error("eForm render browser session failure detail: type={} error={} at={} causedBy={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
+            if (isServiceUnreachable(e)) {
+                logger.error("The eForm render browser service is not reachable. Start it "
+                        + "(systemctl status carlos-emr-chromedriver) or correct {} in carlos.properties.",
+                        SERVICE_URL_PROPERTY);
+                throw browserServiceUnavailable();
+            }
             throw chromiumStartupFailure(!sandboxEnabled());
         }
     }
 
     /**
-     * Creates the Chromium session on a bounded background thread so a doomed launch fails within
-     * {@link #DRIVER_START_TIMEOUT} instead of blocking on chromedriver's internal ~60s browser-start
-     * timeout. On timeout the pending session is cancelled and the caller-owned {@code service} is
-     * stopped — killing chromedriver, which unblocks the doomed constructor so it cannot leak a
-     * browser process. The service is likewise stopped on a synchronous launch failure. The completed
-     * {@link ChromeDriver} is handed
-     * back to the render thread through {@link Future#get}, which establishes the needed happens-before.
+     * True when {@code t}'s cause chain shows the chromedriver endpoint was never reached, as opposed
+     * to reached-but-unable-to-start-a-browser. Classified by TYPE only, never by message: WebDriver
+     * exception messages are assembled from {@code getAdditionalInformation()} and are not a stable
+     * discriminator (the Selenium smoke test carries the same hard-won warning).
      */
-    private ChromeDriver startSessionWithinBudget(ChromeDriverService service, ChromeOptions options) {
-        // The executor is closed in the finally below via shutdownNow(). shutdownNow() is deliberate,
-        // NOT try-with-resources close(): close() awaits task termination, which would re-block the
-        // request thread on a wedged ChromeDriver constructor — the exact hang this watchdog exists to
-        // bound. The worker is a daemon, so a still-running cancelled task never keeps the JVM alive.
-        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> { // NOSONAR java:S2095 - closed via shutdownNow() in finally; try-with-resources close() would block the watchdog
+    static boolean isServiceUnreachable(Throwable t) {
+        // Bounded rather than guarded on self-reference: `c != c.getCause()` only catches a
+        // throwable that causes ITSELF, and a two-element cycle (a causes b, b causes a) would spin
+        // forever. Java forbids direct self-causation but not a cycle, and this runs on a failure
+        // path where the chain is third-party.
+        int depth = 0;
+        for (Throwable c = t; c != null && depth < MAX_CAUSE_DEPTH; c = c.getCause(), depth++) {
+            if (c instanceof java.net.ConnectException
+                    || c instanceof java.net.http.HttpConnectTimeoutException
+                    || c instanceof org.openqa.selenium.remote.http.ConnectionFailedException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Operator-facing failure for an unreachable render browser service. Deliberately terse and
+     * URL-free: this message reaches clinician-visible surfaces, and the configured URL may carry the
+     * chromedriver --url-base capability token. The remediation goes in the log line, which names the
+     * property key and the unit -- never the value. Never carries a cause, matching
+     * {@link #chromiumStartupFailure}.
+     */
+    static PDFGenerationException browserServiceUnavailable() {
+        return new PDFGenerationException("The eForm render browser service is unavailable.");
+    }
+
+    /**
+     * Creates the render session on a bounded background thread so a doomed launch fails within
+     * {@link #DRIVER_START_TIMEOUT} instead of blocking on chromedriver's internal ~60s browser-start
+     * timeout.
+     *
+     * <p>The old implementation killed the chromedriver PROCESS on timeout, which unblocked the
+     * doomed constructor and guaranteed no browser leaked. This JVM no longer owns that process, so
+     * that guarantee is gone and is replaced by a late-quit hook: if the cancelled session arrives
+     * anyway, it is quit immediately. The residual window is acceptable only because navigation has
+     * not happened yet -- a timed-out session is an {@code about:blank} browser holding no PHI.
+     */
+    private RendererBrowser startSessionWithinBudget(URI serviceUri, ChromeOptions options) {
+        // shutdown(), NOT shutdownNow(). shutdownNow() interrupts the in-flight task, and an
+        // interrupted session-create abandons the POST /session read — so if chromedriver already
+        // made the session, its id never reaches this JVM and there is nothing left to delete.
+        // shutdown() does not interrupt, does not block, and the daemon worker still terminates.
+        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> { // NOSONAR java:S2095 - shutdown() in finally; close() would block the watchdog
             Thread thread = new Thread(runnable, "eform-render-driver-start");
             thread.setDaemon(true);
             return thread;
         });
+        // The session is published from INSIDE the callable rather than read off the Future,
+        // because a Future the caller gave up on cannot hand it back — see reapLateSession.
+        AtomicReference<RendererBrowser> created = new AtomicReference<>();
+        AtomicBoolean abandoned = new AtomicBoolean();
         try {
-            Future<ChromeDriver> pending = starter.submit(
-                    () -> new ChromeDriver(service, options, rendererClientConfig()));
+            Future<RendererBrowser> pending = starter.submit(() -> {
+                ChromiumDriver driver = new RemoteRenderBrowser(
+                        serviceUri.toURL(), options, rendererClientConfig().baseUri(serviceUri));
+                RendererBrowser browser;
+                try {
+                    browser = new RendererBrowser(driver, serviceUri, driver.getSessionId());
+                } catch (RuntimeException e) {
+                    // The session exists but we cannot describe it (e.g. a null session id). Quit it
+                    // here: nothing downstream will ever see a handle to it.
+                    quitQuietly(driver);
+                    throw e;
+                }
+                created.set(browser);
+                if (abandoned.get()) {
+                    // The caller timed out between the session being created and it being
+                    // published. Reap it on this thread; nobody else holds it.
+                    RendererBrowser mine = created.getAndSet(null);
+                    if (mine != null) {
+                        logger.warn("eForm render browser session arrived after its start budget "
+                                + "expired; quitting it so it cannot leak a browser process");
+                        teardownQuietly(mine);
+                    }
+                    throw new IllegalStateException("render session abandoned after its start budget");
+                }
+                return browser;
+            });
             try {
                 return pending.get(DRIVER_START_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             } catch (TimeoutException timeout) {
-                pending.cancel(true);
-                stopServiceQuietly(service);
+                reapLateSession(pending, created, abandoned);
+                // KNOWN OVERSHOOT: the caller's finally releases this render's slot now, while the
+                // reaper may keep the late session's browser alive for up to LATE_SESSION_REAP_TIMEOUT.
+                // Under repeated start-timeouts (a memory-starved host — the same condition that causes
+                // them) live browser TREES can therefore briefly exceed MAX_CONCURRENT_RENDERS. Total
+                // browser-tree MEMORY stays bounded regardless: the carlos-emr-chromedriver unit's
+                // MemoryHigh/MemoryMax cgroup ceiling covers every tree the driver spawned, so the
+                // overshoot cannot compound the pressure that caused it. Holding the slot until the
+                // reaper resolves would close the gap but moves slot ownership across threads —
+                // deliberately not done without test scaffolding for that handoff.
                 throw new IllegalStateException(
                         "Chromium session creation exceeded the " + DRIVER_START_TIMEOUT.toSeconds()
                         + "s startup budget", timeout);
             } catch (ExecutionException failure) {
-                stopServiceQuietly(service);
+                // The constructor threw. If it threw AFTER chromedriver created the session (e.g.
+                // the HTTP-client wiring in the ChromiumDriver constructor tail failed), that
+                // session's browser is unaddressable from here — the constructor never returned,
+                // so no session id exists in this JVM. Like the start-timeout case it is an
+                // about:blank browser holding no PHI. NOTHING in-process ever reaps it: the only
+                // sweep is for temp FILES, and chromedriver has no session timeout. What bounds
+                // it is the driver service's lifecycle — on the .deb, PartOf= ties it to every
+                // carlos-emr restart and the unit's MemoryMax caps the trees' total memory; on
+                // other deployments the operator restart named in the WARN is the reclaim. The
+                // leak must be VISIBLE, not silent, because a fault in the constructor tail
+                // repeats on every render and each attempt can strand one browser tree.
+                logger.warn("Chromium session constructor failed; if chromedriver had already "
+                        + "created the session, that browser is unaddressable from this JVM and "
+                        + "persists until the driver service restarts — repeated failures here "
+                        + "strand one browser per attempt: restart the chromedriver service "
+                        + "(about:blank only — no document was loaded).");
                 Throwable cause = failure.getCause();
                 if (cause instanceof RuntimeException runtime) {
                     throw runtime;
@@ -1314,13 +1597,52 @@ public class EFormBrowserPdfService {
                 throw new IllegalStateException("Chromium session creation failed", cause);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                pending.cancel(true);
-                stopServiceQuietly(service);
+                reapLateSession(pending, created, abandoned);
                 throw new IllegalStateException("Interrupted while starting the Chromium renderer", interrupted);
             }
         } finally {
-            starter.shutdownNow();
+            starter.shutdown();
         }
+    }
+
+    /**
+     * Quits a session that arrives after its start budget expired.
+     *
+     * <p>Deliberately does NOT call {@code Future.cancel(true)}. A cancelled {@code FutureTask}
+     * discards its result and every {@code get()} throws {@link CancellationException} immediately,
+     * so a reaper written around {@code pending.get()} after a cancel can never see the session and
+     * never tears anything down — it just logs nothing while the browser stays alive. Cancelling
+     * also interrupts the in-flight {@code POST /session}, which can lose the session id before this
+     * JVM ever learns it, leaving nothing to address. So: let the exchange finish, bounded, and take
+     * the handle the callable published.
+     *
+     * <p>The residual hole is honest and documented: if the interrupt or a connection failure means
+     * the id never arrives, no targeted teardown is possible and
+     * {@code systemctl restart carlos-emr-chromedriver} is the backstop. A timed-out session has not
+     * navigated yet, so it is an {@code about:blank} browser holding no clinical data.
+     */
+    private static void reapLateSession(Future<RendererBrowser> pending,
+            AtomicReference<RendererBrowser> created, AtomicBoolean abandoned) {
+        abandoned.set(true);
+        Thread reaper = new Thread(() -> {
+            try {
+                pending.get(LATE_SESSION_REAP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | TimeoutException | CancellationException ignored) {
+                // Fall through: the callable may still have published a session before failing.
+            }
+            // getAndSet: whoever takes it non-null owns the teardown, so the callable's own
+            // self-reap and this thread can never both quit the same session.
+            RendererBrowser late = created.getAndSet(null);
+            if (late != null) {
+                logger.warn("eForm render browser session arrived after its start budget expired; "
+                        + "quitting it so it cannot leak a browser process");
+                teardownQuietly(late);
+            }
+        }, "eform-render-late-session-reaper");
+        reaper.setDaemon(true);
+        reaper.start();
     }
 
     /**
@@ -1345,38 +1667,94 @@ public class EFormBrowserPdfService {
         return new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.");
     }
 
-    private static void quitQuietly(ChromeDriver driver) {
+    /**
+     * Ends the session, returning whether {@code quit()} actually succeeded so the caller can escalate
+     * to {@link #forceDeleteSessionQuietly}.
+     */
+    private static boolean quitQuietly(ChromiumDriver driver) {
         if (driver == null) {
-            return;
+            return true;
         }
         try {
             driver.quit();
+            return true;
         } catch (RuntimeException e) {
             // Never pass the raw WebDriver throwable: its message/stack can embed the loopback render
             // URL (fdid + render token). Log the type and a redacted message only.
             logger.debug("Unable to quit browser eForm renderer driver cleanly: type={} error={}",
                     e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            return false;
         }
     }
 
     /**
-     * Stops the caller-owned chromedriver service if {@code quit()} left it running (e.g. the quit
-     * command timed out against a wedged Chromium). Killing the service process is what guarantees
-     * the browser it launched is torn down before the render slot is released.
+     * Full teardown for a render session: quit, and escalate to a targeted force-delete if that fails.
+     *
+     * <p>This is the direct replacement for the old {@code stopServiceQuietly} backstop. That method
+     * killed the chromedriver process, which is how a wedged Chromium was guaranteed to be torn down
+     * before the render slot was released. This JVM no longer owns that process; what it can still do
+     * is address the one session by id.
      */
-    private static void stopServiceQuietly(ChromeDriverService service) {
-        if (service == null || !service.isRunning()) {
+    // Package-private for EFormBrowserRemoteDriverFakeChromedriverUnitTest, which pins the
+    // quit-failure -> targeted-DELETE escalation against a fake chromedriver.
+    static void teardownQuietly(RendererBrowser browser) {
+        if (browser == null) {
             return;
         }
-        try {
-            service.stop();
-        } catch (RuntimeException e) {
-            // WARN, not DEBUG: this backstop exists precisely because a wedged Chromium can
-            // survive quit(), and a leaked chromedriver+browser (holding a rendered PHI page in
-            // memory) must be visible at default log levels.
-            // Same redaction rule as quitQuietly: never the raw throwable.
-            logger.warn("Unable to stop browser eForm renderer chromedriver service cleanly: type={} error={}",
-                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+        if (!quitQuietly(browser.driver())) {
+            forceDeleteSessionQuietly(browser.serviceUri(), browser.sessionId());
+        }
+    }
+
+    /**
+     * Second, independent teardown attempt for the exact session {@code quit()} failed to end.
+     *
+     * <p>Deliberately uses a fresh {@link java.net.http.HttpClient} with a short deadline rather than
+     * Selenium: the wedged driver's client may be blocked on the 90s command read timeout, and this
+     * backstop must not inherit that. chromedriver kills the session's browser process tree on DELETE
+     * even when the browser is unresponsive to WebDriver commands.
+     *
+     * <p>WARN, not DEBUG, for the same reason the old backstop was: a leaked browser holding a
+     * rendered PHI page in memory must be visible at default log levels. The session id is logged (it
+     * is not PHI, and it is what an operator needs against the chromedriver journal); the URI is
+     * redacted because it may carry the --url-base capability token.
+     */
+    private static void forceDeleteSessionQuietly(URI serviceUri, SessionId sessionId) {
+        if (serviceUri == null || sessionId == null) {
+            return;
+        }
+        try (java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(BACKSTOP_TIMEOUT)
+                .build()) {
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(URI.create(serviceUri + "/session/" + sessionId))
+                    .timeout(BACKSTOP_TIMEOUT)
+                    .DELETE()
+                    .build();
+            java.net.http.HttpResponse<Void> response =
+                    client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
+            // send() does not throw on 4xx/5xx. Without this check a wedged chromedriver returning
+            // 500 — or a 404 from something that is not chromedriver at all — would be reported as
+            // "force-deleted it", and an operator would close the ticket while the browser holding
+            // the rendered page is still running. That is precisely what this WARN exists to catch.
+            if (response.statusCode() / 100 == 2) {
+                logger.warn("Browser eForm renderer session {} did not quit cleanly; force-deleted it "
+                        + "against the render browser service", sessionId);
+            } else {
+                logger.warn("Force-delete of browser eForm renderer session {} was refused (HTTP {}). "
+                        + "A browser holding a rendered page may still be running; "
+                        + "systemctl restart carlos-emr-chromedriver clears it.",
+                        sessionId, response.statusCode());
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            logger.warn("Interrupted while force-deleting browser eForm renderer session {}", sessionId);
+        } catch (RuntimeException | java.io.IOException e) {
+            logger.warn("Unable to force-delete browser eForm renderer session {}: type={} error={}. "
+                    + "A browser holding a rendered page may still be running; "
+                    + "systemctl restart carlos-emr-chromedriver clears it.",
+                    sessionId, e.getClass().getName(),
+                    RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }
     }
 
@@ -1395,7 +1773,7 @@ public class EFormBrowserPdfService {
      *         exactly the ones that print half-assembled.
      * @throws PDFGenerationException if the page reported a stabilization error
      */
-    boolean settle(ChromeDriver driver, long deadlineNanos, int fdid) throws PDFGenerationException {
+    boolean settle(ChromiumDriver driver, long deadlineNanos, int fdid) throws PDFGenerationException {
         // Deferred one-shot timers are tracked by eform-runtime-compat.js and awaited by
         // STABILIZE_ASYNC_JS below.  Do not impose a blind grace sleep here: static forms
         // can proceed after the same measured quiet-window check as dynamic forms.
@@ -1443,7 +1821,7 @@ public class EFormBrowserPdfService {
      * backgrounds print. {@code ReturnAsBase64} hands the PDF back inline in the command result (the
      * same transport as the former screenshot path), so there is no CDP stream to read back.
      */
-    private void printToPdf(ChromeDriver driver, Path outputPdfPath, long deadlineNanos)
+    private void printToPdf(ChromiumDriver driver, Path outputPdfPath, long deadlineNanos)
             throws IOException, PDFGenerationException {
         checkDeadline(deadlineNanos);
         Map<String, Object> result = driver.executeCdpCommand("Page.printToPDF", Map.of(
@@ -1486,6 +1864,15 @@ public class EFormBrowserPdfService {
         }
         int excludedCount = (int) rawCount;
         double excludedHeight = requiredNonNegativeNumber(rawMap, "excludedHeight");
+        // Off-page elements the detector classified as non-clinical decoration (a license
+        // or attribution badge, a branding masthead). Reported for transparency, NEVER
+        // folded into excludedContentElements, so they do not withhold a patient document.
+        double rawDecorative = requiredNonNegativeNumber(rawMap, "decorativeExcludedCount");
+        if (Math.floor(rawDecorative) < rawDecorative || rawDecorative > Integer.MAX_VALUE) {
+            throw new PDFGenerationException(
+                    "Browser rendering returned an invalid decorative-content count.");
+        }
+        int decorativeExcludedCount = (int) rawDecorative;
         boolean signatureBroken = requiredBoolean(rawMap, "signatureBroken");
         boolean timerCompatibilityFailure = requiredBoolean(
                 rawMap, "timerCompatibilityFailure");
@@ -1500,8 +1887,40 @@ public class EFormBrowserPdfService {
         boolean labDecisionSupportStubbed = requiredBoolean(
                 rawMap, "labDecisionSupportStubbed");
         boolean providerStampMissing = requiredBoolean(rawMap, "providerStampMissing");
-        return new PageGeometry(pages, excludedCount, excludedHeight, signatureBroken,
+        return new PageGeometry(pages, excludedCount, excludedHeight, decorativeExcludedCount,
+                describedElements(rawMap, "excludedDetails"),
+                describedElements(rawMap, "decorativeDetails"),
+                signatureBroken,
                 timerCompatibilityFailure, labDecisionSupportStubbed, providerStampMissing);
+    }
+
+    /**
+     * Reads one of the scan's structural-descriptor lists.
+     *
+     * <p>Diagnostic only, and deliberately lenient: a missing or malformed list must never fail a
+     * render that otherwise succeeded, because these strings exist to explain a withheld document,
+     * not to gate one. Anything unexpected degrades to an empty list.</p>
+     *
+     * <p>The scan emits structure only — tag, id, class, pixel height and the character COUNT of the
+     * element's text. It never emits the text, because an off-page block is precisely where clinical
+     * prose ends up and these strings are written to the application log. Each entry is length-capped
+     * here as a second bound, so a form with pathological class attributes cannot produce an
+     * unbounded log line even though the browser side already caps the number of entries.</p>
+     */
+    private static List<String> describedElements(Map<?, ?> rawMap, String key) {
+        if (!(rawMap.get(key) instanceof List<?> rawList)) {
+            return List.of();
+        }
+        return rawList.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                // The id and class come from author-controlled markup and an HTML attribute may
+                // hold a literal newline, so an element could otherwise inject its own line into
+                // the log. LogSafe escapes the control characters; the length cap still applies.
+                .map(LogSafe::sanitize)
+                .map(entry -> entry.length() > 200 ? entry.substring(0, 200) + "…" : entry)
+                .limit(20)
+                .toList();
     }
 
     private static double requiredNonNegativeNumber(Map<?, ?> rawMap, String key)
@@ -1661,11 +2080,16 @@ public class EFormBrowserPdfService {
      * Authored page sizes and sanitized omission signals used by the completeness report.
      */
     record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight,
+            int decorativeExcludedCount,
+            List<String> excludedDetails, List<String> decorativeDetails,
             boolean signatureBroken, boolean timerCompatibilityFailure,
             boolean labDecisionSupportStubbed, boolean providerStampMissing) {
         PageGeometry {
             // Defensive copy: readPageSizes hands back a mutable ArrayList.
             pages = List.copyOf(Objects.requireNonNull(pages, "pages must not be null"));
+            // Diagnostic descriptors are optional: an older or partial scan result simply has none.
+            excludedDetails = excludedDetails == null ? List.of() : List.copyOf(excludedDetails);
+            decorativeDetails = decorativeDetails == null ? List.of() : List.copyOf(decorativeDetails);
             if (excludedCount < 0 || !Double.isFinite(excludedHeight) || excludedHeight < 0) {
                 throw new IllegalArgumentException(
                         "Excluded-content counters must be non-negative and finite");
@@ -1678,8 +2102,9 @@ public class EFormBrowserPdfService {
     // ---------------------------------------------------------------------------------------------
 
     // Package-private for the unit test that pins the console-log-unavailable fail-closed branch.
-    EFormRenderCompletenessReport enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
-            Integer latchedMainStatus, String baseUrl, int fdid) throws PDFGenerationException {
+    EFormRenderCompletenessReport enforceRenderGates(ChromiumDriver driver, List<LogEntry> performanceEntries,
+            Integer latchedMainStatus, String baseUrl, int fdid,
+            List<String> severeConsoleDetailsOut) throws PDFGenerationException {
         NetworkGateScan scan = scanNetworkEvents(
                 performanceEntries.stream().map(LogEntry::getMessage).toList(),
                 originOf(baseUrl));
@@ -1691,12 +2116,27 @@ public class EFormBrowserPdfService {
         Integer mainDocumentStatus = latchedMainStatus != null ? latchedMainStatus : scan.mainDocumentStatus();
 
         int severeConsoleEntries = 0;
+        // Dedupe on the RAW message BEFORE describeConsoleError: a form erroring in a
+        // rAF/interval loop emits thousands of identical entries per render, and describing
+        // each one pays URL-redaction regex work on the hot render path while the description
+        // dedupe below keeps the list too small for the cap guard to short-circuit. Distinct
+        // raws mapping to one description are still collapsed by the contains() check.
+        java.util.Set<String> describedRawMessages = new java.util.HashSet<>();
         try {
             for (LogEntry entry : driver.manage().logs().get(LogType.BROWSER)) {
                 if (entry.getLevel().intValue() >= Level.SEVERE.intValue()
                         && !isResourceLoadConsoleEntry(entry.getMessage())
                         && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
                     severeConsoleEntries++;
+                    if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS
+                            && describedRawMessages.add(entry.getMessage())) {
+                        // De-duplicated, matching the fax-packet aggregation: the COUNT
+                        // (severeConsoleEntries, unbounded) still reports every occurrence.
+                        String consoleErrorDescription = describeConsoleError(entry.getMessage());
+                        if (!severeConsoleDetailsOut.contains(consoleErrorDescription)) {
+                            severeConsoleDetailsOut.add(consoleErrorDescription);
+                        }
+                    }
                 }
             }
         } catch (RuntimeException e) {
@@ -1810,6 +2250,41 @@ public class EFormBrowserPdfService {
      * embedded objects. Actual egress attempts remain gated by the dead proxy and the network
      * event replay regardless of what the console says.
      */
+    /**
+     * A PHI-safe one-line description of a severe console entry, for the informed-override screen.
+     *
+     * <p>The clinician needs to know WHAT kind of script failure the form hit before approving a
+     * possibly-incomplete render, but a raw console message can carry clinical data (a form is free
+     * to {@code console.error} anything). So this extracts ONLY structural, developer-authored
+     * facts — the error TYPE and its source line:col — and never the message body. The source URL
+     * (which carries the fdid and render token) is stripped first as defence in depth.
+     */
+    static String describeConsoleError(String message) {
+        if (message == null || message.isBlank()) {
+            return "Script error";
+        }
+        String redacted = RenderLogRedaction.redactUrls(message);
+        // Parse ONLY the structural header Chrome authors at the START of the entry. The message
+        // BODY (which a form controls and may contain PHI) sits after the type and is never read:
+        // both patterns are anchored to the start, so a NN:NN or a SomethingError token sitting in
+        // the body cannot be lifted into the description — a body-only entry degrades to "Script
+        // error". Residual (accepted): a form whose console text, right at the header position,
+        // literally begins with "<Word>Error:" can surface that made-up type word — a type token
+        // only, never body numbers/names.
+        java.util.regex.Matcher header = CONSOLE_HEADER_PATTERN.matcher(redacted);
+        if (header.find()) {
+            String location = header.group(1) != null
+                    ? " (line " + header.group(1) + ":" + header.group(2) + ")" : "";
+            return header.group(3) + location;
+        }
+        // No structural type; still surface Chrome's leading source line:col when it is present.
+        java.util.regex.Matcher location = CONSOLE_LEADING_LOCATION_PATTERN.matcher(redacted);
+        if (location.find()) {
+            return "Script error (line " + location.group(1) + ":" + location.group(2) + ")";
+        }
+        return "Script error";
+    }
+
     static boolean isPolicyContainmentConsoleEntry(String message) {
         // Anchored to Chrome's full violation phrase, not a bare "Content Security Policy"
         // substring: a form's own console.error would need to reproduce the exact enforcement
@@ -2038,7 +2513,7 @@ public class EFormBrowserPdfService {
      *
      * <p>Extracted from {@code renderWithSlot} for one reason: it is the single decision that gives
      * every approval in this feature its meaning, and inline it was untestable. It sits below
-     * {@code createDriver}, which builds a real {@code ChromeDriver} with no injection point, so
+     * {@code createDriver}, which connects to a real chromedriver with no injection point, so
      * nothing above it can be reached from a unit test without a browser on the machine — the
      * clause could have been deleted outright and the whole suite would still have passed.</p>
      *
@@ -2138,7 +2613,7 @@ public class EFormBrowserPdfService {
     }
 
     // Package-private for the unit test that pins the fail-closed behavior.
-    int drainPerformanceLog(ChromeDriver driver, List<LogEntry> performanceEntries) throws PDFGenerationException {
+    int drainPerformanceLog(ChromiumDriver driver, List<LogEntry> performanceEntries) throws PDFGenerationException {
         try {
             int before = performanceEntries.size();
             for (LogEntry entry : driver.manage().logs().get(LogType.PERFORMANCE)) {
@@ -2446,12 +2921,93 @@ public class EFormBrowserPdfService {
         return null;
     }
 
-    private String resolveChromedriverPath() {
-        String configuredChromedriverPath = CarlosProperties.getInstance().getProperty(CHROMEDRIVER_PATH_PROPERTY);
-        if (configuredChromedriverPath != null && !configuredChromedriverPath.isBlank()) {
-            return configuredChromedriverPath.trim();
+    /**
+     * The chromedriver endpoint this JVM connects to. Uses the 2-arg property lookup deliberately:
+     * the 1-arg form logs a WARN on every miss, and this property is expected to be absent on
+     * deployments that have not installed the render browser package.
+     */
+    private String resolveBrowserServiceUrl() {
+        return CarlosProperties.getInstance()
+                .getProperty(SERVICE_URL_PROPERTY, DEFAULT_SERVICE_URL).trim();
+    }
+
+    /**
+     * Validates the chromedriver endpoint, reusing the same loopback allow-list that gates the render
+     * base URL. Returns a {@link URI} rather than a String so no caller can reassemble it by
+     * concatenation and drift.
+     *
+     * <p>The port must be explicit: chromedriver has no default port, and silently falling back to 80
+     * would point the renderer at Tomcat or nginx. A path component IS permitted -- that is the
+     * chromedriver {@code --url-base} prefix, which this deployment uses as a capability token.
+     */
+    // IMPROPER_UNICODE: equalsIgnoreCase on the literal "http" is an intended case-insensitive
+    // scheme comparison per RFC 3986; no locale-sensitive or trust-path case folding is involved.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "intended case-insensitive URI scheme comparison against a literal")
+    static URI validateBrowserServiceUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            throw new IllegalArgumentException("Render browser service URL must not be blank");
         }
-        return null;
+        URI uri = URI.create(rawUrl.trim());
+        if (!"http".equalsIgnoreCase(uri.getScheme())) {
+            // Not a style preference: chromedriver serves plaintext only, so https can never work.
+            throw new IllegalArgumentException("Render browser service URL must use http");
+        }
+        if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
+            throw new IllegalArgumentException("Render browser service URL host must resolve to loopback");
+        }
+        if (uri.getPort() < 1) {
+            throw new IllegalArgumentException("Render browser service URL must name an explicit port");
+        }
+        if (uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) {
+            throw new IllegalArgumentException(
+                    "Render browser service URL must not carry user-info, a query or a fragment");
+        }
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        if (path.endsWith("/")) {
+            throw new IllegalArgumentException("Render browser service URL must not end in '/'");
+        }
+        // Linear-time equivalent of the old (/[A-Za-z0-9._~-]+)+ grammar, restructured because
+        // SpotBugs' REDOS detector matches the nested-quantifier SHAPE (it flagged the greedy
+        // and the possessive spelling alike, though possessive cannot backtrack). One-or-more
+        // segments of allowed characters joined by single slashes == every character in class,
+        // leading slash, no empty segment, no trailing slash. Each check is a single pass.
+        boolean usablePath = path.isEmpty()
+                || (path.startsWith("/")
+                        && !path.endsWith("/")
+                        && !path.contains("//")
+                        && path.matches("[/A-Za-z0-9._~-]+"));
+        if (!usablePath) {
+            throw new IllegalArgumentException("Render browser service URL path is not a usable url-base prefix");
+        }
+        return uri;
+    }
+
+    /**
+     * Startup-time format check for {@link #SERVICE_URL_PROPERTY}, the sibling of
+     * {@link #verifyConfiguredBaseUrl()}. Kept separate on purpose: the two properties have different
+     * operator remediations, and one message covering both is one nobody can act on.
+     */
+    void verifyConfiguredServiceUrl() throws PDFGenerationException {
+        // Migration tripwire: the spawn-a-driver property is retired and silently ignoring it
+        // would strand a deployment configured per the old docs — the renderer would quietly try
+        // the default service URL instead of the operator's chromedriver, and every render would
+        // fail with a message that never mentions the actual misconfiguration. One WARN at
+        // startup names the retirement and the replacement.
+        String retiredPath = CarlosProperties.getInstance()
+                .getProperty("eform_pdf_browser_chromedriver_path", "");
+        if (!retiredPath.isBlank()) {
+            logger.warn("eform_pdf_browser_chromedriver_path is RETIRED and ignored: CARLOS no "
+                    + "longer spawns chromedriver. Run chromedriver as a service and set {} "
+                    + "instead (the .deb's carlos-emr-eform-renderer package does both).",
+                    SERVICE_URL_PROPERTY);
+        }
+        try {
+            validateBrowserServiceUrl(resolveBrowserServiceUrl());
+        } catch (IllegalArgumentException e) {
+            throw new PDFGenerationException("The configured " + SERVICE_URL_PROPERTY + " is invalid: "
+                    + RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+        }
     }
 
     // ---------------------------------------------------------------------------------------------

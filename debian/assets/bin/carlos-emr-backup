@@ -11,7 +11,7 @@
 #
 # What a run produces, as three separately-tagged restic snapshots:
 #
-#   db       a consistent logical dump of the `oscar` schema, taken with
+#   db       a consistent logical dump of the `carlos` schema, taken with
 #            --single-transaction so it does not lock clinicians out, and with
 #            --source-data=2 so the dump records the binary-log coordinates it
 #            corresponds to. Those coordinates are the anchor that makes
@@ -39,7 +39,7 @@ STATE_DIR=/var/backups/carlos-emr
 # failures that aborted without one.
 ALERTED=0
 WORK_DIR="${STATE_DIR}/work"
-DOCS_DIR=/var/lib/carlos-emr/OscarDocument
+DOCS_DIR=/var/lib/carlos-emr/CarlosDocument
 LOG_TAG=carlos-emr-backup
 
 log()  { printf '%s: %s\n' "${LOG_TAG}" "$*"; }
@@ -62,7 +62,7 @@ DB_USER="${CARLOS_BACKUP_DB_USER:-backup}"
 DB_PASS="${CARLOS_BACKUP_DB_PASSWORD:-}"
 DB_HOST="${CARLOS_BACKUP_DB_HOST:-127.0.0.1}"
 DB_PORT="${CARLOS_BACKUP_DB_PORT:-3306}"
-DB_NAME="${CARLOS_BACKUP_DB_NAME:-oscar}"
+DB_NAME="${CARLOS_BACKUP_DB_NAME:-carlos}"
 KEEP="${CARLOS_BACKUP_KEEP:---keep-daily 7 --keep-weekly 5 --keep-monthly 12}"
 # How long shipped binary logs stay restorable. This bounds the
 # point-in-time window: a dump OLDER than this can still be restored, but
@@ -474,7 +474,7 @@ cmd_run() {
 
     # The binlog leg may fail (grant revoked, logging off) — it alerts and
     # must fail the UNIT, but it must not starve the legs after it: while a
-    # grant stayed broken, every nightly stopped here and OscarDocument and
+    # grant stayed broken, every nightly stopped here and CarlosDocument and
     # carlos.properties (the AES key a restore depends on) were never
     # shipped. Remember the failure, finish the run, exit non-zero at the
     # end. Review finding, confirmed by inspection.
@@ -643,10 +643,13 @@ cmd_verify() {
             exit 1
             ;;
     esac
+    # Both spellings pass: a snapshot taken before the 2026.09.0~snapshot4
+    # directory rename carries OscarDocument paths, and the drill restores
+    # the NEWEST snapshot — which right after an upgrade is still pre-rename.
     case "${files_list}" in
-        *OscarDocument*) : ;;
+        *CarlosDocument*|*OscarDocument*) : ;;
         *)
-            alert "restore drill failed" "the newest files snapshot contains no OscarDocument paths — patient documents are NOT being backed up."
+            alert "restore drill failed" "the newest files snapshot contains no CarlosDocument paths — patient documents are NOT being backed up."
             exit 1
             ;;
     esac

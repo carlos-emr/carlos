@@ -106,7 +106,19 @@
                     onsubmit="javascript: return displayAndDisable()">
                 <input type="file" name="importFile" value="">
                 <input type="submit" name="Submit" value="Import">
-            </form> <%
+            </form> <%--
+                Multipart rejections reach this page through the action's
+                "input" result, before the action runs, so "outcome" below is
+                never set on that path. Without this block a rejected lab file
+                renders the bare upload form again with no explanation.
+            --%><%
+                java.util.List<String> uploadErrors =
+                        (java.util.List<String>) request.getAttribute("actionErrors");
+                if (uploadErrors != null && !uploadErrors.isEmpty()) {
+                    for (String uploadError : uploadErrors) { %>
+                <div class="error"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(uploadError) %></div>
+                <%  }
+                }
                 String outcome = (String) request.getAttribute("outcome");
                 if (outcome != null && outcome.equals("success")) { %>
                 <div>Lab File Successfully Uploaded</div>

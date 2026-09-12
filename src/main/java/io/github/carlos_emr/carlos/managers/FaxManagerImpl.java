@@ -1084,6 +1084,39 @@ public class FaxManagerImpl implements FaxManager {
     }
 
     /**
+     * The document-store root that fax file paths are contained within. When {@code DOCUMENT_DIR}
+     * is set it is used verbatim (the operator's configured store); when it is unset the boundary
+     * is derived as {@code BASE_DOCUMENT_DIR/document} rather than the broader store base, so an
+     * unset {@code DOCUMENT_DIR} does not silently widen containment to let non-document paths
+     * under the base pass validation. Falls back to the literal {@code /var/lib/CarlosDocument/}
+     * only when the directory cannot be resolved to a non-blank path at all — a present-but-blank
+     * {@code DOCUMENT_DIR} (where {@code getDocumentDirectory()} also yields blank), or neither
+     * property set — which never happens in a real deployment but keeps this from making the
+     * current working directory the containment base.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: root derived from trusted server config (DOCUMENT_DIR / getDocumentDirectory()), not request input; used only as the containment root for subsequent PathValidationUtils checks
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "root derived from trusted server config (DOCUMENT_DIR / getDocumentDirectory()), not request input; used only as the containment root for subsequent PathValidationUtils checks")
+    private File documentRootForValidation() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String documentDir = properties.getProperty("DOCUMENT_DIR");
+        if (documentDir == null || documentDir.trim().isEmpty()) {
+            try {
+                documentDir = properties.getDocumentDirectory();
+            } catch (RuntimeException e) {
+                documentDir = null;
+            }
+        }
+        // getDocumentDirectory() only derives a path when DOCUMENT_DIR is null, not when it is
+        // present-but-blank, so it can hand back an empty string for a blank DOCUMENT_DIR. Re-check
+        // and pin the literal default rather than let new File("") make the current working
+        // directory the containment base (a review finding) — that would widen the boundary.
+        if (documentDir == null || documentDir.trim().isEmpty()) {
+            documentDir = "/var/lib/CarlosDocument/";
+        }
+        return new File(documentDir);
+    }
+
+    /**
      * Validates that a file path is safe and within allowed directories.
      * Prevents path traversal attacks by checking for malicious patterns and
      * validating the path is within whitelisted directories.
@@ -1113,7 +1146,7 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         // Use PathValidationUtils for document-root validation only after the temp-root fast path.
-        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+        File documentDir = documentRootForValidation();
         PathValidationUtils.validateExistingPath(file, documentDir);
     }
 
@@ -1143,7 +1176,7 @@ public class FaxManagerImpl implements FaxManager {
         if (PathValidationUtils.isInApplicationTempDirectory(file)) {
             resolvedPath = file.getCanonicalFile().toPath();
         } else {
-            File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+            File documentDir = documentRootForValidation();
             resolvedPath = PathValidationUtils.validateExistingPath(file, documentDir).toPath();
         }
 

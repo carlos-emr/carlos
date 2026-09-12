@@ -165,7 +165,12 @@ async function login(context) {
 
 async function clickScheduleLink(context, schedulePage, linkSpec) {
   const locator = schedulePage.locator(linkSpec.selector).first();
-  if (!await locator.count()) {
+  // Wait for the link to attach rather than reading count() once: selecting a provider
+  // reloads the schedule window, and its navigation commits (URL updates) before the body
+  // renders, so an immediate count() races the reload and reports every link missing.
+  try {
+    await locator.waitFor({ state: 'attached', timeout: 15000 });
+  } catch {
     findings.push({ label: linkSpec.label, type: 'missing-user-link', selector: linkSpec.selector });
     return;
   }
@@ -289,6 +294,11 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
   await assertNoErrorPage(resultPage, 'schedule-provider-search');
   await resultPage.close();
+  // Selecting a provider navigates the MAIN schedule window (the popup submits into
+  // its opener), so schedulePage is mid-reload when this returns. Wait for that reload
+  // to settle before the caller asserts the schedule nav links — otherwise every link
+  // check races a torn-down DOM and reports a false "missing-user-link".
+  await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
 (async () => {

@@ -628,6 +628,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return renderEFormPacket(request, response, approval);
     }
 
+    /** Upper bound on PHI-safe console-error descriptions surfaced for a whole fax packet. */
+    private static final int MAX_PACKET_CONSOLE_DETAILS = 10;
+
     private EformDataManager.EformPdfRender renderEFormPacket(HttpServletRequest request,
             HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -664,6 +667,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             EFormRenderCompletenessReport packetCompleteness = primary.completeness();
             Map<Integer, EFormRenderCompletenessReport> formCompleteness =
                     new LinkedHashMap<>(primary.formCompleteness());
+            List<String> severeConsoleDetails = new ArrayList<>();
+            appendSevereConsoleDetails(severeConsoleDetails, primary.severeConsoleDetails());
             pdfDocumentList.add(eFormPath.toString());
 
             List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
@@ -682,6 +687,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, approval);
             packetCompleteness = packetCompleteness.merge(attached.completeness());
             formCompleteness.putAll(attached.formCompleteness());
+            appendSevereConsoleDetails(severeConsoleDetails, attached.severeConsoleDetails());
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
             attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
@@ -704,7 +710,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                                 + attachedHRMs.size() + attachedForms.size());
             }
             return new EformDataManager.EformPdfRender(result, packetCompleteness,
-                    Map.copyOf(formCompleteness));
+                    Map.copyOf(formCompleteness), List.copyOf(severeConsoleDetails));
         } catch (PDFGenerationException | RuntimeException e) {
             cleanupRenderedTempInputs(pdfDocumentList, null);
             throw e;
@@ -848,18 +854,41 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             EFormRenderApproval approval) throws PDFGenerationException {
         EFormRenderCompletenessReport merged = EFormRenderCompletenessReport.complete();
         Map<Integer, EFormRenderCompletenessReport> formCompleteness = new LinkedHashMap<>();
+        List<String> severeConsoleDetails = new ArrayList<>();
         for (EFormData eForm : attachedEForms) {
             EformDataManager.EformPdfRender rendered =
                     eformDataManager.createEformPdfWithCompleteness(loggedInInfo, eForm.getId(), approval);
             merged = merged.merge(rendered.completeness());
             formCompleteness.putAll(rendered.formCompleteness());
+            appendSevereConsoleDetails(severeConsoleDetails, rendered.severeConsoleDetails());
             pdfDocumentList.add(rendered.path().toString());
         }
-        return new EFormPacketAttachments(merged, Map.copyOf(formCompleteness));
+        return new EFormPacketAttachments(merged, Map.copyOf(formCompleteness),
+                List.copyOf(severeConsoleDetails));
+    }
+
+    /**
+     * Merge one render's PHI-safe console-error descriptions into the packet's running list,
+     * de-duplicating and capping the total. These are display-only strings for the
+     * informed-override screen; they are never part of the completeness digest.
+     */
+    private static void appendSevereConsoleDetails(List<String> into, List<String> from) {
+        if (from == null || from.isEmpty()) {
+            return;
+        }
+        for (String detail : from) {
+            if (into.size() >= MAX_PACKET_CONSOLE_DETAILS) {
+                return;
+            }
+            if (detail != null && !detail.isBlank() && !into.contains(detail)) {
+                into.add(detail);
+            }
+        }
     }
 
     private record EFormPacketAttachments(EFormRenderCompletenessReport completeness,
-            Map<Integer, EFormRenderCompletenessReport> formCompleteness) {
+            Map<Integer, EFormRenderCompletenessReport> formCompleteness,
+            List<String> severeConsoleDetails) {
     }
 
     private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {

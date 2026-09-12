@@ -293,7 +293,10 @@
         PharmacyInfo pharmacy;
         String pharmacyId = request.getParameter("pharmacyId");
 
-        if (pharmacyId != null && !"null".equalsIgnoreCase(pharmacyId)) {
+        // viewScript builds this iframe URL with pharmacyId= EMPTY when the patient
+        // has no preferred pharmacy, so a blank value must mean "no pharmacy" here -
+        // it used to fall through to Integer.parseInt("") and 500 the whole preview.
+        if (pharmacyId != null && !pharmacyId.isBlank() && !"null".equalsIgnoreCase(pharmacyId)) {
             pharmacy = pharmacyData.getPharmacy(pharmacyId);
             if (pharmacy != null) {
                 pharmaFax = pharmacy.getFax();

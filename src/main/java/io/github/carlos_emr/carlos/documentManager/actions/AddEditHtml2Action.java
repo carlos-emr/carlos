@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -79,7 +80,7 @@ public class AddEditHtml2Action extends ActionSupport {
         if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
             errors.put("descmissing", "dms.error.descriptionInvalid");
             request.setAttribute("linkhtmlerrors", errors);
-            request.setAttribute("completedForm", "");
+            request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
             request.setAttribute("functionid", request.getParameter("functionid"));
             request.setAttribute("editDocumentNo", this.getMode());
@@ -88,7 +89,7 @@ public class AddEditHtml2Action extends ActionSupport {
         if (this.getDocType().length() == 0) {
             errors.put("typemissing", "dms.error.typeMissing");
             request.setAttribute("linkhtmlerrors", errors);
-            request.setAttribute("completedForm", "");
+            request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
             request.setAttribute("functionid", request.getParameter("functionid"));
             request.setAttribute("editDocumentNo", this.getMode());
@@ -97,7 +98,7 @@ public class AddEditHtml2Action extends ActionSupport {
         if (this.getHtml().length() == 0) {
             errors.put("urlmissing", "dms.error.htmlMissing");
             request.setAttribute("linkhtmlerrors", errors);
-            request.setAttribute("completedForm", "");
+            request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
             request.setAttribute("functionid", request.getParameter("functionid"));
 
@@ -220,6 +221,63 @@ public class AddEditHtml2Action extends ActionSupport {
     @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
+    }
+
+
+    /**
+     * The form bean addedithtmldocument.jsp re-renders a failed submission from.
+     *
+     * <p>Every validation-failure branch below stashes this under the {@code completedForm} request
+     * attribute, and the JSP casts it to {@link AddEditDocument2Form} — so a user who left the
+     * description, the type or the URL blank got a ClassCastException and a 500 instead of the field
+     * message the branch had just built. Populating it from the submitted values also means their
+     * typing survives the round trip rather than being silently cleared.</p>
+     *
+     * <p>The retry bean must carry <em>every</em> value the JSP reads back, not just the field the
+     * user was fixing. addedithtmldocument.jsp rebuilds the whole edit form — visible fields and
+     * hidden inputs alike — from this bean, re-POSTing {@code docCreator}, {@code responsibleId},
+     * {@code observationDate}, {@code source}, {@code sourceFacility}, {@code docClass},
+     * {@code docSubClass}, {@code docPublic} and the reviewer fields as form inputs. Any submitted
+     * field dropped here comes back blank, so the user's next (now valid) submission would persist
+     * the eDoc with a blank creator/date/source and lost classification or public-visibility
+     * metadata. Copying only function/type/description/html — as this method originally did —
+     * silently discarded the rest; keep this in sync with the inputs the JSP renders.</p>
+     *
+     * <p>Package-private, not private, so {@code AddEditHtml2ActionUnitTest} can pin the
+     * preserved-field set directly: {@code execute()} reaches static {@code EDocUtil} database calls
+     * before its validation branches, which a focused unit test should not have to stand up.</p>
+     */
+    AddEditDocument2Form submittedForm() {
+        AddEditDocument2Form form = new AddEditDocument2Form();
+        form.setFunction(this.getFunction());
+        form.setFunctionId(this.getFunctionId());
+        form.setDocType(this.getDocType());
+        form.setDocClass(this.getDocClass());
+        form.setDocSubClass(this.getDocSubClass());
+        form.setDocDesc(this.getDocDesc());
+        form.setDocCreator(this.getDocCreator());
+        form.setResponsibleId(this.getResponsibleId());
+        form.setSource(this.getSource());
+        form.setSourceFacility(this.getSourceFacility());
+        form.setObservationDate(this.getObservationDate());
+        form.setContentDateTime(this.getContentDateTime());
+        form.setDocPublic(this.getDocPublic());
+        form.setReviewerId(this.getReviewerId());
+        form.setReviewDateTime(this.getReviewDateTime());
+        form.setHtml(this.getHtml());
+        return form;
+    }
+
+    /**
+     * Lowercase binding alias for {@code functionid} — same defect and same fix as
+     * {@link AddEditDocument2Action#setFunctionid(String)}: addDocument.jsp's Add-Link form and
+     * addedithtmldocument.jsp post BOTH spellings, Struts 7's case-insensitive parameter map
+     * collapses them into the lowercase key, and the case-sensitive {@code @StrutsParameter}
+     * lookup dropped the value — so a link/HTML document saved attached to no patient.
+     */
+    @StrutsParameter
+    public void setFunctionid(String functionId) {
+        setFunctionId(functionId);
     }
 
     public String getDocType() {
