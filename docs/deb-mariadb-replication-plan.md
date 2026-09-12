@@ -25,7 +25,7 @@ only, CARLOS keeps talking to the primary.** A second machine holds a live,
 continuously updated copy of the clinical database. Failover is an operator
 decision with a scripted, fenced promotion — not automatic.
 
-## 0. Two properties that hold in every phase
+## 0. Properties that hold in every phase
 
 **Optional.** A site that never asks for a replica gets exactly what it gets
 today:
@@ -1433,27 +1433,6 @@ stop everything and assert `cluster bootstrap` on the `safe_to_bootstrap`
 node brings the cluster back; run a restore drill and assert no writeset
 crossed to the writer.
 
-### 11.11 Upgrades and maintenance (the runbook a technician follows)
-
-- **Rolling, one host at a time, writer last:** node 2, then the
-  arbitrator, then node 1. Each step is "apt upgrade; wait for
-  `carlos-ctl status` to say HEALTHY". `status` refuses to say HEALTHY
-  until the upgraded node is `Synced`, so the technician cannot move on
-  too early. A MariaDB series upgrade (11.4 → 11.8) follows the same order;
-  Galera supports one series of skew during the roll and `join` refuses
-  anything else.
-- **A `carlos-emr` upgrade that carries a Flyway migration** runs it on
-  node 1 as today; the DDL applies cluster-wide under total order
-  isolation, so every node is briefly blocked for that statement. The
-  postinst prints that it is a cluster-wide DDL window when the role is
-  `cluster`.
-- **Planned MariaDB maintenance on node 1** (a restart for a drop-in
-  change) is the automatic-failover case: the driver moves to node 2 and
-  back; `db-apply-settings` says so before restarting on a cluster node.
-- **Replacing a failed host:** `cluster remove <old-ip>` on node 1, install
-  the package on the new host, `cluster add`/`cluster join` as for a new
-  member. The same three commands for a node or an arbitrator.
-
 ### 11.10 Decisions taken (Path B; formerly open questions)
 
 9. **Restore drill placement.** — **Option (e): load into Aria tables.**
@@ -1477,6 +1456,27 @@ crossed to the writer.
     hops.** The server certificate already carries the loopback address,
     the overhead is negligible here, and one configuration is what a
     technician can reason about.
+
+### 11.11 Upgrades and maintenance (the runbook a technician follows)
+
+- **Rolling, one host at a time, writer last:** node 2, then the
+  arbitrator, then node 1. Each step is "apt upgrade; wait for
+  `carlos-ctl status` to say HEALTHY". `status` refuses to say HEALTHY
+  until the upgraded node is `Synced`, so the technician cannot move on
+  too early. A MariaDB series upgrade (11.4 → 11.8) follows the same order;
+  Galera supports one series of skew during the roll and `join` refuses
+  anything else.
+- **A `carlos-emr` upgrade that carries a Flyway migration** runs it on
+  node 1 as today; the DDL applies cluster-wide under total order
+  isolation, so every node is briefly blocked for that statement. The
+  postinst prints that it is a cluster-wide DDL window when the role is
+  `cluster`.
+- **Planned MariaDB maintenance on node 1** (a restart for a drop-in
+  change) is the automatic-failover case: the driver moves to node 2 and
+  back; `db-apply-settings` says so before restarting on a cluster node.
+- **Replacing a failed host:** `cluster remove <old-ip>` on node 1, install
+  the package on the new host, `cluster add`/`cluster join` as for a new
+  member. The same three commands for a node or an arbitrator.
 
 ---
 
