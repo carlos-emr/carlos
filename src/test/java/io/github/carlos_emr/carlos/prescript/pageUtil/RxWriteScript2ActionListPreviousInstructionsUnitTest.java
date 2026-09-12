@@ -64,7 +64,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("RxWriteScript2Action listPreviousInstructions")
 @Tag("unit")
 @Tag("prescript")
-class RxWriteScript2ActionListPreviousInstructionsTest extends CarlosUnitTestBase {
+class RxWriteScript2ActionListPreviousInstructionsUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
