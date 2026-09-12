@@ -78,8 +78,8 @@
         for (int j=0; j<allergies.length; j++){%>
 
         <p class="PropSheetMenuItemLevel1"><a
-                title="<%= allergies[j].getDescription() %> - <%= allergies[j].getReaction() %>">
-            <%=allergies[j].getShortDesc(13, 8, "...")%>
+                title="<carlos:encode value='<%= allergies[j].getDescription() %>' context="htmlAttribute"/> - <carlos:encode value='<%= allergies[j].getReaction() %>' context="htmlAttribute"/>">
+            <carlos:encode value='<%= allergies[j].getShortDesc(13, 8, "...") %>' context="html"/>
         </a></p>
         <%}%>
 

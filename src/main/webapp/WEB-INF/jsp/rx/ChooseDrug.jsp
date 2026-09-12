@@ -56,6 +56,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>
 </c:if>
@@ -176,7 +177,7 @@
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <% if (drugSearch != null && drugSearch.failed) {
-        out.write(drugSearch.errorMessage);
+        out.write(SafeEncode.forHtmlContent(drugSearch.errorMessage));
     } %>
 
 
@@ -290,8 +291,8 @@
                                                 <tr>
                                                     <td bgcolor="<%=bgColor%>">
                                                         <a href="<%= request.getContextPath() %>/rx/searchDrug?genericSearch=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>&demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>"
-                                                           title="<%=t.name%>">
-                                                            <%= getMaxVal(t.name)%>
+                                                           title="<carlos:encode value='<%= t.name %>' context="htmlAttribute"/>">
+                                                            <carlos:encode value='<%= getMaxVal(t.name) %>' context="html"/>
                                                         </a>
                                                         <span>&nbsp;&nbsp;(<a
                                                                 href="javascript:ShowDrugInfoGN('<carlos:encode value='<%= t.name %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
@@ -319,9 +320,9 @@
                                                            onclick="setDrugRx2('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= brandName %>' context="javaScriptAttribute"/>')">
                                                                     <%}else{%>
                                                             <a href="<%= request.getContextPath() %>/rx/chooseDrug?BN=<carlos:encode value='<%= brandName %>' context="uriComponent"/>&drugId=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>&demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>"
-                                                               title="<%=brandName %>">
+                                                              title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>">
                                                                 <%}%>
-                                                                <%=brandName%>
+                                                               <carlos:encode value='<%= brandName %>' context="html"/>
                                                             </a>
                                                             <span>&nbsp;&nbsp;(<a
                                                                     href="javascript:ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
