@@ -96,6 +96,10 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String DEFAULT_QUANTITY = "30";
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
+    /** The only {@code action} values {@link #updateReRxDrug()} will act on. */
+    private static final Set<String> RE_RX_ACTIONS =
+            Set.of("addToReRxDrugIdList", "removeFromReRxDrugIdList", "clearReRxDrugIdList");
+
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private final RxManager rxManager = SpringUtils.getBean(RxManager.class);
 
@@ -240,8 +244,37 @@ public final class RxWriteScript2Action extends ActionSupport {
         return fwd;
     }
 
+    /**
+     * Adds, removes, or clears the drug ids staged in the Rx session for re-prescribing. Called by
+     * the prescription UI as an AJAX POST; nothing is persisted here, and the staged ids are only
+     * acted on later by {@link #archiveReRxDrugs}.
+     *
+     * <p>The {@code action} parameter must be one of {@link #RE_RX_ACTIONS}; anything else is
+     * rejected with {@code 403}. Staging additionally requires that {@code reRxDrugId} belongs to
+     * the demographic this Rx session is scoped to, so a caller in one chart cannot queue another
+     * patient's medication for archival.</p>
+     *
+     * <p>A request that names a valid action but is a no-op against the current list state (adding
+     * an already-staged id, removing one that is not staged) is accepted, so double-submits from
+     * the UI stay harmless.</p>
+     *
+     * <p>POST is required; anything else is rejected with {@code 405} before the Rx session is
+     * touched.</p>
+     *
+     * @return {@link #NONE} when the request is rejected and an error status has been written,
+     *         otherwise {@code null} so the dispatcher completes without rendering a view
+     * @throws IOException if writing the error status or redirect fails
+     * @since 2010-03-17
+     */
     public String updateReRxDrug() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_WRITE);
+
+        // Staging mutates session state, and CSRFGuard only protects POST/PUT/DELETE/PATCH, so a
+        // cross-origin GET could queue a drug for archival. The UI already POSTs.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
@@ -251,7 +284,21 @@ public final class RxWriteScript2Action extends ActionSupport {
         List<String> reRxDrugIdList = bean.getReRxDrugIdList();
         String action = request.getParameter("action");
         String drugId = request.getParameter("reRxDrugId");
+        // Gate on the action name only: the else below also catches benign list-state no-ops, and
+        // 403-ing those would break idempotent double-submits. Set.of(...).contains(null) throws.
+        if (action == null || !RE_RX_ACTIONS.contains(action)) {
+            // The value is untrusted request input, so it is deliberately not echoed to the log.
+            logger.warn("Rejected re-Rx update: missing or unrecognized action");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
         if (action.equals("addToReRxDrugIdList") && !reRxDrugIdList.contains(drugId)) {
+            // drugId is client-supplied. Nothing is persisted at staging time, so reject outright
+            // rather than let saveDrug() archive another patient's medication.
+            if (!isDrugOwnedByDemographic(drugId, bean.getDemographicNo())) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             reRxDrugIdList.add(drugId);
         } else if (action.equals("removeFromReRxDrugIdList") && reRxDrugIdList.contains(drugId)) {
             reRxDrugIdList.remove(drugId);
@@ -269,7 +316,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         } else if (action.equals("clearReRxDrugIdList")) {
             bean.clearReRxDrugIdList();
         } else {
-            logger.warn("WARNING: reRxDrugId not updated");
+            // Valid action, but a no-op against the current list (repeat add, remove of an unstaged
+            // id). Harmless once the name is gated above, so it is a debug note, not a warning.
+            logger.debug("No change to staged re-Rx drug ids: action is a no-op for the current list");
         }
 
         return null;
@@ -1327,31 +1376,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         request.setAttribute("scriptId", scriptId);
 
-        List<String> reRxDrugList = new ArrayList<String>();
-        reRxDrugList = bean.getReRxDrugIdList();
+        archiveReRxDrugs(loggedInInfo, bean, ip, auditStr.toString());
 
-        Iterator<String> i = reRxDrugList.iterator();
-
-        DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-
-        while (i.hasNext()) {
-
-            String item = i.next();
-
-            //archive drug(s)
-            Drug drug = drugDao.find(Integer.parseInt(item));
-            drug.setArchived(true);
-            drug.setArchivedDate(new Date());
-            drug.setArchivedReason(Drug.REPRESCRIBED);
-            drugDao.merge(drug);
-
-            //log that this med is being re-prescribed
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + item, ip, "" + bean.getDemographicNo(), auditStr.toString());
-
-            //log that the med is being discontinued buy the system
-            LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + item, "", "" + bean.getDemographicNo(), auditStr.toString());
-
-        }
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
         return;
@@ -1468,6 +1494,104 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
             throw new RuntimeException("missing required sec object (_rx)");
         }
+    }
+
+    /**
+     * Archives the drugs staged for re-prescribing. More than one entry point appends to the
+     * staged list, so ownership is re-checked here rather than trusted from staging time.
+     *
+     * <p>A rejected drug is skipped, not fatal: the new prescription is already persisted by this
+     * point and no transaction spans the loop, so aborting would leave a half-written script.</p>
+     *
+     * <p>A malformed, null, or refused entry is skipped individually so one bad id cannot stop the
+     * remaining staged drugs from being archived.</p>
+     *
+     * <p>Package-private for the re-prescribe regression tests.</p>
+     *
+     * @param loggedInInfo the provider performing the re-prescribe, used for the archival
+     *                     authorization check and the audit entries
+     * @param bean         the Rx session supplying both the staged drug ids and the demographic
+     *                     they are validated against
+     * @param ip           caller address recorded on the re-prescribe audit entry
+     * @param auditStr     audit detail string shared with the enclosing save
+     * @since 2026-08-16
+     */
+    void archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, String ip, String auditStr) {
+        for (String item : bean.getReRxDrugIdList()) {
+
+            // The list permits nulls, and item.trim() would throw past the catch below, stranding
+            // every later entry after the new script is already persisted.
+            if (item == null) {
+                logger.warn("Skipped re-Rx archival: null staged drug id, demographicNo={}",
+                        bean.getDemographicNo());
+                continue;
+            }
+
+            int drugId;
+            try {
+                drugId = Integer.parseInt(item.trim());
+            } catch (NumberFormatException e) {
+                logger.warn("Skipped re-Rx archival: malformed staged drug id, demographicNo={}",
+                        bean.getDemographicNo());
+                continue;
+            }
+
+            //archive drug(s)
+            boolean archived = this.rxManager.archiveDrug(loggedInInfo, drugId,
+                    bean.getDemographicNo(), Drug.REPRESCRIBED);
+
+            if (!archived) {
+                // archiveDrug() cannot distinguish a missing row from a cross-patient one.
+                logger.warn("Skipped re-Rx archival: drugId={} not found or not owned by demographicNo={}",
+                        drugId, bean.getDemographicNo());
+                continue;
+            }
+
+            //log that this med is being re-prescribed
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + drugId, ip, "" + bean.getDemographicNo(), auditStr);
+
+            //log that the med is being discontinued buy the system
+            LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + drugId, "", "" + bean.getDemographicNo(), auditStr);
+        }
+    }
+
+    /**
+     * Confirms a client-supplied drug id belongs to the demographic the Rx session is scoped to.
+     *
+     * <p>The {@code _rx} write privilege says the caller may prescribe, not that this drug row is
+     * theirs to touch. Without this, a caller in one chart can stage another patient's drug id and
+     * have it archived.</p>
+     */
+    private boolean isDrugOwnedByDemographic(String drugIdParam, int sessionDemographicNo) {
+        if (drugIdParam == null || drugIdParam.trim().isEmpty()) {
+            logger.warn("Blocked re-Rx staging: no drug id supplied, sessionDemographicNo={}", sessionDemographicNo);
+            return false;
+        }
+
+        int drugId;
+        try {
+            drugId = Integer.parseInt(drugIdParam.trim());
+        } catch (NumberFormatException e) {
+            logger.warn("Blocked re-Rx staging: malformed drug id, sessionDemographicNo={}", sessionDemographicNo);
+            return false;
+        }
+
+        DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+        Drug drug = drugDao.find(drugId);
+        if (drug == null) {
+            logger.warn("Blocked re-Rx staging: drugId={} not found, sessionDemographicNo={}",
+                    drugId, sessionDemographicNo);
+            return false;
+        }
+
+        // getDemographicId() is a nullable Integer -- '!=' would unbox to an NPE on a null demographic_no.
+        if (!Objects.equals(drug.getDemographicId(), sessionDemographicNo)) {
+            logger.warn("Blocked cross-patient re-Rx staging: drugId={} drugDemographicNo={} sessionDemographicNo={}",
+                    drugId, drug.getDemographicId(), sessionDemographicNo);
+            return false;
+        }
+
+        return true;
     }
 
     private void addDrugReason(String codingSystem,
