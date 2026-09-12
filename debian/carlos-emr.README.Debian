@@ -736,9 +736,14 @@ eForm print, fax or archive fails
   application could not drive the browser, and the browser's own journal is
   where the reason will be.
 
-  Note the application logs at ERROR by default (LOG_VERBOSITY). The renderer's
-  own messages are exempted from that so the probe result is visible without
-  turning up logging everywhere; nothing else in the application is.
+  The application logs at WARN by default (LOG_VERBOSITY raises or lowers it;
+  DEBUG can put request parameters, which is to say PHI, into the journal, so
+  put it back afterwards). The renderer's startup probe reports at INFO and is
+  exempted from the default so its result is visible without turning up
+  logging everywhere. An action that dies in an uncaught exception is logged
+  at ERROR with its stack trace -- earlier builds mapped it to the error page
+  silently, which is why "it just did nothing" reports had no trace to go with
+  them.
 
   If the renderer package is not installed at all, that is expected and the
   application says so once at startup rather than failing a print later.

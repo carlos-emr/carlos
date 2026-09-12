@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -79,6 +80,12 @@ public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
+    /**
+     * Keys already reported as "missing or not configured". That warning is per key per JVM, not
+     * per lookup: several of these keys are read on every page render, and at the WARN root default
+     * a per-lookup warning made the journal mostly this one line.
+     */
+    private static final Set<String> MISSING_KEYS_WARNED = ConcurrentHashMap.newKeySet();
 
     /**
      * Blacklisted namespace patterns for property values that should be ignored.
@@ -131,15 +138,17 @@ public class CarlosProperties extends Properties {
 
         // If no value, return the default if one is configured
         if (value == null) {
-            // key is caller-supplied and may carry CR/LF; sanitize before logging to
-            // prevent log forging (CodeQL log-injection). Default values come from the
-            // internal PROPERTY_DEFAULTS map and are trusted.
-            String warning = new StringBuilder()
-                .append("Property '").append(LogSafe.sanitize(key))
-                .append("' is missing or not configured. Using default value: '")
-                .append(getDefaultValue(key)).append("'.")
-                .toString();
-            MiscUtils.getLogger().warn(warning);
+            if (MISSING_KEYS_WARNED.add(key)) {
+                // key is caller-supplied and may carry CR/LF; sanitize before logging to
+                // prevent log forging (CodeQL log-injection). Default values come from the
+                // internal PROPERTY_DEFAULTS map and are trusted.
+                String warning = new StringBuilder()
+                    .append("Property '").append(LogSafe.sanitize(key))
+                    .append("' is missing or not configured. Using default value: '")
+                    .append(getDefaultValue(key)).append("'.")
+                    .toString();
+                MiscUtils.getLogger().warn(warning);
+            }
             return getDefaultValue(key);
         }
 
