@@ -188,6 +188,23 @@ async function stageExistingPrescription(page) {
   return randomId;
 }
 
+/**
+ * The special-instruction box starts collapsed on a prescription that has none
+ * (prescribe.jsp renders #siAutoComplete_<id> display:none), and
+ * addSpecialInstruction is responsible for opening it as it writes. A value
+ * dropped into a still-hidden box is invisible to the prescriber.
+ */
+async function assertSpecialInstructionsRevealed(page, randomId) {
+  const container = page.locator(`#siAutoComplete_${randomId}`);
+  await container.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+  assert(
+    await container.isVisible(),
+    `The modal wrote a special instruction into #siInput_${randomId} but left `
+      + `#siAutoComplete_${randomId} collapsed, so the prescriber cannot see or edit what was `
+      + 'applied.',
+  );
+}
+
 /** The randomIds of everything currently staged on the prescription pane. */
 async function stagedRandomIds(page) {
   return page.evaluate(() => Array.from(document.querySelectorAll("[id^='instructions_']")) // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed function over the page's own DOM, nothing interpolated
@@ -349,7 +366,21 @@ async function openPreviousInstructions(page, randomId) {
     const chosen = (await chosenRow.innerText()).trim();
     const appliedInput = rxPage.locator(targetSelector);
     await appliedInput.waitFor({ state: 'attached', timeout: 10000 });
-    await appliedInput.fill('');
+
+    // Cleared through the DOM rather than with fill(): on the special-instruction
+    // branch the field lives inside #siAutoComplete_<id>, which prescribe.jsp renders
+    // display:none unless the prescription already has a special instruction, and
+    // fill() would fail its actionability check on a hidden input. Clearing is test
+    // setup, not the behaviour under test, so reaching past the UI for it costs
+    // nothing — the CLICK that follows is still the real control.
+    await rxPage.evaluate(
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the selector is passed as an argument, never interpolated into the page script
+      (selector) => {
+        const el = document.querySelector(selector);
+        if (el) el.value = '';
+      },
+      targetSelector,
+    );
     assert(
       (await appliedInput.inputValue()).trim() === '',
       `Could not clear the ${targetField} field before testing the modal's handoff, so the `
@@ -373,6 +404,12 @@ async function openPreviousInstructions(page, randomId) {
         + 'first, so this is the click being measured, not leftover text). The modal renders but '
         + 'cannot hand its selection back to the prescription.',
     );
+
+    // addSpecialInstruction also has to REVEAL the collapsed section it writes into,
+    // or the prescriber is left with a value they cannot see or correct.
+    if (!usePlainRow) {
+      await assertSpecialInstructionsRevealed(rxPage, randomId);
+    }
 
     // --- 2. a prescription with no history ---------------------------------
     // The lookup succeeds and the prescription resolves; there is simply

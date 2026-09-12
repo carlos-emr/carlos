@@ -176,12 +176,17 @@ public class RxSessionBean implements java.io.Serializable {
      * The staged prescription carrying this random id, or {@code null} when the stash
      * does not hold one.
      *
-     * <p>The null element check is defensive rather than a reproduced defect: no caller
-     * puts a null in the stash today. It is here because every caller of this method
-     * treats a missing item as "no history to show", and a NullPointerException raised
-     * while scanning would instead surface as a 500 on an AJAX lookup whose modal only
-     * opens from the success callback — the failure this whole path was hardened
-     * against.</p>
+     * <p>What a miss means is the caller's business, and callers differ: the
+     * previous-instructions lookup renders its empty modal, {@code saveCustomName} logs
+     * and abandons the rename, {@code normalDrugSetCustom} skips its conversion. This
+     * method reports the miss and nothing more.</p>
+     *
+     * <p>The null ELEMENT check inside the scan is defensive rather than a reproduced
+     * defect: no caller puts a null in the stash today. It is here because a
+     * NullPointerException raised while scanning would escape as a 500 rather than as
+     * the null this method contracts to return — and on the AJAX history lookup, whose
+     * modal only opens from the success callback, a 500 is a control that does nothing
+     * at all.</p>
      */
     public RxPrescriptionData.Prescription getStashItem2(int randomId) {
         RxPrescriptionData.Prescription psp = null;
