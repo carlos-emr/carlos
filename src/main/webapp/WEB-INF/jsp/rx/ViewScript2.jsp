@@ -1128,11 +1128,23 @@
             }
 
             function refreshImage() {
-                counter = counter + 1;
-                if (frames["preview"].document.getElementById("signature") != null) {
-                    frames["preview"].document.getElementById("signature").src = "<%=imageUrl%>&rand=" + counter;
+                // An empty/new prescription has no preview frame. A cosmetic refresh must
+                // not turn a confirmed server-side signature association into a failed save.
+                if (!hasPreview || !frames["preview"]) return;
+                let previewDocument;
+                try {
+                    previewDocument = frames["preview"].document;
+                } catch (unavailablePreview) {
+                    return;
                 }
-                frames['preview'].document.getElementById('imgFile').value = '<%=System.getProperty("java.io.tmpdir").replaceAll("\\\\", "/")%>/signature_<%=signatureRequestId%>.jpg';
+                if (!previewDocument) return;
+                counter = counter + 1;
+                const signatureImage = previewDocument.getElementById("signature");
+                if (signatureImage) {
+                    signatureImage.src = "<%=imageUrl%>&rand=" + counter;
+                }
+                const imageField = previewDocument.getElementById('imgFile');
+                if (imageField) imageField.value = '<%=System.getProperty("java.io.tmpdir").replaceAll("\\\\", "/")%>/signature_<%=signatureRequestId%>.jpg';
             }
 
             function sendFax(pasteAfterSuccess) {

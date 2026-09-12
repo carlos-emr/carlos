@@ -93,6 +93,16 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
         return query.executeUpdate();
     }
 
+    @Override
+    public boolean hasExactComments(Integer scriptNo, String comment) {
+        @SuppressWarnings("unchecked")
+        List<String> stored = entityManager.createQuery("SELECT p.comments FROM Prescription p WHERE p.id = ?1")
+                .setParameter(1, scriptNo).getResultList();
+        // Compare literal clinical text in Java, independent of case-insensitive database
+        // collation or trailing-space equality. An absent row is never an idempotent success.
+        return stored.size() == 1 && java.util.Objects.equals(stored.get(0), comment);
+    }
+
     /**
      * @return results ordered by lastUpdateDate
      */

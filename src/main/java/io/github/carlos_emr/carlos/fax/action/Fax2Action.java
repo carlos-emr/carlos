@@ -798,8 +798,8 @@ public class Fax2Action extends ActionSupport {
                                 pdfPath != null && Files.exists(pdfPath));
                     }
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();
+                    logger.error("eForm fax PDF preparation failed ({})", e.getClass().getSimpleName());
+                    String errorMessage = "This eForm and its attachments could not be prepared for faxing. No fax was queued. Please retry or contact your administrator.";
                     request.setAttribute("errorMessage", errorMessage);
                     return "eFormError";
                 }

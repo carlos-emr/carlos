@@ -1315,7 +1315,7 @@ function updateCPPNote() {
                 setCaretPosition(caseNoteElement, caseNoteElement.value.length);
             } catch (error) {
                 // Text is already inserted. Layout/focus failure is not a failed paste.
-                console.error('Encounter text inserted; could not update layout', error);
+                console.error('Encounter text inserted; could not update layout');
             }
             return true;
         } else {

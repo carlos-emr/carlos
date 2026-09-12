@@ -518,13 +518,16 @@ test('local insertion acknowledges success even if layout fails; missing editor 
   const chart = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
   const source = chart.slice(chart.indexOf('function pasteToEncounterNote('), chart.indexOf('function writeToEncounterNote('));
   const editor = { value: '' };
+  const messages = [];
   const context = vm.createContext({
-    console, caseNote: 'caseNote', document: { getElementById: () => editor },
-    adjustCaseNote: () => { throw new Error('layout'); }, setCaretPosition: () => {},
+    console: { error: (...parts) => messages.push(...parts) }, caseNote: 'caseNote', document: { getElementById: () => editor },
+    adjustCaseNote: () => { throw new Error('SensitiveFixturePatient layout'); }, setCaretPosition: () => {},
   });
   vm.runInContext(source, context);
   assert.equal(context.pasteToEncounterNote('rx text'), true);
   assert.equal(editor.value, '\nrx text');
+  assert(messages.every(message => typeof message === 'string'));
+  assert.doesNotMatch(messages.join(' '), /SensitiveFixturePatient/);
   context.document.getElementById = () => null;
   assert.equal(context.pasteToEncounterNote('rx text'), false);
   assert.equal(editor.value, '\nrx text');

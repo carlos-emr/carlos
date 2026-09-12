@@ -256,4 +256,20 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         verifyNoInteractions(prescriptionDao);
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should accept a zero-change retry only when the database still contains the exact comment")
+    void shouldCheckCurrentComments_whenDriverReportsZeroChangedRows(boolean exact) throws Exception {
+        Prescription stale = prescription(PROVIDER_NO);
+        stale.setComments("Take with food");
+        when(prescriptionDao.find(SCRIPT_NO)).thenReturn(stale);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE,
+                String.valueOf(DEMOGRAPHIC_NO))).thenReturn(true);
+        when(prescriptionDao.updatePrescriptionsByScriptNo(SCRIPT_NO, "Take with food")).thenReturn(0);
+        when(prescriptionDao.hasExactComments(SCRIPT_NO, "Take with food")).thenReturn(exact);
+        assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(exact ? 204 : 409);
+        verify(prescriptionDao).hasExactComments(SCRIPT_NO, "Take with food");
+    }
 }

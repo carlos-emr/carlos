@@ -30,6 +30,7 @@
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (to stage and restore the NULLs)
+ * MYSQL_HOST must be localhost, 127.0.0.1 or ::1; this mutating fixture has no remote override.
  * Optional: CONSULT_NULLABLE_REQUEST_ID (default 2), CHROME_PATH,
  *   CONSULT_NULLABLE_SCREENSHOT_DIR (default /tmp).
  */
@@ -65,8 +66,11 @@ const requestId = process.env.CONSULT_NULLABLE_REQUEST_ID || '2';
 assert(/^\d+$/.test(requestId), `CONSULT_NULLABLE_REQUEST_ID must be numeric, got ${requestId}`);
 
 const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+assert(['localhost', '127.0.0.1', '::1'].includes(mysqlHost),
+  'Nullable consultation fixture requires a loopback MYSQL_HOST');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
+assert(!/[\r\n]/.test(mysqlPassword), 'MYSQL_PASSWORD must not contain line breaks');
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 
 let mysqlDefaults = null;

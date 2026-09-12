@@ -87,7 +87,11 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        if (prescriptionDao.updatePrescriptionsByScriptNo(scriptNo, comment) != 1) {
+        int updated = prescriptionDao.updatePrescriptionsByScriptNo(scriptNo, comment);
+        // Driver configurations that count changed rather than matched rows return zero
+        // for a no-op retry. Confirm the exact stored value with a fresh scalar read; the
+        // entity loaded for authorization above may be stale after the bulk update.
+        if (updated != 1 && !(updated == 0 && prescriptionDao.hasExactComments(scriptNo, comment))) {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }

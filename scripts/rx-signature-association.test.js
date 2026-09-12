@@ -54,6 +54,39 @@ test('fax remains locked until the signature association is explicitly confirmed
   assert.equal(s.refreshes(), 1);
 });
 
+for (const scenario of ['no-preview', 'missing-frame', 'loading-frame', 'missing-fields', 'inaccessible-frame', 'ready']) {
+  test(`confirmed signature remains saved with the real preview refresh (${scenario})`, async () => {
+    const s = setup();
+    const signature = {};
+    const imageField = {};
+    s.context.hasPreview = scenario !== 'no-preview';
+    s.context.counter = 0;
+    s.context.frames = {};
+    if (scenario === 'loading-frame') s.context.frames.preview = { document: null };
+    if (scenario === 'missing-fields') s.context.frames.preview = { document: { getElementById: () => null } };
+    if (scenario === 'inaccessible-frame') s.context.frames.preview = { get document() { throw new Error('fixture access denial'); } };
+    if (scenario === 'ready') s.context.frames.preview = { document: {
+      getElementById: id => id === 'signature' ? signature : id === 'imgFile' ? imageField : null,
+    } };
+    const start = jsp.indexOf('function refreshImage(');
+    const end = jsp.indexOf('function sendFax(', start);
+    assert(start >= 0 && end > start);
+    vm.runInContext(jsp.slice(start, end).replace(/<%[\s\S]*?%>/g, '/carlos'), s.context);
+    const pending = s.save('12');
+    await flush();
+    s.requests[0].resolve(confirmed());
+    await pending;
+    assert.equal(s.context.isSignatureSaved, true);
+    assert.equal(s.context.signatureAssociationFailed, false);
+    assert.equal(s.context.signatureAssociationPending, false);
+    if (scenario === 'no-preview') assert.equal(s.disabled(), true, 'no preview still cannot be faxed');
+    if (scenario === 'ready') {
+      assert.match(signature.src, /rand=1$/);
+      assert.match(imageField.value, /signature_/);
+    }
+  });
+}
+
 for (const failure of ['http', 'redirect', 'missing-marker', 'network']) {
   test(`signature ${failure} failure keeps fax locked even with an earlier stored signature`, async () => {
     const s = setup();

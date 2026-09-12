@@ -35,6 +35,33 @@ function setup(rows, modern = true) {
 const rows = ['DOC', 'HL7', 'HRM'].map(type => ({ id: `labdoc_${type}_170`,
   'data-segment-id': '170', 'data-lab-type': type, checkbox: `170:${type}` }));
 
+for (const operation of ['FileLabs', 'ArchiveLabs']) {
+  test(`bulk ${operation} clears live checkbox properties only for the returned report type`, () => {
+    const checks = { DOC: { checked: true }, HL7: { checked: true }, all: { checked: true } };
+    const removed = [];
+    const properties = target => ({ prop(name, value) { assert.equal(name, 'checked'); target[name] = value; } });
+    function jQuery(selector) {
+      if (selector === "input[name='checkA']") return properties(checks.all);
+      if (selector === "input[name='isListView']" || selector === '#btnViewMode') return { length: 0 };
+      if (selector === '#dialog') return { dialog() {} };
+      throw new Error('unexpected fixture selector');
+    }
+    jQuery.ajax = options => options.success({ success: true, files: ['170:HL7'] });
+    const context = vm.createContext({ jQuery, location: { reload() {} },
+      labDocumentRows(id, type) {
+        assert.equal(id, '170');
+        return { find: () => properties(checks[type]), remove: () => removed.push(type) };
+      },
+    });
+    vm.runInContext(index.slice(index.indexOf('function bulkInboxAction('), index.indexOf('function isRowShown(')), context);
+    context.bulkInboxAction(`/oscarMDS/${operation}`, {});
+    assert.equal(checks.HL7.checked, false);
+    assert.equal(checks.DOC.checked, true);
+    assert.equal(checks.all.checked, false);
+    assert.deepEqual(removed, operation === 'FileLabs' ? ['HL7'] : []);
+  });
+}
+
 test('modern inbox resolves only the requested report type when segment numbers collide', () => {
   const find = setup(rows);
   for (const type of ['DOC', 'HL7', 'HRM']) assert.deepEqual(find('170', type), rows.filter(r => r['data-lab-type'] === type));

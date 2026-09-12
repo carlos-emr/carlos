@@ -66,7 +66,8 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     /**
      * Appends prescription text to the originating patient's encounter.
      *
-     * <p>Known pre-write rejection returns HTTP 405 (non-POST) or 409 (missing or
+     * <p>After the session and prescription-write privilege check, known pre-write
+     * rejection returns HTTP 405 (non-POST) or 409 (missing or
      * changed Rx patient context), with {@code X-Carlos-Encounter-Write: not-written}.
      * Successful completion sets that header to {@code written}. Exceptions after
      * persistence may mean the write committed: absence of the header is never
