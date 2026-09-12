@@ -77,7 +77,8 @@ The encounter forms under `/form/*` are covered by a **generated** file,
 `scripts/waf/generate-form-prose-exclusions.py` from the form JSPs: one rule per
 save route and, on the shared `/form/formname` route, per `form_class`, listing
 that form's `<textarea>` cells and the single-line inputs whose names mark them
-as narrative boxes (48 rules, 1,250 cells at the time of writing). The
+as narrative boxes (46 rules, 1,236 cells at the time of writing). The `other`
+classifier is token-bounded, so mother identity/measurement fields retain inspection. The
 `form_class`-keyed rules run in phase 2, where the POST body is available.
 `FormProseWafExclusionRegressionTest` re-derives the same table from the JSPs
 and fails when the committed file is stale, so after editing a form run the
@@ -481,6 +482,8 @@ export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=
 # using explicit local database access and the mounted server document directory.
 export PRESCRIPTION_SIGNATURE_CLEANUP=true
 export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
+# default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
 # login-playwright-checks mutates and restores this account; give it the hash of
 # the password that the forced-reset step above actually installed.
 export TEST_PASSWORD_HASH="$(mariadb -u root carlos -Nse \

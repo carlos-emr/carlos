@@ -49,6 +49,8 @@
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc  TEST_PASSWORD=carlos2026  TEST_PIN=2026
  *   EDOC_NAV_SCREENSHOT_DIR=/tmp   ALLOW_NON_LOCAL_BASE_URL=true
+ * Screenshots are disabled unless EDOC_NAV_SCREENSHOT_DIR is explicitly set;
+ * enable only for approved test data, because images can contain clinical content.
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (fixture teardown; see below)
  *   EDOC_NAV_DOCUMENT_STORE=/mounted/server/document/store (complete file teardown)
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
@@ -66,6 +68,7 @@
  */
 
 const { chromium } = require('playwright');
+const { browserErrorClass } = require('./browser-error-class');
 const { execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
@@ -116,7 +119,8 @@ const config = {
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
-  screenshotDir: process.env.EDOC_NAV_SCREENSHOT_DIR || '/tmp',
+  // Screenshots can contain clinical data: persist them only with an explicit destination.
+  screenshotDir: process.env.EDOC_NAV_SCREENSHOT_DIR || '',
   mysqlHost: validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1'),
   mysqlUser: process.env.MYSQL_USER || 'root',
   mysqlPassword: process.env.MYSQL_PASSWORD || 'password',
@@ -135,7 +139,7 @@ const NAV_SELECTOR = '#firstTable #navlist';
 const pageErrors = [];
 
 function watchForPageErrors(page, label) {
-  page.on('pageerror', (error) => pageErrors.push(`${label}: ${error.message}`));
+  page.on('pageerror', (error) => pageErrors.push(`${label}: ${browserErrorClass(error)}`));
 }
 const docDescription = `carlos-nav-probe-${randomUUID()}`;
 const linkInputDescription = `${docDescription}-link`;
@@ -291,6 +295,7 @@ function createPdfFixture() {
 }
 
 async function screenshot(page, name) {
+  if (!config.screenshotDir) return;
   const target = path.join(config.screenshotDir, `edoc-nav-${name}.png`);
   await page.screenshot({ path: target, fullPage: true }).catch(() => {});
   return target;
@@ -344,15 +349,15 @@ async function readEdocPath(schedulePage) {
 async function assertNavHeader(page, present, label) {
   const count = await page.locator(NAV_SELECTOR).count();
   if (present) {
-    assert(count > 0, `${label}: the navigation header tabs are gone (${page.url()})`);
+    assert(count > 0, `${label}: the navigation header tabs are gone`);
   } else {
-    assert(count === 0, `${label}: the navigation header rendered without scheduleNav=1 (${page.url()})`);
+    assert(count === 0, `${label}: the navigation header rendered without scheduleNav=1`);
   }
 }
 
 function assertScheduleNavRetained(page, label) {
   const flag = new URL(page.url()).searchParams.get('scheduleNav');
-  assert(flag === '1', `${label}: scheduleNav was dropped from the URL (${page.url()})`);
+  assert(flag === '1', `${label}: scheduleNav was dropped from the URL`);
 }
 
 /** Picks an existing document type, or creates one through the page's own prompt(). */
@@ -528,7 +533,7 @@ async function run() {
     const shellPath = `${edocPath}${edocPath.includes('?') ? '&' : '?'}scheduleNav=1`;
     await gotoApp(page, shellPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await assertNavHeader(page, true, 'eDoc entry');
-    console.log(`eDoc opened in the schedule shell: ${page.url()}`);
+    console.log('eDoc opened in the schedule shell');
 
     await cancellation.run(() => addDocument(page, pdfPath));
     assertScheduleNavRetained(page, 'after adding a document');
@@ -566,10 +571,9 @@ async function run() {
       return;
     }
     if (page) {
-      console.error(`failure screenshot: ${await screenshot(page, 'failure')}`);
-      console.error(`failure url: ${page.url()}`);
+      await screenshot(page, 'failure');
     }
-    console.error(`FAIL: ${error.message}`);
+    console.error(`FAIL: eDoc validation (${browserErrorClass(error)})`);
     console.error(`probe document description: ${docDescription}`);
     process.exitCode = 1;
   } finally {

@@ -53,6 +53,7 @@
  */
 
 const { chromium } = require('playwright');
+const { browserErrorClass } = require('./browser-error-class');
 const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 const { localFixtureSql, deleteOwnedPrescriptionSignature } = require('./local-fixture-cleanup');
 
@@ -131,7 +132,7 @@ function wirePage(page, label) {
     const responseUrl = response.url();
     const status = response.status();
     if (status >= 400 && !isExpectedMissingAsset(status, responseUrl)) {
-      findings.push({ label, type: 'http', status, url: responseUrl });
+      findings.push({ label, type: 'http', status });
     }
   });
   page.on('console', (message) => {
@@ -140,17 +141,17 @@ function wirePage(page, label) {
       return;
     }
     if (message.type() === 'error' || /(ReferenceError|TypeError|SyntaxError|Cannot read|Cannot set)/i.test(text)) {
-      findings.push({ label, type: `console:${message.type()}`, text, location: message.location() });
+      findings.push({ label, type: 'console-error' });
     }
   });
   page.on('pageerror', (error) => {
     if (isExpectedPageError(error)) {
       return;
     }
-    findings.push({ label, type: 'pageerror', text: error.stack || error.message });
+    findings.push({ label, type: 'pageerror', errorClass: browserErrorClass(error) });
   });
   page.on('dialog', async (dialog) => {
-    findings.push({ label, type: 'dialog', text: dialog.message() });
+    findings.push({ label, type: 'dialog' });
     await dialog.accept();
   });
 }
@@ -161,8 +162,6 @@ async function assertNoErrorPage(page, label) {
     findings.push({
       label,
       type: 'error-page',
-      url: page.url(),
-      body: bodyText.replace(/\s+/g, ' ').slice(0, 500),
     });
   }
 }
@@ -181,7 +180,7 @@ async function login(context) {
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'login', url: page.url() });
+  visited.push({ label: 'login' });
   await assertNoErrorPage(page, 'login');
   return page;
 }
@@ -190,7 +189,7 @@ async function choosePrescriptionPatient(page) {
   const params = new URLSearchParams({ demographicNo: prescriptionDemographicNo });
   await gotoApp(page, `/rx/choosePatient?${params.toString()}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'choose-patient', url: page.url() });
+  visited.push({ label: 'choose-patient' });
   await assertNoErrorPage(page, 'choose-patient');
 }
 
@@ -218,12 +217,10 @@ async function postReprintSession(page) {
     });
     return {
       status: response.status,
-      contentType: response.headers.get('content-type') || '',
-      text: await response.text(),
     };
   }, { scriptId: prescriptionScriptId });
   if (result.status !== 200) {
-    throw new Error(`Prescription reprint session setup returned HTTP ${result.status}: ${result.text.slice(0, 300)}`);
+    throw new Error(`Prescription reprint session setup returned HTTP ${result.status}`);
   }
 }
 
@@ -238,7 +235,7 @@ async function openPrescriptionView(page, label) {
   await page.locator('#preview').waitFor({ state: 'attached', timeout: 30000 });
   await previewFrame(page);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label, url: page.url() });
+  visited.push({ label });
   await assertNoErrorPage(page, label);
 }
 
@@ -251,8 +248,7 @@ async function previewFrame(page) {
   try {
     await frame.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
   } catch (error) {
-    const bodyText = await frame.locator('body').innerText().catch(() => '');
-    throw new Error(`Prescription preview did not render #signature at ${frame.url()}: ${bodyText.replace(/\s+/g, ' ').slice(0, 500)}`);
+    throw new Error('Prescription preview did not render the signature element');
   }
   return frame;
 }
@@ -322,9 +318,8 @@ async function savePrescriptionSignatureAssociation(page, digitalSignatureId) {
     form,
     headers,
   });
-  const text = await response.text();
   if (response.status() !== 200) {
-    throw new Error(`Saving prescription signature association returned HTTP ${response.status()}: ${text.slice(0, 300)}`);
+    throw new Error(`Saving prescription signature association returned HTTP ${response.status()}`);
   }
 }
 
@@ -387,12 +382,12 @@ async function uploadPrescriptionSignature(page) {
     });
     const text = await response.text();
     if (response.status !== 200) {
-      throw new Error(`SaveSignatureUpload returned HTTP ${response.status}: ${text.slice(0, 300)}`);
+      throw new Error(`SaveSignatureUpload returned HTTP ${response.status}`);
     }
     const doc = new DOMParser().parseFromString(text, 'text/html');
     const signatureId = (doc.querySelector('input[name="signatureId"]') || {}).value || '';
     if (!/^\d+$/.test(signatureId)) {
-      throw new Error(`SaveSignatureUpload did not return a numeric signatureId: ${text.slice(0, 300)}`);
+      throw new Error('SaveSignatureUpload did not return a numeric signatureId');
     }
     return { signatureId, signatureKey };
   }, { demographicNo: prescriptionDemographicNo });
@@ -426,10 +421,7 @@ async function runPrescriptionSignatureCheck(context) {
     await openPrescriptionView(page, 'initial-prescription-view');
     const initialPreview = await readPreviewSignature(page, { requireLoaded: false });
     if (initialPreview.storedSignatureId) {
-      throw new Error(
-        `PRESCRIPTION_SCRIPT_ID ${prescriptionScriptId} must be an unsigned disposable fixture; `
-        + `found digital signature id ${initialPreview.storedSignatureId}`,
-      );
+      throw new Error('PRESCRIPTION_SCRIPT_ID must refer to an unsigned disposable fixture');
     }
 
     await savePrescriptionSignatureAssociation(page, null);
@@ -445,19 +437,16 @@ async function runPrescriptionSignatureCheck(context) {
     await openPrescriptionView(page, 'stored-prescription-view');
     const storedPreview = await readPreviewSignature(page);
     if (storedPreview.storedSignatureId !== uploadedSignatureId) {
-      throw new Error(`Expected stored preview signature id ${uploadedSignatureId}, got ${storedPreview.storedSignatureId || 'none'} from ${storedPreview.src}`);
+      throw new Error('Stored preview did not use the uploaded signature');
     }
     if (!/source=signature_stored/.test(storedPreview.src)) {
-      throw new Error(`Expected stored preview image after reload, got ${storedPreview.src}`);
+      throw new Error('Expected stored preview image after reload');
     }
 
     return {
-      scriptId: prescriptionScriptId,
-      demographicNo: prescriptionDemographicNo,
-      pharmacyId: prescriptionPharmacyId,
-      uploadedSignatureId,
-      livePreview,
-      storedPreview,
+      signatureMatched: true,
+      livePreview: { width: livePreview.width, height: livePreview.height },
+      storedPreview: { width: storedPreview.width, height: storedPreview.height },
     };
   } finally {
     if (associationCleared || uploadedSignatureId) {

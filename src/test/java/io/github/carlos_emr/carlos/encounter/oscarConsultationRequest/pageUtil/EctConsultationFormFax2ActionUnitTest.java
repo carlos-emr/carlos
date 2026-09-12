@@ -77,6 +77,7 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo loggedInInfo;
     private SecurityInfoManager securityInfoManager;
     private ClinicDAO clinicDAO;
+    private io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao consultationRequestDao;
     private DocumentAttachmentManager documentAttachmentManager;
     private NioFileManager nioFileManager;
     private FaxJobDao faxJobDao;
@@ -95,6 +96,11 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         clinicDAO = mock(ClinicDAO.class);
+        consultationRequestDao = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.class);
+        io.github.carlos_emr.carlos.commn.model.ConsultationRequest consultation =
+                new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        consultation.setDemographicId(123);
+        when(consultationRequestDao.find(456)).thenReturn(consultation);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         nioFileManager = mock(NioFileManager.class);
         faxJobDao = mock(FaxJobDao.class);
@@ -143,6 +149,28 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "wrong-patient", "null-patient", "invalid-id", "conflicting-alias"})
+    @DisplayName("should reject an unbound consultation before rendering or reading fax accounts")
+    void shouldRejectConsultation_whenNotBoundToAuthorizedPatient(String scenario) {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        io.github.carlos_emr.carlos.commn.model.ConsultationRequest consultation =
+                new io.github.carlos_emr.carlos.commn.model.ConsultationRequest();
+        consultation.setDemographicId("wrong-patient".equals(scenario) ? Integer.valueOf(999)
+                : "conflicting-alias".equals(scenario) ? Integer.valueOf(123) : null);
+        when(consultationRequestDao.find(456)).thenReturn("missing".equals(scenario) ? null : consultation);
+        if ("invalid-id".equals(scenario)) {
+            action.setRequestId("not-an-id");
+        }
+        if ("conflicting-alias".equals(scenario)) {
+            request.setParameter("reqId", "999");
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao, clinicDAO);
     }
 
     @org.junit.jupiter.params.ParameterizedTest

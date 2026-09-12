@@ -382,6 +382,32 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"prescription", "privilege", "binding"})
+    @DisplayName("should report definite failure for pre-persistence record preparation exceptions")
+    void shouldReportDefiniteFaxFailure_whenRecordPreparationFails(String stage) throws Exception {
+        stubStoredSignature();
+        stubRecordDemographic();
+        IllegalStateException failure = new IllegalStateException("fixture private diagnostic");
+        if ("prescription".equals(stage)) {
+            when(prescriptionDao.find(SCRIPT_ID)).thenThrow(failure);
+        } else if ("privilege".equals(stage)) {
+            when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                    .thenThrow(failure);
+        } else {
+            when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(failure);
+        }
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        serviceAs(servlet, createFaxRequest(), response, mock(LoggedInInfo.class));
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsString()).contains("fax-failure")
+                .doesNotContain("fax-uncertain", "fax-success", "fixture", "private diagnostic");
+        verifyFaxWasNotQueued();
+        verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
+    }
+
+    @ParameterizedTest
     @ValueSource(booleans = {false, true})
     @DisplayName("should reserve spool artifacts before publishing the sender-visible document")
     void shouldReserveSpoolArtifacts_whenPublishingDocument(boolean sharedDirectory, @TempDir Path tempDir) throws Exception {

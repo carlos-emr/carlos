@@ -188,43 +188,57 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return;
         }
 
-        // The prescription named by scriptId is loaded ONCE here and shared by the privilege
-        // pre-check, the signature gate and the fax content binding below.
-        Prescription prescription = requestedPrescription(req);
-
-        // An authorization refusal must be reported as one. resolveSignatureImage withholds the
-        // signature for a caller without _rx write on the patient, and reporting that as "not
-        // signed" would send a read-only user to sign a script that IS signed (and that they could
-        // not sign anyway). Only a caller who may already READ the script gets that specific
-        // message. A caller WITHOUT read falls through to the "not signed" reply below — the very
-        // same answer an id that matches no prescription produces — so the wording cannot be used
-        // to tell an existing script from one that does not exist.
-        if (isFax && isFaxDeniedByPrivilege(prescription, loggedInInfo)) {
-            res.setContentType("text/html");
-            res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
-            return;
-        }
-
-        // Resolve the prescriber's signature before touching the document: a fax is an outbound
-        // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
-        byte[] signatureImage = resolveSignatureImage(req, loggedInInfo, prescription);
-        if (isFax && signatureImage == null) {
-            res.setContentType("text/html");
-            res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription is not signed. Sign it before faxing.</h3></div>");
-            return;
-        }
-
-        // A fax is rendered from the prescription RECORD, never from the request body: the stored
-        // signature drawn on it belongs to that record, so the drug lines above it and the signing
-        // name must be the record's too (see bindFaxContentToRecord).
+        byte[] signatureImage;
+        Prescription prescription;
         HttpServletRequest pdfRequest = req;
-        if (isFax) {
-            pdfRequest = bindFaxContentToRecord(req, prescription);
-            if (pdfRequest == null) {
+        try {
+            // The prescription named by scriptId is loaded ONCE here and shared by the privilege
+            // pre-check, the signature gate and the fax content binding below.
+            prescription = requestedPrescription(req);
+
+            // An authorization refusal must be reported as one. resolveSignatureImage withholds the
+            // signature for a caller without _rx write on the patient, and reporting that as "not
+            // signed" would send a read-only user to sign a script that IS signed (and that they could
+            // not sign anyway). Only a caller who may already READ the script gets that specific
+            // message. A caller WITHOUT read falls through to the "not signed" reply below — the very
+            // same answer an id that matches no prescription produces — so the wording cannot be used
+            // to tell an existing script from one that does not exist.
+            if (isFax && isFaxDeniedByPrivilege(prescription, loggedInInfo)) {
                 res.setContentType("text/html");
-                res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription record is incomplete and cannot be faxed.</h3></div>");
+                res.getWriter().println("<div id='fax-failure'><h3>Error: you do not have permission to fax this prescription.</h3></div>");
                 return;
             }
+
+            // Resolve the prescriber's signature before touching the document: a fax is an outbound
+            // legal copy and must never leave unsigned, whatever the page's Fax button gating said.
+            signatureImage = resolveSignatureImage(req, loggedInInfo, prescription);
+            if (isFax && signatureImage == null) {
+                res.setContentType("text/html");
+                res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription is not signed. Sign it before faxing.</h3></div>");
+                return;
+            }
+
+            // A fax is rendered from the prescription RECORD, never from the request body: the stored
+            // signature drawn on it belongs to that record, so the drug lines above it and the signing
+            // name must be the record's too (see bindFaxContentToRecord).
+            if (isFax) {
+                pdfRequest = bindFaxContentToRecord(req, prescription);
+                if (pdfRequest == null) {
+                    res.setContentType("text/html");
+                    res.getWriter().println("<div id='fax-failure'><h3>Error: the prescription record is incomplete and cannot be faxed.</h3></div>");
+                    return;
+                }
+            }
+
+        } catch (RuntimeException failure) {
+            if (!isFax) {
+                throw failure;
+            }
+            // No PDF/file/queue writes have started: unlike a failed persistence response,
+            // a record/signature/provider lookup failure is definitely safe to retry.
+            res.setContentType("text/html");
+            reportFaxFailure(res, res.getWriter(), "Prescription fax record preparation failed", failure);
+            return;
         }
 
         try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytesOrReportFaxFailure(pdfRequest, signatureImage, isFax, res)) {

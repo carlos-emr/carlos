@@ -83,6 +83,10 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
      * register them so referencing either class does not blow up outside a Spring context.
      */
     private void registerStaticInitializerMocks() {
+        org.springframework.transaction.PlatformTransactionManager transactions =
+                createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenReturn(
+                new org.springframework.transaction.support.SimpleTransactionStatus());
         registerMock(OscarLogDao.class, mock(OscarLogDao.class));
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
@@ -97,6 +101,46 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         registerMock(Hl7TextInfoDao.class, mock(Hl7TextInfoDao.class));
         registerMock(Hl7TextMessageDao.class, mock(Hl7TextMessageDao.class));
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should atomically commit the whole lab chain or roll it back on a later failure")
+    void shouldRollbackWholeChain_whenLaterVersionWriteFails(boolean fail) {
+        registerStaticInitializerMocks();
+        org.h2.jdbcx.JdbcDataSource dataSource = new org.h2.jdbcx.JdbcDataSource();
+        dataSource.setURL("jdbc:h2:mem:lab-chain-" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class,
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
+        try (MockedStatic<CommonLabResultData> common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7 = mockStatic(Hl7textResultsData.class)) {
+            jdbc.execute("CREATE TABLE routing(id INT PRIMARY KEY, status CHAR(1))");
+            jdbc.execute("INSERT INTO routing VALUES(169,'N'),(170,'N'),(171,'N')");
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("171")).thenReturn("169,170,171");
+            common.when(() -> CommonLabResultData.countNewRoutingRows(anyInt(), anyString(), anyString()))
+                    .thenAnswer(call -> jdbc.queryForObject("SELECT COUNT(*) FROM routing WHERE id=? AND status='N'",
+                            Integer.class, call.getArgument(0, Integer.class)));
+            common.when(() -> CommonLabResultData.updateReportStatus(anyInt(), anyString(), anyChar(), any(), any(), anyBoolean()))
+                    .thenAnswer(call -> {
+                        int id = call.getArgument(0);
+                        jdbc.update("UPDATE routing SET status=? WHERE id=?", String.valueOf((char) call.getArgument(2)), id);
+                        if (fail && id == 170) {
+                            throw new IllegalStateException("injected mid-chain failure");
+                        }
+                        return true;
+                    });
+            if (fail) {
+                assertThatThrownBy(() -> CommonLabResultData.acknowledgeReport(171, "999998", "", "HL7", false, null))
+                        .isInstanceOf(IllegalStateException.class).hasMessage("injected mid-chain failure");
+                assertThat(jdbc.queryForList("SELECT status FROM routing ORDER BY id", String.class)).containsExactly("N", "N", "N");
+            } else {
+                assertThat(CommonLabResultData.acknowledgeReport(171, "999998", "", "HL7", false, null)).isEqualTo(3);
+                assertThat(jdbc.queryForList("SELECT status FROM routing ORDER BY id", String.class)).containsExactly("F", "F", "A");
+            }
+        } finally {
+            jdbc.execute("SHUTDOWN");
+        }
     }
 
     @Test

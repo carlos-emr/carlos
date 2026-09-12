@@ -162,6 +162,27 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 		if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoValue)) {
 			throw new SecurityException("missing required patient access");
 		}
+        final int reqIdValue;
+        try {
+            reqIdValue = Integer.parseInt(reqId);
+        } catch (NumberFormatException e) {
+            throw new SecurityException("invalid consultation request");
+        }
+        io.github.carlos_emr.carlos.commn.model.ConsultationRequest consultation =
+                SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.class)
+                        .find(reqIdValue);
+        if (consultation == null || consultation.getDemographicId() == null
+                || consultation.getDemographicId().intValue() != demographicNoValue) {
+            throw new SecurityException("consultation does not belong to authorized patient");
+        }
+        // Render and every attachment lookup use the verified record/patient pair.
+        reqId = Integer.toString(reqIdValue);
+        demoNo = Integer.toString(consultation.getDemographicId());
+        // ConsultationPDFCreator gives a raw reqId parameter precedence over the attribute.
+        // Reject a conflicting alias before that renderer can select a different record.
+        if (request.getParameter("reqId") != null && !reqId.equals(request.getParameter("reqId"))) {
+            throw new SecurityException("conflicting consultation request");
+        }
 		String faxNumber = this.getSenderFaxNumber();
 		String consultResponsePage = request.getParameter("consultResponsePage");
 		boolean doCoverPage = this.isCoverpage();
@@ -239,16 +260,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             return "error";
         }
         sender.setFaxNumberOwner(matchedConfig.getAccountName());
-
-        int reqIdValue;
-        try {
-            reqIdValue = Integer.parseInt(reqId);
-        } catch (NumberFormatException nfe) {
-            logger.error("Consultation fax aborted: non-numeric consultation request id");
-            request.setAttribute("errorMessage",
-                    "This fax could not be sent. \n\nThe consultation request id is invalid.");
-            return "error";
-        }
 
         Set<Path> attemptFiles = new HashSet<>();
         try {
