@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -51,12 +51,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for attaching PDF documents to messages.
- * 
+ *
  * <p>This action handles the conversion of HTML content to PDF format and manages
  * the attachment process for the messaging system. It supports both single and
  * multiple PDF attachments, with preview capabilities and incremental attachment
  * handling for large document sets.</p>
- * 
+ *
  * <p>The action operates in two main modes:</p>
  * <ul>
  *   <li><b>Preview Mode:</b> Generates a PDF preview directly to the response stream
@@ -64,12 +64,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li><b>Attachment Mode:</b> Converts HTML to PDF and stores it in the session
  *       bean for later inclusion in the message</li>
  * </ul>
- * 
+ *
  * <p>For multiple attachments, the action uses an incremental processing approach
  * where each attachment is processed individually with a small delay between
  * operations to prevent overwhelming the server. The action tracks progress using
  * currentAttachmentCount and totalAttachmentCount in the session bean.</p>
- * 
+ *
  * <p>Technical implementation details:</p>
  * <ul>
  *   <li>Uses Doc2PDF utility for HTML to PDF conversion</li>
@@ -77,7 +77,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Implements a 500ms delay between multiple attachments</li>
  *   <li>Returns different result codes based on processing state</li>
  * </ul>
- * 
+ *
  * @version 2.0
  * @since 2005
  * @see MsgSessionBean
@@ -88,7 +88,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * HTTP request object for accessing session and parameters.
      */
     HttpServletRequest request = ServletActionContext.getRequest();
-    
+
     /**
      * HTTP response object for sending PDF content directly to the client.
      */
@@ -106,16 +106,16 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Executes the PDF attachment workflow.
-     * 
+     *
      * <p>This method handles two primary operations:</p>
-     * 
+     *
      * <p><b>Preview Mode (isPreview=true):</b></p>
      * <ul>
      *   <li>Converts the HTML source text to PDF</li>
      *   <li>Streams the PDF directly to the response</li>
      *   <li>Does not store the PDF as an attachment</li>
      * </ul>
-     * 
+     *
      * <p><b>Attachment Mode (isPreview=false):</b></p>
      * <ul>
      *   <li>Converts HTML to PDF and encodes as Base64</li>
@@ -124,15 +124,15 @@ public class MsgAttachPDF2Action extends ActionSupport {
      *   <li>Returns "attaching" if more attachments pending</li>
      *   <li>Returns SUCCESS when all attachments complete</li>
      * </ul>
-     * 
+     *
      * <p>The method implements a stateful attachment process where multiple
      * attachments are processed one at a time with a 500ms delay between
      * each to prevent server overload.</p>
-     * 
+     *
      * @return {@link #SUCCESS} when all attachments are complete; {@code "attaching"}
      *         when more attachments are pending; {@link #NONE} when the request
-     *         is rejected with HTTP 405 (non-POST); {@code null} for the
-     *         preview-mode happy path (PDF streamed directly to the response)
+     *         is rejected with HTTP 405 (non-POST) or after streaming a preview PDF
+     *         directly to the response
      * @throws IOException if there's an error writing to the response stream
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the current user lacks {@code _msg} write privilege
@@ -176,6 +176,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
             Doc2PDF.parseString2PDF(request, response, "<HTML>" + srcText + "</HTML>");
             // Reset preview flag after processing
             isPreview = false;
+            // Response is already handled, so do not render a result page
+            return NONE;
         } else {
             // Handle attachment mode - store PDF in session for message composition
 
@@ -227,37 +229,37 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * Used for multiple attachment handling.
      */
     private String attachmentCount = "0";
-    
+
     /**
      * Title or filename for the current attachment.
      * Displayed in the message attachment list.
      */
     private String attachmentTitle = "";
-    
+
     /**
      * HTML source text to be converted to PDF.
      * Contains the document content including formatting.
      */
     private String srcText = "";
-    
+
     /**
      * Flag indicating whether to preview the PDF without attaching.
      * When true, PDF is streamed directly to the response.
      */
     private boolean isPreview = false;
-    
+
     /**
      * Flag indicating attachment is in progress.
      * Currently not actively used in the execute logic.
      */
     private boolean isAttaching = false;
-    
+
     /**
      * Flag indicating whether this is a new attachment session.
      * When true, existing attachments are cleared before processing.
      */
     private boolean isNew = true;
-    
+
     /**
      * Array of indices for batch attachment processing.
      * Currently not actively used in the implementation.
@@ -266,7 +268,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Gets the total number of attachments to process.
-     * 
+     *
      * @return the attachment count as a string
      */
     public String getAttachmentCount() {
@@ -275,7 +277,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Sets the total number of attachments to process.
-     * 
+     *
      * @param attachmentCount the number of attachments as a string
      */
     @StrutsParameter
@@ -285,7 +287,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Gets the title of the current attachment.
-     * 
+     *
      * @return the attachment title
      */
     public String getAttachmentTitle() {
@@ -294,7 +296,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Sets the title of the current attachment.
-     * 
+     *
      * @param attachmentTitle the title to set for the attachment
      */
     @StrutsParameter
@@ -304,7 +306,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Gets the HTML source text to be converted to PDF.
-     * 
+     *
      * @return the HTML source text
      */
     public String getSrcText() {
@@ -313,7 +315,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Sets the HTML source text to be converted to PDF.
-     * 
+     *
      * @param srcText the HTML content to convert
      */
     @StrutsParameter
@@ -323,7 +325,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Checks if the action is in preview mode.
-     * 
+     *
      * @return true if preview mode is enabled, false otherwise
      */
     public boolean isPreview() {
@@ -332,7 +334,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Sets the preview mode flag.
-     * 
+     *
      * @param preview true to enable preview mode, false to disable
      */
     @StrutsParameter
@@ -342,7 +344,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Checks if attachment is currently in progress.
-     * 
+     *
      * @return true if attaching, false otherwise
      */
     public boolean isAttaching() {
@@ -351,7 +353,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Sets the attaching in progress flag.
-     * 
+     *
      * @param attaching true if attachment is in progress
      */
     @StrutsParameter
@@ -361,7 +363,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Checks if this is a new attachment session.
-     * 
+     *
      * @return true if new session, false otherwise
      */
     public boolean isNew() {
@@ -370,7 +372,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Sets whether this is a new attachment session.
-     * 
+     *
      * @param aNew true to indicate a new session requiring attachment clearing
      */
     @StrutsParameter
@@ -380,7 +382,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Gets the array of indices for batch processing.
-     * 
+     *
      * @return the index array
      */
     public String[] getIndexArray() {
@@ -389,7 +391,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     /**
      * Sets the array of indices for batch processing.
-     * 
+     *
      * @param indexArray the array of indices to set
      */
     @StrutsParameter
