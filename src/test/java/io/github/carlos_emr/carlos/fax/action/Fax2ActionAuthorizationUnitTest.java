@@ -679,7 +679,19 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
                 .thenReturn(List.of(errorJob));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("999998");
+        loggedInInfo.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
+                new java.util.HashMap<>(java.util.Map.of(APP_TEMP_ROOT + "/fax.pdf", new Fax2Action.FaxPreviewClaim(7, 42, "999998"))));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(42))).thenReturn(true);
+        var eformDao = mock(io.github.carlos_emr.carlos.commn.dao.EFormDataDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.EFormDataDao.class, eformDao);
+        var form = new io.github.carlos_emr.carlos.commn.model.EFormData();
+        form.setDemographicId(42);
+        when(eformDao.find(7)).thenReturn(form);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -691,14 +703,17 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
             Fax2Action action = new Fax2Action();
-            action.setTransactionType("RX");
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
             action.setRecipientFaxNumber("1234567890");
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
 
             String result = action.queue();
 
-            assertThat(result).isEqualTo("preview");
-            assertThat(request.getAttribute("faxSuccessful")).isEqualTo(false);
+            assertThat(result).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(request.getAttribute("faxSuccessful")).isNull();
             // The action delegates to persistAndLogFaxJobs and never logs directly.
             verify(faxManager, never()).logFaxJob(any(), any(), any(), anyInt());
             verify(faxManager).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());

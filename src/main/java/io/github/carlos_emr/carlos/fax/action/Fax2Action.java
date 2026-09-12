@@ -354,6 +354,10 @@ public class Fax2Action extends ActionSupport {
         // Validate all inputs before processing
         try {
             validateFaxInputs(loggedInInfo);
+            if (!TransactionType.EFORM.name().equalsIgnoreCase(getTransactionType())) {
+                addActionError("This fax endpoint does not accept that transaction type");
+                throw new SecurityException("This fax endpoint does not accept that transaction type");
+            }
         } catch (SecurityException e) {
             // securityError.jsp (the provider package's SecurityException mapping target) renders
             // the request attribute "actionErrors"; Struts action errors don't reach it on the
@@ -364,7 +368,7 @@ public class Fax2Action extends ActionSupport {
             throw e;
         }
 
-        TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase());
+        TransactionType transactionType = TransactionType.EFORM;
 
         // prepareFax already revalidates the eForm's demographic binding immediately before it
         // hands the staged PDF off for preview, but queue() is a separate, later request that is
@@ -381,7 +385,7 @@ public class Fax2Action extends ActionSupport {
         // encode at render time via <carlos:encode>/${carlos:forHtml()}. The XSS screen in
         // validateFaxInputs (recipient <script/javascript:/onerror= check) still runs above.
         FaxJobParams params = FaxJobParams.builder()
-                .faxFilePath(claimedFaxFilePath != null ? claimedFaxFilePath : faxFilePath)
+                .faxFilePath(claimedFaxFilePath)
                 .recipient(recipient)
                 .recipientFaxNumber(recipientFaxNumber)
                 .senderFaxNumber(senderFaxNumber)
@@ -429,16 +433,7 @@ public class Fax2Action extends ActionSupport {
         }
         request.setAttribute("faxSuccessful", success);
         request.setAttribute("faxJobList", faxJobList);
-        // Repopulate the sender-account list so a failed submit re-renders CoverPage.jsp with a
-        // working sender dropdown (only prepareFax set it before; queue() left it empty on failure).
-        if (!success) {
-            try {
-                request.setAttribute("accounts", faxManager.getFaxGatewayAccounts(loggedInInfo));
-            } catch (RuntimeException accountLookupFailure) {
-                logger.error("Fax preview account list could not be refreshed ({})", accountLookupFailure.getClass().getSimpleName());
-                request.setAttribute("accounts", List.of());
-            }
-        }
+        // No database-backed UI enrichment after the sendable jobs have committed.
 
         return "preview";
     }
@@ -452,12 +447,14 @@ public class Fax2Action extends ActionSupport {
      *
      * @throws SecurityException if the eForm no longer belongs to the submitted demographic; the
      *         claimed staged PDF is deleted and a user-facing action error is recorded first
-     * @return the trusted staged path whose cleanup ownership transfers to this queue attempt,
-     *         or null for a non-eForm source
+     * @return the non-null trusted staged path whose cleanup ownership transfers to this queue attempt
      */
     private String revalidateEformBindingBeforePromotion(TransactionType transactionType) {
         if (transactionType != TransactionType.EFORM) {
-            return null;
+            // This action prepares eForm previews only. Consultation and prescription sends
+            // have separate actions. A client-selected alternate enum must not bypass the
+            // preview claim by reaching a legacy unbound-path persistence branch here.
+            throw new SecurityException("This fax endpoint does not accept that transaction type");
         }
         if (transactionId == null) throw new SecurityException("An eForm fax requires a saved eForm");
         EFormData eFormAtPromotion = eFormDataDao().find(transactionId.intValue());
