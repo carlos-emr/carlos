@@ -195,6 +195,30 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeTopLinksRequestParameters_inHtmlAndJavaScriptContexts() throws Exception {
+        String topLinksJsp = readJsp("rx/TopLinks.jsp");
+
+        assertThat(topLinksJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("id=\"${ not empty param.tableId ? carlos:forHtmlAttribute(fn:replaceAll(param.tableId, '\\s+', '_')) : 'topLink' }\"")
+                .contains("value=\"${ ctx }/demographic/DemographicEdit?demographic_no=${ carlos:forUriComponent(param.demographicNo) }&appointment=\"")
+                .contains("${carlos:forHtmlContent(param.title)}")
+                .contains("${carlos:forHtmlContent(param.patientName)}")
+                .contains("${carlos:forHtmlContent(param.sex)}")
+                .contains("${carlos:forHtmlContent(param.age)}")
+                .contains("${carlos:forHtmlContent(param.phone)}")
+                .contains("'${carlos:forJavaScriptAttribute(url)}'")
+                .doesNotContain("<core:out value=\"${ param.title }\"/>")
+                .doesNotContain("<core:out value=\"${ param.patientName }\"/>")
+                .doesNotContain("${ param.sex }")
+                .doesNotContain("${ param.age }")
+                .doesNotContain("${ param.phone }")
+                .doesNotContain("id=\"${ not empty param.tableId ? param.tableId : 'topLink' }\"")
+                .doesNotContain("value=\"${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment=\"")
+                .doesNotContain("'${ url }'");
+    }
+
+    @Test
     void shouldContainEncodedEncounterPrintFields_inHtmlBodyContext() throws Exception {
         String encounterPrintJsp = readJsp("encounter/encounterPrint.jsp");
         String echartHistoryPrintJsp = readJsp("encounter/echarthistoryprint.jsp");
