@@ -41,6 +41,13 @@ today:
 - `carlos-ctl check`, backups, PITR and the restore drill behave and report
   as before.
 
+**Three independent, optional layers.** Local high availability (Path B,
+a Galera cluster), an offsite copy (Path A, an asynchronous replica), and
+neither. Any combination is supported: standalone; cluster only; offsite
+replica only; cluster *plus* offsite replica (section 13). None is pulled in
+by `Depends` or `Recommends`, each is enabled by one verb and removed by one
+verb, and removing one never touches the other or the data.
+
 **Easy to add at the start or later.** Enabling is the same one verb in both
 cases, `carlos-ctl replica add`, and it is idempotent and reversible
 (`replica remove`). On a fresh install it can be preseeded so `apt install`
@@ -821,7 +828,12 @@ installed base working unchanged.
 - **B4** two-node-plus-arbiter integration test (11.9), then the README's
   cluster runbook.
 
-### Phase 2 (Path A, optional later) — replica package and join
+### Phase 2 (Path A, optional, before or after Path B) — replica package and join
+
+Must also deliver, from this review: per-host `server_id` in the replica
+drop-in (4.2, 11.3); `replica leave`; candidate-primary handling when the
+primary is a cluster (section 13); `--explain`; the mandatory alert
+channel; the ufw handling of 12.4.
 
 10. **`carlos-emr-db-replica`** binary package: depends, `Conflicts:
    carlos-emr` (phase 2 only), postinst that creates
@@ -962,6 +974,14 @@ Listed so no phase forgets one:
      schema refused; `promote` refused while A is up; watch timer alerts
      when B's SQL thread is stopped by hand; `db-migrate` on B refused;
      `check` on B notes the missing alert channel until one is set.
+- **Removal paths** (both paths): `replica remove` + `replica leave`, and
+  `cluster disband` + `cluster leave`, each asserting the host is back to
+  standalone with `carlos-ctl check` passing and the data intact; `apt
+  purge` of every new package asserting the retained-data list.
+- **Combined A+B** (section 13): an offsite replica of node 1; kill node 1;
+  assert the replica repoints to node 2 within the watch interval and its
+  GTID continues; restore node 1; assert no duplicate or skipped events
+  (row counts equal on all three).
 - **Upgrade**: existing pre-split `carlos-emr` install upgrades cleanly to
   the split packages with no conffile prompt and no service interruption
   beyond what an upgrade already causes; `carlos-ctl check` passes before
@@ -1141,12 +1161,31 @@ wsrep_node_name             = <host name>
 wsrep_sst_method            = mariabackup
 wsrep_sst_auth              = <sst user>:<password>               # 0640 root:mysql like the key
 wsrep_gtid_mode             = ON                                   # one GTID stream cluster-wide
-wsrep_gtid_domain_id        = <cluster domain id>
+wsrep_gtid_domain_id        = 0                                    # SAME on every node: the cluster's stream
+gtid_domain_id              = <per node, 1000 + node number>       # DIFFERENT per node: local-only transactions
+server_id                   = <per node, derived from the cluster IP>  # overrides the shared 60- file's 1
 log_slave_updates           = ON                                   # applied writesets are binlogged
 wsrep_provider_options      = "socket.ssl=yes;socket.ssl_ca=…/ca.pem;socket.ssl_cert=…/server.pem;socket.ssl_key=…/server.key;gcache.size=1G;pc.recovery=yes"
 bind-address                = 127.0.0.1,<cluster IP>
 innodb_flush_log_at_trx_commit = 1
 ```
+
+**`server_id` must be unique per host — a silent failure otherwise.** The
+shared 60- drop-in sets `server_id = 1` on *every* install, which is
+correct for one host and wrong the moment a second MariaDB exists: with
+`log_slave_updates` and an offsite replica (section 13), events from two
+"server 1"s are indistinguishable, and a replica repointed from node 1 to
+node 2 would skip events carrying its own recorded source id. The 63-
+drop-in therefore sets `server_id` per node (derived from the cluster IP's
+last two octets so it is unique by construction, never random), `cluster
+join` refuses a token whose node list already contains that id, and
+`check` on every node asserts `@@server_id != 1` unless the host is
+standalone. The same rule applies to the Path A replica's drop-in (4.2).
+`gtid_domain_id` follows the documented Galera pattern: one shared
+`wsrep_gtid_domain_id` for the replicated stream, a distinct
+`gtid_domain_id` per node for anything written with `wsrep_on = OFF`
+(the restore drill, a PITR restore), so local writes can never collide
+with cluster GTIDs.
 
 The TLS material is the phase-1 `carlos-emr-cert db-tls` CA and server
 certificate, now issued **once, on node 1**, with every node's certificate
@@ -1278,7 +1317,20 @@ and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
 
 - Backups keep running on node 1 (the writer) exactly as today: the dump's
   `--single-transaction` snapshot and the binlog leg are per node and
-  unchanged. `wsrep_gtid_mode` keeps the GTIDs consistent so a restore onto
+  unchanged. **While node 1 is down, no backup runs** — and a down host
+  cannot alert about its own timers. That is why the `DEGRADED` message
+  from the surviving members names it explicitly ("backups are not running
+  while node1 is down"), why `check` on node 2 reports the age of node 1's
+  last backup stamp when it can read the shared alert state, and why the
+  outage is bounded by the binlog retention: node 1 back within 10 days
+  resumes with a gap the nightly dump closes; longer than that the README's
+  runbook says to take a manual `carlos-ctl backup full` on node 2 before
+  anything else. Running the timer on two nodes against one repository is
+  deliberately not done (double volume, lock contention, a drill that does
+  not know which host it is proving).
+- The document store is on node 1 only in T4 (the application's host); it
+  is in node 1's backup, not in the cluster. A standby application host
+  (T3) needs its own copy, which is that phase's problem, not this one's. `wsrep_gtid_mode` keeps the GTIDs consistent so a restore onto
   a rebuilt cluster is coherent.
 - **The credential contract needs one sentence more.** Galera replicates
   `CREATE/ALTER USER` and `GRANT` as DDL regardless of `sql_log_bin`, so the
@@ -1381,6 +1433,27 @@ stop everything and assert `cluster bootstrap` on the `safe_to_bootstrap`
 node brings the cluster back; run a restore drill and assert no writeset
 crossed to the writer.
 
+### 11.11 Upgrades and maintenance (the runbook a technician follows)
+
+- **Rolling, one host at a time, writer last:** node 2, then the
+  arbitrator, then node 1. Each step is "apt upgrade; wait for
+  `carlos-ctl status` to say HEALTHY". `status` refuses to say HEALTHY
+  until the upgraded node is `Synced`, so the technician cannot move on
+  too early. A MariaDB series upgrade (11.4 → 11.8) follows the same order;
+  Galera supports one series of skew during the roll and `join` refuses
+  anything else.
+- **A `carlos-emr` upgrade that carries a Flyway migration** runs it on
+  node 1 as today; the DDL applies cluster-wide under total order
+  isolation, so every node is briefly blocked for that statement. The
+  postinst prints that it is a cluster-wide DDL window when the role is
+  `cluster`.
+- **Planned MariaDB maintenance on node 1** (a restart for a drop-in
+  change) is the automatic-failover case: the driver moves to node 2 and
+  back; `db-apply-settings` says so before restarting on a cluster node.
+- **Replacing a failed host:** `cluster remove <old-ip>` on node 1, install
+  the package on the new host, `cluster add`/`cluster join` as for a new
+  member. The same three commands for a node or an arbitrator.
+
 ### 11.10 Decisions taken (Path B; formerly open questions)
 
 9. **Restore drill placement.** — **Option (e): load into Aria tables.**
@@ -1423,7 +1496,7 @@ action is needed, one command:
 |---|---|---|
 | `NOT CONFIGURED` | standalone; nothing to do | `Enable a cluster: sudo carlos-ctl cluster init --listen <ip>` |
 | `HEALTHY` | every recorded member present and in sync | `3 of 3 members; database on node1; node2 in sync` |
-| `DEGRADED` | the clinic keeps working, something needs fixing | `node2 unreachable since 10:14 — fix node2; the clinic is running on node1 only` |
+| `DEGRADED` | the clinic keeps working, something needs fixing | `node2 unreachable since 10:14 — fix node2; the clinic is running on node1 only` / `node1 down since 02:10 — the clinic is running on node2; BACKUPS ARE NOT RUNNING until node1 is back` / `offsite replica 3 h behind` |
 | `DOWN` | the database refuses service | `this node lost quorum (node2 and the arbitrator are unreachable). If they are really off, run: sudo carlos-ctl cluster bootstrap --confirm emr.clinic` |
 
 The watch timer sends the same words to the alert channel, once per
@@ -1470,6 +1543,10 @@ Rules that keep it short:
   how a technician (or a reviewer) sees the plan before the change.
 - Every verb is idempotent and says "already done" instead of failing when
   re-run.
+- Unattended installs preseed the same things the verbs ask for:
+  `carlos-emr/cluster-listen-ip`, `carlos-emr/cluster-alert-webhook`,
+  `carlos-emr-db-node/join-token`, `carlos-emr-db-arbiter/join-token`, plus
+  the phase-1 `replica-*` keys — all low priority, all empty by default.
 
 ### 12.4 The firewall is handled, not delegated
 
@@ -1507,10 +1584,62 @@ cluster IP not currently assigned; a public address without
   host whose node list order differs, and the watch timer alerts on a
   rising `wsrep_local_cert_failures`.
 
-### 12.7 Applies to phase 1 too
+### 12.7 Applies to Path A too
 
-The shipped `replica add` already lists nothing when `--listen` is missing;
-it now prints the host's candidate addresses (implemented alongside this
-review). Its firewall handling and the mandatory alert channel follow the
-rules above in the next phase-1 touch, so the two paths behave the same
-way.
+The shipped `replica add` now prints the host's candidate addresses when
+`--listen` is missing (implemented alongside this review). In the next
+Path A touch it gains the same firewall handling, the mandatory alert
+channel, `--explain`, and the replica side gains `replica leave --confirm
+<name>` (stop streaming, keep the data, back to standalone) so an offsite
+copy is removed as easily as a cluster member: `replica remove <ip>` on the
+primary, `replica leave` on the replica, and nothing else to remember.
+
+---
+
+## 13. Combining an offsite copy (Path A) with a local cluster (Path B)
+
+Both are optional and independent; this section is what makes them
+*compatible*, so a clinic can run a two-node cluster in the building and
+an asynchronous replica in another. It is a supported MariaDB topology (an
+asynchronous replica of a Galera node), and everything below exists so it
+is turnkey rather than merely possible.
+
+- **One CA.** Path B's node certificates and Path A's server certificate
+  come from the same `carlos-emr-cert db-tls` CA on node 1, so the offsite
+  replica pins one CA and can verify *any* cluster node.
+- **One account, everywhere.** `replica add <offsite-ip>` runs on node 1
+  only (as `cluster add` does). Its `CREATE USER … REQUIRE SSL` and grants
+  are DDL, which Galera replicates, so the replication account exists on
+  every node without a token per node.
+- **Candidate primaries.** The join token lists every cluster node as a
+  candidate source in application order (`primary.candidates`), and the
+  replica records them in `CARLOS_DB_REPL_PRIMARY_CANDIDATES`. Because
+  `wsrep_gtid_mode` gives the cluster one GTID stream and every node keeps
+  a binlog (`log_slave_updates`), the replica can be repointed to any node
+  with the same `gtid_slave_pos`. The replica-side watch timer does this
+  itself: when the current source is unreachable for longer than one timer
+  interval and another candidate answers, it issues `CHANGE MASTER TO
+  MASTER_HOST=<next>` with the pinned CA and reports the switch as
+  `DEGRADED` (the offsite copy is streaming from node 2, node 1 is down).
+  It never repoints while the current source still answers, and it never
+  repoints to a host outside the recorded candidates.
+- **Unique `server_id` and domains** (11.3) are what make the repoint
+  safe; the phase-1 shared drop-in's `server_id = 1` is overridden on every
+  cluster node and on the replica.
+- **Promotion is fenced against the whole cluster.** `replica promote` on
+  the offsite host probes *every* candidate, not only the current source,
+  and refuses without `--force` while any answers: an offsite copy must
+  never become a second writer beside a living cluster.
+- **Point-in-time restore order:** restore on node 1 (`wsrep_on = OFF`),
+  `cluster bootstrap`, `cluster join --reseed` on node 2, then `replica join
+  --reseed` on the offsite host — the runbook lists all four, and `status`
+  on the offsite host detects the GTID discontinuity (strict mode stops
+  it) and prints that last step.
+- **Removal** is per layer: `replica remove` + `replica leave` takes the
+  offsite copy away and leaves the cluster untouched; `cluster disband` +
+  `cluster leave` takes the cluster away and the offsite replica simply
+  keeps streaming from node 1, now a standalone primary.
+- **Semi-sync is never enabled for the offsite hop** when a cluster exists:
+  the cluster already guarantees durability locally, and a WAN
+  acknowledgement in the commit path would stall the clinic on the
+  offsite link.
