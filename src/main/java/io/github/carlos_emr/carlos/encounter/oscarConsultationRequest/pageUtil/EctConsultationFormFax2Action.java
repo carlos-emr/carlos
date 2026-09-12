@@ -264,7 +264,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         try {
             faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
         } catch (PDFGenerationException e) {
-            logger.error(e.getMessage(), e);
+            logger.error("Consultation fax PDF preparation failed ({})", e.getClass().getSimpleName());
             request.setAttribute("errorMessage",
                     "This fax could not be sent. \n\nThe consultation PDF could not be prepared; please retry or contact your administrator.");
             return "error";
