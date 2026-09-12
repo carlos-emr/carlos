@@ -50,6 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DataExport" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -149,7 +150,7 @@
                             for (int idx = 0; idx < setsList.size(); ++idx) {
                                 setName = setsList.get(idx);
                         %>
-                        <option value="<%=setName%>"><%=setName%>
+                        <option value="<%= SafeEncode.forHtmlAttribute(setName) %>"><carlos:encode value='<%= setName %>' context="html"/>
                         </option>
                         <%
                             }
@@ -184,11 +185,10 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href='${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&zipFile=<%=file%>'><%=file %>
+                    <a href="${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&amp;zipFile=<%= SafeEncode.forUriComponent(file) %>"><carlos:encode value='<%= file %>' context="html"/>
                     </a></td>
-                <td><%=dataExport.getUser()%>
-                <td><%=dataExport.getType()%>
-                </td>
+                <td><carlos:encode value='<%= dataExport.getUser() %>' context="html"/></td>
+                <td><carlos:encode value='<%= dataExport.getType() %>' context="html"/></td>
             </tr>
             <%
                 }
