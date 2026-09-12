@@ -272,6 +272,7 @@ FOR STAND ALONE USE
 <c:set var="i18n_textAddWetSignature"><fmt:message key="eform.visual.editor.text.addWetSignature"/></c:set>
 <c:set var="i18n_textControls"><fmt:message key="eform.visual.editor.text.controls"/></c:set>
 <c:set var="i18n_textGuideOptions"><fmt:message key="eform.visual.editor.text.guideOptions"/></c:set>
+<c:set var="i18n_imageOrientation"><fmt:message key="eFormGenerator.imageOrientation"/></c:set>
 <script>
 /* i18n strings for Visual eForm Editor - populated server-side, OWASP JS-encoded */
 var EFORM_I18N = {
@@ -374,7 +375,8 @@ var EFORM_I18N = {
     textTrash: '${carlos:forJavaScript(i18n_textTrash)}',
     textAddWetSignature: '${carlos:forJavaScript(i18n_textAddWetSignature)}',
     textControls: '${carlos:forJavaScript(i18n_textControls)}',
-    textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}'
+    textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}',
+    imageOrientation: '${carlos:forJavaScript(i18n_imageOrientation)}'           
 };
 </script>
 
@@ -1461,12 +1463,6 @@ var EFORM_I18N = {
     </style>
     <script>
         /** GLOBAL SCOPE CONSTANTS */
-        var CONFIRM_PAGE_REMOVE_TITLE = "Confirm Page Removal";
-        var CONFIRM_PAGE_REMOVE_MESSAGE = "You are about the remove a page from the eform. " +
-            "This will delete any work on the page and cannot be undone. Are you sure you want to delete the page?";
-
-        var OSCAR_SAVE_MESSAGE_NEW = "Save As New Eform";
-        var OSCAR_SAVE_MESSAGE_UPDATE = "Update Eform";
 
         // make sure .page_container css matches this when modifying
         var eFormPageWidthPortrait = 800; //850 //800
@@ -1519,7 +1515,7 @@ var EFORM_I18N = {
         var linkTo
         var setSideBar
         var eformName = "Untitled eForm";
-		var defaultFaxNo = "";
+		    var defaultFaxNo = "";
         var textBordersVisibleState = 1;
         var xboxBordersVisibleState = 0;
         var orientationIndex = 0; //portrait 0 vs landscape 1 vs custom 2
@@ -1528,7 +1524,7 @@ var EFORM_I18N = {
         var RadMain = []
         var AllNoSetflag = "off";
         var newTitle = "";
-		var myunique = "";
+		    var myunique = "";
 
         var checkboxSize = defaultCheckboxSize;
         var textBoxWidth = defaultTextBoxWidth;
@@ -1551,95 +1547,53 @@ var EFORM_I18N = {
 
         var measureArray = [
         "02", "024UA", "24UR", "5DAA", "A1C", "AACP", "ACOS", "ACR", "ACS", "AEDR", "AELV", "AENC", "AHGM", "AIDU", "ALC", "ALPA", "ALT", "Ang", "ANR", "ANSY",
-		"AORA", "ARAD", "ARDT", "ARMA", "ASAU", "ASPR", "AST", "ASTA", "ASWA", "ASYM", "BCTR", "BG", "BMED", "BMI", "BP", "BP", "BP", "CASA", "CD4", "CD4P",
-		"CDMP", "CEDE", "CEDM", "CEDS", "CEDW", "CERV", "CGSD", "CIMF", "CMVI", "CODC", "COPE", "COPM", "COPS", "COUM", "CRCL", "CVD", "CXR", "DARB",
-		"DEPR", "DESM", "DiaC", "DIER", "DIET", "DIFB", "DIGT", "DM", "DMED", "DMME", "DMSM", "DOLE", "DpSc", "DRCO", "DRPW", "DT1", "DT2", "DTYP",
-		"ECG", "EDC", "EDDD", "EDF", "EDGI", "EDND", "EDNL", "EGFR", "EPR", "EXE", "ExeC", "Exer", "EYEE", "FAHS", "FBPC", "FBS", "FEET", "FEET",
-		"FEET", "FEET", "FEET", "FEV1", "FGLC", "FICO", "FLUF", "FOBF", "FRAM", "FTE", "FTEx", "FTIn", "FTIs", "FTLS", "FTNe", "FTOt", "FTRe",
-		"FTST", "FTUl", "G", "GAD7", "G6PD", "Hb", "HIP", "Hchl", "HDL", "HEAD", "HFCG", "HFCS", "HFMD", "HFMH", "HFMO", "HFMS", "HFMT", "HIVG",
-		"HLA", "HpAI", "HpBA", "HPBC", "HPBP", "HpBS", "HpCA", "HPCG", "HPCP", "HR", "HRMS", "HSMC", "HSMG", "HT", "HTN", "HYPE", "HYPM", "IART",
-		"iDia", "iEx", "iHyp", "INR", "INSL", "iOth", "iRef", "JVPE", "Kpl", "LcCt", "LDL", "LEFP", "LETH", "LHAD", "LMED", "LMP", "LUCR", "MACA",
-		"MACC", "MAMF", "MCCE", "MCCN", "MCCO", "MCCS", "MedA", "MedG", "MedN", "MedR", "MI", "Napl", "NDIP", "NDIS", "NOSK", "NOVS", "NtrC", "NYHA",
-		"OSWP", "OSWS", "OTCO", "OthC", "OUTR", "P", "PANE", "PAPF", "PEDE", "PEFR", "PHIN", "PIDU", "PPD", "PRRF", "PSPA", "PSSC", "PsyC", "PVD", "QDSH",
-		"RABG", "REBG", "RESP", "RETI", "RPHR", "RPPT", "RVTN", "SCR", "SEXF", "SKST", "SMBG", "SmCC", "SMCD", "SMCP", "SMCS", "SMK", "SmkA", "SmkC",
-		"SmkD", "SmkF", "SmkP", "SmkS", "SODI", "SOHF", "SPIR", "SSEX", "STRE", "StSc", "SUAB", "SUO2", "TCHD", "TCHL", "TEMP", "TG", "TOXP", "TRIG",
-		"TSH", "TUG", "UAIP", "UALB", "UDUS", "UHTP", "URBH", "USSH", "VB12", "VDRL", "VLOA", "WAIS", "WHR", "WT", "ALB", "ALP", "BILC", "BILT", "BILU",
-		"CK", "Clpl", "UA", "ALC", "ALPA", "BP", "DMSM", "POSK", "KEEL", "PSQS", "PTSD", "PHQS", "PHQ9", "DNFS", "NERF", "BPI", "BPII", "BPIS", "IBPL",
-		"FAS", "COGA", "HPNP", "SBLT", "SDET", "SUNP", "BTFP", "FLOS", "DILY", "ABO", "AFP", "ALB", "ALP", "ANA", "APOB", "BILI", "BUN", "Clpl", "CK",
-		"CRP", "CA", "C125", "C153", "C199", "CEA", "CHLM", "C3", "CMBS", "DIG", "DIL", "ENA", "ESR", "Fer", "FIT", "FOBT", "FT3", "FT4", "GBS", "GC",
-		"GGT", "GCT", "GT1", "GT2", "HCO3", "HBEB", "HBEG", "HBVD", "HPYL", "LITH", "MG", "MCV", "PB19", "PHOS", "PLT", "PROT", "PSA", "iPTH", "RF",
-		"Rh", "RUB", "TSAT", "URIC", "VZV", "WBC", "OPAE", "OPAB", "OPUS", "DMOE", "02SA", "SKD", "ORSK", "ECHK", "HCON", "BTFT", "HCVA", "HCGA",
-		"CIRR", "FIBM", "FIBS", "APRI", "FIB4", "USND", "TXHX", "HCPC", "HAIM", "HBIM", "NEUT", "HIV", "HEPB", "AUDI", "OUDI", "SUDI", "STDI", "TUDI",
-		"PSUP", "BARR", "DINC", "UMS", "FEV1BF", "FVCBF", "FEV1PCBF", "FEV1PRE", "FVCPRE", "FEV1PCPRE", "FEV1PCOFPREBF", "FVCRTBF", "FEV1FVCRTBF",
-		"PEFRBF", "FEV1AFT", "FVCAFT", "FEV1PCAFT", "FEV1PCOFPREAFT", "FVCRTAFT", "FEV1FVCRTAFT", "PEFRAFT", "ANELV", "CNOLE", "WHE", "HFMR", "ASWAN",
-		"HFSFT", "HFSDZ", "HFSSC", "HFSDE", "HFSDR", "HFSON", "HFSDP", "SPIRT", "COPDC", "RABG2", "EPR2", "ACOSY", "ACTSY", "ADYSY", "AWHSY",
-		"CTDPW", "DYDPW", "WHDPW", "COPDC", "ACOSY", "ACTSY", "ADYSY", "AWHSY"
+    		"AORA", "ARAD", "ARDT", "ARMA", "ASAU", "ASPR", "AST", "ASTA", "ASWA", "ASYM", "BCTR", "BG", "BMED", "BMI", "BP", "BP", "BP", "CASA", "CD4", "CD4P",
+    		"CDMP", "CEDE", "CEDM", "CEDS", "CEDW", "CERV", "CGSD", "CIMF", "CMVI", "CODC", "COPE", "COPM", "COPS", "COUM", "CRCL", "CVD", "CXR", "DARB",
+    		"DEPR", "DESM", "DiaC", "DIER", "DIET", "DIFB", "DIGT", "DM", "DMED", "DMME", "DMSM", "DOLE", "DpSc", "DRCO", "DRPW", "DT1", "DT2", "DTYP",
+    		"ECG", "EDC", "EDDD", "EDF", "EDGI", "EDND", "EDNL", "EGFR", "EPR", "EXE", "ExeC", "Exer", "EYEE", "FAHS", "FBPC", "FBS", "FEET", "FEET",
+    		"FEET", "FEET", "FEET", "FEV1", "FGLC", "FICO", "FLUF", "FOBF", "FRAM", "FTE", "FTEx", "FTIn", "FTIs", "FTLS", "FTNe", "FTOt", "FTRe",
+    		"FTST", "FTUl", "G", "GAD7", "G6PD", "Hb", "HIP", "Hchl", "HDL", "HEAD", "HFCG", "HFCS", "HFMD", "HFMH", "HFMO", "HFMS", "HFMT", "HIVG",
+    		"HLA", "HpAI", "HpBA", "HPBC", "HPBP", "HpBS", "HpCA", "HPCG", "HPCP", "HR", "HRMS", "HSMC", "HSMG", "HT", "HTN", "HYPE", "HYPM", "IART",
+    		"iDia", "iEx", "iHyp", "INR", "INSL", "iOth", "iRef", "JVPE", "Kpl", "LcCt", "LDL", "LEFP", "LETH", "LHAD", "LMED", "LMP", "LUCR", "MACA",
+    		"MACC", "MAMF", "MCCE", "MCCN", "MCCO", "MCCS", "MedA", "MedG", "MedN", "MedR", "MI", "Napl", "NDIP", "NDIS", "NOSK", "NOVS", "NtrC", "NYHA",
+    		"OSWP", "OSWS", "OTCO", "OthC", "OUTR", "P", "PANE", "PAPF", "PEDE", "PEFR", "PHIN", "PIDU", "PPD", "PRRF", "PSPA", "PSSC", "PsyC", "PVD", "QDSH",
+    		"RABG", "REBG", "RESP", "RETI", "RPHR", "RPPT", "RVTN", "SCR", "SEXF", "SKST", "SMBG", "SmCC", "SMCD", "SMCP", "SMCS", "SMK", "SmkA", "SmkC",
+    		"SmkD", "SmkF", "SmkP", "SmkS", "SODI", "SOHF", "SPIR", "SSEX", "STRE", "StSc", "SUAB", "SUO2", "TCHD", "TCHL", "TEMP", "TG", "TOXP", "TRIG",
+    		"TSH", "TUG", "UAIP", "UALB", "UDUS", "UHTP", "URBH", "USSH", "VB12", "VDRL", "VLOA", "WAIS", "WHR", "WT", "ALB", "ALP", "BILC", "BILT", "BILU",
+    		"CK", "Clpl", "UA", "ALC", "ALPA", "BP", "DMSM", "POSK", "KEEL", "PSQS", "PTSD", "PHQS", "PHQ9", "DNFS", "NERF", "BPI", "BPII", "BPIS", "IBPL",
+    		"FAS", "COGA", "HPNP", "SBLT", "SDET", "SUNP", "BTFP", "FLOS", "DILY", "ABO", "AFP", "ALB", "ALP", "ANA", "APOB", "BILI", "BUN", "Clpl", "CK",
+    		"CRP", "CA", "C125", "C153", "C199", "CEA", "CHLM", "C3", "CMBS", "DIG", "DIL", "ENA", "ESR", "Fer", "FIT", "FOBT", "FT3", "FT4", "GBS", "GC",
+    		"GGT", "GCT", "GT1", "GT2", "HCO3", "HBEB", "HBEG", "HBVD", "HPYL", "LITH", "MG", "MCV", "PB19", "PHOS", "PLT", "PROT", "PSA", "iPTH", "RF",
+    		"Rh", "RUB", "TSAT", "URIC", "VZV", "WBC", "OPAE", "OPAB", "OPUS", "DMOE", "02SA", "SKD", "ORSK", "ECHK", "HCON", "BTFT", "HCVA", "HCGA",
+    		"CIRR", "FIBM", "FIBS", "APRI", "FIB4", "USND", "TXHX", "HCPC", "HAIM", "HBIM", "NEUT", "HIV", "HEPB", "AUDI", "OUDI", "SUDI", "STDI", "TUDI",
+    		"PSUP", "BARR", "DINC", "UMS", "FEV1BF", "FVCBF", "FEV1PCBF", "FEV1PRE", "FVCPRE", "FEV1PCPRE", "FEV1PCOFPREBF", "FVCRTBF", "FEV1FVCRTBF",
+    		"PEFRBF", "FEV1AFT", "FVCAFT", "FEV1PCAFT", "FEV1PCOFPREAFT", "FVCRTAFT", "FEV1FVCRTAFT", "PEFRAFT", "ANELV", "CNOLE", "WHE", "HFMR", "ASWAN",
+    		"HFSFT", "HFSDZ", "HFSSC", "HFSDE", "HFSDR", "HFSON", "HFSDP", "SPIRT", "COPDC", "RABG2", "EPR2", "ACOSY", "ACTSY", "ADYSY", "AWHSY",
+    		"CTDPW", "DYDPW", "WHDPW", "COPDC", "ACOSY", "ACTSY", "ADYSY", "AWHSY"
         ];
 
-		var oscarDatabaseTags = [
-		"time", "today", "appt_date", "current_form_id", "current_form_data_id", "current_user", "current_user_fname", "current_user_lname",
-		"current_user_fname_lname", "current_user_ohip_no", "current_user_specialty_code", "current_user_specialty", "current_user_cpsid", "current_user_id",
-		"current_user_address", "current_user_work_phone", "current_user_email", "current_user_fax", "current_user_team", "current_user_signature",
-		"patient_name", "first_last_name", "patient_nameL", "patient_nameF", "patient_nameM", "patient_alias", "patient_title", "patient_id", "label",
-		"residential_address", "address", "addressline", "address_street_number_and_name", "province", "city", "postal", "dob", "dobc", "dobc2", "dobc3",
-		"dob_MONTH-dd-yyyy", "dob_year", "dob_month", "dob_day", "NameAddress", "hin", "hinc", "hinversion", "hc_type", "hc_renew_date", "chartno", "phone",
-		"phone2", "cell", "phone_extension", "phone2_extension", "age", "age_in_months", "ageComplex", "ageComplex2", "sex", "She_He", "him_her", "his_her ",
-		"sin", "date_joined", "partner_nameL", "partner_nameF", "partner_dob", "partner_dob2", "partner_hin ", "partner_phone ", "medical_history",
-		"medical_history_ext", "other_medications_history", "other_medications_history_ext", "social_family_history", "social_family_history_ext",
-		"ongoingconcerns", "ongoingconcerns_ext", "riskfactors", "riskfactors_ext", "reminders", "reminders_ext ", "risk_factors_json",
-		"family_history_json", "dxregistry", "OHIPdxCode", "allergies_des", "allergies_des_no_archived", "recent_rx", "today_rx", "current_rx",
-		"current_rx_lt", "druglist_generic", "druglist_trade", "druglist_line", "latest_echart_note", "todays_notes", "todays_notes_ext",
-		"document_list", "onGTPAL", "onEDB ", "bcGTPAL ", "bcEDD", "doctor", "doctor_provider_no", "doctor_ohip_no", "doctor_specialty_code",
-		"doctor_cpsid", "doctor_title", "provider_name", "provider_name_first_init", "doctor_work_phone", "doctor_signature", "appt_provider_name",
-		"appt_provider_id", "appt_no", "appt_date", "appt_time", "appt_end_time", "appt_provider_ohip_no", "appt_provider_cpsid", "next_appt_provider_id",
-		"next_appt_provider_name", "next_appt_date", "next_appt_time", "nextf_appt_date", "referral_name", "referral_Last_name", "referral_first_name",
-		"referral_address", "dr_referral_name", "referral_no", "referral_phone", "referral_fax", "bc_referral_name ", "bc_referral_address", "bc_referral_phone",
-		"bc_referral_fax ", "bc_referral_no", "clinic_name", "clinic_phone", "clinic_fax", "clinic_label", "clinic_addressLine", "clinic_addressLineFull",
-		"clinic_address", "clinic_city", "clinic_province", "clinic_postal", "dtap_immunization_date", "flu_immunization_date"
-		];
-	/* Juno list
-        var oscarDatabaseTags = [
-            "today", "time", "appt_date", "appt_start_time", "appt_end_time", "appt_location",
-            "next_appt_date", "next_appt_time", "nextf_appt_date", "next_appt_location", "current_form_id", "current_form_data_id",
-            "current_user", "current_user_fname_lname", "current_user_ohip_no", "current_user_specialty", "current_user_specialty_code",
-            "current_user_cpsid", "current_user_id", "current_user_signature", "current_logged_in_user", "current_logged_in_user_address",
-            "current_logged_in_user_fax", "current_logged_in_user_work_phone", "current_logged_in_user_roles", "current_logged_in_user_type",
-            "current_logged_in_user_id", "current_user_takno", "current_logged_in_user_takno", "patient_name", "first_last_name",
-            "patient_nameL", "patient_nameF", "patient_alias", "patient_id", "label", "address", "addressline", "address_street_number_and_name",
-            "province", "city", "postal", "dob", "dobc", "dobc2", "dobc3", "dob_year", "dob_month", "dob_day", "NameAddress",
-            "hin", "hinc", "hinversion", "hc_type", "hc_renew_date", "chartno", "phone", "phone2", "cell", "phone_extension",
-            "phone2_extension", "age", "age_in_months", "ageComplex", "ageComplex2", "sex", "sin", "licensed_producer_by_demographic",
-
-            "licensed_producer2_by_demographic", "licensed_producer_address_name", "licensed_producer_address_name_list",
-            "licensed_producer_full_address", "licensed_producer_full_address_list", "multisite_name_list", "multisite_fax_list",
-            "multisite_phone_list", "multisite_full_address_list", "multisite_address_list", "multisite_city_list", "multisite_province_list",
-            "multisite_postal_list", "medical_history", "other_medications_history", "social_family_history", "ongoingconcerns",
-
-            "reminders", "risk_factors", "family_history", "risk_factors_json", "family_history_json", "dxregistry", "OHIPdxCode",
-            "allergies_des", "allergies_des_no_archived", "recent_rx", "today_rx", "druglist_generic", "druglist_trade",
-            "druglist_line", "latest_echart_note", "onGTPAL", "onEDB", "bcGTPAL", "bcEDD", "doctor", "doctor_provider_no",
-            "doctor_ohip_no", "doctor_specialty_code", "doctor_cpsid", "appt_provider_cpsid", "appt_provider_specialty",
-            "doctor_title", "provider_name", "provider_name_first_init", "provider_specialty", "doctor_work_phone", "doctor_fax",
-            "doctor_signature", "appt_provider_name", "appt_provider_ohip_no", "appt_provider_id", "appt_no", "referral_name",
-
-            "referral_address", "referral_phone", "referral_fax", "referral_no", "bc_referral_name", "bc_referral_address",
-            "bc_referral_phone", "bc_referral_fax", "bc_referral_no", "clinic_name", "clinic_phone", "clinic_fax", "clinic_label",
-            "clinic_addressLine", "clinic_addressLineFull", "clinic_address", "clinic_city", "clinic_province", "clinic_postal",
-            "clinic_multi_phone", "clinic_multi_fax", "_eform_values_first", "_eform_values_last", "_eform_values_first_all_json",
-            "_eform_values_last_all_json", "_eform_values_count", "_eform_values_countname", "_eform_values_count_ref",
-            "_eform_values_countname_ref", "_eform_values_count_refname", "_eform_values_countname_refname", "_other_id",
-            "dtap_immunization_date", "flu_immunization_date", "fobt_immunization_date", "mammogram_immunization_date",
-            "pap_immunization_date", "cytology_no", "guardian_label", "guardian_label2", "email", "service_date", "practitioner",
-
-            "ref_doctor", "fee_total", "payment_total", "refund_total", "balance_owing", "bill_item_number", "bill_item_description",
-            "bill_item_service_code", "bill_item_qty", "bill_item_dx", "bill_item_amount", "urine_tox_test_json", "methadone_induction_assessment_json",
-            "who_measurements", "family_doctor_name", "family_doctor_last_name", "family_doctor_address", "family_doctor_phone",
-
-            "family_doctor_fax", "family_doctor_no", "bc_family_doctor_name", "bc_family_doctor_address", "bc_family_doctor_phone",
-            "bc_family_doctor_fax", "bc_family_doctor_no", "roster_status"
-        ];
-	*/
-
+    		var oscarDatabaseTags = [
+    		"time", "today", "appt_date", "current_form_id", "current_form_data_id", "current_user", "current_user_fname", "current_user_lname",
+    		"current_user_fname_lname", "current_user_ohip_no", "current_user_specialty_code", "current_user_specialty", "current_user_cpsid", "current_user_id",
+    		"current_user_address", "current_user_work_phone", "current_user_email", "current_user_fax", "current_user_team", "current_user_signature",
+    		"patient_name", "first_last_name", "patient_nameL", "patient_nameF", "patient_nameM", "patient_alias", "patient_title", "patient_id", "label",
+    		"residential_address", "address", "addressline", "address_street_number_and_name", "province", "city", "postal", "dob", "dobc", "dobc2", "dobc3",
+    		"dob_MONTH-dd-yyyy", "dob_year", "dob_month", "dob_day", "NameAddress", "hin", "hinc", "hinversion", "hc_type", "hc_renew_date", "chartno", "phone",
+    		"phone2", "cell", "phone_extension", "phone2_extension", "age", "age_in_months", "ageComplex", "ageComplex2", "sex", "She_He", "him_her", "his_her ",
+    		"sin", "date_joined", "partner_nameL", "partner_nameF", "partner_dob", "partner_dob2", "partner_hin ", "partner_phone ", "medical_history",
+    		"medical_history_ext", "other_medications_history", "other_medications_history_ext", "social_family_history", "social_family_history_ext",
+    		"ongoingconcerns", "ongoingconcerns_ext", "riskfactors", "riskfactors_ext", "reminders", "reminders_ext ", "risk_factors_json",
+    		"family_history_json", "dxregistry", "OHIPdxCode", "allergies_des", "allergies_des_no_archived", "recent_rx", "today_rx", "current_rx",
+    		"current_rx_lt", "druglist_generic", "druglist_trade", "druglist_line", "latest_echart_note", "todays_notes", "todays_notes_ext",
+    		"document_list", "onGTPAL", "onEDB ", "bcGTPAL ", "bcEDD", "doctor", "doctor_provider_no", "doctor_ohip_no", "doctor_specialty_code",
+    		"doctor_cpsid", "doctor_title", "provider_name", "provider_name_first_init", "doctor_work_phone", "doctor_signature", "appt_provider_name",
+    		"appt_provider_id", "appt_no", "appt_date", "appt_time", "appt_end_time", "appt_provider_ohip_no", "appt_provider_cpsid", "next_appt_provider_id",
+    		"next_appt_provider_name", "next_appt_date", "next_appt_time", "nextf_appt_date", "referral_name", "referral_Last_name", "referral_first_name",
+    		"referral_address", "dr_referral_name", "referral_no", "referral_phone", "referral_fax", "bc_referral_name ", "bc_referral_address", "bc_referral_phone",
+    		"bc_referral_fax ", "bc_referral_no", "clinic_name", "clinic_phone", "clinic_fax", "clinic_label", "clinic_addressLine", "clinic_addressLineFull",
+    		"clinic_address", "clinic_city", "clinic_province", "clinic_postal", "dtap_immunization_date", "flu_immunization_date"
+    		];
+	
         var $globalSelectedElement = null;
         var $mouseTargetElement = null;
         var currentMousePos = {
@@ -2362,7 +2316,7 @@ var EFORM_I18N = {
             $widget.append($img);
             $parent.append($widget);
             makeDraggable($widget, true, ".gen-layer1, .gen-layer2");
-			console.log("created widget "+widgetId);
+			  console.log("created widget "+widgetId);
             return $widget;
         }
 
@@ -2376,7 +2330,7 @@ var EFORM_I18N = {
             });
             var $clearBtn = $("<button>", {
                 type: "button",
-                text: "clear",
+                text: EFORM_I18N.buttonClear,
                 class: "clearBtn DoNotPrint"
             });
             var $flex = $("<div>", {
@@ -2634,59 +2588,63 @@ var EFORM_I18N = {
             }));
         }
 
+    		function cleanOscarTags(data) {
+    		//  noborderPrint" title="age" oscardb="age" placeholder="
+    		//  noborderPrint" title="age" oscardb="" "age"="" placeholder="
+    			const regex = /oscarDB=([0-9#$a-z_\-]+)/gi;
+    			const replaceStr = 'oscarDB="$1"';
+    			data = data.replace(regex, replaceStr);
+    			return data;
+    		}
 
-		function cleanOscarTags(data) {
-		//  noborderPrint" title="age" oscardb="age" placeholder="
-		//  noborderPrint" title="age" oscardb="" "age"="" placeholder="
-			const regex = /oscarDB=([a-z_]+)/gi;
-			const replaceStr = 'oscarDB="$1"';
-			data = data.replace(regex, replaceStr);
-			return data;
-		}
-		function loadPages($div) {
-			// Build a DocumentFragment of wrapper divs whose children are moved
-			// from the parsed $div nodes — avoids the .html() read→write roundtrip
-			// that CodeQL flags as DOM text reinterpreted as HTML (js/xss-through-dom).
-			var fragment = document.createDocumentFragment();
-			var pageNo = 1;
-			while ($div.find('#page' + pageNo).length) {
-				var $page = $div.find('#page' + pageNo);
-				var wrapper = document.createElement('div');
-				wrapper.id = 'page_' + pageNo;
-				wrapper.className = 'page_container ui-droppable';
-				wrapper.setAttribute('style', 'width: 800px; height: 1000px;');
-				// Move all child nodes (including text/comment nodes) using DOM
-				// node-moving rather than serialising to HTML strings.
-				// .contents() intentionally includes non-Element nodes to preserve
-				// whitespace and avoid re-parsing; this is the correct behaviour.
-				$page.contents().each(function() {
-					wrapper.appendChild(this);
-				});
-				fragment.appendChild(wrapper);
-				pageNo++;
-			}
-			return fragment;
-		}
+    		function loadPages($div) {
+    			// Build a DocumentFragment of wrapper divs whose children are moved
+    			// from the parsed $div nodes — avoids the .html() read→write roundtrip
+    			// that CodeQL flags as DOM text reinterpreted as HTML (js/xss-through-dom).
+    			var fragment = document.createDocumentFragment();
+    			var pageNo = 1;
+    			while ($div.find('#page' + pageNo).length) {
+    				var $page = $div.find('#page' + pageNo);
+    				var wrapper = document.createElement('div');
+    				wrapper.id = 'page_' + pageNo;
+    				wrapper.className = 'page_container ui-droppable';
+    				wrapper.setAttribute('style', 'width: ' + eFormPageWidthPortrait + 'px; height: ' + eFormPageHeightPortrait + 'px;');
+    				// Move all child nodes (including text/comment nodes) using DOM
+    				// node-moving rather than serialising to HTML strings.
+    				// .contents() intentionally includes non-Element nodes to preserve
+    				// whitespace and avoid re-parsing; this is the correct behaviour.
+    				$page.contents().each(function() {
+    					wrapper.appendChild(this);
+    				});
+    				fragment.appendChild(wrapper);
+    				pageNo++;
+    			}
+    			return fragment;
+    		}
 
         function loadEformData(data) {
-
-            // remove oscar image paths in incoming data
-            data = removeOscarImagePath(data);
-			//use regex to sanitize foreign imported oscarDb tags
-			data = cleanOscarTags(data);
-
-			// import the default fax number if present
-			const regex = /name="fax_no"\svalue="([\d-]*)"/
-			if (regex.test(data)) {
-				var matches = data.match(regex);
-				defaultFaxNo = matches[1];
-				$("#defaultFaxNo").val(defaultFaxNo);
-			}
-			const regex2 = /tickler_send_to/
-			if (regex2.test(data)) {
-				//$("#setTickler").prop('checked', true);
-				$("#setTickler").click();
-			}
+          // clear fax number and tickler settings from the previous eform
+          defaultFaxNo = "";
+          $("#defaultFaxNo").val("");
+          $("#setTickler").prop("checked", false);
+          $("#tickle_dialog").remove();
+          // remove oscar image paths in incoming data
+          data = removeOscarImagePath(data);
+    			// use regex to sanitize foreign imported oscarDb tags
+    			data = cleanOscarTags(data);
+    
+    			// import the default fax number if present
+    			const regex = /name="fax_no"\svalue="([\d-]*)"/
+    			if (regex.test(data)) {
+    				var matches = data.match(regex);
+    				defaultFaxNo = matches[1];
+    				$("#defaultFaxNo").val(defaultFaxNo);
+    			}
+    			const regex2 = /tickler_send_to/
+    			if (regex2.test(data)) {
+    				//$("#setTickler").prop('checked', true);
+    				$("#setTickler").click();
+    			}
 
             // import the eform name
             eformName = $($.parseHTML(data)).filter('title').text();
@@ -2704,9 +2662,7 @@ var EFORM_I18N = {
             }
 
             var $div = $(data);
-
-			var $importedInputForm = $div.find("#inputForm");
-			//May-01-2024 Peter Hutten-Czapski
+            var $importedInputForm = $div.find("#inputForm");
             var ferengi = ($importedInputForm.length === 0);
             if (ferengi) {
                 if ( typeof($div.find("[id^='BGImage']").html() ) == "undefined" ){
@@ -2735,19 +2691,16 @@ var EFORM_I18N = {
                 $(this).removeAttr('checked');
             });
 
-			//May-01-2024 Peter Hutten-Czapski
             if (ferengi) {
+      				// import the default fax number if present
+      				const regex = /"otherFaxInput"\)\.value="([\d-]*)"/
+      				if (regex.test(data)) {
+      					var matches = data.match(regex);
+      					defaultFaxNo = matches[1];
+      				}
 
-				// import the default fax number if present
-				const regex = /"otherFaxInput"\)\.value="([\d-]*)"/
-				if (regex.test(data)) {
-					var matches = data.match(regex);
-					defaultFaxNo = matches[1];
-				}
-
-                $("[id^='BGImage']").addClass("gen-layer1");
-				$("[id^='BGImage']").attr( "alt", "background" );
-				$("[id^='BGImage']").addClass( "gen-layer1" );
+      				$("[id^='BGImage']").addClass("gen-layer1");
+      				$("[id^='BGImage']").attr( "alt", "background" );
 
 				$("#BottomButtons").remove();
 				var pageNo = 1;
@@ -2865,7 +2818,6 @@ var EFORM_I18N = {
 				console.log(i + " input elements transformed from a "+pageNo+" page Ferengi eform with scaling of "+scaleX+", "+scaleY);
             }
 
-			//console.log($inputForm.html());
 			$('#defaultFaxNo').val(defaultFaxNo);
             // inputForm content was already set above (via DOM node movement for standard forms,
             // or via loadPages for Ferengi forms). The original redundant re-read and re-injection
@@ -2873,7 +2825,6 @@ var EFORM_I18N = {
 
             // TODO -- combine with generic makeDraggables and addNewPage
             var $input_elements = $(".input_elements");
-			// however check if this is a foreign conversion
 
             var $pages = $(".page_container");
             $pages.droppable({
@@ -2944,10 +2895,10 @@ var EFORM_I18N = {
                             var $root = $("<div>", {
                                 class: "page_control_item"
                             }).appendTo($element);
-                            var $eFormSelect = addSelectMenu($root, "eFormSelect", "Select EForm", options, values);
+                            var $eFormSelect = addSelectMenu($root, "eFormSelect", EFORM_I18N.labelSelectEForm, options, values);
                             $eFormSelect.selectmenu();
                             var $loadButton = $("<button>", {
-                                text: "Load Selected EForm"
+                                text: EFORM_I18N.buttonLoadEForm
                             }).button().click(function(event) {
                                 if (selectedId > 0) {
                                     // load the selected eform from the html by id
@@ -3068,7 +3019,7 @@ var EFORM_I18N = {
             }
 
             var $clearButton = $("<button>", {
-                text: "Clear"
+                text: EFORM_I18N.buttonClear
             }).button().click(function(event) {
                 if ($img != null) {
                     $img.remove();
@@ -3078,24 +3029,24 @@ var EFORM_I18N = {
             });
 
             var $removePageButton = $("<button>", {
-                text: "Remove Page"
+                text: EFORM_I18N.buttonRemovePage
             }).button({
                 icon: "ui-icon-circle-minus",
                 showLabel: false
             }).click(function(event) {
-                var $confirm = createConfirmationDialogueElements(CONFIRM_PAGE_REMOVE_TITLE, CONFIRM_PAGE_REMOVE_MESSAGE);
+                var $confirm = createConfirmationDialogueElements(EFORM_I18N.dialogConfirmPageRemoval, EFORM_I18N.dialogConfirmPageRemovalMsg);
                 $confirm.dialog({
                     resizable: false,
                     height: "auto",
                     width: 400,
                     modal: true,
                     buttons: {
-                        "Delete": function() {
+                        [EFORM_I18N.buttonDelete]: function() {
                             $pageDiv.remove();
                             $root.remove();
                             $(this).dialog("close");
                         },
-                        "Cancel": function() {
+                        [EFORM_I18N.buttonCancel]: function() {
                             $(this).dialog("close");
                         }
                     },
@@ -3114,7 +3065,7 @@ var EFORM_I18N = {
                     options.push(eFormImageList[i]);
                 }
 
-                $fileSelector = addSelectMenu($root, "imageSelect", "Select Background Image", options);
+                $fileSelector = addSelectMenu($root, "imageSelect", EFORM_I18N.labelSelectBgImage, options);
                 $fileSelector.selectmenu();
 
                 $fileSelector.on("selectmenuchange", (function(event, data) {
@@ -3175,10 +3126,10 @@ var EFORM_I18N = {
             var $saveBtn = $("#saveToOscarButton")
             if (Number.isInteger(asInt) && asInt > 0) {
                 eFormFid = asInt;
-                $saveBtn.button('option', 'label', OSCAR_SAVE_MESSAGE_UPDATE);
+                $saveBtn.button('option', 'label', EFORM_I18N.dialogUpdateEform);
             } else {
                 eFormFid = 0;
-                $saveBtn.button('option', 'label', OSCAR_SAVE_MESSAGE_NEW);
+                $saveBtn.button('option', 'label', EFORM_I18N.dialogSaveAsNewEform);
             }
         }
 
@@ -3238,11 +3189,10 @@ var EFORM_I18N = {
                 });
             }
 
-
             var $pagesControlgroup = createFieldset("pagesControlGroup", "Pages");
             var $addPageButtonControlGroup = createFieldset("addPagesControlGroup", null);
             var $addPageButton = $("<button>", {
-                text: "Add Page"
+                text: EFORM_I18N.buttonAddPage
             }).button({
                 icon: "ui-icon-circle-plus"
                 //showLabel: false
@@ -3253,7 +3203,7 @@ var EFORM_I18N = {
             });
 
             var $custDimensionX = $("<div>").append($("<label>", {
-                text: "Width:",
+                text: EFORM_I18N.labelWidth,
                 for: "gen-setPageWidth"
             })).append($("<input>", {
                 id: "gen-setPageWidth",
@@ -3261,7 +3211,7 @@ var EFORM_I18N = {
                 value: eFormPageWidth
             }));
             var $custDimensionY = $("<div>").append($("<label>", {
-                text: "Height:",
+                text: EFORM_I18N.labelHeight,
                 for: "gen-setPageHeight"
             })).append($("<input>", {
                 id: "gen-setPageHeight",
@@ -3272,9 +3222,9 @@ var EFORM_I18N = {
                 class: "flexH"
             }).append($custDimensionX).append($custDimensionY);
 
-            var labels = ["Portrait", "Landscape", "Custom"];
-            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "Orientation", labels);
-            $orinetationRadioGroup.on("change", function(e) {
+            var labels = [EFORM_I18N.optPortrait, EFORM_I18N.optLandscape, EFORM_I18N.optCustom];
+            var $orientationRadioGroup = addRadioGroup($element, "gen-orientation", EFORM_I18N.imageOrientation, labels);
+            $orientationRadioGroup.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 setPageOrientation(value);
             });
@@ -3286,8 +3236,8 @@ var EFORM_I18N = {
             $addPageButtonControlGroup.append($pagesControlgroup);
             $("<div>").append($("<label>", {
                 id: "gen-orientationLabel",
-                text: "Page Dimensions: " + eFormPageWidthPortrait + "x" + eFormPageHeightPortrait +
-                    " (Landscape: " + eFormPageWidthLandscape + "x" + eFormPageHeightLandscape + ")"
+                text: EFORM_I18N.labelPageDimensions + eFormPageWidthPortrait + "x" + eFormPageHeightPortrait +
+                    " (" + EFORM_I18N.optLandscape + eFormPageWidthLandscape + "x" + eFormPageHeightLandscape + ")"
             })).appendTo($dimensionInputs);
 
             return $pagesControlgroup;
@@ -3338,13 +3288,13 @@ var EFORM_I18N = {
             customTitle.css("font-size", "12");
             linkTitle.css("font-size", "12");
             $xBoxTemplate.after(customTitle);
-			$xBoxTemplate.before('&nbsp;');
-            var $label = $("<label>").text('  Custom Title: ');
+            $xBoxTemplate.before('&nbsp;');
+            var $label = $("<label>").text('  ' + EFORM_I18N.labelCustomTitle);
             $label.css("fontSize", 12);
             $label.attr('id', "theLabel");
             customTitle.before($label);
             customTitle.after(linkTitle);
-            var $label2 = $("<label>").text(' LinkTo:');
+            var $label2 = $("<label>").text(' ' + EFORM_I18N.labelLinkTo);
             $label2.css("fontSize", 12);
             $label2.attr('id', "theLabel2");
             linkTitle.before($label2);
@@ -3380,10 +3330,10 @@ var EFORM_I18N = {
             //$rBoxTemplateInput.addClass("cradio").attr('autocomplete', 'off');
             $rBoxTemplateInput.addClass("cradio").attr('onclick', 'myupdate(this)'); //newwork
 
-            $bBoxTemplateInput.addClass("all-no-button2").attr('value', 'All No');
-			$bBoxTemplateInput.attr('onclick', 'allno();');
+            $bBoxTemplateInput.addClass("all-no-button2").attr('value', EFORM_I18N.buttonAllNo);
+            $bBoxTemplateInput.attr('onclick', 'allno();');
             $bBoxTemplateInput.removeClass("gen_input")
-			$bBoxTemplate.hide();
+            $bBoxTemplate.hide();
             //$bBoxTemplateInput.removeClass("cradio")
 
             var $checkboxSizeSpinner = createSpinnerElem("checkboxSizeSpinner", "Template Size:", checkboxSize);
@@ -3456,33 +3406,33 @@ var EFORM_I18N = {
             $tab.append($dragFrame0);
             $options_menu0.append($checkboxSizeSpinner);
             $options_menu0.append($("<div>").append($("<label>", {
-                text: "Pre-Check:",
+                text: EFORM_I18N.labelPreCheck,
                 for: "gen-precheckCheckboxId"
             })).append($preCheckCheckbox));
             $options_menu0.append($("<div>").append($("<label>", {
                 for: "gen-all-no",
-                text: "All No function"
+                text: EFORM_I18N.labelAllNoFunction
             })).append($allNoChkbox));
             $options_menu0.append($("<div>").append($("<label>", {
                 for: "gen-precheckByGender",
-                text: "Pre-Check by Gender"
+                text: EFORM_I18N.labelPreCheckByGender
             })).append($checkByGenderChkbox));
             var $div01 = $("<div>").appendTo($options_menu0);
-            var $gender_select = addSelectMenu($div01, "genderSelect0", "Check When", ["M", "F", "T", "O", "U"]);
+            var $gender_select = addSelectMenu($div01, "genderSelect0", EFORM_I18N.labelCheckWhen, ["M", "F", "T", "O", "U"]);
             $gender_select.selectmenu("disable");
             var removeGenderPrecheckClasses = function(index, curclass) {
                 return (curclass.match(/(^|\s)gender_precheck_\S+/g) || []).join(' ');
             };
             $gender_select.on("selectmenuchange", (function(event, data) {
                 $checkBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
-				$rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
+                $rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
                 $xBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
             }));
             $checkByGenderChkbox.on('change', function() {
                 if ($(this).is(':checked')) {
                     $gender_select.selectmenu("enable");
                     $checkBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
-					$rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
+                    $rBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
                     $xBoxTemplateInput.removeClass(removeGenderPrecheckClasses).addClass("gender_precheck_" + $gender_select.val());
                     if ($preCheckCheckbox.is(':checked')) {
                         $preCheckCheckbox.prop('checked', false);
@@ -3491,7 +3441,7 @@ var EFORM_I18N = {
                 } else {
                     $gender_select.selectmenu("disable");
                     $checkBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
-					$rBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
+                    $rBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
                     $xBoxTemplateInput.removeClass(removeGenderPrecheckClasses);
                 }
             });
@@ -3503,7 +3453,7 @@ var EFORM_I18N = {
                 type: 'checkbox'
             });
             var $oscarCheckbox2label = $('<label>', {
-                text: 'Add function',
+                text: EFORM_I18N.labelAddFunction,
                 for: 'toggleCheckbox2'
             });
 
@@ -3512,7 +3462,7 @@ var EFORM_I18N = {
                 type: 'checkbox'
             });
             var $oscarCheckbox22label = $('<label>', {
-                text: 'Add SideBar',
+                text: EFORM_I18N.labelAddSideBar,
                 for: 'toggleCheckbox22'
             });
 
@@ -3796,12 +3746,12 @@ var EFORM_I18N = {
             $db_tag_select.on('selectmenuchange', (function(event, data) {
 
                 $textBoxTemplate.find(':input').attr('oscarDB', $db_tag_select.val());
-                $('#someName').val($db_tag_select.val()); //2020-May-01
+                $('#someName').val($db_tag_select.val());
                 $textAreaTemplate.find('textarea').attr('oscarDB', $db_tag_select.val());
-				$textBoxTemplate.find(':input').attr('placeholder', $db_tag_select.val()); //2024-May-01
-				$textAreaTemplate.find('textarea').attr('placeholder', $db_tag_select.val()); //2024-May-01
-                $textBoxTemplate.find(':input').attr('title', $db_tag_select.val()); //2019-Feb-14
-                $textAreaTemplate.find('textarea').attr('title', $db_tag_select.val()); //2019-Feb-14
+                $textBoxTemplate.find(':input').attr('placeholder', $db_tag_select.val());
+                $textAreaTemplate.find('textarea').attr('placeholder', $db_tag_select.val());
+                $textBoxTemplate.find(':input').attr('title', $db_tag_select.val());
+                $textAreaTemplate.find('textarea').attr('title', $db_tag_select.val());
 
             }));
             $('#oscarDbTagSelect-button').hide() //???????????
@@ -3992,8 +3942,8 @@ var EFORM_I18N = {
                     $db_tag_select.selectmenu('disable');
                     $textBoxTemplate.find(':input').removeAttr('oscarDB');
                     $textAreaTemplate.find('textarea').removeAttr('oscarDB');
-					$textBoxTemplate.find(':input').removeAttr('placeholder'); //2024-May-01
-					$textAreaTemplate.find('textarea').removeAttr('placeholder'); //2024-May-01 invalid pseudo
+                    $textBoxTemplate.find(':input').removeAttr('placeholder'); //2024-May-01
+                    $textAreaTemplate.find('textarea').removeAttr('placeholder'); //2024-May-01 invalid pseudo
                     //$('#someName').remove();  //2020-May-01
                     //$('#theLabel').remove();  //2020-May-01
                     $('#someName').val(""); // 2020-May-03
@@ -4223,9 +4173,9 @@ var EFORM_I18N = {
                 .append($("<div>")).append($("<label>", {
                     text: EFORM_I18N.helpCtrlCVCopy
                 }));
-            var $control_fieldset = createFieldset("grid-guide_options", "Guide Options");
+            var $control_fieldset = createFieldset("grid-guide_options", EFORM_I18N.textGuideOptions);
             var $trash_box = createTrashFrame();
-            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'></span> Trash");
+            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'>"+EFORM_I18N.textTrash+"</span>");
             $trash_box.droppable({
                 accept: ".ui-draggable",
                 hoverClass: "gen-trashHover",
@@ -4305,8 +4255,8 @@ var EFORM_I18N = {
 
         function init_style_controls($element) {
 
-            var visibilityLables = ["Always Visible", "Invisible on Print", "Always Invisible"];
-            var $textHideOptions = addRadioGroup($element, "gen-text-border-radio", "Text Borders", visibilityLables);
+            var visibilityLables = [EFORM_I18N.optAlwaysVisible, EFORM_I18N.optInvisibleOnPrint, EFORM_I18N.optAlwaysInvisible];
+            var $textHideOptions = addRadioGroup($element, "gen-text-border-radio", EFORM_I18N.labelTextBorders, visibilityLables);
             $textHideOptions.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 var $selector = $(".input_elements").find(TEXT_INPUT_SELECTOR);
@@ -4316,7 +4266,7 @@ var EFORM_I18N = {
             // set inital value index
             $textHideOptions.find("input").filter("[value='" + textBordersVisibleState + "']").prop("checked", true).button("refresh");
 
-            var $xboxHideOptions = addRadioGroup($element, "gen-xbox-border-radio", "xBox Borders", visibilityLables);
+            var $xboxHideOptions = addRadioGroup($element, "gen-xbox-border-radio", EFORM_I18N.labelXboxBorders, visibilityLables);
             $xboxHideOptions.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 var $selector = $(".input_elements").find(XBOX_INPUT_SELECTOR);
@@ -4359,7 +4309,7 @@ var EFORM_I18N = {
             })
 
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Eform Name",
+                text: EFORM_I18N.labelEformName,
                 for: "eformNameInput"
             })).append($("<input>", {
                 id: "eformNameInput",
@@ -4374,12 +4324,12 @@ var EFORM_I18N = {
                 }
             })));
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Include Fax Controls",
+                text: EFORM_I18N.labelIncludeFaxControls,
                 for: "toggleFaxControls"
             })).append($toggleFaxControls));
 
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Default Fax No",
+                text: EFORM_I18N.labelDefaultFaxNo,
                 for: "defaultFaxNo"
             })).append($("<input>", {
                 id: "defaultFaxNo",
@@ -4394,12 +4344,12 @@ var EFORM_I18N = {
                 }
             })));
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Include Set Tickler",
+                text: EFORM_I18N.labelIncludeSetTickler,
                 for: "setTickler"
             })).append($toggleTickler));
 
             $options_menu.append($("<div>").append($("<label>", {
-                text: "Stand alone testing",
+                text: EFORM_I18N.labelStandAloneTesting,
                 for: "standAlone"
             })).append($("<input>", {
                 id: "standAlone",
@@ -4443,7 +4393,7 @@ var EFORM_I18N = {
             if (!runStandaloneVersion) {
                 $element.append($('<button>', {
                     id: "saveToOscarButton",
-                    text: OSCAR_SAVE_MESSAGE_NEW,
+                    text: EFORM_I18N.dialogSaveAsNewEform,
                     click: function(event) {
                         saveToOscarEforms($toggleFaxControls.is(':checked'));
                         event.preventDefault();
@@ -5372,7 +5322,7 @@ var EFORM_I18N = {
                 <form id="inputForm" action="get">
                     <div id="BottomButtons" class="DoNotPrint">
                         <!-- Form Control Buttons -->
-						<label for="subject"><fmt:message key="eform.visual.editor.label.subject"/></label>
+                        <label for="subject"><fmt:message key="eform.visual.editor.label.subject"/></label>
                         <input id="subject" name="subject" style="width: 220px;" type="text">
                         <input id="SubmitButton" name="SubmitButton" onclick="onEformSubmit();" type="button" value="<fmt:message key="eform.visual.editor.button.submit"/>">
                         <input id="PrintButton" name="PrintButton" onclick="onEformPrint()" type="button" value="<fmt:message key="eform.visual.editor.button.print"/>">
