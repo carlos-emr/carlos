@@ -431,11 +431,13 @@ public class CaseManagementPrint {
             if (fos != null) {
                 fos.close();
             }
+            // File.delete() fails silently; these are the encounter PDF and, on the exception
+            // path, the lab PDF that was in flight, both PHI, so a refusal must at least be logged.
             if (file != null) {
-                file.delete();
+                deleteTempPdf(file, "temporary encounter PDF");
             }
             if (file2 != null) {
-                file2.delete();
+                deleteTempPdf(file2, "temporary lab PDF");
             }
             // Second attempt for any intermediate lab PDF the loop could not delete: a transient
             // filesystem refusal is the usual cause, and these files hold lab results.

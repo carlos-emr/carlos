@@ -11,7 +11,14 @@ and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
 dataset (the seeded `_site_access_privacy` grant was applied without multisite mode;
 `consultation-nullable-fields-playwright-checks.js` now asserts the list has rows). Last validated end-to-end 2026-08-31 with
-**41/41 scripts passing** on 2026.09.0~snapshot18.
+**41/41 scripts passing** on 2026.09.0~snapshot18. That is the historical
+full-suite baseline: the count and the date are that run's, not this release's.
+The two checks added since, `echart-print-playwright-checks.js` and
+`clinical-freetext-playwright-checks.js`, were run on 2026-09-12 against a
+2026.09.0~snapshot22 package built from the #3623 branch (DrugRef and the eForm
+renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
+through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
+has not been re-run on a later snapshot.
 
 That 37/37 is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -650,7 +657,16 @@ Notes on the contract:
   `echart-playwright-checks.js` it flags whether any response carried the
   nginx `Server` header, warning when none did and failing when
   `EXPECT_FRONT_DOOR=true` is set, so a run against bare Tomcat cannot be
-  mistaken for a WAF result.
+  mistaken for a WAF result. Two things it found on the package are worth
+  knowing when reading its output. Printing used to stop the chart's draft
+  autosave (the print's form submit fires page-hide, which released the note
+  lock; every later autosave answered 409): the chart now holds the lock across
+  a print, and the check's per-body autosave status shows 200 throughout on a
+  fixed build. And a run that aborts mid-way (a 502, a crash) leaves this
+  provider's note lock behind, so the next open of the chart raises the
+  "edit this note in another window ... continue?" prompt; the check accepts it
+  as a clinician would and lists it under `Notices` rather than failing, so a
+  rerun needs no manual `casemgmt_note_lock` cleanup.
 - **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
   the browser guard for the survey block (exclusions 1100-1199, the clinician
   free text OUTSIDE the eChart), driven through the two rules with the most
