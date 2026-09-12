@@ -69,16 +69,21 @@
     try {
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         String randomId = request.getParameter("randomId");
-        if (randomId != null) {
-            RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
-            String drugName = rx.getBrandName();
-            if (drugName == null || drugName.equalsIgnoreCase("null") || drugName.trim().length() == 0)
-                drugName = rx.getCustomName();
-            List<HashMap<String, String>> listMedHistory = (List<HashMap<String, String>>) bean.getListMedHistory();
+        randomId = randomId != null ? randomId.trim() : null;
+        boolean renderedHistory = false;
+        if (bean != null && randomId != null && randomId.matches("\\d+")) {
+            try {
+                RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+                if (rx != null) {
+                    renderedHistory = true;
+                    String drugName = rx.getBrandName();
+                    if (drugName == null || drugName.equalsIgnoreCase("null") || drugName.trim().length() == 0)
+                        drugName = rx.getCustomName();
+                    List<HashMap<String, String>> listMedHistory = (List<HashMap<String, String>>) bean.getListMedHistory();
 %>
 
-<a onmouseover="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
-        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" TITLE="Close"
+<a onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
+        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>
 <table class="mhTable">
@@ -133,12 +138,29 @@
     <%
                     i++;
                 }
+    %>
+</table>
+    <%
+                } // end if (rx != null)
+            } catch (NumberFormatException ignored) {
+                // Out-of-range digit strings render the empty state below.
             }
+        } // end if (bean != null && randomId != null && randomId.matches("\\d+"))
 
+        if (!renderedHistory) {
+    %>
+<a onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
+        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
+        style="position: absolute; top: 0.5em; right: 0.5em; "></a>
+<br/><br/>
+<div class="mhTable" style="font-style:normal;font-family:sans-serif;font-size:80%;padding:1em;">
+    Medication history is unavailable.
+</div>
+    <%
+        }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
     %>
-</table>
 </body>
 </html>
