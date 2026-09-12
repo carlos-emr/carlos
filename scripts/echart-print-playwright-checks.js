@@ -52,10 +52,14 @@ const printResults = [];
 
 // Each note body is a phrase measured to score over the CRS inbound threshold on
 // ARGS:caseNote_note through the packaged front door before rule 1010 covered
-// that argument. The rule ids are what the ModSecurity audit log reported.
+// that argument. The rule ids are what the ModSecurity audit log reported. The
+// pasted link goes FIRST in its body on purpose: 931100 is anchored on the start
+// of the argument, so a link buried mid-sentence would not exercise attack-rfi,
+// which 1010 unhooks alongside the other families.
 const NOTE_BODIES = [
   { label: 'plain prose', text: 'Routine follow up. Patient doing well.', crs: 'none' },
   { label: 'sentence semicolon', text: 'Reviewed labs with the patient; find attached the CBC and lytes.', crs: '932100/932110 attack-rce' },
+  { label: 'pasted PACS link first', text: 'http://10.0.0.5/pacs/study?id=1&cmd=view reviewed prior imaging with the patient.', crs: '931100 attack-rfi + 932110 attack-rce' },
   { label: 'shell-shaped cost', text: 'Cost ${45} per month; patient declined the brand.', crs: '932130 attack-rce' },
   { label: 'either-or plan', text: 'Consider amoxicillin or doxycycline; select per C&S.', crs: '932115/942350 rce+sqli' },
   { label: 'relative file path', text: 'See scanned report ../../images/ecg.png for the tracing.', crs: '930100/930110 attack-lfi' },

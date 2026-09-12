@@ -39,6 +39,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
@@ -294,7 +295,7 @@
                                             %>
                                             <carlos:encode value='<%= descr %>' context="html"/>
                                         </td>
-                                        <td><%=drugReason.getComments() %>
+                                        <td><%=SafeEncode.forHtmlContent(drugReason.getComments()) %>
                                         </td>
                                         <td>
                                             <%if (drugReason.getPrimaryReasonFlag()) { %>

@@ -87,7 +87,12 @@
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var providerNo = document.docDescriptionForm.providerNo.value;
-                var data = 'method=addDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&providerNo=' + providerNo;
+                // URLSearchParams encodes each value: the description is typed text, and
+                // concatenating it raw cut it off at the first "&" and read "+" as a space.
+                var data = new URLSearchParams({
+                    method: 'addDocumentDescription', description: docDescription, shortcut: docShortcut,
+                    doctype: docType, providerNo: providerNo
+                }).toString();
                 fetch(url, {
                     method: 'POST',
                     credentials: 'same-origin',
@@ -113,7 +118,10 @@
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
                 var providerNo = document.docDescriptionForm.providerNo.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
-                var data = 'method=updateDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&id=' + id + '&providerNo=' + providerNo;
+                var data = new URLSearchParams({
+                    method: 'updateDocumentDescription', description: docDescription, shortcut: docShortcut,
+                    doctype: docType, id: id, providerNo: providerNo
+                }).toString();
                 fetch(url, {
                     method: 'POST',
                     credentials: 'same-origin',

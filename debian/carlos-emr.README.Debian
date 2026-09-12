@@ -302,20 +302,27 @@ Understand WHY that list exists, because it tells you what to expect. The CRS
 content signatures cannot distinguish a clinician's prose from an attack: at
 paranoia level 1 a sentence-ending semicolon ("Reviewed labs; find attached the
 CBC") scores 10 against a threshold of 5 on the Unix and Windows command-
-injection rules alone. The shipped exclusions unhook those signature families
-from the specific free-text arguments of the specific clinical workflows —
-encounter notes and the chart print, referrals, prescriptions, appointments, the
-patient Alert and Notes, preventions, lab-review comments, messages and
-ticklers. They do NOT cover the ENCOUNTER-FORM family (Rourke, BCAR, the
-mental-health assessments): those 52 forms post roughly 900 form-specific
-textarea names through one route, so no per-argument exclusion is maintainable
-and the only WAF-side option is to stop inspecting that route's bodies
-altogether. If your site uses those forms and a save returns 403, that is this
-gap. The route is /carlos/form/formname (with /carlos/form/SubmitForm,
-/carlos/form/BCAR2020 and /carlos/form/RHPrevention for the forms that have
-their own action). Decide deliberately whether to trade body inspection on
-those routes for working encounter forms. If you do, add the exclusion to your
-own local-exclusions-before-crs.conf. Record why you made that trade.
+injection rules alone, and a note that simply BEGINS with a pasted internal
+PACS link scores on the RFI rule. The shipped exclusions unhook those signature
+families from the specific free-text arguments of the specific clinical
+workflows — encounter notes and the chart print, referrals, prescriptions,
+appointments, the patient Alert and Notes, preventions, lab-review comments,
+messages, ticklers and the rest of the survey in ids 1010 and 1100-1199 — and,
+through a GENERATED companion file, from the narrative cells of the encounter
+forms (Rourke, BCAR, the mental-health assessments and the rest:
+REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf, ids 1200-1399, one rule per
+save route and form class). Two things are left inspected ON PURPOSE. Outside
+the encounter note itself the XSS family stays on every exempted argument, so
+raw HTML markup pasted into a referral or a master-record note still answers
+403: that layer is defence in depth for legacy views that render stored text.
+And two groups of form cells stay fully inspected because the only way to
+exempt them would apply to every route: the Vascular Tracker's bracketed
+value(...) cells and the growth-chart and chart-checklist per-row cells
+(comment_<n>, descOther<n>). A 403 on one of those is this gap, not a defect;
+the reasoning is in docs/ui-tests/deb-install-validation.md. Decide
+deliberately whether your site needs them, and if so add the narrowest
+exclusion that works to your own local-exclusions-before-crs.conf and record
+why you made that trade.
 
 For anything else, the supported response is: reproduce it, read
 `carlos-ctl waf tail` for the rule id and the matched variable, and add the

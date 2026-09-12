@@ -7,17 +7,19 @@
  * blocking mode, and the CRS content signatures cannot tell a clinician's prose
  * from an attack: rules 932100/932110 read a sentence-ending semicolon as a
  * shell command separator, 930100/930110 read a "../" in a reference to a filed
- * report as path traversal, 941100/941160 read HTML pasted out of a hospital
- * report as an XSS attribute vector. At PL1 with an inbound threshold of 5, one
- * match blocks the save with nginx's bare 403 and no application log line.
+ * report as path traversal, 931100 reads a value that begins with a pasted
+ * internal PACS link as remote file inclusion. At PL1 with an inbound threshold
+ * of 5, one match blocks the save with nginx's bare 403 and no application log
+ * line.
  *
  * A survey of the clinician-facing free-text POST arguments through the
  * packaged front door found EVERY one of them blocked on the same ordinary
- * sentence. This check drives the two workflows that carry the most prose and
- * are reachable without fixture setup — the consultation request (a referral
- * letter) and the demographic master record's Alert and Notes — through the
- * real UI, once per phrase in a corpus chosen so that each phrase trips a
- * different CRS family.
+ * sentence; exclusions 1100-1199 in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+ * close them per argument. This check drives the two workflows that carry the
+ * most prose and are reachable without fixture setup — the consultation request
+ * (a referral letter, rule 1100) and the demographic master record's Alert and
+ * Notes (rule 1131) — through the real UI, once per phrase in a corpus chosen
+ * so that each phrase trips a different CRS family that those rules unhook.
  *
  * Like scripts/echart-print-playwright-checks.js, this only covers the WAF
  * defect when run through the packaged `:443` front door. Against the
@@ -34,7 +36,6 @@
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
  *   CLINICAL_DEMOGRAPHIC_NO=1
- *   CLINICAL_PROVIDER_NO=999998
  *   CLINICAL_CONSULT_SERVICE_ID=1
  *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not this
  *     machine — this check writes, so a private LAN address needs the opt-in too
@@ -48,7 +49,6 @@ const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = requireDigits(process.env.CLINICAL_DEMOGRAPHIC_NO || '1', 'CLINICAL_DEMOGRAPHIC_NO');
-const providerNo = requireDigits(process.env.CLINICAL_PROVIDER_NO || '999998', 'CLINICAL_PROVIDER_NO');
 const consultationServiceId = requireDigits(process.env.CLINICAL_CONSULT_SERVICE_ID || '1', 'CLINICAL_CONSULT_SERVICE_ID');
 
 const saveResults = [];
@@ -56,13 +56,22 @@ const badResponses = [];
 
 // Each phrase is a sentence a clinician would actually write, measured through
 // the packaged front door to score over the CRS inbound threshold on its own.
-// The rule ids are what the ModSecurity audit log reported.
+// The rule ids are what the ModSecurity audit log reported. The pasted link goes
+// FIRST in its phrase on purpose: 931100 is anchored on the start of the
+// argument, so a link buried mid-sentence does not exercise attack-rfi.
+//
+// There is deliberately NO phrase carrying HTML markup. Unlike the note route
+// (1010), the survey exclusions keep the CRS XSS family ON every argument —
+// ClinicalProseWafExclusionRegressionTest pins that — so a "<span style=...>"
+// pasted into a referral is expected to answer 403 behind the front door, and a
+// corpus that carried one would fail this check against a correct rule set.
 const PROSE_CORPUS = [
   { label: 'plain prose', text: 'Routine follow up. Patient doing well.', crs: 'none' },
   { label: 'sentence semicolon', text: 'Reviewed labs with the patient; find attached the CBC and lytes.', crs: '932100/932110 attack-rce' },
   { label: 'shell-shaped cost', text: 'Cost ${45} per month; patient declined the brand.', crs: '932130 attack-rce' },
+  { label: 'either-or plan', text: 'Select one of the two and order 1,2 tests.', crs: '932115/942350 rce+sqli' },
   { label: 'relative file path', text: 'See scanned report ../../images/ecg.png for the tracing.', crs: '930100/930110 attack-lfi' },
-  { label: 'pasted report html', text: 'Result <span style="color:red">HIGH</span> flagged by the lab.', crs: '941100/941160 attack-xss' },
+  { label: 'pasted PACS link first', text: 'http://10.0.0.5/pacs/study?id=1&cmd=view reviewed prior imaging with the patient.', crs: '931100 attack-rfi + 932110 attack-rce' },
   { label: 'wound measurement', text: 'Wound <2cm, clean. <?> follow up in 1 week.', crs: '933100 attack-injection-php' },
 ];
 
@@ -71,7 +80,7 @@ const PROSE_CORPUS = [
  * admits only hosts that are unambiguously this machine or its compose network,
  * and not the private IPv4 ranges the shared guard also allows. Both of this
  * check's workflows perform REAL writes — a run rewrites the patient's Alert and
- * Notes with a corpus phrase and files six consultation requests — and RFC1918
+ * Notes with a corpus phrase and files seven consultation requests — and RFC1918
  * is exactly where a real clinic's server lives. Same reasoning, and the same
  * opt-in, as the fixture-teardown guards in edoc-schedule-navigation and
  * assign-role.

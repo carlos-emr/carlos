@@ -26,6 +26,176 @@ adding a check here, reach the page by clicking the links an operator clicks:
 the eForm editor 403 existed **only** on the panel path, and navigating straight
 to the JSP exercised the one shape that already worked.
 
+The same lesson has a second half: **what a check types matters as much as where
+it clicks.** A later tester hit a 403 saving eChart CPP items that the green
+`echart-playwright-checks.js` could not have caught, because the text the script
+typed was clean and the text in the tester's chart was not — a pasted link whose
+query string contained `&cmd` scored CRS 932110 on the encounter note body, and
+that body rides on the CPP save's issue-refresh POST and the draft autosave as
+well as on the note save itself. A WAF check that submits only inoffensive prose
+measures nothing. Position matters too: CRS 931100 (RFI via an IP-address URL)
+is anchored on the start of the argument, so it fired only once the seeded text
+*began* with the pasted PACS link — a probe that buried the link mid-sentence
+reported the argument clean.
+
+The note route was not special. A per-argument survey of every clinician
+free-text field the application posts (consultation requests, ticklers,
+prescriptions and allergies, preventions, document and lab comments, HRM,
+messenger and patient email, appointment reasons and notes, master-record
+notes and alerts, billing comments, fax cover comments, program notes) found
+all 67 of them answering 403 on the same three shapes, and a consultation
+request save and a tickler add reproduced it in the browser. Exclusions
+1100-1141 close them per argument. `tickler-crud-playwright-checks.js` now
+types that scoring text too. Fields whose parameter names are generated per
+row (measurement `comments-<n>`, manual lab `test_<n>.labnotes`, contact
+`contact_<n>.note`, waiting-list `waitingListBean[<n>].note`) cannot be literal
+`ctl` targets and libmodsecurity 3.0.14 rejects a regex target in a `ctl`
+action, but it accepts one in a config-time `SecRuleUpdateTargetByTag`, so
+those four are anchored patterns in `RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`.
+The trade-off, spelled out in that file, is that a config-time update is not
+route-scoped: an argument of exactly that shape is exempt on any route, while a
+near-miss name (`xcomments-1`, `comments-1x`) still scores. Measured after
+deploying them: every per-row field reaches the application on all six shapes,
+the structured neighbours on the same rows (`test_<n>.lab_test_name`,
+`contact_<n>.contactId`, `waitingListBean[<n>].demographicNo`) and the
+un-indexed names (`comments`, `labnotes`, `note`) still block on the same
+shapes, and a measurement saved from the browser with such a comment lands in
+the `measurements` table intact.
+
+Everything the survey, the per-row patterns and the form list exempt keeps the
+CRS **XSS** family inspected: those rules did not fire on any measured prose
+shape at paranoia level 1, and legacy views still render some stored values
+raw, so only the six families that misread prose (SQLi, RCE, PHP injection,
+protocol, LFI, RFI) are removed. Exclusion 1010 on the note route keeps its
+original seven, and the raw sinks a review found behind exempted arguments
+(note history, the legacy tickler list, prescription record and reason
+comments, the demographic alert and notes boxes) now go through the null-safe
+encoder, pinned by `ProseSinkEncodingRegressionTest`.
+
+The encounter forms under `/form/*` are covered by a **generated** file,
+`REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf` (ids 1200-1399), written by
+`scripts/waf/generate-form-prose-exclusions.py` from the form JSPs: one rule per
+save route and, on the shared `/form/formname` route, per `form_class`, listing
+that form's `<textarea>` cells and the single-line inputs whose names mark them
+as narrative boxes (48 rules, 1,250 cells at the time of writing). The
+`form_class`-keyed rules run in phase 2, where the POST body is available.
+`FormProseWafExclusionRegressionTest` re-derives the same table from the JSPs
+and fails when the committed file is stale, so after editing a form run the
+generator and commit its output. Measured on the packaged install: config test
+85 ms and a normal reload with the file loaded (1,027 rules); Discharge
+Summary, Mental Health Form 1, Rourke 2020, BCAR 2020 and Vascular Tracker
+cells reach the application on all shapes; a Rourke cell posted under another
+form's `form_class`, the same cell with no `form_class`, the same cell on GET,
+and the structured fields on every form (`formId`, `demographic_no`,
+`form_class`) still block; Mental Health Form 1 and Rourke 2020 saved from the
+browser through `:443` with such prose are stored intact.
+
+Two groups of form cells are **deliberate residuals**: they still answer 403
+on scored prose, the generator reports each by name as skipped, and both are
+security decisions rather than gaps. The policy this deployment holds to is
+one route, one argument: an exemption is a `ctl` action chained on the route
+(and, on the shared form route, the `form_class`), naming one literal
+argument. A config-time `SecRuleUpdateTargetByTag` would accept an anchored
+regex for names a `ctl` target cannot carry, but it is not route-scoped and so
+exempts that name on **every** route; measured here, and rejected.
+
+- The Vascular Tracker's `value(...)` cells. libmodsecurity 3.0.14 rejects
+  `ARGS:value(subjective)` in a `ctl` action quoted, unquoted and
+  backslash-escaped (`Expecting an action` at `nginx -t` each time), so there
+  is no per-route spelling. A global pattern was tried and withdrawn on the
+  policy above. Nothing is lost today: the form cannot submit on this line at
+  all (next paragraph), and when it is restored its cells should be given
+  names the per-route file can target.
+- The growth-chart and chart-checklist per-row cells (`comment_<n>`,
+  `descOther<n>`). A global `^comment_[0-9]+$` was also tried and withdrawn:
+  `rx/prescribe.jsp` posts the prescription comment as `comment_<rand>`, so
+  the pattern would unscore that field and hand a forged POST to any endpoint
+  a rule-free generic name. The clean fix is a per-form rename to fixed
+  repeated names the 901 file can target by literal `ARGS`, which the save
+  action (keyed by row index) must follow — a form migration.
+
+The Rh-injection page under the form directory posts elsewhere
+(`/prevention/AddPrevention`, `reason` and `reasonOtherText`) and is covered by
+rule 1117; the lab requisition print view posts nothing; the generator reports
+both by name rather than as skipped.
+
+The Vascular Tracker form itself cannot be exercised from the browser on
+this line, for reasons that have nothing to do with the firewall and are NOT
+fixed here. Its Struts 2
+migration was never finished: the chart shortcut is stored as the Struts 1
+route (`../form/SetupForm.do?formName=VTForm&demographic_no=`), which the
+route resolver returns null for (`CARLOS Error: 400`); the setup and submit
+actions' configured-form check rejects that same stored row as not their
+route (400); the submit action reads its `value(...)` cells from a map that
+Struts 2 never fills (`value(x)` is not an accepted parameter name) and
+returns raw paths as result names that nothing maps; and the setup action
+sets the page's request attributes and then redirects, so the page renders
+`null` in every label it reads from them. Each was reproduced on the
+packaged install by fixing the one before it. Restoring the form is a form
+migration with its own browser verification, not a WAF exclusion, and it
+was deliberately not bundled into this change. The one piece kept is the
+JAXB binding of `<validationRule>` in `EctMeasurementTypesBean`: a raw
+`Vector` gave JAXB no element type, so every definition with a validation
+rule unmarshalled to DOM elements and the first cast to `EctValidationsBean`
+threw, and the measurement-type import shares that path
+(`EctFormPropUnmarshalUnitTest`). Two form-page 500s
+found while proving this are fixed alongside it:
+the chart's form shortcut now always carries `formId` (0 when the patient has no
+record of that form yet, which every form page parses unconditionally), and
+Discharge Summary no longer requires a program id in the session. Verified in
+the browser: Mental Health Form 14 opens from the shortcut for a patient with
+no record, and Discharge Summary opens and saves such prose as a new record.
+The form save (`FrmForm2Action`) and the setup check
+(`EctFindMeasurementTypeUtil.checkMeasurmentTypes`) also now validate against
+the definition file they read rather than `EctFormProp.getMeasurementTypes()`,
+a static list refilled by every unmarshal in the JVM, so one provider opening
+a form can no longer change the rules another provider's save is checked
+against. One nested form page is reported by the generator but exempted
+nowhere: `form/pharmaForms/formBPMH.jsp` posts to `/formBPMH`, not a `/form/`
+route, so it is outside the generator's scope; and it posts no prose today,
+because no page links to it, its fetch path dereferences a handler only the
+save path constructs (HTTP 500 measured on the packaged install), and its
+prose widgets are `<form:textarea>` tags with no such taglib declared, so
+they render as inert text. Repairing it is a form migration of its own, and
+its cells then need an exclusion on `/formBPMH`.
+
+Two more defects surfaced while driving the note route and are fixed here,
+both verified in the browser through `:443`. Leaving a note with unsaved text
+for another note (save-on-switch) rendered an empty view: `ajaxsave()` never
+set the `noteTxt` attribute `noteIssueList.jsp` reads, and for a brand-new
+note the fragment then threw on `$("nc" + origId)`, because the page renders
+the initial note's container as `nc<offset><idx>` (`nc00` for `n0`) while
+`newNote()` builds `nc0N`. The action now hands the saved text to the view and
+the fragment promotes the container by walking up from the note div it just
+renamed. Reopening a saved note for editing (`editNote()`) now HTML-escapes
+the decoded text before splicing it into the textarea markup, so a note
+holding `</textarea><img onerror=...>` decodes back into the editor as text
+rather than closing the element (`CaseManagementCppSaveRegressionTest`). And
+the waiting-list page (`waitinglist/DisplayWaitingList.jsp`) now names its row
+fields `waitingListBean[<i>].demographicNo/note/onListSince` with their
+current values: the plain names left from the Struts 1 `indexed="true"` tags
+made `setParameters()` build `waitingListBean[undefined].*` selectors, so
+every row update fell through to a reposition and the edit was lost. Verified
+on the packaged install: a note holding `& < > 2+2` and a new date persist as
+a new `waitingList` row with the old one marked history
+(`WLMutation2ActionsTest` pins the page's field names against the action's
+selector contract). The action also refuses `update=Y` without a usable
+`waitingListId` (missing, non-numeric or non-positive) with a 400: the
+legacy null check around the mutation never fired, because the parsed id
+defaulted to an empty string, so the reposition and update ran against `""`.
+Likewise a row edit whose selectors are present but whose patient number or
+date is blank answers 400 instead of falling through to a reposition the
+clinician did not ask for. A
+quick way to re-survey after a policy change is to POST each field
+through `:443` unauthenticated with a value that begins with
+`http://10.0.0.5/pacs/study?id=1&cmd=view`: the WAF decides before the
+application does, so nginx's own 403 page means blocked and any application
+answer (302 to login, its CSRF 403) means the request got through. Scripts driving a free-text clinical field through the front
+door should carry text the rule set actually scores (see
+`CLINICAL_TEXT_THE_WAF_SCORES` in `scripts/echart-playwright-checks.js`) and
+should be confirmed to fail against the previous exclusion file, not merely to
+pass against the new one.
+
 ## Scope
 
 This validation answers one question:
@@ -443,27 +613,33 @@ Notes on the contract:
   *only* behind the WAF: the chart print POSTs the whole encounter form, so CRS
   scored the clinician's own note prose in `ARGS:caseNote_note` and answered
   every print with a 403 — "the chart print button gives a 403 no matter what
-  you choose to print" on 2026.08.0-alpha11. Each of its seven note bodies is a
-  phrase measured to trip a different CRS family; against bare Tomcat they are
+  you choose to print" on 2026.08.0-alpha11. Each of its eight note bodies is a
+  phrase measured to trip a different CRS family, the pasted-PACS-link body
+  included now that 1010 also unhooks attack-rfi; against bare Tomcat they are
   just ordinary notes and the check degrades to covering the print path itself.
   It types into the open encounter note but never saves it, so it seeds nothing
   and cleans nothing up. Run it on a **loopback** `BASE_URL`: like
   `billing-on-third-party`, it relaxes certificate verification only for
   loopback, so a host opted in with `ALLOW_NON_LOCAL_BASE_URL` must present a
-  certificate the browser trusts. Driving fourteen prints through one open encounter
+  certificate the browser trusts. Driving fifteen prints through one open encounter
   outlives the note lock, so the eChart's own autosave answering 409 partway
   through is expected and tolerated; a 403 from any of them is not.
 - **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
-  the guard for package exclusions 1100-1180, which cover the clinician-facing
-  free-text arguments OUTSIDE the eChart. It opens the consultation request and
-  the demographic master record, serialises each real form (hidden fields and
-  the injected CSRF token included), and replays that body once per prose phrase
+  the browser guard for the survey block (exclusions 1100-1199, the clinician
+  free text OUTSIDE the eChart), driven through the two rules with the most
+  prose: 1100, the consultation request, and 1131, the demographic master
+  record. It opens each page, serialises the real form (hidden fields and the
+  injected CSRF token included), and replays that body once per prose phrase
   with only the free-text fields swapped — clicking through each form's own
-  required-field JS six times would measure that validation rather than the WAF.
+  required-field JS seven times would measure that validation rather than the
+  WAF. Its corpus deliberately carries no HTML markup: the survey block keeps
+  the CRS XSS family on (pinned by `ClinicalProseWafExclusionRegressionTest`),
+  so a `<span>` pasted into a referral is expected to 403 there, and a phrase
+  that carried one would fail the check against a correct rule set.
   Both replays are real saves: a run rewrites demographic 1's Alert/Notes with
-  the last phrase in the corpus, and files six new consultation requests against
-  that patient (the consultation page renders the new-request form, so each
-  replay creates a record rather than editing one). That is harmless on a
+  the last phrase in the corpus, and files seven new consultation requests
+  against that patient (the consultation page renders the new-request form, so
+  each replay creates a record rather than editing one). That is harmless on a
   throwaway VM but is why it names `CLINICAL_DEMOGRAPHIC_NO`
   (default 1) rather than assuming a patient, and why its `BASE_URL` guard is
   narrower than the other checks': it admits only this machine (loopback or a
@@ -471,10 +647,9 @@ Notes on the contract:
   included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is set deliberately. Like
   `echart-print`, it relaxes certificate verification only for loopback, so such
   a target must present a certificate the browser trusts.
-  `CLINICAL_PROVIDER_NO` (default
-  `999998`, the seeded `carlosdoc`) and `CLINICAL_CONSULT_SERVICE_ID` (default
-  `1`) name the other two records it assumes; override the service id if the
-  install's `consultationServices` table does not start at 1. Against bare
+  `CLINICAL_CONSULT_SERVICE_ID` (default `1`) names the other record it
+  assumes; override it if the install's `consultationServices` table does not
+  start at 1. Against bare
   Tomcat the phrases are ordinary notes and the check degrades to guarding the
   two save paths.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
