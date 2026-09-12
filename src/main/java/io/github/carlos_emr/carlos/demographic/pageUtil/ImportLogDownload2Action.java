@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Objects;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -51,9 +52,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ImportLogDownload2Action extends ActionSupport {
@@ -62,8 +63,15 @@ public class ImportLogDownload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
 
+    public ImportLogDownload2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = Objects.requireNonNull(securityInfoManager, "securityInfoManager");
+    }
+
+    public ImportLogDownload2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
     public String execute() throws FileNotFoundException, IOException {
         // Security check - user must have demographic read privileges
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {

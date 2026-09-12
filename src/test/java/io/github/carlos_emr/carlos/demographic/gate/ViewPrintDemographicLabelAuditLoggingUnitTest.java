@@ -99,22 +99,22 @@ class ViewPrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintDemoLabel() throws Exception {
-        assertThat(execute(new ViewPrintDemoLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintDemoLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintClientLabLabel() throws Exception {
-        assertThat(execute(new ViewPrintClientLabLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintClientLabLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintDemoChartLabel() throws Exception {
-        assertThat(execute(new ViewPrintDemoChartLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintDemoChartLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @Test
     void shouldAuditDemographicRead_whenViewingPrintAddressLabel() throws Exception {
-        assertThat(execute(new ViewPrintAddressLabel2Action())).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(execute(new ViewPrintAddressLabel2Action(securityInfoManager))).isEqualTo(ActionSupport.SUCCESS);
     }
 
     private String execute(ActionSupport action) throws Exception {

@@ -59,11 +59,15 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient DemographicManager demographicManager;
+    private final transient SecurityInfoManager securityInfoManager;
+    public AddDemographicRelationship2Action(DemographicManager demographicManager, SecurityInfoManager securityInfoManager) {
+        this.demographicManager = demographicManager;
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public AddDemographicRelationship2Action() {
-
+        this(SpringUtils.getBean(DemographicManager.class), SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**

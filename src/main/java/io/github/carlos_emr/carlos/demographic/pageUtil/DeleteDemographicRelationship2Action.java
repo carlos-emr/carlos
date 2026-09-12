@@ -56,12 +56,16 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final transient SecurityInfoManager securityInfoManager;
     /**
      * Creates a new instance of DeleteDemographicRelationship2Action
      */
+    public DeleteDemographicRelationship2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
     public DeleteDemographicRelationship2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     public String execute() {
