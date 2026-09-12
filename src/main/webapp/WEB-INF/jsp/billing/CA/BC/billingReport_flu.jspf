@@ -32,6 +32,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <table width="100%" border="2" cellpadding="0" cellspacing="0">
 
@@ -94,6 +95,10 @@ int rowCount1 = 0;
        apptDate = ConversionUtils.toDateString(bBillingDate);
      specialty = SxmlMisc.getXmlContent(bContent,"specialty")==null?"":SxmlMisc.getXmlContent(bContent,"specialty");
      reason = bStatus;
+     String encodedBillingIdForUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+             io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(String.valueOf(bId)));
+     String encodedReasonForDeleteBillCode = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
+             io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(reason));
     total = bTotal.indexOf(".") > 0?bTotal:bTotal.substring(0,bTotal.length()-2)+"."+bTotal.substring(bTotal.length()-2) ;
       
       if (specialty.equals("flu")){
@@ -107,10 +112,10 @@ int rowCount1 = 0;
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=bId%></a></font></b></TD>
+			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%= encodedBillingIdForUrl %>&dboperation=search_bill&hotclick=0")'
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
 
@@ -120,7 +125,7 @@ int rowCount1 = 0;
 		<TD align="right" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><%=total%></font></b></TD>
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/BillingDeleteNoAppt?billing_no=" + bId + "&billCode=" +reason+ "&hotclick=0\")'>-B</a>"%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/BillingDeleteNoAppt?billing_no=" + encodedBillingIdForUrl + "&billCode=" + encodedReasonForDeleteBillCode + "&hotclick=0\")'>-B</a>"%></font></b></TD>
 
 	</tr>
 	<%  rowCount1 = rowCount1 + 1;
@@ -132,10 +137,10 @@ int rowCount1 = 0;
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/oscarBilling/billingView?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=bId%></a></font></b></TD>
+			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/oscarBilling/billingView?billing_no=<%= encodedBillingIdForUrl %>&dboperation=search_bill&hotclick=0")'
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
 		<TD align="right" width="10%"><b> <font size="2"
@@ -145,7 +150,7 @@ int rowCount1 = 0;
 
 
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/BillingDeleteNoAppt?billing_no=" + bId + "&billCode=" +reason+ "&hotclick=0\")'>-B</a>"%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><%=reason.compareTo("X")==0?"Bad Debt":reason.compareTo("B")==0?"Submitted to OHIP":reason.compareTo("S")==0?"Settled":"<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/BC/BillingDeleteNoAppt?billing_no=" + encodedBillingIdForUrl + "&billCode=" + encodedReasonForDeleteBillCode + "&hotclick=0\")'>-B</a>"%></font></b></TD>
 
 	</tr>
 	<%  
