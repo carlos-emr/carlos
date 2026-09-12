@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*, java.text.SimpleDateFormat,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
 <%@page import="io.github.carlos_emr.CarlosProperties"%>
@@ -279,7 +280,10 @@
                         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());
 
                         if (demo == null) {
-                            MiscUtils.getLogger().warn("PreventionReporting: demographic not found for demographicNo=" + dis.demographicNo);
+                            MiscUtils.getLogger().warn(
+                            "PreventionReporting: demographic not found for demographicNo={}",
+                            LogSafe.sanitizeObject(dis.demographicNo)
+                        );
                             continue;
                         }
 

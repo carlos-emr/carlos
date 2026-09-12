@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -49,7 +50,7 @@ public final class PreventionReportUtil {
     public static DemographicArchiveDao demographicArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
 
     public static boolean wasRostered(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate) {
-        logger.debug("Checking rosterd:" + demographicId);
+        logger.debug("Checking rostered: {}", LogSafe.sanitizeObject(demographicId));
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
 
         if (rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate()))
@@ -66,7 +67,12 @@ public final class PreventionReportUtil {
 
 
     public static boolean wasEnrolledToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
-        logger.debug("Checking rosterd:" + demographicId + " for this date " + onThisDate + " for this providerNo " + providerNo);
+        logger.debug(
+            "Checking rostered: {} for this date {} for this providerNo {}",
+         LogSafe.sanitizeObject(demographicId),
+         onThisDate,
+    LogSafe.sanitize(providerNo)
+);
         if (providerNo == null) {
             return false;
         }
@@ -87,8 +93,13 @@ public final class PreventionReportUtil {
     }
 
     public static boolean wasRosteredToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
-        logger.debug("Checking rosterd:" + demographicId + " for this date " + onThisDate + " for this providerNo " + providerNo);
-        if (providerNo == null) {
+            logger.debug(
+            "Checking rostered: {} for this date {} for this providerNo {}",
+            LogSafe.sanitizeObject(demographicId),
+            onThisDate,
+            LogSafe.sanitize(providerNo)
+         );
+         if (providerNo == null) {
             return false;
         }
 

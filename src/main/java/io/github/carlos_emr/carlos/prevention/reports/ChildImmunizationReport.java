@@ -44,6 +44,8 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -317,7 +319,7 @@ public class ChildImmunizationReport implements PreventionReport {
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue")) {
                 // Get LAST contact method
                 EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
-                log.debug("getting followup data for " + prd.demographicNo);
+                log.debug("getting followup data for {}", LogSafe.sanitizeObject(prd.demographicNo));
 
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
                 //NO Contact
