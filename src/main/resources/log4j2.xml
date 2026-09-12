@@ -48,7 +48,8 @@
         </Logger>
         <!-- The eForm render browser reports its startup probe at INFO ("eForm browser
              renderer startup check passed.") and its failures at WARN. The root logger
-             defaults to ERROR, so at default verbosity BOTH were invisible: a healthy
+             defaulted to ERROR when this was written (it is WARN now, see Root below), so
+             at default verbosity BOTH were invisible: a healthy
              renderer said nothing, and a broken one showed only the low-level detail
              line without the summary that names the component. That is the whole
              diagnostic story for saved-eForm print/fax/archive, and it is what
@@ -66,13 +67,23 @@
                 level="info" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
+        <!-- Hibernate's deprecation channel. HHH90000033 (the deprecated @Temporal annotation)
+             alone is one WARN line per mapped date column, roughly 850 lines at every start, for
+             a migration that is tracked as a whole rather than actionable line by line. Holding
+             this one category at ERROR is what lets the Root default below be WARN without the
+             journal opening on a wall of the same line; raise it while doing that migration. -->
+        <Logger name="org.hibernate.orm.deprecation" level="error"/>
         <Logger name="org.apache.log4j.xml" level="error">
             <AppenderRef ref="Console"/>
         </Logger>
         <Logger name="openjpa.jdbc.SQL" level="error">
             <AppenderRef ref="Console"/>
         </Logger>
-        <Root level="${env:LOG_VERBOSITY:-error}">
+        <!-- WARN, not ERROR: at ERROR the application was silent about everything short of a
+             failure it had already given up on, which hid the class of defect where a request
+             dies quietly. DEBUG can put request parameters, which is to say PHI, into the log;
+             LOG_VERBOSITY is the operator's knob for a bounded troubleshooting window. -->
+        <Root level="${env:LOG_VERBOSITY:-warn}">
             <AppenderRef ref="Console" />
 <!--            <AppenderRef ref="File" />-->
         </Root>

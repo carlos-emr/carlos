@@ -3421,7 +3421,17 @@ function autoSave() {
         frm.pEndDate.value = $F("printEndDate");
         frm.pType.value = $F("printopDates");
 
+        // The print is a top-level form submit whose response is a PDF download, and the
+        // browser fires pagehide for that navigation even though this document stays. The
+        // pagehide handler then released this window's note lock, so every draft autosave
+        // after a print answered 409 and the chart reported "edited in another window" for
+        // the rest of the encounter. Hold the lock across the submit; restore the release
+        // once the download has had time to start and this document is still here. If the
+        // response is not a download (an error page), the document is gone by then and the
+        // lock is left for the next open of this note by the same user to reclaim.
+        needToReleaseLock = false;
         frm.submit();
+        setTimeout(function () { needToReleaseLock = true; }, 3000);
 
         return false;
     }

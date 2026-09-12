@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -413,6 +414,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
         assertThat(action.getActionErrors()).containsExactly("Consultation request unavailable");
+        // The input result forwards to ViewRequest, so the form's alert reads this attribute; the
+        // action errors do not survive the forward.
+        assertThat(request.getAttribute("errorMessage")).isEqualTo("Consultation request unavailable");
         verify(consultationManager, never()).archiveConsultationRequest(9);
         verify(consultationRequestDao).find(9);
         verify(consultationRequestDao, never()).merge(any());
@@ -620,6 +624,121 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(persisted[0]).isNotNull();
         assertThat(persisted[0].getServiceId()).isEqualTo(1);
+    }
+
+    /**
+     * The Health Care Team bridge is OFF in the shipped carlos.properties, and with it off a blank
+     * consultant left {@code specId} null all the way to {@code professionalSpecialistDao.find(null)}.
+     * Hibernate rejects a null identifier with {@link IllegalArgumentException} instead of returning
+     * null, so on a default install every new consultation without a consultant died in the Struts
+     * global {@code Exception -> error} mapping: nothing persisted, nothing logged, and the clinician
+     * was told the form "could not be printed". The mocked DAO has to reject null the way the real one
+     * does, or this test passes against the unfixed action.
+     */
+    @Test
+    @DisplayName("persists the consultation without a specialist lookup when the consultant is blank and the health care team bridge is off")
+    void shouldPersistConsultationWithoutSpecialistLookup_whenConsultantIsBlankAndHealthCareTeamOffOnCreate() throws Exception {
+        ConsultationRequest[] persisted = capturePersistedConsultationRequest();
+        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
+        when(professionalSpecialistDao.find((Object) null))
+                .thenThrow(new IllegalArgumentException("Identifier may not be null"));
+        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(false);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getProfessionalSpecialist()).isNull();
+        verify(professionalSpecialistDao, never()).find((Object) null);
+    }
+
+    /**
+     * The update branch guarded the null lookup but seeded its local with a bare
+     * {@code new ProfessionalSpecialist()}, attached that placeholder to the consultation, and merged.
+     * The association cascades MERGE, so every edit that left the consultant blank INSERTed an
+     * all-NULL professionalSpecialists row and re-pointed the request at it. A blank consultant on
+     * an edit must clear the link, and must not consult the DAO at all.
+     */
+    @Test
+    @DisplayName("clears the specialist instead of attaching a blank placeholder when the consultant is blank on update")
+    void shouldClearSpecialist_whenConsultantIsBlankOnUpdate() throws Exception {
+        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
+        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+        ConsultationRequest stored = consultationRequest(1);
+        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
+        when(consultationRequestDao.find(9)).thenReturn(stored);
+
+        action.setSubmission("Update");
+        action.setService("1");
+        action.setSpecialist("");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(false);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        ArgumentCaptor<ConsultationRequest> mergedConsultation =
+                ArgumentCaptor.forClass(ConsultationRequest.class);
+        verify(consultationRequestDao).merge(mergedConsultation.capture());
+        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
+        verifyNoInteractions(professionalSpecialistDao);
+    }
+
+    /**
+     * The consultant field is authoritative on an edit: an id that does not resolve (the bridge's 0,
+     * a deleted specialist) clears the link the same way a blank does, instead of silently keeping
+     * whoever the request pointed at before.
+     */
+    @Test
+    @DisplayName("clears the specialist when the consultant id does not resolve on update")
+    void shouldClearSpecialist_whenConsultantIdDoesNotResolveOnUpdate() throws Exception {
+        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
+        when(professionalSpecialistDao.find((Object) 0)).thenReturn(null);
+        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+        ConsultationRequest stored = consultationRequest(1);
+        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
+        when(consultationRequestDao.find(9)).thenReturn(stored);
+
+        action.setSubmission("Update");
+        action.setService("1");
+        action.setSpecialist("0");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(false);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        ArgumentCaptor<ConsultationRequest> mergedConsultation =
+                ArgumentCaptor.forClass(ConsultationRequest.class);
+        verify(consultationRequestDao).merge(mergedConsultation.capture());
+        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
     }
 
     /**

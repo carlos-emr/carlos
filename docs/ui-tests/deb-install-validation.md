@@ -11,7 +11,14 @@ and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
 dataset (the seeded `_site_access_privacy` grant was applied without multisite mode;
 `consultation-nullable-fields-playwright-checks.js` now asserts the list has rows). Last validated end-to-end 2026-08-31 with
-**41/41 scripts passing** on 2026.09.0~snapshot18.
+**41/41 scripts passing** on 2026.09.0~snapshot18. That is the historical
+full-suite baseline: the count and the date are that run's, not this release's.
+The two checks added since, `echart-print-playwright-checks.js` and
+`clinical-freetext-playwright-checks.js`, were run on 2026-09-12 against a
+2026.09.0~snapshot22 package built from the #3623 branch (DrugRef and the eForm
+renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
+through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
+has not been re-run on a later snapshot.
 
 That run is also the cautionary tale for this document. A tester found six
 defects on the build that produced it — an eForm editor save 403, an eForm
@@ -45,7 +52,9 @@ messenger and patient email, appointment reasons and notes, master-record
 notes and alerts, billing comments, fax cover comments, program notes) found
 all 67 of them answering 403 on the same three shapes, and a consultation
 request save and a tickler add reproduced it in the browser. Exclusions
-1100-1141 close them per argument. `tickler-crud-playwright-checks.js` now
+1100-1142 close them per argument (73 arguments across 43 rules once the
+per-route table and the provider template body are counted; the regression
+test pins the table). `tickler-crud-playwright-checks.js` now
 types that scoring text too. Fields whose parameter names are generated per
 row (measurement `comments-<n>`, manual lab `test_<n>.labnotes`, contact
 `contact_<n>.note`, waiting-list `waitingListBean[<n>].note`) cannot be literal
@@ -696,6 +705,118 @@ Notes on the contract:
   is not HTTPS. It creates its own timestamped probe eForm and deletes only
   that one; a failing run leaves the probe behind on purpose, so clear strays
   with `UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';`.
+- **`echart-print-playwright-checks.js` must be run through `:443`.** It is the
+  guard for package exclusion 1010, and like 1045/1050 the defect it pins exists
+  *only* behind the WAF: the chart print POSTs the whole encounter form, so CRS
+  scored the clinician's own note prose in `ARGS:caseNote_note` and answered
+  every print with a 403 — "the chart print button gives a 403 no matter what
+  you choose to print" on 2026.08.0-alpha11. Each of its eight note bodies is a
+  phrase measured to trip a different CRS family, the pasted-PACS-link body
+  included now that 1010 also unhooks attack-rfi; against bare Tomcat they are
+  just ordinary notes and the check degrades to covering the print path itself.
+  It types into the open encounter note but never saves it as a note; the
+  chart's own 5-second draft autosave still posts what it typed as the
+  patient's draft, so before it opens the chart it applies the same
+  synthetic-patient gate as the free-text check (`FAKE-`/`PLAYWRIGHT-` name
+  prefix on `ECHART_DEMOGRAPHIC_NO`, override with
+  `ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true`), and it reads the note before its first print and, when
+  the prints are done, puts that text back and either writes it back over the
+  draft (a clinician's restored draft) or deletes the draft through the page's
+  cancel path (a fresh note). Because of that write, its `BASE_URL` guard is
+  the same as the free-text check's: loopback only unless
+  `ALLOW_NON_LOCAL_BASE_URL=true`, a non-loopback target must be HTTPS, and
+  like `billing-on-third-party` it relaxes certificate verification only for
+  loopback, so an opted-in host must present a certificate the browser trusts.
+  The two dimensions run in sequence rather than as a matrix -- each body once,
+  then each selection with the worst-case body, 15 prints in all -- because the
+  403 rides on the note in the serialized form, not on any print checkbox.
+  Driving fifteen prints through one open encounter
+  outlives the note lock, so the eChart's own autosave answering 409 partway
+  through is expected and tolerated; a 403 from any of them is not. Each print
+  must come back as a download whose bytes start with `%PDF-` and run to at
+  least 1 KB: the action sets `application/pdf` before it generates, so the
+  Content-Type alone would pass a truncated body. It also waits, per note
+  body, for the chart's draft autosave carrying that body, so its `ARGS:note`
+  coverage is a POST it observed rather than a timer it assumed; and like
+  `echart-playwright-checks.js` it flags whether any response carried the
+  nginx `Server` header, warning when none did and failing when
+  `EXPECT_FRONT_DOOR=true` is set, so a run against bare Tomcat cannot be
+  mistaken for a WAF result. Two things it found on the package are worth
+  knowing when reading its output. Printing used to stop the chart's draft
+  autosave (the print's form submit fires page-hide, which released the note
+  lock; every later autosave answered 409): the chart now holds the lock across
+  a print, and the check's per-body autosave status shows 200 throughout on a
+  fixed build. And a run that aborts mid-way (a 502, a crash) leaves this
+  provider's note lock behind, so the next open of the chart raises the
+  "edit this note in another window ... continue?" prompt; the check accepts it
+  as a clinician would and lists it under `Notices` rather than failing, so a
+  rerun needs no manual `casemgmt_note_lock` cleanup.
+- **`clinical-freetext-playwright-checks.js` must be run through `:443`.** It is
+  the browser guard for the survey block (exclusions 1100-1199, the clinician
+  free text OUTSIDE the eChart), driven through the two rules with the most
+  prose: 1100, the consultation request, and 1131, the demographic master
+  record. It opens each page, serialises the real form (hidden fields and the
+  injected CSRF token included), and replays that body once per prose phrase
+  with only the free-text fields swapped — clicking through each form's own
+  required-field JS seven times would measure that validation rather than the
+  WAF. Its corpus deliberately carries no HTML markup: the survey block keeps
+  the CRS XSS family on (pinned by `ClinicalProseWafExclusionRegressionTest`),
+  so a `<span>` pasted into a referral is expected to 403 there, and a phrase
+  that carried one would fail the check against a correct rule set.
+  Both replays are real saves, and the check treats that as its own problem to
+  contain rather than the operator's. Its `BASE_URL` guard admits only loopback
+  and refuses anything else — a private LAN address, `host.docker.internal` and
+  the compose name `carlos` included — unless `ALLOW_NON_LOCAL_BASE_URL=true` is
+  set deliberately, and even then a plain-http target is refused because the
+  login would send credentials in cleartext; but loopback bounds the host, not
+  the data, and a local
+  install can hold real patient records. So before its first write it opens the
+  master record of `CLINICAL_DEMOGRAPHIC_NO` (default 1) and refuses to run
+  unless the first or last name carries the synthetic-data prefix the demo
+  dataset writes on every person name (`FAKE-`, see
+  `.devcontainer/db/scripts/demo-name-sanitization.sql`) or the `PLAYWRIGHT-`
+  prefix the fixture-owning checks use; `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true`
+  overrides that only for a record you know to be test data. It then writes the
+  corpus, each phrase stamped `(Playwright clinical-freetext run <epoch>)`,
+  into the patient's Alert/Notes and puts the original text back at the end,
+  on the failure path as well as the success path (the restore is a save
+  through the same route and a failed restore fails the run). **The two
+  workflows write different things, measured on a packaged install:** the
+  demographic save runs in place (a seven-phrase run leaves eight
+  `demographicArchive` rows for the patient, the replays plus the restore),
+  while the consultation replay **files a new request per phrase** -- seven
+  `consultationRequests` rows for the patient per run, each with the phrase
+  and the run stamp in its `reason` -- and the check requires the application's
+  confirmation redirect back for every one of them. A 200 on that route is the
+  form re-rendered with its error alert, which is how the blank-consultant save
+  defect fixed in #3623 presented (the front door accepted the prose; the
+  application then threw and stored nothing), so the check reports it as a
+  failure and points at the application log. There is no delete route for a
+  consultation request, so the rows stay until you remove them; the stamp is
+  the key:
+
+  ```sql
+  -- <n> is CLINICAL_DEMOGRAPHIC_NO (default 1). Ext rows first: no FK cascades.
+  DELETE e FROM consultationRequestExt e
+    JOIN consultationRequests r ON r.requestId = e.requestId
+   WHERE r.demographicNo = <n> AND r.reason LIKE '%(Playwright clinical-freetext run %';
+  DELETE FROM consultationRequests
+   WHERE demographicNo = <n> AND reason LIKE '%(Playwright clinical-freetext run %';
+  ```
+  After each workflow's replays it re-opens that page and requires
+  its free-text control to render again, because a session that lapsed mid-run
+  would answer every replay with an opaque redirect indistinguishable from a
+  save. Like
+  `echart-print`, it relaxes certificate verification only for loopback, so such
+  a target must present a certificate the browser trusts.
+  `CLINICAL_CONSULT_SERVICE_ID` (default `1`) names the other record it
+  assumes; override it if the install's `consultationServices` table does not
+  start at 1. Against bare
+  Tomcat the phrases are ordinary notes and the check degrades to guarding the
+  two save paths. It flags the packaged front door the same way as the
+  eChart checks (nginx `Server` header; warning when absent, failure with
+  `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
+  mistaken for coverage of 1100/1131.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
@@ -745,6 +866,22 @@ lxc exec carlos-test -- bash -c '
 lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
                                            # new migrations counted in flyway_schema_history
 ```
+
+Two things a same-day rebuild does NOT do for you, both met while validating
+#3623. First, `apt-get install --reinstall` of the same version replaces the
+files but, with `policy-rc.d` denying starts in the container, leaves the
+already-running JVM alone: run `carlos-ctl restart` (or check
+`systemctl show carlos-emr -p ExecMainStartTimestamp`) before believing that
+what you are exercising is the build you just installed. Second, the package is
+built reproducibly, so every shipped file carries the changelog entry's date
+as its mtime; Tomcat decides whether to recompile a JSP by comparing that mtime
+with the one it recorded at the last compile, and two builds from the same
+changelog entry carry the same date, so an edited JSP keeps serving its
+previous compiled form. `touch` the JSPs you changed under
+`/usr/share/carlos-emr/webapp/carlos/WEB-INF/jsp/` (or clear
+`/var/lib/carlos-emr/catalina/work/Catalina/localhost/carlos/`) and Tomcat
+recompiles them on the next request. Neither applies to a real upgrade, whose
+changelog entry carries a new date.
 
 ## Diagnosing failures
 

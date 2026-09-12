@@ -54,6 +54,24 @@ class ErrorPageHttpStatusRegressionTest {
                 .doesNotContain("pageContext.errorData.statusCode");
     }
 
+    /**
+     * The incident reference is the one thing the page may say about the failure: it is what the
+     * clinician reads back and what finds the log line. The exception itself stays inside the
+     * developer block, which the page already gates on DISPLAY_ERROR.
+     */
+    @Test
+    @DisplayName("should render the incident reference and nothing else about the exception")
+    void shouldRenderIncidentReference_withoutExceptionDetail() throws Exception {
+        String jsp = Files.readString(ERROR_PAGE, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("${not empty carlosIncidentId}")
+                .containsPattern("\\$\\{\\s*carlos:forHtml\\s*\\(\\s*carlosIncidentId\\s*\\)\\s*}")
+                .contains("error.incidentReference")
+                .doesNotContain("exceptionStack")
+                .doesNotContain("${exception");
+    }
+
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
                 .toAbsolutePath()

@@ -26,7 +26,7 @@
     Contains action mappings for provider preferences, inbox, email, fax, printing, scratch pads, and signature management.
 -->
 <struts>
-    <package name="provider" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="provider" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -115,7 +115,7 @@
         </action>
         <action name="provider/providerSignatureImage" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureImage2Action"/>
         <action name="provider/providerSignatureStamp" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action">
-            <interceptor-ref name="defaultStack">
+            <interceptor-ref name="carlosDefaultStack">
             <param name="actionFileUpload.allowedTypes">image/png,image/jpeg,image/gif</param>
             <param name="actionFileUpload.maximumSize">2097152</param>
         </interceptor-ref>
