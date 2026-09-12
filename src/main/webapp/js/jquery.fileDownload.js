@@ -101,6 +101,12 @@ $.extend({
             cookieSecure: location.protocol === 'https:',
 
             //
+            //the SameSite attribute for the cookie. Defaults to "Lax" for forward-compatibility.
+            //set to "Strict" or "None" (requires Secure) as needed.
+            //
+            cookieSameSite: "Lax",
+
+            //
             //the title for the popup second window as a download is processing in the case of a mobile browser
             //
             popupWindowTitle: "Initiating file download...",
@@ -314,7 +320,7 @@ $.extend({
 
                 //remove the cookie and iframe
                 var date = new Date(1000);
-                document.cookie = settings.cookieName + "=; expires=" + date.toUTCString() + "; path=" + settings.cookiePath + (settings.cookieSecure ? "; Secure" : "");
+                document.cookie = settings.cookieName + "=; expires=" + date.toUTCString() + "; path=" + settings.cookiePath + (settings.cookieSecure ? "; Secure" : "") + (settings.cookieSameSite ? "; SameSite=" + settings.cookieSameSite : "");
 
                 cleanUp(false);
 
