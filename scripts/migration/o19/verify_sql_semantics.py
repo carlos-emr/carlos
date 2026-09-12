@@ -692,11 +692,22 @@ def _content_digest_body(client: Client, clinic: str, stage: str,
 
 #: the format-1 rendering of a large value: the raw HEX/CONVERT inside
 #: the length-prefixed CONCAT, which is what collapsed to NULL under a
-#: 16M max_allowed_packet
+#: 16M max_allowed_packet. Applied in order to the shipped statement.
 FORMAT_1_LARGE = (
-    ("SHA2(HEX(`doc`), 256)", "HEX(`doc`)"),
+    ("SHA2(`doc`, 256)", "HEX(`doc`)"),
+    ("LENGTH(`doc`)", "CHAR_LENGTH(HEX(`doc`))"),
     ("SHA2(CONVERT(`note` USING utf8mb4), 256)",
      "CONVERT(`note` USING utf8mb4)"),
+)
+
+#: the format-2 rendering of a large BINARY value: SHA2 over HEX(doc),
+#: whose 16.8 MB of digits MariaDB 11.8 refuses under 16M (NULL, warning
+#: 1301) while 10.11 rendered them. Under format 3's column guard that
+#: refusal must land in the fourth lane; format 2's IFNULL filed it as a
+#: NULL value.
+FORMAT_2_LARGE = (
+    ("SHA2(`doc`, 256)", "SHA2(HEX(`doc`), 256)"),
+    ("LENGTH(`doc`)", "CHAR_LENGTH(HEX(`doc`))"),
 )
 
 
@@ -710,9 +721,12 @@ def _oversized_value_body(client: Client, stage: str) -> List[str]:
     and a 9 MB accented TEXT under BOTH settings and requires the same
     answer with nothing unhashed; then runs the format-1 rendering the
     same way and requires it to DISAGREE with itself, which is the defect
-    reproduced; then breaks the row join on purpose and requires the
-    fourth lane to count every row, which is what makes a row nobody
-    hashed visible.
+    reproduced; then, on a server that bounds HEX() by the setting (11.8
+    does, 10.11 does not), runs the format-2 spelling under 16M and
+    requires its two refused documents to be COUNTED in the fourth lane
+    rather than filed as NULL values -- format 3's column guard; then
+    breaks the row join on purpose and requires the fourth lane to count
+    every row, which is what makes a row nobody hashed visible.
 
     Needs SUPER to move the global; a server that refuses is reported as
     skipped, not as passed."""
@@ -744,6 +758,12 @@ def _oversized_value_body(client: Client, stage: str) -> List[str]:
                 return ["the shipped digest no longer spells {0}; the "
                         "format-1 control cannot be built".format(new_form)]
             old = old.replace(new_form, old_form)
+        fmt2 = sql
+        for new_form, old_form in FORMAT_2_LARGE:
+            if new_form not in fmt2:
+                return ["the shipped digest no longer spells {0}; the "
+                        "format-2 control cannot be built".format(new_form)]
+            fmt2 = fmt2.replace(new_form, old_form)
         # CONCAT(NULL, ...) is NULL: every row hash NULL, so the lane
         # must count every row
         broken = sql.replace("SHA2(CONCAT(", "SHA2(CONCAT(NULL, ")
@@ -756,6 +776,12 @@ def _oversized_value_body(client: Client, stage: str) -> List[str]:
             "(3, X'01', 'small');", stage)
         at_16m = _digest_of(client, stage, sql)
         old_16m = _digest_of(client, stage, old)
+        fmt2_16m = _digest_of(client, stage, fmt2)
+        # does THIS server bound HEX() by max_allowed_packet? 11.8 does
+        # (16.8 MB of digits -> NULL), 10.11 renders them; the format-2
+        # control below can only show its defect on a server that does
+        hex_bounded = client.rows(
+            "SELECT HEX(doc) IS NULL FROM big WHERE id = 1", stage)[0][0]
         broken_16m = _digest_of(client, stage, broken)
         client.setup("SET GLOBAL max_allowed_packet = 1073741824;", stage)
         at_1g = _digest_of(client, stage, sql)
@@ -786,6 +812,24 @@ def _oversized_value_body(client: Client, stage: str) -> List[str]:
         failures.append("the format-1 rendering agreed across settings, so "
                         "this check no longer shows the defect it guards "
                         "against (is the fixture still over 16M as HEX?)")
+    # the format-2 spelling under the format-3 column guard: on a server
+    # that bounds HEX(), the two hexed documents must be COUNTED in the
+    # fourth lane (2), never filed as NULL values that verified (0)
+    if hex_bounded == "1":
+        refused_counted = fmt2_16m[3] == "2"
+        print("    {0:<44} {1}".format(
+            "a refused HEX() is counted, not filed as NULL",
+            "ok" if refused_counted else "FILED AS NULL ({0})".format(
+                fmt2_16m)))
+        if not refused_counted:
+            failures.append("a rendering this server refused was filed as "
+                            "a stored NULL rather than counted: {0}".format(
+                                fmt2_16m))
+    else:
+        print("    {0:<44} {1}".format(
+            "a refused HEX() is counted, not filed as NULL",
+            "NOT REPRODUCIBLE HERE (this server renders a 16.8 MB HEX "
+            "under 16M; MariaDB 11.8 refuses it)"))
     counted = broken_16m[3] == "3"
     print("    {0:<44} {1}".format(
         "a NULL row hash is counted, not skipped",

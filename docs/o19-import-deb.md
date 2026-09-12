@@ -33,8 +33,10 @@ ssh o19-server python3 o19_preflight.py --db oscar \
 
 `--digests` takes a content digest of every table — a SHA-256 per row,
 aggregated two independent ways, with values that can reach megabytes
-(TEXT and BLOB columns) hashed on their own first so the two servers'
-`max_allowed_packet` settings cannot change the result — and writes it
+(TEXT and BLOB columns) hashed on their own first, a BLOB as its raw
+bytes, so the two servers' `max_allowed_packet` settings cannot change
+the result, and with any row a server would not render counted rather
+than compared — and writes it
 (0600) alongside the report. The document carries a format number; the
 importer refuses one taken with an older `o19_preflight.py` (re-run the
 assessment with the shipped copy rather than comparing under different

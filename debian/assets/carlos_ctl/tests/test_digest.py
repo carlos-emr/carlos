@@ -98,13 +98,42 @@ class TestValuesAreNormalisedBeforeHashing(unittest.TestCase):
         self.assertIn("CONVERT(`v` USING utf8mb4)",
                       o19digest.value_expr("v", "varchar"))
 
-    def test_a_binary_column_is_hexed_not_converted(self):
+    def test_a_bounded_binary_column_is_hexed_not_converted(self):
         # running a scanned document through a character set is not a
-        # round trip
-        for t in ("blob", "longblob", "varbinary"):
+        # round trip; a bounded binary (64 KB at most) keeps the digits
+        for t in ("varbinary", "binary", "tinyblob"):
             expr = o19digest.value_expr("doc", t)
             self.assertIn("HEX(`doc`)", expr)
             self.assertNotIn("USING utf8mb4", expr)
+
+    def test_a_large_binary_column_is_hashed_as_raw_bytes(self):
+        """Measured on MariaDB 11.8.6 (Ubuntu 26.04): `HEX()` of an 8.4 MB
+        document is NULL under the stock 16M max_allowed_packet (warning
+        1301), so a hexed rendering is exactly the intermediate the server
+        can refuse. SHA2 over the column itself builds none, and bytes
+        need no character set."""
+        for t in ("blob", "mediumblob", "longblob"):
+            expr = o19digest.value_expr("doc", t)
+            self.assertIn("SHA2(`doc`, 256)", expr, t)
+            self.assertIn("LENGTH(`doc`)", expr, t)
+            self.assertNotIn("HEX(", expr, t)
+            self.assertNotIn("USING utf8mb4", expr, t)
+
+    def test_a_refused_rendering_is_never_filed_as_a_stored_null(self):
+        """Format 2 wrapped the rendered piece in IFNULL(..., '~'), so a
+        NULL the server produced by REFUSING to render (a bounded HEX, a
+        CONCAT past max_allowed_packet) read as a stored NULL that
+        verified. The guard is now a CASE on the COLUMN: only a stored
+        NULL yields the marker; a refused piece stays NULL and propagates
+        into the row hash, where the fourth lane counts it."""
+        for t in ("varchar", "int", "bit", "varbinary", "text",
+                  "longblob", "json", "datetime"):
+            expr = o19digest.value_expr("v", t)
+            self.assertTrue(expr.startswith(
+                "CASE WHEN `v` IS NULL THEN " + o19digest.NULL_MARK
+                + " ELSE CONCAT("), (t, expr))
+            self.assertTrue(expr.endswith(" END"), (t, expr))
+            self.assertNotIn("IFNULL(", expr, t)
 
     def test_the_length_prefix_measures_the_rendered_form(self):
         # prefixing the raw column while hashing the converted one would
@@ -241,18 +270,29 @@ class TestOversizedValuesDoNotCollapse(unittest.TestCase):
     ':', HEX(doc))` was NULL, filed as a NULL by the IFNULL, so two
     different documents hashed alike and one table digested differently
     under 16M and 1G. The clinic's server and the CARLOS host do not share
-    that setting."""
+    that setting.
+
+    Measured on MariaDB 11.8.6 (the server Ubuntu 26.04 ships): `HEX()` is
+    bounded by the same setting there (NULL with warning 1301; 10.11 did
+    not do this), and format 2's IFNULL filed the resulting NULL as a
+    stored NULL -- the fourth lane stayed at zero. Format 3 hashes a large
+    binary value as its raw bytes and guards on the column, so a refused
+    rendering propagates into the row hash and is counted."""
 
     def test_a_large_value_is_hashed_before_it_is_concatenated(self):
-        for coltype, rendered in (("mediumblob", "HEX(`v`)"),
-                                  ("longtext", "CONVERT(`v` USING utf8mb4)"),
-                                  ("text", "CONVERT(`v` USING utf8mb4)"),
-                                  ("json", "CONVERT(`v` USING utf8mb4)")):
+        for coltype, rendered, length in (
+                ("mediumblob", "`v`", "LENGTH(`v`)"),
+                ("longtext", "CONVERT(`v` USING utf8mb4)",
+                 "CHAR_LENGTH(CONVERT(`v` USING utf8mb4))"),
+                ("text", "CONVERT(`v` USING utf8mb4)",
+                 "CHAR_LENGTH(CONVERT(`v` USING utf8mb4))"),
+                ("json", "CONVERT(`v` USING utf8mb4)",
+                 "CHAR_LENGTH(CONVERT(`v` USING utf8mb4))")):
             expr = o19digest.value_expr("v", coltype)
             self.assertIn("SHA2({0}, 256)".format(rendered), expr, coltype)
             # the length prefix still describes the rendered value; the
             # raw rendering never sits inside a CONCAT
-            self.assertIn("CHAR_LENGTH({0})".format(rendered), expr)
+            self.assertIn(length, expr)
             self.assertNotIn("':', {0})".format(rendered), expr)
 
     def test_a_bounded_value_keeps_the_plain_concatenation(self):
@@ -280,9 +320,9 @@ class TestOversizedValuesDoNotCollapse(unittest.TestCase):
                          o19digest.Digest(3, 1, 2, 1))
 
     def test_the_format_was_bumped_for_it(self):
-        # a format-1 document was taken under the collapsing rules and
-        # must be refused, not compared
-        self.assertEqual(o19digest.DIGEST_FORMAT, 2)
+        # a format-1 document was taken under the collapsing rules and a
+        # format-2 one hashed HEX(col); both must be refused, not compared
+        self.assertEqual(o19digest.DIGEST_FORMAT, 3)
         self.assertEqual(o19digest.digest_entry(
             [("a", "int")], o19digest.Digest(1, 2, 3, 0))["unhashed"], 0)
         with self.assertRaises(ValueError):

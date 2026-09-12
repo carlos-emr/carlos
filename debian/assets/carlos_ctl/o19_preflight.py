@@ -2147,13 +2147,18 @@ DIGEST_UTC_SESSION = "SET time_zone = '+00:00'"
 #: the length-prefixed CONCAT was NULL, filed as a NULL by the IFNULL,
 #: and the table digested differently under 16M and 1G. So a large value
 #: is hashed on its own first and only its 64 characters are joined.
+#: HEX() itself is bounded the same way on MariaDB 11.8 (NULL with
+#: warning 1301 past the setting; 10.11 did not), so a large BINARY
+#: value is hashed as its raw bytes, with no rendering in between.
 DIGEST_LARGE_TYPES = (
     "text", "mediumtext", "longtext", "json",
     "blob", "mediumblob", "longblob",
 )
 #: version of the digest document this file emits. 2: large values
-#: hashed on their own, NULL-propagating row join, the `unhashed` lane
-DIGEST_FORMAT = 2
+#: hashed on their own, NULL-propagating row join, the `unhashed` lane.
+#: 3: large binary values hashed as raw bytes, and a rendering the
+#: server refuses counted in that lane rather than filed as a NULL
+DIGEST_FORMAT = 3
 
 
 def digest_value_expr(col, coltype):
@@ -2169,22 +2174,37 @@ def digest_value_expr(col, coltype):
     data differs."""
     quoted = "`{0}`".format(col.replace("`", "``"))
     normalised = (coltype or "").lower()
+    large = normalised in DIGEST_LARGE_TYPES
     if normalised in DIGEST_HEXED_TYPES:
-        rendered = "HEX({0})".format(quoted)
+        if large:
+            # raw bytes: HEX() of a document is the one rendering a
+            # server can refuse (bounded by max_allowed_packet on
+            # MariaDB 11.8); SHA2 over the column builds none
+            rendered = quoted
+            length = "LENGTH({0})".format(quoted)
+        else:
+            rendered = "HEX({0})".format(quoted)
+            length = "CHAR_LENGTH({0})".format(rendered)
     elif normalised in DIGEST_CONVERTED_TYPES:
         rendered = "CONVERT({0} USING utf8mb4)".format(quoted)
+        length = "CHAR_LENGTH({0})".format(rendered)
     else:
         raise ValueError(
             "column `{0}` has type {1!r}, which the digest has no "
             "rendering for; neither HEX nor CONVERT is safe for an "
             "unknown type".format(col, coltype))
-    if normalised in DIGEST_LARGE_TYPES:
+    if large:
         # hashed on its own so the CONCAT joins a length and 64 hex
         # characters, never the megabytes the value may be
-        return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', SHA2({0}, 256)), "
-                "{1})".format(rendered, DIGEST_NULL_MARK))
-    return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', {0}), {1})"
-            .format(rendered, DIGEST_NULL_MARK))
+        piece = "CONCAT({0}, ':', SHA2({1}, 256))".format(length, rendered)
+    else:
+        piece = "CONCAT({0}, ':', {1})".format(length, rendered)
+    # CASE on the column, not IFNULL on the piece: the marker means a
+    # stored NULL only. A rendering the server refused is NULL as well,
+    # and must propagate into the row hash (counted by the fourth lane)
+    # rather than read as a NULL value that verified.
+    return "CASE WHEN {0} IS NULL THEN {1} ELSE {2} END".format(
+        quoted, DIGEST_NULL_MARK, piece)
 
 
 def digest_row_hash_expr(columns, types):

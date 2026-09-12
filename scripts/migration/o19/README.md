@@ -170,11 +170,23 @@ It also pins the digest against `max_allowed_packet`. `CONCAT` returns NULL
 format-1 digest concatenated a document's whole HEX rendering: under the
 clinic's stock 16M an 8.4 MB document was filed as a NULL, two different
 documents hashed alike, and one table digested differently under 16M and 1G.
-Format 2 hashes every TEXT/BLOB value on its own first, joins the row with
-NULL-propagating `CONCAT`, and counts rows whose hash is NULL in a fourth
-lane; the check moves the global between 16M and 1G, requires the same
-answer with nothing unhashed, requires the format-1 rendering to disagree
-with itself, and requires a deliberately broken join to be counted.
+Format 2 hashed every TEXT/BLOB value on its own first, joined the row with
+NULL-propagating `CONCAT`, and counted rows whose hash is NULL in a fourth
+lane. Running the same check on MariaDB 11.8 (the server Ubuntu 26.04
+ships) found the next layer: there `HEX()` is bounded by
+`max_allowed_packet` as well (NULL with warning 1301; 10.11 did not do
+this), and format 2's `IFNULL` filed that NULL as a stored NULL — the
+fourth lane stayed at zero and the table again digested differently under
+16M and 1G. Format 3 hashes a large binary value as its raw bytes
+(`SHA2(col, 256)` with `LENGTH(col)`; measured, SHA2 over the column and
+CONVERT are not bounded, a 20 MB LONGBLOB and LONGTEXT both hash under
+16M) and guards every contribution with `CASE WHEN col IS NULL` on the
+column, so a rendering the server refuses propagates into the row hash and
+is counted. The check moves the global between 16M and 1G, requires the
+same answer with nothing unhashed, requires the format-1 rendering to
+disagree with itself, requires a deliberately broken join to be counted,
+and — on a server that bounds `HEX()` — requires the format-2 spelling to
+land its refused rows in the fourth lane rather than agree.
 
 It also settles the capacity of an `import_archived_` column. TEXT is 65535
 **bytes**: a latin1 `text` holds 65535 characters, a utf8mb4 one as few as

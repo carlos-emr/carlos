@@ -39,6 +39,24 @@ naive spelling of this check is worse than no check at all:
   makes the row hash NULL; and a fourth lane COUNTS the rows whose hash
   is NULL, so a row nobody hashed is reported, never silently skipped
   by SUM and BIT_XOR (both ignore NULL).
+* `HEX()` is bounded by `max_allowed_packet` too -- on MariaDB 11.8, the
+  server Ubuntu 26.04 ships, not on 10.11, where the format-2 rules were
+  measured. Measured on 11.8.6: `HEX()` of an 8.4 MB document (16.8 MB
+  of digits) under the stock 16M is NULL with warning 1301 "Result of
+  hex() was larger than max_allowed_packet", and format 2's
+  `IFNULL(..., '~')` then filed the document as a NULL VALUE -- the
+  fourth lane stayed at zero and one table digested differently under
+  16M and 1G, the exact defect format 2 was meant to close. Two changes
+  follow. A large binary value is hashed as its RAW BYTES (`SHA2(col,
+  256)` with `LENGTH(col)`): SHA2 over the column itself and CONVERT
+  are not bounded (measured: a 20 MB LONGBLOB and a 20 MB LONGTEXT both
+  hash under 16M on 11.8), so no intermediate rendering the server can
+  refuse is built at all. And every contribution is guarded with `CASE
+  WHEN col IS NULL` on the COLUMN rather than `IFNULL` on the rendered
+  piece, so a NULL that a server produces by REFUSING a rendering is
+  never mistaken for a stored NULL: it propagates through the CONCAT,
+  makes the row hash NULL, and lands in the fourth lane, where
+  `compare` reports the table as not verified.
 
 Charset: the clinic's OSCAR 19 stores latin1 and live CARLOS is utf8mb4,
 so the same logical text has different STORED BYTES (`Santé` is
@@ -53,12 +71,15 @@ there. It is kept anyway: it costs nothing, and it is what keeps the
 transfer check from failing a correct restore taken under a client or
 server whose character-set defaults differ.
 
-Binary columns are hexed instead: converting a scanned document through a
-character set is not a round trip. A type in NEITHER list is refused
-rather than guessed at: CONVERT is not injective over binary values (two
-different BIT values both render as `?`) and HEX rounds a decimal to an
-integer, so the wrong choice yields a digest that agrees while the data
-differs.
+Binary columns never go through a character set: converting a scanned
+document "to utf8mb4" is not a round trip. A bounded binary (BINARY,
+VARBINARY, BIT, TINYBLOB, the geometry types) is hexed, which is what
+makes a BIT or a GEOMETRY unambiguous; a BLOB that can reach megabytes is
+hashed as its raw bytes, because its hexed form is the one rendering a
+server can refuse. A type in NEITHER list is refused rather than guessed
+at: CONVERT is not injective over binary values (two different BIT
+values both render as `?`) and HEX rounds a decimal to an integer, so the
+wrong choice yields a digest that agrees while the data differs.
 """
 
 import json
@@ -175,27 +196,48 @@ def value_expr(col: str, coltype: str) -> str:
     """
     quoted = "`{0}`".format(col.replace("`", "``"))
     normalised = (coltype or "").lower()
+    large = normalised in LARGE_TYPES
     if is_hexed(coltype):
-        rendered = "HEX({0})".format(quoted)
+        if large:
+            # the raw bytes, hashed as they are. HEX() of a BLOB is
+            # bounded by max_allowed_packet on MariaDB 11.8 (measured:
+            # NULL with warning 1301 past 16M), so a hexed rendering of
+            # a scanned document is exactly the intermediate the server
+            # can refuse; SHA2 over the column itself builds none, and
+            # bytes need no character set to be hashed unambiguously.
+            rendered = quoted
+            length = "LENGTH({0})".format(quoted)
+        else:
+            # bounded types (at most 64 KB, 128 KB as digits): the
+            # digits are what makes a BIT or a GEOMETRY unambiguous
+            rendered = "HEX({0})".format(quoted)
+            length = "CHAR_LENGTH({0})".format(rendered)
     elif normalised in CONVERTED_TYPES:
         rendered = "CONVERT({0} USING utf8mb4)".format(quoted)
+        length = "CHAR_LENGTH({0})".format(rendered)
     else:
         raise ValueError(
             "column `{0}` has type {1!r}, which the digest has no "
             "rendering for; neither HEX nor CONVERT is safe for an "
             "unknown type".format(col, coltype))
-    if normalised in LARGE_TYPES:
+    if large:
         # hashed on its own: the CONCAT below then joins a length and 64
         # hex characters, never the megabytes the value itself may be,
         # so `max_allowed_packet` cannot turn it into a NULL (see the
-        # module docstring). HEX and CONVERT are not subject to that
-        # limit -- measured -- only the CONCAT family is.
-        return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', SHA2({0}, 256)), "
-                "{1})".format(rendered, NULL_MARK))
-    # length-prefixed on the RENDERED form, so the prefix describes what
-    # is actually hashed
-    return ("IFNULL(CONCAT(CHAR_LENGTH({0}), ':', {0}), {1})"
-            .format(rendered, NULL_MARK))
+        # module docstring).
+        piece = "CONCAT({0}, ':', SHA2({1}, 256))".format(length, rendered)
+    else:
+        # length-prefixed on the RENDERED form, so the prefix describes
+        # what is actually hashed
+        piece = "CONCAT({0}, ':', {1})".format(length, rendered)
+    # CASE on the COLUMN, never IFNULL on the piece: the marker stands
+    # for a stored NULL and nothing else. A piece the server refused to
+    # render (a bounded HEX, a CONCAT past max_allowed_packet) is NULL
+    # too, and IFNULL filed it as the marker -- a value the server would
+    # not hash read as "NULL, verified". Under CASE that NULL propagates
+    # through the row's CONCAT into the fourth lane instead.
+    return "CASE WHEN {0} IS NULL THEN {1} ELSE {2} END".format(
+        quoted, NULL_MARK, piece)
 
 
 def row_hash_expr(columns: Sequence[str], types: Dict[str, str]) -> str:
@@ -308,7 +350,11 @@ UTC_SESSION = "SET time_zone = '+00:00'"
 #: digest compared under the wrong rules is worse than no digest.
 #: 2: large values hashed on their own, NULL-propagating row join, the
 #: `unhashed` lane (format 1 collapsed under max_allowed_packet).
-DIGEST_FORMAT = 2
+#: 3: large binary values hashed as raw bytes, and a refused rendering
+#: counted rather than filed as a NULL (format 2 hashed `HEX(col)`,
+#: which MariaDB 11.8 bounds by max_allowed_packet, and its IFNULL read
+#: the resulting NULL as a stored NULL -- see the module docstring).
+DIGEST_FORMAT = 3
 
 
 def digest_entry(columns: Sequence[Sequence[str]],

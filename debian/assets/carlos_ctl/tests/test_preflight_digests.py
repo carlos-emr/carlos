@@ -137,9 +137,13 @@ class TestEveryTableIsMeasured(unittest.TestCase):
             self.db.digest_query_for("demographic").endswith(
                 "FROM `demographic`"))
 
-    def test_a_blob_column_is_hexed_rather_than_converted(self):
+    def test_a_blob_column_is_hashed_as_bytes_never_converted(self):
+        # a BLOB is hashed as the bytes it holds: HEX() of a document is
+        # bounded by max_allowed_packet on MariaDB 11.8, and a character
+        # set conversion is not a round trip
         sql = self.db.digest_query_for("document")
-        self.assertIn("HEX(`contents`)", sql)
+        self.assertIn("SHA2(`contents`, 256)", sql)
+        self.assertNotIn("HEX(`contents`)", sql)
         self.assertNotIn("CONVERT(`contents`", sql)
 
     def test_text_columns_are_normalised_to_utf8mb4(self):
