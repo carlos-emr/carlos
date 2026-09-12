@@ -390,11 +390,12 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   page.on('pageerror', () => pageErrors.push('browser-script-error'));
   let otherContext;
   let faxFilePath;
+  let previewTransactionId;
   let csrfToken;
   let cancelled = false;
   const endpoint = appUrl('/fax/faxAction');
   const form = overrides => ({ 'CSRF-TOKEN': csrfToken, method: 'cancel', transactionType: 'EFORM',
-    transactionId: String(fdid), demographicNo: String(demographicNo), faxFilePath, ...overrides });
+    transactionId: String(previewTransactionId), demographicNo: String(demographicNo), faxFilePath, ...overrides });
   const readCsrfToken = async tokenPage => {
     await tokenPage.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
     return tokenPage.locator('input[name="CSRF-TOKEN"]').first().inputValue();
@@ -427,6 +428,12 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     'fax preparation must carry its CSRF token without replaying saved form fields or signature data');
     assert(prepared && prepared.status() === 200, 'eForm fax preview preparation must succeed');
     await page.locator('#btnCancel').waitFor({ state: 'visible' });
+    // The toolbar saves a new revision before staging: cancellation/replay/cleanup
+    // must target that revision, not the fdid originally opened by this check.
+    previewTransactionId = await page.locator('input[name="transactionId"]').inputValue();
+    assert(/^\d+$/.test(previewTransactionId)
+      && previewTransactionId === new URL(prepared.url()).searchParams.get('transactionId'),
+    'fax ownership probes must use the exact newly prepared eForm revision');
     faxFilePath = await page.locator('input[name="faxFilePath"]').inputValue();
     assert(faxFilePath.length > 0, 'preview must contain its server-issued path');
     csrfToken = await readCsrfToken(page);
