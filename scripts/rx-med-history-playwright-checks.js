@@ -96,6 +96,28 @@ function modalFrame(page) {
 }
 
 /**
+ * The text a prescriber can actually READ in the modal.
+ *
+ * Not `body.innerText`: the response-rewriting filters inject their own
+ * <script> into every HTML response, and its source comes back in the body
+ * text. A modal that rendered nothing at all therefore measures as several
+ * hundred non-empty characters, so "the body is not empty" is exactly the
+ * hollow assertion this defect would slip through. Strip script and style
+ * before measuring.
+ */
+async function modalVisibleText(page) {
+  const text = await page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed function over the page's own DOM, nothing interpolated
+    const frame = document.getElementById('xmaskframe');
+    const body = frame && frame.contentDocument && frame.contentDocument.body;
+    if (!body) return '';
+    const clone = body.cloneNode(true);
+    clone.querySelectorAll('script, style').forEach((node) => node.remove());
+    return clone.textContent || '';
+  });
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Stage one of the patient's EXISTING prescriptions, the operator way: tick its
  * ReRx box in the drug profile and confirm with "Stage medication".
  *
@@ -182,7 +204,7 @@ async function openPreviousInstructions(page, randomId) {
 
     // The whole defect is "the window is empty", so measure the rendered text,
     // not the presence of the frame.
-    const modalText = (await modalFrame(rxPage).locator('body').innerText()).replace(/\s+/g, ' ').trim();
+    const modalText = await modalVisibleText(rxPage);
     assert(
       modalText.length > 0,
       'The previous-instructions modal opened with a completely empty body. displayMedHistory.jsp '
@@ -253,12 +275,15 @@ async function openPreviousInstructions(page, randomId) {
       () => {
         const frame = document.getElementById('xmaskframe');
         const body = frame && frame.contentDocument && frame.contentDocument.body;
-        return !!body && body.innerText.trim().length > 0;
+        if (!body) return false;
+        const clone = body.cloneNode(true);
+        clone.querySelectorAll('script, style').forEach((node) => node.remove());
+        return (clone.textContent || '').trim().length > 0;
       },
       null,
       { timeout: 20000 },
     ).catch(() => {});
-    const strayText = (await modalFrame(rxPage).locator('body').innerText()).replace(/\s+/g, ' ').trim();
+    const strayText = await modalVisibleText(rxPage);
     assert(
       /Medication history is unavailable/i.test(strayText),
       `An unresolvable randomId rendered "${strayText.slice(0, 200)}" instead of the explicit `

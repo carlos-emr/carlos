@@ -569,6 +569,14 @@ Notes on the contract:
   drugless script renders no preview and the check times out. Script 45 has
   drugs; verify with
   `SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no`.
+- **`rx-med-history-playwright-checks.js` needs a patient with an existing
+  prescription, not a script id.** It reads `RX_MED_HISTORY_DEMOGRAPHIC_NO`,
+  falling back to `PRESCRIPTION_DEMOGRAPHIC_NO` and then `1`, and stages
+  whichever drug the profile lists first by ticking its ReRx box — so the
+  "Rx Examples" window it opens is asked for a drug that HAS history. A
+  patient with no drug profile fails the check at staging rather than
+  silently measuring the empty state. It stages in memory only: nothing is
+  saved, so it seeds and cleans up nothing.
 - **`CONSULT_UNSIGNED_REQUEST_ID` is consumed.** The stamp-update scenario
   signs that consultation, so a second back-to-back run needs the fixture
   reset: `UPDATE consultationRequests SET signature_img=NULL WHERE requestId=3;`
