@@ -103,6 +103,8 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationRequestDao.find(456)).thenReturn(consultation);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         nioFileManager = mock(NioFileManager.class);
+        when(nioFileManager.getOscarDocument(any(Path.class))).thenAnswer(call ->
+                temporaryDirectory.resolve(((Path) call.getArgument(0)).getFileName()).toRealPath());
         faxJobDao = mock(FaxJobDao.class);
         faxConfigDao = mock(FaxConfigDao.class);
 
@@ -473,5 +475,43 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(view).contains("id=\"consult-fax-uncertain\"", "consultation.fax.uncertain.message", "ViewDisplayDemographicConsultationRequests")
                 .contains("<html lang=\"<carlos:encode", "pageContext.request.locale.toLanguageTag()");
         assertThat(view).doesNotContain("<form", "setTimeout", "history.back", "finishPage(");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldCleanUnqueuedFilesThroughTheLiveDocumentFallback(boolean staleConfiguredRoot) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String oldBase = properties.getProperty("BASE_DOCUMENT_DIR");
+        String oldDocument = properties.getProperty("DOCUMENT_DIR");
+        Path documentRoot = java.nio.file.Files.createDirectories(temporaryDirectory.resolve("document"));
+        Path pdf = java.nio.file.Files.writeString(documentRoot.resolve("fallback.pdf"), "fixture PDF");
+        Path outside = java.nio.file.Files.writeString(temporaryDirectory.resolve("outside.pdf"), "keep");
+        try {
+            properties.setProperty("BASE_DOCUMENT_DIR", temporaryDirectory.toString());
+            if (staleConfiguredRoot) properties.setProperty("DOCUMENT_DIR", temporaryDirectory.resolve("missing").toString());
+            else properties.remove("DOCUMENT_DIR");
+            var liveFiles = new io.github.carlos_emr.carlos.managers.NioFileManagerImpl();
+            org.mockito.Mockito.doAnswer(call ->
+                    liveFiles.getOscarDocument((Path) call.getArgument(0)))
+                    .when(nioFileManager).getOscarDocument(any(Path.class));
+            when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+            when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+            try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc =
+                         mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class)) {
+                edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(0);
+                assertThat(action.execute()).isEqualTo("error");
+                assertThat(pdf).doesNotExist();
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(action, "cleanupAttemptFiles",
+                        java.util.Set.of(outside), java.util.List.of());
+                assertThat(outside).exists();
+                verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+            }
+        } finally {
+            if (oldBase == null) properties.remove("BASE_DOCUMENT_DIR"); else properties.setProperty("BASE_DOCUMENT_DIR", oldBase);
+            if (oldDocument == null) properties.remove("DOCUMENT_DIR"); else properties.setProperty("DOCUMENT_DIR", oldDocument);
+        }
     }
 }

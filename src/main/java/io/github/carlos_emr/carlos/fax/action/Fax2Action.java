@@ -127,32 +127,27 @@ public class Fax2Action extends ActionSupport {
      * <p>{@code queue()} persists {@link FaxJob} rows and promotes files into the fax
      * queue; {@code cancel()} -- including this method's own no-{@code method}
      * fall-through -- deletes temporary files and PHI preview caches. Both are
-     * mutations and require POST. {@code getPreview}, {@code
-     * getPageCount}, and {@code prepareFax} stay verb-open: {@code CoverPage.jsp}
+     * mutations and require POST. {@code getPreview} and {@code
+     * getPageCount} stay verb-open: {@code CoverPage.jsp}
      * builds {@code <img src>}/link GETs for {@code getPreview} and polls {@code
-     * getPageCount}, and {@code AddEForm2Action.redirectToPreparedFax()} issues a
-     * server-side {@code sendRedirect()} to {@code prepareFax} that the browser
-     * always follows with a GET -- rejecting GET there would break the eForm fax
-     * flow. {@code prepareFax} itself only renders an ephemeral temp PDF for review
-     * (via {@link DocumentAttachmentManager#stageEFormPacketForFaxPreview}); it does not
-     * persist a queued fax job or any permanent record.
+     * getPageCount}. Preparation writes a staged PDF and session capabilities, so
+     * it also requires POST. The eForm save handoff uses a same-origin 307 redirect
+     * to preserve the protected POST and its body.
      *
      * @return the Struts result name for the dispatched operation, or {@link #NONE}
      *         after a direct-response write or a 405 rejection
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     public String execute() {
         String method = request.getParameter("method");
-        boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method) || "prepareFax".equals(method);
-        boolean approvalSubmission = "prepareFax".equals(method)
-                && request.getParameter("renderApproval") != null;
+        boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method);
         String httpMethod = request.getMethod();
-        if ((!readOnly || approvalSubmission) && !"POST".equalsIgnoreCase(httpMethod)) {
+        if (!readOnly && !"POST".equals(httpMethod)) {
             // queue() persists fax jobs and promotes files; cancel() (also the no-method
             // fall-through below) deletes temp files and PHI preview caches -- mutations must
-            // require POST. CoverPage.jsp submits both via <form method="post">, so no UI
-            // change is required.
+            // require POST. CoverPage submits queue/cancel by POST, and the eForm
+            // handoff preserves its protected POST when redirecting to preparation.
+            response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             return NONE;
         }
@@ -533,8 +528,9 @@ public class Fax2Action extends ActionSupport {
     /**
      * Get a preview image of the entire fax document.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: the request faxFilePath is confined to the CARLOS-owned temp workspace via PathValidationUtils.isInApplicationTempDirectory before any File use; a stored-document path is reachable only through its job binding.
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "faxFilePath is containment-validated via PathValidationUtils.isInApplicationTempDirectory before any File use; stored documents are reachable only through their job binding")
+    // Direct reads require an active session/eForm/patient/provider claim plus temp containment;
+    // stored documents require an authorized job binding.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
     @SuppressWarnings("unused")
     public void getPreview() {
 
@@ -554,6 +550,10 @@ public class Fax2Action extends ActionSupport {
         if (jobId != null && !jobId.isEmpty()) {
             try {
                 faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+                if (faxJob == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "Fax job not found");
+                    return;
+                }
             } catch (NumberFormatException e) {
                 logger.warn("Invalid jobId supplied for fax preview ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
@@ -598,6 +598,13 @@ public class Fax2Action extends ActionSupport {
             // (DOCUMENT_DIR) may therefore only be previewed through its job binding above — direct
             // paths outside the CARLOS-owned temp workspace are rejected before any use.
             boolean pathFromRequestParam = (faxJob == null);
+            if (pathFromRequestParam) {
+                requestedFaxFilePath = authorizedPreviewPath(loggedInInfo, requestedFaxFilePath);
+                if (requestedFaxFilePath == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return;
+                }
+            }
             if (pathFromRequestParam && !PathValidationUtils.isInApplicationTempDirectory(new File(requestedFaxFilePath))) {
                 logger.warn("Rejected fax preview for a non-temp path supplied directly as faxFilePath");
                 sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
@@ -683,6 +690,11 @@ public class Fax2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String prepareFax() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            return NONE;
+        }
         long prepareStartedNanos = System.nanoTime();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -881,8 +893,8 @@ public class Fax2Action extends ActionSupport {
     /**
      * Get the actual number of pages in this PDF document.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: the request faxFilePath is confined to the CARLOS-owned temp workspace via PathValidationUtils.isInApplicationTempDirectory before any File use; a stored-document path is reachable only through its job binding.
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "faxFilePath is containment-validated via PathValidationUtils.isInApplicationTempDirectory before any File use; stored documents are reachable only through their job binding")
+    // Page metadata uses the same ownership and current-patient gates as PDF/image reads.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "direct paths require session ownership, current patient authorization and temp containment; stored documents require an authorized job binding")
     @SuppressWarnings("unused")
     public void getPageCount() {
 
@@ -907,7 +919,18 @@ public class Fax2Action extends ActionSupport {
     private int resolvePageCount(LoggedInInfo loggedInInfo, String jobId, String requestedFaxFilePath) {
         if (jobId != null && !jobId.isEmpty()) {
             try {
-                return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+                int id = Integer.parseInt(jobId);
+                FaxJob job = faxManager.getFaxJob(loggedInInfo, id);
+                if (job == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "Fax job not found");
+                    return 0;
+                }
+                if (job.getDemographicNo() != null
+                        && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, job.getDemographicNo())) {
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return 0;
+                }
+                return faxManager.getPageCount(loggedInInfo, id);
             } catch (NumberFormatException e) {
                 logger.warn("Invalid jobId supplied for fax page count ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
@@ -915,6 +938,11 @@ public class Fax2Action extends ActionSupport {
             }
         }
         if (requestedFaxFilePath == null || requestedFaxFilePath.isEmpty()) {
+            return 0;
+        }
+        requestedFaxFilePath = authorizedPreviewPath(loggedInInfo, requestedFaxFilePath);
+        if (requestedFaxFilePath == null) {
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             return 0;
         }
         // No jobId: same direct-path exposure as getPreview. A stored document (DOCUMENT_DIR) may
@@ -951,6 +979,33 @@ public class Fax2Action extends ActionSupport {
         } catch (IOException ex) {
             logger.error("{} ({})", ERROR_SENDING_ERROR_RESPONSE, ex.getClass().getSimpleName());
         }
+    }
+
+    /** Authorizes a read without consuming the exact active session-issued preview claim. */
+    @SuppressWarnings("unchecked")
+    private String authorizedPreviewPath(LoggedInInfo loggedInInfo, String requestedPath) {
+        HttpSession session = request.getSession(false);
+        String provider = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        if (session == null || requestedPath == null || provider == null || provider.isBlank()) return null;
+        // A read must not create an empty claim map or a new session.
+        var claims = (java.util.Map<String, FaxPreviewClaim>) session.getAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
+        if (claims == null) return null;
+        FaxPreviewClaim claim;
+        String ownedPath = null;
+        synchronized (claims) {
+            claim = claims.get(requestedPath);
+            if (claim == null || claim.cancelled() || !provider.equals(claim.providerNo())) return null;
+            for (String path : claims.keySet()) {
+                if (path.equals(requestedPath)) { ownedPath = path; break; }
+            }
+        }
+        if (claim.eformId() == null || claim.demographicId() == null) return null;
+        EFormData eform = eFormDataDao().find(claim.eformId().intValue());
+        if (eform == null || !claim.demographicId().equals(eform.getDemographicId())
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ,
+                        String.valueOf(claim.demographicId()))
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, claim.demographicId())) return null;
+        return ownedPath;
     }
 
     private static void deleteUnownedStagedFaxPreview(Path path) {

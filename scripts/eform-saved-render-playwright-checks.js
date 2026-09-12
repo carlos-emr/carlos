@@ -402,7 +402,24 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   try {
     const parameters = new URLSearchParams({ method: 'prepareFax', transactionType: 'EFORM',
       transactionId: String(fdid), demographicNo: String(demographicNo) });
-    const prepared = await page.goto(`${endpoint}?${parameters}`, { waitUntil: 'domcontentloaded', timeout: 180000 });
+    await page.goto(appUrl(`/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}&parentAjaxId=eforms`),
+      { waitUntil: 'domcontentloaded' });
+    csrfToken = await readCsrfToken(page);
+    for (const method of ['GET', 'HEAD']) {
+      const rejected = await context.request.fetch(`${endpoint}?${parameters}`, { method });
+      assert(rejected.status() === 405 && rejected.headers().allow === 'POST',
+        'fax preparation must reject GET/HEAD before staging');
+      await rejected.dispose();
+    }
+    const handoffPromise = page.waitForResponse(response => response.status() === 307
+      && response.headers().location?.includes('/fax/faxAction?method=prepareFax'), { timeout: 180000 });
+    const preparedPromise = page.waitForResponse(response => response.url().startsWith(endpoint)
+      && new URL(response.url()).searchParams.get('method') === 'prepareFax'
+      && response.request().method() === 'POST', { timeout: 180000 });
+    const [handoff, prepared] = await Promise.all([
+      handoffPromise, preparedPromise, page.locator('#remoteFaxButton').click(),
+    ]);
+    assert(handoff.request().method() === 'POST', 'eForm fax handoff must preserve the protected POST');
     assert(prepared && prepared.status() === 200, 'eForm fax preview preparation must succeed');
     await page.locator('#btnCancel').waitFor({ state: 'visible' });
     faxFilePath = await page.locator('input[name="faxFilePath"]').inputValue();
@@ -430,6 +447,15 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     const otherSession = await otherContext.request.post(endpoint, { form: form({ 'CSRF-TOKEN': otherToken }), maxRedirects: 0 });
     assert(otherSession.status() === 403, 'a second authenticated session must not cancel another session preview');
     await otherSession.dispose();
+    for (const method of ['getPreview', 'getPageCount']) {
+      const deniedRead = await otherContext.request.get(endpoint, { params: { method, faxFilePath } });
+      assert(deniedRead.status() === 403, 'another session must not read a claimed PDF or its page count');
+      await deniedRead.dispose();
+    }
+    const ownedCount = await context.request.get(endpoint, { params: { method: 'getPageCount', faxFilePath } });
+    assert(ownedCount.status() === 200 && (await ownedCount.json()).pageCount > 0,
+      'the owning session must be able to read its page count without consuming the claim');
+    await ownedCount.dispose();
     await preview();
 
     await Promise.all([
@@ -440,8 +466,11 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     const replay = await context.request.post(endpoint, { form: form({}), maxRedirects: 0 });
     assert(replay.status() === 403, 'successful cancellation must consume the owned claim');
     await replay.dispose();
+    const cancelledRead = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+    assert(cancelledRead.status() === 403, 'a cancelled claim must not authorize a preview read');
+    await cancelledRead.dispose();
     assert(pageErrors.length === 0, 'fax preview cancellation must not produce browser script errors');
-    console.log('PASS eForm fax preview rejects wrong-patient and other-session cancellation, preserves the PDF, and cancels once through the real button');
+    console.log('PASS eForm fax uses a protected POST handoff, limits PDF/count reads to its session, and cancels only its owned preview');
   } finally {
     // Only the exact preview created by this check is eligible for cleanup; never queue a fax.
     try {

@@ -24,6 +24,10 @@ package io.github.carlos_emr.carlos.fax.action;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -67,6 +71,21 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
     private static final String APP_TEMP_ROOT =
             java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "carlos-temp").toString();
 
+    private void authorizePreview(MockHttpServletRequest request, SecurityInfoManager security) {
+        LoggedInInfo user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        EFormDataDao eforms = createAndRegisterMock(EFormDataDao.class);
+        EFormData eform = new EFormData();
+        eform.setDemographicId(10);
+        when(eforms.find(77)).thenReturn(eform);
+        when(security.hasPrivilege(user, "_eform", SecurityInfoManager.READ, "10")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 10)).thenReturn(true);
+        Map<String, Fax2Action.FaxPreviewClaim> claims = new ConcurrentHashMap<>();
+        claims.put(request.getParameter("faxFilePath"), new Fax2Action.FaxPreviewClaim(77, 10, "999998"));
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claims);
+    }
+
     @Test
     @DisplayName("should reject getPageCount when fax read privilege is missing")
     void shouldRejectGetPageCount_whenFaxReadPrivilegeMissing() {
@@ -79,6 +98,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", "/tmp/example.pdf");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -107,8 +127,10 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
         request.setParameter("transactionType", "eform");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -138,6 +160,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("jobId", "abc");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -167,6 +190,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("pageNumber", "abc");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -203,6 +227,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         request.setParameter("showAs", "image");
         request.setParameter("pageNumber", "1");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -243,6 +268,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         request.setParameter("showAs", "image");
         request.setParameter("pageNumber", "1");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -271,6 +297,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("method", "getPreview");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -316,6 +343,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", requestFaxFilePath);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -347,6 +375,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", "/etc/passwd");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -382,6 +411,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", requestFaxFilePath);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -413,6 +443,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", "/var/lib/CarlosDocument/carlos/document/123.pdf");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -448,6 +479,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         request.setParameter("showAs", "image");
         request.setParameter("pageNumber", "1");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -482,6 +514,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", APP_TEMP_ROOT + "/fax.pdf");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -515,6 +548,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", "/var/lib/CarlosDocument/carlos/document/123.pdf");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -554,6 +588,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("faxFilePath", requestFaxFilePath);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -600,6 +635,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("jobId", "77");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
@@ -641,6 +677,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("jobId", "88");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        if (request.getParameter("faxFilePath") != null) authorizePreview(request, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
