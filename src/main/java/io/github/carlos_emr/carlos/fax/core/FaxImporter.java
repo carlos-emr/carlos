@@ -315,10 +315,10 @@ public class FaxImporter {
                         try {
                             faxFile = providerClient.downloadFax(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
-                            log.error("Failed to download incoming fax from provider {} - marking as ERROR",
-                                    faxConfig.getProviderType(), e);
+                            log.error("Failed to download incoming fax from provider {} - marking as ERROR (HTTP {}, type={})",
+                                    faxConfig.getProviderType(), e.getHttpStatus(), e.getClass().getSimpleName());
                             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-                            receivedFax.setStatusString("Download failed: " + e.getMessage());
+                            receivedFax.setStatusString("Incoming fax download failed. Check the fax service configuration and retry.");
                             saveFaxJob(new FaxJob(receivedFax));
                             continue;
                         }
@@ -399,15 +399,15 @@ public class FaxImporter {
                 }
 
             } catch (FaxProviderException e) {
-                log.error("Fax provider error for account {} ({}): {}",
-                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
+                log.error("Fax provider error for account {} ({}, HTTP {}, type={})",
+                        faxConfig.getId(), faxConfig.getProviderType(), e.getHttpStatus(), e.getClass().getSimpleName());
             } catch (IllegalStateException e) {
                 log.error("Credential decryption failed for fax account {} ({}) - re-enter password in "
-                        + "Administration > Faxes > Configure Fax. Skipping this account.",
-                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e);
+                        + "Administration > Faxes > Configure Fax. Skipping this account ({}).",
+                        faxConfig.getId(), faxConfig.getProviderType(), e.getClass().getSimpleName());
             } catch (RuntimeException e) {
-                log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account: {}",
-                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
+                log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account ({})",
+                        faxConfig.getId(), faxConfig.getProviderType(), e.getClass().getSimpleName());
             }
         }
 
@@ -446,7 +446,11 @@ public class FaxImporter {
             try {
                 String document = faxFile.getDocument();
                 if (document == null) {
-                    throw new FaxProviderException("Base64 decode failed: missing fax document payload");
+                    // This is a locally established condition, not provider exception text.
+                    log.warn("Incoming fax Base64 document payload is missing");
+                    receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                    receivedFax.setStatusString("Base64 decode failed: missing fax document payload");
+                    return null;
                 }
                 // Use getMimeDecoder() to tolerate MIME-formatted (line-wrapped) Base64
                 // payloads that fax providers may return per RFC 2045
@@ -472,17 +476,17 @@ public class FaxImporter {
             return targetFile;
 
         } catch (FaxProviderException e) {
-            log.error("Fax validation failed: {}", e.getMessage(), e);
+            log.error("Fax validation failed ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-            receivedFax.setStatusString("PDF validation failed: " + e.getMessage());
+            receivedFax.setStatusString("Incoming fax content validation failed (Base64 or PDF).");
             return null;
         } catch (IOException e) {
-            log.error("File I/O error saving fax to incoming directory: {}", e.getMessage(), e);
+            log.error("File I/O error saving fax to incoming directory ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-            receivedFax.setStatusString("File system error: " + e.getMessage());
+            receivedFax.setStatusString("Unable to save the incoming fax file.");
             return null;
         } catch (SecurityException e) {
-            log.error("SECURITY: Path validation failed for fax: {}", e.getMessage(), e);
+            log.error("SECURITY: Path validation failed for fax ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
             receivedFax.setStatusString("Security validation failed - suspicious filename");
             return null;
@@ -610,17 +614,17 @@ public class FaxImporter {
             return newDoc;
 
         } catch (FaxProviderException e) {
-            log.error("PDF validation failed during import: {}", e.getMessage(), e);
+            log.error("PDF validation failed during import ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-            receivedFax.setStatusString("PDF validation failed on import: " + e.getMessage());
+            receivedFax.setStatusString("Incoming fax PDF validation failed during import.");
             return null;
         } catch (IOException e) {
-            log.error("File I/O error during import from incoming: {}", e.getMessage(), e);
+            log.error("File I/O error during import from incoming ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
             receivedFax.setStatusString("File system error during import - pending retry");
             return null;
         } catch (SecurityException e) {
-            log.error("SECURITY: Path validation failed during import: {}", e.getMessage(), e);
+            log.error("SECURITY: Path validation failed during import ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
             receivedFax.setStatusString("Security validation failed during import");
             return null;

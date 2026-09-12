@@ -61,7 +61,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -82,6 +81,31 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fax")
 class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
+
+    @Test
+    @DisplayName("should hide unexpected backend argument errors while preserving authored field-validation messages")
+    void shouldKeepBackendArgumentErrorPrivate_whenConfigurationSaveFails() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(new ArrayList<>());
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("0", "4165550100", "test-secret-pw");
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("PRIVATE_BACKEND_MESSAGE",
+                        new IllegalStateException("PRIVATE_BACKEND_CAUSE")))
+                .when(faxConfigDao).saveEntity(any(FaxConfig.class));
+        try (var context = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            verify(faxConfigDao).saveEntity(any(FaxConfig.class));
+            assertThat(response.getContentAsString()).contains("\"success\":false")
+                    .contains("There was a problem saving your configuration")
+                    .doesNotContain("PRIVATE_BACKEND", "test-secret-pw");
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_BACKEND", "test-secret-pw");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -533,13 +557,13 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return the provider failure message when verification fails")
-    void shouldReturnProviderMessage_whenVerificationFails() throws Exception {
+    @DisplayName("should report bounded provider failure details when verification fails")
+    void shouldKeepProviderFailurePrivate_whenVerificationFails() throws Exception {
         setUpCommonMocks();
         grantConfigureWrite(true);
         stubProviderClient();
         org.mockito.Mockito.doThrow(new FaxProviderException(
-                "SRFax connection test failed: Invalid Access Code / Password"))
+                "PRIVATE_CONNECTION_MESSAGE", new IllegalStateException("PRIVATE_CONNECTION_CAUSE"), 401))
                 .when(providerClient).verifyConnection(any(FaxConfig.class));
         request.setMethod("POST");
         setTestConnectionParams("-1", "123456", "test-secret-pw");
@@ -548,12 +572,18 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
-            new ConfigureFax2Action().execute();
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+                new ConfigureFax2Action().execute();
+                assertThat(logs.messages()).anyMatch(message -> message.contains("HTTP 401"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_CONNECTION");
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
 
             assertThat(response.getContentAsString())
                     .contains("\"success\":false")
                     .contains("Connection failed")
-                    .contains("Invalid Access Code / Password");
+                    .contains("Provider HTTP 401")
+                    .doesNotContain("PRIVATE_CONNECTION");
         }
     }
 
@@ -770,12 +800,8 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnUnsupportedProviderMessage_whenTestConnectionProviderIsMiddleware() throws Exception {
         setUpCommonMocks();
         grantConfigureWrite(true);
-        // A legacy relay client without a verifyConnection override: exercise the interface
-        // default rather than a stub, so the contract for non-SRFax providers is what is pinned.
-        FaxProviderClient middlewareClient = mock(FaxProviderClient.class);
-        when(middlewareClient.getProviderType()).thenReturn(FaxConfig.ProviderType.MIDDLEWARE);
-        doCallRealMethod().when(middlewareClient).verifyConnection(any(FaxConfig.class));
-        when(providerClientFactory.getClient(any(FaxConfig.class))).thenReturn(middlewareClient);
+        // Legacy middleware has no connection-test implementation. Return the known safe
+        // unsupported-provider message without needing a provider exception as UI text.
         request.setMethod("POST");
         // Middleware rows carry a relay username, so the SRFax digits rule must not apply.
         setTestConnectionParams("1", "relay-user", "test-secret-pw");
@@ -792,6 +818,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("\"success\":false")
                     .contains("Connection test is not supported for provider MIDDLEWARE");
             assertThat(body).doesNotContain("test-secret-pw");
+            verifyNoInteractions(providerClientFactory, providerClient);
         }
     }
 
@@ -819,7 +846,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             String body = response.getContentAsString();
             assertThat(body)
                     .contains("\"success\":false")
-                    .contains("Invalid provider type 'BOGUSscript'. Valid values are");
+                    .contains("Invalid provider type. Valid values are");
             assertThat(body).doesNotContain("<script>").doesNotContain("null");
             verifyNoInteractions(providerClientFactory, providerClient);
         }

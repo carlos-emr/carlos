@@ -181,9 +181,11 @@ public class ManageFaxes2Action extends Fax2Action {
                         result.put("message", faxJob.getStatusString());
                     }
                 } catch (FaxProviderException e) {
-                    // Provider exception messages never carry credentials (provider-client contract).
-                    log.error("Provider cancel failed for fax row id {}", faxJob.getId(), e);
-                    result.put("message", e.getMessage() == null ? "Cancel failed" : e.getMessage());
+                    // Even credential-scrubbed transport errors can contain clinical filenames
+                    // or provider response text. Do not expose them in the admin response/log.
+                    log.error("Provider cancel could not be confirmed for fax row id {} (HTTP {}, type={})",
+                            faxJob.getId(), e.getHttpStatus(), e.getClass().getSimpleName());
+                    result.put("message", "Unable to confirm fax cancellation. Check the fax status before retrying.");
                 }
             } else {
                 log.info("Fax row id {} not in a cancellable state ({})", faxJob.getId(), faxJob.getStatus());
