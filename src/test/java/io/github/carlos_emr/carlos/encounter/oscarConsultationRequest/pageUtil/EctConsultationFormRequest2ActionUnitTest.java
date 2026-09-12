@@ -385,6 +385,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
         assertThat(action.getActionErrors()).containsExactly("Consultation request unavailable");
+        // The input result forwards to ViewRequest, so the form's alert reads this attribute; the
+        // action errors do not survive the forward.
+        assertThat(request.getAttribute("errorMessage")).isEqualTo("Consultation request unavailable");
         verify(consultationManager, never()).archiveConsultationRequest(9);
         verify(consultationRequestDao).find(9);
         verify(consultationRequestDao, never()).merge(any());

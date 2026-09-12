@@ -191,9 +191,21 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             return Integer.parseInt(rawValue);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().error(logMessage, LogSafe.sanitize(rawValue));
-            addActionError(actionErrorMessage);
+            rejectInput(actionErrorMessage);
             return null;
         }
+    }
+
+    /**
+     * Records why the submission is being turned away. The action error is the Struts-side record;
+     * the request attribute is what the form's alert actually reads, because the {@code input}
+     * result forwards to another action (ViewRequest) and the value stack does not survive that.
+     * Before this the {@code input} result had no mapping at all, so every one of these rejections
+     * ended in the framework's error page.
+     */
+    private void rejectInput(String message) {
+        addActionError(message);
+        request.setAttribute(ATTR_ERROR_MESSAGE, message);
     }
 
     private void requireConsultWritePrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
@@ -212,7 +224,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
     private String consultationUpdateUnavailable(int consultationRequestId) {
         MiscUtils.getLogger().error("Consultation request unavailable for update: {}", consultationRequestId);
-        addActionError(CONSULTATION_REQUEST_UNAVAILABLE);
+        rejectInput(CONSULTATION_REQUEST_UNAVAILABLE);
         return INPUT;
     }
 
@@ -366,7 +378,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     demographicId = Integer.parseInt(demographicNo);
                 } catch (NumberFormatException e) {
                     MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
-                    addActionError(INVALID_DEMOGRAPHIC_NUMBER);
+                    rejectInput(INVALID_DEMOGRAPHIC_NUMBER);
                     return INPUT;
                 }
                 demographicNo = String.valueOf(demographicId);

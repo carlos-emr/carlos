@@ -418,6 +418,10 @@
         <action name="encounter/RequestConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest?error=true</result>
+            <!-- The action's own rejections (malformed ids, a request that is not this patient's):
+                 back to the form, whose alert reads the errorMessage attribute the action set.
+                 Unmapped until 2026-09, so each of them crashed into the generic error page. -->
+            <result name="input">/encounter/ViewRequest?error=true</result>
             <result name="failESend">/encounter/ViewRequest</result>
             <result name="printpdf">/encounter/oscarConsultationRequest/printPdf</result>
             <result name="printIndivica">/encounter/oscarConsultationRequest/printPdf2</result>
