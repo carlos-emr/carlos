@@ -856,7 +856,7 @@ public class CommonLabResultData {
                 ret = true;
             }
         } catch (Exception e) {
-            logger.error("exception in isLabLinkedWithPatient", e);
+            logger.error("exception in isLabLinkedWithPatient ({})", e.getClass().getSimpleName());
 
         }
         return ret;

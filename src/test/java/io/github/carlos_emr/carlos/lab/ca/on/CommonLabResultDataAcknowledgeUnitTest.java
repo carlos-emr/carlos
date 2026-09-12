@@ -78,6 +78,21 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @Tag("lab")
 class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    @DisplayName("should fail closed without logging HRM linkage exception details")
+    void shouldKeepHrmLinkDiagnosticsPrivate_whenLookupFails() {
+        registerStaticInitializerMocks();
+        var dao = createAndRegisterMock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class);
+        when(dao.findByHrmDocumentId(123)).thenThrow(new IllegalStateException("PRIVATE_HRM_MESSAGE",
+                new IllegalArgumentException("PRIVATE_HRM_CAUSE")));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(CommonLabResultData.class)) {
+            assertThat(new CommonLabResultData().isHRMLinkedWithPatient("123", "HRM")).isFalse();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalStateException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_HRM");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
     /**
      * CommonLabResultData and Hl7textResultsData both resolve DAOs in their static initializers;
      * register them so referencing either class does not blow up outside a Spring context.

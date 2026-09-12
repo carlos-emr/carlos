@@ -332,7 +332,7 @@ public class FrmForm2Action extends ActionSupport {
                 frh.setDateFormat(_dateFormat);
                 (frh).saveFormRecord(props, sql, demographicNo);
             } catch (SQLException e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
             }
 
             logger.debug("current mem 9 " + currentMem());
@@ -363,7 +363,7 @@ public class FrmForm2Action extends ActionSupport {
         try {
             formPath = (new FrmData()).getShortcutFormValue(demographicNo, formNameByFormTable);
         } catch (SQLException e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
         }
         return "/form/SetupForm?formName=" + trustedFormName + "&formId=" + formPath[1];
     }

@@ -65,7 +65,8 @@ public final class ScheduleTemplateCodeSetting2Action extends ActionSupport {
         String op = request.getParameter("dboperation");
         op = (op == null) ? "" : op.trim();
         boolean isMutation = "Save".equalsIgnoreCase(op) || "Delete".equalsIgnoreCase(op);
-        if (isMutation && !"POST".equalsIgnoreCase(request.getMethod())) {
+        if (isMutation && !"POST".equals(request.getMethod())) {
+            ServletActionContext.getResponse().setHeader("Allow", "POST");
             ServletActionContext.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

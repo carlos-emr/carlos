@@ -26,6 +26,53 @@ import org.springframework.mock.web.MockHttpServletResponse;
 @DisplayName("Lab mutation HTTP method boundaries")
 class LabMutationMethodUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
+    @ValueSource(strings = {"comment-persistence", "comment-response", "ack-response"})
+    @DisplayName("should bound lab comment and JSON diagnostics without changing committed outcomes")
+    void shouldKeepLabDiagnosticsPrivate_whenOperationFails(String operation) throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/UpdateStatus");
+        var response = mock(jakarta.servlet.http.HttpServletResponse.class);
+        request.setParameter("segmentID", "169");
+        request.setParameter("status", "F");
+        request.setParameter("labType", "HL7");
+        request.setParameter("comment", "PRIVATE_CLINICAL_COMMENT");
+        request.setParameter("ajaxcall", "yes");
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq("_lab"), eq("w"), isNull())).thenReturn(true);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class);
+        var info = mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        boolean persistenceFails = operation.equals("comment-persistence");
+        if (!persistenceFails) when(response.getWriter()).thenThrow(new java.io.IOException("PRIVATE_RESPONSE_MESSAGE",
+                new IllegalStateException("PRIVATE_RESPONSE_CAUSE")));
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+             var data = mockStatic(io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ReportStatusUpdate2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            session.when(() -> io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            if (persistenceFails) data.when(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatus(
+                    169, "999998", 'F', "PRIVATE_CLINICAL_COMMENT", "HL7"))
+                    .thenThrow(new IllegalStateException("PRIVATE_PERSISTENCE_MESSAGE", new IllegalArgumentException("PRIVATE_PERSISTENCE_CAUSE")));
+            var action = new ReportStatusUpdate2Action();
+            String result = operation.equals("ack-response") ? action.executemain() : action.addComment();
+            assertThat(result).isEqualTo(persistenceFails ? "failure" : ActionSupport.NONE);
+            if (operation.equals("ack-response")) {
+                data.verify(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersions(
+                        169, "999998", 'F', "PRIVATE_CLINICAL_COMMENT", "HL7", false, null));
+            } else {
+                data.verify(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatus(
+                        169, "999998", 'F', "PRIVATE_CLINICAL_COMMENT", "HL7"));
+            }
+            assertThat(logs.messages()).anyMatch(message -> message.contains(persistenceFails ? "IllegalStateException" : "IOException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {0, 1, 2})
     @DisplayName("should audit an acknowledgement only after the routing transaction succeeds")
     void shouldAuditOnlyAfterSuccessfulRouting_whenAcknowledging(int failureStage) {
@@ -45,7 +92,8 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
         when(info.getLoggedInProviderNo()).thenReturn("999998");
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
                 MockedStatic<io.github.carlos_emr.carlos.utility.LoggedInInfo> session = mockStatic(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
-                MockedStatic<io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData> data = mockStatic(io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.class)) {
+                MockedStatic<io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData> data = mockStatic(io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.class);
+                var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ReportStatusUpdate2Action.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             session.when(() -> io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
@@ -57,12 +105,15 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
             data.when(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersions(
                     169, "999998", 'A', null, "HL7", false, null)).thenAnswer(invocation -> {
                         logActionMock.verifyNoInteractions();
-                        if (mutationFails) throw new IllegalStateException("injected routing failure");
+                        if (mutationFails) throw new IllegalStateException("PRIVATE_ROUTING_MESSAGE", new IllegalArgumentException("PRIVATE_ROUTING_CAUSE"));
                         return 2;
                     });
             assertThat(new ReportStatusUpdate2Action().executemain()).isEqualTo(mutationFails ? "failure" : ActionSupport.SUCCESS);
             if (mutationFails) {
                 logActionMock.verifyNoInteractions();
+                assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalStateException"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_ROUTING");
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
             } else {
                 logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
                         io.github.carlos_emr.carlos.log.LogConst.ACK, io.github.carlos_emr.carlos.log.LogConst.CON_HL7_LAB,
