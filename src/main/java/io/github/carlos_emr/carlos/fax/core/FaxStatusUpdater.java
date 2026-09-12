@@ -224,8 +224,8 @@ public class FaxStatusUpdater {
                             faxJobDao.merge(faxJob);
                         } catch (RuntimeException mergeEx) {
                             log.error("CRITICAL: Failed to persist status update for fax id {} - "
-                                    + "provider reports {} but database still shows old status",
-                                    faxJob.getId(), faxJob.getStatus(), mergeEx);
+                                    + "provider reports {} but database still shows old status ({})",
+                                    faxJob.getId(), faxJob.getStatus(), mergeEx.getClass().getSimpleName());
                         }
                     } catch (FaxProviderException e) {
                         log.error("Failed to update fax status for fax id {} (HTTP {}, type={})",
@@ -236,8 +236,8 @@ public class FaxStatusUpdater {
                             faxJobDao.merge(faxJob);
                         } catch (RuntimeException mergeEx) {
                             log.error("CRITICAL: Failed to persist error status for fax id {} - "
-                                    + "status string update may be lost",
-                                    faxJob.getId(), mergeEx);
+                                    + "status string update may be lost ({})",
+                                    faxJob.getId(), mergeEx.getClass().getSimpleName());
                         }
                     }
                 } else {
@@ -245,12 +245,12 @@ public class FaxStatusUpdater {
                             faxJob.getId(), faxJob.getFax_line());
                 }
             } catch (IllegalStateException e) {
-                log.error("Credential decryption failed for fax id {} (fax_line {}) - re-enter password in "
-                        + "Administration > Faxes > Configure Fax. Skipping this fax.",
-                        faxJob.getId(), faxJob.getFax_line(), e);
+                log.error("Credential decryption failed for fax id {} - re-enter password in "
+                        + "Administration > Faxes > Configure Fax. Skipping this fax ({}).",
+                        faxJob.getId(), e.getClass().getSimpleName());
             } catch (RuntimeException e) {
-                log.error("Unexpected error updating status for fax id {} - continuing with remaining faxes: {}",
-                        faxJob.getId(), e.getMessage(), e);
+                log.error("Unexpected error updating status for fax id {} - continuing with remaining faxes ({})",
+                        faxJob.getId(), e.getClass().getSimpleName());
             }
         }
     }

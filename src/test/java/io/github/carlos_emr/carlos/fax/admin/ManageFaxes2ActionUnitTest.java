@@ -510,9 +510,10 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should treat absent filter parameters as null filters without an NPE on fetchFaxStatus")
-    void shouldReturnFaxstatus_whenFilterParametersAbsent() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should safely treat absent or invalid date filters as null without exposing submitted text")
+    void shouldReturnFaxstatus_whenFilterParametersAbsentOrInvalid(boolean invalidDates) {
         setUpCommonMocks();
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fax"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -523,16 +524,25 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
 
         request.setMethod("POST");
         request.setParameter("method", "fetchFaxStatus");
+        if (invalidDates) {
+            request.setParameter("dateBegin", "PRIVATE_DATE_BEGIN\nforged-log-entry");
+            request.setParameter("dateEnd", "PRIVATE_DATE_END\nforged-log-entry");
+        }
         // Deliberately no status/team/oscarUser/demographic_no/date params: the
         // constant-first comparisons must treat them all as null filters.
 
-        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ManageFaxes2Action.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
             String result = new ManageFaxes2Action().execute();
 
             assertThat(result).isEqualTo("faxstatus");
+            if (invalidDates) {
+                assertThat(logs.messages().stream().filter(message -> message.contains("Unparseable fax status")).toList()).hasSize(2);
+            }
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_DATE", "forged-log-entry");
             verify(faxJobDao).getFaxStatusByDateDemographicProviderStatusTeam(
                     isNull(), isNull(), isNull(), isNull(), isNull(), isNull());
         }
