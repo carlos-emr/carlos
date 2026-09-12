@@ -4,7 +4,10 @@
 The maintainer has chosen Path B — a Galera single-writer cluster — as the
 next piece; it is specified in section 11 and re-orders the phases in
 section 6. The asynchronous replica package (Path A) stays as an optional
-later phase for an offsite copy.** Implemented: `carlos-ctl replica add|remove|status`,
+later phase for an offsite copy. All fourteen decisions in sections 9 and
+11.10 were taken by the maintainer on 2026-09-12 (the recommendations
+recorded there), and the maintainer authorized the Flyway schema change
+phase B0 needs.** Implemented: `carlos-ctl replica add|remove|status`,
 `carlos-emr-cert db-tls`, the 62- drop-in and sysctl renderers,
 `db-apply-settings --no-restart` and its primary-role compare set, the
 `check` replication section, the preseed questions, the `demo-data` /
@@ -66,7 +69,7 @@ design must stay consistent with).
 | Automatic failover | **Path B: yes, at the driver** (`failOverReadOnly=false` over the node list). **Path A: no**, manual fenced promotion | On a Galera cluster every surviving node in the primary component is writable, so a driver switch is safe; on an async pair it is not |
 | Packaging | **Split the admin tool into its own package (`carlos-emr-ctl`), add one new role package (`carlos-emr-db-replica`)**; `carlos-ctl` becomes role-aware | One tool, one code path, on every host. A db-only host cannot depend on `carlos-emr` (it would pull Tomcat, nginx, the WAR) |
 | Role model | Derived, not declared twice: *app present?* (webapp installed) × *database role* (`standalone` / `primary` / `replica`) recorded in `/etc/carlos-emr/replication.env` | Leaves room for "app host with a remote database" and "warm-standby app host whose local MariaDB is a replica" without new packages |
-| Network exposure | MariaDB keeps loopback; the primary additionally binds **one** operator-named LAN/VPN address; the replication account is host-restricted to the replica's IP and `REQUIRE SSL`; server certificate pinned by the replica | The drop-in's "structural, not administrative" loopback posture is preserved: the only new listener is the one the operator explicitly asked for |
+| Network exposure | MariaDB keeps loopback; a primary or cluster node additionally binds **one** operator-named LAN/VPN address; accounts are host-restricted and `REQUIRE SSL`; certificates pinned. **Cluster verbs refuse a public address outright; only the asynchronous `replica add` accepts one, behind `--allow-public`** | The loopback posture is preserved: the only new listener is the one the operator explicitly asked for, and a Galera cluster is a LAN design by nature |
 | Seeding a new replica | **Logical dump pulled by the replica over the replication port** (TLS, `--single-transaction --gtid`) in phase 1; physical (`mariadb-backup` over ssh) and restore-from-restic as later options | No ssh trust between hosts, no second port, works over a VPN; the replica pulls exactly what the nightly backup already dumps |
 | Credentials | Join token carries the replication credential **and** the three local account passwords (`carlos`, `drugref`, `backup`) | Account DDL is deliberately *not* binlogged (PITR contract), so the replica must provision the same passwords itself or promotion would strand the app's `carlos.properties` |
 
@@ -801,8 +804,8 @@ installed base working unchanged.
 
 ### Phase B (Path B, chosen — see section 11 for the design)
 
-- **B0** primary-key migration for the 24 key-less tables (maintainer-written
-  Flyway migration; see 11.2), `innodb_autoinc_lock_mode = 2` in the shared
+- **B0** primary-key migration for the 24 key-less tables (Flyway
+  migration, authorized; see 11.2), `innodb_autoinc_lock_mode = 2` in the shared
   drop-in, DrugRef seed created as InnoDB up front.
 - **B1** `carlos-emr-ctl` split and `role.py` (phase 0 items 1–4), now
   required because two of the three cluster hosts carry no application.
@@ -966,39 +969,38 @@ Listed so no phase forgets one:
 
 ---
 
-## 9. Open questions for the maintainer
+## 9. Decisions taken (formerly open questions)
 
-1. **Package split now, or duplicate-and-Conflict?** The plan recommends
-   the split (`carlos-emr-ctl`) as phase 0 because it is mechanical and
-   it is what makes "one tool, role-aware" true. The fallback — ship a
-   second copy of `carlos_ctl` in the replica package with
-   `Conflicts: carlos-emr` — is smaller but closes off T3 until the split
-   happens anyway.
-2. **Public listen addresses.** Refuse-unless-flagged (as drafted) or
-   refuse outright and require a VPN? The drafted behaviour prints the
-   WireGuard recommendation loudly and requires `--allow-public`.
-3. **Token contents.** Carrying the application passwords is the
-   recommendation (section 4.4). The alternative — generate fresh passwords
-   at promotion and rotate the app host afterwards — trades a one-time
-   secret file for a two-host credential rotation during an outage.
-4. **Semi-sync default.** Off by default (drafted). A LAN-only site may
-   prefer on; the README will say when to choose it.
-5. **Binlog retention** stays at 10 days (drafted); a site wanting to
-   survive a longer replica outage raises it knowingly in the drop-in
-   (disk cost stated in the README).
-6. **Name of the replica package.** `carlos-emr-db-replica` (drafted) versus
-   a generic `carlos-emr-db` with the role chosen at join time. The specific
-   name keeps `apt list` self-describing.
-7. **Non-local bind.** `net.ipv4.ip_nonlocal_bind = 1` is system-wide (any
-   process may then bind an address the host does not hold). The
-   alternative, ordering `mariadb.service` after the VPN unit, has no
-   stable unit name to order after. The plan takes the sysctl and makes
-   `check` assert it; a site that objects can pin the listen IP to a
-   physical interface instead.
-8. **Token revocation.** Expiry is enforced only by `join`. A token that
-   leaks before use is as sensitive as `backup.env` (it grants the whole
-   binlog stream) until `replica add --reissue` or `replica remove` is run.
-   The README will say so in the same tone as the `RESTIC_PASSWORD` warning.
+Each was put to the maintainer with a recommendation; all were accepted on
+2026-09-12. They are kept in question form so the reasoning stays with the
+answer.
+
+1. **Package split now, or duplicate-and-Conflict?** — **Split**, as its
+   own small PR first (phase B1). Path B needs it because two of the three
+   cluster hosts carry no application, and a separate PR keeps the cluster
+   change reviewable.
+2. **Public listen addresses.** — **Two answers.** Cluster verbs refuse a
+   public address outright, no flag: Galera is a LAN design and a public
+   cluster port is never right. The asynchronous `replica add` keeps
+   `--allow-public` with the VPN warning, because an offsite copy is its
+   purpose.
+3. **Token contents.** — **Path A tokens carry the application
+   passwords** (section 4.4), unchanged. Path B tokens carry none: Galera
+   replicates account DDL, so every node has the accounts already.
+4. **Semi-sync default (Path A).** — **Off by default.** Moot for Path B,
+   which is synchronous by construction.
+5. **Binlog retention.** — **Stays at 10 days.** `replica status` warns at
+   half the window; a site that needs more raises it knowingly.
+6. **Package names.** — **`carlos-emr-db-node` and `carlos-emr-db-arbiter`**
+   for Path B; `carlos-emr-db-replica` if Path A ships. Specific names keep
+   `apt list` self-describing.
+7. **Non-local bind.** — **Keep the sysctl**, with the `check` assertion.
+   Ordering MariaDB after a VPN unit has no stable unit name to order
+   after; a site that objects binds a physical interface instead.
+8. **Token revocation.** — **Accept and document.** Expiry is enforced by
+   `join`; server-side password expiry would cut off a running replica's
+   reconnects. Revocation is `replica remove` or `--reissue`, and the
+   README treats the token like `backup.env`.
 
 ---
 
@@ -1073,9 +1075,14 @@ across a WAN — an offsite copy stays Path A.
   `DELETE` in the Java code, and the JPA entities that map some of them do
   not depend on the absence of a column. Phase B0 adds an
   `id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY` to each in one
-  forward Flyway migration (`common` and `bc`). **This migration is
-  maintainer-authored: this repository's policy keeps automated changes out
-  of `database/`.** It is safe and useful on its own — row-based
+  forward Flyway migration (`common` and `bc`). **The maintainer has
+  authorized this schema change** (this repository otherwise keeps
+  automated changes out of `database/`; that standing rule is lifted for
+  this migration only, on record here). It is written in phase B0 as the
+  next free `V1.0.N__add_surrogate_primary_keys.sql` in `common` and `bc`,
+  idempotent (`ADD COLUMN IF NOT EXISTS` guarded by an
+  `information_schema` check for an existing primary key), and never in a
+  published tag's migration set. It is safe and useful on its own — row-based
   replication of Path A also does full-row lookups on key-less tables.
 - **Nothing Galera refuses is used.** No `LOCK TABLES`, no
   `GET_LOCK`/`RELEASE_LOCK`, no XA in the Java tree (grepped). All 389
@@ -1374,28 +1381,29 @@ stop everything and assert `cluster bootstrap` on the `safe_to_bootstrap`
 node brings the cluster back; run a restore drill and assert no writeset
 crossed to the writer.
 
-### 11.10 Open questions for the maintainer (Path B)
+### 11.10 Decisions taken (Path B; formerly open questions)
 
-9. **Restore drill placement** — option (c) as drafted (load on the
-   non-writer node via a root helper), or accept cluster-wide replication
-   of the drill load?
-10. **Three database nodes instead of two plus an arbitrator?** Costs a
-    third MariaDB host, removes `garbd`, and lets the cluster survive one
-    node *and* keep a copy elsewhere. The plan's default is 2+1 because it
-    matches "one server room plus a small box".
-11. **Which host runs the arbitrator?** It must not be node 1 or node 2 (it
-    would vote with the host it shares). A router-class box, a NAS, or a
-    small VM on a different hypervisor all work.
-12. **Should Path A remain in the roadmap at all** once Path B exists, or
-    only the "offsite copy" use of it? The phase-1 code stays either way
-    (an async replica *of a Galera node* is a supported MariaDB topology).
-13. **Firewall automation scope** (12.4): manage `ufw` rules when it is
-    active, print for everything else — or never touch a firewall the tool
-    did not install? The plan's answer is the former, opt-out by flag.
-14. **JDBC TLS on loopback too** (11.5): one configuration for both hops,
-    at the cost of TLS overhead on the local connection — or TLS only for
-    the failover hop, which the Connector/J URL cannot express per host?
-    The plan takes one configuration.
+9. **Restore drill placement.** — **Option (e): load into Aria tables.**
+   The drill stays local, unprivileged and unchanged in shape; it no longer
+   exercises InnoDB-specific limits, which the README states. The
+   root-helper option (c) stays available for a site that wants an
+   InnoDB-faithful drill.
+10. **Two nodes plus an arbitrator, or three nodes?** — **Two plus the
+    arbitrator** by default; three only where a third capable server
+    already exists.
+11. **Which host runs the arbitrator?** — **One that fails independently
+    of both nodes**: a small VM on a different hypervisor, a NAS, or a
+    router-class box. Never node 1 or node 2.
+12. **Does Path A stay in the roadmap?** — **Yes, as an optional offsite
+    copy after Path B ships.** The phase-1 code stays; an asynchronous
+    replica of a Galera node is a supported topology.
+13. **Firewall automation scope.** — **Manage `ufw` rules when it is
+    installed and active, print exact rules otherwise, `--no-firewall` to
+    opt out.**
+14. **JDBC TLS on the loopback hop too.** — **One configuration for both
+    hops.** The server certificate already carries the loopback address,
+    the overhead is negligible here, and one configuration is what a
+    technician can reason about.
 
 ---
 
@@ -1449,7 +1457,9 @@ them; the data stays until `destroy-data`.
 Rules that keep it short:
 
 - `--listen` omitted: the verb **lists this host's addresses** and refuses
-  with "re-run with --listen <one of these>" — never guesses.
+  with "re-run with --listen <one of these>" — never guesses. A globally
+  routable address is refused by the cluster verbs with no override
+  (decision 2).
 - `--alert-webhook`/`--alert-email` omitted on `cluster init`: refused,
   unless `--no-alerts` is given, because a cluster nobody hears about is a
   hidden single point of failure. `check` keeps nagging.
