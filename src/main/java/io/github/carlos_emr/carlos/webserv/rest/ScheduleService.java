@@ -317,7 +317,8 @@ public class ScheduleService extends AbstractServiceImpl {
         // BillingONCHeader1.billingItems is FetchType.LAZY.
         List<BillingONCHeader1> billingHeaders = billingONCHeader1Dao.findByDemoNoWithItems(demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
         if (billingHeaders.size() == OscarAppointmentDao.MAX_LIST_RETURN_SIZE) {
-            logger.warn("Billing history over MAX_LIST_RETURN_SIZE for demographic {}", LogSafe.sanitizeObject(demographicNo));
+            String safeDemographicNo = LogSafe.sanitizeObject(demographicNo);
+            logger.warn("Billing history over MAX_LIST_RETURN_SIZE for demographic {}", safeDemographicNo);
         }
 
         BillingDetailConverter converter = new BillingDetailConverter();
@@ -334,7 +335,8 @@ public class ScheduleService extends AbstractServiceImpl {
         SchedulingResponse response = new SchedulingResponse();
         List<Appointment> appts = appointmentManager.getAppointmentHistoryWithoutDeleted(getLoggedInInfo(), demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
         if (appts.size() == OscarAppointmentDao.MAX_LIST_RETURN_SIZE) {
-            logger.warn("appointment history over MAX_LIST_RETURN_SIZE for demographic {}", LogSafe.sanitizeObject(demographicNo));
+            String safeDemographicNo = LogSafe.sanitizeObject(demographicNo);
+            logger.warn("appointment history over MAX_LIST_RETURN_SIZE for demographic {}", safeDemographicNo);
         }
         AppointmentConverter converter = new AppointmentConverter();
         return converter.getAllAsTransferObjects(getLoggedInInfo(), appts);
