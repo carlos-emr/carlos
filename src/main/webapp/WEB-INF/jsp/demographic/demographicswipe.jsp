@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -152,22 +153,22 @@
 
     <tr>
         <td align="left"><font size="-1"><b><fmt:message key="demographic.demographicswipe.validationResult"/> </b></font></td>
-        <td><font size="-1"><%=responseDescription%>
+        <td><font size="-1"><carlos:encode value='<%= responseDescription %>' context="html"/>
         </font></td>
     </tr>
     <tr>
         <td align="left"><font size="-1"><b><fmt:message key="demographic.demographicswipe.responseAction"/> </b></font></td>
-        <td><font size="-1">(<%=responseCode%>) <%=responseAction%>
+        <td><font size="-1">(<carlos:encode value='<%= responseCode %>' context="html"/>) <carlos:encode value='<%= responseAction %>' context="html"/>
         </font></td>
     </tr>
 
     <tr>
         <td align="right"><b><fmt:message key="demographic.demographicswipe.lastName"/> </b></td>
         <td align="left"><input type="text" name="last_name"
-                                value="<%=lastName%>"></td>
+                                value="<carlos:encode value='<%= lastName %>' context=\"htmlAttribute\"/>"></td>
         <td align="right"><b><fmt:message key="demographic.demographicswipe.firstName"/> </b></td>
         <td align="left"><input type="text" name="first_name"
-                                value="<%=firstName%>"></td>
+                                value="<carlos:encode value='<%= firstName %>' context=\"htmlAttribute\"/>"></td>
     </tr>
     <tr valign="top">
         <td align="right"><b>DOB</b><font size="-2">(yyyy-mm-dd)</font><b>:</b>
@@ -176,26 +177,26 @@
             <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
                     <td><input type="text" name="year_of_birth"
-                               value="<%=dobyear%>" size="4" maxlength="4"></td>
+                               value="<carlos:encode value='<%= dobyear %>' context=\"htmlAttribute\"/>" size="4" maxlength="4"></td>
                     <td>-</td>
                     <td><input type="text" name="month_of_birth"
-                               value="<%=dobmonth%>" size="2" maxlength="2"></td>
+                               value="<carlos:encode value='<%= dobmonth %>' context=\"htmlAttribute\"/>" size="2" maxlength="2"></td>
                     <td>-</td>
                     <td><input type="text" name="date_of_birth"
-                               value="<%=dobdate%>" size="2" maxlength="2"></td>
+                               value="<carlos:encode value='<%= dobdate %>' context=\"htmlAttribute\"/>" size="2" maxlength="2"></td>
                 </tr>
             </table>
         </td>
         <td align="right"><b> Sex:</b></td>
-        <td align="left"><input type="text" name="sex" value="<%=gender%>">
+        <td align="left"><input type="text" name="sex" value="<carlos:encode value='<%= gender %>' context=\"htmlAttribute\"/>">
         </td>
     </tr>
     <tr valign="top">
         <td align="right"><b><fmt:message key="demographic.demographicswipe.hin"/> </b></td>
-        <td align="left"><input type="text" name="hin" value="<%=hcMagneticStripe.getHealthNumber()%>"></td>
+        <td align="left"><input type="text" name="hin" value="<carlos:encode value='<%= hcMagneticStripe.getHealthNumber() %>' context=\"htmlAttribute\"/>"></td>
         <td align="right"><b>Ver.</b></td>
         <td align="left"><input type="text" name="ver"
-                                value="<%=hcMagneticStripe.getCardVersion().toUpperCase()%>"></td>
+                                value="<carlos:encode value='<%= hcMagneticStripe.getCardVersion().toUpperCase() %>' context=\"htmlAttribute\"/>"></td>
     </tr>
     <tr valign="top">
         <td align="right"><b><fmt:message key="demographic.demographicswipe.effDate"/></b></td>
@@ -203,13 +204,13 @@
             <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
                     <td><input type="text" name="eff_date_year"
-                               value="<%=effyear%>" size="4" maxlength="4"></td>
+                               value="<carlos:encode value='<%= effyear %>' context=\"htmlAttribute\"/>" size="4" maxlength="4"></td>
                     <td>-</td>
                     <td><input type="text" name="eff_date_month"
-                               value="<%=effmonth%>" size="2" maxlength="2"></td>
+                               value="<carlos:encode value='<%= effmonth %>' context=\"htmlAttribute\"/>" size="2" maxlength="2"></td>
                     <td>-</td>
                     <td><input type="text" name="eff_date_date"
-                               value="<%=effdate%>" size="2" maxlength="2"></td>
+                               value="<carlos:encode value='<%= effdate %>' context=\"htmlAttribute\"/>" size="2" maxlength="2"></td>
                 </tr>
             </table>
         </td>
@@ -218,13 +219,13 @@
             <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
                     <td><input type="text" name="end_date_year"
-                               value="<%=endyear%>" size="4" maxlength="4"></td>
+                               value="<carlos:encode value='<%= endyear %>' context=\"htmlAttribute\"/>" size="4" maxlength="4"></td>
                     <td>-</td>
                     <td><input type="text" name="end_date_month"
-                               value="<%=endmonth%>" size="2" maxlength="2"></td>
+                               value="<carlos:encode value='<%= endmonth %>' context=\"htmlAttribute\"/>" size="2" maxlength="2"></td>
                     <td>-</td>
                     <td><input type="text" name="end_date_date"
-                               value="<%=enddate%>" size="2" maxlength="2"></td>
+                               value="<carlos:encode value='<%= enddate %>' context=\"htmlAttribute\"/>" size="2" maxlength="2"></td>
                 </tr>
             </table>
         </td>
@@ -236,9 +237,9 @@
 <br>
 <br>
 <form><input type="button" name="Button1" value="<fmt:message key='demographic.demographicswipe.confirm'/>"
-             onclick="javascript:Attach('<%=lastName%>','<%=firstName%>','<%=hcMagneticStripe.getHealthNumber()%>','<%=dobyear%>'
-                     ,'<%=dobmonth%>','<%=dobdate%>', '<%=hcMagneticStripe.getCardVersion().toUpperCase()%>','<%=gender%>', '<%=effyear%>', '<%=effmonth%>', '<%=effdate%>'
-                     , '<%=endyear%>', '<%=endmonth%>', '<%=enddate%>');"><input
+             onclick="javascript:Attach('<carlos:encode value='<%= lastName %>' context=\"javaScriptAttribute\"/>','<carlos:encode value='<%= firstName %>' context=\"javaScriptAttribute\"/>','<carlos:encode value='<%= hcMagneticStripe.getHealthNumber() %>' context=\"javaScriptAttribute\"/>','<carlos:encode value='<%= dobyear %>' context=\"javaScriptAttribute\"/>'
+                     ,'<carlos:encode value='<%= dobmonth %>' context=\"javaScriptAttribute\"/>','<carlos:encode value='<%= dobdate %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= hcMagneticStripe.getCardVersion().toUpperCase() %>' context=\"javaScriptAttribute\"/>','<carlos:encode value='<%= gender %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= effyear %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= effmonth %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= effdate %>' context=\"javaScriptAttribute\"/>'
+                     , '<carlos:encode value='<%= endyear %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= endmonth %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= enddate %>' context=\"javaScriptAttribute\"/>');"><input
         type="button" name="Button" value="<fmt:message key='demographic.demographicswipe.cancel'/>" onclick=self.close();>
 </form>
 </body>
