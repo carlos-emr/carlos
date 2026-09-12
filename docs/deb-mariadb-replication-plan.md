@@ -194,10 +194,23 @@ T1  (phase 1)         T2  (phase 3)                  T3  (future)
 
 | Package | Depends (delta) | Ships |
 |---|---|---|
-| `carlos-emr-ctl` (new) | python3, mariadb-client, openssl, curl, iproute2, procps, adduser (the sysusers file is applied by systemd on a systemd host, with the same `adduser` fallback `carlos-emr.postinst` already carries for chroots) | `carlos_ctl/` Python package, `/usr/sbin/carlos-ctl` shim, `carlos-emr-cert`, the shared MariaDB drop-in `60-carlos-emr.cnf`, `carlos-ctl.8`, the **sysusers declaration for `carlos` and `carlos-backup`** (today in `carlos-emr.sysusers`; `db-users` and `init-config` chown credential files to the `carlos` group, so a db-only host needs the accounts too), the **`carlos.properties` skeleton** (today staged from the built WAR into `carlos-emr`'s `skel/`; `db-users` refuses to run without the file, so the ctl package stages its own copy from the same WAR at build time), `backup.env` and `replication.env` skeletons, and the `carlos-emr-db-tls-renew.timer` |
+| `carlos-emr-ctl` (new) | python3, mariadb-client, openssl, curl, iproute2, procps, adduser (the sysusers file is applied by systemd on a systemd host, with the same `adduser` fallback `carlos-emr.postinst` already carries for chroots) | `carlos_ctl/` Python package, `/usr/sbin/carlos-ctl` shim, `carlos-emr-cert`, the shared MariaDB drop-in `60-carlos-emr.cnf`, `carlos-ctl.8`, the **sysusers declaration for `carlos` and `carlos-backup`** (today in `carlos-emr.sysusers`; `db-users` and `init-config` chown credential files to the `carlos` group, so a db-only host needs the accounts too), the **`carlos.properties` skeleton** (today staged from the built WAR into `carlos-emr`'s `skel/`; `db-users` refuses to run without the file, so the ctl package stages its own copy from the same WAR at build time), the **`carlos-emr.env` skeleton** (see the hazard below), `backup.env` and `replication.env` skeletons, and the `carlos-emr-db-tls-renew.timer` |
 | `carlos-emr` | `carlos-emr-ctl (= ${binary:Version})` | Everything it ships today minus what moved. `Breaks`/`Replaces: carlos-emr (<< <first split version>)` on `carlos-emr-ctl` so the file move is clean on upgrade |
 | `carlos-emr-db-replica` (new, `Architecture: all`) | `carlos-emr-ctl (= ${binary:Version})`, mariadb-server (>= 1:11.4), mariadb-client, `Conflicts: carlos-emr` **in phase 2 only** (lifted in T3 work) | The `carlos-emr-replica-watch.service/.timer`, `replica-watch` README section. No WAR, no Tomcat, no nginx |
 | `carlos-emr-drugref`, `carlos-emr-eform-renderer` | unchanged | unchanged |
+
+**Silent-default hazard, and why the replica gets a `carlos-emr.env`.**
+`util.env_get()` returns `None` for a file that does not exist, and
+`config.Settings` then falls back to `db_name = "carlos"`, `province =
+"on"`, `server_name = "localhost"` without a word. On a db-only host with
+no `carlos-emr.env`, every verb would therefore act on a schema named
+`carlos` — wrong, silently, for any site running a custom
+`CARLOS_DB_NAME`, and wrong for the province. So `replica join` writes a
+`carlos-emr.env` on the replica from the token (`CARLOS_DB_NAME`,
+`CARLOS_PROVINCE`, `CARLOS_TZ`, and `CARLOS_SERVER_NAME` set to the
+replica's own host name, which `destroy-data --confirm` will ask for), and
+`role.py` refuses to run any database verb on a host whose role is not
+`standalone` while that file is absent, instead of defaulting.
 
 Moving `60-carlos-emr.cnf` to `carlos-emr-ctl` is what guarantees a replica
 runs with the *same* character set, collation, `sql_mode`, row format and
@@ -303,6 +316,25 @@ and `mariadb-dump` output use, confirms every statement it issues in the
 11.4 smoke test (section 8), and parses `SHOW SLAVE STATUS` by column
 name, never by position.
 
+**Schema changes arrive through replication, never through `db-migrate`
+on the replica.** A package upgrade on the primary runs Flyway there; the
+DDL and the `flyway_schema_history` rows are binlogged and the replica
+applies them. `db-migrate`, `db-baseline`, `db-repair` and `db-validate`
+are refused on the replica role (there is no WAR to validate against, and
+a migration run there would diverge the copy). Consequently the
+`carlos-emr-ctl` versions on the two hosts do not need to match — the
+token carries its own schema version and both sides refuse a token they
+do not understand — but the **MariaDB** rule is directional: the replica
+must run the same or a newer MariaDB series than the primary (replicating
+from newer to older is unsupported). `join` refuses an older replica and
+merely notes a newer one; the earlier "same major.minor" wording was too
+strict and would have blocked the normal rolling-upgrade path.
+
+**Replica disk.** `log_slave_updates` means the replica keeps its own
+10 days of binlogs (the shared drop-in's `binlog_expire_logs_seconds`)
+on top of the relay logs and the data, which is why the join preflight
+demands 2× the primary's reported data size.
+
 **Binlog retention vs. a disconnected replica.** The primary keeps 10 days
 of binlogs (`binlog_expire_logs_seconds`, shared with the backup's PITR
 window). A replica that is down longer than that cannot resume and must be
@@ -313,14 +345,20 @@ outright past it. The retention value is not changed by this work.
 ### 4.3 Network and TLS
 
 - The primary binds loopback **plus exactly one** address the operator names
-  (`carlos-ctl replica add <replica-ip> --listen <primary-ip>`). `0.0.0.0`
+  (`carlos-ctl replica add <replica-ip> --listen <primary-ip>`).
+  `<replica-ip>` is the address the replica *connects from* as the primary
+  sees it — its VPN address when tunnelled, not its LAN address — because
+  it becomes the host part of the replication account; `join` reports the
+  source address the primary actually saw so a mismatch is diagnosed in
+  one line rather than as a generic access-denied. `0.0.0.0`
   and `::` are refused. An address that is not on a local interface is
   refused. A globally routable address prints a warning recommending a VPN
   (WireGuard) and requires `--allow-public`.
 - The tool does **not** manage the host firewall (the package only Suggests
   `nftables`). It prints the exact rule to add (nft and ufw forms) for
-  "3306 from `<replica-ip>` only" and `check` reports whether 3306 is
-  reachable from anywhere else it can tell.
+  "3306 from `<replica-ip>` only". `check` can only assert what is
+  *listening*; it says plainly that the firewall rule is the operator's,
+  the way it already says the backup repository being local is.
 - A private **replication CA** and a server certificate for the primary are
   generated once by a new `carlos-emr-cert db-tls` sub-command into
   `/etc/mysql/carlos-emr-tls/` (root:mysql, 0640 keys), 10-year CA, 2-year
@@ -357,13 +395,14 @@ schema version field, and:
 | Field | Purpose |
 |---|---|
 | `primary.host`, `primary.port` | where to stream from (the listen IP) |
-| `primary.mariadb_version` | refuse a join across major.minor |
+| `primary.mariadb_version` | refuse a replica *older* than the primary's series; note a newer one |
 | `primary.ca_pem` | server certificate pinning |
 | `repl.user`, `repl.password` | `repl_<replica-ip-mangled>@<replica-ip>`, `REQUIRE SSL`, grants = the backup account's set, host-restricted |
 | `accounts.carlos`, `accounts.drugref`, `accounts.backup` | the passwords the primary's own `carlos.properties`, `drugref2.properties`, `backup.env` hold |
 | `accounts.app_hosts` | IPs the `carlos`/`drugref` accounts must accept **after promotion**, so promotion needs no account work. Defaults to the primary's listen IP (the address the app host will present when it later connects over the same path); extendable with `replica add --app-host <ip>` |
 | `db.size_bytes` | the primary's `information_schema` data+index size for the two schemas, for the replica's free-space preflight |
-| `db.name`, `db.province` | `CARLOS_DB_NAME`, the schema province — recorded on the replica so a later full install on it inherits the right migrations |
+| `db.name`, `db.province`, `db.schemas` | `CARLOS_DB_NAME`, the schema province, and the list of schemas to seed (`carlos`, plus `drugref2` only when it exists on the primary — `mariadb-dump --databases` fails on a missing one) — recorded on the replica so a later full install on it inherits the right migrations |
+| `primary.tz` | `CARLOS_TZ`, so `db-apply-settings` aligns the replica's `default-time-zone` the same way (it matters the day the replica is promoted and `NOW()` meets the JVM's clock) |
 | `issued_at`, `expires_at` | 24 h, **checked by `join` only** (the `repl` password is not server-expired — a `PASSWORD EXPIRE INTERVAL` would cut off the running replica's reconnects). Revocation is `replica remove` or `replica add --reissue`; an unconsumed token past its expiry is reported by `replica status` on the primary |
 
 **Re-running `replica add` is a no-op for a joined replica.** The
@@ -414,7 +453,7 @@ port, as the `repl` account, over TLS:
 mariadb-dump --host=<primary> --port=3306 --ssl-ca=<pinned> --ssl-verify-server-cert \
   --user=repl_… --single-transaction --gtid --master-data=2 \
   --hex-blob --routines --events --triggers --no-tablespaces \
-  --default-character-set=utf8mb4 --databases carlos drugref2 \
+  --default-character-set=utf8mb4 --databases <db.schemas from the token> \
 | { echo 'SET SESSION sql_log_bin = 0; SET NAMES utf8mb4 COLLATE utf8mb4_general_ci; SET SESSION sql_mode="";'; cat; } \
 | mariadb --protocol=socket --user=root
 ```
@@ -472,6 +511,10 @@ backup snapshot, useful when the primary's WAN link is the constraint).
   as the backup's `alert()`, extracted into `carlos_ctl/alert.py` so the
   two share one implementation) and writes
   `/var/lib/carlos-emr/.replica-last-ok`; recovery clears it.
+- A watch timer with no alert channel configured is a silent one:
+  `check` prints the same NOTE for an empty webhook/email pair that it
+  already prints for a local-only backup repository, and `join` prints
+  it at the end of a successful join.
 - **`carlos-ctl check`** grows a `replication` section on both roles and
   changes one existing assertion: the "MariaDB listens on loopback only"
   check accepts the configured `CARLOS_DB_REPL_LISTEN_IP` and still fails on
@@ -496,8 +539,10 @@ backup snapshot, useful when the primary's WAN link is the constraint).
    every received event (`Exec_Master_Log_Pos` = `Read_Master_Log_Pos`, GTID
    `gtid_slave_pos` = `gtid_io_pos`), bounded with a visible countdown.
 3. **Promote.** `RESET SLAVE ALL`; rewrite the 62- drop-in to the primary
-   shape (`read_only` off, listen IP added, keep the new server_id), run the
-   compare-then-restart path; set `CARLOS_DB_ROLE=primary`.
+   shape (`read_only` off, keep the new server_id, and bind the address the
+   replica recorded as its own replication address at join — `--listen`
+   overrides it), run the compare-then-restart path; set
+   `CARLOS_DB_ROLE=primary` and `CARLOS_DB_REPL_LISTEN_IP`.
 4. **TLS.** Generate this host's own replication CA and server certificate
    (`carlos-emr-cert db-tls`), enable the renewal timer.
 5. **Print the runbook** for the application host, exactly:
@@ -529,6 +574,14 @@ safe way to re-join a host that has taken writes is to re-seed it.
 - The backup's `--master-data=2` file+position anchor is untouched. A
   restore onto a *replica* is not a supported path (restore onto the
   primary, re-seed the replica).
+- **A point-in-time restore on the primary invalidates every replica.**
+  The restored server's binlog and GTID history no longer match what the
+  replicas applied; their IO threads stop with error 1236 (or, worse, in
+  a non-strict setup silently apply from a wrong position). `gtid_strict_mode`
+  makes it stop; the watch timer alerts on it; and the README's restore
+  runbook ends with "re-seed each replica: `replica join --reseed`". The
+  backup script itself prints that line when it restores on a host whose
+  `replication.env` says `primary`.
 - **Offloading the nightly dump to the replica** (section 9) is the natural
   phase-4 feature; it needs `--dump-slave` semantics so the PITR anchor
   still refers to the primary's binlog.
@@ -642,8 +695,12 @@ installed base working unchanged.
    exact asset-name checks that change: the `startswith("carlos-emr_")`
    assertions and the upload loop).
 2. **`carlos_ctl/role.py`** with the detection above; `cli.py` gates verbs by
-   role and prints the role in `--help`; `validate.py` skips app-only
-   sections on a db-only host.
+   role and prints the role in `--help` (`start`/`stop`/`restart`/`logs`/
+   `cert selfsigned|acme|manual`/`waf`/`init-config` need the app;
+   `db-migrate`/`db-baseline`/`db-repair`/`db-validate`/`demo-data`/
+   `bootstrap-admin` are refused on the replica role); a non-standalone
+   role with no `carlos-emr.env` is an error, never a default;
+   `validate.py` skips app-only sections on a db-only host.
 3. **`carlos_ctl/alert.py`**: the webhook/email `alert()` from
    `carlos-emr-backup`, in Python, used by the watch timer (the bash backup
    script keeps its own copy until a later cleanup).
@@ -703,8 +760,9 @@ installed base working unchanged.
     preflight → replica drop-in → local accounts with injected passwords,
     app-host entries and the `drugref2` grants → streamed seed with the
     header tee → explicit `gtid_slave_pos` → `CHANGE MASTER` (TLS, pinned
-    CA, GTID) → `START SLAVE` → wait for lag 0 → write `replication.env` →
-    enable timer → shred token. Plus the primary-side guards: `demo-data`
+    CA, GTID) → `START SLAVE` → wait for lag 0 → write `replication.env`
+    and the replica's `carlos-emr.env` (db name, province, tz, own host
+    name) → enable timer → print the alert-channel note → shred token. Plus the primary-side guards: `demo-data`
     refuses and `destroy-data` warns when replicas are recorded.
 12. **`carlos-emr-replica-watch`** service + timer, `replica status`
     (replica role), `check` replication section (replica role).
@@ -758,6 +816,9 @@ Listed so no phase forgets one:
 | `bootstrap-admin` resets `carlosdoc` under `sql_log_bin = 0` | `dbops.py` | 2: documented — a reset that runs *after* a replica joined does not reach it; the seed dump carries whatever the table held at join time. `replica status` on the replica compares the `carlosdoc` hash against the published seed and warns if it is live |
 | DrugRef seed load is binlogged, its Aria→InnoDB conversion and grants are not | `carlos-emr-drugref.postinst` | 2: `join` dumps `drugref2` when it exists; installing `carlos-emr-drugref` on the primary *after* a replica joined replicates the seed rows — the smoke test (section 8) confirms whether the engine conversion also replicates, else `join --reseed` is the documented answer |
 | `carlos.properties` skeleton and the `carlos`/`carlos-backup` accounts are shipped only by `carlos-emr` | `debian/rules`, `carlos-emr.sysusers` | 0 (moved to `carlos-emr-ctl`) |
+| `config.Settings` silently defaults `db_name`/`province`/`server_name` when `carlos-emr.env` is missing | `util.env_get` returns `None` on `OSError`; `config.py` | 0 (`role.py` refuses non-standalone roles without the file), 2 (`join` writes it from the token) |
+| Flyway verbs assume the WAR and a writable schema are local | `dbops.run_flyway` | 0 (refused on the replica role; DDL arrives by replication) |
+| The PITR restore runbook assumes no downstream consumer of the binlog | `carlos-emr-backup`, README section 7 | 2 (restore prints the re-seed instruction on a primary) |
 
 ---
 
@@ -794,8 +855,10 @@ Listed so no phase forgets one:
     dataset's write pattern without retries.
 - **Integration** (phase 2), scripted like `carlos-podman/tests/db-migrate-integration.sh`,
   on two systemd containers or VMs from the built `.deb`s:
-  1. install A with demo data; `replica add`; verify MariaDB listens on
-     loopback + listen IP only, `repl` account exists with `REQUIRE SSL`;
+  1. install A with demo data **and a non-default `CARLOS_DB_NAME`** (the
+     one configuration that exposes a silent schema-name default on B);
+     `replica add`; verify MariaDB listens on loopback + listen IP only,
+     `repl` account exists with `REQUIRE SSL`;
   2. install B, `replica join`; assert equal `gtid_binlog_pos`, equal
      `COUNT(*)` on `demographic`, `casemgmt_note`, `document`, and an
      `information_schema` checksum of table lists for both schemas; assert
@@ -814,9 +877,13 @@ Listed so no phase forgets one:
      local-`mariadb.service` and backup-socket failures);
   5. repair: `replica add` on B, `replica join --reseed` on A, assert
      equality again;
-  6. failure drills: expired token refused; join against a populated
+  6. upgrade A to a package carrying a pending Flyway migration; assert B's
+     `flyway_schema_history` gains the same row and the new column exists
+     on B without any verb run there;
+  7. failure drills: expired token refused; join against a populated
      schema refused; `promote` refused while A is up; watch timer alerts
-     when B's SQL thread is stopped by hand.
+     when B's SQL thread is stopped by hand; `db-migrate` on B refused;
+     `check` on B notes the missing alert channel until one is set.
 - **Upgrade**: existing pre-split `carlos-emr` install upgrades cleanly to
   the split packages with no conffile prompt and no service interruption
   beyond what an upgrade already causes; `carlos-ctl check` passes before
