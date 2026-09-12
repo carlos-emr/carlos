@@ -214,6 +214,13 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     @DisplayName("should accept queue when every copy-to recipient carries a fax number")
     void shouldAcceptQueue_whenCopyToRecipientFaxNumberPresent() {
         setUpCommonMocks();
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, boundClaims(APP_TEMP_ROOT + "/fax.pdf"));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(42))).thenReturn(true);
+        EFormDataDao dao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, dao);
+        EFormData form = new EFormData();
+        form.setDemographicId(42);
+        when(dao.find(7)).thenReturn(form);
         // queue() now delegates persist+audit-log to the single @Transactional persistAndLogFaxJobs.
         when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()))
                 .thenReturn(java.util.List.of());
@@ -223,7 +230,9 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
             Fax2Action action = new Fax2Action();
-            action.setTransactionType("RX");
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
             action.setRecipientFaxNumber("1234567890");
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setCopyToRecipients(new String[] {"\"name\":\"Jane Doe\",\"fax\":\"9876543210\""});
@@ -563,6 +572,28 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             assertThat(claims).hasSize(originalClaims);
         } finally {
             java.nio.file.Files.deleteIfExists(source);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"RX", "DOCUMENT", "FORM", "CONSULTATION", "INVALID"})
+    @DisplayName("should reject transaction-type substitution instead of bypassing preview ownership")
+    void shouldRejectQueue_whenClientSubstitutesTransactionType(String type) {
+        setUpCommonMocks();
+        var claims = boundClaims(APP_TEMP_ROOT + "/fax.pdf");
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claims);
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType(type);
+            action.setTransactionId(7);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class).hasMessageContaining("does not accept");
+            verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+            assertThat(claims).hasSize(1);
         }
     }
 
