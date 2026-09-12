@@ -290,8 +290,8 @@ public class FaxManagerImpl implements FaxManager {
                     faxJobObject.setFile_name(coveredFileName.toString());
                     attemptFiles.add(faxDocument);
                 } catch (IOException | RuntimeException e) {
-                    logger.error("CRITICAL: Failed to add cover page for fax job to {} - Fax will NOT be sent without cover page",
-                            faxJobObject.getRecipient(), e);
+                    logger.error("Fax cover-page preparation failed ({}); batch will not be queued",
+                            e.getClass().getSimpleName());
                     faxJobObject.setStatus(STATUS.ERROR);
                     faxJobObject.setStatusString("Cover page creation failed. Fax not sent. Check disk space and logs.");
                     // Do NOT set file_name - leave job in ERROR state and do not transmit
@@ -434,7 +434,7 @@ public class FaxManagerImpl implements FaxManager {
                             copy.getRawFax(), faxConfig.getProviderType());
                 }
             }
-        } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+        } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException | IllegalArgumentException invalidDestination) {
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("The recipient fax number is invalid for the selected fax provider.");
             return faxJob;
@@ -507,14 +507,14 @@ public class FaxManagerImpl implements FaxManager {
     private List<FaxRecipient> parseFaxRecipients(String[] faxRecipients) {
 
         List<FaxRecipient> faxRecipientArray = new ArrayList<FaxRecipient>();
-        List<String> failedRecipients = new ArrayList<String>();
+        int failedRecipients = 0;
 
         for (String copytoRecipient : faxRecipients) {
             // Null/blank entries (e.g. a sparse Struts index array) are shape failures too:
             // silently skipping one is exactly the dropped-recipient bug the fail-fast below
             // exists to prevent.
             if (copytoRecipient == null || copytoRecipient.trim().isEmpty()) {
-                failedRecipients.add(String.valueOf(copytoRecipient));
+                failedRecipients++;
                 continue;
             }
             // Assumes that the recipient entry is a JSONObject
@@ -524,27 +524,22 @@ public class FaxManagerImpl implements FaxManager {
                 FaxRecipient faxRecipient = new FaxRecipient(copytoRecipientJson);
                 if (!faxRecipient.hasUsableFax()) {
                     // A parseable entry without a usable fax number invalidates the whole batch.
-                    logger.error("Fax recipient entry has no usable fax number - Recipient will be SKIPPED");
-                    failedRecipients.add(copytoRecipient);
+                    logger.error("Fax recipient entry has no usable fax number; batch will not be queued");
+                    failedRecipients++;
                     continue;
                 }
                 faxRecipientArray.add(faxRecipient);
             } catch (Exception e) {
-                logger.error("Failed to parse fax recipient JSON: {} - Recipient will be SKIPPED", LogSafe.sanitize(copytoRecipient), e);
-                failedRecipients.add(copytoRecipient);
+                logger.error("Fax recipient parsing failed ({}); batch will not be queued", e.getClass().getSimpleName());
+                failedRecipients++;
             }
         }
 
         // Fail fast if any recipients couldn't be parsed - don't send partial fax
-        if (!failedRecipients.isEmpty()) {
-            int displayCount = Math.min(3, failedRecipients.size());
-            String preview = String.join(", ", failedRecipients.subList(0, displayCount));
-            if (failedRecipients.size() > 3) {
-                preview += " (and " + (failedRecipients.size() - 3) + " more)";
-            }
+        if (failedRecipients > 0) {
             throw new IllegalArgumentException(
-                    String.format("Failed to parse %d recipient(s). Fax not sent. Contact support if this persists. Failed entries: %s",
-                            failedRecipients.size(), preview)
+                    String.format("Failed to parse %d recipient(s). Fax not sent. Contact support if this persists.",
+                            failedRecipients)
             );
         }
         return faxRecipientArray;

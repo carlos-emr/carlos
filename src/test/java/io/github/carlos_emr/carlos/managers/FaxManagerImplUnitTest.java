@@ -456,17 +456,38 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should fail fast before any file promotion when a copy-to recipient entry is unparseable")
     void shouldFailFast_beforePromotionWhenCopyToRecipientUnparseable() {
-        assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, Map.of(
-                "coverpage", "false",
-                "copyToRecipients", new String[] {"NOT-JSON"})))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Failed to parse");
+        try (LogCapture capture = LogCapture.forLogger(FaxManagerImpl.class)) {
+            assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                    "coverpage", "false",
+                    "copyToRecipients", new String[] {"\"name\":\"SensitiveFixturePatient\",\"fax\":\"5550000000\", NOT-JSON"})))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Failed to parse 1 recipient(s)")
+                    .hasMessageNotContaining("SensitiveFixturePatient")
+                    .hasMessageNotContaining("5550000000")
+                    .hasMessageNotContaining("NOT-JSON");
+            assertThat(capture.messages()).anyMatch(message -> message.contains("recipient parsing failed"));
+            assertThat(capture.messages().toString()).doesNotContain("SensitiveFixturePatient", "5550000000", "NOT-JSON");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
 
         // Recipient parsing must precede createFaxJob: createFaxJob's temp->document promotion
         // deletes the preview source, so a recipient-shape failure after it destroys the user's
         // only copy and strands an orphan PDF in the document store.
         verify(manager, never()).createFaxJob(any(LoggedInInfo.class), anyMap());
         verifyNoInteractions(nioFileManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "NOT-JSON"})
+    @DisplayName("should return a display-ready error when copy-recipient validation fails")
+    void shouldReturnError_withoutFilesWhenCopyRecipientIsInvalid(String entry) {
+        FaxJob job = manager.createFaxJob(loggedInInfo, Map.of("recipient", "Fixture",
+                "recipientFaxNumber", "4165551234", "senderFaxNumber", "1234567890",
+                "demographicNo", 17, "copyToRecipients", new String[] {entry}));
+        assertThat(job.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(job.getStatusString()).contains("invalid").doesNotContain("NOT-JSON");
+        assertThat(job.getId()).isNull();
+        verifyNoInteractions(nioFileManager, faxJobDao);
     }
 
     @Test

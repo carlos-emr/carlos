@@ -287,8 +287,7 @@ public class Fax2Action extends ActionSupport {
         if (recipient != null && !recipient.trim().isEmpty()) {
             // Check for potential injection patterns
             if (recipient.contains("<script") || recipient.contains("javascript:") || recipient.contains("onerror=")) {
-                // recipient failed the XSS screen, so it may carry markup/control chars — sanitize.
-                logger.error("Potential XSS attempt in recipient name: {}", LogSafe.sanitize(recipient));
+                logger.error("Fax recipient name failed the markup validation check");
                 throw new SecurityException("Invalid characters in recipient name");
             }
         }
@@ -313,7 +312,7 @@ public class Fax2Action extends ActionSupport {
                     ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
                     copyToFaxNumber = json.has("fax") ? json.get("fax").asText() : null;
                 } catch (JsonProcessingException | ClassCastException e) {
-                    logger.error("Failed to parse copy-to recipient JSON at index {}: {}", i, LogSafe.sanitize(copyRecipient), e);
+                    logger.error("Copy-to recipient parsing failed at index {} ({})", i, e.getClass().getSimpleName());
                     addActionError("Copy-to recipient entry " + (i + 1) + " is not in a valid format");
                     throw new SecurityException("Invalid copy-to recipient format at index " + i);
                 }
