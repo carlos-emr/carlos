@@ -63,7 +63,9 @@ public class ProviderLabRouting {
     }
 
     public void route(String labId, String provider_no, Connection conn, String labType) throws SQLException {
-        route(Integer.parseInt(labId), provider_no, conn, labType);
+        // The legacy connection is intentionally unused; preserve the same validated-id
+        // contract and Spring-managed routing transaction as the other string overload.
+        route(labId, provider_no, labType);
     }
 
     public void route(int labId, String provider_no, String labType) throws SQLException {

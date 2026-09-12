@@ -30,13 +30,18 @@ import static org.mockito.Mockito.*;
 class ProviderLabRoutingCreationUnitTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullAndEmptySource
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"PRIVATE_INVALID_ID", "2147483648", " "})
-    @DisplayName("should reject malformed legacy ids with a fixed checked error before routing")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PRIVATE_INVALID_ID", "2147483648", " ", "170\nPRIVATE_INVALID_ID"})
+    @DisplayName("should reject malformed ids through both legacy string overloads before routing")
     void shouldRejectInvalidIdentifier_whenLegacyStringRouteIsCalled(String id) {
         var router = mock(ProviderLabRouting.class, org.mockito.Mockito.CALLS_REAL_METHODS);
         assertThatThrownBy(() -> router.route(id, "999998", "HL7"))
                 .isInstanceOf(java.sql.SQLException.class)
                 .hasMessage("Invalid numeric lab identifier").hasNoCause();
+        var connection = mock(java.sql.Connection.class);
+        assertThatThrownBy(() -> router.route(id, "999998", connection, "HL7"))
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasMessage("Invalid numeric lab identifier").hasNoCause();
+        verifyNoInteractions(connection);
         verify(router, never()).routeMagic(anyInt(), anyString(), anyString());
     }
 
