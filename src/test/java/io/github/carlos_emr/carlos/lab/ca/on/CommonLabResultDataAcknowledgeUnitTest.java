@@ -381,11 +381,32 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         row.setComment("Prior [review] $1 (");
         when(dao.findRoutingForUpdate(42, "DOC", "999998"))
                 .thenReturn(List.of(row));
-        String revised = "Updated [review] $2";
+        String revised = "  Updated [review] $2\n ";
         CommonLabResultData.updateReportStatus(42, "999998", 'A', revised, "DOC", skip);
         assertThat(row.getComment()).isEqualTo(skip ? "Prior [review] $1 (" : revised);
         assertThat(row.getStatus()).isEqualTo("A");
         Mockito.verify(dao).merge(row);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "\t\n", "  literal [text] $1  ", "literal", "\nliteral\n"})
+    @DisplayName("should preserve literal whitespace and case in both existing and newly created routing comments")
+    void shouldPreserveLiteralComments_inBothRoutingPaths(String comment) {
+        registerStaticInitializerMocks();
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        ProviderLabRoutingModel row = routingRow("N");
+        row.setComment("LITERAL");
+        when(dao.findRoutingForUpdate(42, "DOC", "999998")).thenReturn(List.of(row));
+        CommonLabResultData.updateReportStatus(42, "999998", 'A', comment, "DOC", false);
+        assertThat(row.getComment()).isEqualTo(comment == null || comment.isBlank() ? "LITERAL" : comment);
+        Mockito.verify(dao).merge(row);
+
+        Mockito.reset(dao);
+        CommonLabResultData.updateReportStatus(42, "999998", 'A', comment, "DOC", false);
+        var created = org.mockito.ArgumentCaptor.forClass(ProviderLabRoutingModel.class);
+        Mockito.verify(dao).persist(created.capture());
+        assertThat(created.getValue().getComment()).isEqualTo(comment == null ? "" : comment);
     }
 
     /**

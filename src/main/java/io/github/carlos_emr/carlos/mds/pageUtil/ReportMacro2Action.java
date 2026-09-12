@@ -212,8 +212,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         if (macro.has("acknowledge")) {
             logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
-            String comment = jAck.get("comment").asText();
+            String comment = macro.path("acknowledge").path("comment").asText("");
             if (StringUtils.isBlank(segmentID)) {
                 logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return MacroOutcome.failed();
