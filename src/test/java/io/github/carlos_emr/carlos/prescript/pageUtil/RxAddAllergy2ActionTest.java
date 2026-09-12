@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -48,10 +50,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link RxAddAllergy2Action}, focused on the "archive old allergy"
- * branch that regressed to an IDOR (issue #2467): the audit log must only record
- * an archive when {@link RxPatientData.Patient#deleteAllergy(int)} actually
- * archived a record owned by the session patient.
+ * Unit tests for {@link RxAddAllergy2Action}, focused on validating mutation
+ * guards before allergy add/archive side effects occur.
  *
  * @since 2026-07-06
  */
@@ -221,6 +221,70 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         verify(mockRxPatient, never()).addAllergy(any(), any());
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
         logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a missing type before adding an allergy")
+    void shouldRejectAdd_whenTypeParameterMissing() throws Exception {
+        mockRequest.removeParameter("type");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing or empty type parameter");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a blank type before adding an allergy")
+    void shouldRejectAdd_whenTypeParameterIsBlank() throws Exception {
+        mockRequest.setParameter("type", "   ");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing or empty type parameter");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a non-numeric type before adding an allergy")
+    void shouldRejectAdd_whenTypeParameterIsNonNumeric() throws Exception {
+        mockRequest.setParameter("type", "abc");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Invalid type parameter");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should add allergy when start date is absent")
+    void shouldAddAllergy_whenStartDateIsAbsent() throws Exception {
+        ArgumentCaptor<Allergy> allergyCaptor = ArgumentCaptor.forClass(Allergy.class);
+        mockRequest.setParameter("type", "0");
+        mockRequest.removeParameter("startDate");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient).addAllergy(any(), allergyCaptor.capture());
+        assertThat(allergyCaptor.getValue().getTypeCode()).isZero();
+        assertThat(allergyCaptor.getValue().getStartDate()).isNull();
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
+                any(String.class), any(String.class), eq("123"), any(String.class)));
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
     }
 
     @Test

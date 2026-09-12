@@ -102,9 +102,24 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String name = request.getParameter("name");
         String type = request.getParameter("type");
+        if (type == null || type.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or empty type parameter");
+            return NONE;
+        }
+        String normalizedType = type.trim();
+        int typeCode;
+        try {
+            typeCode = Integer.parseInt(normalizedType);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid type parameter");
+            return NONE;
+        }
         String description = request.getParameter("reactionDescription");
 
         String startDate = request.getParameter("startDate");
+        if (startDate == null) {
+            startDate = "";
+        }
         String ageOfOnset = request.getParameter("ageOfOnset");
         String severityOfReaction = request.getParameter("severityOfReaction");
         String onSetOfReaction = request.getParameter("onSetOfReaction");
@@ -118,7 +133,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
 			// this can be overwritten with the conditions further down this code block
 			allergy.setRegionalIdentifier(id);
         allergy.setDescription(name);
-        allergy.setTypeCode(Integer.parseInt(type));
+        allergy.setTypeCode(typeCode);
         allergy.setReaction(description);
 
         if (startDate.length() >= 8 && getCharOccur(startDate, '-') == 2) {
@@ -143,15 +158,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
 
-            if (nonDrug != null && "on".equals(nonDrug)) {
-            	allergy.setNonDrug(true);
-
-            } else if (nonDrug != null && "off".equals(nonDrug)) {
-            	allergy.setNonDrug(false);
-            }
-
-
-            if (! "0".equals(type) && ! id.isEmpty() && ! "0".equals(id)){
+            if (typeCode != 0 && ! id.isEmpty() && ! "0".equals(id)){
             RxDrugData drugData = new RxDrugData();
             try {
                 RxDrugData.DrugMonograph f = drugData.getDrug(id);
