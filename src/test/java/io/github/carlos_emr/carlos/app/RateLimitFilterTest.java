@@ -147,9 +147,10 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Initialises the filter as disabled.
+     * Initialises the filter as disabled (WAF_RATE_LIMIT_ENABLED explicitly set to "false").
      */
     private void initFilterDisabled() throws Exception {
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn("false");
         when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(false);
         FilterConfig fc = mock(FilterConfig.class);
         filter.init(fc);
@@ -172,6 +173,87 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Default-enabled behaviour
+    // -------------------------------------------------------------------------
+
+    /**
+     * Stubs all rate-limit properties except WAF_RATE_LIMIT_ENABLED and initialises the filter.
+     * Used by DefaultEnabled tests that need to vary only the enabled property value.
+     */
+    private void stubDefaultRateLimitPropertiesAndInit() throws Exception {
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("detect");
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("");
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1,0:0:0:0:0:0:0:1");
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+        FilterConfig fc = mock(FilterConfig.class);
+        filter.init(fc);
+    }
+
+    @Nested
+    @DisplayName("Default-enabled behaviour")
+    class DefaultEnabled {
+
+        @Test
+        @DisplayName("should be enabled when WAF_RATE_LIMIT_ENABLED property is absent")
+        void shouldBeEnabled_whenPropertyAbsent() throws Exception {
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn(null);
+            stubDefaultRateLimitPropertiesAndInit();
+
+            assertThat(filter.isEnabled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should be enabled when WAF_RATE_LIMIT_ENABLED property is blank")
+        void shouldBeEnabled_whenPropertyBlank() throws Exception {
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn("  ");
+            stubDefaultRateLimitPropertiesAndInit();
+
+            assertThat(filter.isEnabled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should be enabled when WAF_RATE_LIMIT_ENABLED contains an unrecognized value")
+        void shouldBeEnabled_whenPropertyIsUnrecognizedValue() throws Exception {
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn("ture");
+            stubDefaultRateLimitPropertiesAndInit();
+
+            assertThat(filter.isEnabled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should be disabled when WAF_RATE_LIMIT_ENABLED is set to false")
+        void shouldBeDisabled_whenPropertyIsFalse() throws Exception {
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn("false");
+            FilterConfig fc = mock(FilterConfig.class);
+            filter.init(fc);
+
+            assertThat(filter.isEnabled()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should be disabled when WAF_RATE_LIMIT_ENABLED is set to no")
+        void shouldBeDisabled_whenPropertyIsNo() throws Exception {
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn("no");
+            FilterConfig fc = mock(FilterConfig.class);
+            filter.init(fc);
+
+            assertThat(filter.isEnabled()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should be disabled when WAF_RATE_LIMIT_ENABLED is set to off")
+        void shouldBeDisabled_whenPropertyIsOff() throws Exception {
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_ENABLED")).thenReturn("off");
+            FilterConfig fc = mock(FilterConfig.class);
+            filter.init(fc);
+
+            assertThat(filter.isEnabled()).isFalse();
         }
     }
 
