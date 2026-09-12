@@ -113,6 +113,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         // Security manager returns true for all privilege checks by default
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
             .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
+            .thenReturn(true);
 
         // Create manager and inject dependencies
         appointmentManager = new AppointmentManagerImpl();
@@ -141,6 +143,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @BeforeEach
         void denyAllPrivileges() {
             when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
                 .thenReturn(false);
         }
 
@@ -189,8 +193,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldThrowException_whenGetHistoryWithoutDeletedWithoutReadPrivilege() {
             assertThatThrownBy(() ->
                 appointmentManager.getAppointmentHistoryWithoutDeleted(mockLoggedInInfo, TEST_DEMO_NO, 0, 10))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
         }
 
         @Test
@@ -521,6 +525,18 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
     class GetAppointmentHistoryWithoutDeleted {
 
         @Test
+        @DisplayName("should reject missing demographic before checking appointment privilege")
+        void shouldRejectMissingDemographic_beforeCheckingPrivilege() {
+            assertThatThrownBy(() -> appointmentManager.getAppointmentHistoryWithoutDeleted(
+                    mockLoggedInInfo, null, 0, 10))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_appointment)");
+
+            verifyNoInteractions(mockSecurityInfoManager);
+            verify(mockAppointmentDao, never()).getAppointmentHistory(any(), any(), any());
+        }
+
+        @Test
         @DisplayName("should return non-deleted appointments from DAO")
         void shouldReturnNonDeletedAppointments_whenHistoryRequested() {
             // Given
@@ -582,7 +598,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
                 mockLoggedInInfo, TEST_DEMO_NO, 0, 10);
 
             // Then
-            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_appointment", "r", null);
+            verify(mockSecurityInfoManager).hasPrivilege(
+                mockLoggedInInfo, "_appointment", "r", TEST_DEMO_NO);
         }
     }
 
