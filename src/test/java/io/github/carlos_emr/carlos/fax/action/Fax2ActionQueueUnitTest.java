@@ -182,10 +182,17 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setCopyToRecipients(new String[] {"\"name\":\"Jane Doe\", NOT-JSON"});
 
-            // Only a genuine parse failure gets the format label now.
-            assertThatThrownBy(action::queue)
-                    .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("Invalid copy-to recipient format");
+            // Only a genuine parse failure gets the format label, without raw recipient diagnostics.
+            try (io.github.carlos_emr.carlos.test.logging.LogCapture capture =
+                    io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(Fax2Action.class)) {
+                assertThatThrownBy(action::queue)
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessageContaining("Invalid copy-to recipient format")
+                        .hasMessageNotContaining("Jane Doe");
+                assertThat(capture.messages()).anyMatch(message -> message.contains("recipient parsing failed"));
+                assertThat(capture.messages().toString()).doesNotContain("Jane Doe", "NOT-JSON");
+                assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+            }
 
             assertThat(action.getActionErrors())
                     .contains("Copy-to recipient entry 1 is not in a valid format");

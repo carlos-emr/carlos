@@ -209,7 +209,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
          */
         String provider_no = loggedInInfo.getLoggedInProviderNo();
         String error = "";
-        Exception exception = null;
 
         request.setAttribute("reqId", reqId);
         request.setAttribute("demographicId", demoNo);
@@ -333,17 +332,14 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             }
         } catch (DocumentException de) {
             error = "DocumentException";
-            exception = de;
         } catch (IOException ioe) {
             error = "IOException";
-            exception = ioe;
         } catch (RuntimeException preparationFailure) {
             error = "RuntimeException";
-            exception = preparationFailure;
         }
         if (!error.isEmpty()) {
             cleanupAttemptFiles(attemptFiles, List.of());
-            logger.error("Consultation fax preparation failed ({})", exception.getClass().getSimpleName());
+            logger.error("Consultation fax preparation failed ({})", error);
             request.setAttribute("printError", Boolean.TRUE);
             return "error";
         }
