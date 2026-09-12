@@ -537,7 +537,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Fail fast if any recipients couldn't be parsed - don't send partial fax
         if (failedRecipients > 0) {
-            throw new IllegalArgumentException(
+            throw new FaxPreparationException(
                     String.format("Failed to parse %d recipient(s). Fax not sent. Contact support if this persists.",
                             failedRecipients)
             );

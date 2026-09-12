@@ -380,6 +380,55 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"error,true", "invalid,true", "unknown,true", "error,false", "invalid,false"})
+    @DisplayName("should clean only trusted staged PDFs after a definite pre-queue failure")
+    void shouldRespectStagedOwnership_andOutcome(String outcome, boolean claimed) throws Exception {
+        setUpCommonMocks();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42))).thenReturn(true);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, eFormDataDao);
+        EFormData eform = new EFormData();
+        eform.setDemographicId(42);
+        when(eFormDataDao.find(7)).thenReturn(eform);
+        java.nio.file.Path root = java.nio.file.Files.createDirectories(java.nio.file.Path.of(APP_TEMP_ROOT));
+        java.nio.file.Path staged = java.nio.file.Files.createTempFile(root, "queue-outcome-", ".pdf");
+        java.nio.file.Path unrelated = java.nio.file.Files.createTempFile(root, "queue-unrelated-", ".pdf");
+        java.util.Set<String> claims = new java.util.HashSet<>(java.util.List.of(unrelated.toString()));
+        if (claimed) claims.add(staged.toString());
+        request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claims);
+        var operation = when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()));
+        if ("invalid".equals(outcome)) operation.thenThrow(new io.github.carlos_emr.carlos.managers.FaxPreparationException("sensitive fixture parser state"));
+        else if ("unknown".equals(outcome)) operation.thenThrow(new IllegalStateException("lost commit acknowledgement"));
+        else {
+            io.github.carlos_emr.carlos.commn.model.FaxJob error = new io.github.carlos_emr.carlos.commn.model.FaxJob();
+            error.setStatus(io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS.ERROR);
+            operation.thenReturn(java.util.List.of(error));
+        }
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(staged.toString());
+            String result = action.queue();
+            boolean unknown = "unknown".equals(outcome);
+            boolean definiteResponse = !unknown && (claimed || "invalid".equals(outcome));
+            assertThat(result).isEqualTo(unknown ? "faxUncertain" : definiteResponse ? org.apache.struts2.ActionSupport.NONE : "preview");
+            assertThat(response.getStatus()).isEqualTo(unknown ? 503 : definiteResponse ? 400 : 200);
+            if (definiteResponse) assertThat(response.getErrorMessage()).contains("not queued").doesNotContain("sensitive fixture");
+            assertThat(java.nio.file.Files.exists(staged)).isEqualTo(unknown || !claimed);
+            assertThat(unrelated).exists();
+            assertThat(claims).containsExactly(unrelated.toString());
+        } finally {
+            java.nio.file.Files.deleteIfExists(staged);
+            java.nio.file.Files.deleteIfExists(unrelated);
+        }
+    }
+
     @Test
     @DisplayName("should not delete an unrelated file when the rejected promotion's faxFilePath does not match this session's claimed path")
     void shouldNotDeleteUnrelatedFile_whenRejectedFaxFilePathDoesNotMatchSessionClaim() throws java.io.IOException {
