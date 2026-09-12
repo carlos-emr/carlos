@@ -211,6 +211,33 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldNotSilentlyFileAReportThatArrivesWhileWaitingForRoutingLocks() {
+        registerStaticInitializerMocks();
+        java.util.concurrent.atomic.AtomicBoolean lateArrival = new java.util.concurrent.atomic.AtomicBoolean();
+        try (MockedStatic<CommonLabResultData> common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
+             MockedStatic<Hl7textResultsData> hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("171"))
+                    .thenAnswer(call -> lateArrival.get() ? "169,172,171" : "169,171");
+            Mockito.doAnswer(call -> { lateArrival.set(true); return null; })
+                    .when(staticRoutingDao()).lockRoutingReport(169);
+            common.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
+            common.when(() -> CommonLabResultData.updateReportStatus(
+                    anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
+            when(staticRoutingDao().transitionNewRoutingRows(anyInt(), anyString(), anyString(), anyChar()))
+                    .thenReturn(1);
+
+            assertThat(CommonLabResultData.acknowledgeReport(171, "999998", "Reviewed", "HL7", false, null))
+                    .isEqualTo(2);
+            assertThat(lateArrival.get()).isTrue();
+            hl7.verify(() -> Hl7textResultsData.getMatchingLabs("171"), Mockito.times(1));
+            Mockito.verify(staticRoutingDao(), Mockito.never()).lockRoutingReport(172);
+            Mockito.verify(staticRoutingDao(), Mockito.never()).transitionNewRoutingRows(172, "HL7", "999998", 'F');
+            common.verify(() -> CommonLabResultData.updateReportStatus(172, "999998", 'F', "", "HL7"), Mockito.never());
+        }
+    }
+
+    @Test
     @DisplayName("should not count a version of the chain that somebody had already filed")
     void shouldSkipAlreadyFiledVersions_whenCountingClearedRows() {
         registerStaticInitializerMocks();

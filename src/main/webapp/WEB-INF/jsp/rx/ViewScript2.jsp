@@ -53,7 +53,6 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
@@ -398,7 +397,7 @@
                 useSC = true;
                 <%for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
-                    scAddress = "<carlos:encode value='<%= StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i)) %>' context="uriComponent"/>";
+                    scAddress = "<carlos:encode value='<%= (String)vecAddress.get(i) %>' context="uriComponent"/>";
                 }
                 <%}
             }%>

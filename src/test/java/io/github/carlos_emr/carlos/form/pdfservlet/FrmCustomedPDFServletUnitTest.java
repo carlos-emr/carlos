@@ -1945,7 +1945,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         Site site = northSite();
         site.setName("Smith & Jones");
-        // The page unescapes the block before it goes on the wire, so the request carries "&", not "&amp;".
+        // Also accept an already-open legacy page that posted raw text, but bind encoded fields.
         String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(RxSatelliteClinicAddress.html("Dr A",
                 "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1", "7055551111", "7055552222", telLabel(request), faxLabel(request)));
         request.setParameter("useSC", "true");
@@ -1960,8 +1960,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(RxSatelliteClinicAddress.clinicPart(bound.getParameter("scAddress")))
-                    .isEqualTo(RxSatelliteClinicAddress.clinicPart(posted));
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
+                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -1994,8 +1994,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(RxSatelliteClinicAddress.clinicPart(bound.getParameter("scAddress")))
-                    .isEqualTo(RxSatelliteClinicAddress.clinicPart(wire)).contains("Smith & Jones").doesNotContain("&#38;");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
+                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -2012,6 +2012,42 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(parsed.get("clinicTel")).isEqualTo("8195551111");
         assertThat(parsed.get("clinicFax")).isEqualTo("8195552222");
         assertThat(parsed.get("clinicName")).isEqualTo("Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
+    }
+
+    @Test
+    void shouldDecodeSatelliteFieldsOnlyAfterSplittingStructure() {
+        String block = RxSatelliteClinicAddress.html("Dr &lt;/b&gt; A", "North <br> &amp; </b> Clinic",
+                "2 <br> North Ave", "City </b>", "ON", "P1P 1P1", "123<br>456", "789</b>012",
+                "T&eacute;l", "Fax");
+        java.util.HashMap<String, String> parsed = FrmCustomedPDFServlet.parseSCAddress(block);
+        assertThat(parsed.get("clinicName"))
+                .isEqualTo("North <br> &amp; </b> Clinic\n2 <br> North Ave\nCity </b>, ON P1P 1P1");
+        assertThat(parsed.get("clinicTel")).isEqualTo("123<br>456");
+        assertThat(parsed.get("clinicFax")).isEqualTo("789</b>012");
+    }
+
+    @Test
+    void shouldBindAndParseConfiguredSatelliteDelimiterTextWithoutInventingLines() throws Exception {
+        String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
+        MockHttpServletRequest request = createFaxRequest();
+        stubStoredSignature();
+        stubPrescriberClinic();
+        Site site = northSite();
+        site.setName("North <br> &amp; </b> Clinic");
+        String offered = RxSatelliteClinicAddress.html("Dr A", site.getName(), site.getAddress(), site.getCity(),
+                site.getProvince(), site.getPostal(), site.getPhone(), site.getFax(), telLabel(request), faxLabel(request));
+        request.setParameter("useSC", "true");
+        request.setParameter("scAddress", offered);
+        try {
+            CarlosProperties.getInstance().setProperty("multisites", "true");
+            when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
+            HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
+            assertThat(bound.getParameter("useSC")).isEqualTo("true");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
+                    .isEqualTo("North <br> &amp; </b> Clinic\n2 North Ave\nBarrie, ON L4M 1A1");
+        } finally {
+            restoreProperty("multisites", previousMultisites);
+        }
     }
 
     @Test
