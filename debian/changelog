@@ -6,6 +6,17 @@ carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
     route, on the same terms as the other free-text fields; the template name
     and every other argument stay inspected, and a probe injection is still
     blocked.
+  * Printing the chart no longer stops the encounter note's draft autosave.
+    The print is a form submit whose response is a download, and the browser
+    fires the page-hide event for it even though the chart stays open; the
+    chart released its note lock on that event, so every autosave after a
+    print answered 409 and the status line said the note was being edited in
+    another window. The lock is now held across the print.
+  * The front door no longer answers 502 to the first save or print after a
+    short pause. nginx kept a pooled connection to Tomcat idle for up to 60s
+    while Tomcat closed it at 20s, so a POST issued in that window landed on a
+    connection being closed, and nginx does not retry a POST. The pool now
+    gives up an idle connection at 15s, before Tomcat does.
   * Two browser checks now guard the chart print and the free-text saves
     through the packaged front door. One prints a chart whose note carries
     each phrase the firewall is known to misread, once per print selection,

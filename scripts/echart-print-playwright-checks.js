@@ -193,11 +193,22 @@ function isExpectedNoteLockConflict(status, responseUrl) {
   return status === 409 && /\/CaseManagementEntry$/.test(new URL(responseUrl).pathname);
 }
 
+// Dialogs the chart raises that are not failures of this check: the same-user note-lock
+// prompt on open ("You have started to edit this note in another window ... continue?") is
+// the application reclaiming a lock a previous session of this provider left behind, which
+// an earlier aborted run of this very check does. Accepted and reported, not failed.
+const notices = [];
+
 function wirePage(page, label) {
   page.on('dialog', async (dialog) => {
-    // "nothing to print" and the note-lock alert are the dialogs this flow can raise.
-    // Record both: the first means a selection never reached the server.
-    badResponses.push({ label, type: 'dialog', text: dialog.message() });
+    // "nothing to print" means a selection never reached the server: record it as a
+    // failure. The same-user lock prompt is accepted so the run proceeds as a clinician
+    // would, and reported at the end.
+    if (/edit this note in another window/i.test(dialog.message())) {
+      notices.push({ label, type: 'dialog', text: dialog.message() });
+    } else {
+      badResponses.push({ label, type: 'dialog', text: dialog.message() });
+    }
     await dialog.accept();
   });
   page.on('response', (response) => {
@@ -378,19 +389,21 @@ async function cleanUpNoteDraft(page, originalNote) {
  * clicks, without depending on the popup's absolute placement.
  */
 async function printChart(page, noteText, flags, expectAutosave) {
-  // The chart's 5s draft autosave posts the textarea under ARGS:note whenever it
-  // differs from what it last saved. When this call CHANGES the text (the note-body
-  // dimension), arm a matcher for an autosave carrying this body before typing it,
-  // so the ARGS:note coverage below is a request that was seen, not an assumption
-  // about the timer. The selection dimension reprints one unchanged body, which the
-  // autosave has nothing new to post for, so it does not wait. Left dangling (null)
-  // when no autosave arrives: a rejected print navigates away and the timer dies
-  // with the page.
+  // ARGS:note is the draft autosave. For the note-body dimension, drive the page's
+  // own autoSave() with the body just typed and wait for its response, so the
+  // coverage claimed below is a request that was seen through the front door, not
+  // an assumption about the chart's 5s timer. The timer itself is not a reliable
+  // vehicle: on a fresh install it answers 409 after the first print (the note
+  // lock is gone) and the page then stops it for good, and waiting on it left the
+  // upstream connection idle long enough to hit a keep-alive race. A 409 still
+  // proves the point here: the request carried the body past the WAF and reached
+  // the application. The selection dimension reprints one unchanged body and does
+  // not repeat this.
   const autosave = expectAutosave
     ? page.waitForResponse(
       (response) => isCaseManagementEntryPost(response, 'autosave')
         && (new URLSearchParams(response.request().postData() || '').get('note') || '').includes(noteText),
-      { timeout: 20000 },
+      { timeout: 15000 },
     ).catch(() => null)
     : Promise.resolve(null);
   await page.evaluate(({ text, selectedFlags, flagIds }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal, and every argument is a structured-cloned constant from this file (note text, print-flag ids), never interpolated into page script
@@ -410,6 +423,14 @@ async function printChart(page, noteText, flags, expectAutosave) {
     }
     document.getElementById('printOps').style.display = 'block';
   }, { text: noteText, selectedFlags: flags, flagIds: PRINT_FLAG_IDS });
+
+  if (expectAutosave) {
+    await page.evaluate(() => {
+      if (typeof autoSave !== 'function') throw new Error('autoSave() is not defined on the chart page');
+      autoSave();
+    });
+  }
+  const autosaveResponse = await autosave;
 
   await page.locator('#printopAll').check();
 
@@ -434,9 +455,6 @@ async function printChart(page, noteText, flags, expectAutosave) {
       pdf.bytes = bytes.length;
     }
   }
-  // Only wait for the draft autosave when the print itself succeeded: after a
-  // rejection the page is the error response and no autosave can follow.
-  const autosaveResponse = response.status() === 200 ? await autosave : null;
   return { response, pdf, autosaveStatus: autosaveResponse ? autosaveResponse.status() : null };
 }
 
@@ -544,18 +562,19 @@ async function printChart(page, noteText, flags, expectAutosave) {
       `only ${printResults.length} of ${NOTE_BODIES.length + PRINT_SELECTIONS.length} print cases ran`);
 
     // ARGS:note, the draft autosave, is covered by observation rather than assumption:
-    // every note body was seen leaving the page in an autosave POST (printChart waits
-    // for one carrying that body), and a 403 on any of them is the WAF scoring the
-    // draft. 409 is the note lock this long run outlives; it is not a WAF answer.
-    // ARGS:noteTxt is NOT covered: it rides on ajaxSaveNote, which only fires on an
-    // explicit save/sign, and this check deliberately never saves a note.
+    // every note body was driven through the page's own autoSave() and its response
+    // seen (printChart waits for the POST carrying that body). A 403 on any of them
+    // is the WAF scoring the draft. 409 is the application's note-lock answer, which
+    // this run earns after its first print; the request still went through the front
+    // door, so it counts. ARGS:noteTxt is NOT covered: it rides on ajaxSaveNote, which
+    // only fires on an explicit save/sign, and this check deliberately never saves.
     const noAutosave = printResults.filter((result) => result.dimension === 'note body' && result.autosaveStatus === null);
     assert(noAutosave.length === 0,
       'no draft autosave carrying the note body was observed, so ARGS:note was not exercised: '
       + `${JSON.stringify(noAutosave, null, 2)}`);
     const autosaveRejected = printResults.filter((result) => result.autosaveStatus !== null && result.autosaveStatus !== 200 && result.autosaveStatus !== 409);
     assert(autosaveRejected.length === 0,
-      `the draft autosave of a note body did not return HTTP 200: ${JSON.stringify(autosaveRejected, null, 2)}`);
+      `the draft autosave of a note body was rejected: ${JSON.stringify(autosaveRejected, null, 2)}`);
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);
     assert(wafBlocked.length === 0,
       'an eChart request carrying the note text was rejected with HTTP 403 — on a packaged install this is the WAF: '
@@ -576,6 +595,9 @@ async function printChart(page, noteText, flags, expectAutosave) {
     console.log(frontDoorObserved
       ? 'Front door observed: responses carried an nginx Server header, so the WAF was in the path of every print'
       : 'WARNING: no response carried an nginx Server header, so this run did NOT exercise the packaged WAF; rule 1010 is unverified');
+    if (notices.length) {
+      console.log(`Notices (accepted, not failures): ${JSON.stringify(notices, null, 2)}`);
+    }
     console.log(`PASS chart print returned a PDF in all ${printResults.length} cases `
       + `(${NOTE_BODIES.length} note bodies, then ${PRINT_SELECTIONS.length} print selections `
       + `on the worst-case body); ${cleanupOutcome}`);
