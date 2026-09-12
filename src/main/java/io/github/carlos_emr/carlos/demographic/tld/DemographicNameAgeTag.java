@@ -36,6 +36,7 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -63,7 +64,7 @@ public class DemographicNameAgeTag extends TagSupport {
         String nameage = demoNameAge.getNameAgeString(LoggedInInfo.getLoggedInInfoFromSession(this.pageContext.getSession()), intDemoNo);
         try {
             JspWriter out = super.pageContext.getOut();
-            out.print(nameage);
+            SafeEncode.forHtmlContent(out, nameage);
         } catch (Exception p) {
             MiscUtils.getLogger().error("Error", p);
         }
