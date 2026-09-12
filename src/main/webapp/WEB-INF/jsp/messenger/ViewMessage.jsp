@@ -200,7 +200,7 @@ function popup(demographicNo, msgId, providerNo, action) {
         	  var openerRef = window.parent.opener || window.opener;
         	  if (openerRef) {
         	      getAngJsPath = openerRef.location.href;
-        	      newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURIComponent(txt);
+              newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURIComponent(txt);
         	      openerRef.location.href = newAngJsPath;
         	  }
           } else {

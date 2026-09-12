@@ -181,18 +181,6 @@ function assert(condition, message) {
   }
 }
 
-/**
- * The encounter note lock is held per demographic and released when the note is
- * saved or the encounter is closed. Driving this many prints through one open
- * encounter outlives that lock, so the draft autosave and the save-note AJAX
- * answer 409 — the application's own "someone else holds the note" path, not the
- * WAF rejection this check exists to catch. The 403 that WOULD be the WAF still
- * fails the run.
- */
-function isExpectedNoteLockConflict(status, responseUrl) {
-  return status === 409 && /\/CaseManagementEntry$/.test(new URL(responseUrl).pathname);
-}
-
 // Dialogs the chart raises that are not failures of this check: the same-user note-lock
 // prompt on open ("You have started to edit this note in another window ... continue?") is
 // the application reclaiming a lock a previous session of this provider left behind, which
@@ -216,7 +204,7 @@ function wirePage(page, label) {
     if (/nginx/i.test(response.headers()['server'] || '')) {
       frontDoorObserved = true;
     }
-    if (status >= 400 && !isExpectedNoteLockConflict(status, response.url())) {
+    if (status >= 400) {
       badResponses.push({ label, status, url: response.url() });
     }
   });
@@ -352,11 +340,10 @@ async function cleanUpNoteDraft(page, originalNote) {
       autoSave();
     });
     const response = await saved;
-    // 409 is the note lock this long run outlives (see isExpectedNoteLockConflict);
-    // a locked draft is not overwritten by us either, so it is not a cleanup failure.
-    assert(response.ok() || response.status() === 409,
+    // A conflict means the original draft was not restored; it is a cleanup failure.
+    assert(response.ok(),
       `re-saving the original note draft failed with HTTP ${response.status()}`);
-    return response.status() === 409 ? 'original draft left as the lock holder saved it' : 'original draft written back';
+    return 'original draft written back';
   }
   const cancelled = page.waitForResponse((response) => isCaseManagementEntryPost(response, 'cancel'), { timeout: 15000 });
   await page.evaluate(() => {
@@ -389,16 +376,9 @@ async function cleanUpNoteDraft(page, originalNote) {
  * clicks, without depending on the popup's absolute placement.
  */
 async function printChart(page, noteText, flags, expectAutosave) {
-  // ARGS:note is the draft autosave. For the note-body dimension, drive the page's
-  // own autoSave() with the body just typed and wait for its response, so the
-  // coverage claimed below is a request that was seen through the front door, not
-  // an assumption about the chart's 5s timer. The timer itself is not a reliable
-  // vehicle: on a fresh install it answers 409 after the first print (the note
-  // lock is gone) and the page then stops it for good, and waiting on it left the
-  // upstream connection idle long enough to hit a keep-alive race. A 409 still
-  // proves the point here: the request carried the body past the WAF and reached
-  // the application. The selection dimension reprints one unchanged body and does
-  // not repeat this.
+  // Drive the chart's own autosave with each distinct note body and require success.
+  // Printing must retain this window's lock so subsequent draft writes still work.
+  // The selection dimension reprints one unchanged body and does not repeat the save.
   const autosave = expectAutosave
     ? page.waitForResponse(
       (response) => isCaseManagementEntryPost(response, 'autosave')
@@ -561,18 +541,14 @@ async function printChart(page, noteText, flags, expectAutosave) {
     assert(printResults.length === NOTE_BODIES.length + PRINT_SELECTIONS.length,
       `only ${printResults.length} of ${NOTE_BODIES.length + PRINT_SELECTIONS.length} print cases ran`);
 
-    // ARGS:note, the draft autosave, is covered by observation rather than assumption:
-    // every note body was driven through the page's own autoSave() and its response
-    // seen (printChart waits for the POST carrying that body). A 403 on any of them
-    // is the WAF scoring the draft. 409 is the application's note-lock answer, which
-    // this run earns after its first print; the request still went through the front
-    // door, so it counts. ARGS:noteTxt is NOT covered: it rides on ajaxSaveNote, which
-    // only fires on an explicit save/sign, and this check deliberately never saves.
+    // Every body must be observed in a successful draft save. A 409 reaches the
+    // application but means the print lost the lock, so it must fail this check too.
+    // Explicit save/sign (ARGS:noteTxt) remains outside this draft-only workflow.
     const noAutosave = printResults.filter((result) => result.dimension === 'note body' && result.autosaveStatus === null);
     assert(noAutosave.length === 0,
       'no draft autosave carrying the note body was observed, so ARGS:note was not exercised: '
       + `${JSON.stringify(noAutosave, null, 2)}`);
-    const autosaveRejected = printResults.filter((result) => result.autosaveStatus !== null && result.autosaveStatus !== 200 && result.autosaveStatus !== 409);
+    const autosaveRejected = printResults.filter((result) => result.autosaveStatus !== null && result.autosaveStatus !== 200);
     assert(autosaveRejected.length === 0,
       `the draft autosave of a note body was rejected: ${JSON.stringify(autosaveRejected, null, 2)}`);
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);

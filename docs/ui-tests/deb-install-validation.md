@@ -738,9 +738,9 @@ Notes on the contract:
   The two dimensions run in sequence rather than as a matrix -- each body once,
   then each selection with the worst-case body, 15 prints in all -- because the
   403 rides on the note in the serialized form, not on any print checkbox.
-  Driving fifteen prints through one open encounter
-  outlives the note lock, so the eChart's own autosave answering 409 partway
-  through is expected and tolerated; a 403 from any of them is not. Each print
+  Every draft autosave must succeed, including after earlier prints. A 409
+  indicates a lost note lock and fails the check, as does a 403. Restoring an
+  existing draft during cleanup must also succeed. Each print
   must come back as a download whose bytes start with `%PDF-` and run to at
   least 1 KB: the action sets `application/pdf` before it generates, so the
   Content-Type alone would pass a truncated body. It also waits, per note
@@ -825,6 +825,13 @@ Notes on the contract:
   eChart checks (nginx `Server` header; warning when absent, failure with
   `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
   mistaken for coverage of 1100/1131.
+- **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
+  The chart loads 20 entries per one-second poll, including eForms and other
+  chart entries as well as encounter notes. A populated fixture can legitimately
+  need more than 30 seconds. `ECHART_NOTES_POLL_TIMEOUT_MS` accepts 5000–240000
+  milliseconds for an intentionally larger fixture; the check still requires
+  four quiet seconds and a cleared loading indicator, and fails continuous
+  pagination at the configured deadline.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
