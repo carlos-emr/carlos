@@ -148,7 +148,7 @@ if(!authed) {
 					if(FaxManager.isEnabled() && faxJob.getDirection() != FaxJob.Direction.IN) {
 %>
 						<security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_admin.fax" rights="w" reverse="<%=false%>">
-							<button class="btn btn-link btn-resend" title="Re-send this fax to the fax gateway service for delivery" id="resend_<%=faxJob.getId()%>" onclick="resend(<%=faxJob.getId()%>,'<%=faxJob.getDestination()%>','status<%=count%>')">resend</button>
+							<button class="btn btn-link btn-resend" title="Re-send this fax to the fax gateway service for delivery" id="resend_<%=faxJob.getId()%>" onclick="resend(<%=faxJob.getId()%>,'<carlos:encode value='<%= faxJob.getDestination() %>' context="javascriptAttribute"/>','status<%=count%>')">resend</button>
 						</security:oscarSec>
 <%
 					}

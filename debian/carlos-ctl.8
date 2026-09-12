@@ -79,7 +79,7 @@ Repair
 after a failed migration.
 .TP
 .B db-apply-settings
-Restart MariaDB if — and only if — its running values disagree with the
+Restart MariaDB if \(em and only if \(em its running values disagree with the
 packaged drop\-in (checked first, so an upgrade that changes nothing never
 bounces the database).
 .TP
@@ -158,7 +158,7 @@ failure the running rules keep serving and the command says so.
 .SS Backups
 .TP
 .B backup full
-Take a backup now, by starting the same systemd unit the nightly timer runs —
+Take a backup now, by starting the same systemd unit the nightly timer runs \(em
 so a manual run and a timer run are the identical code path, with the unit's
 sandbox and its read capability. The job itself executes as the
 .B carlos\-backup

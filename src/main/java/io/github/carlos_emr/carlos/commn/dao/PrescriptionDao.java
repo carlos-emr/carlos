@@ -46,6 +46,15 @@ public interface PrescriptionDao extends AbstractDao<Prescription> {
 
     public int updatePrescriptionsByScriptNo(Integer scriptNo, String comment);
 
+    /**
+     * Reads scalar database text rather than a potentially stale managed entity.
+     * Comparison is literal, including case and whitespace, independent of database collation.
+     * @param scriptNo prescription identifier
+     * @param comment exact expected comment; null is supported
+     * @return true only when the row exists and its comment equals the supplied value
+     */
+    boolean hasExactComments(Integer scriptNo, String comment);
+
     public List<Prescription> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
 
     public List<Prescription> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,

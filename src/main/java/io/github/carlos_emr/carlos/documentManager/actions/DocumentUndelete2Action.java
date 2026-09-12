@@ -83,7 +83,8 @@ public class DocumentUndelete2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.edocdelete w or _edoc w)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             return METHOD_NOT_ALLOWED;
         }
 
