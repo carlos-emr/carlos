@@ -549,6 +549,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             Path result;
             try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
                 result = (Path) saveToIncomingMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
+                assertThat(logs.messages()).anyMatch(message -> message.contains("Fax validation failed"));
                 assertThat(logs.messages().toString()).doesNotContain("PRIVATE_INCOMING_FILENAME");
                 assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
             }

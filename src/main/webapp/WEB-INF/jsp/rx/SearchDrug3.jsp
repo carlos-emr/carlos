@@ -1805,11 +1805,33 @@ function popForm2(scriptId){
                 }
             }
             var modalBody = document.getElementById('carlosModalBody');
+            var csrfToken = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (!csrfToken || !csrfToken.value) {
+                throw new Error('Prescription preview requires a valid CSRF token; reload the prescription page.');
+            }
             modalBody.textContent = '';
             var iframe = document.createElement('iframe');
             iframe.style.cssText = 'width:100%;height:890px;border:none;display:block;';
-            iframe.src = url;
+            iframe.name = 'carlosPrescriptionPreview';
             modalBody.appendChild(iframe);
+            // The explicit save/print action may apply a signature stamp. Submit it as
+            // POST with this session's token; ordinary GET preview/reload stays read-only.
+            var previewRequest = document.createElement('form');
+            previewRequest.method = 'post';
+            previewRequest.action = url;
+            previewRequest.target = iframe.name;
+            previewRequest.hidden = true;
+            var previewToken = document.createElement('input');
+            previewToken.type = 'hidden';
+            previewToken.name = 'CSRF-TOKEN';
+            previewToken.value = csrfToken.value;
+            previewRequest.appendChild(previewToken);
+            modalBody.appendChild(previewRequest);
+            try {
+                previewRequest.submit();
+            } finally {
+                previewRequest.remove();
+            }
             var modalDialog = document.querySelector('#carlosModal .modal-dialog');
             modalDialog.style.maxWidth = '980px';
             var editRxMsg = '${carlos:forJavaScript(msg_editRx)}';

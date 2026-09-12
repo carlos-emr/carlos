@@ -47,7 +47,7 @@ class ProviderLabRoutingCreationUnitTest {
 
     private static final String LOCK_SQL = "INSERT INTO providerLabRoutingLock(lab_no) VALUES(?) ON DUPLICATE KEY UPDATE lab_no=VALUES(lab_no)";
 
-    private static class Fixture {
+    private static class Fixture implements AutoCloseable {
         final JdbcTemplate jdbc;
         final PlatformTransactionManager manager;
         final ProviderLabRoutingDao dao = mock(ProviderLabRoutingDao.class);
@@ -78,7 +78,12 @@ class ProviderLabRoutingCreationUnitTest {
                 return null;
             }).when(dao).persist(any(ProviderLabRoutingModel.class));
         }
-        void route(boolean legacy, boolean forwardingCycle) throws Exception {
+        @Override
+        public void close() {
+            jdbc.execute("SHUTDOWN");
+        }
+
+        void route(int entrypoint, boolean forwardingCycle) throws Exception {
             try (var spring = mockStatic(SpringUtils.class);
                  var rules = mockConstruction(ForwardingRules.class, (mock, context) -> {
                      when(mock.getStatus(anyString())).thenReturn("N");
@@ -90,47 +95,58 @@ class ProviderLabRoutingCreationUnitTest {
                  })) {
                 spring.when(() -> SpringUtils.getBean(ProviderLabRoutingDao.class)).thenReturn(dao);
                 spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(manager);
-                if (legacy) new ProviderLabRouting().route("170", "999998", "HL7");
-                else new ProviderLabRouting().routeMagic(170, "999998", "HL7");
+                var router = new ProviderLabRouting();
+                switch (entrypoint) {
+                    case 0 -> router.routeMagic(170, "999998", "HL7");
+                    case 1 -> router.route("170", "999998", "HL7");
+                    case 2 -> {
+                        var connection = mock(java.sql.Connection.class);
+                        router.route("170", "999998", connection, "HL7");
+                        verifyNoInteractions(connection);
+                    }
+                    default -> throw new IllegalArgumentException("Unknown fixture entrypoint");
+                }
             }
         }
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @ValueSource(ints = {0, 1, 2})
     @DisplayName("should preserve acknowledged rows when normal or legacy delivery races their transaction")
-    void shouldPreserveAcknowledgement_whenDeliveryWaitsForCommit(boolean legacy) throws Exception {
-        var fixture = new Fixture();
-        var acknowledgementReady = new CountDownLatch(1);
-        var releaseAcknowledgement = new CountDownLatch(1);
-        var deliveryAttempted = new CountDownLatch(1);
-        doAnswer(call -> {
-            deliveryAttempted.countDown();
-            fixture.jdbc.update(LOCK_SQL, call.getArgument(0, Integer.class));
-            return null;
-        }).when(fixture.dao).lockRoutingReport(anyInt());
-        var workers = Executors.newFixedThreadPool(2);
-        try {
-            var acknowledged = workers.submit(() -> new TransactionTemplate(fixture.manager).executeWithoutResult(status -> {
-                fixture.jdbc.update(LOCK_SQL, 170);
-                fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7','A')");
-                acknowledgementReady.countDown();
-                try { assertThat(releaseAcknowledgement.await(5, TimeUnit.SECONDS)).isTrue(); }
-                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted); }
-            }));
-            assertThat(acknowledgementReady.await(5, TimeUnit.SECONDS)).isTrue();
-            var delivered = workers.submit(() -> { fixture.route(legacy, false); return true; });
-            assertThat(deliveryAttempted.await(5, TimeUnit.SECONDS)).isTrue();
-            assertThatThrownBy(() -> delivered.get(150, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
-            releaseAcknowledgement.countDown();
-            acknowledged.get(5, TimeUnit.SECONDS);
-            assertThat(delivered.get(5, TimeUnit.SECONDS)).isTrue();
-            assertThat(fixture.jdbc.queryForList("SELECT status FROM routing", String.class)).containsExactly("A");
-            verify(fixture.dao, never()).persist(any());
-            verify(fixture.dao, never()).merge(any());
-        } finally {
-            releaseAcknowledgement.countDown();
-            workers.shutdownNow();
+    void shouldPreserveAcknowledgement_whenDeliveryWaitsForCommit(int entrypoint) throws Exception {
+        try (var fixture = new Fixture()) {
+            var acknowledgementReady = new CountDownLatch(1);
+            var releaseAcknowledgement = new CountDownLatch(1);
+            var deliveryAttempted = new CountDownLatch(1);
+            doAnswer(call -> {
+                deliveryAttempted.countDown();
+                fixture.jdbc.update(LOCK_SQL, call.getArgument(0, Integer.class));
+                return null;
+            }).when(fixture.dao).lockRoutingReport(anyInt());
+            var workers = Executors.newFixedThreadPool(2);
+            try {
+                var acknowledged = workers.submit(() -> new TransactionTemplate(fixture.manager).executeWithoutResult(status -> {
+                    fixture.jdbc.update(LOCK_SQL, 170);
+                    fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7','A')");
+                    acknowledgementReady.countDown();
+                    try { assertThat(releaseAcknowledgement.await(5, TimeUnit.SECONDS)).isTrue(); }
+                    catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted); }
+                }));
+                assertThat(acknowledgementReady.await(5, TimeUnit.SECONDS)).isTrue();
+                var delivered = workers.submit(() -> { fixture.route(entrypoint, false); return true; });
+                assertThat(deliveryAttempted.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThatThrownBy(() -> delivered.get(150, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+                releaseAcknowledgement.countDown();
+                acknowledged.get(5, TimeUnit.SECONDS);
+                assertThat(delivered.get(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(fixture.jdbc.queryForList("SELECT status FROM routing", String.class)).containsExactly("A");
+                verify(fixture.dao, never()).persist(any());
+                verify(fixture.dao, never()).merge(any());
+            } finally {
+                releaseAcknowledgement.countDown();
+                workers.shutdownNow();
+                assertThat(workers.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+            }
         }
     }
 
@@ -138,37 +154,41 @@ class ProviderLabRoutingCreationUnitTest {
     @ValueSource(strings = {"A", "F", "N"})
     @DisplayName("should preserve every existing clinical status even when another provider has a NEW row")
     void shouldNotReopenExistingRouting_whenDeliveredAgain(String status) throws Exception {
-        var fixture = new Fixture();
-        fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7',?)", status);
-        fixture.jdbc.update("INSERT INTO routing VALUES(170,'0','HL7','N')");
-        fixture.route(false, false);
-        assertThat(fixture.jdbc.queryForObject("SELECT status FROM routing WHERE provider_no='999998'", String.class)).isEqualTo(status);
-        verify(fixture.dao, never()).persist(any());
-        verify(fixture.dao, never()).merge(any());
+        try (var fixture = new Fixture()) {
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7',?)", status);
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'0','HL7','N')");
+            fixture.route(0, false);
+            assertThat(fixture.jdbc.queryForObject("SELECT status FROM routing WHERE provider_no='999998'", String.class)).isEqualTo(status);
+            verify(fixture.dao, never()).persist(any());
+            verify(fixture.dao, never()).merge(any());
+        }
     }
 
     @Test
     @DisplayName("should roll back the original routing when creation of a forwarded routing fails")
     void shouldRollbackAllRouting_whenForwardingFails() {
-        var fixture = new Fixture();
-        doAnswer(call -> {
-            ProviderLabRoutingModel row = call.getArgument(0);
-            if ("111".equals(row.getProviderNo())) throw new IllegalStateException("fixture persistence failure");
-            fixture.jdbc.update("INSERT INTO routing VALUES(?,?,?,?)", row.getLabNo(), row.getProviderNo(), row.getLabType(), row.getStatus());
-            return null;
-        }).when(fixture.dao).persist(any(ProviderLabRoutingModel.class));
-        assertThatThrownBy(() -> fixture.route(false, true)).isInstanceOf(IllegalStateException.class);
-        assertThat(fixture.jdbc.queryForObject("SELECT COUNT(*) FROM routing", Integer.class)).isZero();
+        try (var fixture = new Fixture()) {
+            doAnswer(call -> {
+                ProviderLabRoutingModel row = call.getArgument(0);
+                if ("111".equals(row.getProviderNo())) throw new IllegalStateException("fixture persistence failure");
+                fixture.jdbc.update("INSERT INTO routing VALUES(?,?,?,?)", row.getLabNo(), row.getProviderNo(), row.getLabType(), row.getStatus());
+                return null;
+            }).when(fixture.dao).persist(any(ProviderLabRoutingModel.class));
+            assertThatThrownBy(() -> fixture.route(0, true)).isInstanceOf(IllegalStateException.class);
+            assertThat(fixture.jdbc.queryForObject("SELECT COUNT(*) FROM routing", Integer.class)).isZero();
+        }
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
     @DisplayName("should create each forwarded routing once and terminate cycles within one transaction")
-    void shouldRouteForwardingCycle_oncePerProvider() throws Exception {
-        var fixture = new Fixture();
-        fixture.route(true, true);
-        assertThat(fixture.jdbc.queryForList("SELECT provider_no FROM routing ORDER BY provider_no", String.class))
-                .containsExactly("111", "999998");
-        verify(fixture.dao).lockRoutingReport(170);
-        verify(fixture.dao, times(2)).persist(any());
+    void shouldRouteForwardingCycle_oncePerProvider(int entrypoint) throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.route(entrypoint, true);
+            assertThat(fixture.jdbc.queryForList("SELECT provider_no FROM routing ORDER BY provider_no", String.class))
+                    .containsExactly("111", "999998");
+            verify(fixture.dao).lockRoutingReport(170);
+            verify(fixture.dao, times(2)).persist(any());
+        }
     }
 }

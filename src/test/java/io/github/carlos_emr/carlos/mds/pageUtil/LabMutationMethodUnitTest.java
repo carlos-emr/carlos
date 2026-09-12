@@ -76,24 +76,32 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reject every non-POST method before lab, macro, or comment side effects")
     void shouldRejectNonPost_beforeDispatch(String method) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(method, "/oscarMDS/UpdateStatus");
-        MockHttpServletResponse response = new MockHttpServletResponse();
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         TicklerDao ticklers = createAndRegisterMock(TicklerDao.class);
         TicklerLinkDao links = createAndRegisterMock(TicklerLinkDao.class);
         UserPropertyDAO preferences = createAndRegisterMock(UserPropertyDAO.class);
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
-            servlet.when(ServletActionContext::getResponse).thenReturn(response);
-            ReportStatusUpdate2Action status = new ReportStatusUpdate2Action();
-            assertThat(status.execute()).isEqualTo(ActionSupport.NONE);
-            request.setParameter("method", "addComment");
-            assertThat(status.execute()).isEqualTo(ActionSupport.NONE);
-            assertThat(status.executemain()).isEqualTo(ActionSupport.NONE);
-            assertThat(status.addComment()).isEqualTo(ActionSupport.NONE);
-            assertThat(new ReportMacro2Action().execute()).isEqualTo(ActionSupport.NONE);
-            assertThat(response.getStatus()).isEqualTo(405);
-            assertThat(response.getHeader("Allow")).isEqualTo("POST");
-            assertThat(response.getContentAsString()).isEmpty();
+            for (int entrypoint = 0; entrypoint < 5; entrypoint++) {
+                var response = new MockHttpServletResponse();
+                servlet.when(ServletActionContext::getResponse).thenReturn(response);
+                request.removeParameter("method");
+                ReportStatusUpdate2Action status = new ReportStatusUpdate2Action();
+                String result = switch (entrypoint) {
+                    case 0 -> status.execute();
+                    case 1 -> {
+                        request.setParameter("method", "addComment");
+                        yield status.execute();
+                    }
+                    case 2 -> status.executemain();
+                    case 3 -> status.addComment();
+                    default -> new ReportMacro2Action().execute();
+                };
+                assertThat(result).as("entrypoint %s result", entrypoint).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).as("entrypoint %s status", entrypoint).isEqualTo(405);
+                assertThat(response.getHeader("Allow")).as("entrypoint %s Allow", entrypoint).isEqualTo("POST");
+                assertThat(response.getContentAsString()).as("entrypoint %s body", entrypoint).isEmpty();
+            }
             verifyNoInteractions(security, ticklers, links, preferences);
         }
     }

@@ -233,10 +233,16 @@ public class ReportMacro2Action extends ActionSupport {
             clearedCount = CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
                     skipComment(providerNo), request.getParameter("multiID"));
 
-            // Audit log for lab acknowledgment
-            LogAction.addLogSynchronous(providerNo, LogConst.ACK,
-                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
-                LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            // The routing transaction has already completed. A separate audit failure
+            // must not hide the committed outcome or invite a duplicate macro retry.
+            try {
+                LogAction.addLogSynchronous(providerNo, LogConst.ACK,
+                    "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
+                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            } catch (RuntimeException auditFailure) {
+                logger.error("Lab macro acknowledgement completed but audit logging failed ({})",
+                        auditFailure.getClass().getSimpleName());
+            }
             acknowledged = true;
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
@@ -300,10 +306,16 @@ public class ReportMacro2Action extends ActionSupport {
                 }
                 ticklerDao.persist(t);
 
-                // Audit log for tickler creation
-                LogAction.addLogSynchronous(providerNo, LogConst.ADD,
-                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
-                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+                // The tickler exists already; audit availability must not prevent its
+                // link from being created or mask the preceding acknowledgement.
+                try {
+                    LogAction.addLogSynchronous(providerNo, LogConst.ADD,
+                        "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
+                        LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+                } catch (RuntimeException auditFailure) {
+                    logger.error("Lab macro tickler created but audit logging failed ({})",
+                            auditFailure.getClass().getSimpleName());
+                }
 
                 TicklerLink tl = new TicklerLink();
                 tl.setTableId(Long.valueOf(segmentID));

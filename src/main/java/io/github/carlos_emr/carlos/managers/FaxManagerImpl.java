@@ -315,29 +315,35 @@ public class FaxManagerImpl implements FaxManager {
             return faxJobList;
         }
 
-        registerFaxAttemptRollbackCleanup(attemptFiles);
+        boolean cleanupDeferred = registerFaxAttemptCompletionCleanup(attemptFiles, faxJobList);
         // Only the transaction completion callback can establish a known rollback.
         // A persistence exception alone is not proof that no WAITING row committed.
         saveFaxJob(loggedInInfo, faxJobList);
-        cleanupFaxAttemptFiles(attemptFiles, faxJobList);
+        if (!cleanupDeferred) {
+            cleanupFaxAttemptFiles(attemptFiles, faxJobList);
+        }
         return faxJobList;
     }
 
-    private void registerFaxAttemptRollbackCleanup(Set<Path> attemptFiles) {
+    private boolean registerFaxAttemptCompletionCleanup(Set<Path> attemptFiles, List<FaxJob> retainedJobs) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
+            return false;
         }
         Set<Path> files = Set.copyOf(attemptFiles);
+        List<FaxJob> jobs = List.copyOf(retainedJobs);
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
                 if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
                     cleanupFaxAttemptFiles(files, List.of());
+                } else if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                    cleanupFaxAttemptFiles(files, jobs);
                 } else if (status == TransactionSynchronization.STATUS_UNKNOWN) {
                     logger.error("Fax queue transaction outcome is unknown; retaining prepared documents");
                 }
             }
         });
+        return true;
     }
 
     private void cleanupFaxAttemptFiles(Set<Path> attemptFiles, List<FaxJob> retainedJobs) {
@@ -356,8 +362,8 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 Files.deleteIfExists(attemptFile);
             } catch (IOException e) {
-                logger.warn("Unable to clean an unqueued fax attempt file: {}",
-                        LogSafe.sanitize(attemptFileName.toString()), e);
+                logger.warn("Unable to clean an unqueued fax attempt file ({})",
+                        e.getClass().getSimpleName());
             }
         }
     }
@@ -456,7 +462,7 @@ public class FaxManagerImpl implements FaxManager {
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
         } catch (SecurityException | IOException e) {
-            logger.error("Invalid or inaccessible fax file path: {}", LogSafe.sanitize(faxFilePath), e);
+            logger.error("Invalid or inaccessible fax file path ({})", e.getClass().getSimpleName());
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("File missing on local storage or invalid file path.");
             return faxJob;
@@ -469,7 +475,7 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 faxDocument = nioFileManager.promoteApplicationTempFile(faxDocument);
             } catch (FilePromotionException e) {
-                logger.error("Fax document promotion failed", e);
+                logger.error("Fax document promotion failed ({})", e.getClass().getSimpleName());
                 faxJob.setStatus(STATUS.ERROR);
                 faxJob.setStatusString("The fax document could not be stored for sending. Please retry or contact your administrator.");
                 return faxJob;
@@ -711,8 +717,8 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 Files.deleteIfExists(newCurrentDocument);
             } catch (IOException cleanupFailure) {
-                logger.warn("Unable to remove partial cover page after failed concat: {}",
-                        LogSafe.sanitize(coverFileName), cleanupFailure);
+                logger.warn("Unable to remove partial cover page after failed concat ({})",
+                        cleanupFailure.getClass().getSimpleName());
             }
             throw e;
         }
@@ -949,13 +955,13 @@ public class FaxManagerImpl implements FaxManager {
                 cachePagesRemoved = nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName());
             } catch (IOException e) {
                 // Per-page failures were already logged with their exceptions by removeCacheVersions.
-                logger.error("Fax preview cache flush left cached page image(s) on disk: {}", e.getMessage());
+                logger.error("Fax preview cache flush left cached page image(s) on disk ({})", e.getClass().getSimpleName());
                 cacheCleared = false;
             } catch (IllegalArgumentException e) {
                 // The preview source could not be keyed to an allowed preview location, so the
                 // source-scoped page prefix is underivable and we cannot confirm the PHI preview
                 // pages were removed. Treat an unkeyable source as an uncleared cache, never success.
-                logger.error("Fax preview cache flush could not key its source directory: {}", e.getMessage());
+                logger.error("Fax preview cache flush could not key its source directory ({})", e.getClass().getSimpleName());
                 cacheCleared = false;
             }
         }
@@ -994,9 +1000,9 @@ public class FaxManagerImpl implements FaxManager {
                 }
                 if (!canonicalizes) {
                     tempResolutionFailed = true;
-                    logger.warn("Fax flush could not canonicalize a path to verify it as a temp artifact: {}", e.getMessage());
+                    logger.warn("Fax flush could not canonicalize a path to verify it as a temp artifact ({})", e.getClass().getSimpleName());
                 } else {
-                    logger.debug("Fax flush skipped non-temp path: {}", e.getMessage());
+                    logger.debug("Fax flush skipped non-temp path ({})", e.getClass().getSimpleName());
                 }
             }
         }
