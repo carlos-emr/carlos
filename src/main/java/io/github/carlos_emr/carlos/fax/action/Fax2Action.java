@@ -367,7 +367,7 @@ public class Fax2Action extends ActionSupport {
         // to a different patient in the gap between those two requests. Re-check the binding here
         // too, right before persistAndLogFaxJobs, instead of trusting the demographicNo the client
         // resubmitted with the cover-page form.
-        revalidateEformBindingBeforePromotion(transactionType);
+        String claimedFaxFilePath = revalidateEformBindingBeforePromotion(transactionType);
 
         // recipient/comments are persisted and rendered raw (encode-at-output, not
         // encode-at-write): pre-encoding here with Encode.forHtml produced literal HTML entities
@@ -391,6 +391,11 @@ public class Fax2Action extends ActionSupport {
         List<FaxJob> faxJobList;
         try {
             faxJobList = faxManager.persistAndLogFaxJobs(loggedInInfo, params.toMap(), transactionType, transactionId);
+        } catch (io.github.carlos_emr.carlos.managers.FaxPreparationException invalidPreparation) {
+            if (claimedFaxFilePath != null) deleteRejectedClaimedFaxFile(claimedFaxFilePath);
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST,
+                    "The fax was not queued because its recipients are invalid. Prepare a new fax preview before trying again.");
+            return NONE;
         } catch (RuntimeException queueFailure) {
             // The transaction proxy commits after the manager returns. Its exception may
             // mean a lost commit acknowledgement, not an unqueued fax. Do not show a resend form.
@@ -409,6 +414,14 @@ public class Fax2Action extends ActionSupport {
             }
         }
 
+        if (!success && claimedFaxFilePath != null) {
+            // This action consumed ownership of the staged eForm PDF. A definite ERROR
+            // batch has no queued jobs, and no other owner remains to remove this source.
+            deleteRejectedClaimedFaxFile(claimedFaxFilePath);
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST,
+                    "The fax was not queued. Reopen the eForm and prepare a new fax preview before trying again.");
+            return NONE;
+        }
         request.setAttribute("faxSuccessful", success);
         request.setAttribute("faxJobList", faxJobList);
         // Repopulate the sender-account list so a failed submit re-renders CoverPage.jsp with a
@@ -427,10 +440,12 @@ public class Fax2Action extends ActionSupport {
      *
      * @throws SecurityException if the eForm no longer belongs to the submitted demographic; the
      *         claimed staged PDF is deleted and a user-facing action error is recorded first
+     * @return the trusted staged path whose cleanup ownership transfers to this queue attempt,
+     *         or null for a non-eForm/unclaimed source
      */
-    private void revalidateEformBindingBeforePromotion(TransactionType transactionType) {
+    private String revalidateEformBindingBeforePromotion(TransactionType transactionType) {
         if (transactionType != TransactionType.EFORM || transactionId == null) {
-            return;
+            return null;
         }
         EFormData eFormAtPromotion = eFormDataDao().find(transactionId.intValue());
         String promotionDemographicNo = eFormAtPromotion == null || eFormAtPromotion.getDemographicId() == null
@@ -442,7 +457,7 @@ public class Fax2Action extends ActionSupport {
         String claimedFaxFilePath = consumeClaimedFaxFilePathFromSession();
         if (promotionDemographicNo != null && demographicNo != null
                 && promotionDemographicNo.equals(String.valueOf(demographicNo))) {
-            return;
+            return claimedFaxFilePath;
         }
         logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
                 transactionId);

@@ -460,7 +460,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, Map.of(
                     "coverpage", "false",
                     "copyToRecipients", new String[] {"\"name\":\"SensitiveFixturePatient\",\"fax\":\"5550000000\", NOT-JSON"})))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(FaxPreparationException.class)
                     .hasMessageContaining("Failed to parse 1 recipient(s)")
                     .hasMessageNotContaining("SensitiveFixturePatient")
                     .hasMessageNotContaining("5550000000")
