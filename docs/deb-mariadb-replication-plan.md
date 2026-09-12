@@ -620,27 +620,27 @@ installed base working unchanged.
 
 ### Phase 3 — remote database on the app host, hardening
 
-14. `carlos-emr-backup`: dump and drill legs accept a TCP+TLS endpoint when
+15. `carlos-emr-backup`: dump and drill legs accept a TCP+TLS endpoint when
     `CARLOS_DB_HOST` is not local (today socket-only by design); the `backup`
     account on the promoted replica already exists from the token.
-15. `carlos-ctl` root-socket verbs (`db`, `db-users`, `bootstrap-admin`,
+16. `carlos-ctl` root-socket verbs (`db`, `db-users`, `bootstrap-admin`,
     `destroy-data`) either refuse clearly on an app-only host ("run this on
     the database host") or take `--db-host`; `check` tolerates no local
     `mariadb.service` when the database is remote.
-16. Semi-synchronous replication as `replica add --semi-sync` (primary
+17. Semi-synchronous replication as `replica add --semi-sync` (primary
     `rpl_semi_sync_master_enabled`, timeout fallback to async; replica
     `rpl_semi_sync_slave_enabled`), off by default, recommended for a LAN
     replica, discouraged over a WAN.
-17. Optional mutual TLS for the replication account.
+18. Optional mutual TLS for the replication account.
 
 ### Phase 4 — later (each its own decision)
 
-18. Backup offload to the replica (`--dump-slave` anchoring).
-19. Lift `Conflicts: carlos-emr` for the warm-standby topology (T3); the
+19. Backup offload to the replica (`--dump-slave` anchoring).
+20. Lift `Conflicts: carlos-emr` for the warm-standby topology (T3); the
     app on such a host must refuse to start while `CARLOS_DB_ROLE=replica`
     and `CARLOS_DB_HOST` is local (it would only get read-only errors).
-20. Physical and restic seed methods.
-21. Galera evaluation (primary-key audit for the 22 PK-less baseline
+21. Physical and restic seed methods.
+22. Galera evaluation (primary-key audit for the 22 PK-less baseline
     tables first), with `carlos-emr-db-arbiter` as the `garbd` role package
     if that path is ever chosen.
 
