@@ -203,6 +203,54 @@ async function checkRollbackFailureDisplay(context, pageUrl, recorder) {
   }
 }
 
+async function checkUncertainUpdateResponse(context, pageUrl) {
+  for (const failure of ['transport', 'null-result']) {
+    const page = await context.newPage();
+    let state = 'SUCCEEDED'; // Intentionally stale: must not confirm this request.
+    let attempts = 0;
+    try {
+      await page.route(
+        url => url.origin === config.baseUrl.origin && url.pathname === ENDPOINT,
+        async route => {
+          const method = new URLSearchParams(route.request().postData() || '').get('method');
+          if (method === 'updateDB') {
+            attempts++;
+            if (failure === 'transport') return route.abort('connectionreset');
+            return route.fulfill({ status: 200, contentType: 'application/json', body: '{"result":null}' });
+          }
+          const reply = method === 'status' ? { state } : {
+            lastUpdate: state === 'RUNNING' ? 'updating' : '2026-09-10',
+            version: 'test-fixture', drugDatabase: 'DPD',
+          };
+          return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reply) });
+        },
+      );
+      await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.locator('#updatedb').waitFor({ state: 'visible', timeout: 20000 });
+      await page.locator('#updatedb').click();
+      await page.waitForFunction(() => window.updateRequestUncertain === true);
+      await page.evaluate(async () => {
+        clearTimeout(pollTimer);
+        updateDB(); // Direct invocation must not bypass the uncertain lock.
+        startUpdate();
+        await pollStatus();
+      });
+      assert(attempts === 1, 'uncertain DrugRef request permitted a duplicate trigger');
+      assert(!(await page.locator('#updatedb').isVisible()), 'stale success re-enabled the uncertain trigger');
+      state = 'RUNNING';
+      await page.evaluate(() => pollStatus());
+      assert(!(await page.locator('#updatedb').isVisible()), 'running rebuild re-enabled the trigger');
+      state = 'FAILED';
+      await page.evaluate(() => pollStatus());
+      assert(await page.locator('#updatedb').isVisible(), 'confirmed terminal outcome did not restore the trigger');
+      assert(attempts === 1, 'status reconciliation unexpectedly started another rebuild');
+      console.log(`STEP 2c uncertain ${failure}: PASS (one intercepted POST, status-confirmed recovery)`);
+    } finally {
+      await page.close();
+    }
+  }
+}
+
 (async () => {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
@@ -291,6 +339,7 @@ async function checkRollbackFailureDisplay(context, pageUrl, recorder) {
     assert(await popup.locator('#updatedb').isVisible(), 'the Update Drugref button is not visible');
 
     await checkRollbackFailureDisplay(context, popup.url(), recorder);
+    await checkUncertainUpdateResponse(context, popup.url());
 
     if (!trigger) {
       await screenshot(popup, config.screenshotDir, 'drugref-update-page');

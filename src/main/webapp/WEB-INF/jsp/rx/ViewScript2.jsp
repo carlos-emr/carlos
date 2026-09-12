@@ -893,14 +893,9 @@
             // already reflect it, or the buttons render live until the first signature-pad event
             // fires and a click in that window submits a fax the servlet rejects.
             //
-            // Mirror the servlet's own test EXACTLY (FrmCustomedPDFServlet: pharmaFax is trimmed,
-            // stripped to digits, and refused outside 7..11). A merely non-blank value is not
-            // enough: "N/A", "555-12", or a value wider than faxes.destination would offer a Fax
-            // the server then refuses.
-            int normalizedPharmacyFaxLength = pharmacy == null || pharmacy.getFax() == null ? 0
-                    : pharmacy.getFax().trim().replaceAll("\\D", "").length();
-            boolean hasPharmacyFax = normalizedPharmacyFaxLength >= 7
-                    && normalizedPharmacyFaxLength <= 11;
+            // Use the same provider-aware validator as the servlet. A destination may be
+            // dialable through SRFax but not legacy middleware (or the reverse).
+            java.util.Set<String> usableFaxSenderNumbers = new java.util.HashSet<>();
             List<FaxConfig> faxConfigs = java.util.Collections.emptyList();
             if (CarlosProperties.getInstance().isRxFaxEnabled()) {
                 try {
@@ -911,6 +906,17 @@
                 }
             }
             boolean hasFaxSenderAccount = faxConfigs != null && !faxConfigs.isEmpty();
+            if (faxConfigs == null) faxConfigs = java.util.Collections.emptyList();
+            for (FaxConfig account : faxConfigs) {
+                try {
+                    io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                            pharmacy == null ? null : pharmacy.getFax(), account.getProviderType());
+                    usableFaxSenderNumbers.add(account.getFaxNumber());
+                } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                    // Leave this account disabled; the server repeats validation at submission.
+                }
+            }
+            boolean hasPharmacyFax = !usableFaxSenderNumbers.isEmpty();
             // The fourth condition, and the reason it is a variable both halves of the gate read:
             // sendFax() reads frames['preview'].document, and the #preview iframe is only emitted
             // inside `if (bean.getStashSize() > 0)` further down. With an empty stash the buttons
@@ -1502,8 +1508,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                     <%
                                                         for (FaxConfig faxConfig : faxConfigs) {
                                                     %>
-                                                    <option value="<%=faxConfig.getFaxNumber()%>"
-                                                            selected="<%=providerFax.equals(faxConfig.getFaxNumber())%>"><%=faxConfig.getAccountName()%>
+                                                    <option value="<carlos:encode value='<%= faxConfig.getFaxNumber() %>' context="htmlAttribute"/>"
+                                                            <%= usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) ? "" : "disabled" %>
+                                                            <%= usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) && java.util.Objects.equals(providerFax, faxConfig.getFaxNumber()) ? "selected" : "" %>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/>
                                                     </option>
                                                     <%
                                                         }

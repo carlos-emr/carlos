@@ -461,44 +461,24 @@ public class CommonLabResultData {
         // if any subsequent version fails, rather than leaving a partly filed chain.
         List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
 
-        // Counted BEFORE each write, and only for rows that were actually NEW. updateReportStatus
-        // reports nothing usable here — every path in it returns TRUE, including the one that
-        // CREATES a routing row that never existed — so "one per version" would count a chain
-        // whose older versions somebody had already filed, and the badge would read low until
-        // the next page load recomputed it.
-        int clearedFromNew = status == 'N' ? 0 : countNewRoutingRows(labNo, labType, providerNo);
+        // Count the conditional UPDATE, never a preceding snapshot SELECT: two concurrent
+        // acknowledgements must not both report clearing the same NEW routing row. Acquire
+        // chain write locks in numeric order, including when callers reviewed different versions.
+        java.util.SortedSet<Integer> versions = new java.util.TreeSet<>(olderLabNos);
+        versions.add(labNo);
+        int clearedFromNew = 0;
+        for (Integer version : versions) {
+            char destination = version == labNo ? status : 'F';
+            if (destination != 'N') {
+                clearedFromNew += providerLabRoutingDao.transitionNewRoutingRows(
+                        version, labType, providerNo, destination);
+            }
+        }
         updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
         for (Integer olderLabNo : olderLabNos) {
-            clearedFromNew += countNewRoutingRows(olderLabNo, labType, providerNo);
             updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
         }
         return clearedFromNew;
-    }
-
-    /**
-     * How many of this provider's routing rows for one lab version are currently NEW.
-     *
-     * <p>Package-private so the acknowledge tests can drive the arithmetic above without
-     * standing up a routing DAO; nothing outside this class should call it.
-     *
-     * <p>Normally nought or one; the list tolerates more because
-     * {@code providerLabRouting} has no uniqueness constraint on (lab, type, provider) and
-     * duplicate rows do exist in older data — each one is counted by the inbox badge, so each
-     * one has to be counted here too.
-     */
-    static int countNewRoutingRows(int labNo, String labType, String providerNo) {
-        List<ProviderLabRoutingModel> rows =
-                providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
-        if (rows == null) {
-            return 0;
-        }
-        int newRows = 0;
-        for (ProviderLabRoutingModel row : rows) {
-            if ("N".equals(row.getStatus())) {
-                newRows++;
-            }
-        }
-        return newRows;
     }
 
     /**

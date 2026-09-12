@@ -72,6 +72,13 @@ public class ReportStatusUpdate2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Dispatches the POST-only status or comment mutation selected by the request method parameter.
+     * @return NONE after writing the response, with no subsequent Struts view
+     * @throws ServletException for servlet dispatch failures
+     * @throws IOException for response I/O failures
+     * @throws SecurityException if the caller lacks lab write access
+     */
     public String execute() throws ServletException, IOException {
         if ("addComment".equals(request.getParameter("method"))) {
             return addComment();
@@ -79,6 +86,14 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         return executemain();
     }
 
+    /**
+     * Updates the session provider's reviewed report and trusted older version chain.
+     * Non-POST requests receive 405 before any mutation; authorized POSTs receive JSON
+     * including the actual number of routing rows removed from NEW.
+     * @return NONE because this method writes the complete response
+     * @throws SecurityException if lab write access is missing
+     * @throws NumberFormatException if the report identifier cannot be parsed
+     */
     public String executemain() {
 
         if (!requirePost()) {
@@ -133,6 +148,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Saves a literal comment on the session provider's report routing record via POST.
+     * @return NONE after writing the response; GET/HEAD return 405 without a write
+     * @throws SecurityException if lab write access is missing
+     * @throws NumberFormatException if the report identifier cannot be parsed
+     */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String addComment() {

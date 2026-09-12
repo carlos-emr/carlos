@@ -257,6 +257,12 @@ public class PathnetResultsData {
         }
     }
 
+    /**
+     * Finds the accession's report versions within the legacy four-month date window.
+     * @param labId reviewed PathNet message identifier
+     * @return comma-separated matching message identifiers, or labId when no accession/date
+     *         is available or lookup fails; may be empty when no candidate matches
+     */
     public String getMatchingLabs(String labId) {
         String ret = "";
         String accessionNum = "";

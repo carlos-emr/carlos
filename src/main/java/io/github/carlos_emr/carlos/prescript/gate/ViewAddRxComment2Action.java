@@ -67,7 +67,7 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             return NONE;
         }
         String comment = request.getParameter("comment");
-        if (scriptNo <= 0 || comment == null || "null".equalsIgnoreCase(comment)) {
+        if (scriptNo <= 0 || comment == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }

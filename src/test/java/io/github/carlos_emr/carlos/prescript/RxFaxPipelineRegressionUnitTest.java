@@ -135,12 +135,15 @@ class RxFaxPipelineRegressionUnitTest {
     }
 
     @Test
-    @DisplayName("should gate stored pharmacy fax numbers to the database destination width")
-    void shouldGatePharmacyFax_toDestinationWidth() throws IOException {
+    @DisplayName("should gate stored pharmacy fax numbers using the selected providers' dialing rules")
+    void shouldGatePharmacyFax_toProviderRules() throws IOException {
         String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
         assertThat(viewScript2)
-                .contains("normalizedPharmacyFaxLength >= 7")
-                .contains("normalizedPharmacyFaxLength <= 11");
+                .contains("FaxDestination.forQueue(")
+                .contains("pharmacy == null ? null : pharmacy.getFax(), account.getProviderType()")
+                .contains("boolean hasPharmacyFax = !usableFaxSenderNumbers.isEmpty()")
+                .contains("usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) ? \"\" : \"disabled\"")
+                .doesNotContain("selected=\"<%=providerFax.equals");
     }
 
     @Test

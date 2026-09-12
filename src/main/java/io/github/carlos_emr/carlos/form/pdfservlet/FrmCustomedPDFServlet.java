@@ -116,7 +116,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
-    private static final int MAX_FAX_DESTINATION_DIGITS = 11;
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
@@ -251,6 +250,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 res.setContentType("text/html");
                 PrintWriter writer = res.getWriter();
                 String faxNo = req.getParameter("pharmaFax");
+                String rawFaxNo = faxNo;
                 if (faxNo != null) {
                     faxNo = faxNo.trim().replaceAll("\\D", "");
                 }
@@ -259,7 +259,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 if (faxNumber != null) {
                     faxNumber = faxNumber.trim().replaceAll("\\D", "");
                 }
-                if (faxNo == null || faxNo.length() < 7 || faxNo.length() > MAX_FAX_DESTINATION_DIGITS) {
+                if (faxNo == null || faxNo.length() < 7) {
                     res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
                 } else {
@@ -284,6 +284,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     if (selectedFaxConfig == null) {
                         res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                         writer.println("<div id='fax-failure'><h3>Error: the selected fax line is not configured.</h3></div>");
+                        writer.flush();
+                        return;
+                    }
+
+                    try {
+                        faxNo = io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                                rawFaxNo, selectedFaxConfig.getProviderType());
+                    } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
                         writer.flush();
                         return;
                     }

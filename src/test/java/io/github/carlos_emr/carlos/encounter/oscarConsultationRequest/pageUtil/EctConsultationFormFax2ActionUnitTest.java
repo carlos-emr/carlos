@@ -135,11 +135,32 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         action.setRecipientFaxNumber("9876543210");
 
         FaxConfig config = mock(FaxConfig.class);
+        when(config.isActive()).thenReturn(true);
         when(config.getFaxNumber()).thenReturn("1234567890");
         when(config.getAccountName()).thenReturn("Test Account");
         when(faxConfigDao.findAll(null, null)).thenReturn(java.util.List.of(config));
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, "123")).thenReturn(true);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"!!!!!!!", "+1 (23)-4", "       ", "inactive", "null-sender"})
+    @DisplayName("should reject invalid normalized destinations and inactive sender accounts before file promotion")
+    void shouldRejectInvalidFaxDetails_beforePromotion(String scenario) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        if ("inactive".equals(scenario) || "null-sender".equals(scenario)) {
+            FaxConfig config = mock(FaxConfig.class);
+            when(config.getFaxNumber()).thenReturn("inactive".equals(scenario) ? "1234567890" : null);
+            when(config.isActive()).thenReturn(!"inactive".equals(scenario));
+            when(faxConfigDao.findAll(null, null)).thenReturn(java.util.List.of(config));
+        } else {
+            action.setRecipientFaxNumber(scenario);
+        }
+        assertThat(action.execute()).isEqualTo("error");
+        org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @AfterEach
@@ -150,6 +171,21 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"1234567", "12345678", "123456789", "1234567890123456"})
+    @DisplayName("should reject destinations outside SRFax rules before publishing documents")
+    void shouldRejectSrfaxDestination_beforePromotion(String destination) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        FaxConfig selected = faxConfigDao.findAll(null, null).get(0);
+        when(selected.getProviderType()).thenReturn(FaxConfig.ProviderType.SRFAX);
+        action.setRecipientFaxNumber(destination);
+        assertThat(action.execute()).isEqualTo("error");
+        org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -284,8 +320,14 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    void shouldReportQueued_whenSecondaryAuditFailsAfterCommit() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MIDDLEWARE", "SRFAX"})
+    void shouldReportQueued_whenSecondaryAuditFailsAfterCommit(String providerType) throws Exception {
+        boolean srfax = "SRFAX".equals(providerType);
+        action.setRecipientFaxNumber(srfax ? "+44 20 7946 0100" : "+1 (987) 654-3210");
+        if (srfax) action.setFaxRecipients(new String[]{"\"name\":\"Duplicate\",\"fax\":\"011442079460100\""});
+        FaxConfig selected = faxConfigDao.findAll(null, null).get(0);
+        when(selected.getProviderType()).thenReturn(FaxConfig.ProviderType.valueOf(providerType));
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
@@ -301,7 +343,9 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.execute()).isEqualTo("success");
             assertThat(pdf).exists();
             assertThat(request.getAttribute("faxSuccessful")).isEqualTo(true);
-            verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
+            verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo),
+                    org.mockito.ArgumentMatchers.argThat(jobs -> jobs.size() == 1
+                            && (srfax ? "+442079460100" : "19876543210").equals(jobs.get(0).getDestination())), eq(456));
         }
     }
 

@@ -101,6 +101,7 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         registerMock(Hl7TextInfoDao.class, mock(Hl7TextInfoDao.class));
         registerMock(Hl7TextMessageDao.class, mock(Hl7TextMessageDao.class));
         registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
+        Mockito.reset(staticRoutingDao());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -118,9 +119,9 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             jdbc.execute("CREATE TABLE routing(id INT PRIMARY KEY, status CHAR(1))");
             jdbc.execute("INSERT INTO routing VALUES(169,'N'),(170,'N'),(171,'N')");
             hl7.when(() -> Hl7textResultsData.getMatchingLabs("171")).thenReturn("169,170,171");
-            common.when(() -> CommonLabResultData.countNewRoutingRows(anyInt(), anyString(), anyString()))
-                    .thenAnswer(call -> jdbc.queryForObject("SELECT COUNT(*) FROM routing WHERE id=? AND status='N'",
-                            Integer.class, call.getArgument(0, Integer.class)));
+            when(staticRoutingDao().transitionNewRoutingRows(anyInt(), anyString(), anyString(), anyChar()))
+                    .thenAnswer(call -> jdbc.update("UPDATE routing SET status=? WHERE id=? AND status='N'",
+                            String.valueOf((char) call.getArgument(3)), call.getArgument(0, Integer.class)));
             common.when(() -> CommonLabResultData.updateReportStatus(anyInt(), anyString(), anyChar(), any(), any(), anyBoolean()))
                     .thenAnswer(call -> {
                         int id = call.getArgument(0);
@@ -189,8 +190,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
             // Every version of this chain is still sitting in the provider's inbox.
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    anyInt(), anyString(), anyString())).thenReturn(1);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    anyInt(), anyString(), anyString(), anyChar())).thenReturn(1);
 
             int cleared = CommonLabResultData.acknowledgeReport(
                     171, "999998", "Reviewed", "HL7", false, "169,170,171");
@@ -215,11 +216,11 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    anyInt(), anyString(), anyString())).thenReturn(1);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    anyInt(), anyString(), anyString(), anyChar())).thenReturn(1);
             // 169 was filed by hand earlier, so it is not in the badge's total any more.
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    eq(169), anyString(), anyString())).thenReturn(0);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    eq(169), anyString(), anyString(), anyChar())).thenReturn(0);
 
             int cleared = CommonLabResultData.acknowledgeReport(
                     171, "999998", "Reviewed", "HL7", false, "169,170,171");
@@ -228,39 +229,55 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should count only the provider's routing rows still in the new state")
-    void shouldCountOnlyNewRows_whenInspectingOneLabVersion() {
-        registerStaticInitializerMocks();
-
-        // The heart of the cleared-row count: a row already filed by hand is not in a total
-        // the inbox badge is counting, so it must not be counted as cleared. The routing DAO
-        // is reached through a static field bound at class-initialisation, so the instance the
-        // production code actually holds is read back rather than assumed.
-        ProviderLabRoutingDao boundDao = staticRoutingDao();
-        Mockito.reset(boundDao);
-        when(boundDao.findByLabNoAndLabTypeAndProviderNo(170, "HL7", "999998"))
-                .thenReturn(List.of(routingRow("N"), routingRow("A"), routingRow("N")));
-        when(boundDao.findByLabNoAndLabTypeAndProviderNo(171, "HL7", "999998"))
-                .thenReturn(List.of(routingRow("F")));
-        when(boundDao.findByLabNoAndLabTypeAndProviderNo(172, "HL7", "999998"))
-                .thenReturn(null);
-
-        assertThat(CommonLabResultData.countNewRoutingRows(170, "HL7", "999998"))
-                .as("two of the three rows are new")
-                .isEqualTo(2);
-        assertThat(CommonLabResultData.countNewRoutingRows(171, "HL7", "999998"))
-                .as("a row somebody already filed is not a row this clears")
-                .isZero();
-        assertThat(CommonLabResultData.countNewRoutingRows(172, "HL7", "999998"))
-                .as("no rows at all is not an error")
-                .isZero();
-    }
-
     private static ProviderLabRoutingModel routingRow(String status) {
         ProviderLabRoutingModel row = new ProviderLabRoutingModel();
         row.setStatus(status);
         return row;
+    }
+
+    @Test
+    @DisplayName("should count a NEW routing row only once across simultaneous acknowledgements")
+    void shouldCountOnce_whenAcknowledgementsRace() throws Exception {
+        registerStaticInitializerMocks();
+        org.h2.jdbcx.JdbcDataSource source = new org.h2.jdbcx.JdbcDataSource();
+        source.setURL("jdbc:h2:mem:lab-race-" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000");
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(source);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class,
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(source));
+        jdbc.execute("CREATE TABLE routing(id INT PRIMARY KEY, status CHAR(1))");
+        jdbc.execute("INSERT INTO routing VALUES(170,'N')");
+        java.util.concurrent.CyclicBarrier bothReady = new java.util.concurrent.CyclicBarrier(2);
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        when(dao.transitionNewRoutingRows(170, "DOC", "999998", 'A')).thenAnswer(call -> {
+            bothReady.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            return jdbc.update("UPDATE routing SET status='A' WHERE id=170 AND status='N'");
+        });
+        // Normal metadata writes follow the real atomic transition in each transaction.
+        when(dao.findByLabNoAndLabTypeAndProviderNo(170, "DOC", "999998"))
+                .thenAnswer(call -> List.of(routingRow(jdbc.queryForObject("SELECT status FROM routing WHERE id=170", String.class))));
+        var manager = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                org.springframework.transaction.PlatformTransactionManager.class);
+        java.util.concurrent.ExecutorService workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Integer> acknowledge = () -> {
+                // SpringUtils mocking is thread-local; give each worker the same real manager.
+                try (MockedStatic<io.github.carlos_emr.carlos.utility.SpringUtils> spring =
+                             mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
+                    spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                            org.springframework.transaction.PlatformTransactionManager.class)).thenReturn(manager);
+                    return CommonLabResultData.acknowledgeReport(170, "999998", "", "DOC", false, null);
+                }
+            };
+            var first = workers.submit(acknowledge);
+            var second = workers.submit(acknowledge);
+            assertThat(List.of(first.get(15, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(15, java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(1, 0);
+            assertThat(jdbc.queryForObject("SELECT status FROM routing WHERE id=170", String.class)).isEqualTo("A");
+        } finally {
+            workers.shutdownNow();
+            workers.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS);
+            jdbc.execute("SHUTDOWN");
+        }
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -310,8 +327,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
             commonLabResultData.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
-            commonLabResultData.when(() -> CommonLabResultData.countNewRoutingRows(
-                    anyInt(), anyString(), anyString())).thenReturn(1);
+            when(staticRoutingDao().transitionNewRoutingRows(
+                    anyInt(), anyString(), anyString(), anyChar())).thenReturn(1);
 
             int cleared = CommonLabResultData.acknowledgeReport(170, "999998", "", "HL7", true, "170");
 

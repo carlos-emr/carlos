@@ -1757,6 +1757,7 @@
                         <include>**/messenger/**/*Test.java</include>
                         <include>**/provider/**/*Test.java</include>
                         <include>**/managers/**/*Test.java</include>
+                        <include>**/i18n/**/*Test.java</include>
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
                         <include>**/*RegressionTest.java</include>

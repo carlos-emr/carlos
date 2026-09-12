@@ -22,6 +22,18 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 
 public interface ProviderLabRoutingDao extends AbstractDao<ProviderLabRoutingModel> {
+    /**
+     * Atomically transitions this provider's NEW routing rows for one report.
+     * Must join the caller's chain transaction so counts and subsequent metadata writes
+     * commit together. The conditional update serializes concurrent acknowledgements.
+     * @param labNo report identifier
+     * @param labType exact routing type
+     * @param providerNo acting provider
+     * @param status non-NEW destination status
+     * @return number of rows actually removed from NEW by this transaction
+     */
+    int transitionNewRoutingRows(int labNo, String labType, String providerNo, char status);
+
     public static final String UNCLAIMED_PROVIDER = "0";
 
     public enum LAB_TYPE {

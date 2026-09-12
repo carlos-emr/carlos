@@ -389,7 +389,8 @@ public class FaxManagerImpl implements FaxManager {
         String senderFaxNumber = (String) faxJobMap.get("senderFaxNumber");
         Integer demographicNo = (Integer) faxJobMap.get("demographicNo");
 
-        recipientFaxNumber = recipientFaxNumber.replaceAll("\\D", "");
+        String rawRecipientFaxNumber = recipientFaxNumber;
+        recipientFaxNumber = recipientFaxNumber == null ? "" : recipientFaxNumber.replaceAll("\\D", "");
 
         // Build the job shell before any validation so every ERROR return below is display-ready:
         // CoverPage.jsp renders recipient/destination/status/statusString per job on the preview.
@@ -424,6 +425,21 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         faxJob.setFax_line(faxConfig.getFaxNumber());
+        try {
+            faxJob.setDestination(io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                    rawRecipientFaxNumber, faxConfig.getProviderType()));
+            String[] copies = (String[]) faxJobMap.get("copyToRecipients");
+            if (copies != null) {
+                for (FaxRecipient copy : parseFaxRecipients(copies)) {
+                    io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                            copy.getRawFax(), faxConfig.getProviderType());
+                }
+            }
+        } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+            faxJob.setStatus(STATUS.ERROR);
+            faxJob.setStatusString("The recipient fax number is invalid for the selected fax provider.");
+            return faxJob;
+        }
         faxJob.setUser(faxConfig.getFaxUser());
 
         // Create the sender profile, defaulting to the clinic address.
@@ -549,19 +565,27 @@ public class FaxManagerImpl implements FaxManager {
 
         outer:
         for (FaxRecipient faxRecipient : faxRecipients) {
+            String destination;
+            try {
+                destination = io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                        faxRecipient.getRawFax(), faxJob.getFaxAccount() == null ? null
+                                : faxJob.getFaxAccount().getProviderType());
+            } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                throw new IllegalArgumentException("Invalid copy-to fax destination", invalidDestination);
+            }
             // Avoid duplicate fax numbers.
-            if (Objects.equals(faxJob.getDestination(), faxRecipient.getFax())) {
+            if (Objects.equals(faxJob.getDestination(), destination)) {
                 continue;
             }
 
             for (FaxJob faxJobItem : faxJobList) {
-                if (Objects.equals(faxJobItem.getDestination(), faxRecipient.getFax())) {
+                if (Objects.equals(faxJobItem.getDestination(), destination)) {
                     continue outer;
                 }
             }
 
             FaxJob faxJobCopy = new FaxJob(faxJob);
-            faxJobCopy.setDestination(faxRecipient.getFax());
+            faxJobCopy.setDestination(destination);
             faxJobCopy.setRecipient(faxRecipient.getName());
 
             faxJobList.add(faxJobCopy);

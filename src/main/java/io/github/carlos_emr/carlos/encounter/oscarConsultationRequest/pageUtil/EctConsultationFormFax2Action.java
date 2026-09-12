@@ -237,7 +237,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         // Resolve the sender and validate every recipient before promoting files or persisting jobs.
         FaxConfig matchedConfig = null;
         for (FaxConfig faxConfig : faxConfigs) {
-            if (faxConfig.getFaxNumber().equals(faxNumber)) {
+            if (faxConfig.isActive() && faxNumber != null && faxNumber.equals(faxConfig.getFaxNumber())) {
                 matchedConfig = faxConfig;
                 break;
             }
@@ -250,9 +250,12 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             return "error";
         }
         List<String> invalidRecipients = new ArrayList<>();
+        java.util.Map<FaxRecipient, String> destinations = new java.util.HashMap<>();
         for (FaxRecipient faxRecipient : faxRecipients) {
-            String recipientFax = faxRecipient.getFax();
-            if (recipientFax == null || recipientFax.length() < 7) {
+            try {
+                destinations.put(faxRecipient, io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                        faxRecipient.getRawFax(), matchedConfig.getProviderType()));
+            } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
                 invalidRecipients.add(faxRecipient.getName());
             }
         }
@@ -278,13 +281,15 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
         // Build the complete filesystem-backed batch before the transactional database write.
         List<FaxJob> builtFaxJobs = new ArrayList<>();
+        Set<String> queuedDestinations = new HashSet<>();
         try {
             for (FaxRecipient faxRecipient : faxRecipients) {
 
                 // reset target pdf.
                 pdfToFax = faxPdf;
 
-                String faxNo = faxRecipient.getFax().trim().replaceAll("\\D", "");
+                String faxNo = destinations.get(faxRecipient);
+                if (!queuedDestinations.add(faxNo)) continue;
 
                 logger.info("Setting up consultation fax to {}", LogSafe.sanitize(faxRecipient.getName()));
 
@@ -422,9 +427,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         this.from = from;
     }
     public String getRecipientFaxNumber() {
-        if (recipientFaxNumber != null) {
-            recipientFaxNumber = recipientFaxNumber.trim().replaceAll("\\D", "");
-        }
         return recipientFaxNumber;
     }
     @StrutsParameter
@@ -511,7 +513,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
      */
     public Set<FaxRecipient> getAllFaxRecipients() {
         if (allFaxRecipients == null) {
-            allFaxRecipients = new HashSet<FaxRecipient>();
+            allFaxRecipients = new java.util.LinkedHashSet<FaxRecipient>();
             allFaxRecipients.add( new FaxRecipient( getRecipient(), getRecipientFaxNumber() ) );
             allFaxRecipients.addAll(getCopiedTo());
         }

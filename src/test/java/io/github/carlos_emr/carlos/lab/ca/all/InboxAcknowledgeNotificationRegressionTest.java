@@ -48,6 +48,18 @@ import org.junit.jupiter.api.Test;
 @Tag("lab")
 class InboxAcknowledgeNotificationRegressionTest {
 
+    @Test
+    @DisplayName("should use type-qualified DOM ids and typed selectors in both inbox modes")
+    void shouldAvoidDuplicateIds_whenReportTypesShareSegmentNumbers() throws IOException {
+        for (Path page : new Path[] {INBOXHUB_LIST_MODE_JSP, INBOXHUB_VIEW_MODE_JSP}) {
+            assertThat(read(page)).contains("id=\"labdoc_${carlos:forHtmlAttribute(labResult.labType)}_${carlos:forHtmlAttribute(labResult.segmentID)}\"")
+                    .contains("data-segment-id=\"${carlos:forHtmlAttribute(labResult.segmentID)}\"");
+        }
+        assertThat(read(OSCAR_MDS_INDEX_JS)).contains("labDocumentRows(fileId, file.split(\":\")[1])",
+                "labDocumentRows(num, 'DOC').slideUp()", "labDocumentRows(doclabid, data.labType).slideUp()",
+                "labDocumentRows(docId, type).slideUp()");
+    }
+
     private static final Path LAB_DISPLAY_JSP = Path.of(
             "src", "main", "webapp", "WEB-INF", "jsp", "lab", "CA", "ALL", "labDisplay.jsp");
     private static final Path SHOW_DOCUMENT_JSP = Path.of(
@@ -272,13 +284,14 @@ class InboxAcknowledgeNotificationRegressionTest {
         String commonLabResultData = read(COMMON_LAB_RESULT_DATA);
 
         assertThat(commonLabResultData)
-                .contains("int clearedFromNew = status == 'N' ? 0 : countNewRoutingRows(labNo, labType, providerNo);")
-                .contains("clearedFromNew += countNewRoutingRows(olderLabNo, labType, providerNo);")
-                .as("the count must be taken before the write that changes the status")
+                .contains("if (destination != 'N')")
+                .contains("clearedFromNew += providerLabRoutingDao.transitionNewRoutingRows(")
+                .as("the count must come from the conditional transition itself")
                 .doesNotContain("return 1 + olderLabNos.size();");
-        assertThat(commonLabResultData)
+        assertThat(read(Path.of("src/main/java/io/github/carlos_emr/carlos/commn/dao/ProviderLabRoutingDaoImpl.java")))
                 .as("only rows in the NEW state are in a total the badge is counting")
-                .contains("if (\"N\".equals(row.getStatus())) {");
+                .contains("and x.providerNo=?3 and x.status='N'")
+                .contains(".executeUpdate()");
     }
 
     @Test
@@ -391,10 +404,12 @@ class InboxAcknowledgeNotificationRegressionTest {
         // HTML attributes — and the id is then rebuilt into a jQuery attribute selector. The
         // repo standard is the null-safe CARLOS wrapper for every attribute context.
         assertThat(read(INBOXHUB_VIEW_MODE_JSP))
-                .contains("id=\"labdoc_${carlos:forHtmlAttribute(labResult.segmentID)}\"")
+                .contains("id=\"labdoc_${carlos:forHtmlAttribute(labResult.labType)}_${carlos:forHtmlAttribute(labResult.segmentID)}\"")
+                .contains("data-segment-id=\"${carlos:forHtmlAttribute(labResult.segmentID)}\"")
                 .contains("data-lab-type=\"${carlos:forHtmlAttribute(labResult.labType)}\"");
         assertThat(read(INBOXHUB_LIST_MODE_JSP))
-                .contains("id=\"labdoc_${carlos:forHtmlAttribute(labResult.segmentID)}\"")
+                .contains("id=\"labdoc_${carlos:forHtmlAttribute(labResult.labType)}_${carlos:forHtmlAttribute(labResult.segmentID)}\"")
+                .contains("data-segment-id=\"${carlos:forHtmlAttribute(labResult.segmentID)}\"")
                 .contains("data-lab-type=\"${carlos:forHtmlAttribute(labResult.labType)}\"");
         assertThat(read(INBOXHUB_VIEW_MODE_JSP) + read(INBOXHUB_LIST_MODE_JSP))
                 .as("no raw interpolation of either value into an attribute survives")

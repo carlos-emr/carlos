@@ -61,8 +61,11 @@ class ConsultationFormServiceSelectionJspRegressionTest {
     void shouldGateBothFaxButtons_whenConsultWriteAndFaxReadWriteAreRequired() throws Exception {
         String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
         assertThat(jsp).contains("boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()")
-                .contains("consultSecurityTarget != null && consultSecurityTarget.matches(\"[0-9]+\")")
-                .contains("isAllowedAccessToPatientRecord(loggedInInfo, Integer.parseInt(consultSecurityTarget))")
+                .contains("consultPatientId = Integer.valueOf(consultSecurityTarget)")
+                .contains("catch (NumberFormatException invalidPatientId)")
+                .contains("response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST)")
+                .contains("isAllowedAccessToPatientRecord(loggedInInfo, consultPatientId)")
+                .contains("if (!faxConfig.isActive() || faxConfig.getFaxNumber() == null) continue;")
                 .contains("hasPrivilege(loggedInInfo, \"_fax\", SecurityInfoManager.WRITE, null)")
                 .contains("hasPrivilege(loggedInInfo, \"_fax\", SecurityInfoManager.READ, null)");
         assertThat(jsp).doesNotContain("props.isConsultationFaxEnabled()")
