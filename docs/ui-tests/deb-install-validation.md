@@ -547,6 +547,7 @@ export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in *eform-corpus-soak*) continue ;; esac   # needs a corpus dir; see below
+  case "$s" in *professional-contact-xss*) continue ;; esac  # runs WAF-free; see below
   # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
   # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
   t=300; case "$s" in *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;; esac
@@ -578,6 +579,41 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **`professional-contact-xss-playwright-checks.js` is the one script here that
+  must NOT go through `:443`**, which is why the loop skips it. It exists to
+  prove the output encoding on the professional contact form
+  (`addEditProfessionalContact.jsp`), and the CRS XSS family is left inspecting
+  on the front door, so every payload it sends is refused with 403 before the
+  JSP renders — the run would go green without executing one line of the code it
+  is meant to check. Point `BASE_URL` at Tomcat directly and hand the front door
+  to `WAF_BASE_URL`, which makes the script additionally require a 403 there:
+
+  ```bash
+  BASE_URL=http://127.0.0.1:18080/carlos \
+  WAF_BASE_URL=https://127.0.0.1/carlos \
+    node scripts/professional-contact-xss-playwright-checks.js
+  ```
+
+  Only the tag-injection probe is a requirement at the front door. Measured on
+  this install, CRS at paranoia level 1 blocks `"><img src=x onerror=...>` with
+  a 403 but does **not** score a quote-breakout that carries no angle brackets
+  (`');...;var x=('` reached the application with a 200), so the script reports
+  that one as an observation rather than asserting it — requiring the block
+  would pin behaviour the rule set does not promise, and requiring the
+  pass-through would raise a false alarm the day someone tightens the policy.
+  Either way it records the point: on a JavaScript string sink the encoder, not
+  the WAF, is the control.
+
+  It seeds its stored cases straight into `Contact` / `DemographicContact`
+  (`MYSQL_*` from the environment block, `XSS_DEMOGRAPHIC_NO` for the patient
+  they attach to) rather than through the application's own save path — the
+  front door scores these payloads, and a value that arrived by import, HL7 or a
+  legacy row never went through that save path either, which is the case the
+  encoder has to survive. Both rows are removed in a `finally`; a run killed
+  mid-flight leaves them, tagged with the run's stamp in `note`, so clear strays
+  with `DELETE FROM DemographicContact WHERE note LIKE 'xsscheck%';` and
+  `DELETE FROM Contact WHERE note LIKE 'xsscheck%';`. `SKIP_STORED_XSS=true`
+  runs only the reflected cases when no database is reachable.
 - **`allergy-rx-alert-playwright-checks.js` leaves two allergies on its patient
   per run**, by design: it records one allergen from the allergy search results
   and a second through "Custom Allergy", then prescribes against the second. The
