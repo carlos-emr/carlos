@@ -481,17 +481,21 @@ async function runPrescriptionSignatureCheck(context) {
 }
 
 (async () => {
+  const cancellation = createGracefulSignalCancellation();
   const launchOptions = {
     headless: true,
+    handleSIGINT: false,
+    handleSIGTERM: false,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
-  const cancellation = createGracefulSignalCancellation();
+  let browser;
   try {
+    browser = await chromium.launch(launchOptions);
+    cancellation.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
@@ -502,7 +506,7 @@ async function runPrescriptionSignatureCheck(context) {
       process.exitCode = 1;
     }
   } finally {
-    try { await browser.close(); } finally { cancellation.dispose(); }
+    try { if (browser) await browser.close(); } finally { cancellation.dispose(); }
   }
 })().catch((error) => {
   console.error('Prescription signature validation failed');
