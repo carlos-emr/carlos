@@ -99,6 +99,92 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                 .isEmpty();
     }
 
+    /**
+     * Every module package must extend {@code carlos-default} (declared in struts.xml), not
+     * {@code struts-default} directly, and an action that names a stack must name one of the two
+     * CARLOS stacks. The only difference between those stacks and struts-default's is that the
+     * exception interceptor logs the uncaught exception; a package or action that reaches past them
+     * is one whose failures vanish into the error page again.
+     */
+    @Test
+    @DisplayName("module packages should inherit the exception-logging stacks from carlos-default")
+    void shouldInheritExceptionLogging_fromCarlosDefaultPackage()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
+
+        Element carlosDefault = null;
+        NodeList parentPackages = parent.getElementsByTagName("package");
+        for (int i = 0; i < parentPackages.getLength(); i++) {
+            Element candidate = (Element) parentPackages.item(i);
+            if ("carlos-default".equals(candidate.getAttribute("name"))) {
+                carlosDefault = candidate;
+            }
+        }
+        assertThat(carlosDefault).as("struts.xml should declare the carlos-default package").isNotNull();
+        assertThat(carlosDefault.getAttribute("abstract")).isEqualTo("true");
+        assertThat(carlosDefault.getAttribute("extends")).isEqualTo("struts-default");
+        assertThat(carlosDefault.getAttribute("strict-method-invocation")).isEqualTo("true");
+
+        Set<String> loggingStacks = new LinkedHashSet<>();
+        NodeList stacks = carlosDefault.getElementsByTagName("interceptor-stack");
+        for (int i = 0; i < stacks.getLength(); i++) {
+            Element stack = (Element) stacks.item(i);
+            Map<String, String> params = new LinkedHashMap<>();
+            NodeList paramNodes = stack.getElementsByTagName("param");
+            for (int j = 0; j < paramNodes.getLength(); j++) {
+                Element param = (Element) paramNodes.item(j);
+                params.put(param.getAttribute("name"), param.getTextContent().trim());
+            }
+            if ("true".equals(params.get("exception.logEnabled"))
+                    && "error".equals(params.get("exception.logLevel"))) {
+                loggingStacks.add(stack.getAttribute("name"));
+            }
+        }
+        assertThat(loggingStacks)
+                .as("carlos-default should define both CARLOS stacks with exception logging at error")
+                .containsExactlyInAnyOrder("carlosDefaultStack", "carlosBasicStack");
+
+        NodeList defaultRefs = carlosDefault.getElementsByTagName("default-interceptor-ref");
+        assertThat(defaultRefs.getLength()).isEqualTo(1);
+        assertThat(((Element) defaultRefs.item(0)).getAttribute("name")).isEqualTo("carlosDefaultStack");
+
+        List<String> violations = new ArrayList<>();
+        NodeList includes = parent.getElementsByTagName("include");
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Document doc = parseXml(strutsDir.resolve(fileName));
+                NodeList packages = doc.getElementsByTagName("package");
+                for (int p = 0; p < packages.getLength(); p++) {
+                    Element packageElement = (Element) packages.item(p);
+                    String extendsValue = packageElement.getAttribute("extends");
+                    if (!"carlos-default".equals(extendsValue)) {
+                        violations.add(packageViolation(fileName, packageElement,
+                                "extends " + extendsValue + " instead of carlos-default"));
+                    }
+                    if (packageElement.getElementsByTagName("default-interceptor-ref").getLength() > 0) {
+                        violations.add(packageViolation(fileName, packageElement,
+                                "overrides default-interceptor-ref"));
+                    }
+                }
+                NodeList refs = doc.getElementsByTagName("interceptor-ref");
+                for (int r = 0; r < refs.getLength(); r++) {
+                    String refName = ((Element) refs.item(r)).getAttribute("name");
+                    if ("defaultStack".equals(refName) || "basicStack".equals(refName)) {
+                        violations.add(fileName + " references the struts-default stack " + refName
+                                + " directly; name the carlos* stack so the exception interceptor still logs");
+                    }
+                }
+            }
+        }
+
+        assertThat(violations)
+                .as("Struts packages and actions must stay on the exception-logging stacks")
+                .isEmpty();
+    }
+
     @Test
     @DisplayName("OGNL allowlist should be enabled for CARLOS packages")
     void shouldEnableOgnlAllowlist_forCarlosPackages()

@@ -160,7 +160,7 @@ As of 2026-03, the monolithic `struts.xml` has been split into a modular structu
 
 ### Adding New Actions
 
-Add new action mappings to the appropriate domain-specific module file. Each module file uses a unique package name but shares `namespace="/"` and `extends="struts-default"`. Package names **must** be unique across all module files — Struts silently drops actions from duplicate-named packages.
+Add new action mappings to the appropriate domain-specific module file. Each module file uses a unique package name but shares `namespace="/"` and `extends="carlos-default"` (the abstract parent in `struts.xml` whose only addition over `struts-default` is that the exception interceptor logs uncaught exceptions at ERROR; an action that names a stack explicitly names `carlosDefaultStack` or `carlosBasicStack` for the same reason). Package names **must** be unique across all module files — Struts silently drops actions from duplicate-named packages.
 
 ### Direct-Response Actions
 

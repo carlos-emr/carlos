@@ -70,6 +70,36 @@
     <constant name="struts.multipart.parser" value="jakarta-stream" />
 
     <!-- Module configurations (alphabetical) -->
+    <!-- Shared parent of every CARLOS module package. struts-default's exception interceptor
+         turns an uncaught exception into a result and, as shipped, LOGS NOTHING: an action that
+         died in a NullPointerException rendered the module's error page and left no trace in the
+         application log, so a request that quietly did nothing looked identical to one that never
+         happened (the consultation save in #3623 was found this way). The two stacks below are
+         struts-default's own stacks with the exception interceptor set to log at ERROR, the level
+         a packaged install is read at; a module package extends carlos-default instead of
+         struts-default and gets carlosDefaultStack by default, and an action that names a stack
+         explicitly names one of these two. The global exception-mappings stay in each module
+         package, unchanged: what changes is that the mapping is no longer silent. -->
+    <package name="carlos-default" extends="struts-default" abstract="true" strict-method-invocation="true">
+        <interceptors>
+            <interceptor-stack name="carlosDefaultStack">
+                <interceptor-ref name="defaultStack">
+                    <param name="exception.logEnabled">true</param>
+                    <param name="exception.logLevel">error</param>
+                </interceptor-ref>
+            </interceptor-stack>
+            <!-- For the direct-response PDF actions that deliberately avoid the validation and
+                 workflow interceptors (see the basicStack note in struts-scheduling.xml). -->
+            <interceptor-stack name="carlosBasicStack">
+                <interceptor-ref name="basicStack">
+                    <param name="exception.logEnabled">true</param>
+                    <param name="exception.logLevel">error</param>
+                </interceptor-ref>
+            </interceptor-stack>
+        </interceptors>
+        <default-interceptor-ref name="carlosDefaultStack"/>
+    </package>
+
     <include file="struts-admin.xml"/>
     <include file="struts-billing.xml"/>
     <include file="struts-clinical.xml"/>

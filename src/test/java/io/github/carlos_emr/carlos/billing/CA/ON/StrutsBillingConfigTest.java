@@ -119,9 +119,12 @@ class StrutsBillingConfigTest {
         assertThat(interceptorRefs.getLength())
                 .as("%s must explicitly opt out of defaultStack validation/workflow", actionName)
                 .isEqualTo(1);
+        // carlosBasicStack is struts-default's basicStack with the exception interceptor set to log
+        // (declared in struts.xml); the point here is still that neither validation nor workflow
+        // sits in front of the streamed response.
         assertThat(((Element) interceptorRefs.item(0)).getAttribute("name"))
-                .as("%s must use basicStack so direct PDF responses cannot be rewritten to input/error results", actionName)
-                .isEqualTo("basicStack");
+                .as("%s must use the basic stack so direct PDF responses cannot be rewritten to input/error results", actionName)
+                .isEqualTo("carlosBasicStack");
     }
 
     private Optional<Element> findAction(Document doc, String actionName) {
