@@ -169,11 +169,12 @@ class FaxManagerImplTransactionIntegrationTest extends CarlosTestBase {
         faxJobMap.put("senderFaxNumber", SENDER_FAX_LINE);
         faxJobMap.put("demographicNo", 1);
         faxJobMap.put("coverpage", "false");
-        // Recipient 2's digit string overflows FaxJob.destination (bare @Column -> VARCHAR(255)
-        // under hbm2ddl=create), so its persist throws AFTER recipient 1 persisted.
+        // Keep every number provider-valid so the batch reaches persistence. The final
+        // recipient's name exceeds VARCHAR(255), injecting a failure AFTER earlier rows
+        // persist; an overlong fax number now correctly fails before any file publication.
         faxJobMap.put("copyToRecipients", new String[] {
                 "\"name\":\"Valid Copy\",\"fax\":\"4165550101\"",
-                "\"name\":\"Overflow Copy\",\"fax\":\"" + "9".repeat(300) + "\""});
+                "\"name\":\"" + "Overflow Copy ".repeat(30) + "\",\"fax\":\"4165550102\""});
 
         assertThatThrownBy(() -> faxManager.createAndSaveFaxJob(loggedInProvider(), faxJobMap))
                 .isInstanceOf(RuntimeException.class);

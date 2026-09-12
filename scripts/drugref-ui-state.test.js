@@ -121,3 +121,8 @@ for (const outage of ['transport', 'updating', 'unavailable']) {
     assert.ok(nodes.dbDateTime.textContent);
   });
 }
+
+test('prescription metadata keeps its flex layout without overriding the hidden state', () => {
+  const source = fs.readFileSync(path.join(root, 'rx/SearchDrug3.jsp'), 'utf8');
+  assert.match(source, /#statusDisplay, #drugrefHeaderMetadata:not\(\[hidden\]\)\s*\{[^}]*display:\s*flex/);
+});
