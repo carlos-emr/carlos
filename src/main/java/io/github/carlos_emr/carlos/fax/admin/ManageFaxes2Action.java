@@ -75,18 +75,17 @@ public class ManageFaxes2Action extends Fax2Action {
 
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     @Override
     public String execute() {
         String method = request.getParameter("method");
         // CancelFax/ResendFax/SetCompleted mutate fax jobs (and CancelFax reaches the provider);
-        // they must never ride a GET/HEAD. This gate has to run HERE because these methods
+        // they require exact POST. This gate has to run HERE because these methods
         // dispatch before the parent's verb gate in super.execute() is ever reached.
         // manageFaxes.jsp issues all three via POST, so no UI change is required.
         boolean mutator = "CancelFax".equals(method) || "ResendFax".equals(method) || "SetCompleted".equals(method);
         String httpMethod = request.getMethod();
-        if (mutator && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+        if (mutator && !"POST".equals(httpMethod)) {
+            response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             return NONE;
         }
