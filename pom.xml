@@ -1761,6 +1761,12 @@
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*UnitTest.java</include>
                         <include>**/*RegressionTest.java</include>
+                        <!-- Promotion-touched legacy test names must run without -Dtest. -->
+                        <include>**/DocumentDelete2ActionTest.java</include>
+                        <include>**/DocumentUndelete2ActionTest.java</include>
+                        <include>**/RxRePrescribe2ActionTest.java</include>
+                        <include>**/SimpleXmlRpcClientTest.java</include>
+                        <include>**/WLMutation2ActionsTest.java</include>
                     </includes>
                     <argLine>
                        @{argLine}
