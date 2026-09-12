@@ -37,7 +37,6 @@
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-    var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
     var providerNo;
     var demographicNo;
@@ -1589,6 +1588,21 @@ function updateCPPNote() {
         return true;
     }
 
+    // The note text handed to completeChangeToView() is the clinician's own typed text (the
+    // save-on-switch fragment emits it as a JavaScript string), and it is spliced into
+    // markup for insertAdjacentHTML/update below. It must be HTML-escaped first: with the
+    // WAF no longer scoring the note body for XSS, this is the only thing between a note
+    // containing a closing span tag and an image element with an onerror handler, and
+    // script running in the chart.
+    function escapeNoteText(text) {
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
     function completeChangeToView(note, newId) {
         //var newId = updatedNoteId;
         var parent = "n" + newId;
@@ -1607,7 +1621,7 @@ function updateCPPNote() {
 
         }
 
-        note = note.replace(/\n/g, "<br>");
+        note = escapeNoteText(note).replace(/\n/g, "<br>");
         if (largeNote(note)) {
             var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + newId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
             $(parent).insertAdjacentHTML('afterbegin', btmImg);
@@ -1916,6 +1930,16 @@ function updateCPPNote() {
      *
      * @param {Event} e - The click event on the note element
      */
+    // The plain text of a rendered note view: <br> elements as newlines, entities decoded.
+    function renderedNoteText(el) {
+        var clone = el.cloneNode(true);
+        var breaks = clone.getElementsByTagName("br");
+        while (breaks.length > 0) {
+            breaks[0].parentNode.replaceChild(document.createTextNode("\n"), breaks[0]);
+        }
+        return clone.textContent !== undefined ? clone.textContent : clone.innerText;
+    }
+
     function editNote(e) {
         var el = Event.element(e);
         var payload;
@@ -1993,9 +2017,12 @@ function updateCPPNote() {
         var txtId = "txt" + nId;
 
         if ($F(isFull) == "true") {
-            payload = $(txtId).innerHTML;
+            // Take the TEXT of the rendered note, not its innerHTML: the view HTML-escapes
+            // the note (escapeNoteText), and innerHTML would hand the entities back as
+            // literal "&amp;" / "&lt;" to be resaved corrupted. <br> elements become
+            // newlines first so line breaks survive the round trip.
+            payload = renderedNoteText($(txtId));
             payload = payload.replace(/^\s+|\s+$/g, "");
-            payload = payload.replace(/<br>/gi, "\n");
             payload += "\n";
         } else
             payload = "";
@@ -2003,7 +2030,12 @@ function updateCPPNote() {
         Element.remove(txtId);
         caseNote = "caseNote_note" + nId;
 
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        // The decoded text goes back through HTML: a textarea's content is RCDATA, so the
+        // entities decode into the editor unchanged, while a note holding a closing textarea
+        // tag or an image element with an onerror handler cannot close the element or
+        // become markup.
+        payload = escapeNoteText(payload);
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -2376,7 +2408,12 @@ function updateCPPNote() {
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
         var url = ctx + "/CaseManagementEntry";
-        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURI($F(encType)) + "&noteTxt=" + encodeURI(noteTxt);
+        // encodeURIComponent, not encodeURI: encodeURI leaves & = + intact, so a note
+        // containing "H&P" or a pasted link with "&cmd=" was cut off at the first "&"
+        // on the server (ajaxsave() reads noteTxt, and the rest became stray
+        // parameters) and a "+" arrived as a space. This is the save that runs when
+        // the clinician opens another note or the new-note icon with unsaved text.
+        var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
         CarlosAjax.updater(
@@ -2838,7 +2875,9 @@ function updateCPPNote() {
         var id = "nc" + safeNewNoteIdx;
         var sigId = "sig" + safeNewNoteIdx;
         var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + reason + "<\/textarea>";
+        // reason is the appointment reason as typed (ChartNotesAjax.jsp hands it over as a
+        // JavaScript string), spliced into markup here: escape it like every other note text.
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";

@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
+import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
@@ -100,6 +101,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     private static final int SIGNATURE_ID = 77;
 
     private FaxConfigDao faxConfigDao;
+    private FaxJobDao faxJobDao;
     private FaxManager faxManager;
     private PrescriptionDao prescriptionDao;
     private DigitalSignatureManager digitalSignatureManager;
@@ -115,6 +117,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         faxConfigDao = mock(FaxConfigDao.class);
+        faxJobDao = mock(FaxJobDao.class);
+        registerMock(FaxJobDao.class, faxJobDao);
         prescriptionDao = mock(PrescriptionDao.class);
         digitalSignatureManager = mock(DigitalSignatureManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
@@ -371,6 +375,80 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                     .doesNotContain("fax-uncertain", "fax-success", "fixture");
             verifyFaxWasNotQueued();
             verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should reserve spool artifacts before publishing the sender-visible document")
+    void shouldReserveSpoolArtifacts_whenPublishingDocument(boolean sharedDirectory, @TempDir Path tempDir) throws Exception {
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = sharedDirectory ? documentDir : Files.createDirectory(tempDir.resolve("fax"));
+        Path documentPdf = documentDir.resolve("prescription_rx-123.pdf");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream() {
+            @Override
+            public void writeTo(java.io.OutputStream output) throws java.io.IOException {
+                // Observe the publication boundary itself, not just final cleanup. The
+                // background sender can open DOCUMENT_DIR as soon as this path exists.
+                if (Files.exists(documentPdf)) {
+                    assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
+                    assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+                }
+                super.writeTo(output);
+            }
+        };
+        bytes.write("test pdf".getBytes(StandardCharsets.UTF_8));
+        try {
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(new FrmCustomedPDFServlet(),
+                    "prepareValidatedFaxFiles", documentDir.toString(), "rx-123", "prescription_rx-123.pdf",
+                    "4165551212", bytes);
+            assertThat(documentPdf).hasContent("test pdf");
+        } finally {
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should not republish a filename when existing fax ownership cannot be ruled out")
+    void shouldRejectPublication_whenFaxOwnershipIsExistingOrUnknown(boolean lookupFails, @TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        stubStoredSignature();
+        stubActiveFaxConfig();
+        stubRecordDemographic();
+        if (lookupFails) {
+            when(faxJobDao.findByFileName("prescription_rx-123.pdf"))
+                    .thenThrow(new IllegalStateException("fixture lookup failure"));
+        } else {
+            FaxJob existing = new FaxJob();
+            existing.setFile_name("prescription_rx-123.pdf");
+            existing.setStatus(FaxJob.STATUS.WAITING);
+            when(faxJobDao.findByFileName("prescription_rx-123.pdf")).thenReturn(List.of(existing));
+        }
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            serviceAs(servlet, createFaxRequest(), response, loggedInInfo);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            assertThat(response.getContentAsString()).contains("fax-uncertain")
+                    .doesNotContain("fax-failure", "fax-success", "fixture");
+            assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
+            verifyFaxWasNotQueued();
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
         }
     }
 

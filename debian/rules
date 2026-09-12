@@ -100,13 +100,14 @@ override_dh_auto_configure:
 	mkdir -p $(BUILDDIR) $(MVN_REPO)
 
 override_dh_auto_build:
+	# Clean source builds so stale versioned WARs cannot make the output glob ambiguous.
 	set -e; \
 	if [ -n "$$CARLOS_WAR" ]; then \
 	  echo "using prebuilt CARLOS WAR: $$CARLOS_WAR"; \
 	  cp -f "$$CARLOS_WAR" $(BUILDDIR)/carlos.war; \
 	else \
 	  JOB_NAME=carlos-emr-deb BUILD_NUMBER="$$(dpkg-parsechangelog -SVersion)" \
-	    $(MVN) $(MVN_FLAGS) package; \
+	    $(MVN) $(MVN_FLAGS) clean package; \
 	  cp -f target/carlos-*.war $(BUILDDIR)/carlos.war; \
 	fi
 	# The Flyway migration runner: a ~100-line launcher compiled against the
@@ -247,6 +248,8 @@ override_dh_auto_install:
 	install -m 0644 debian/assets/modsecurity/crs-overrides.conf $(STAGE)/etc/carlos-emr/modsecurity/crs-overrides.conf
 	install -m 0644 debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf \
 	    $(STAGE)/etc/carlos-emr/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+	install -m 0644 debian/assets/modsecurity/REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf \
+	    $(STAGE)/etc/carlos-emr/modsecurity/REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf
 	install -m 0644 debian/assets/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf \
 	    $(STAGE)/etc/carlos-emr/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
 	# Operator-owned exclusion files (shipped empty, never changed by the package
