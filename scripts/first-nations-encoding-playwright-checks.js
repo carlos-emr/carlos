@@ -281,8 +281,12 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(searchPage, 'patient-search-results');
 
+    // Match the row by its exact link text, not by a substring of the onclick
+    // URL: demographic_no=1 is a substring of demographic_no=11.
     const resultLink = searchPage
-      .locator(`a[onclick*="DemographicEdit?demographic_no=${demographicNo}"]`).first();
+      .locator('a[title="Master Demographic File"]')
+      .filter({ hasText: new RegExp(`^\\s*${demographicNo}\\s*$`) })
+      .first();
     assert(
       await resultLink.count() > 0,
       `The patient search returned no master-record link for demographic ${demographicNo}`,

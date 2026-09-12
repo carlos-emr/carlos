@@ -61,4 +61,25 @@ class ManageFirstNationsModuleAssetRegressionTest {
                 .doesNotContain("value=\"${ demoExt[\"ethnicity\"] }\"")
                 .doesNotContain("value=\"${demoExt[\"ethnicity\"]}\"");
     }
+
+    /**
+     * The selected-option comparisons must never read the raw stored value.
+     *
+     * <p>EL coerces both sides of {@code eq 12} to {@code Long}, so a
+     * demographicExt ethnicity that is not a number threw {@code ELException}
+     * and returned 500 for the whole master record — reachable through the same
+     * untrusted field the encoding above protects. The page normalizes the value
+     * once into {@code ethnicityCode} instead.
+     */
+    @Test
+    @DisplayName("should compare the normalized ethnicity code rather than the raw stored value")
+    void shouldCompareNormalizedEthnicityCode_whenSelectingFirstNationStatus() throws IOException {
+        String jsp = Files.readString(MANAGE_FIRST_NATIONS_MODULE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("pageContext.setAttribute(\"ethnicityCode\", ethnicityCode);")
+                .contains("${ ethnicityCode eq 12 ? 'selected' : '' }")
+                .doesNotContain("${ demoExt['ethnicity'] eq")
+                .doesNotContain("${demoExt['ethnicity'] eq");
+    }
 }

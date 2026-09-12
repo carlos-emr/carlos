@@ -66,6 +66,23 @@
         demoExt = demographicExtDao.getAllValuesForDemo(Integer.valueOf(demographic_no));
     }
     pageContext.setAttribute("demoExt", demoExt);
+
+    // demographicExt.value is free-form TEXT, but the First Nation Status <select>
+    // below picks its selected option with `eq 12` style comparisons. EL coerces
+    // BOTH sides of those to Long, so any stored ethnicity that is not a number
+    // throws ELException and 500s the whole master record — the same untrusted
+    // field this page HTML-attribute encodes elsewhere. Normalize once here:
+    // unparseable becomes null, and `null eq 12` is simply false in EL.
+    Long ethnicityCode = null;
+    if (demoExt != null && demoExt.get("ethnicity") != null) {
+        try {
+            ethnicityCode = Long.valueOf(demoExt.get("ethnicity").trim());
+        } catch (NumberFormatException ignored) {
+            ethnicityCode = null;
+        }
+    }
+    pageContext.setAttribute("ethnicityCode", ethnicityCode);
+
     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
     LookupList firstNationCommunities = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "firstNationCommunity");
     pageContext.setAttribute("firstNationCommunities", firstNationCommunities);
@@ -187,16 +204,16 @@
     <td align="left">
 
         <select name="ethnicity">
-            <option value="-1" ${ demoExt['ethnicity'] eq -1 ? 'selected' : '' } >Not Set</option>
-            <option value="1" ${ demoExt['ethnicity'] eq 1 ? 'selected' : '' } >On-reserve</option>
-            <option value="2" ${ demoExt['ethnicity'] eq 2 ? 'selected' : '' } >Off-reserve</option>
-            <option value="3" ${ demoExt['ethnicity'] eq 3 ? 'selected' : '' } >Non-status On-reserve</option>
-            <option value="4" ${ demoExt['ethnicity'] eq 4 ? 'selected' : '' } >Non-status Off-reserve</option>
-            <option value="5" ${ demoExt['ethnicity'] eq 5 ? 'selected' : '' } >Metis</option>
-            <option value="6" ${ demoExt['ethnicity'] eq 6 ? 'selected' : '' } >Inuit</option>
-            <option value="11" ${ demoExt['ethnicity'] eq 11 ? 'selected' : '' } >Homeless</option>
-            <option value="12" ${ demoExt['ethnicity'] eq 12 ? 'selected' : '' } >Out of Country Residents</option>
-            <option value="13" ${ demoExt['ethnicity'] eq 13 ? 'selected' : '' } >Other</option>
+            <option value="-1" ${ ethnicityCode eq -1 ? 'selected' : '' } >Not Set</option>
+            <option value="1" ${ ethnicityCode eq 1 ? 'selected' : '' } >On-reserve</option>
+            <option value="2" ${ ethnicityCode eq 2 ? 'selected' : '' } >Off-reserve</option>
+            <option value="3" ${ ethnicityCode eq 3 ? 'selected' : '' } >Non-status On-reserve</option>
+            <option value="4" ${ ethnicityCode eq 4 ? 'selected' : '' } >Non-status Off-reserve</option>
+            <option value="5" ${ ethnicityCode eq 5 ? 'selected' : '' } >Metis</option>
+            <option value="6" ${ ethnicityCode eq 6 ? 'selected' : '' } >Inuit</option>
+            <option value="11" ${ ethnicityCode eq 11 ? 'selected' : '' } >Homeless</option>
+            <option value="12" ${ ethnicityCode eq 12 ? 'selected' : '' } >Out of Country Residents</option>
+            <option value="13" ${ ethnicityCode eq 13 ? 'selected' : '' } >Other</option>
         </select>
         <input type="hidden" name="ethnicityOrig" value="${carlos:forHtmlAttribute(demoExt['ethnicity'])}"/>
     </td>
