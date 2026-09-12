@@ -28,6 +28,7 @@ Contents
  10. What this package deliberately does not do
  11. Troubleshooting
  12. The other deployment: carlos-podman
+ 13. A standby database replica  (OPTIONAL)
 
 
 0. Getting the packages
@@ -692,3 +693,115 @@ Its own documentation lives in the repository's README and QUICKSTART:
 
 The two deployments share the `carlos-ctl` administration name and the
 overlapping verb set on purpose, so what you learned here transfers.
+
+
+13. A standby database replica   (OPTIONAL)
+-------------------------------------------
+
+Off by default. A site that never runs the command below gets exactly what
+the rest of this file describes: MariaDB on loopback only, no certificate
+material for it, no extra account, no listener.
+
+What it is: a second machine holding a live, continuously updated copy of the
+clinical database, streamed over TLS with MariaDB's own GTID replication.
+It is NOT a backup (a DELETE replicates in milliseconds — keep section 7) and
+it is NOT automatic failover: promoting the copy is an operator's decision,
+with a scripted, fenced command that ships with the replica package. The
+design, its phases and its limits are in docs/deb-mariadb-replication-plan.md
+in the CARLOS source tree.
+
+This package implements the PRIMARY side. The replica side (the
+carlos-emr-db-replica package, `carlos-ctl replica join` and `replica
+promote`) is the next phase; until it ships, this is what you can prepare.
+
+Enable, on this host, at any time — right after install or years later:
+
+  sudo carlos-ctl replica add 10.0.0.6 --listen 10.0.0.5
+
+    10.0.0.6  the replica, as it will CONNECT FROM (its VPN address when
+              tunnelled): it becomes the host part of the replication
+              account, so a mismatch is an access-denied.
+    10.0.0.5  the ONE address, besides loopback, this MariaDB will
+              additionally bind. Never a wildcard. A globally routable
+              address is refused unless you add --allow-public; put an
+              offsite replica behind a VPN (WireGuard) and use that address.
+
+It does, idempotently:
+
+  * records the role in /etc/carlos-emr/replication.env (no secrets there);
+  * generates a private replication CA and a server certificate under
+    /etc/mysql/carlos-emr-tls (where the mariadbd AppArmor profile permits
+    reading; the CA key never leaves this host and is renewed by the
+    existing cert-renew timer with FLUSH SSL, no restart);
+  * renders /etc/mysql/mariadb.conf.d/62-carlos-emr-replication.cnf (the
+    listen address, gtid_strict_mode, the TLS paths) and
+    /etc/sysctl.d/60-carlos-emr-replication.conf (ip_nonlocal_bind, so a
+    VPN-bound MariaDB still starts on a reboot where the tunnel comes up
+    after it);
+  * restarts MariaDB ONCE, through the same compare-then-restart path as
+    db-apply-settings, and only if the running values disagree. It refuses
+    while a backup or restore drill is running. Add --no-restart to render
+    everything now and restart in a maintenance window with
+    `carlos-ctl db-apply-settings`;
+  * creates a host-restricted, TLS-only replication account
+    (repl_10_0_0_6@10.0.0.6) with the backup account's grant set — the
+    replica reads every row through the binlog anyway, so SELECT on the two
+    schemas widens nothing; deliberately no PROCESS;
+  * writes a single-use join token to
+    /var/lib/carlos-emr/replicas/10.0.0.6/join.token (0600 root, 24 h).
+
+  ** THE TOKEN IS AS SENSITIVE AS backup.env. ** It carries the replication
+  credential and the three application account passwords (accounts never
+  replicate — they are provisioned outside the binary log so a point-in-time
+  restore cannot rewind them — so the replica must provision the same ones
+  itself). Carry it with scp, let `replica join` shred it, and shred your
+  copy: `shred -u /var/lib/carlos-emr/replicas/10.0.0.6/join.token`.
+  Expiry is checked by the join only; to revoke a token that leaked before
+  use, run `replica remove 10.0.0.6` or `replica add 10.0.0.6 --reissue`.
+
+Re-running `replica add` for a replica that has already joined changes
+nothing — it re-asserts the grants and prints so. It never rotates a live
+replica's credential; only --reissue does, and it tells you the replica must
+then run `replica join --credentials-only` before its next reconnect. This
+is what makes the preseeded install path (below) safe on every upgrade.
+
+The firewall is yours: the command prints the exact nft and ufw rules for
+"3306 from the replica only". `carlos-ctl check` can see what is listening,
+not who can reach it.
+
+  sudo carlos-ctl replica status     what streams from here, token state,
+                                     certificate expiry, binlog age vs the
+                                     10-day retention (a replica behind
+                                     longer than that must re-seed)
+  sudo carlos-ctl replica remove 10.0.0.6
+                                     drop the account, shred the token; the
+                                     last one returns MariaDB to loopback
+                                     only (one restart, --no-restart to
+                                     defer). The certificate material stays
+                                     for a future re-enable.
+
+Consequences to know about while replicas exist:
+
+  * `carlos-ctl rotate` warns that each replica still holds the previous
+    application passwords, and prints the two-host loop that fixes it.
+  * `carlos-ctl demo-data` refuses: the load is not binlogged and the
+    replica would silently diverge. Load first, add replicas after.
+  * `carlos-ctl destroy-data` reminds you that every replica STILL HOLDS
+    THE CLINICAL RECORD and must be destroyed there too. A decommission
+    that forgets a replica is a retention failure.
+  * A point-in-time restore on this host invalidates the replica's GTID
+    history; gtid_strict_mode makes it stop rather than apply from a wrong
+    position. Re-seed it afterwards.
+  * Binary-log retention (section 6) is now shared with a second consumer;
+    `replica status` shows the oldest binlog's age against it.
+
+Unattended two-host bring-up: the two debconf questions
+carlos-emr/replica-listen-ip and carlos-emr/replica-allow-from are LOW
+priority (never shown at the default level) and empty by default. Preseed
+both with debconf-set-selections and the install finishes with the primary
+side ready and the token(s) written. Nothing else in the install changes.
+
+Purging this package removes the generated drop-in, sysctl, certificate
+material, tokens and role file; the repl_* accounts stay with the databases
+like every other account (section 10 applies).
+

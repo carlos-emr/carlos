@@ -121,6 +121,29 @@ Description: Load the FICTITIOUS demonstration dataset into the new database?
  short of destroying the database (carlos-ctl destroy-data). Decline on any
  machine that will ever be a production system.
 
+Template: carlos-emr/replica-listen-ip
+Type: string
+Default:
+Description: Replication listen address (optional, leave empty for none):
+ Leave this EMPTY unless you are setting up a standby database replica on a
+ second machine. It is the one address, besides loopback, that MariaDB will
+ additionally bind so a replica can stream from it — a VPN address for an
+ offsite replica. Never a wildcard.
+ .
+ Together with the replica address below it makes the installer run
+ "carlos-ctl replica add" for you. It can equally be run by hand at any time
+ after the install; see README.Debian, section 13.
+
+Template: carlos-emr/replica-allow-from
+Type: string
+Default:
+Description: Replica address(es) allowed to stream (optional):
+ Comma-separated addresses of the replica machine(s), as they will connect
+ from (their VPN address when tunnelled). Leave EMPTY for no replication.
+ .
+ A join token is written for each under /var/lib/carlos-emr/replicas/ for
+ you to carry to that machine.
+
 Template: carlos-emr/initial-credentials
 Type: note
 Description: CARLOS EMR is installed

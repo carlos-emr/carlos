@@ -1,3 +1,25 @@
+carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
+
+  * Optional MariaDB replication, primary side (phase 1 of
+    docs/deb-mariadb-replication-plan.md). `carlos-ctl replica add <ip>
+    --listen <ip>` turns the host into a replication primary: one extra,
+    named bind address (never a wildcard; public addresses need
+    --allow-public), a private replication CA and server certificate under
+    /etc/mysql/carlos-emr-tls (carlos-emr-cert db-tls, renewed by the
+    existing timer with FLUSH SSL), gtid_strict_mode, a host-restricted
+    TLS-only replication account with the backup account's grant set, an
+    ip_nonlocal_bind sysctl so a VPN-bound MariaDB survives reboots, and a
+    single-use join token. `replica remove` reverses it; `replica status`
+    reports connected replicas, tokens and certificate expiry. A standalone
+    install is unchanged: no listener, no certificate, no account, and the
+    two new debconf questions are low priority and empty by default
+    (preseed them for an unattended two-host bring-up). db-apply-settings
+    gains --no-restart; check verifies the primary; demo-data refuses and
+    destroy-data/rotate warn when replicas exist. The replica package
+    (join, promote) is phase 2.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 12:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot19) resolute; urgency=medium
 
   * The install wizard's billing-province question offers a third answer,

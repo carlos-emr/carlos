@@ -115,6 +115,38 @@ development credentials and must
 .B never
 hold real patient data; the only supported removal is
 .BR "destroy-data" .
+.SS Replication (optional)
+.TP
+.BI "replica add " replica-ip " [\-\-listen " primary-ip "] [\-\-app\-host " ip "]... [\-\-reissue] [\-\-allow\-public] [\-\-no\-restart]"
+Make this host a MariaDB replication primary for the replica at
+.IR replica-ip
+(the address it will connect from). Binds ONE extra address
+.RI ( primary-ip ,
+never a wildcard; a globally routable address needs
+.BR \-\-allow\-public ),
+generates the replication CA and server certificate under
+.IR /etc/mysql/carlos-emr-tls ,
+renders the 62\- MariaDB drop\-in and an ip_nonlocal_bind sysctl, restarts
+MariaDB once if the running values disagree (refused during a backup;
+.B \-\-no\-restart
+defers it), creates the host\-restricted TLS\-only account and writes a
+single\-use join token to
+.IR /var/lib/carlos-emr/replicas/<ip>/join.token .
+Idempotent: for a replica that has already joined it re\-asserts grants and
+changes no credential unless
+.B \-\-reissue
+is given.
+.TP
+.BI "replica remove " replica-ip " [\-\-no\-restart]"
+Drop the replica's account and shred its token. Removing the last replica
+returns MariaDB to loopback only.
+.TP
+.B replica status
+Connected replicas, token state, certificate expiry and binlog age against
+retention. Exits non\-zero when a joined replica is not streaming.
+.PP
+The replica side (join, promote) ships with the carlos\-emr\-db\-replica
+package. See README.Debian section 13.
 .SS Certificates
 .TP
 .B cert status

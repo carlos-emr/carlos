@@ -1,7 +1,15 @@
 # MariaDB replication for the Debian deployment — design and implementation plan
 
-**Status: plan, not yet implemented.** This document is the design the
-`carlos-emr` packaging will follow to add an *optional*, turnkey MariaDB
+**Status: phase 1 (primary side) implemented in this branch; phases 0 and
+2 onward not yet.** Implemented: `carlos-ctl replica add|remove|status`,
+`carlos-emr-cert db-tls`, the 62- drop-in and sysctl renderers,
+`db-apply-settings --no-restart` and its primary-role compare set, the
+`check` replication section, the preseed questions, the `demo-data` /
+`destroy-data` / `rotate` guards, and stdlib unit tests under
+`debian/tests/unit/`. Deliberately NOT yet done from phase 0: the
+`carlos-emr-ctl` package split and `role.py` — nothing in phase 1 needs
+them, and open question 1 is still the maintainer's. This document is the
+design the `carlos-emr` packaging follows to add an *optional*, turnkey MariaDB
 replica to a single-host install — either right after the first install or
 added to an established site later. Nothing here changes what a site that
 never asks for a replica gets from `apt install carlos-emr`.

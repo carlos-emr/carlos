@@ -8,7 +8,7 @@ import os
 import re
 import time
 
-from . import config, dbops, util
+from . import config, dbops, replication, util
 from .util import (
     BACKUP_ENV, CONF_DIR, GREEN, LIB, PROPERTIES, RED, RESET, YELLOW, need_root, out, run,
 )
@@ -120,10 +120,23 @@ def cmd_check(argv) -> int:
     else:
         _ok(f"Tomcat listens on loopback only ({', '.join(addrs)})")
     addrs = _listeners("3306")
-    exposed = [a for a in addrs if not _is_loopback(a.rsplit(":", 1)[0])]
+    # A replication PRIMARY (carlos-ctl replica add) binds ONE extra, named
+    # address on purpose; anything else on 3306 is still a failure.
+    repl_role = replication.role()
+    repl_listen = replication.load().listen_ip if repl_role == "primary" else ""
+    exposed = [a for a in addrs
+               if not _is_loopback(a.rsplit(":", 1)[0])
+               and a.rsplit(":", 1)[0].strip("[]") != repl_listen]
     if exposed:
         _bad(f"MariaDB is listening on {', '.join(exposed)} — check bind-address in "
-             "/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf")
+             "/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf"
+             + (" and 62-carlos-emr-replication.cnf" if repl_listen else ""))
+    elif addrs and repl_listen:
+        if any(a.rsplit(":", 1)[0].strip("[]") == repl_listen for a in addrs):
+            _ok(f"MariaDB listens on loopback and the replication address only ({', '.join(addrs)})")
+        else:
+            _bad(f"MariaDB is a replication primary but is NOT listening on {repl_listen} "
+                 f"({', '.join(addrs)}) — run 'carlos-ctl db-apply-settings'")
     elif addrs:
         _ok(f"MariaDB listens on loopback only ({', '.join(addrs)})")
     if _listener("443"):
@@ -427,6 +440,10 @@ def cmd_check(argv) -> int:
     else:
         _bad("cannot reach MariaDB as root over the unix socket")
 
+    if repl_role != "standalone":
+        print("\nreplication")
+        _check_replication(repl_role)
+
     print("\nbackups")
     # The docs promise FRESHNESS, not existence: a .last-success from three
     # weeks ago is a monitoring gap, not a passing check. The nightly timer
@@ -487,3 +504,83 @@ def cmd_check(argv) -> int:
         return 0
     print(f"{RED}{_failures} check(s) failed.{RESET}\n")
     return 1
+
+
+def _check_replication(repl_role: str) -> None:
+    """Prove the replication PRIMARY is what `replica add` rendered: the
+    running MariaDB binds the listen address over TLS with strict GTIDs, the
+    boot-time sysctl is in effect, the certificate is not about to expire,
+    every recorded replica is streaming, and someone will hear about it when
+    one stops."""
+    if repl_role == "replica":
+        _note("this host is a replica; replica-side checks ship with carlos-emr-db-replica")
+        return
+    rs = replication.load()
+    running = replication.norm_bind_list(
+        out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
+             "SELECT @@GLOBAL.bind_address"]))
+    if rs.listen_ip in running:
+        _ok(f"MariaDB binds the replication address {rs.listen_ip}")
+    else:
+        _bad(f"MariaDB is not bound to {rs.listen_ip} (running: {','.join(running) or '?'}) — "
+             "run 'carlos-ctl db-apply-settings'")
+    ssl_cert = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
+                    "SELECT @@GLOBAL.ssl_cert"])
+    if ssl_cert == replication.DB_TLS_CERT:
+        _ok("MariaDB serves the replication TLS certificate")
+    else:
+        _bad(f"MariaDB ssl_cert is '{ssl_cert or ''}', expected {replication.DB_TLS_CERT} — "
+             "run 'carlos-ctl db-apply-settings'")
+    strict = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
+                  "SELECT @@GLOBAL.gtid_strict_mode"])
+    if strict in ("1", "ON"):
+        _ok("gtid_strict_mode is ON")
+    else:
+        _bad("gtid_strict_mode is OFF — a replica could apply from a wrong position after a restore")
+    import ipaddress as _ipa
+    v6 = _ipa.ip_address(rs.listen_ip).version == 6
+    knob = "/proc/sys/net/ipv6/ip_nonlocal_bind" if v6 else "/proc/sys/net/ipv4/ip_nonlocal_bind"
+    try:
+        with open(knob, encoding="ascii") as fh:
+            nonlocal_bind = fh.read().strip()
+    except OSError:
+        nonlocal_bind = "?"
+    if nonlocal_bind == "1":
+        _ok("ip_nonlocal_bind is set (MariaDB can start before the replication interface is up)")
+    else:
+        _bad(f"ip_nonlocal_bind is {nonlocal_bind}: if {rs.listen_ip} is on a VPN interface "
+             "that comes up after MariaDB, the database will NOT start at the next boot "
+             f"(sysctl -p {replication.SYSCTL_DROPIN})")
+    if os.path.exists(replication.DB_TLS_CERT) and os.path.exists(replication.DB_TLS_CA):
+        if run(["openssl", "x509", "-checkend", str(21 * 86400), "-noout",
+                "-in", replication.DB_TLS_CERT], capture_output=True).returncode == 0:
+            _ok("MariaDB replication certificate is valid for at least 21 more days")
+        else:
+            _bad("MariaDB replication certificate expires within 21 days (carlos-ctl cert-renew)")
+    else:
+        _bad(f"replication TLS material is missing under {replication.DB_TLS_DIR} "
+             "(/usr/lib/carlos-emr/carlos-emr-cert db-tls)")
+    live = replication.connected_replica_users()
+    replicas = replication.list_replicas()
+    if not replicas:
+        _note("role is primary but no replica is recorded; 'carlos-ctl replica add <ip>' or "
+              "'replica remove' to return to standalone")
+    for r in replicas:
+        ip = r["ip"]
+        user = r.get("account", replication.account_name(ip))
+        if user in live:
+            _ok(f"replica {ip} is connected and streaming")
+        elif r.get("consumed_at"):
+            _bad(f"replica {ip} joined {r['consumed_at']} but is NOT streaming now")
+        else:
+            tok = replication._read_token(ip)
+            if tok and replication.token_expired(tok):
+                _note(f"replica {ip} never joined and its token expired — re-run 'carlos-ctl replica add {ip}'")
+            else:
+                _note(f"replica {ip} has not joined yet (token pending)")
+    alert = (rs.alert_webhook or rs.alert_email
+             or util.env_get(BACKUP_ENV, "CARLOS_BACKUP_ALERT_WEBHOOK")
+             or util.env_get(BACKUP_ENV, "CARLOS_BACKUP_ALERT_EMAIL"))
+    if not alert:
+        _note("no alert channel for replication (CARLOS_DB_REPL_ALERT_* in replication.env, or the "
+              "backup.env webhook/email) — a replica that stops is silent until someone looks")

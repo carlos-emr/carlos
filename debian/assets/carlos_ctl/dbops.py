@@ -420,6 +420,17 @@ def cmd_rotate(argv) -> int:
     # point leaves the files holding complete (at worst stale) credentials,
     # and the recovery for every partial state is the same: re-run rotate.
     cmd_db_users(["--new-passwords"])
+    from . import replication as _repl
+    replicas = _repl.list_replicas()
+    if replicas:
+        # Accounts never replicate (sql_log_bin = 0 above), so every replica
+        # still carries the PREVIOUS application passwords. A promotion after
+        # this rotation would strand the app's properties file — say so now,
+        # with the exact two-host loop that fixes it.
+        warn(f"{len(replicas)} replica(s) still hold the OLD application passwords. For each:")
+        for r in replicas:
+            warn(f"  here:            carlos-ctl replica add {r['ip']} --reissue")
+            warn(f"  on {r['ip']}:  carlos-ctl replica join --credentials-only <token>")
     # Rotation restarts on purpose, so clear the start-rate counter first —
     # otherwise a stale count from an upgrade or a few config restarts inside
     # the same 30-minute window makes systemd refuse this one, and the die()
@@ -516,8 +527,13 @@ def cmd_db_apply_settings(argv) -> int:
     failing nightly backup). Bouncing somebody's database is not done
     casually, hence the compare-first."""
     need_root("db-apply-settings")
+    no_restart = "--no-restart" in argv
+    for a in argv:
+        if a != "--no-restart":
+            die(f"unknown option: {a} (only --no-restart is accepted)")
     require_db_root()
-    _refuse_while_backup_runs("restarting MariaDB")
+    if not no_restart:
+        _refuse_while_backup_runs("restarting MariaDB")
 
     # --- timezone alignment (order is load-tables THEN drop-in: a named
     # default-time-zone with EMPTY tz tables fails server startup, so the
@@ -612,13 +628,30 @@ def cmd_db_apply_settings(argv) -> int:
     # SELECT @@GLOBAL renders booleans as 1/0; accept either spelling.
     checks = {"log_bin": ("1", "ON"), "sql_mode": ("",),
               "character_set_server": ("utf8mb4",), "bind_address": ("127.0.0.1",)}
+    # A replication PRIMARY (carlos-ctl replica add) binds one extra address
+    # and serves TLS; the 62- drop-in it renders must be what is running, or
+    # the join token it issued points at a port nobody answers on. Lazy
+    # import: replication imports this module.
+    from . import replication as _repl
+    repl_role = _repl.role()
+    if repl_role == "primary":
+        rs = _repl.load()
+        checks["bind_address"] = (f"127.0.0.1,{rs.listen_ip}",)
+        checks["ssl_cert"] = (_repl.DB_TLS_CERT,)
+        checks["gtid_strict_mode"] = ("1", "ON")
     if tz_ok:
         # tz_ok (not mere file existence): only assert time_zone when a
         # default-time-zone drop-in was actually written, i.e. the server can
         # resolve the zone. Gating on the file alone demanded a setting no
         # drop-in provides — a perpetual "stale" restart loop and exit 1.
         checks["time_zone"] = (tz,)
-    stale = [v for v, want in checks.items() if _global(v) not in want]
+    def _matches(var: str, want) -> bool:
+        have = _global(var)
+        if var == "bind_address":
+            return any(_repl.norm_bind_list(have) == _repl.norm_bind_list(w) for w in want)
+        return have in want
+
+    stale = [v for v, want in checks.items() if not _matches(v, want)]
     # binlog_ignore_db is a server option, not a system variable: it shows
     # up in SHOW MASTER STATUS, so it gets its own probe. It keeps the
     # weekly drill's full-database load out of the binlogs.
@@ -633,6 +666,10 @@ def cmd_db_apply_settings(argv) -> int:
         log(f"MariaDB {v} is '{_global(v)}', the CARLOS drop-in asks for '{'|'.join(checks[v])}'")
     if not stale:
         log("MariaDB is already running with the CARLOS settings")
+        return 0
+    if no_restart:
+        warn("MariaDB needs a restart to pick up the drop-in(s); --no-restart was given, so")
+        warn("nothing was restarted. In your maintenance window run: carlos-ctl db-apply-settings")
         return 0
     if not os.path.isdir("/run/systemd/system"):
         warn("MariaDB needs a restart to pick up the drop-in, but systemd is not "
@@ -649,7 +686,7 @@ def cmd_db_apply_settings(argv) -> int:
     else:
         die("MariaDB did not come back after the restart")
     still = [v for v, want in checks.items()
-             if v != "binlog_ignore_db" and _global(v) not in want]
+             if v != "binlog_ignore_db" and not _matches(v, want)]
     ign = db_root(["-N", "-B", "-e", "SHOW MASTER STATUS"], capture_output=True)
     cols = ign.stdout.rstrip("\n").split("\t") if ign.returncode == 0 else []
     ign_val = cols[3] if len(cols) > 3 else ""
@@ -867,6 +904,13 @@ def cmd_demo_data(argv) -> int:
     need_root("demo-data")
     require_db_root()
     s = config.load()
+    from . import replication as _repl
+    if _repl.role() == "primary" and _repl.list_replicas():
+        # The load runs with sql_log_bin = 0, so replicas would silently
+        # diverge from a primary that now holds 3000 fake patients.
+        die("this host has replication replicas and the demonstration load is not binlogged, "
+            "so they would silently diverge. Remove the replicas first (carlos-ctl replica "
+            "remove <ip>), load, then add them back (they re-seed from the loaded data).")
 
     artifact = os.path.join(DEMO_DIR, f"demo-additive-{s.schema_province}.sql.gz")
     if not os.path.isfile(artifact):
@@ -1129,6 +1173,13 @@ instance whose backups are gone is not decommissioned, it is lost.""", file=sys.
             "(systemctl start mariadb) and re-run.")
 
     warn(f"destroying the CARLOS clinical data on {s.server_name}")
+    from . import replication as _repl
+    for r in _repl.list_replicas():
+        # DROP DATABASE below runs with sql_log_bin = 0 and never reaches a
+        # replica: a decommission that forgets one is a PHI retention failure.
+        warn(f"REPLICA {r['ip']} STILL HOLDS THE CLINICAL RECORD — it is not touched by this "
+             "command. Run 'carlos-ctl destroy-data' there too, then 'carlos-ctl replica "
+             f"remove {r['ip']}' here.")
     if os.path.isdir("/run/systemd/system"):
         run(["systemctl", "stop", "carlos-emr.service"], capture_output=True)
 
