@@ -49,9 +49,11 @@ import org.apache.struts2.interceptor.ExceptionMappingInterceptor;
  *       so an action that died in a {@code NullPointerException} rendered the error page and left
  *       no trace. Every mapped exception is now logged once: unexpected failures at ERROR with the
  *       stack trace, authorization refusals (an expected event) at WARN without one. A refusal is
- *       whatever the package maps to the {@value #SECURITY_RESULT} result, {@link SecurityException}
- *       everywhere and Spring Security's {@code AccessDeniedException} in the admin package, so the
- *       classification follows the configured contract rather than a hard-coded type.</li>
+ *       a {@link SecurityException}, the type every privilege check throws, plus whatever else the
+ *       package maps to the {@value #SECURITY_RESULT} result (Spring Security's
+ *       {@code AccessDeniedException} in the admin package). The type check is deliberate, not a
+ *       shortcut: packages that map only {@code Exception} would otherwise send a refusal down the
+ *       ERROR branch, whose stack trace carries the exception message.</li>
  *   <li><b>One reference ties the screen to the log.</b> Each failure gets an incident id, logged
  *       and exposed to the result page as the {@value #INCIDENT_ID_ATTRIBUTE} request attribute, so
  *       "it just showed an error" reports arrive with the string that finds the trace.</li>
