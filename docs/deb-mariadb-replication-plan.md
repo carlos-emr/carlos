@@ -86,7 +86,7 @@ automatic quorum. It is the wrong first step for this deployment:
 The asynchronous replica gives most of the operational value — a live copy on
 separate hardware, the ability to take backups off the primary, a fast manual
 failover with seconds of data loss at worst (zero with semi-sync) — with none
-of the above. Galera stays a documented future option (section 9) for a site
+of the above. Galera stays a documented future option (section 6, phase 4) for a site
 that reaches "two application hosts" and has done the primary-key audit.
 
 Proxies (MaxScale, ProxySQL) are also out of scope for phase 1: MaxScale is
@@ -491,7 +491,7 @@ schema already holds tables (unless `--reseed`, which requires the
 2 × the primary's reported data size, the primary unreachable over TLS with
 the pinned CA, token expired.
 
-Later seed methods (section 9): `--seed physical` (`mariadb-backup` streamed
+Later seed methods (section 6, phase 4): `--seed physical` (`mariadb-backup` streamed
 over ssh, for very large sites) and `--seed restic` (restore the newest
 backup snapshot, useful when the primary's WAN link is the constraint).
 
@@ -582,7 +582,7 @@ safe way to re-join a host that has taken writes is to re-seed it.
   runbook ends with "re-seed each replica: `replica join --reseed`". The
   backup script itself prints that line when it restores on a host whose
   `replication.env` says `primary`.
-- **Offloading the nightly dump to the replica** (section 9) is the natural
+- **Offloading the nightly dump to the replica** (section 6, phase 4) is the natural
   phase-4 feature; it needs `--dump-slave` semantics so the PITR anchor
   still refers to the primary's binlog.
 
