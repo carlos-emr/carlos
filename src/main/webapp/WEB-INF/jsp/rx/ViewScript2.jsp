@@ -526,8 +526,22 @@
             }
 
             function setComment() {
-                frames['preview'].document.getElementById('additNotes').innerHTML = '<carlos:encode value='<%= comment.replaceAll("\n", "<br>") %>' context="javaScriptBlock"/>';
-                frames['preview'].document.getElementsByName('additNotes')[0].value = frames['preview'].document.getElementById('additNotes').innerHTML;
+                if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
+                var previewDocument;
+                try {
+                    previewDocument = frames['preview'].document;
+                } catch (previewAccessError) {
+                    return;
+                }
+                if (!previewDocument) return;
+                var initialComment = '<%=SafeEncode.forJavaScript(comment)%>';
+                var notes = previewDocument.getElementById('additNotes');
+                if (notes) {
+                    notes.style.whiteSpace = 'pre-wrap';
+                    notes.textContent = initialComment;
+                }
+                var notesInput = previewDocument.getElementsByName('additNotes')[0];
+                if (notesInput) notesInput.value = initialComment.replace(/\n/g, "\r\n");
             }
 
             function setDefaultAddr() {
@@ -816,12 +830,14 @@
             }
 
             function addressSelect() {
+                if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 <% if(vecAddressName != null) {
                  %>
                 setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
-                if (document.getElementById("addressSel").value == "<%=i%>") {
-                    frames['preview'].document.getElementById("clinicAddress").innerHTML = "<%=SafeEncode.forJavaScript((String) vecAddress.get(i))%>";
+                var clinicAddress = frames['preview'].document.getElementById("clinicAddress");
+                if (clinicAddress && document.getElementById("addressSel").value == "<%=i%>") {
+                    clinicAddress.innerHTML = "<%=SafeEncode.forJavaScript((String) vecAddress.get(i))%>";
                 }
                 <%       }
                       }%>

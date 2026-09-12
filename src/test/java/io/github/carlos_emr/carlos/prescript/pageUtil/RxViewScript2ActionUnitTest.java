@@ -129,7 +129,8 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"GET,true", "HEAD,true", "GET,false", "HEAD,false", "PUT,true", "PUT,false"})
+    @org.junit.jupiter.params.provider.CsvSource({"GET,true", "HEAD,true", "GET,false", "HEAD,false", "PUT,true", "PUT,false",
+            "post,true", "post,false", "PoSt,true", "PoSt,false", "PO\u017fT,true", "PO\u017fT,false"})
     @DisplayName("should never save or stamp prescription state on preview navigation or non-POST requests")
     void shouldKeepPreviewReadOnly_whenRequestIsNotPost(String method, boolean saved) throws Exception {
         request.setMethod(method);
