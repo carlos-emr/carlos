@@ -36,6 +36,14 @@ carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
     the application then discarded fails the check instead of passing as
     "not a 403". It files one request per phrase; the runbook gives the
     cleanup SQL keyed on the run stamp.
+  * Printing a chart with its labs includes the labs again. Each lab was
+    rendered under the document directory and then refused by the embedding
+    step, which admits temp locations only, so every lab was silently left
+    out of the printed chart and the refusal was logged with a file name
+    built from the patient's name. The labs are now rendered as temp files,
+    removed one by one as the print proceeds, and the log line carries no
+    name. The spurious "failed to delete temporary print PDF" warning on
+    every chart print is gone with it.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 00:00:00 +0000
 

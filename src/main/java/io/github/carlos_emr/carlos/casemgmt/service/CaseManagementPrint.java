@@ -366,11 +366,16 @@ public class CaseManagementPrint {
                     //Date d = result.getDateObj();
                     // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
-                    MessageHandler handler = Factory.getHandler(segmentId);
-                    String labReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf");
-                    String fileName2 = PathValidationUtils.validateGeneratedChildPath(labReportName, documentDir).getAbsolutePath();
-                    file2 = PathValidationUtils.resolveTrustedPath(new File(fileName2));
-                    os2 = new FileOutputStream(file2);
+                    // Each lab is rendered into the application temp directory, as every other
+                    // LabPDFCreator caller does, NOT under DOCUMENT_DIR: addEmbeddedDocuments()
+                    // validates its source with validateUpload(), which admits temp locations only,
+                    // so a lab written under DOCUMENT_DIR was rejected there as a security violation
+                    // and the chart printed with every lab silently omitted (the empty embedded file
+                    // was then skipped by ConcatPDF). The neutral prefix also keeps the patient's
+                    // name, which the old file name carried, out of the filesystem.
+                    String tempPrefix = PathValidationUtils.validateGeneratedFileName("chart-print-lab-" + segmentId);
+                    file2 = PathValidationUtils.createSecureTempFile(tempPrefix + "-", ".pdf");
+                    os2 = new FileOutputStream(PathValidationUtils.resolveTrustedPath(file2));
 
                     {
                         LabPDFCreator pdfCreator = new LabPDFCreator(os2, segmentId, loggedInInfo.getLoggedInProviderNo());
@@ -380,14 +385,21 @@ public class CaseManagementPrint {
                             throw new DocumentException(documentException);
                         }
                         os2.close();
+                        os2 = null;
 
-                        String embeddedLabReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf");
-                        String fileName3 = PathValidationUtils.validateGeneratedChildPath(embeddedLabReportName, documentDir).getAbsolutePath();
-                        File file3 = PathValidationUtils.resolveTrustedPath(new File(fileName3));
-                        fos = new FileOutputStream(file3);
+                        File file3 = PathValidationUtils.createSecureTempFile(tempPrefix + "-embedded-", ".pdf");
+                        fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(file3));
                         pdfCreator.addEmbeddedDocuments(file2, fos);
-                        pdfDocs.add(fileName3);
+                        fos.close();
+                        fos = null;
+                        pdfDocs.add(file3.getAbsolutePath());
 
+                        // One lab per iteration: the finally block below only sees the last file2, so
+                        // every earlier lab's intermediate PDF (PHI) used to outlive the print.
+                        if (!file2.delete()) {
+                            logger.warn("Failed to delete temporary lab PDF; leaving it for the OS temp sweep");
+                        }
+                        file2 = null;
                     }
                 }
 
@@ -425,7 +437,9 @@ public class CaseManagementPrint {
                 // which contain PHI. Degrade to a warning and continue cleaning up the rest.
                 try {
                     File tempPdf = PathValidationUtils.resolveTrustedPath(new File((String) o));
-                    if (!tempPdf.delete()) {
+                    // The encounter PDF is in this list AND deleted via `file` above, so a missing
+                    // file here is the normal case for it, not a failed delete worth a warning.
+                    if (tempPdf.exists() && !tempPdf.delete()) {
                         logger.warn("Failed to delete temporary print PDF; leaving it for the OS temp sweep");
                     }
                 } catch (RuntimeException ex) {
