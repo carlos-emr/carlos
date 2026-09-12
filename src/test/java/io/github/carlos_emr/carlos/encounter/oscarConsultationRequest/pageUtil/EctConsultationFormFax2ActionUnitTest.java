@@ -373,6 +373,31 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should clean preparation files and not queue when cover generation throws an unchecked exception")
+    void shouldCleanPreparation_whenCoverGenerationThrowsRuntimeException() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("prepare.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        action.setCoverpage(true);
+        when(faxManager.addCoverPage(any(), any(), any(), any(), eq(pdf)))
+                .thenThrow(new IllegalStateException("sensitive fixture rendering failure"));
+        try (MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths =
+                mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
+                    .thenReturn(pdf.toFile());
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath(pdf.toFile()))
+                    .thenThrow(new SecurityException("fixture is outside application temp"));
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(pdf).doesNotExist();
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        }
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"MIDDLEWARE", "SRFAX"})
     void shouldReportQueued_whenSecondaryAuditFailsAfterCommit(String providerType) throws Exception {

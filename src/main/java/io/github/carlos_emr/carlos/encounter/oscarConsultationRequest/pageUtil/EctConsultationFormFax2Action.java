@@ -337,10 +337,13 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         } catch (IOException ioe) {
             error = "IOException";
             exception = ioe;
+        } catch (RuntimeException preparationFailure) {
+            error = "RuntimeException";
+            exception = preparationFailure;
         }
         if (!error.isEmpty()) {
             cleanupAttemptFiles(attemptFiles, List.of());
-            logger.error(error + " occurred inside ConsultationPrintAction", exception);
+            logger.error("Consultation fax preparation failed ({})", exception.getClass().getSimpleName());
             request.setAttribute("printError", Boolean.TRUE);
             return "error";
         }

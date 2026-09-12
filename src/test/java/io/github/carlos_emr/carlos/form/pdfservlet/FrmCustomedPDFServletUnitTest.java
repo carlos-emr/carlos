@@ -800,6 +800,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         stubRecordDemographic();
         stubActiveFaxConfig();
         faxConfigDao.getActiveConfigByNumber("4165553434").setProviderType(FaxConfig.ProviderType.valueOf(providerType));
+        org.mockito.Mockito.clearInvocations(faxConfigDao);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 

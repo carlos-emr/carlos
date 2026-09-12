@@ -244,7 +244,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
  * allowing prescriptions to be digitally signed by providers. The signature ID
  * can be null to remove an existing signature association.
  * 
- * @return null - indicating no specific view forward (Ajax-style call)
+ * @return NONE after a handled response; null only when the missing RxSessionBean
+ *         branch redirects to error.html
  * @throws IOException if there's an error redirecting to the error page
  * @throws RuntimeException if the user lacks write privileges for prescriptions
  * 

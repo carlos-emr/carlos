@@ -8,6 +8,25 @@ const { EventEmitter } = require('node:events');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const source = fs.readFileSync(path.join(__dirname, 'consultation-nullable-fields-playwright-checks.js'), 'utf8');
 
+test('nullable consultation rejects non-numeric fixture IDs before any SQL or browser work', () => {
+  const start = source.indexOf('const requestId =');
+  const end = source.indexOf('const mysqlHost =', start);
+  assert.ok(start >= 0 && end > start && end < source.indexOf('(async () =>'));
+  const validation = source.slice(start, end);
+  for (const value of ['2 OR 1=1', '2; DELETE FROM consultationRequests', '-2', '2.5', '2\nOR 1=1']) {
+    assert.throws(() => vm.runInNewContext(validation, {
+      process: { env: { CONSULT_NULLABLE_REQUEST_ID: value } },
+      assert: (condition, message) => assert.ok(condition, message),
+    }), /CONSULT_NULLABLE_REQUEST_ID must be numeric/);
+  }
+  for (const value of ['2', '0002', '2147483647']) {
+    assert.doesNotThrow(() => vm.runInNewContext(validation, {
+      process: { env: { CONSULT_NULLABLE_REQUEST_ID: value } },
+      assert: (condition, message) => assert.ok(condition, message),
+    }));
+  }
+});
+
 for (const signal of ['SIGINT', 'SIGTERM']) {
   test(`nullable consultation restores its fixture and disposes handlers after ${signal}`, async () => {
     const events = [];

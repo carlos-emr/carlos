@@ -389,7 +389,16 @@ public class Fax2Action extends ActionSupport {
 
         // Persist AND audit-log in one transaction: a post-commit log failure must not leave a
         // sendable WAITING set behind that a retry would duplicate (double PHI transmission).
-        List<FaxJob> faxJobList = faxManager.persistAndLogFaxJobs(loggedInInfo, params.toMap(), transactionType, transactionId);
+        List<FaxJob> faxJobList;
+        try {
+            faxJobList = faxManager.persistAndLogFaxJobs(loggedInInfo, params.toMap(), transactionType, transactionId);
+        } catch (RuntimeException queueFailure) {
+            // The transaction proxy commits after the manager returns. Its exception may
+            // mean a lost commit acknowledgement, not an unqueued fax. Do not show a resend form.
+            logger.error("Fax queue outcome could not be confirmed ({})", queueFailure.getClass().getSimpleName());
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return "faxUncertain";
+        }
 
         boolean success = true;
         for (FaxJob faxJob : faxJobList) {

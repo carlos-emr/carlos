@@ -9,6 +9,10 @@ const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp
 const start = jsp.indexOf('function resend(');
 const end = jsp.indexOf('function cancel(', start);
 assert.ok(start >= 0 && end > start);
+test('stored fax destinations use the inline-handler attribute encoding context', () => {
+  const fragment = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/admin/faxStatusResults.jspf'), 'utf8');
+  assert.match(fragment, /faxJob\.getDestination\(\) %>' context="javascriptAttribute"/);
+});
 function run(answer) {
   const requests = [], alerts = [];
   const element = { attr: () => '/admin/ManageFaxes.do', prop: () => element };

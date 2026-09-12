@@ -450,6 +450,40 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should show a no-resend warning when the queue transaction outcome cannot be confirmed")
+    void shouldWarnWithoutResend_whenQueueOutcomeIsUncertain() throws Exception {
+        setUpCommonMocks();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42))).thenReturn(true);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, eFormDataDao);
+        EFormData eform = new EFormData();
+        eform.setDemographicId(42);
+        when(eFormDataDao.find(7)).thenReturn(eform);
+        when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()))
+                .thenThrow(new IllegalStateException("commit acknowledgement lost: sensitive fixture"));
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+            assertThat(action.queue()).isEqualTo("faxUncertain");
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(request.getAttribute("faxSuccessful")).isNull();
+            assertThat(request.getAttribute("faxJobList")).isNull();
+            verify(faxManager, never()).getFaxGatewayAccounts(any());
+        }
+        String view = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/webapp/WEB-INF/jsp/fax/FaxSubmissionUncertain.jsp"));
+        assertThat(view).contains("fax.queue.uncertain.message", "<html lang=")
+                .doesNotContain("<form", "<button", "history.back", "window.close", "setTimeout");
+        assertThat(java.nio.file.Files.readString(java.nio.file.Path.of("src/main/webapp/WEB-INF/classes/struts-provider.xml")))
+                .contains("<result name=\"faxUncertain\">/WEB-INF/jsp/fax/FaxSubmissionUncertain.jsp</result>");
+    }
+
+    @Test
     @DisplayName("should register a dedicated per-session lock (not a single shared one) for the claimed fax file paths set")
     void shouldRegisterPerSessionLock_forClaimedFaxFilePaths() {
         setUpCommonMocks();
