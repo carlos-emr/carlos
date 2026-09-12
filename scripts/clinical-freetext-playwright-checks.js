@@ -1,0 +1,579 @@
+#!/usr/bin/env node
+/*
+ * Browser regression check for clinical free text surviving the packaged WAF.
+ *
+ * The eChart chart-print 403 (package exclusion 1010) was not a one-off. On a
+ * packaged (deb) deployment nginx runs ModSecurity with the OWASP CRS in
+ * blocking mode, and the CRS content signatures cannot tell a clinician's prose
+ * from an attack: rules 932100/932110 read a sentence-ending semicolon as a
+ * shell command separator, 930100/930110 read a "../" in a reference to a filed
+ * report as path traversal, 931100 reads a value that begins with a pasted
+ * internal PACS link as remote file inclusion. At PL1 with an inbound threshold
+ * of 5, one match blocks the save with nginx's bare 403 and no application log
+ * line.
+ *
+ * A survey of the clinician-facing free-text POST arguments through the
+ * packaged front door found EVERY one of them blocked on the same ordinary
+ * sentence; exclusions 1100-1199 in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+ * close them per argument. This check drives the two workflows that carry the
+ * most prose and are reachable without fixture setup — the consultation request
+ * (a referral letter, rule 1100) and the demographic master record's Alert and
+ * Notes (rule 1131) — through the real UI, once per phrase in a corpus chosen
+ * so that each phrase trips a different CRS family that those rules unhook.
+ *
+ * Like scripts/echart-print-playwright-checks.js, this only covers the WAF
+ * defect when run through the packaged `:443` front door. Against the
+ * devcontainer (no WAF) the phrases are just ordinary notes and the check
+ * degrades to guarding that these two save paths still work.
+ *
+ * Defaults are for the local devcontainer:
+ *   node scripts/clinical-freetext-playwright-checks.js
+ *
+ * Optional environment:
+ *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   CHROME_PATH=/path/to/chrome-or-chromium
+ *   TEST_USER=carlosdoc
+ *   TEST_PASSWORD=carlos2026
+ *   TEST_PIN=2026
+ *   CLINICAL_DEMOGRAPHIC_NO=1
+ *   CLINICAL_CONSULT_SERVICE_ID=1
+ *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not
+ *     loopback — this check writes, so a private LAN address, host.docker.internal
+ *     and the compose name `carlos` all need the opt-in too
+ *   CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true only when the target patient is
+ *     known to be test data but does not carry the FAKE-/PLAYWRIGHT- name prefix
+ *
+ * What it writes, and what it leaves behind. MEASURED on a packaged install
+ * (2026-09-12, deb 2026.09.0~snapshot22), because the two workflows differ:
+ *
+ *   demographic master record  the save runs. Each replay updates the record
+ *                              and archives the previous state (8 rows in
+ *                              demographicArchive for a 7-phrase run plus the
+ *                              restore). The check puts the Alert and Notes
+ *                              back to what the page rendered when it is done.
+ *   consultation request       FILES a new consultation request per phrase --
+ *                              seven consultationRequests rows for the patient
+ *                              per run, each with the phrase and the run stamp
+ *                              in `reason` -- and requires the application's
+ *                              confirmation redirect back for every one of
+ *                              them. A 200 here is the form re-rendered with
+ *                              the error alert, i.e. the front door let the
+ *                              prose through and the application then failed
+ *                              to save it (exactly how the blank-consultant
+ *                              save defect in #3623 presented), so it FAILS the
+ *                              check rather than passing as "not a 403". The
+ *                              rows stay: there is no delete route, and the
+ *                              stamp is the cleanup key -- see
+ *                              docs/ui-tests/deb-install-validation.md.
+ *
+ * The loopback guard bounds the HOST, not the data: a local install can hold
+ * real patient records, so before the first write the check opens the patient's
+ * master record and refuses to run unless the first or last name carries the
+ * synthetic-data prefix the demo dataset uses (FAKE-, see
+ * .devcontainer/db/scripts/demo-name-sanitization.sql) or the PLAYWRIGHT- prefix
+ * the other checks give their own fixtures. Each replayed phrase carries a
+ * "(Playwright clinical-freetext run <epoch>)" stamp so that text left behind by
+ * a run that died before its restore can be recognised for what it is.
+ */
+
+const { chromium } = require('playwright');
+
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const chromePath = process.env.CHROME_PATH || '';
+const testUser = process.env.TEST_USER || 'carlosdoc';
+const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
+const testPin = process.env.TEST_PIN || '2026';
+const demographicNo = requireDigits(process.env.CLINICAL_DEMOGRAPHIC_NO || '1', 'CLINICAL_DEMOGRAPHIC_NO');
+const consultationServiceId = requireDigits(process.env.CLINICAL_CONSULT_SERVICE_ID || '1', 'CLINICAL_CONSULT_SERVICE_ID');
+const allowNonSyntheticPatient = process.env.CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT === 'true';
+
+// Name prefixes that mark a patient as test data: FAKE- is what the demo dataset's
+// sanitisation writes on every person name, PLAYWRIGHT- is what the fixture-owning
+// checks name the patients they create. A real patient carries neither.
+const SYNTHETIC_NAME_PREFIXES = ['FAKE-', 'PLAYWRIGHT-'];
+// Appended to every replayed phrase so text a half-finished run left in the record
+// can be recognised as this check's. Plain words and parentheses only: nothing in it
+// is a shape the CRS scores, so the phrase in front of it is still what the WAF is
+// measured on. For the demographic workflow the restore below is what puts the
+// record back; for the consultation workflow, which files a request per phrase,
+// this stamp in `reason` is the key the runbook's cleanup SQL deletes by.
+const RUN_STAMP = `(Playwright clinical-freetext run ${Date.now()})`;
+
+const saveResults = [];
+const badResponses = [];
+// Set when a response arrives through the packaged nginx front door. Against bare
+// Tomcat every phrase saves for the boring reason that nothing inspected it, so a
+// green run there says nothing about rules 1100/1131. EXPECT_FRONT_DOOR=true makes
+// a run that never saw an nginx-served response FAIL, as in echart-playwright-checks.js.
+let frontDoorObserved = false;
+const expectFrontDoor = /^(1|true|yes)$/i.test(process.env.EXPECT_FRONT_DOOR || '');
+
+// Each phrase is a sentence a clinician would actually write, measured through
+// the packaged front door to score over the CRS inbound threshold on its own.
+// The rule ids are what the ModSecurity audit log reported. The pasted link goes
+// FIRST in its phrase on purpose: 931100 is anchored on the start of the
+// argument, so a link buried mid-sentence does not exercise attack-rfi.
+//
+// There is deliberately NO phrase carrying HTML markup. Unlike the note route
+// (1010), the survey exclusions keep the CRS XSS family ON every argument —
+// ClinicalProseWafExclusionRegressionTest pins that — so a "<span style=...>"
+// pasted into a referral is expected to answer 403 behind the front door, and a
+// corpus that carried one would fail this check against a correct rule set.
+const PROSE_CORPUS = [
+  { label: 'plain prose', text: 'Routine follow up. Patient doing well.', crs: 'none' },
+  { label: 'sentence semicolon', text: 'Reviewed labs with the patient; find attached the CBC and lytes.', crs: '932100/932110 attack-rce' },
+  { label: 'shell-shaped cost', text: 'Cost ${45} per month; patient declined the brand.', crs: '932130 attack-rce' },
+  { label: 'either-or plan', text: 'Select one of the two and order 1,2 tests.', crs: '932115/942350 rce+sqli' },
+  { label: 'relative file path', text: 'See scanned report ../../images/ecg.png for the tracing.', crs: '930100/930110 attack-lfi' },
+  { label: 'pasted PACS link first', text: 'http://10.0.0.5/pacs/study?id=1&cmd=view reviewed prior imaging with the patient.', crs: '931100 attack-rfi + 932110 attack-rce' },
+  { label: 'wound measurement', text: 'Wound <2cm, clean. <?> follow up in 1 week.', crs: '933100 attack-injection-php' },
+];
+
+/*
+ * Deliberately NARROWER than the guard the read-only checks share: this one
+ * admits only LOOPBACK unconditionally — not the private IPv4 ranges the shared
+ * guard allows, and not the compose names either. Both of this check's
+ * workflows perform REAL writes — a run rewrites the patient's Alert and Notes
+ * with a corpus phrase and files seven consultation requests — and RFC1918 is
+ * exactly where a real clinic's server lives. host.docker.internal and a bare
+ * `carlos` are usually the devcontainer, but from a container on a clinic's
+ * server the first IS that server and the second is whatever the site's DNS
+ * search domain says, so both need the explicit opt-in too. Same reasoning as
+ * the fixture-teardown guards in edoc-schedule-navigation and assign-role.
+ */
+function validateBaseUrl(rawBaseUrl) {
+  const parsed = new URL(rawBaseUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
+  }
+  // Credentials in the URL would travel into Playwright navigations and can
+  // surface in request or failure logging, so reject them outright.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
+
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!isLoopback(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-local BASE_URL host ${host}: this check overwrites clinical free text and files `
+      + 'consultation requests. Set ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test install');
+  }
+  // The login sends TEST_USER and TEST_PASSWORD. Off this machine that has to be
+  // over TLS; the opt-in above covers the target, not a cleartext hop to it.
+  if (!isLoopback(host) && parsed.protocol !== 'https:') {
+    throw new Error(`Refusing plain-http BASE_URL to non-loopback host ${host}: the login would send credentials in cleartext`);
+  }
+  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  return parsed;
+}
+
+/** Loopback only: localhost, any 127.0.0.0/8 literal, ::1 (either spelling) and 0.0.0.0. */
+function isLoopback(host) {
+  if (['localhost', '::1', '0:0:0:0:0:0:0:1', '0.0.0.0'].includes(host)) return true;
+  const octets = host.split('.');
+  return octets.length === 4
+    && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+    && Number(octets[0]) === 127;
+}
+
+function requireDigits(value, name) {
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`${name} must contain digits only, got ${value}`);
+  }
+  return value;
+}
+
+function appUrl(appPath, search) {
+  if (!appPath.startsWith('/') || appPath.startsWith('//')) {
+    throw new Error(`Application path must be root-relative, got ${appPath}`);
+  }
+  const url = new URL(baseUrl.href);
+  url.pathname = `${baseUrl.pathname}${appPath}`.replace(/\/{2,}/g, '/');
+  url.search = search || '';
+  return url.toString();
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+/**
+ * The demo dataset ships no provider signature stamp, so the consultation form's
+ * letterhead image 404s. That is a fixture gap, not a regression, and it is never
+ * the 403 this check exists to catch.
+ */
+function isExpectedMissingFixture(status, responseUrl) {
+  return status === 404 && /\/provider\/providerSignatureImage\?/.test(responseUrl);
+}
+
+function wirePage(page, label) {
+  page.on('dialog', async (dialog) => {
+    badResponses.push({ label, type: 'dialog', text: dialog.message() });
+    await dialog.accept();
+  });
+  page.on('response', (response) => {
+    if (/nginx/i.test(response.headers()['server'] || '')) {
+      frontDoorObserved = true;
+    }
+    if (response.status() >= 400 && !isExpectedMissingFixture(response.status(), response.url())) {
+      badResponses.push({ label, status: response.status(), url: response.url() });
+    }
+  });
+}
+
+async function login(context) {
+  const page = await context.newPage();
+  wirePage(page, 'login');
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
+  await page.locator('#username').fill(testUser);
+  await page.locator('#password').fill(testPassword);
+  // login/index.jsp renders #pin only when MfaManager.isOscarLegacyPinEnabled(); filling it
+  // unconditionally throws on an install with the legacy PIN disabled and the check never runs.
+  const pin = page.locator('#pin');
+  if ((await pin.count()) > 0) await pin.fill(testPin);
+  await Promise.all([
+    page.waitForURL(/providercontrol/, { timeout: 30000 }),
+    page.locator('input[type="submit"], button[type="submit"]').first().click(),
+  ]);
+  await page.close();
+}
+
+/**
+ * One clinical workflow: the page a clinician opens, the form on it, and the
+ * free-text fields that carry their prose.
+ *
+ * The check opens the page ONCE per workflow and serialises the real form —
+ * every hidden field, and the CSRF token CSRFGuard injected into it — then
+ * replays that exact body once per prose phrase with only the free-text fields
+ * swapped. Clicking through each form's own validation JS six times instead
+ * would measure the form's bespoke required-field rules (a missing consultation
+ * service, a demographic name check) rather than the WAF, and those rules
+ * differ per form and per record state. The replay posts through the page's own
+ * session over the same route, so the request the WAF sees is the real one.
+ */
+const WORKFLOWS = [
+  {
+    name: 'consultation request',
+    // The referral letter — the longest prose a clinician writes into CARLOS.
+    // ConsultationFormRequest.jsp reads the patient from `de` only; it takes
+    // demographicNo and providerNo from the form's own hidden fields, so passing
+    // them in the query string here would be dead weight.
+    open: () => appUrl('/encounter/ViewRequest', new URLSearchParams({
+      de: demographicNo,
+    }).toString()),
+    ready: 'textarea[name="reasonForConsultation"]',
+    formName: 'EctConsultationFormRequest2Form',
+    action: '/encounter/RequestConsultation',
+    // Every prose argument rule 1100 exempts, appointmentNotes included: a field
+    // the exclusion covers but the replay never fills is a target that can regress
+    // or be dropped from the packaged rule with this guard still green.
+    fields: ['reasonForConsultation', 'clinicalInformation', 'concurrentProblems', 'currentMedications',
+      'allergies', 'appointmentNotes'],
+    // checkForm() sets `service` before it submits and refuses without one (it also
+    // flips the page's `saved` flag, but that input has an id and no name, so the
+    // browser never posts it and the replay must not either). The action branches on the `submission`
+    // prefix: `Submit…` creates a request, `Update…` edits the one named by
+    // ARGS:requestId. This URL carries no requestId and EctViewRequest2Action sets
+    // no reqId attribute, so ConsultationFormRequest.jsp always renders the
+    // new-request form — `Submit` is the branch that actually stores the prose.
+    overrides: () => ({ service: consultationServiceId, submission: 'Submit Consultation Request' }),
+    // Guard the assumption above rather than trusting it. If a future change makes
+    // this URL render an existing request, `Submit` would file a duplicate instead
+    // of measuring this save — the replay would still reach the WAF, but it would
+    // stop being the save this check reports.
+    requireEmptyFields: { requestId: 'the page rendered an existing consultation, not the new-request form' },
+    // A successful Submit answers with a redirect to the confirmation page; the
+    // action's error result FORWARDS to this same form with an alert, a 200. So on
+    // this route 200 is not "the WAF let it through and all is well" -- it is the
+    // application discarding the request after the front door accepted it. Require
+    // the redirect, so the check can tell the two apart.
+    requireSaveRedirect: true,
+  },
+  {
+    name: 'demographic alert and notes',
+    // The patient master record's Alert and Notes: standing clinical instructions.
+    open: () => appUrl('/demographic/DemographicEdit', new URLSearchParams({
+      demographic_no: demographicNo, displaymode: 'edit', dboperation: 'search_detail',
+    }).toString()),
+    ready: 'textarea[name="alert"]',
+    formName: 'updatedelete',
+    action: '/demographic/DemographicUpdate',
+    fields: ['alert', 'notes'],
+    overrides: () => ({ displaymode: 'Update Record', dboperation: 'update_record' }),
+    // An update overwrites the record in place, so the captured body, replayed
+    // unchanged, puts the Alert and Notes back exactly as the page rendered them.
+    restoreAfterReplays: true,
+  },
+];
+
+/**
+ * Refuses to write into a patient that does not look like test data.
+ *
+ * Opens the master record this run is about to overwrite and reads the names off
+ * the form's own controls (not FormData: a name field the role cannot edit is
+ * disabled and would be skipped). Either name carrying a synthetic prefix is
+ * enough; a record with neither is refused unless the operator has said, with
+ * CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true, that they know what it is.
+ */
+async function verifySyntheticPatient(context) {
+  const page = await context.newPage();
+  wirePage(page, 'fixture check');
+  try {
+    const demographicWorkflow = WORKFLOWS.find((workflow) => workflow.formName === 'updatedelete');
+    await page.goto(demographicWorkflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
+    await page.locator(demographicWorkflow.ready).first().waitFor({ state: 'attached', timeout: 30000 });
+    const names = await page.evaluate(() => {
+      const form = document.forms['updatedelete'];
+      const read = (name) => (form && form.elements[name] ? String(form.elements[name].value || '') : '');
+      return { firstName: read('first_name'), lastName: read('last_name') };
+    });
+    const synthetic = [names.firstName, names.lastName].some((name) =>
+      SYNTHETIC_NAME_PREFIXES.some((prefix) => name.trim().toUpperCase().startsWith(prefix)));
+    if (!synthetic && !allowNonSyntheticPatient) {
+      // Deliberately does not print the names: if this is a real patient, the
+      // whole point is not to spread that record any further.
+      throw new Error(`demographic ${demographicNo} does not carry a synthetic-data name prefix `
+        + `(${SYNTHETIC_NAME_PREFIXES.join(' or ')}), so this check will not overwrite its Alert/Notes or file `
+        + 'consultation requests against it. Point CLINICAL_DEMOGRAPHIC_NO at a test patient, or set '
+        + 'CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true only if you know this record is test data');
+    }
+    return synthetic;
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Serialises the named form in the page, exactly as the browser would on submit.
+ */
+async function captureForm(page, formName) {
+  return page.evaluate((name) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal and `name` is a form name constant from WORKFLOWS, structured-cloned rather than interpolated into page script
+    const form = document.forms[name];
+    if (!form) return null;
+    return Array.from(new FormData(form).entries())
+      .filter(([, value]) => typeof value === 'string');
+  }, formName);
+}
+
+/**
+ * Replays a captured body with the free-text fields carrying `phrase`, from
+ * inside the page so the request uses the same session and origin. With no
+ * phrase the captured body goes back unchanged, which is how the demographic
+ * workflow restores what it overwrote.
+ */
+async function replay(page, workflow, entries, phrase) {
+  return page.evaluate(async ({ pairs, action, fields, text, overrides }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal; the arguments are the form body this same page just rendered plus constants from this file, structured-cloned rather than interpolated into page script
+    const body = new URLSearchParams();
+    const replaced = new Set(text === null ? [] : fields);
+    for (const [key, value] of pairs) {
+      if (replaced.has(key)) continue;
+      if (Object.prototype.hasOwnProperty.call(overrides, key)) continue;
+      body.append(key, value);
+    }
+    if (text !== null) for (const field of fields) body.append(field, text);
+    for (const [key, value] of Object.entries(overrides)) body.append(key, value);
+
+    const token = document.querySelector('input[name="CSRF-TOKEN"]');
+    const response = await fetch(action, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(token && token.value ? { 'CSRF-TOKEN': token.value } : {}),
+      },
+      body: body.toString(),
+      redirect: 'manual',
+    });
+    // A save that succeeds usually answers with a redirect. `redirect: 'manual'`
+    // normally surfaces that as an opaque-redirect response (type
+    // 'opaqueredirect', status 0, no readable Location), but report a plain 3xx
+    // as the same redirect rather than as a failure, so a change in how the
+    // browser filters manual redirects cannot turn a successful save into a
+    // spurious FAIL. Where a Location IS readable, a bounce to the login,
+    // logout or error page is a lapsed session, not a save, and is reported as
+    // such; the opaque case is covered by the page re-open in runWorkflow(). A
+    // WAF rejection is never any of these: it is always a real 403 from nginx.
+    if (response.type === 'opaqueredirect') return 'redirect';
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location') || '';
+      if (/\/(?:login|logout|errorpage)\b/i.test(location)) return `redirect-to-${location}`;
+      return 'redirect';
+    }
+    return response.status;
+  }, {
+    pairs: entries,
+    action: new URL(appUrlForPage(workflow.action)).pathname,
+    fields: workflow.fields,
+    text: phrase === null ? null : `${phrase.text} ${RUN_STAMP}`,
+    overrides: workflow.overrides(),
+  });
+}
+
+function appUrlForPage(appPath) {
+  return appUrl(appPath);
+}
+
+async function runWorkflow(context, workflow) {
+  const page = await context.newPage();
+  wirePage(page, workflow.name);
+  try {
+    await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
+    await page.locator(workflow.ready).first().waitFor({ state: 'attached', timeout: 30000 });
+    // CSRFGuard's client script fills the hidden input after the page loads, so wait
+    // for a populated token rather than racing it; a still-empty one is reported by
+    // the assertion below rather than as a timeout.
+    await page.waitForFunction( // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the page function is a literal and `name` is a form name constant from WORKFLOWS, structured-cloned rather than interpolated into page script
+      (name) => {
+        const form = document.forms[name];
+        if (!form) return false;
+        const inputs = form.querySelectorAll('input[name="CSRF-TOKEN"]');
+        return inputs.length > 0 && Array.from(inputs).every((input) => input.value !== '');
+      },
+      workflow.formName,
+      { timeout: 15000 },
+    ).catch(() => {});
+
+    const entries = await captureForm(page, workflow.formName);
+    assert(entries && entries.length,
+      `${workflow.name}: form ${workflow.formName} was not on the page, so nothing was measured`);
+    // The token has to be POPULATED, not merely present: CSRFGuard's client script
+    // fills the hidden input after the page loads, and an empty one would answer
+    // the replay with a CSRF 403 that this check would report as a WAF block.
+    const csrfToken = entries.find(([key]) => key === 'CSRF-TOKEN');
+    assert(csrfToken && csrfToken[1].trim() !== '',
+      `${workflow.name}: form ${workflow.formName} carried no populated CSRF token `
+      + `(${csrfToken ? 'the field is empty' : 'the field is absent'}), so a 403 could not be attributed to the WAF`);
+
+    // Fail loudly rather than quietly measuring something else: each workflow's
+    // overrides assume a particular render of its page, and a hidden field is the
+    // cheapest way to confirm the page came back in that shape.
+    for (const [key, value] of Object.entries(workflow.requireEmptyFields || {})) {
+      const found = entries.find(([name]) => name === key);
+      assert(found && found[1].trim() === '',
+        `${workflow.name}: form field ${key} is set to "${found ? found[1] : '(absent)'}" (${value}), `
+        + 'so this run would not measure what the check claims');
+    }
+
+    // Put back what the replays overwrote, where the route updates in place, and
+    // do it on the failure path as well: a replay that throws after an earlier
+    // phrase saved would otherwise leave the record holding that phrase. The
+    // restore is itself a save through the same route, so it is recorded with the
+    // rest and a failed restore fails the run; when the replays themselves threw,
+    // that error stays the headline and the restore failure is printed beside it.
+    let replayStarted = false;
+    let restoreFailure = null;
+    try {
+      for (const phrase of PROSE_CORPUS) {
+        replayStarted = true;
+        const status = await replay(page, workflow, entries, phrase);
+        saveResults.push({
+          workflow: workflow.name, phrase: phrase.label, crs: phrase.crs, status,
+        });
+      }
+    } finally {
+      if (workflow.restoreAfterReplays && replayStarted) {
+        try {
+          const status = await replay(page, workflow, entries, null);
+          saveResults.push({ workflow: workflow.name, phrase: 'restore original text', crs: 'n/a', status });
+        } catch (error) {
+          restoreFailure = error;
+          console.error(`${workflow.name}: restoring the original text failed: ${error.message}`);
+        }
+      }
+    }
+    if (restoreFailure) {
+      throw new Error(`${workflow.name}: the replays ran but the original text could not be restored`, { cause: restoreFailure });
+    }
+
+    // An opaque redirect carries no destination, so a session that lapsed mid-run
+    // would score every replay as a quiet 'redirect' and the check would pass
+    // having measured nothing. Re-open the workflow's own page and require its
+    // free-text control to render again: the login form does not have it.
+    await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
+    const stillSignedIn = await page.locator(workflow.ready).first()
+      .waitFor({ state: 'attached', timeout: 30000 }).then(() => true, () => false);
+    assert(stillSignedIn,
+      `${workflow.name}: the page no longer renders ${workflow.ready} after the replays — the session lapsed `
+      + 'or the app bounced to login, so the redirects above were not saves');
+  } finally {
+    await page.close();
+  }
+}
+
+(async () => {
+  const browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+  // Certificate verification is only relaxed for loopback, where the packaged
+  // install serves its own self-signed cert. A target opted in with
+  // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
+  // check logs in with real credentials. Same contract as
+  // billing-on-third-party and allergy-rx-alert, and the same loopback test as
+  // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    acceptDownloads: true,
+  });
+
+  try {
+    await login(context);
+    // Before the first write: refuse a patient that does not look like test data.
+    const syntheticPatient = await verifySyntheticPatient(context);
+    if (!syntheticPatient) {
+      console.log(`WARNING demographic ${demographicNo} carries no synthetic-data name prefix; `
+        + 'proceeding because CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true');
+    }
+
+    for (const workflow of WORKFLOWS) {
+      await runWorkflow(context, workflow);
+    }
+
+    const blocked = saveResults.filter((result) => result.status === 403);
+    assert(blocked.length === 0,
+      'a clinical free-text save was rejected with HTTP 403 — on a packaged install this is the WAF rejecting '
+      + 'the clinician\'s own prose, and the exclusions in '
+      + 'debian/assets/modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf no longer cover these arguments: '
+      + `${JSON.stringify(blocked, null, 2)}`);
+
+    const failed = saveResults.filter((result) => result.status !== 200 && result.status !== 'redirect');
+    assert(failed.length === 0,
+      `a clinical free-text save did not return HTTP 200 or a save redirect: ${JSON.stringify(failed, null, 2)}`);
+
+    const redirectRequired = new Set(WORKFLOWS.filter((workflow) => workflow.requireSaveRedirect).map((workflow) => workflow.name));
+    const notSaved = saveResults.filter((result) => redirectRequired.has(result.workflow) && result.status !== 'redirect');
+    assert(notSaved.length === 0,
+      'the front door accepted the prose but the application did not save it: these replays came back as the '
+      + 'form with its error alert (HTTP 200) instead of the confirmation redirect. Read the application log '
+      + `(carlos-ctl logs) for the exception behind it: ${JSON.stringify(notSaved, null, 2)}`);
+
+    const wafBlocked = badResponses.filter((entry) => entry.status === 403);
+    assert(wafBlocked.length === 0,
+      `a request carrying clinical free text was rejected with HTTP 403: ${JSON.stringify(wafBlocked, null, 2)}`);
+
+    assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${JSON.stringify(badResponses, null, 2)}`);
+
+    if (expectFrontDoor && !frontDoorObserved) {
+      throw new Error('EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the packaged front door');
+    }
+    console.log(frontDoorObserved
+      ? 'Front door observed: responses carried an nginx Server header, so the WAF was in the path of every save'
+      : 'WARNING: no response carried an nginx Server header, so this run did NOT exercise the packaged WAF; rules 1100/1131 are unverified');
+    console.log(`PASS ${WORKFLOWS.length} clinical free-text workflows saved `
+      + `${PROSE_CORPUS.length} prose variants each without a WAF rejection`);
+    const filed = saveResults.filter((result) => redirectRequired.has(result.workflow)).length;
+    console.log(`Alert/Notes restored. ${filed} consultation requests were filed for demographic ${demographicNo} `
+      + `and answered with the confirmation redirect; each carries the run stamp "${RUN_STAMP}" in its reason, `
+      + 'which is the cleanup key (see docs/ui-tests/deb-install-validation.md).');
+  } finally {
+    await browser.close();
+  }
+})().catch((error) => {
+  console.error('FAIL clinical free-text Playwright check');
+  console.error(error.stack || error.message);
+  if (saveResults.length) {
+    console.error(`Save results: ${JSON.stringify(saveResults, null, 2)}`);
+  }
+  if (badResponses.length) {
+    console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+  }
+  process.exit(1);
+});

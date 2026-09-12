@@ -26,7 +26,7 @@
     Contains action mappings for patient demographics, records, and health insurance number management.
 -->
 <struts>
-    <package name="demographic" namespace="/" extends="struts-default" strict-method-invocation="true">
+    <package name="demographic" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -62,7 +62,7 @@
                  rejects the upload (e.g. an empty file) before the action runs; without
                  it the request falls through to errorpage.jsp as a raw 500. -->
             <result name="input">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
-            <interceptor-ref name="defaultStack"/>
+            <interceptor-ref name="carlosDefaultStack"/>
             <result name="success">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
         </action>
         <action name="form/importLogDownload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action">

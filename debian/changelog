@@ -1,3 +1,212 @@
+carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
+
+  * Saving a provider's encounter-note template (Administration > Provider
+    Templates) no longer trips the web application firewall on ordinary
+    clinical prose. The template body is exempted per argument on its own
+    route, on the same terms as the other free-text fields; the template name
+    and every other argument stay inspected, and a probe injection is still
+    blocked.
+  * Printing the chart no longer stops the encounter note's draft autosave.
+    The print is a form submit whose response is a download, and the browser
+    fires the page-hide event for it even though the chart stays open; the
+    chart released its note lock on that event, so every autosave after a
+    print answered 409 and the status line said the note was being edited in
+    another window. The lock is now held across the print.
+  * The front door no longer answers 502 to the first save or print after a
+    short pause. nginx kept a pooled connection to Tomcat idle for up to 60s
+    while Tomcat closed it at 20s, so a POST issued in that window landed on a
+    connection being closed, and nginx does not retry a POST. The pool now
+    gives up an idle connection at 15s, before Tomcat does.
+  * Two browser checks now guard the chart print and the free-text saves
+    through the packaged front door. One prints a chart whose note carries
+    each phrase the firewall is known to misread, once per print selection,
+    and requires a PDF back rather than any 200; the other replays a
+    consultation request and the patient's Alert and Notes with the same
+    phrases. Both prove something only on a packaged install, and the
+    validation runbook says how to run them and what they write.
+  * The packaging README now describes the encounter-form firewall coverage
+    as it is -- generated per form, with the two cell groups that remain
+    inspected named -- instead of calling the forms uncovered.
+  * A new consultation request with no consultant chosen is saved again. With
+    the Health Care Team bridge off (the shipped carlos.properties default) the
+    save looked the consultant up with a null id, which the persistence layer
+    rejects, and the request died in the framework's silent error mapping:
+    nothing stored, nothing logged, and the "form could not be printed" alert.
+    Editing a request with a blank consultant no longer inserts an empty
+    specialist row and points the request at it; it clears the consultant.
+    That alert now says the request could not be saved or printed, and the
+    form's own rejections (a malformed id, a request that is not this
+    patient's) come back to the form with their message instead of falling
+    through to the generic error page for want of an "input" result.
+  * Uncaught exceptions that a module maps to the error page are logged at
+    ERROR with their stack trace and an incident reference instead of being
+    mapped there silently; the error page shows the same reference and answers
+    500 (403, and a WARN line, for an authorization refusal), and nothing about
+    the failure beyond that reference reaches the browser or the log line's
+    request detail. A module's own typed mappings (the billing validation,
+    file-write and data-load pages) keep their message and status. Modules
+    without a generic mapping still use the container error path. The application's default log level is WARN rather than
+    ERROR. The
+    "property is missing" warning is reported once per key per start, not on
+    every page render, so WARN stays readable; Hibernate's per-column
+    deprecation notice is held at ERROR for the same reason. LOG_VERBOSITY
+    still overrides the default.
+  * The free-text browser check now requires the consultation save to answer
+    with its confirmation redirect, so a request the front door accepted but
+    the application then discarded fails the check instead of passing as
+    "not a 403". It files one request per phrase; the runbook gives the
+    cleanup SQL keyed on the run stamp.
+  * Printing a chart with its labs includes the labs again. Each lab was
+    rendered under the document directory and then refused by the embedding
+    step, which admits temp locations only, so every lab was silently left
+    out of the printed chart and the refusal was logged with a file name
+    built from the patient's name. The labs are now rendered as temp files,
+    removed one by one as the print proceeds, and the log line carries no
+    name. The spurious "failed to delete temporary print PDF" warning on
+    every chart print is gone with it.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 00:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
+
+  * Searching for an allergy and clicking a result now records it. The allergy
+    page loads the picker's results over AJAX and lifts only the results
+    element out of the response, so the script block that defines the click
+    handler never arrived with them: every click died with "submitAddReaction
+    is not defined" and a second error from a delegated handler still parsing a
+    query string off an href that no longer has one. The page now carries the
+    handler itself. The search POST was always a clean 200, which is why this
+    looked like a working page until a result was clicked.
+  * Prescribing now warns about allergies that were typed rather than picked
+    out of the drug reference. DrugRef checked an allergy against the drug only
+    when the allergy carried a reference category, and skipped category 0 -- the
+    one CARLOS writes for every "Custom Allergy" and the one the demonstration
+    dataset seeds its PENICILLINS allergies with. Prescribing amoxicillin to a
+    patient recorded as allergic to PENICILLINS produced no alert and no error.
+    A typed allergen name is now resolved against the drug reference by exact
+    name and checked as whichever categories carry it; a name the reference does
+    not know is reported as unchecked rather than as no allergy. This half of
+    the fix lives in DrugRef, so it needs carlos-emr-drugref built at or past
+    the revision in debian/drugref.pin, which this upload moves.
+  * Acknowledged labs now leave the inbox. A lab arrives as a chain of versions
+    sharing one accession number and the inbox shows a single row for the newest
+    of them, so an acknowledgement has to file the older versions or the row
+    simply comes back pointing at the previous version. The Acknowledge button
+    did that; a lab macro did not, so a macro-acknowledged lab stayed in the
+    inbox. Both paths now go through one routine, which also re-derives the
+    version chain server side when the browser did not post a usable one and no
+    longer throws an ArrayIndexOutOfBoundsException (reported as a failed
+    acknowledgement) when the posted chain describes a different lab.
+  * A lab macro that is not configured to close its window now tells the inbox
+    what it did. Previously it acknowledged the lab silently and the inbox was
+    never refreshed. Document macros gained the same notification, which they
+    never had.
+  * The inbox Documents/Labs/HRMs counters now drop an acknowledged item
+    straight away. They are painted from hidden fields that only a full page
+    reload refreshed, so the badges kept counting labs the clinician had already
+    acknowledged.
+
+  * Clinical prose in an encounter note no longer trips the web application
+    firewall. The note body travels under four parameter names on the note
+    route -- the serialized chart form, the draft autosave, the save that runs
+    when unsaved text is left for another note, and the CPP editor -- and only
+    the last was exempt from the rule groups that read prose as an attack, so
+    a note containing something as ordinary as a pasted link with
+    "&cmd" in its query string, or one that simply begins with a pasted PACS
+    link on an internal IP address, was answered 403 at the front door. That broke
+    the note save, silently stopped its autosave, and made saving a Social
+    History or other CPP item report "403 ... your session has expired" on an
+    item that had in fact already saved. Exclusion 1010 now covers every
+    clinician free-text argument on that route, each one individually and only
+    on POST, including the save that runs when a note with unsaved text is
+    left for another note or for a new one; the WAF still blocks a probe
+    injection.
+  * That same save-on-switch no longer cuts an encounter note off at its first
+    "&" -- "H&P", or a pasted link with "&cmd=" in it, arrived truncated on the
+    server -- and no longer turns a "+" into a space. The same cut-off is fixed
+    on the patient page's custom telephone-encounter reason and the document
+    description templates.
+  * The same firewall false positive is closed on the rest of the free-text
+    clinical fields: consultation requests, ticklers, prescriptions and
+    allergies, preventions, document and lab comments, HRM, messenger and
+    patient email, appointment reasons and notes, master-record notes and
+    alerts, billing comments, fax cover comments and program notes. Each is
+    exempted per argument on its own route; the firewall still inspects every
+    other argument, keeps its script-injection rules on all of them, and still
+    blocks a probe injection. The four fields whose
+    names carry a row number (measurement comments, manual lab notes, contact
+    notes, waiting-list notes) are exempted by an anchored name pattern
+    instead, since the firewall cannot list them. The encounter forms (Rourke,
+    antenatal, mental health, palliative care and the rest) are covered by a
+    generated per-form list of their narrative cells, keyed on each form's
+    save route and form class; a regression test keeps that list in step
+    with the form pages. Two groups of cells are left inspected on purpose,
+    because the only way to exempt them would apply to every route: the
+    Vascular Tracker's bracketed cell names, which the firewall cannot list
+    per route (and whose form cannot be submitted on this line anyway, see
+    below), and the growth-chart and chart-checklist per-row cells, whose
+    generic names (comment_<n>) a prescription field shares, so exempting
+    them globally would weaken an unrelated route. The Rh-injection page
+    (form/addRhInjection.jsp) posts its
+    typed "other" reason as reason and reasonOtherText to the prevention route,
+    and both are exempted there.
+  * Reading a measurement definition file (the Vascular Tracker's, or one
+    given to the measurement-type import) no longer fails on its validation
+    rules, which were bound to an untyped list. The Vascular Tracker form
+    itself remains unusable on this line for reasons unrelated to the
+    firewall (its shortcut, setup and save actions were never finished for
+    the current framework); that is a form migration, not part of this
+    change, and is described in docs/ui-tests/deb-install-validation.md.
+  * Opening an encounter form from the chart for a patient who has never had
+    that form no longer fails with an error page: the shortcut now opens a
+    new form. The Discharge Summary also opens at a clinic that does not use
+    programs.
+  * Saving an encounter form validates it against that form's own measurement
+    definitions. The save read a process-wide list that holds whichever
+    definition file was read last anywhere on the server, so a form saved
+    while another provider was opening a different form could be checked
+    against the other form's rules. The save and the setup step now each read
+    the file they were given.
+  * Leaving a note with unsaved text for another note, or for a new one, now
+    shows the saved note in place. The refresh that runs after that save never
+    received the note text, so the note came back as an empty box until the
+    chart was reloaded, and for a brand-new note the refresh then failed on an
+    element it looked up under the wrong name. Reopening a saved note for
+    editing also escapes the text it puts into the editor, so a note holding
+    something like "</textarea>" cannot become markup when the next clinician
+    opens it. Both script-built note boxes now carry an accessible label.
+  * Editing a patient's note or date on a waiting list saves again. The page
+    named its row fields plainly, so the update's row selectors came out as
+    "waitingListBean[undefined]" and every update fell through to a
+    re-numbering of the list; the fields now carry their row index and their
+    current values, as the update expects. An update posted without a usable
+    list id, or a row edit missing its patient number or date, is now refused
+    rather than run against an empty id or quietly turned into a re-numbering.
+  * The legacy encounter-note entry view, the note history popup, the legacy
+    tickler list, the prescription record and reason comments, and the
+    demographic alert and notes boxes now encode the text they put back on
+    the page. With the firewall no longer reading that note as a
+    script attack, the application's own output encoding is what keeps a
+    stored "</textarea><script>" from running on the next open of that view.
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 06 Sep 2026 00:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
+
+  * Consultation faxing is enabled by default and its flag is a real boolean.
+    The two buttons that start a consultation fax were rendered by a tag that
+    compared consultation_fax_enabled against the literal string "yes", while
+    every other reader of the key accepted true/yes/on -- so true enabled the
+    whole workflow except the buttons that launch it. The buttons now go
+    through the same boolean check as the rest of the page.
+  * New installations receive the new true default. Upgrades preserve the
+    persistent consultation_fax_enabled value because an exact false line may
+    be an operator's deliberate choice, not an untouched stock default. Legacy
+    yes/no/on/off spellings are rewritten to true/false without changing their
+    meaning. Sending still needs an active account under Administration >
+    Faxes > Configure Fax and the _fax security object.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot19) resolute; urgency=medium
 
   * The install wizard's billing-province question offers a third answer,

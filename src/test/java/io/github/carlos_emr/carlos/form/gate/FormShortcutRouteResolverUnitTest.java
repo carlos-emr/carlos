@@ -49,6 +49,33 @@ class FormShortcutRouteResolverUnitTest {
     }
 
     @Test
+    void shouldOpenNewForm_whenPatientHasNoPriorRecord() {
+        // The chart's form shortcut carries no formId; with no record of the form for this
+        // patient the route used to omit formId too, and every form page 500s on
+        // Integer.parseInt(null). 0 is the pages' own "new form" value.
+        String route = FormShortcutRouteResolver.resolve(
+                new String[] {"../form/formannual.jsp?demographic_no="},
+                "3",
+                null,
+                null,
+                null);
+
+        assertThat(route).isEqualTo("/form/formannual?demographic_no=3&formId=0");
+    }
+
+    @Test
+    void shouldOpenNewForm_whenLatestIsRequestedButNoneExists() {
+        String route = FormShortcutRouteResolver.resolve(
+                new String[] {"../form/formannual.jsp?demographic_no=", ""},
+                "3",
+                "latest",
+                "123",
+                null);
+
+        assertThat(route).isEqualTo("/form/formannual?demographic_no=3&formId=0&appointmentNo=123");
+    }
+
+    @Test
     void shouldPreserveNewFormRoute_whenFormIdIsZero() {
         String route = FormShortcutRouteResolver.resolve(
                 new String[] {"../form/formannual.jsp?demographic_no=", "9"},

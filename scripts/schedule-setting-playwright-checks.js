@@ -236,7 +236,10 @@ async function login(context) {
   await safeGoto(page, '/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
+  // login/index.jsp renders #pin only when MfaManager.isOscarLegacyPinEnabled(); filling it
+  // unconditionally throws on an install with the legacy PIN disabled and the check never runs.
+  const pin = page.locator('#pin');
+  if ((await pin.count()) > 0) await pin.fill(testPin);
   await Promise.all([
     page.waitForURL(/providercontrol/, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),

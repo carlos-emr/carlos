@@ -223,8 +223,8 @@ public class FaxManagerImpl implements FaxManager {
 
     /**
      * Builds and persists an all-or-none recipient batch. Recipient parsing and file preparation
-     * complete before persistence; any failed job rejects the batch. Database rollback and
-     * commit-time failure callbacks remove files created for the attempt.
+     * complete before persistence; any failed job rejects the batch. A confirmed database
+     * rollback removes attempt files; an unknown commit outcome must retain them.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
@@ -286,12 +286,14 @@ public class FaxManagerImpl implements FaxManager {
                         throw new IOException("The fax cover page was not created.");
                     }
                     faxDocument = coveredDocument;
-                    faxJobObject.setNumPages(faxJobObject.getNumPages() + 1);
-                    faxJobObject.setFile_name(coveredFileName.toString());
                     attemptFiles.add(faxDocument);
-                } catch (IOException e) {
-                    logger.error("CRITICAL: Failed to add cover page for fax job to {} - Fax will NOT be sent without cover page",
-                            faxJobObject.getRecipient(), e);
+                    int coveredPages = EDocUtil.getPDFPageCount(coveredDocument.toString());
+                    if (coveredPages <= 0) throw new IOException("The covered fax document has no readable pages.");
+                    faxJobObject.setNumPages(coveredPages);
+                    faxJobObject.setFile_name(coveredFileName.toString());
+                } catch (IOException | RuntimeException e) {
+                    logger.error("Fax cover-page preparation failed ({}); batch will not be queued",
+                            e.getClass().getSimpleName());
                     faxJobObject.setStatus(STATUS.ERROR);
                     faxJobObject.setStatusString("Cover page creation failed. Fax not sent. Check disk space and logs.");
                     // Do NOT set file_name - leave job in ERROR state and do not transmit
@@ -313,30 +315,35 @@ public class FaxManagerImpl implements FaxManager {
             return faxJobList;
         }
 
-        registerFaxAttemptRollbackCleanup(attemptFiles);
-        try {
-            saveFaxJob(loggedInInfo, faxJobList);
-        } catch (RuntimeException e) {
-            cleanupFaxAttemptFiles(attemptFiles, List.of());
-            throw e;
+        boolean cleanupDeferred = registerFaxAttemptCompletionCleanup(attemptFiles, faxJobList);
+        // Only the transaction completion callback can establish a known rollback.
+        // A persistence exception alone is not proof that no WAITING row committed.
+        saveFaxJob(loggedInInfo, faxJobList);
+        if (!cleanupDeferred) {
+            cleanupFaxAttemptFiles(attemptFiles, faxJobList);
         }
-        cleanupFaxAttemptFiles(attemptFiles, faxJobList);
         return faxJobList;
     }
 
-    private void registerFaxAttemptRollbackCleanup(Set<Path> attemptFiles) {
+    private boolean registerFaxAttemptCompletionCleanup(Set<Path> attemptFiles, List<FaxJob> retainedJobs) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            return;
+            return false;
         }
         Set<Path> files = Set.copyOf(attemptFiles);
+        List<FaxJob> jobs = List.copyOf(retainedJobs);
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
-                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
                     cleanupFaxAttemptFiles(files, List.of());
+                } else if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                    cleanupFaxAttemptFiles(files, jobs);
+                } else if (status == TransactionSynchronization.STATUS_UNKNOWN) {
+                    logger.error("Fax queue transaction outcome is unknown; retaining prepared documents");
                 }
             }
         });
+        return true;
     }
 
     private void cleanupFaxAttemptFiles(Set<Path> attemptFiles, List<FaxJob> retainedJobs) {
@@ -355,8 +362,8 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 Files.deleteIfExists(attemptFile);
             } catch (IOException e) {
-                logger.warn("Unable to clean an unqueued fax attempt file: {}",
-                        LogSafe.sanitize(attemptFileName.toString()), e);
+                logger.warn("Unable to clean an unqueued fax attempt file ({})",
+                        e.getClass().getSimpleName());
             }
         }
     }
@@ -389,7 +396,8 @@ public class FaxManagerImpl implements FaxManager {
         String senderFaxNumber = (String) faxJobMap.get("senderFaxNumber");
         Integer demographicNo = (Integer) faxJobMap.get("demographicNo");
 
-        recipientFaxNumber = recipientFaxNumber.replaceAll("\\D", "");
+        String rawRecipientFaxNumber = recipientFaxNumber;
+        recipientFaxNumber = recipientFaxNumber == null ? "" : recipientFaxNumber.replaceAll("\\D", "");
 
         // Build the job shell before any validation so every ERROR return below is display-ready:
         // CoverPage.jsp renders recipient/destination/status/statusString per job on the preview.
@@ -424,6 +432,21 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         faxJob.setFax_line(faxConfig.getFaxNumber());
+        try {
+            faxJob.setDestination(io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                    rawRecipientFaxNumber, faxConfig.getProviderType()));
+            String[] copies = (String[]) faxJobMap.get("copyToRecipients");
+            if (copies != null) {
+                for (FaxRecipient copy : parseFaxRecipients(copies)) {
+                    io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                            copy.getRawFax(), faxConfig.getProviderType());
+                }
+            }
+        } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException | IllegalArgumentException invalidDestination) {
+            faxJob.setStatus(STATUS.ERROR);
+            faxJob.setStatusString("The recipient fax number is invalid for the selected fax provider.");
+            return faxJob;
+        }
         faxJob.setUser(faxConfig.getFaxUser());
 
         // Create the sender profile, defaulting to the clinic address.
@@ -439,7 +462,7 @@ public class FaxManagerImpl implements FaxManager {
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
         } catch (SecurityException | IOException e) {
-            logger.error("Invalid or inaccessible fax file path: {}", LogSafe.sanitize(faxFilePath), e);
+            logger.error("Invalid or inaccessible fax file path ({})", e.getClass().getSimpleName());
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("File missing on local storage or invalid file path.");
             return faxJob;
@@ -447,11 +470,12 @@ public class FaxManagerImpl implements FaxManager {
 
         // Only application-owned temporary files may be promoted; the source remains available for
         // retry until the normal preview cleanup path removes it.
-        if (PathValidationUtils.isInApplicationTempDirectory(faxDocument.toFile())) {
+        boolean promotedForAttempt = PathValidationUtils.isInApplicationTempDirectory(faxDocument.toFile());
+        if (promotedForAttempt) {
             try {
                 faxDocument = nioFileManager.promoteApplicationTempFile(faxDocument);
             } catch (FilePromotionException e) {
-                logger.error("Fax document promotion failed", e);
+                logger.error("Fax document promotion failed ({})", e.getClass().getSimpleName());
                 faxJob.setStatus(STATUS.ERROR);
                 faxJob.setStatusString("The fax document could not be stored for sending. Please retry or contact your administrator.");
                 return faxJob;
@@ -460,13 +484,21 @@ public class FaxManagerImpl implements FaxManager {
 
         Path faxFileName = faxDocument.getFileName();
         if (faxFileName == null) {
+            if (promotedForAttempt) cleanupFaxAttemptFiles(Set.of(faxDocument), List.of());
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("The fax document has no usable file name.");
             return faxJob;
         }
-        faxJob.setStatus(FaxJob.STATUS.WAITING);
         faxJob.setFile_name(faxFileName.toString());
-        faxJob.setNumPages(EDocUtil.getPDFPageCount(faxDocument.toString()));
+        int pages = EDocUtil.getPDFPageCount(faxDocument.toString());
+        if (pages <= 0) {
+            if (promotedForAttempt) cleanupFaxAttemptFiles(Set.of(faxDocument), List.of());
+            faxJob.setStatus(STATUS.ERROR);
+            faxJob.setStatusString("The fax document has no readable pages. Fax not sent.");
+            return faxJob;
+        }
+        faxJob.setNumPages(pages);
+        faxJob.setStatus(FaxJob.STATUS.WAITING);
 
         return faxJob;
 
@@ -492,14 +524,14 @@ public class FaxManagerImpl implements FaxManager {
     private List<FaxRecipient> parseFaxRecipients(String[] faxRecipients) {
 
         List<FaxRecipient> faxRecipientArray = new ArrayList<FaxRecipient>();
-        List<String> failedRecipients = new ArrayList<String>();
+        int failedRecipients = 0;
 
         for (String copytoRecipient : faxRecipients) {
             // Null/blank entries (e.g. a sparse Struts index array) are shape failures too:
             // silently skipping one is exactly the dropped-recipient bug the fail-fast below
             // exists to prevent.
             if (copytoRecipient == null || copytoRecipient.trim().isEmpty()) {
-                failedRecipients.add(String.valueOf(copytoRecipient));
+                failedRecipients++;
                 continue;
             }
             // Assumes that the recipient entry is a JSONObject
@@ -509,27 +541,22 @@ public class FaxManagerImpl implements FaxManager {
                 FaxRecipient faxRecipient = new FaxRecipient(copytoRecipientJson);
                 if (!faxRecipient.hasUsableFax()) {
                     // A parseable entry without a usable fax number invalidates the whole batch.
-                    logger.error("Fax recipient entry has no usable fax number - Recipient will be SKIPPED");
-                    failedRecipients.add(copytoRecipient);
+                    logger.error("Fax recipient entry has no usable fax number; batch will not be queued");
+                    failedRecipients++;
                     continue;
                 }
                 faxRecipientArray.add(faxRecipient);
             } catch (Exception e) {
-                logger.error("Failed to parse fax recipient JSON: {} - Recipient will be SKIPPED", LogSafe.sanitize(copytoRecipient), e);
-                failedRecipients.add(copytoRecipient);
+                logger.error("Fax recipient parsing failed ({}); batch will not be queued", e.getClass().getSimpleName());
+                failedRecipients++;
             }
         }
 
         // Fail fast if any recipients couldn't be parsed - don't send partial fax
-        if (!failedRecipients.isEmpty()) {
-            int displayCount = Math.min(3, failedRecipients.size());
-            String preview = String.join(", ", failedRecipients.subList(0, displayCount));
-            if (failedRecipients.size() > 3) {
-                preview += " (and " + (failedRecipients.size() - 3) + " more)";
-            }
-            throw new IllegalArgumentException(
-                    String.format("Failed to parse %d recipient(s). Fax not sent. Contact support if this persists. Failed entries: %s",
-                            failedRecipients.size(), preview)
+        if (failedRecipients > 0) {
+            throw new FaxPreparationException(
+                    String.format("Failed to parse %d recipient(s). Fax not sent. Contact support if this persists.",
+                            failedRecipients)
             );
         }
         return faxRecipientArray;
@@ -549,19 +576,30 @@ public class FaxManagerImpl implements FaxManager {
 
         outer:
         for (FaxRecipient faxRecipient : faxRecipients) {
+            String destination;
+            try {
+                destination = io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                        faxRecipient.getRawFax(), faxJob.getFaxAccount() == null ? null
+                                : faxJob.getFaxAccount().getProviderType());
+            } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                // createAndSaveFaxJob validates this same complete recipient list in
+                // createFaxJob before publishing files and returns a displayable ERROR there.
+                // This defensive guard protects direct Java callers from building an invalid batch.
+                throw new IllegalArgumentException("Invalid copy-to fax destination", invalidDestination);
+            }
             // Avoid duplicate fax numbers.
-            if (Objects.equals(faxJob.getDestination(), faxRecipient.getFax())) {
+            if (Objects.equals(faxJob.getDestination(), destination)) {
                 continue;
             }
 
             for (FaxJob faxJobItem : faxJobList) {
-                if (Objects.equals(faxJobItem.getDestination(), faxRecipient.getFax())) {
+                if (Objects.equals(faxJobItem.getDestination(), destination)) {
                     continue outer;
                 }
             }
 
             FaxJob faxJobCopy = new FaxJob(faxJob);
-            faxJobCopy.setDestination(faxRecipient.getFax());
+            faxJobCopy.setDestination(destination);
             faxJobCopy.setRecipient(faxRecipient.getName());
 
             faxJobList.add(faxJobCopy);
@@ -679,8 +717,8 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 Files.deleteIfExists(newCurrentDocument);
             } catch (IOException cleanupFailure) {
-                logger.warn("Unable to remove partial cover page after failed concat: {}",
-                        LogSafe.sanitize(coverFileName), cleanupFailure);
+                logger.warn("Unable to remove partial cover page after failed concat ({})",
+                        cleanupFailure.getClass().getSimpleName());
             }
             throw e;
         }
@@ -771,10 +809,33 @@ public class FaxManagerImpl implements FaxManager {
     @Transactional
     @Override
     public void persistAndLogConsultationFaxJobs(LoggedInInfo loggedInInfo, List<FaxJob> faxJobs, int requestId) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
         for (FaxJob faxJob : faxJobs) {
             faxJobDao.persist(faxJob);
             logFaxJob(loggedInInfo, faxJob, TransactionType.CONSULTATION, requestId);
         }
+    }
+
+    /**
+     * Persists one fax job and its clinical audit record in the same transaction.
+     * @param loggedInInfo authenticated caller, who must hold _fax write privilege
+     * @param faxJob prepared job to persist
+     * @param transactionType originating clinical module
+     * @param transactionId originating clinical record identifier
+     * @throws SecurityException when fax write privilege is absent
+     * @throws RuntimeException when persistence or audit fails; the transaction rolls back
+     */
+    @Transactional
+    @Override
+    public void persistAndLogFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob,
+            TransactionType transactionType, int transactionId) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
+        faxJobDao.persist(faxJob);
+        logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
     }
 
     @Transactional
@@ -894,13 +955,13 @@ public class FaxManagerImpl implements FaxManager {
                 cachePagesRemoved = nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName());
             } catch (IOException e) {
                 // Per-page failures were already logged with their exceptions by removeCacheVersions.
-                logger.error("Fax preview cache flush left cached page image(s) on disk: {}", e.getMessage());
+                logger.error("Fax preview cache flush left cached page image(s) on disk ({})", e.getClass().getSimpleName());
                 cacheCleared = false;
             } catch (IllegalArgumentException e) {
                 // The preview source could not be keyed to an allowed preview location, so the
                 // source-scoped page prefix is underivable and we cannot confirm the PHI preview
                 // pages were removed. Treat an unkeyable source as an uncleared cache, never success.
-                logger.error("Fax preview cache flush could not key its source directory: {}", e.getMessage());
+                logger.error("Fax preview cache flush could not key its source directory ({})", e.getClass().getSimpleName());
                 cacheCleared = false;
             }
         }
@@ -939,9 +1000,9 @@ public class FaxManagerImpl implements FaxManager {
                 }
                 if (!canonicalizes) {
                     tempResolutionFailed = true;
-                    logger.warn("Fax flush could not canonicalize a path to verify it as a temp artifact: {}", e.getMessage());
+                    logger.warn("Fax flush could not canonicalize a path to verify it as a temp artifact ({})", e.getClass().getSimpleName());
                 } else {
-                    logger.debug("Fax flush skipped non-temp path: {}", e.getMessage());
+                    logger.debug("Fax flush skipped non-temp path ({})", e.getClass().getSimpleName());
                 }
             }
         }
@@ -990,29 +1051,48 @@ public class FaxManagerImpl implements FaxManager {
      * ERROR or COMPLETE.  The fax status of the original fax will be changed to
      * RESENT and cannot be resent again.
      */
+    @Transactional
     @Override
     public boolean resendFax(LoggedInInfo loggedInInfo, String jobId, String destination) {
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
 
         boolean success = false;
         FaxJob faxJob = null;
 
         if (jobId != null && !jobId.isEmpty()) {
             try {
-                faxJob = getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+                faxJob = faxJobDao.findForUpdate(Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
-                logger.error("Invalid fax job ID format: {}", jobId);
+                logger.error("Invalid fax job ID format");
                 return false;
             }
         }
 
         if (faxJob != null) {
+            // The row lock and outer transaction make concurrent/repeated submissions
+            // observe RESENT after the first commit, rather than queueing a second clone.
+            if (faxJob.getDirection() == FaxJob.Direction.IN
+                    || !(faxJob.getStatus() == STATUS.ERROR || faxJob.getStatus() == STATUS.COMPLETE)) {
+                return false;
+            }
+            FaxConfig account = faxConfigDao.getActiveConfigByNumber(faxJob.getFax_line());
+            if (account == null) return false;
 
             FaxJob reSentFaxJob = new FaxJob(faxJob);
+            reSentFaxJob.setFax_line(account.getFaxNumber());
+            reSentFaxJob.setUser(account.getFaxUser());
 
-            // Destination can be replaced with new user input.
-            if (destination != null && !destination.isEmpty()) {
-                destination = destination.replaceAll("\\D", "");
-                reSentFaxJob.setDestination(destination);
+            // Validate both unchanged and replacement destinations using the actual account.
+            try {
+                reSentFaxJob.setDestination(io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                        destination == null || destination.isEmpty() ? faxJob.getDestination() : destination,
+                        account.getProviderType()));
+            } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                return false;
             }
 
             reSentFaxJob.setStamp(new Date());

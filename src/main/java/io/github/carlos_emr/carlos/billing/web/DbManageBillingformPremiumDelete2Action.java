@@ -73,7 +73,8 @@ public class DbManageBillingformPremiumDelete2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
@@ -97,7 +98,7 @@ public class DbManageBillingformPremiumDelete2Action extends ActionSupport {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete premium service codes", e);
+            MiscUtils.getLogger().error("Failed to delete premium service codes ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete premium service codes");
             return NONE;
         }

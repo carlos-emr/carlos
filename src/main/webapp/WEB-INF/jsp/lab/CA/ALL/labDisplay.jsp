@@ -1136,8 +1136,20 @@ input[id^='acklabel_']{
         })
         .then(function(json) {
             if (json && json.success) {
+                // Tell the Inboxhub on EVERY macro that ACKNOWLEDGED, not only when the macro
+                // is configured to close the window: a macro that acknowledges without
+                // closeOnSuccess used to leave the inbox untouched, so the lab it had just
+                // acknowledged sat in the list until the clinician reloaded the page.
+                //
+                // Gated on json.acknowledged rather than json.success, because a macro need
+                // not acknowledge anything — one that only files a tickler succeeds and leaves
+                // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
+                // dealt with.
+                if (json.acknowledged) {
+                    notifyInboxhubAfterMacro(formid, json.clearedCount);
+                }
                 if (closeOnSuccess) {
-                    closeLabAfterMacro(formid);
+                    closeLabAfterMacro(formid, json.acknowledged);
                 }
             } else {
                 var message = json && json.error ? json.error : 'Macro execution failed. Please try again.';
@@ -1150,29 +1162,54 @@ input[id^='acklabel_']{
         });
     }
 
-    function closeLabAfterMacro(formid) {
+    /**
+     * Closes or hides the lab window a macro was run from.
+     *
+     * closeOnSuccess is about this window, not about the inbox: taking the lab out of the
+     * inbox is gated on the macro having ACKNOWLEDGED it. A macro that only files a tickler
+     * closes its window and leaves the lab in the inbox, where it still belongs — hiding it
+     * there would make an unacknowledged result look dealt with.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {boolean} acknowledged whether the macro actually acknowledged the lab
+     */
+    function closeLabAfterMacro(formid, acknowledged) {
         var formEl = document.getElementById(formid);
-        var segmentId = formEl && formEl.elements && formEl.elements.segmentID ? formEl.elements.segmentID.value : '';
-
-        notifyInboxhubAfterMacro();
+        var elements = (formEl && formEl.elements) ? formEl.elements : null;
+        var segmentId = (elements && elements.segmentID) ? elements.segmentID.value : '';
+        var labType = (elements && elements.labType) ? elements.labType.value : 'HL7';
 
         if (window.frameElement) {
-            var card = window.frameElement.closest('.document-card.card');
-            if (card) {
-                card.style.display = 'none';
+            if (acknowledged) {
+                var card = window.frameElement.closest('.document-card.card');
+                if (card) {
+                    card.style.display = 'none';
+                }
             }
             return;
         }
 
         if (typeof _in_window !== 'undefined' && _in_window) {
-            if (self.opener && typeof self.opener.removeReport !== 'undefined' && segmentId.length > 0) {
-                self.opener.removeReport(segmentId);
+            // The row only. The counters were already dealt with by notifyInboxhubAfterMacro,
+            // which ran before this and falls back to the opener itself when the broadcast
+            // could not be posted — closing the window is not the right thing to hang that on,
+            // since a macro with closeOnSuccess:false never gets here at all.
+            //
+            // removeReport is the last resort for an opener with neither newer function: an
+            // acknowledged row left on screen reads as "the acknowledgement did nothing",
+            // which is worse than a badge one out that the next page load corrects.
+            if (acknowledged && self.opener && segmentId.length > 0) {
+                if (typeof self.opener.removeInboxhubRow === 'function') {
+                    self.opener.removeInboxhubRow(segmentId, labType);
+                } else if (typeof self.opener.removeReport === 'function') {
+                    self.opener.removeReport(segmentId, labType);
+                }
             }
             window.close();
             return;
         }
 
-        if (segmentId.length > 0) {
+        if (acknowledged && segmentId.length > 0) {
             var inlineCard = document.getElementById('labdoc_' + segmentId);
             if (inlineCard) {
                 inlineCard.style.display = 'none';
@@ -1180,13 +1217,116 @@ input[id^='acklabel_']{
         }
     }
 
-    function notifyInboxhubAfterMacro() {
+    /**
+     * Asks the Inboxhub to refresh, naming the lab that was just acknowledged.
+     *
+     * The id matters: the inbox re-fetches only the result LIST, while the
+     * Documents/Labs/HRMs counters come from the surrounding form page. Without the id
+     * the counters keep counting the acknowledged lab until a full page reload, which
+     * reads to a clinician as "the acknowledgement did nothing".
+     *
+     * The type travels with it because segment ids are NOT unique across report types —
+     * documents, HRM reports and HL7 labs have independent key sequences — so an id on
+     * its own can name a document's inbox row as readily as this lab's.
+     *
+     * The server's clearedCount travels with it because those counters count ROUTING rows,
+     * one per lab VERSION, while the list shows one collapsed row per chain. Acknowledging
+     * a two-version lab removes one row and clears two counted rows, and only the server
+     * knows the chain — this page never sees it.
+     *
+     * @param {string} formid id of the acknowledge form the macro was run against
+     * @param {number} clearedCount routing rows the server reported clearing
+     * @return {boolean} whether the inbox was reached, by either route
+     */
+    function notifyInboxhubAfterMacro(formid, clearedCount) {
+        var segmentId = '';
+        var labType = 'HL7';
+        if (formid) {
+            var formEl = document.getElementById(formid);
+            var elements = (formEl && formEl.elements) ? formEl.elements : null;
+            if (elements && elements.segmentID) {
+                segmentId = elements.segmentID.value;
+            }
+            if (elements && elements.labType) {
+                labType = elements.labType.value;
+            }
+        }
         try {
             var bc = new BroadcastChannel('inboxhub-refresh');
-            bc.postMessage('refresh');
+            bc.postMessage({
+                action: 'refresh',
+                segmentID: segmentId,
+                labType: labType,
+                clearedCount: clearedCount
+            });
             bc.close();
+            return true;
         } catch (e) {
-            // BroadcastChannel unsupported — the acknowledged item is still hidden locally.
+            // BroadcastChannel unsupported. Reach the inbox window directly instead, HERE
+            // rather than in the caller: a macro with closeOnSuccess:false never closes this
+            // window, so hanging the fallback off the close path left exactly the macros this
+            // PR exists to fix with a stale row and a stale badge.
+            return dropFromInboxhubDirectly(segmentId, labType, clearedCount);
+        }
+    }
+
+    /**
+     * Tells the inbox window directly, for browsers with no BroadcastChannel.
+     *
+     * The inbox is either the window that opened this popup, or — in preview mode — the one
+     * this iframe sits in. Both are same-origin; the guard is that window.parent is this
+     * window for a top-level page, and that an opener severed by COOP (which is why the
+     * broadcast is the primary channel) leaves nothing to call.
+     *
+     * dropAcknowledgedInboxhubItem is the same function the broadcast listener runs, so those
+     * two routes remove the row AND move the counters by the server's count — the whole job,
+     * once, guarded against a repeat by the same per-item key.
+     *
+     * The last two rungs are best-effort compatibility: an Inboxhub loaded before this
+     * release has removeReport but none of the newer functions, and it cannot be told how many
+     * routing rows were cleared — it drops the row and takes one off the badge. That leaves
+     * the badge possibly short of the server's figure until the next page load, which is a
+     * great deal better than leaving an acknowledged lab on screen. Both window shapes get
+     * that rung: an older inbox can be showing preview cards in an iframe just as readily as
+     * it can have opened this window.
+     *
+     * @return {boolean} whether an inbox window was actually reached
+     */
+    function dropFromInboxhubDirectly(segmentId, labType, clearedCount) {
+        if (!segmentId || segmentId.length === 0) { return false; }
+        try {
+            var inbox = null;
+            var legacyInbox = false;
+            if (self.opener && typeof self.opener.dropAcknowledgedInboxhubItem === 'function') {
+                inbox = self.opener;
+            } else if (window.parent !== window
+                    && typeof window.parent.dropAcknowledgedInboxhubItem === 'function') {
+                inbox = window.parent;
+            } else if (self.opener && typeof self.opener.removeReport === 'function') {
+                inbox = self.opener;
+                legacyInbox = true;
+            } else if (window.parent !== window
+                    && typeof window.parent.removeReport === 'function') {
+                inbox = window.parent;
+                legacyInbox = true;
+            }
+            if (!inbox) { return false; }
+            if (legacyInbox) {
+                inbox.removeReport(segmentId, labType);
+            } else {
+                inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount);
+            }
+            // The same re-fetch the broadcast listener does. dropAcknowledgedInboxhubItem
+            // moves the counters and drops a LIST row, but preview mode draws cards and no
+            // table, so without this the acknowledged card stays on screen — and a macro with
+            // closeOnSuccess:false never closes the window that would have hidden it either.
+            if (typeof inbox.fetchInboxhubData === 'function') {
+                inbox.fetchInboxhubData();
+            }
+            return true;
+        } catch (e) {
+            // No reachable inbox window; the item is hidden locally either way.
+            return false;
         }
     }
 
