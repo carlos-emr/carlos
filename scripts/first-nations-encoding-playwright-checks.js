@@ -43,12 +43,14 @@
  *      carlos.properties; when it is false the script says so and asserts the
  *      gate path only, rather than failing on a configuration choice.
  *
- * The `<option value>` half of the same fix (firstNationCommunity.value) is
- * asserted only when this install has no `firstNationCommunity` lookup list
- * yet, because LookupListDao.findByName is @Cacheable and a list seeded behind
- * a warm cache would not reach the page. A null result is not cached, so on a
- * fresh install the seed below is visible and the assertion runs; otherwise the
- * script reports that it skipped that one assertion.
+ * The `<option value>` half of the same fix (firstNationCommunity.value) needs
+ * two things to be true, and says so in its PASS line when either is not:
+ *   - this install has no `firstNationCommunity` lookup list yet, because
+ *     LookupListDao.findByName is @Cacheable and a list seeded behind a warm
+ *     cache would not reach the page (a null result is not cached, so on a
+ *     fresh install the seed below is visible), and
+ *   - the community <select> is actually rendered, which it is not when
+ *     showBandNumberOnly is active in carlos.properties.
  *
  * Everything it writes -- the demographicExt rows and, when it seeds them, the
  * LookupList/LookupListItem rows -- is restored or deleted in the finally.
@@ -134,6 +136,31 @@ function sqlString(value) {
 }
 
 /**
+ * Read the rows this check is about to overwrite, losslessly.
+ *
+ * `mysql -N -B` is a TEXT protocol and it is lossy in two ways that matter to a
+ * check which promises to put the patient's record back exactly as it found it:
+ * it renders a real tab as the two characters `\t` (likewise `\n` for a newline
+ * and `\\` for a backslash), and it renders SQL NULL as the four characters
+ * `NULL`, which no parser can tell from the literal string "NULL". Restoring
+ * what comes back out of that would rewrite a tab as a backslash-t and a NULL as
+ * the word NULL. Ask for HEX() and a separate null flag instead: both are
+ * [0-9A-FN V] only, so the tab/newline field split below is unambiguous, and the
+ * value goes back through UNHEX() byte for byte.
+ */
+function readOriginalExtRows(demographicNo, keys) {
+  const rows = sql(
+    `SELECT key_val, IF(value IS NULL, 'N', 'V'), IFNULL(HEX(value), '')`
+      + ` FROM demographicExt WHERE demographic_no=${demographicNo}`
+      + ` AND key_val IN (${keys.map(sqlString).join(',')})`,
+  );
+  return rows.split('\n').filter(Boolean).map((line) => {
+    const [key, nullFlag, hex] = line.split('\t');
+    return { key, isNull: nullFlag === 'N', hex };
+  });
+}
+
+/**
  * Assert the five seeded values survived the round trip intact and that the
  * payload produced no markup.
  *
@@ -166,15 +193,30 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     );
   }
 
+  // The community <select> is wrapped in a showBandNumberOnly property check, so
+  // on an install configured band-number-only it is deliberately absent. Seeding
+  // the lookup list says the DATA is there; only the rendered control says the
+  // assertion is meaningful, and asserting on the seed alone would fail the
+  // standard validation loop over a configuration choice.
+  let communityAsserted = false;
   if (expectCommunity) {
-    const optionValues = await page.locator('#fNationCom option').evaluateAll(
-      (nodes) => nodes.map((node) => node.value),
-    );
-    assert(
-      optionValues.includes(COMMUNITY_PAYLOAD),
-      `[${label}] no #fNationCom option carried the seeded community value intact;`
-        + ` got ${JSON.stringify(optionValues)}`,
-    );
+    if (await page.locator('#fNationCom').count()) {
+      const optionValues = await page.locator('#fNationCom option').evaluateAll(
+        (nodes) => nodes.map((node) => node.value),
+      );
+      assert(
+        optionValues.includes(COMMUNITY_PAYLOAD),
+        `[${label}] no #fNationCom option carried the seeded community value intact;`
+          + ` got ${JSON.stringify(optionValues)}`,
+      );
+      communityAsserted = true;
+    } else {
+      console.log(
+        `NOTE [${label}] no #fNationCom control on this install`
+          + ' (showBandNumberOnly is active in carlos.properties);'
+          + ' skipped the community option assertion.',
+      );
+    }
   }
 
   // Nothing from any payload may exist as markup. getElementById is the direct
@@ -190,6 +232,8 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     injected.ids.length === 0 && injected.images.length === 0,
     `[${label}] the seeded payload was parsed as markup: ${JSON.stringify(injected)}`,
   );
+
+  return { communityAsserted };
 }
 
 (async () => {
@@ -200,6 +244,7 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
   let originalExt = null;
   let seededLookupListId = null;
   let coveredMasterRecord = false;
+  let communityAsserted = false;
   try {
     demographicNo = process.env.FIRST_NATIONS_DEMOGRAPHIC_NO
       || sql('SELECT MIN(demographic_no) FROM demographic');
@@ -207,13 +252,7 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
 
     // Remember the patient's real First Nations values so the finally can put
     // them back: this runs against a demo dataset, not a scratch row.
-    originalExt = sql(
-      `SELECT key_val, value FROM demographicExt WHERE demographic_no=${demographicNo}`
-        + ` AND key_val IN (${SEEDED_KEYS.map(sqlString).join(',')})`,
-    ).split('\n').filter(Boolean).map((line) => {
-      const [key, ...rest] = line.split('\t');
-      return { key, value: rest.join('\t') };
-    });
+    originalExt = readOriginalExtRows(demographicNo, SEEDED_KEYS);
 
     for (const key of SEEDED_KEYS) {
       sql(
@@ -255,7 +294,8 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     );
     assert(gateResponse && gateResponse.ok(), `Gate route answered HTTP ${gateResponse && gateResponse.status()}`);
     await gatePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await assertEncodedRender(gatePage, 'first-nations-gate', { expectCommunity });
+    const gateResult = await assertEncodedRender(gatePage, 'first-nations-gate', { expectCommunity });
+    communityAsserted = gateResult.communityAsserted;
 
     // The served bytes, not the parsed DOM: a render that escaped the quote but
     // left the angle brackets raw would still pass the DOM checks on a lenient
@@ -300,7 +340,8 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     await assertNotErrorPage(masterPage, 'master-record');
 
     if (await masterPage.locator('#statusNum').count()) {
-      await assertEncodedRender(masterPage, 'master-record', { expectCommunity });
+      const masterResult = await assertEncodedRender(masterPage, 'master-record', { expectCommunity });
+      communityAsserted = communityAsserted || masterResult.communityAsserted;
       await screenshot(masterPage, config.screenshotDir, 'first-nations-master-record');
       coveredMasterRecord = true;
     } else {
@@ -316,7 +357,8 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     console.log(
       `PASS First Nations demographic values render HTML-attribute encoded for demographic ${demographicNo}`
         + ` (gate route${coveredMasterRecord ? ' + master record' : ''}`
-        + `${expectCommunity ? ', community option included' : ', community option skipped: lookup list already present'})`,
+        + `${communityAsserted ? ', community option included'
+          : ', community option NOT covered: ' + (expectCommunity ? 'no #fNationCom control rendered' : 'lookup list already present')})`,
     );
   } catch (error) {
     console.error('FAIL First Nations demographic encoding Playwright check');
@@ -326,11 +368,15 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
   } finally {
     try {
       if (demographicNo && originalExt) {
-        const restored = new Map(originalExt.map((row) => [row.key, row.value]));
+        const restored = new Map(originalExt.map((row) => [row.key, row]));
         for (const key of SEEDED_KEYS) {
-          if (restored.has(key)) {
+          const row = restored.get(key);
+          if (row) {
+            // UNHEX('') is the empty string, not NULL, so the two cases stay
+            // distinct all the way back into the column.
+            const literal = row.isNull ? 'NULL' : `UNHEX(${sqlString(row.hex)})`;
             sql(
-              `UPDATE demographicExt SET value=${sqlString(restored.get(key))}`
+              `UPDATE demographicExt SET value=${literal}`
                 + ` WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)}`,
             );
           } else {

@@ -82,4 +82,25 @@ class ManageFirstNationsModuleAssetRegressionTest {
                 .doesNotContain("${ demoExt['ethnicity'] eq")
                 .doesNotContain("${demoExt['ethnicity'] eq");
     }
+
+    /**
+     * The community control is optional markup, so its script must treat it as such.
+     *
+     * <p>{@code #fNationCom} is rendered only when {@code showBandNumberOnly} is
+     * off. An unguarded {@code addEventListener} on the resulting null threw a
+     * TypeError out of the page's DOMContentLoaded handler in exactly the
+     * configuration the element is absent in, taking every listener registered
+     * after it down with it.
+     */
+    @Test
+    @DisplayName("should guard the optional community control before using it")
+    void shouldGuardOptionalCommunityControl_whenShowBandNumberOnlyHidesIt() throws IOException {
+        String jsp = Files.readString(MANAGE_FIRST_NATIONS_MODULE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("if (communitySelect) {")
+                .contains("if (communityField && !communityField.value) {")
+                .doesNotContain("document.getElementById('fNationCom').addEventListener(")
+                .doesNotContain("if (!document.getElementById('fNationCom').value) {");
+    }
 }

@@ -112,8 +112,12 @@
                     family = number.substring(3, 8);
                     familyPostion = number.substring(8, 10);
 
-                    if (!document.getElementById('fNationCom').value) {
-                        document.getElementById('fNationCom').value = band;
+                    // fNationCom is rendered only when showBandNumberOnly is off
+                    // (see the property check further down), so every access to it
+                    // has to tolerate its absence.
+                    var communityField = document.getElementById('fNationCom');
+                    if (communityField && !communityField.value) {
+                        communityField.value = band;
                     }
                     if (!document.getElementById('fNationFamilyNumber').value) {
                         document.getElementById('fNationFamilyNumber').value = family;
@@ -141,10 +145,17 @@
             }
         });
 
-        document.getElementById('fNationCom').addEventListener('change', function () {
-            var selectedOption = document.getElementById('fNationCom').options[document.getElementById('fNationCom').selectedIndex];
-            document.getElementById('labelfNationCom').value = selectedOption.text.trim();
-        })
+        // Same guard, and it matters more here: an unguarded addEventListener on a
+        // null element threw a TypeError out of this DOMContentLoaded handler under
+        // showBandNumberOnly, which is the one configuration the element is absent
+        // in -- taking every listener registered after it down with it.
+        var communitySelect = document.getElementById('fNationCom');
+        if (communitySelect) {
+            communitySelect.addEventListener('change', function () {
+                var selectedOption = communitySelect.options[communitySelect.selectedIndex];
+                document.getElementById('labelfNationCom').value = selectedOption.text.trim();
+            });
+        }
 
     });
     //-->
