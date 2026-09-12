@@ -1,7 +1,10 @@
 # MariaDB replication for the Debian deployment — design and implementation plan
 
-**Status: phase 1 (primary side) implemented in this branch; phases 0 and
-2 onward not yet.** Implemented: `carlos-ctl replica add|remove|status`,
+**Status: phase 1 (asynchronous primary side) implemented in this branch.
+The maintainer has chosen Path B — a Galera single-writer cluster — as the
+next piece; it is specified in section 11 and re-orders the phases in
+section 6. The asynchronous replica package (Path A) stays as an optional
+later phase for an offsite copy.** Implemented: `carlos-ctl replica add|remove|status`,
 `carlos-emr-cert db-tls`, the 62- drop-in and sysctl renderers,
 `db-apply-settings --no-restart` and its primary-role compare set, the
 `check` replication section, the preseed questions, the `demo-data` /
@@ -56,10 +59,11 @@ design must stay consistent with).
 
 | Question | Decision | Why (short) |
 |---|---|---|
-| Replication style | **Asynchronous MariaDB primary → replica, GTID-based, ROW format**, with semi-synchronous as a later opt-in | Built into the MariaDB the package already depends on; zero new dependencies; fits the app's single static JDBC URL; the existing binary log is already the right shape |
-| Multi-master (Galera) | **Not now.** Re-evaluate only if a second *application* host is ever wanted | One app instance writes to one node, so multi-master buys nothing today; the OSCAR-lineage schema has 22 baseline tables without a primary key, which Galera handles badly; the application has no deadlock/retry handling for certification failures; cross-site commit latency |
-| "Judge" / arbiter node | **Not needed for phase 1.** Promotion is manual and fenced, so there is no automatic election to split-brain | An arbiter only matters for automatic quorum (Galera `garbd`, or an orchestrator). Reserved as a future role package |
-| Automatic failover | **No.** `carlos-ctl replica promote` is a human act, and refuses while the old primary is reachable | Unfenced automatic promotion of a clinical record is how two divergent copies happen. The app's connection string is static; repointing it is one env edit plus `init-config` + `restart` |
+| Replication style, local HA (**Path B, chosen**) | **Galera synchronous cluster, single writer**: two database nodes plus an arbitrator, the application pinned to one node with a driver-level failover list | Zero data loss; automatic database failover with no application code; quorum built in; MariaDB's own packages. Section 11 |
+| Replication style, offsite copy (Path A, optional later) | Asynchronous GTID replica with manual fenced promotion (phase 1 implemented) | Works over a WAN; the only option for a distant copy |
+| Multi-writer at the application | **No.** All Galera nodes are writable, but CARLOS writes to one at a time | The application has no retry for certification conflicts; with one writer they never happen. The failover list gives automatic switching without it |
+| "Judge" / arbiter node | **Yes, for Path B**: `garbd` on a third small host (`carlos-emr-db-arbiter`) | Two voters cannot survive losing one; the arbitrator holds no data and needs no MariaDB |
+| Automatic failover | **Path B: yes, at the driver** (`failOverReadOnly=false` over the node list). **Path A: no**, manual fenced promotion | On a Galera cluster every surviving node in the primary component is writable, so a driver switch is safe; on an async pair it is not |
 | Packaging | **Split the admin tool into its own package (`carlos-emr-ctl`), add one new role package (`carlos-emr-db-replica`)**; `carlos-ctl` becomes role-aware | One tool, one code path, on every host. A db-only host cannot depend on `carlos-emr` (it would pull Tomcat, nginx, the WAR) |
 | Role model | Derived, not declared twice: *app present?* (webapp installed) × *database role* (`standalone` / `primary` / `replica`) recorded in `/etc/carlos-emr/replication.env` | Leaves room for "app host with a remote database" and "warm-standby app host whose local MariaDB is a replica" without new packages |
 | Network exposure | MariaDB keeps loopback; the primary additionally binds **one** operator-named LAN/VPN address; the replication account is host-restricted to the replica's IP and `REQUIRE SSL`; server certificate pinned by the replica | The drop-in's "structural, not administrative" loopback posture is preserved: the only new listener is the one the operator explicitly asked for |
@@ -193,6 +197,10 @@ T1  (phase 1)         T2  (phase 3)                  T3  (future)
 - **T3** — warm standby: a second full server whose MariaDB is a replica and
   whose application is stopped. Promotion becomes "promote B, start B's
   app, move DNS". This is why the tool must not assume "replica ⇒ no app".
+- **T4 (Path B, chosen)** — Galera cluster: A is the full server whose
+  MariaDB is cluster node 1 and the application's first-choice node; B is a
+  db-only cluster node 2; C is the arbitrator (`garbd`, no data). The
+  application's JDBC URL lists A then B. Section 11.
 
 ---
 
@@ -791,7 +799,26 @@ installed base working unchanged.
    `docs/carlos-ctl.md` verb reference; `docs/install-deb.md` pointer;
    `carlos-ctl.8`.
 
-### Phase 2 — replica package and join
+### Phase B (Path B, chosen — see section 11 for the design)
+
+- **B0** primary-key migration for the 24 key-less tables (maintainer-written
+  Flyway migration; see 11.2), `innodb_autoinc_lock_mode = 2` in the shared
+  drop-in, DrugRef seed created as InnoDB up front.
+- **B1** `carlos-emr-ctl` split and `role.py` (phase 0 items 1–4), now
+  required because two of the three cluster hosts carry no application.
+- **B2** cluster verbs in `carlos_ctl/cluster.py`: `cluster init`, `cluster
+  add`, `cluster join`, `cluster status`, `cluster remove`, `cluster
+  bootstrap`; the 63- Galera drop-in; wsrep TLS from the existing
+  `carlos-emr-cert db-tls` CA; `carlos-emr-db-node` and
+  `carlos-emr-db-arbiter` packages; the cluster watch timer; `check`.
+- **B3** application side: `CARLOS_DB_HOSTS` failover list rendered into
+  `carlos.properties` and `drugref2.properties`, the start wrapper's
+  any-of database wait, the restore drill's cluster-aware load, `db-migrate`
+  pinned to one node.
+- **B4** two-node-plus-arbiter integration test (11.9), then the README's
+  cluster runbook.
+
+### Phase 2 (Path A, optional later) — replica package and join
 
 10. **`carlos-emr-db-replica`** binary package: depends, `Conflicts:
    carlos-emr` (phase 2 only), postinst that creates
@@ -996,3 +1023,299 @@ implementation does not re-derive them from memory:
 | Debian/Ubuntu `mariadbd` AppArmor profile grants `/etc/mysql/** r`, `/var/lib/mariadb/** rwk`, `/var/lib/mysql/** rwk`, `/etc/ssl/openssl.cnf r` only, `include if exists <local/mariadbd>`; enforcing from 1:11.8.6-4 and in Ubuntu 26.04 | Debian packaging MR !150 (`debian/apparmor/mariadbd`), Debian bug #1130272 |
 | MaxScale 25.01+ is proprietary; earlier BSL releases convert to GPL on their change dates | MariaDB BSL FAQ, MaxScale licence texts |
 | `carlos-emr-tomcat` waits on `CARLOS_DB_HOST:CARLOS_DB_PORT` over TCP; `env_get` returns `None` for a missing file; `init-config` never touches `drugref2.properties`; the DrugRef seed load is binlogged while its grants are not | this repository, `debian/assets/` |
+
+---
+
+## 11. Path B — Galera single-writer cluster (chosen)
+
+### 11.1 What it is, and what it is not
+
+Two database nodes in a MariaDB Galera cluster, a third small host running
+the Galera arbitrator (`garbd`) as the tie-breaking vote, and the CARLOS
+application pinned to one node with a driver-level failover list. Every
+committed transaction exists on both nodes before the application is told
+it committed; if the node the application is using dies, the driver moves
+to the other node on its next connection, and no promotion, re-seed or
+operator action is needed to keep serving.
+
+Database-level active-active, application-level single writer. All nodes
+are writable — the cluster does not know or care which one CARLOS uses —
+but CARLOS uses one at a time, so the certification conflicts that the
+application cannot retry never occur. This is why no application code
+changes are needed.
+
+It does **not** protect the application host. If the machine running
+Tomcat dies, the surviving database node has the record but nobody is
+serving pages; that is the warm-standby topology (T3) and remains separate
+work. It does not replace backups either (a `DELETE` is on both nodes in
+milliseconds). And it is a **local** design: every commit waits one round
+trip for certification, so the nodes belong on the same LAN or campus, not
+across a WAN — an offsite copy stays Path A.
+
+### 11.2 Prerequisites, all verified against this tree
+
+- **Primary keys.** Galera requires one on every table (`DELETE` is
+  unsupported without it, and rows may sort differently per node). The
+  baseline has 22 key-less tables and the BC schema 2 more:
+  `InstitutionDepartment`, `IssueGroupIssues`,
+  `ProviderPreferenceAppointmentScreenEForm`, `…ScreenForm`,
+  `…ScreenQuickLink`, `casemgmt_issue_notes`, `custom_filter_assignees`,
+  `custom_filter_providers`, `mdsNTE`, `mdsOBR`, `mdsOBX`, `mdsPID`,
+  `mdsPV1`, `mdsZFR`, `mdsZLB`, `mdsZMC`, `mdsZMN`, `mdsZRG`,
+  `providerExt`, `provider_facility`, `serviceSpecialists`, `specialty`;
+  BC: `billinglocation`, `billingvisit`. All InnoDB, none has a raw SQL
+  `DELETE` in the Java code, and the JPA entities that map some of them do
+  not depend on the absence of a column. Phase B0 adds an
+  `id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY` to each in one
+  forward Flyway migration (`common` and `bc`). **This migration is
+  maintainer-authored: this repository's policy keeps automated changes out
+  of `database/`.** It is safe and useful on its own — row-based
+  replication of Path A also does full-row lookups on key-less tables.
+- **Nothing Galera refuses is used.** No `LOCK TABLES`, no
+  `GET_LOCK`/`RELEASE_LOCK`, no XA in the Java tree (grepped). All 389
+  baseline tables are InnoDB; the Java code creates no MyISAM/Aria table at
+  runtime.
+- **Auto-increment.** `innodb_autoinc_lock_mode = 2` is mandatory for
+  Galera; it goes into the shared 60- drop-in for every role (harmless on a
+  standalone host). Galera's `wsrep_auto_increment_control` then sets
+  `auto_increment_increment` to the cluster size, so surrogate keys advance
+  by 2 or 3 and leave gaps. The 341 `GenerationType.IDENTITY` entities are
+  unaffected; the one `GenerationType.TABLE` entity (`Product`) and the 14
+  `SELECT MAX(id)+1` sites are only safe because there is a single writer —
+  which is a rule, not a hope: `check` fails if `carlos.properties` on any
+  application host lists the nodes in a different order.
+- **DrugRef seed.** `carlos-emr-drugref.postinst` loads the seed as Aria
+  tables and converts them to InnoDB afterwards. Galera does not replicate
+  Aria row writes, so a seed loaded *into a running cluster* would leave the
+  other node with empty tables. Phase B0 changes the postinst to create the
+  seed as InnoDB from the start (`sed` on the shipped SQL at load time, the
+  same conversion it already does afterwards), and the README says to
+  install `carlos-emr-drugref` before `cluster add` — a joining node's state
+  transfer copies whatever exists.
+- **Packages.** `mariadb-server` on Ubuntu carries wsrep; `galera-4` is the
+  provider library; `mariadb-backup` performs the state transfers (SST);
+  `galera-arbitrator-4` is `garbd`. The Debian `mariadbd` AppArmor profile
+  was validated against the packaged SST methods, donor and joiner.
+- **Network.** Between nodes and the arbitrator: 4567/tcp+udp (group
+  communication), 4568/tcp (IST), 4444/tcp (SST). Application to nodes:
+  3306. All on the cluster address, never a wildcard — the same
+  listen-address rules and `ip_nonlocal_bind` handling phase 1 built.
+
+### 11.3 Roles, packages and configuration
+
+`CARLOS_DB_ROLE` gains two values: `cluster` (a MariaDB node) and `arbiter`
+(`garbd` only). `replication.env` records `CARLOS_DB_CLUSTER_NAME`,
+`CARLOS_DB_CLUSTER_ADDRESS` (this host's cluster IP) and
+`CARLOS_DB_CLUSTER_NODES` (every node's IP, in application preference
+order — first is the writer).
+
+| Package | Role | Ships |
+|---|---|---|
+| `carlos-emr` (+ `carlos-emr-ctl`) | `cluster`, node 1, the writer | as today; `cluster init` is run here |
+| `carlos-emr-db-node` (new) | `cluster`, node 2 (and 3 if wanted) | mariadb-server, galera-4, mariadb-backup, `carlos-emr-ctl`; no WAR |
+| `carlos-emr-db-arbiter` (new) | `arbiter` | galera-arbitrator-4, `carlos-emr-ctl` (for `cluster join --arbiter`, `status`, `check`); no MariaDB |
+
+Generated drop-in, `/etc/mysql/mariadb.conf.d/63-carlos-emr-galera.cnf`:
+
+```
+[mariadbd]
+wsrep_on                    = ON
+wsrep_provider              = /usr/lib/galera/libgalera_smm.so
+wsrep_cluster_name          = <CARLOS_DB_CLUSTER_NAME>
+wsrep_cluster_address       = gcomm://<node1>,<node2>[,<node3>]   # arbiter is NOT listed
+wsrep_node_address          = <this node's cluster IP>
+wsrep_node_name             = <host name>
+wsrep_sst_method            = mariabackup
+wsrep_sst_auth              = <sst user>:<password>               # 0640 root:mysql like the key
+wsrep_gtid_mode             = ON                                   # one GTID stream cluster-wide
+wsrep_gtid_domain_id        = <cluster domain id>
+log_slave_updates           = ON                                   # applied writesets are binlogged
+wsrep_provider_options      = "socket.ssl=yes;socket.ssl_ca=…/ca.pem;socket.ssl_cert=…/server.pem;socket.ssl_key=…/server.key;gcache.size=1G;pc.recovery=yes"
+bind-address                = 127.0.0.1,<cluster IP>
+innodb_flush_log_at_trx_commit = 1
+```
+
+The TLS material is the phase-1 `carlos-emr-cert db-tls` CA and server
+certificate, now issued **once, on node 1**, with every node's certificate
+signed by the same CA (the token carries a node certificate and key issued
+for the joining host, plus the CA). Galera's own transport and the client
+port therefore share one trust root. SST over `mariabackup` is encrypted
+with the same pair (`[sst] encrypt=4`, `tcert`/`tkey`/`tca`).
+
+`60-carlos-emr.cnf` keeps `log_bin`, `binlog_format = ROW` and `sync_binlog
+= 1` on every node: point-in-time recovery still needs the writer's binlog,
+and with `wsrep_gtid_mode` the positions are meaningful cluster-wide.
+
+### 11.4 Verbs (`carlos_ctl/cluster.py`)
+
+- `cluster init --listen <ip> [--name <name>]` on node 1: renders the drop-in
+  with `gcomm://` empty for the bootstrap, generates the SST account (out of
+  the binlog and, since wsrep is not yet on, not replicated either — it is
+  carried in every token), applies TLS, runs `galera_new_cluster` (the
+  distribution's bootstrap wrapper), waits for `wsrep_ready = ON`, then
+  re-renders the drop-in with the real node list. Refuses if the
+  primary-key migration is pending (`db-validate`) or
+  `innodb_autoinc_lock_mode` is not 2.
+- `cluster add <node-ip> [--arbiter]` on any synced node: issues a token
+  (CA, a node certificate/key for that IP, cluster name, node list, SST
+  credentials, `wsrep_gtid_domain_id`, expected MariaDB series, data size)
+  and appends the IP to `CARLOS_DB_CLUSTER_NODES` cluster-wide (the env file
+  is per host; the tool re-renders on every node it can reach, and `status`
+  reports drift).
+- `cluster join <token>` on `carlos-emr-db-node`: preflight (version, disk
+  ≥ 2× data — SST via `mariabackup` is a full physical copy), render the
+  drop-in with the full `gcomm://` list, start MariaDB, watch
+  `wsrep_local_state_comment` go `Joining → Joined → Synced` (SST progress
+  from the donor's `mariabackup` log), refuse to finish until Synced. The
+  local `carlos-emr.env` is written from the token as in Path A. With
+  `--arbiter` on `carlos-emr-db-arbiter`: renders `/etc/default/garb`
+  (`GALERA_NODES`, `GALERA_GROUP`, `GALERA_OPTIONS` with the same
+  `socket.ssl_*`), enables `garb.service`, and confirms the cluster size
+  rose by one.
+- `cluster status`: `wsrep_cluster_status` (must be `Primary`),
+  `wsrep_cluster_size` vs the recorded node count (+1 for the arbiter),
+  `wsrep_local_state_comment`, `wsrep_ready`, flow-control pause fraction,
+  `wsrep_local_cert_failures` (must stay 0 with one writer — a rising count
+  means two writers), the writer node per `CARLOS_DB_CLUSTER_NODES`, and
+  which node's `grastate.dat` says `safe_to_bootstrap: 1`.
+- `cluster remove <ip>`: drops the node from the list on every reachable
+  node, revokes its certificate by regenerating… no — certificates are not
+  revoked (no CRL machinery); the node's SST credential is rotated and the
+  operator is told to power the host off. Documented plainly.
+- `cluster bootstrap --confirm <server-name>`: the one dangerous verb. After
+  a full outage (every node down) Galera refuses to start until one node is
+  declared the seed; after a partition that lost quorum the survivor is
+  non-Primary and refuses queries. This verb runs `wsrep_recover` on the
+  local node, shows its last committed seqno beside the other nodes' (when
+  reachable), refuses unless this node's `safe_to_bootstrap` is 1 or
+  `--force` names why, then bootstraps (`galera_new_cluster`, or
+  `pc.bootstrap=YES` for a live non-Primary node). The other nodes rejoin
+  with IST/SST automatically.
+
+### 11.5 The application side (phase B3)
+
+- `CARLOS_DB_HOSTS=<node1>,<node2>` in `carlos-emr.env` (replaces the
+  single `CARLOS_DB_HOST` when set; the writer first). `init-config`
+  renders `db_uri = jdbc:mysql://node1:3306,node2:3306/` and appends
+  `failOverReadOnly=false` to `db_name`'s parameter string — every Galera
+  node is writable, so the read-only default of Connector/J's failover
+  protocol would be wrong here. The fall-back-to-primary knobs
+  (`queriesBeforeRetrySource`, `secondsBeforeRetrySource`) are set so the
+  driver returns to node 1 once it answers again; the exact values and the
+  connector's behaviour for a *pooled* connection (DBCP2 `testOnBorrow`
+  runs `db_validationQuery` on checkout, so a dead node's connections are
+  evicted one checkout at a time) are pinned by the smoke test in 11.9.
+- `drugref2.properties` `db_url` gets the same list — `init-config` renders
+  it from now on (the phase 3 item, pulled forward).
+- `carlos-emr-tomcat`'s database wait probes any host in the list, not
+  only the first.
+- `carlos-ctl db-migrate` runs on the writer only (`check` and the verb
+  refuse elsewhere); Galera applies the DDL cluster-wide under total order
+  isolation, and `flyway_schema_history` follows with it.
+- The application is single-node at a time by configuration, and `check`
+  proves the ordering is identical on every application host.
+
+### 11.6 Backups, PITR and the restore drill
+
+- Backups keep running on node 1 (the writer) exactly as today: the dump's
+  `--single-transaction` snapshot and the binlog leg are per node and
+  unchanged. `wsrep_gtid_mode` keeps the GTIDs consistent so a restore onto
+  a rebuilt cluster is coherent.
+- **The credential contract needs one sentence more.** Galera replicates
+  `CREATE/ALTER USER` and `GRANT` as DDL regardless of `sql_log_bin`, so the
+  accounts `db-users` provisions exist on every node automatically (no
+  passwords in tokens for Path B). They stay out of the *writer's* binlog,
+  which is the one the backup streams, so the point-in-time contract holds
+  as long as backups are taken from the writer. On the other node they
+  appear in its binlog through `log_slave_updates`; that node's binlog is
+  never used for PITR. Written into the README.
+- **The weekly restore drill.** It loads a full copy of the clinical
+  database into `carlos_restore_drill`, as the unprivileged backup account.
+  Galera replicates every InnoDB write, so that load would cross the
+  cluster weekly, roughly doubling the dataset in transit and stalling the
+  writer under flow control. Options: (a) accept it; (b) run the drill's
+  load step with `wsrep_on = OFF` for the session, which needs a privilege
+  the backup account deliberately lacks; (c) run the drill on the
+  non-writer node with (b) via root over the socket, which keeps the load
+  off the writer and the binlog. The plan takes **(c)** — the drill's load
+  becomes a `carlos-ctl` helper the drill unit calls, and `check` reports
+  the drill's node. Open question 9.
+- A point-in-time restore is now a *cluster* rebuild: restore on node 1
+  with `wsrep_on = OFF`, then `cluster bootstrap`, then `cluster join
+  --reseed` on node 2 (its SST wipes and re-copies). The runbook says so.
+
+### 11.7 Failure behaviour, stated so nobody is surprised
+
+- Node 1 dies: the driver's next connection lands on node 2 (writable);
+  in-flight requests on node 1 fail once. Node 1 rejoins with IST when it
+  returns; the driver falls back to it. Data loss: none.
+- Node 2 dies: nothing visible; node 1 and the arbitrator keep quorum.
+- The arbitrator dies: nothing visible; two nodes keep quorum. `status`
+  and the watch timer say the cluster is at 2/3.
+- Two of three lose each other (partition): the side without a majority
+  goes non-Primary and **refuses every query** — CARLOS shows errors rather
+  than accepting writes that could later conflict. That is the correct
+  outcome for a clinical record; `cluster bootstrap --confirm` is how an
+  operator forces the survivor when the other side is known dead.
+- Full power loss: no node starts serving until `cluster bootstrap` on the
+  node whose `grastate.dat` has `safe_to_bootstrap: 1` (Galera marks the
+  last node to leave). `status` names it.
+- Heavy write bursts (a large lab import) make the writer pause under flow
+  control while node 2 catches up; `status` shows the pause fraction and
+  `gcache.size` bounds how long a node can be away before IST becomes SST.
+
+### 11.8 Watch timer and `check`
+
+The phase-1 `check` replication section becomes role-aware: on `cluster`
+nodes it asserts `wsrep_ready`, `Primary`, the expected size, `Synced`, a
+zero certification-failure delta, the TLS pair and CA on the cluster
+ports, the ports listening on the cluster IP only, `innodb_autoinc_lock_mode
+= 2`, the pending primary-key migration absent, and (on application hosts)
+that `db_uri` lists the nodes in the recorded order. On the arbiter:
+`garb.service` active and the cluster size it reports. The watch timer
+alerts on size drops, a non-Primary component, a node not Synced for longer
+than `CARLOS_DB_REPL_MAX_LAG_SECONDS`, and a rising certification-failure
+counter — the last is the fingerprint of an accidental second writer.
+
+### 11.9 Verification before code (the Path B smoke list)
+
+- Connector/J failover semantics on this WAR: `failOverReadOnly=false`
+  actually writes on the secondary; the fall-back timing knobs; behaviour of
+  pooled connections after the writer disappears (DBCP2 eviction via
+  `testOnBorrow`).
+- `wsrep_gtid_mode` with `log_bin` on MariaDB 11.4/11.8: GTID continuity
+  across a failover and after IST.
+- `galera_new_cluster` and `garb` unit names and `/etc/default/garb` keys on
+  Ubuntu 26.04; `galera-arbitrator-4` availability.
+- SST with `mariabackup` over the phase-1 TLS pair, donor and joiner under
+  the enforcing AppArmor profile.
+- The DrugRef seed created as InnoDB replicates row-for-row.
+- The primary-key migration applies cleanly on a populated demo database
+  and the JPA entities on those tables still load.
+- Cost of the restore drill under option (c) versus (a), measured.
+
+Integration test: three systemd containers (node 1 = full server with demo
+data and DrugRef, node 2 = `carlos-emr-db-node`, arbiter), `cluster init`,
+`cluster add` ×2, `cluster join` ×2, assert size 3 and equal row counts;
+write through the app; kill node 1's MariaDB and assert the next app write
+lands on node 2 with zero loss; restart node 1 and assert IST and the
+driver's fall-back; partition node 2 alone and assert it refuses queries;
+stop everything and assert `cluster bootstrap` on the `safe_to_bootstrap`
+node brings the cluster back; run a restore drill and assert no writeset
+crossed to the writer.
+
+### 11.10 Open questions for the maintainer (Path B)
+
+9. **Restore drill placement** — option (c) as drafted (load on the
+   non-writer node via a root helper), or accept cluster-wide replication
+   of the drill load?
+10. **Three database nodes instead of two plus an arbitrator?** Costs a
+    third MariaDB host, removes `garbd`, and lets the cluster survive one
+    node *and* keep a copy elsewhere. The plan's default is 2+1 because it
+    matches "one server room plus a small box".
+11. **Which host runs the arbitrator?** It must not be node 1 or node 2 (it
+    would vote with the host it shares). A router-class box, a NAS, or a
+    small VM on a different hypervisor all work.
+12. **Should Path A remain in the roadmap at all** once Path B exists, or
+    only the "offsite copy" use of it? The phase-1 code stays either way
+    (an async replica *of a Galera node* is a supported MariaDB topology).
