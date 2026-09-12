@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.CachedDateFormats;
+
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRecordHelp {
@@ -121,7 +122,8 @@ public class FrmRecordHelp {
                     String name = md.getColumnName(i);
                     String value;
 
-                    if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+                    String colTypeName = md.getColumnTypeName(i);
+                    if (colTypeName != null && (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit"))) {
                         if (rs.getInt(i) == 1)
                             value = "checked='checked'";
                         else
@@ -297,7 +299,8 @@ public class FrmRecordHelp {
 
             String value = props.getProperty(name, null);
 
-            if (md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) {
+            String colTypeName = md.getColumnTypeName(i);
+            if (colTypeName != null && (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit"))) {
                 if (value != null) {
                     if (value.equalsIgnoreCase("on") || value.equalsIgnoreCase("checked='checked'")) {
                         rs.updateInt(name, 1);
@@ -445,7 +448,8 @@ public class FrmRecordHelp {
             String name = md.getColumnName(i);
             String value;
 
-            if ((md.getColumnTypeName(i).toUpperCase().startsWith("TINYINT") || md.getColumnTypeName(i).equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
+            String colTypeName = md.getColumnTypeName(i);
+            if (colTypeName != null && (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
                 if (rs.getInt(i) == 1)
                     value = "on";
                 else
