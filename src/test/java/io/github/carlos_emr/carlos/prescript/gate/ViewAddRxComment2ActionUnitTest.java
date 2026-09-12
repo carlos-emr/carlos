@@ -81,14 +81,16 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) servletActionContextMock.close();
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
     @DisplayName("should reject a non-POST request before looking up a prescription")
-    void shouldRejectNonPost_beforeLookup() throws Exception {
-        request.setMethod("GET");
+    void shouldRejectNonPost_beforeLookup(String method) throws Exception {
+        request.setMethod(method);
 
         assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
         verifyNoInteractions(prescriptionDao);
     }

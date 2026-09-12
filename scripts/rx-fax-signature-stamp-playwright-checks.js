@@ -348,7 +348,7 @@ function cleanupFixtures() {
 // On interruption (Ctrl-C / CI termination) run the same idempotent DB cleanup, then remove the
 // cleartext-password file, before exiting — so a killed run leaves neither test rows nor the secret.
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(130); });
+  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(signal === 'SIGTERM' ? 143 : 130); });
 }
 
 function sql(query) {

@@ -23,7 +23,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.util.Objects;
 
@@ -38,8 +37,6 @@ public final class ViewAddRxComment2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -54,7 +51,8 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
