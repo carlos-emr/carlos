@@ -81,6 +81,10 @@ public class ReportStatusUpdate2Action extends ActionSupport {
 
     public String executemain() {
 
+        if (!requirePost()) {
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
@@ -132,6 +136,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String addComment() {
+        if (!requirePost()) {
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
@@ -164,7 +171,16 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             logger.error("FAILED TO RETURN DATE", e);
         }
 
-        return null;
+        return NONE;
+    }
+
+    private boolean requirePost() {
+        if ("POST".equals(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     /**

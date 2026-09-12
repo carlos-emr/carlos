@@ -79,6 +79,11 @@ public class ReportMacro2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String execute() throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         ObjectNode result = objectMapper.createObjectNode();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
@@ -93,7 +98,7 @@ public class ReportMacro2Action extends ActionSupport {
             result.put("success", false);
             result.put("error", "No macro name provided");
             response.getWriter().write(result.toString());
-            return null;
+            return NONE;
         }
 
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
@@ -121,7 +126,7 @@ public class ReportMacro2Action extends ActionSupport {
             result.put("success", false);
             result.put("error", "No macros defined in provider preferences");
             response.getWriter().write(result.toString());
-            return null;
+            return NONE;
         }
 
 
@@ -132,7 +137,7 @@ public class ReportMacro2Action extends ActionSupport {
         result.put("acknowledged", outcome.acknowledged());
         result.put("clearedCount", outcome.clearedCount());
         response.getWriter().write(result.toString());
-        return null;
+        return NONE;
     }
 
     /**

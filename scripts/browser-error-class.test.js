@@ -23,3 +23,20 @@ for (const name of ['record-binding', 'signature-stamp', 'reprint-represcribe'])
     assert.doesNotMatch(source, /\{ encoding: 'utf8', timeout: 30000 \}/);
   });
 }
+
+test('signature findings and summary retain no browser content or patient identifiers', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'prescription-signature-playwright-checks.js'), 'utf8');
+  const recorder = source.slice(source.indexOf('function wirePage('), source.indexOf('async function login('));
+  assert.doesNotMatch(recorder, /(?:url|body|text|location):|error\.(?:stack|message)|dialog\.message\(/);
+  assert.doesNotMatch(source, /visited\.push\([^\n]*url:|\$\{(?:result\.text|text|bodyText|storedPreview\.src)/);
+  assert.doesNotMatch(source, /return \{\s*scriptId: prescriptionScriptId/);
+  assert.match(source, /signatureMatched: true/);
+});
+
+test('eDoc diagnostics omit raw errors and URLs and screenshots require explicit opt-in', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'edoc-schedule-navigation-playwright-checks.js'), 'utf8');
+  assert.doesNotMatch(source, /\b(?:error|e)\.(?:message|stack|stderr)\b/);
+  assert.doesNotMatch(source, /\$\{page\.url\(\)\}/);
+  assert.match(source, /screenshotDir: process\.env\.EDOC_NAV_SCREENSHOT_DIR \|\| ''/);
+  assert.match(source, /if \(!config\.screenshotDir\) return;/);
+});

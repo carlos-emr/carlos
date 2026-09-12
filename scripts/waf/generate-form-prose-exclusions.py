@@ -66,8 +66,9 @@ FIRST_RULE_ID = 1200
 CONTENT_ATTACK_TAGS = ("attack-sqli", "attack-rce", "attack-injection-php",
                        "attack-protocol", "attack-lfi", "attack-rfi")
 # Name fragments that mark a single-line text input as a narrative box on these forms.
+# "other" starts a token (or camel-case Other); it must not match mother/brother.
 PROSE_INPUT_NAME = re.compile(
-    r"comment|note|observ|remark|plan|reason|detail|finding|history|hx|other|desc|explain|"
+    r"comment|note|observ|remark|plan|reason|detail|finding|history|hx|(?:^|[^a-z])other|(?-i:Other)|desc|explain|"
     r"concern|summary|text|assess|impression|recommend|complaint|diagnos|problem|allerg|"
     r"medic|social|family|advice|counsel|consider", re.IGNORECASE)
 # ...unless the name also says it holds a date, an identifier, a phone number or a

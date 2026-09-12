@@ -205,6 +205,8 @@
         }
         boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, consultSecurityTarget);
         boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()
+                && consultSecurityTarget != null && consultSecurityTarget.matches("[0-9]+")
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.parseInt(consultSecurityTarget))
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
 

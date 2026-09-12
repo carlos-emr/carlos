@@ -441,12 +441,24 @@ public class CommonLabResultData {
     public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                           String comment, String labType,
                                                           boolean skipCommentOnUpdate, String multiId) {
+        // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
+        // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
+        org.springframework.transaction.support.TransactionTemplate transaction =
+                new org.springframework.transaction.support.TransactionTemplate(
+                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        return transaction.execute(transactionStatus -> updateReportChainInTransaction(
+                labNo, providerNo, status, comment, labType, skipCommentOnUpdate, multiId));
+    }
+
+    private static int updateReportChainInTransaction(int labNo, String providerNo, char status,
+                                                       String comment, String labType,
+                                                       boolean skipCommentOnUpdate, String multiId) {
         // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
         // that fails after the reviewed row is already stamped, the caller reports a failure
         // while the acknowledgement is half-applied: the lab is acknowledged, its older
         // versions are still NEW, and the collapsed inbox row comes back. Failing here leaves
-        // nothing written. (These are still separate writes, not one transaction — a failure
-        // partway through the loop below can still file some versions and not others.)
+        // nothing written. The outer transaction also rolls back every routing/archive write
+        // if any subsequent version fails, rather than leaving a partly filed chain.
         List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
 
         // Counted BEFORE each write, and only for rows that were actually NEW. updateReportStatus

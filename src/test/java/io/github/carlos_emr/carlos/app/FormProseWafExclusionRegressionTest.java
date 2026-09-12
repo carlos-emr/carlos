@@ -93,12 +93,24 @@ class FormProseWafExclusionRegressionTest {
             Pattern.CASE_INSENSITIVE);
     private static final Pattern ROUTE = Pattern.compile("/form/[A-Za-z0-9_]+");
     private static final Pattern PROSE_INPUT_NAME = Pattern.compile(
-            "comment|note|observ|remark|plan|reason|detail|finding|history|hx|other|desc|explain|"
+            "comment|note|observ|remark|plan|reason|detail|finding|history|hx|(?:^|[^a-z])other|(?-i:Other)|desc|explain|"
                     + "concern|summary|text|assess|impression|recommend|complaint|diagnos|problem|allerg|"
                     + "medic|social|family|advice|counsel|consider", Pattern.CASE_INSENSITIVE);
     private static final Pattern NOT_PROSE_INPUT_NAME = Pattern.compile(
             "date|time|dob|phone|fax|postal|hin\\b|_no$|no$|id$|num$|code|weight|height|\\bbp\\b|"
                     + "dose|units?$|qty|quantity|score|total|count", Pattern.CASE_INSENSITIVE);
+
+    @Test
+    @DisplayName("should retain WAF inspection for mother identity and measurement fields")
+    void shouldBoundOtherToken_whenClassifyingNarrativeFields() {
+        for (String field : List.of("motherSurname", "motherFirstname", "motherVC", "motherAddress",
+                "motherCity", "motherProvince", "motherStature", "brotherName")) {
+            assertThat(PROSE_INPUT_NAME.matcher(field).find()).as(field).isFalse();
+        }
+        for (String field : List.of("other", "otherSymptoms", "p1_other", "symptomOther", "p1OtherText")) {
+            assertThat(PROSE_INPUT_NAME.matcher(field).find()).as(field).isTrue();
+        }
+    }
 
     /** What one JSP contributes: its save route, form_class, prose cell names, and includes. */
     private static final class PageInfo {

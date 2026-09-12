@@ -29,6 +29,7 @@ for (const launchFails of [false, true]) {
           return { throwIfCancelled() { events.push('check'); }, dispose() { events.push('dispose'); } };
         } };
         if (name === './local-fixture-cleanup') return {};
+        if (name === './browser-error-class') return require(name);
         throw new Error('unexpected dependency');
       },
     });
