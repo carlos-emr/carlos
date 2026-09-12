@@ -29,7 +29,9 @@
  * endpoint, saves it through /rx/saveDigitalSignature, verifies the live
  * preview reloads the signature image, then rebuilds the prescription view and
  * verifies the stored signature is persisted on the preview. The uploaded
- * association is cleared after the check.
+ * association is cleared after the check. Set PRESCRIPTION_SIGNATURE_CLEANUP=true
+ * with local MYSQL_HOST/USER/PASSWORD/DATABASE settings to remove this run's
+ * unreferenced signature row and encrypted image as well.
  *
  * Required fixture:
  *   PRESCRIPTION_SCRIPT_ID=123 npm run test:prescription-signature-playwright
@@ -51,6 +53,8 @@
  */
 
 const { chromium } = require('playwright');
+const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
+const { localFixtureSql, deleteOwnedPrescriptionSignature } = require('./local-fixture-cleanup');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -415,6 +419,10 @@ async function runPrescriptionSignatureCheck(context) {
   let associationCleared = false;
 
   try {
+    if (process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true') {
+      // Check the explicitly enabled local database access before creating a signature.
+      localFixtureSql('SELECT 1');
+    }
     await openPrescriptionView(page, 'initial-prescription-view');
     const initialPreview = await readPreviewSignature(page, { requireLoaded: false });
     if (initialPreview.storedSignatureId) {
@@ -455,11 +463,16 @@ async function runPrescriptionSignatureCheck(context) {
     if (associationCleared || uploadedSignatureId) {
       try {
         await savePrescriptionSignatureAssociation(page, null);
+        if (uploadedSignatureId && process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true') {
+          deleteOwnedPrescriptionSignature(uploadedSignatureId, prescriptionDemographicNo);
+        } else if (uploadedSignatureId) {
+          console.warn('Created signature retained: enable PRESCRIPTION_SIGNATURE_CLEANUP with local MYSQL settings for full teardown');
+        }
       } catch (error) {
         findings.push({
           label: 'prescription-signature:restore',
           type: 'restore-error',
-          text: error.stack || error.message,
+          text: 'Could not completely restore the prescription signature fixture',
         });
       }
     }
@@ -477,20 +490,21 @@ async function runPrescriptionSignatureCheck(context) {
   }
 
   const browser = await chromium.launch(launchOptions);
+  const cancellation = createGracefulSignalCancellation();
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
 
-    const result = await runPrescriptionSignatureCheck(context);
+    const result = await cancellation.run(() => runPrescriptionSignatureCheck(context));
     console.log(JSON.stringify({ visited, result, findings }, null, 2));
     if (findings.length) {
       process.exitCode = 1;
     }
   } finally {
-    await browser.close();
+    try { await browser.close(); } finally { cancellation.dispose(); }
   }
 })().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
+  console.error('Prescription signature validation failed');
+  process.exitCode = error.exitCode || 1;
 });

@@ -105,6 +105,20 @@ class RxSatelliteClinicAddressUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPreserveLiteralEntities_inTheActualOfferedWireBlock() {
+        String literal = RxSatelliteClinicAddress.html("Dr A", "Smith &amp; Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1",
+                "7055551111", "7055552222", "Tel", "Fax");
+        String plain = RxSatelliteClinicAddress.html("Dr A", "Smith & Jones", "2 North Ave", "Barrie", "ON", "L4M 1A1",
+                "7055551111", "7055552222", "Tel", "Fax");
+        String posted = org.apache.commons.text.StringEscapeUtils.unescapeHtml4(literal);
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(literal), posted)).isEqualTo(posted);
+        // Exact wire identity wins even when another site's canonical text would also match.
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(plain, literal), posted)).isEqualTo(posted);
+        String ambiguous = posted.replace("&amp;", "&#38;");
+        assertThat(RxSatelliteClinicAddress.offeredBlock(List.of(plain, literal), ambiguous)).isNull();
+    }
+
+    @Test
     @DisplayName("should list the provider's active sites when multisites is on")
     void shouldListActiveSites_whenMultisitesEnabled() {
         CarlosProperties.getInstance().setProperty("multisites", "true");

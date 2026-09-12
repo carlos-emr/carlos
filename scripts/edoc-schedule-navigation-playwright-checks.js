@@ -50,13 +50,16 @@
  *   TEST_USER=carlosdoc  TEST_PASSWORD=carlos2026  TEST_PIN=2026
  *   EDOC_NAV_SCREENSHOT_DIR=/tmp   ALLOW_NON_LOCAL_BASE_URL=true
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (fixture teardown; see below)
+ *   EDOC_NAV_DOCUMENT_STORE=/mounted/server/document/store (complete file teardown)
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  *
  * FIXTURE SAFETY: creates one PDF and one link under unique descriptions and
  * only mutates those fixtures. Note that the
  * UI delete in scenario 3 is the application's SOFT delete -- status='D', row and
- * file both still there -- so it is an assertion, NOT teardown. The row is removed
- * for real in the `finally` block on ordinary success or failure. Cleanup errors
+ * file both still there -- so it is an assertion, NOT teardown. With an explicit
+ * EDOC_NAV_DOCUMENT_STORE, the owned PDF, blob and rows are removed in finally.
+ * Without a mounted store the fixtures are soft-deleted and metadata is retained
+ * so the files remain identifiable for server-side cleanup instead of orphaned. Cleanup errors
  * fail validation. Signal handling is best effort; kills, a pending server write,
  * or host panic can leave strays. Identify those by their carlos-nav-probe- prefix
  * on a disposable demo database and remove their related rows by document_no.
@@ -69,6 +72,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
+const { removeOwnedDocumentFile } = require('./local-fixture-cleanup');
 
 /*
  * Hosts that are unambiguously this machine or its compose network. The teardown below
@@ -245,16 +249,26 @@ function cleanupProbeDocuments() {
     assert(ids.every((id) => /^\d+$/.test(id)), 'Fixture cleanup returned a nonnumeric document id');
     const list = ids.join(',');
     console.log(`cleanup: removing probe document row(s) ${list} for ${docDescription}`);
-    // document_storage is empty in the default file-backed mode, but carries the file's bytes
-    // when database-backed storage is on (AddEditDocument2Action writes it), so the blob has to
-    // go before the row that names it. The uploaded file itself lives in the server's document
-    // store, which a browser-driven check cannot reach -- same limitation as
-    // document-upload-playwright-checks.js.
+    // With an explicitly mounted server document store, remove only this run's uniquely
+    // named upload before deleting its metadata. Add Link never owns its remote target.
+    const store = process.env.EDOC_NAV_DOCUMENT_STORE;
+    if (!store) {
+      sql(`UPDATE document SET status='D' WHERE document_no IN (${list})`);
+      console.warn('Fixture files/metadata retained: set EDOC_NAV_DOCUMENT_STORE for complete local teardown');
+      return;
+    }
+    const filenames = sql(`SELECT HEX(docfilename) FROM document WHERE docdesc='${docDescription}'`)
+      .split(/\s+/).filter(Boolean);
+    for (const encoded of filenames) {
+      assert(/^(?:[0-9A-Fa-f]{2})+$/.test(encoded), 'Invalid fixture filename encoding');
+      removeOwnedDocumentFile(store, Buffer.from(encoded, 'hex').toString('utf8'), docDescription);
+    }
+    // Database-backed storage owns its blob; remove that before the metadata too.
     sql(`DELETE FROM document_storage WHERE documentNo IN (${list})`);
     sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
     sql(`DELETE FROM document WHERE document_no IN (${list})`);
   } catch (e) {
-    console.error(`FAIL: could not clean up probe documents for ${docDescription}: ${e.message}`);
+    console.error(`FAIL: could not clean up probe documents for ${docDescription}`);
     process.exitCode = 1;
   }
 }

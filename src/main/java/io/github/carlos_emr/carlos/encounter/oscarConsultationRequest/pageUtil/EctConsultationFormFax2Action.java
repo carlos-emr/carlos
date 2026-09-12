@@ -321,14 +321,20 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         try {
             faxManager.persistAndLogConsultationFaxJobs(loggedInInfo, builtFaxJobs, reqIdValue);
         } catch (RuntimeException e) {
-            cleanupAttemptFiles(attemptFiles, List.of());
-            logger.error("Consultation fax batch could not be persisted; no jobs were queued", e);
-            request.setAttribute("errorMessage",
-                    "This fax could not be sent. \n\nThe fax queue could not be updated; no faxes were queued.");
-            return "error";
+            // A transaction exception can be a lost commit acknowledgement. WAITING jobs
+            // may already reference these files: never delete them or invite an automatic retry.
+            logger.error("Consultation fax queue outcome is uncertain; retaining all prepared files", e);
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return "faxUncertain";
         }
         cleanupAttemptFiles(attemptFiles, builtFaxJobs);
-        LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
+        try {
+            // The manager already committed the correlated queue/audit transaction. This
+            // secondary legacy log must not turn a queued fax into a retryable failure.
+            LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
+        } catch (RuntimeException e) {
+            logger.warn("Consultation fax queued; secondary legacy audit logging failed", e);
+        }
         request.setAttribute("faxSuccessful", true);
         return SUCCESS;
     }

@@ -477,6 +477,10 @@ export TEST_PASSWORD='Carlos2026!Verify'
 # DB-backed checks: root over the MariaDB unix socket (the password value is
 # ignored by unix_socket auth but the scripts require it to be set).
 export MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD=dummy MYSQL_DATABASE=carlos
+# Remove this run's unreferenced signature/image and uniquely named uploaded PDF,
+# using explicit local database access and the mounted server document directory.
+export PRESCRIPTION_SIGNATURE_CLEANUP=true
+export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # login-playwright-checks mutates and restores this account; give it the hash of
 # the password that the forced-reset step above actually installed.
 export TEST_PASSWORD_HASH="$(mariadb -u root carlos -Nse \
