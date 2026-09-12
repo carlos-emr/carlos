@@ -464,9 +464,15 @@ mariadb-dump --host=<primary> --port=3306 --ssl-ca=<pinned> --ssl-verify-server-
   --user=repl_… --single-transaction --gtid --master-data=2 \
   --hex-blob --routines --events --triggers --no-tablespaces \
   --default-character-set=utf8mb4 --databases <db.schemas from the token> \
-| { echo 'SET SESSION sql_log_bin = 0; SET NAMES utf8mb4 COLLATE utf8mb4_general_ci; SET SESSION sql_mode="";'; cat; } \
+| <carlos-ctl's seed filter: prepends SET SESSION sql_log_bin=0, SET NAMES utf8mb4 COLLATE utf8mb4_general_ci,
+   SET SESSION sql_mode=''; passes every line through unchanged; records the commented
+   CHANGE MASTER / SET GLOBAL gtid_slave_pos lines wherever they occur> \
 | mariadb --protocol=socket --user=root
 ```
+
+(Shown as a pipeline for clarity; `join` runs it as one Python process
+owning both ends so a failure in any stage fails the join, which a shell
+pipeline without `pipefail` would not.)
 
 The same flags the nightly backup uses (`--single-transaction --hex-blob
 --routines --events --triggers --no-tablespaces`), so the seed is a copy the
@@ -511,7 +517,8 @@ the 11.4 client source (`client/mysqldump.cc`: `check_consistent_binlog_pos`,
   unparsable position aborts the join before `START SLAVE`; it is never
   defaulted.
 
-Refusals before any byte moves: MariaDB version mismatch, the `carlos`
+Refusals before any byte moves: a replica MariaDB older than the primary's,
+a primary without the `Binlog_snapshot_*` status variables, the `carlos`
 schema already holds tables (unless `--reseed`, which requires the
 `--confirm <server-name>` idiom `destroy-data` uses), free space under
 2 × the primary's reported data size, the primary unreachable over TLS with
@@ -751,7 +758,8 @@ installed base working unchanged.
      `--allow-public`);
    - `62-carlos-emr-replication.cnf` renderer (primary shape) +
      `db-apply-settings` extended so its compare set includes
-     `bind_address`, `have_ssl`, `gtid_strict_mode`;
+     `bind_address`, `ssl_cert` (the configured path, rather than the
+     legacy `have_ssl` flag), `gtid_strict_mode`;
    - `repl_<ip>@<ip>` account with the backup grant set, `REQUIRE SSL`,
      `sql_log_bin = 0`;
    - token writer (schema v1), per-replica state dir, expiry, `--reissue`;
