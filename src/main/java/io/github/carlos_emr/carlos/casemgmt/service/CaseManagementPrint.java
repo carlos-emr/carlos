@@ -78,8 +78,6 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -388,11 +386,15 @@ public class CaseManagementPrint {
                         os2 = null;
 
                         File file3 = PathValidationUtils.createSecureTempFile(tempPrefix + "-embedded-", ".pdf");
+                        // Registered for cleanup BEFORE the stream is opened and the lab embedded: the
+                        // finally block only deletes what pdfDocs names, so a failure in either step
+                        // used to leave this file, which holds lab PHI, in the temp directory. Concat
+                        // below tolerates an empty entry, and on the failure path it is never reached.
+                        pdfDocs.add(file3.getAbsolutePath());
                         fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(file3));
                         pdfCreator.addEmbeddedDocuments(file2, fos);
                         fos.close();
                         fos = null;
-                        pdfDocs.add(file3.getAbsolutePath());
 
                         // One lab per iteration: the finally block below only sees the last file2, so
                         // every earlier lab's intermediate PDF (PHI) used to outlive the print.

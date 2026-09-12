@@ -471,9 +471,16 @@ async function printChart(page, noteText, flags) {
       }
     } finally {
       // Whatever the prints did, do not leave the run's phrases as the patient's
-      // draft. A rejected print has navigated the page away, so this can fail too;
-      // record it and let the print failure below stay the headline.
+      // draft. A rejected print navigates the page to the error response, where
+      // the note textarea no longer exists and cleanUpNoteDraft() would throw with
+      // the corpus still sitting in casemgmt_tmpsave — so go back to the chart
+      // first. That is the exact path this check exists to catch, which makes it
+      // the path the cleanup most needs to survive. If the chart itself will not
+      // open, record that and let the print failure below stay the headline.
       try {
+        if ((await page.locator('textarea[name="caseNote_note"]').count()) === 0) {
+          await openEchart(page);
+        }
         cleanupOutcome = await cleanUpNoteDraft(page, originalNote);
       } catch (error) {
         cleanupFailure = error;
