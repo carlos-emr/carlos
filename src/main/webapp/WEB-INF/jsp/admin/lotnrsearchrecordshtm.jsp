@@ -77,9 +77,9 @@
             function onsub() {
 
                 // make keyword lower case
-                var keyword = document.searchprovider.keyword.value;
+                var keyword = document.searchlotnr.keyword.value;
                 var keywordLowerCase = keyword.toLowerCase();
-                document.searchprovider.keyword.value = keywordLowerCase;
+                document.searchlotnr.keyword.value = keywordLowerCase;
             }
 
             function upCaseCtrl(ctrl) {

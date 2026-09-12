@@ -374,7 +374,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         request.setAttribute("importlog", importLog.getPath());
         resetProviderBean(request);
         generateResponse(response, warnings, importLog.getPath());
-        return SUCCESS;
+        return NONE;
     }
 
     private static final ObjectMapper jsonMapper = new ObjectMapper();
