@@ -37,8 +37,9 @@
  *   TEST_PIN=2026
  *   CLINICAL_DEMOGRAPHIC_NO=1
  *   CLINICAL_CONSULT_SERVICE_ID=1
- *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not this
- *     machine — this check writes, so a private LAN address needs the opt-in too
+ *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not
+ *     loopback — this check writes, so a private LAN address, host.docker.internal
+ *     and the compose name `carlos` all need the opt-in too
  */
 
 const { chromium } = require('playwright');
@@ -77,13 +78,15 @@ const PROSE_CORPUS = [
 
 /*
  * Deliberately NARROWER than the guard the read-only checks share: this one
- * admits only hosts that are unambiguously this machine or its compose network,
- * and not the private IPv4 ranges the shared guard also allows. Both of this
- * check's workflows perform REAL writes — a run rewrites the patient's Alert and
- * Notes with a corpus phrase and files seven consultation requests — and RFC1918
- * is exactly where a real clinic's server lives. Same reasoning, and the same
- * opt-in, as the fixture-teardown guards in edoc-schedule-navigation and
- * assign-role.
+ * admits only LOOPBACK unconditionally — not the private IPv4 ranges the shared
+ * guard allows, and not the compose names either. Both of this check's
+ * workflows perform REAL writes — a run rewrites the patient's Alert and Notes
+ * with a corpus phrase and files seven consultation requests — and RFC1918 is
+ * exactly where a real clinic's server lives. host.docker.internal and a bare
+ * `carlos` are usually the devcontainer, but from a container on a clinic's
+ * server the first IS that server and the second is whatever the site's DNS
+ * search domain says, so both need the explicit opt-in too. Same reasoning as
+ * the fixture-teardown guards in edoc-schedule-navigation and assign-role.
  */
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -96,14 +99,22 @@ function validateBaseUrl(rawBaseUrl) {
     throw new Error('BASE_URL must not contain embedded credentials');
   }
 
-  const exactLocalHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (!exactLocalHosts.has(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!isLoopback(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}: this check overwrites clinical free text and files `
       + 'consultation requests. Set ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test install');
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+/** Loopback only: localhost, any 127.0.0.0/8 literal, ::1 (either spelling) and 0.0.0.0. */
+function isLoopback(host) {
+  if (['localhost', '::1', '0:0:0:0:0:0:0:1', '0.0.0.0'].includes(host)) return true;
+  const octets = host.split('.');
+  return octets.length === 4
+    && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+    && Number(octets[0]) === 127;
 }
 
 function requireDigits(value, name) {
@@ -153,7 +164,7 @@ function wirePage(page, label) {
 async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to this machine unless explicitly opted out of
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   // login/index.jsp renders #pin only when MfaManager.isOscarLegacyPinEnabled(); filling it
@@ -262,12 +273,19 @@ async function replay(page, workflow, entries, phrase) {
     });
     // A save that succeeds usually answers with a redirect. `redirect: 'manual'`
     // normally surfaces that as an opaque-redirect response (type
-    // 'opaqueredirect', status 0), but report a plain 3xx as the same redirect
-    // rather than as a failure, so a change in how the browser filters manual
-    // redirects cannot turn a successful save into a spurious FAIL. A WAF
-    // rejection is never either of those: it is always a real 403 from nginx.
+    // 'opaqueredirect', status 0, no readable Location), but report a plain 3xx
+    // as the same redirect rather than as a failure, so a change in how the
+    // browser filters manual redirects cannot turn a successful save into a
+    // spurious FAIL. Where a Location IS readable, a bounce to the login,
+    // logout or error page is a lapsed session, not a save, and is reported as
+    // such; the opaque case is covered by the page re-open in runWorkflow(). A
+    // WAF rejection is never any of these: it is always a real 403 from nginx.
     if (response.type === 'opaqueredirect') return 'redirect';
-    if (response.status >= 300 && response.status < 400) return 'redirect';
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location') || '';
+      if (/\/(?:login|logout|errorpage)\b/i.test(location)) return `redirect-to-${location}`;
+      return 'redirect';
+    }
     return response.status;
   }, {
     pairs: entries,
@@ -286,7 +304,7 @@ async function runWorkflow(context, workflow) {
   const page = await context.newPage();
   wirePage(page, workflow.name);
   try {
-    await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to this machine unless explicitly opted out of
+    await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
     await page.locator(workflow.ready).first().waitFor({ state: 'attached', timeout: 30000 });
     // CSRFGuard's client script fills the hidden input after the page loads, so wait
     // for a populated token rather than racing it; a still-empty one is reported by
@@ -329,6 +347,17 @@ async function runWorkflow(context, workflow) {
         workflow: workflow.name, phrase: phrase.label, crs: phrase.crs, status,
       });
     }
+
+    // An opaque redirect carries no destination, so a session that lapsed mid-run
+    // would score every replay as a quiet 'redirect' and the check would pass
+    // having measured nothing. Re-open the workflow's own page and require its
+    // free-text control to render again: the login form does not have it.
+    await page.goto(workflow.open(), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback unless explicitly opted out of
+    const stillSignedIn = await page.locator(workflow.ready).first()
+      .waitFor({ state: 'attached', timeout: 30000 }).then(() => true, () => false);
+    assert(stillSignedIn,
+      `${workflow.name}: the page no longer renders ${workflow.ready} after the replays — the session lapsed `
+      + 'or the app bounced to login, so the redirects above were not saves');
   } finally {
     await page.close();
   }
@@ -362,7 +391,8 @@ async function runWorkflow(context, workflow) {
       + `${JSON.stringify(blocked, null, 2)}`);
 
     const failed = saveResults.filter((result) => result.status !== 200 && result.status !== 'redirect');
-    assert(failed.length === 0, `a clinical free-text save did not return HTTP 200: ${JSON.stringify(failed, null, 2)}`);
+    assert(failed.length === 0,
+      `a clinical free-text save did not return HTTP 200 or a save redirect: ${JSON.stringify(failed, null, 2)}`);
 
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);
     assert(wafBlocked.length === 0,
