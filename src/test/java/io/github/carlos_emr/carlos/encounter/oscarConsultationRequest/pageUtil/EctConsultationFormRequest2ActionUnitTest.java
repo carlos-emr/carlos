@@ -319,7 +319,13 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
                 .thenThrow(new RuntimeException("sensitive internal path /var/lib/CarlosDocument/consult.pdf"));
 
-        String result = action.execute();
+        String result;
+        try (var capture = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormRequest2Action.class)) {
+            result = action.execute();
+            assertThat(capture.messages().toString()).contains("Consultation print preview failed (RuntimeException)")
+                    .doesNotContain("sensitive internal path", "/var/lib/CarlosDocument", "consult.pdf");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");

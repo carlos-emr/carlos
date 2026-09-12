@@ -743,7 +743,7 @@ function labDocumentRows(segmentId, labType) {
             return jQuery(this).attr('data-lab-type') === labType
                     || jQuery(this).find('input[name="flaggedLabs"]').val() === segmentId + ':' + labType;
         });
-        if (typed.length) return typed;
+        if (typed.length) return typed.length === 1 ? typed : jQuery();
         if (rows.attr('data-lab-type') || String(rows.find('input[name="flaggedLabs"]').val() || '').includes(':')) {
             return jQuery();
         }

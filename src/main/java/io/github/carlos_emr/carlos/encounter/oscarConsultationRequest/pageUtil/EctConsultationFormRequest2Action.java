@@ -741,9 +741,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         renderConsultationFormWithAttachments(request, response, requestId, previewDemographicNo);
                     }
                 } catch (RuntimeException e) {
-                    // Log the full exception server-side only; do not surface e.getMessage() to the
-                    // browser (it can carry internal/identifier detail and renders "null" when absent).
-                    logger.error("Error generating consultation print preview for requestId={}", LogSafe.sanitize(requestId), e);
+                    // Renderer exceptions can contain clinical text and attachment paths;
+                    // neither the browser response nor operational logs may disclose them.
+                    logger.error("Consultation print preview failed ({})", e.getClass().getSimpleName());
                     request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
                 }
             }

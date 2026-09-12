@@ -812,6 +812,15 @@ public class FaxManagerImpl implements FaxManager {
         }
     }
 
+    /**
+     * Persists one fax job and its clinical audit record in the same transaction.
+     * @param loggedInInfo authenticated caller, who must hold _fax write privilege
+     * @param faxJob prepared job to persist
+     * @param transactionType originating clinical module
+     * @param transactionId originating clinical record identifier
+     * @throws SecurityException when fax write privilege is absent
+     * @throws RuntimeException when persistence or audit fails; the transaction rolls back
+     */
     @Transactional
     @Override
     public void persistAndLogFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob,

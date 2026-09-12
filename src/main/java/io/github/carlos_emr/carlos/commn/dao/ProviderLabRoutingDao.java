@@ -34,11 +34,21 @@ public interface ProviderLabRoutingDao extends AbstractDao<ProviderLabRoutingMod
      */
     int transitionNewRoutingRows(int labNo, String labType, String providerNo, char status);
 
-    /** Serialize routing creation/update/cleanup for a report until the caller's transaction ends.
-     * Acquire multiple report locks in ascending numeric order. */
+    /**
+     * Serializes routing creation/update/cleanup until the caller's transaction ends.
+     * Requires an existing transaction; acquire multiple report locks in ascending numeric order.
+     * @param labNo report identifier shared across providers and routing types
+     */
     void lockRoutingReport(int labNo);
 
-    /** Current, locked routing read; requires an existing transaction and report lock. */
+    /**
+     * Reads current routing rows with pessimistic write locks, refreshing managed instances.
+     * Requires an existing transaction and the report coordination lock.
+     * @param labNo report identifier
+     * @param labType exact routing type
+     * @param providerNo destination provider identifier
+     * @return all matching locked routing rows, or an empty list when none exist
+     */
     List<ProviderLabRoutingModel> findRoutingForUpdate(int labNo, String labType, String providerNo);
 
     public static final String UNCLAIMED_PROVIDER = "0";

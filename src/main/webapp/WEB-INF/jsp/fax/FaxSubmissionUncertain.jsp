@@ -1,4 +1,10 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. GPL version 2 or later. --%>
+<%--
+    Purpose: explain an unconfirmed fax queue transaction without enabling a duplicate send.
+    Features: localized warning, accessible alert, no retry form or automatic navigation.
+    Parameters: none; text is fixed and localized, not derived from request data.
+    @since 2026-09-12
+--%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

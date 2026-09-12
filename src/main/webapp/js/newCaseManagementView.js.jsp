@@ -27,6 +27,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: provide the encounter editor's client-side behavior.
+    Features: note editing, layout, clinical text insertion and prescription paste coordination.
+    Parameters: authenticated provider properties and localized server-side configuration;
+                patient and encounter context are supplied by the containing view.
+    @since 2026-09-12 (promotion documentation and safe paste diagnostics)
+--%>
     <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
     <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
