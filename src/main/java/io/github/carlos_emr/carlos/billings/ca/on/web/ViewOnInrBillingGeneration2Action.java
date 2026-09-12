@@ -107,7 +107,7 @@ public class ViewOnInrBillingGeneration2Action extends ActionSupport {
 
         String clinicNo = request.getParameter("clinic_no");
         String clinicRefCode = request.getParameter("xml_location");
-        String creator = request.getParameter("curUser");
+        String creator = loggedInInfo.getLoggedInProviderNo();
         String appointmentDate = request.getParameter("xml_appointment_date");
 
         Enumeration<String> paramNames = request.getParameterNames();
