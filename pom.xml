@@ -1762,6 +1762,7 @@
                         <include>**/*UnitTest.java</include>
                         <include>**/*RegressionTest.java</include>
                         <!-- Promotion-touched legacy test names must run without -Dtest. -->
+                        <include>**/eform/actions/AddEForm2Action*Test.java</include>
                         <include>**/DocumentDelete2ActionTest.java</include>
                         <include>**/DocumentUndelete2ActionTest.java</include>
                         <include>**/RxRePrescribe2ActionTest.java</include>

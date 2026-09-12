@@ -402,8 +402,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   try {
     const parameters = new URLSearchParams({ method: 'prepareFax', transactionType: 'EFORM',
       transactionId: String(fdid), demographicNo: String(demographicNo) });
-    await page.goto(appUrl(`/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}&parentAjaxId=eforms`),
-      { waitUntil: 'domcontentloaded' });
+    await gotoApp(page, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}&parentAjaxId=eforms`);
     csrfToken = await readCsrfToken(page);
     for (const method of ['GET', 'HEAD']) {
       const rejected = await context.request.fetch(`${endpoint}?${parameters}`, { method });
@@ -446,8 +445,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     otherContext = await browser.newContext({ ignoreHTTPSErrors: true });
     const otherLogin = await login(otherContext);
     // Use this session's own valid token, so a CSRF refusal cannot satisfy the ownership assertion.
-    await otherLogin.goto(appUrl(`/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=${encodeURIComponent(demographicNo)}`),
-      { waitUntil: 'domcontentloaded' });
+    await gotoApp(otherLogin, `/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=${encodeURIComponent(demographicNo)}`);
     const otherToken = await readCsrfToken(otherLogin);
     await otherLogin.close();
     const otherSession = await otherContext.request.post(endpoint, { form: form({ 'CSRF-TOKEN': otherToken }), maxRedirects: 0 });
