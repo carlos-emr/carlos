@@ -196,7 +196,8 @@ def include_key(page_key, target):
 
 
 def analyse(path, page_key):
-    text = strip_comments(open(path, encoding="utf-8", errors="replace").read())
+    with open(path, encoding="utf-8", errors="replace") as source:
+        text = strip_comments(source.read())
     info = {"route": None, "form_class": None, "names": [], "dynamic": [], "has_form": False,
             "includes": [include_key(page_key, m.group(1) or m.group(2)) for m in INCLUDE_RE.finditer(text)]}
     for tag, raw in find_tags(text):
@@ -356,7 +357,10 @@ def main():
     groups, report = collect()
     content = render(groups)
     if "--check" in sys.argv:
-        current = open(OUTPUT, encoding="utf-8").read() if os.path.exists(OUTPUT) else ""
+        current = ""
+        if os.path.exists(OUTPUT):
+            with open(OUTPUT, encoding="utf-8") as generated:
+                current = generated.read()
         for line in report:
             print(line, file=sys.stderr)
         if current != content:
