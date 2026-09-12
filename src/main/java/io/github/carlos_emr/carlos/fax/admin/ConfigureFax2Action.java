@@ -55,7 +55,6 @@ import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.fax.core.FaxImporter;
 import java.io.IOException;
 
@@ -89,8 +88,6 @@ public class ConfigureFax2Action extends ActionSupport {
     /**
      * Dispatches request methods for configure/scheduler endpoints.
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     public String execute() {
         String method = request.getParameter("method");
 
@@ -105,7 +102,7 @@ public class ConfigureFax2Action extends ActionSupport {
         boolean mutator = "configure".equals(method) || "restartFaxScheduler".equals(method)
                 || "testConnection".equals(method);
         String httpMethod = request.getMethod();
-        if (mutator && !"POST".equalsIgnoreCase(httpMethod)) {
+        if (mutator && !"POST".equals(httpMethod)) {
             response.setHeader("Allow", "POST");
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
             // Direct-response contract: NONE stops Struts result resolution after the

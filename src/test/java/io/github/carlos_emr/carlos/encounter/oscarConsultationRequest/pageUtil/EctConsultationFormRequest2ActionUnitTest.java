@@ -623,15 +623,17 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mergedConsultation.getValue().getServiceId()).isNull();
     }
 
-    @Test
-    @DisplayName("rejects GET with 405 and performs no persistence")
-    void shouldRejectGet_withMethodNotAllowed() throws Exception {
-        request.setMethod("GET");
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
+    @DisplayName("rejects every non-POST verb with 405 and performs no persistence")
+    void shouldRejectNonPost_withMethodNotAllowed(String verb) throws Exception {
+        request.setMethod(verb);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(consultationRequestDao, never()).persist(any());
         verify(consultationRequestDao, never()).merge(any());
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());

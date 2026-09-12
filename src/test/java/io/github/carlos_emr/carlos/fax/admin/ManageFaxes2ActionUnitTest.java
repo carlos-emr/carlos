@@ -64,7 +64,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link ManageFaxes2Action}: the GET/HEAD 405 gate on the mutator
+ * Unit tests for {@link ManageFaxes2Action}: the exact-POST 405 gate on the mutator
  * dispatch targets (CancelFax/ResendFax/SetCompleted), the {@code _admin.fax}
  * privilege gates, the provider-abstracted CancelFax flow, and the null-safe
  * fetchFaxStatus filter handling.
@@ -134,12 +134,19 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
         return faxConfig;
     }
 
-    @ParameterizedTest(name = "GET method={0} is rejected with 405 before dispatch")
-    @ValueSource(strings = {"CancelFax", "ResendFax", "SetCompleted"})
-    @DisplayName("should send 405 on GET with a mutator method before any side effect")
-    void shouldSend405_onGetWithMutatorMethod(String mutatorMethod) {
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> rejectedMutationMethods() {
+        return java.util.stream.Stream.of("CancelFax", "ResendFax", "SetCompleted")
+                .flatMap(mutator -> java.util.stream.Stream.of("GET", "HEAD", "PUT", "PATCH", "DELETE",
+                        "OPTIONS", "TRACE", "post", "PoSt", "POſT")
+                        .map(verb -> org.junit.jupiter.params.provider.Arguments.of(mutator, verb)));
+    }
+
+    @ParameterizedTest(name = "{1} method={0} is rejected with 405 before dispatch")
+    @org.junit.jupiter.params.provider.MethodSource("rejectedMutationMethods")
+    @DisplayName("should send 405 on non-POST with a mutator method before any side effect")
+    void shouldSend405_onNonPostWithMutatorMethod(String mutatorMethod, String verb) {
         setUpCommonMocks();
-        request.setMethod("GET");
+        request.setMethod(verb);
         request.setParameter("method", mutatorMethod);
         request.setParameter("jobId", "5");
 
@@ -151,10 +158,11 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
             assertThat(response.getErrorMessage()).isEqualTo("Method not allowed");
             // The verb gate must fire before any DAO lookup or provider call.
-            verifyNoInteractions(faxJobDao);
-            verifyNoInteractions(faxProviderClientFactory);
+            verifyNoInteractions(faxJobDao, faxConfigDao, faxClientLogDao, faxManager,
+                    faxProviderClientFactory, securityInfoManager, documentAttachmentManager);
         }
     }
 

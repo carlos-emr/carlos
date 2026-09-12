@@ -559,7 +559,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             // Submitted credentials must never travel to the provider on a GET.
-            verifyNoInteractions(providerClientFactory, providerClient);
+            verifyNoInteractions(providerClientFactory, providerClient, faxConfigDao, faxManager, securityInfoManager);
         }
     }
 
@@ -833,15 +833,23 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(ConfigureFax2Action.isSrfaxAccountNumber(null)).isFalse();
     }
 
-    @ParameterizedTest(name = "{0} with method testConnection is refused with 405")
-    @ValueSource(strings = {"HEAD", "PATCH", "DELETE"})
-    @DisplayName("should send 405 with Allow: POST on every non-POST verb for testConnection")
-    void shouldSend405_onNonPostVerbsForTestConnection(String verb) throws Exception {
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> rejectedMutationMethods() {
+        return java.util.stream.Stream.of("configure", "restartFaxScheduler", "testConnection")
+                .flatMap(mutator -> java.util.stream.Stream.of("GET", "HEAD", "PUT", "PATCH", "DELETE",
+                        "OPTIONS", "TRACE", "post", "PoSt", "POſT")
+                        .map(verb -> org.junit.jupiter.params.provider.Arguments.of(mutator, verb)));
+    }
+
+    @ParameterizedTest(name = "{1} with method {0} is refused with 405")
+    @org.junit.jupiter.params.provider.MethodSource("rejectedMutationMethods")
+    @DisplayName("should send 405 with Allow: POST on every non-POST mutator verb")
+    void shouldSend405_onNonPostMutatorVerbs(String mutator, String verb) throws Exception {
         setUpCommonMocks();
         grantConfigureWrite(true);
         stubProviderClient();
         request.setMethod(verb);
         setTestConnectionParams("1", "123456", "test-secret-pw");
+        request.setParameter("method", mutator);
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -851,7 +859,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             assertThat(response.getHeader("Allow")).isEqualTo("POST");
-            verifyNoInteractions(providerClientFactory, providerClient);
+            verifyNoInteractions(providerClientFactory, providerClient, faxConfigDao, faxManager, securityInfoManager);
         }
     }
 

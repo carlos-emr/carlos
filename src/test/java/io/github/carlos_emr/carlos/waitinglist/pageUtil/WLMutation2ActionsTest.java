@@ -281,6 +281,22 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
     @DisplayName("WLSetupDisplayWaitingList2Action row selectors")
     class SetupDisplayWaitingListSelectors {
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
+        @DisplayName("should reject every non-POST waiting-list update before persistence")
+        void shouldRejectNonPostUpdate_beforePersistence(String verb) throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod(verb);
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+
+            assertThat(new WLSetupDisplayWaitingList2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(405);
+            assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+            waitingListUtilMock.verifyNoInteractions();
+        }
+
         @Test
         @DisplayName("should accept only the page's own indexed row field names as selectors")
         void shouldAcceptIndexedRowFields_asSelectors() {
