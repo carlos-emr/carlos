@@ -154,16 +154,18 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         if (mockitoMocks != null) mockitoMocks.close();
     }
 
-    @Test
-    @DisplayName("should reject GET requests before saving")
-    void shouldRejectGetRequests_beforeSaving() {
-        mockRequest.setMethod("GET");
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "PO\u017fT"})
+    @DisplayName("should reject non-POST requests before saving")
+    void shouldRejectNonPostRequests_beforeSaving(String verb) {
+        mockRequest.setMethod(verb);
 
         AddEForm2Action action = new AddEForm2Action();
         String result = action.execute();
 
         assertThat(result).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verify(mockEformDataManager, never()).saveEformData(any(), any());
     }
 

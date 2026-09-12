@@ -56,7 +56,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         EFormData eFormData = new EFormData();
         eFormData.setDemographicId(123);
         LoggedInInfo loggedInInfo = new LoggedInInfo();
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/fax/faxAction");
         MockHttpServletResponse response = new MockHttpServletResponse();
         EFormRenderCompletenessReport report =
                 new EFormRenderCompletenessReport(2, 1, 0, 0, true, true, false, false);
@@ -117,7 +117,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         EFormData eFormData = new EFormData();
         eFormData.setDemographicId(123);
         LoggedInInfo loggedInInfo = new LoggedInInfo();
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/fax/faxAction");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         request.setParameter("renderApproval", "forged-or-expired");
@@ -168,7 +168,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         EFormData movedEForm = new EFormData();
         movedEForm.setDemographicId(456);
         LoggedInInfo loggedInInfo = new LoggedInInfo();
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/fax/faxAction");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         request.setParameter("renderApproval", "stale-patient-token");
@@ -209,7 +209,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         EFormRenderApprovalService approvalService = mock(EFormRenderApprovalService.class);
         EFormDataDao eFormDataDao = mock(EFormDataDao.class);
         LoggedInInfo loggedInInfo = new LoggedInInfo();
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/fax/faxAction");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         request.setMethod("POST");
@@ -256,7 +256,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
             EFormData eFormData = new EFormData();
             eFormData.setDemographicId(123);
             LoggedInInfo loggedInInfo = new LoggedInInfo();
-            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/fax/faxAction");
             MockHttpServletResponse response = new MockHttpServletResponse();
             EFormRenderCompletenessReport report =
                     new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false);
@@ -321,7 +321,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         EFormData form = new EFormData();
         form.setDemographicId(123);
         LoggedInInfo user = new LoggedInInfo();
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/fax/faxAction");
         MockHttpServletResponse response = new MockHttpServletResponse();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         when(security.hasPrivilege(user, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);

@@ -54,11 +54,10 @@ import static org.mockito.Mockito.when;
  * <p>{@code queue} persists {@link io.github.carlos_emr.carlos.commn.model.FaxJob} rows and
  * promotes files into the outgoing fax queue; {@code cancel} -- including the no-{@code method}
  * fall-through -- deletes temporary files and PHI preview caches. Both are mutations and must be
- * rejected on GET/HEAD before {@code execute()} ever dispatches into them. {@code getPreview},
- * {@code getPageCount}, and {@code prepareFax} are reads ({@code CoverPage.jsp} builds
- * {@code <img src>}/link GETs for the former two, and {@code AddEForm2Action}'s
- * {@code redirectToPreparedFax()} sends a server-side redirect to {@code prepareFax} that the
- * browser always follows with GET) and must stay verb-open.
+ * rejected on every non-POST method before dispatch. {@code getPreview} and
+ * {@code getPageCount} are reads used by CoverPage image, link, and polling requests.
+ * Preparation writes staged files and capabilities and is POST-only;
+ * {@code AddEForm2Action.redirectToPreparedFax()} preserves POST through a 307 redirect.
  */
 @DisplayName("Fax2Action execute() HTTP-method gate unit tests")
 @Tag("unit")
@@ -105,7 +104,7 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"PUT", "PATCH", "DELETE", "OPTIONS", "TRACE"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "PO\u017fT"})
     @DisplayName("should reject every non-POST mutation before dispatch or side effects")
     void shouldRejectMutation_whenVerbIsNotPost(String verb) {
         for (String method : new String[] {"queue", "cancelStagedEFormFax", "cancel", "", "prepareFax"}) {
@@ -118,8 +117,24 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
                 servlet.when(ServletActionContext::getResponse).thenReturn(response);
                 assertThat(new Fax2Action().execute()).isEqualTo(ActionSupport.NONE);
                 assertThat(response.getStatus()).isEqualTo(405);
+                assertThat(response.getHeader("Allow")).isEqualTo("POST");
                 verifyNoInteractions(faxManager, documentAttachmentManager, securityInfoManager);
             }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "PO\u017fT"})
+    void shouldRejectDirectPreparationBeforeAnySideEffect(String verb) {
+        setUpCommonMocks();
+        request.setMethod(verb);
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThat(new Fax2Action().prepareFax()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            verifyNoInteractions(faxManager, documentAttachmentManager, securityInfoManager);
         }
     }
 
@@ -276,8 +291,8 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not 405 a GET for the read-only prepareFax method")
-    void shouldNotReject_getPrepareFax() {
+    @DisplayName("should reject preparation GET before staging a PDF or session capability")
+    void shouldReject_getPrepareFax() {
         setUpCommonMocks();
         request.setMethod("GET");
         request.setParameter("method", "prepareFax");
@@ -286,15 +301,13 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
-            // prepareFax must remain reachable on GET: AddEForm2Action.redirectToPreparedFax()
-            // issues a server-side sendRedirect() that the browser always follows with GET.
+            // The eForm handoff now preserves POST through a 307 redirect.
             String result = new Fax2Action().execute();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus())
-                    .as("prepareFax must stay verb-open on GET")
-                    .isNotEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+                    .isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
             verifyNoInteractions(documentAttachmentManager);
         }
     }

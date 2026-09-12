@@ -138,7 +138,8 @@ public class AddEForm2Action extends ActionSupport {
     public String execute() {
 
         String method = request.getMethod();
-        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+        if (!"POST".equals(method)) {
+            response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -536,11 +537,10 @@ public class AddEForm2Action extends ActionSupport {
         if (letterheadFax != null && !letterheadFax.isEmpty()) {
             faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
         }
-        try {
-            response.sendRedirect(faxForward.toString());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        // Keep the CSRF-protected submission's method/body when handing it to
+        // preparation. A 302 changes POST to GET and would make staging a GET side effect.
+        response.setStatus(HttpServletResponse.SC_TEMPORARY_REDIRECT);
+        response.setHeader("Location", response.encodeRedirectURL(faxForward.toString()));
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.

@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.log.LogConst;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -397,8 +396,17 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                 continue;
             }
             try {
+                // Use the promotion service's live document-root resolver, including its
+                // configured-root fallback; never a load-time interface constant.
+                Path expected = nioFileManager.getOscarDocument(attemptFile);
+                if (expected == null || expected.getParent() == null) {
+                    throw new SecurityException("No live document target for consultation cleanup");
+                }
                 Path validated = PathValidationUtils.validateExistingPath(
-                        attemptFile.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY)).toPath();
+                        attemptFile.toFile(), expected.getParent().toFile()).toPath();
+                if (!validated.equals(expected.toRealPath())) {
+                    throw new SecurityException("Consultation cleanup target differs from the owned file");
+                }
                 Files.deleteIfExists(validated);
             } catch (IOException | SecurityException e) {
                 logger.warn("Unable to remove an unqueued consultation fax file ({})", e.getClass().getSimpleName());

@@ -98,7 +98,8 @@ class AddEForm2ActionFaxRedirectTest extends CarlosUnitTestBase {
             "redirectToPreparedFax", String.class, String.class, String.class, String.class, String.class);
         m.setAccessible(true);
         m.invoke(action, fdid, demoNo, recipient, faxNo, letterhead);
-        return mockResponse.getRedirectedUrl();
+        assertThat(mockResponse.getStatus()).isEqualTo(307);
+        return mockResponse.getHeader("Location");
     }
 
     @Test
