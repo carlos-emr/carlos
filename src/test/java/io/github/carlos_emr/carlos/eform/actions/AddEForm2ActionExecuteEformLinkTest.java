@@ -201,6 +201,29 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepImageFailuresAndRejectedLinkValuesOutOfDiagnostics() throws Exception {
+        mockRequest.setParameter("openosp-image-link", "PRIVATE_IMAGE_CONTENT");
+        mockRequest.setParameter("eform_link", "PRIVATE_LINK_VALUE");
+        var failure = new IllegalArgumentException("PRIVATE_IMAGE_MESSAGE",
+                new IllegalStateException("PRIVATE_IMAGE_CAUSE"));
+        try (var forms = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.eform.data.EForm.class, (form, construction) -> {
+                    when(form.getFormFileName()).thenReturn("test.html");
+                    when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>());
+                    doThrow(failure).when(form).addImagePathPlaceholders(any());
+                });
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AddEForm2Action.class)) {
+            assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+            verify(mockEformDataManager).saveEformData(any(), any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("image placeholders (IllegalArgumentException)"));
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Invalid eform_link"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_IMAGE_CONTENT", "PRIVATE_LINK_VALUE",
+                    "PRIVATE_IMAGE_MESSAGE", "PRIVATE_IMAGE_CAUSE");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
     @DisplayName("should not write to session when eform_link is invalid")
     void shouldNotWriteToSession_whenEformLinkIsInvalid() {
         String invalidLink = "user";

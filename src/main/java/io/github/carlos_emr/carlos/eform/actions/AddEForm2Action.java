@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -108,14 +107,14 @@ public class AddEForm2Action extends ActionSupport {
      * Validates an eform_link value against the expected key format.
      *
      * <p>Returns the value unchanged if it matches the expected format, or {@code null}
-     * if the value is invalid or null. Non-null invalid values are logged at WARN level.</p>
+     * if the value is invalid or null. Non-null invalid values produce a bounded warning without echoing the value.</p>
      *
      * @param eformLink the raw eform_link parameter value (may be null)
      * @return the validated eform_link, or null if invalid
      */
     static String validateEformLink(String eformLink) {
         if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
-            logger.warn("Invalid eform_link parameter rejected: {}", LogSafe.sanitize(eformLink));
+            logger.warn("Invalid eform_link parameter rejected");
             return null;
         }
         return eformLink;
@@ -304,7 +303,7 @@ public class AddEForm2Action extends ActionSupport {
             try {
                 curForm.addImagePathPlaceholders(imagePathPlaceHolders);
             } catch (Exception e) {
-                logger.error("Error retrieving image path placeholders from eForm submission.", e);
+                logger.error("Unable to process eForm image placeholders ({})", e.getClass().getSimpleName());
             }
 
             String fdid = eformDataManager.saveEformData(loggedInInfo, curForm) + "";
@@ -321,7 +320,7 @@ public class AddEForm2Action extends ActionSupport {
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
                 } else {
-                    logger.warn("Invalid eform_link rejected: {}", LogSafe.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSafe (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    logger.warn("Invalid eform_link rejected");
                 }
             }
 
@@ -594,7 +593,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
         } catch (RuntimeException e) {
-            logger.warn("Falling back to a generic PDF preview filename for demographic {}", LogSafe.sanitize(demographicNo), e);
+            logger.warn("Using a generic eForm PDF preview filename ({})", e.getClass().getSimpleName());
             return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
         }
     }
@@ -718,13 +717,13 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     private void setPdfError(String message, Exception e) {
-        logger.error(message, e);
+        logger.error("eForm PDF preparation failed ({})", e.getClass().getSimpleName());
         request.setAttribute(ERROR_ATTRIBUTE, "true");
         request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
     }
 
     private void setPdfWarning(String message, Exception e) {
-        logger.warn(message, e);
+        logger.warn("eForm PDF preview unavailable ({})", e.getClass().getSimpleName());
         request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message);
     }
 
