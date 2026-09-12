@@ -59,8 +59,6 @@ class MsgReDisplayMessages2ActionTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(MessageListDao.class, mockMessageListDao);
 
