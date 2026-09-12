@@ -442,7 +442,7 @@ lxc exec carlos-test -- carlos-ctl restart
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y nodejs npm
+  apt-get install -y nodejs npm poppler-utils
   cd /root && npm init -y && npm install --save-exact playwright@1.60.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
@@ -455,6 +455,13 @@ browser shipped to operators instead of a second downloaded browser.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
 paths resolve; Node still finds Playwright via `/root/node_modules`.
+
+`eform-render-playwright-checks.js` requires `pdftotext` from `poppler-utils`.
+It checks both authored PDF pages, content beyond a narrower page container,
+and the coordinates of a percentage-positioned field. A PDF header alone
+cannot establish that the clinical content was retained. The corpus soak also
+records the application's explicit completeness refusal and its issue report;
+it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
 
