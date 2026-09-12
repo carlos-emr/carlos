@@ -214,7 +214,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
                 try {
                     drugId = Integer.parseInt(drugArr[i]);
                 } catch (Exception e) {
-                    logger.error("Unexpected error.", e);
+                    logger.error("Unexpected error. ({})", e.getClass().getSimpleName());
                     break;
                 }
 
@@ -231,7 +231,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
                 request.setAttribute("BoxNoFillFirstLoad", "true");
             }
         } catch (Exception e) {
-            logger.error("Unexpected error occurred.", e);
+            logger.error("Unexpected error occurred. ({})", e.getClass().getSimpleName());
         }
 
         return SUCCESS;
@@ -429,7 +429,7 @@ public String saveDigitalSignature() throws IOException {
 
             // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
         }
         MiscUtils.getLogger().debug("================end saveReRxDrugIdToStash of RxRePrescribe2Action.java=================");
         return null;
@@ -493,7 +493,7 @@ public String saveDigitalSignature() throws IOException {
             // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
         }
 
         return "represcribe";

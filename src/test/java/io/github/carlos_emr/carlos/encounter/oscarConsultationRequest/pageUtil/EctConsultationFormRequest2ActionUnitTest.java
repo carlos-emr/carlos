@@ -313,17 +313,21 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("keeps print preview errors generic when rendering fails")
-    void shouldReturnGenericErrorMessage_whenDirectPrintPreviewFails() throws Exception {
+    void shouldReturnGenericErrorMessage_whenDirectPrintPreviewFails(boolean checkedFailure) throws Exception {
+        Exception failure = checkedFailure
+                ? new io.github.carlos_emr.carlos.utility.PDFGenerationException("PRIVATE_RENDER_MESSAGE", new IllegalStateException("PRIVATE_RENDER_CAUSE"))
+                : new RuntimeException("PRIVATE_RENDER_MESSAGE", new IllegalStateException("PRIVATE_RENDER_CAUSE"));
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
-                .thenThrow(new RuntimeException("sensitive internal path /var/lib/CarlosDocument/consult.pdf"));
+                .thenThrow(failure);
 
         String result;
         try (var capture = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormRequest2Action.class)) {
             result = action.execute();
-            assertThat(capture.messages().toString()).contains("Consultation print preview failed (RuntimeException)")
-                    .doesNotContain("sensitive internal path", "/var/lib/CarlosDocument", "consult.pdf");
+            assertThat(capture.messages()).anyMatch(message -> message.contains(failure.getClass().getSimpleName()));
+            assertThat(capture.messages().toString()).doesNotContain("PRIVATE_RENDER_MESSAGE", "PRIVATE_RENDER_CAUSE");
             assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
         }
 
@@ -331,8 +335,25 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
         assertThat(response.getContentAsString())
                 .contains("A print preview of this consultation could not be generated. Please try again or contact support.")
-                .doesNotContain("sensitive internal path")
-                .doesNotContain("/var/lib/CarlosDocument");
+                .doesNotContain("PRIVATE_RENDER_MESSAGE", "PRIVATE_RENDER_CAUSE");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should bound consultation JSON and fallback response diagnostics")
+    void shouldKeepResponseDiagnosticsPrivate_whenWritingFails(boolean fallbackFails) throws Exception {
+        var failedResponse = mock(HttpServletResponse.class);
+        when(failedResponse.getWriter()).thenThrow(new java.io.IOException("PRIVATE_RESPONSE_MESSAGE",
+                new IllegalStateException("PRIVATE_RESPONSE_CAUSE")));
+        if (fallbackFails) org.mockito.Mockito.doThrow(new java.io.IOException("PRIVATE_FALLBACK_MESSAGE",
+                new IllegalStateException("PRIVATE_FALLBACK_CAUSE"))).when(failedResponse).sendError(500);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormRequest2Action.class)) {
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(action, "generatePDFResponse", request, failedResponse);
+            verify(failedResponse).sendError(500);
+            assertThat(logs.messages()).hasSize(fallbackFails ? 2 : 1);
+            assertThat(logs.messages().toString()).contains("IOException").doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
     }
 
     @Test

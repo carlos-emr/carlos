@@ -129,7 +129,7 @@ public class PathnetResultsData {
                 lbData = new LabResultData(LabResultData.EXCELLERIS);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate:", e);
+            logger.error("exception in CMLPopulate: ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -217,7 +217,7 @@ public class PathnetResultsData {
                 labResults.add(lbData);
             }
         } catch (Exception e) {
-            logger.error("exception in pathnetPopulate", e);
+            logger.error("exception in pathnetPopulate ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -304,7 +304,7 @@ public class PathnetResultsData {
                 }
             }
         } catch (Exception e) {
-            logger.error("exception in PathnetResultsData", e);
+            logger.error("exception in PathnetResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }
         return ret;
@@ -351,7 +351,7 @@ public class PathnetResultsData {
             }
 
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
         return ret.toString();
     }

@@ -510,7 +510,7 @@ public class AddEForm2Action extends ActionSupport {
             try {
                 matchManager.<Demographic>processEvent(client, IMatchManager.Event.CLIENT_CREATED);
             } catch (MatchManagerException e) {
-                MiscUtils.getLogger().error("Error while processing MatchManager.processEvent(Client)", e);
+                MiscUtils.getLogger().error("Error while processing MatchManager.processEvent(Client) ({})", e.getClass().getSimpleName());
             }
 		}
 

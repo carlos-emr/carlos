@@ -211,7 +211,6 @@ public class ReportMacro2Action extends ActionSupport {
         int clearedCount = 0;
 
         if (macro.has("acknowledge")) {
-            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             String comment = macro.path("acknowledge").path("comment").asText("");
             if (StringUtils.isBlank(segmentID)) {
                 logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -221,9 +220,10 @@ public class ReportMacro2Action extends ActionSupport {
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
-                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
+                logger.error("Cannot acknowledge lab: invalid segment identifier ({})", e.getClass().getSimpleName());
                 return MacroOutcome.failed();
             }
+            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), segmentInt);
             // Acknowledge the reviewed version AND file the older versions of the same lab.
             // Filing the older versions is what removes the collapsed row from the inbox: the
             // inbox shows one row per accession chain, so a macro that only stamped the newest
@@ -297,7 +297,7 @@ public class ReportMacro2Action extends ActionSupport {
                                 }
                             }
                         } catch (NumberFormatException e) {
-                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro", e);
+                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro ({})", e.getClass().getSimpleName());
                         }
                     } else {
                         logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");

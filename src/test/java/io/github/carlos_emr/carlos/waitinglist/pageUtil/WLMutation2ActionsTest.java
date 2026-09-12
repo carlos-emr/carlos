@@ -281,6 +281,28 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
     @DisplayName("WLSetupDisplayWaitingList2Action row selectors")
     class SetupDisplayWaitingListSelectors {
 
+        @Test
+        @DisplayName("should preserve failure outcome without logging waiting-list exception details")
+        void shouldKeepUpdateDiagnosticsPrivate_whenPersistenceFails() throws Exception {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            mockRequest.setParameter("demographicNumSelected", "");
+            mockRequest.setParameter("wlNoteSelected", "");
+            mockRequest.setParameter("onListSinceSelected", "");
+            waitingListUtilMock.when(() -> WLWaitingListUtil.rePositionWaitingList("7"))
+                .thenThrow(new IllegalStateException("PRIVATE_WAITING_NOTE", new IllegalArgumentException("PRIVATE_WAITING_CAUSE")));
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(WLSetupDisplayWaitingList2Action.class)) {
+                assertThat(new WLSetupDisplayWaitingList2Action().execute()).isEqualTo("failure");
+                waitingListUtilMock.verify(() -> WLWaitingListUtil.rePositionWaitingList("7"));
+                assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalStateException"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_WAITING");
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
+        }
+
         @org.junit.jupiter.params.ParameterizedTest
         @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
         @DisplayName("should reject every non-POST waiting-list update before persistence")

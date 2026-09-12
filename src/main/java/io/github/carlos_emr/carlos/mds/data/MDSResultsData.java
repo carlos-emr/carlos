@@ -148,7 +148,7 @@ public class MDSResultsData {
                 lbData = new LabResultData(LabResultData.CML);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate", e);
+            logger.error("exception in CMLPopulate ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -234,7 +234,7 @@ public class MDSResultsData {
                 labResults.add(lbData);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate", e);
+            logger.error("exception in CMLPopulate ({})", e.getClass().getSimpleName());
         }
 
         return labResults;
@@ -349,7 +349,7 @@ public class MDSResultsData {
                 }
             }
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -430,7 +430,7 @@ public class MDSResultsData {
                 lData = new LabResultData(LabResultData.MDS);
             }
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -603,7 +603,7 @@ public class MDSResultsData {
             }
         } catch (Exception e) {
             logger.error("Error processing MDS lab, segment # " + seqId);
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
 
         }
         return labResults;
@@ -662,7 +662,7 @@ public class MDSResultsData {
             }
 
         } catch (Exception e) {
-            logger.error("exception in getMatchingCMLLabs", e);
+            logger.error("exception in getMatchingCMLLabs ({})", e.getClass().getSimpleName());
             return labId;
         }
         return ret;
@@ -707,7 +707,7 @@ public class MDSResultsData {
                 }
             }
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }
         return ret;

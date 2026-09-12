@@ -243,7 +243,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 }
 
             } catch (Exception ex) {
-                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
+                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ({})", ex.getClass().getSimpleName());
                 return "failure";
             }
         }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???

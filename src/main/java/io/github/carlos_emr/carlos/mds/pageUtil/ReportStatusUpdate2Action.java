@@ -152,7 +152,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             }
             return SUCCESS;
         } catch (Exception e) {
-            logger.error("exception in ReportStatusUpdate2Action", e);
+            logger.error("exception in ReportStatusUpdate2Action ({})", e.getClass().getSimpleName());
             return "failure";
         }
     }
@@ -185,7 +185,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
 
         } catch (Exception e) {
-            logger.error("exception in setting comment", e);
+            logger.error("exception in setting comment ({})", e.getClass().getSimpleName());
             return "failure";
         }
 
@@ -198,7 +198,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             response.getWriter().write(json.toString());
             response.flushBuffer();
         } catch (IOException e) {
-            logger.error("FAILED TO RETURN DATE", e);
+            logger.error("FAILED TO RETURN DATE ({})", e.getClass().getSimpleName());
         }
 
         return NONE;
@@ -231,7 +231,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             response.getWriter().write(json.toString());
             response.flushBuffer();
         } catch (IOException e) {
-            logger.error("failed to return the cleared routing row count", e);
+            logger.error("failed to return the cleared routing row count ({})", e.getClass().getSimpleName());
         }
     }
 

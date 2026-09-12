@@ -39,10 +39,39 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @DisplayName("Lab macro post-commit audit outcomes")
 class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.Test
+    @DisplayName("should reject a malformed macro report identifier without logging its value")
+    void shouldKeepMacroDiagnosticsPrivate_whenIdentifierIsInvalid() {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("segmentID", "PRIVATE_SEGMENT_VALUE");
+        request.setParameter("labType", "HL7");
+        createAndRegisterMock(SecurityInfoManager.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerLinkDao.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("acknowledge").put("comment", "PRIVATE_CLINICAL_COMMENT");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class);
+             var logs = LogCapture.forLogger(ReportMacro2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isFalse();
+            assertThat(outcome.acknowledged()).isFalse();
+            org.mockito.Mockito.verifyNoInteractions(ticklers, links);
+            assertThat(logs.messages()).anyMatch(message -> message.contains("NumberFormatException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
     @ParameterizedTest
     @CsvSource({"true,false,present", "false,true,present", "true,true,present",
             "true,false,missing", "true,true,missing", "true,false,nullComment", "true,true,nullComment",
-            "true,false,nullAcknowledgement", "true,true,nullAcknowledgement"})
+            "true,false,nullAcknowledgement", "true,true,nullAcknowledgement",
+            "false,true,invalidQuantity", "false,true,invalidUnits"})
     @DisplayName("should preserve completed macro effects and JSON counters when audit logging fails")
     void shouldReturnCommittedOutcome_whenAuditFails(boolean acknowledge, boolean tickler, String commentShape) throws Exception {
         var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
@@ -75,7 +104,13 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
                 default -> throw new IllegalArgumentException("Unknown fixture comment shape");
             }
         }
-        if (tickler) macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        if (tickler) {
+            var ticklerMacro = macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+            if (commentShape.startsWith("invalid")) {
+                ticklerMacro.put("quantity", "invalidQuantity".equals(commentShape) ? "PRIVATE_QUANTITY" : "1");
+                ticklerMacro.put("timeUnits", "invalidUnits".equals(commentShape) ? "PRIVATE_UNITS" : "1");
+            }
+        }
         var property = new UserProperty();
         property.setValue(mapper.createArrayNode().add(macro).toString());
         when(preferences.getProp("999998", UserProperty.LAB_MACRO_JSON)).thenReturn(property);
@@ -107,7 +142,8 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
                 verify(links, never()).persist(any());
             }
             assertThat(logs.messages()).anyMatch(message -> message.contains("audit logging failed"));
-            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_AUDIT");
+            if (commentShape.startsWith("invalid")) assertThat(logs.messages()).anyMatch(message -> message.contains("NumberFormatException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
             assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
         }
     }

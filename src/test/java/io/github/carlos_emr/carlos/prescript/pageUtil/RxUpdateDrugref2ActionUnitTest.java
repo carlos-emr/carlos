@@ -397,6 +397,22 @@ class RxUpdateDrugref2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoMoreInteractions(mockSecurityInfoManager);
     }
 
+    @org.junit.jupiter.api.Test
+    @DisplayName("should retain DrugRef fallback without logging endpoint or cause details")
+    void shouldKeepFallbackDiagnosticsPrivate_whenCallFails() {
+        java.util.concurrent.Callable<String> failed = () -> {
+            throw new IllegalStateException("PRIVATE_DRUGREF_ENDPOINT", new IllegalArgumentException("PRIVATE_DRUGREF_SECRET"));
+        };
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(RxUpdateDrugref2Action.class)) {
+            String result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(action,
+                    "runOrFallback", "status", failed, "fallback");
+            assertThat(result).isEqualTo("fallback");
+            assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalStateException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_DRUGREF");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
     @Test
     @DisplayName("should answer a null result as JSON when updateDB cannot reach DrugRef")
     void shouldAnswerNullResultAsJson_whenUpdateDbUnreachable() throws Exception {

@@ -220,7 +220,7 @@ public class EctViewConsultationRequestsUtil {
               consultProvider.add(cProv);
           }
       } catch (Exception e) {            
-         MiscUtils.getLogger().error("Error", e);            
+         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
          verdict = false;            
       }                     
       return verdict;      
@@ -311,7 +311,7 @@ public class EctViewConsultationRequestsUtil {
               consultProvider.add(cProv);
           }
       } catch (Exception e) {         
-         MiscUtils.getLogger().error("Error", e);         
+         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
          verdict = false;         
       }      
       return verdict;      
