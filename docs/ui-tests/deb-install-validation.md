@@ -595,6 +595,8 @@ suite_failed=0
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
+# On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
+# active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below

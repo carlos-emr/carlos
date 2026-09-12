@@ -66,6 +66,32 @@ database.
   viewport in a headless window; the request/response and rows are still the
   real ones.
 
+## Deb-path validation (alpha-11 packages, 2026-09-12)
+
+The 13 new scripts were also run against the published `2026.08.0~alpha11`
+`.deb` packages (carlos-emr, carlos-emr-drugref, carlos-emr-eform-renderer)
+installed non-interactively into an Ubuntu 26.04 container, through the nginx
+front door on `:443`, following
+[deb-install-validation.md](deb-install-validation.md). The container host
+could not boot systemd (cgroup v1), so MariaDB, `carlos-ctl db-apply-settings /
+db-users / db-migrate / bootstrap-admin / demo-data`, the drugref load,
+chromedriver, Tomcat (`carlos-emr-tomcat run` as `carlos`) and nginx were
+started by hand; the forced first-login reset went through the
+`drugref-update-playwright-checks.js` step from §6.
+
+Result: 10 of 13 `PASS` on the stock alpha-11 install. The three failures are
+deployment findings, not script defects:
+
+- `consultation-request-create` and `specialist-add-cpso`: the Ontario
+  reference seed ships every `consultationServices` row with `active = '02'`
+  (finding 21), so the service picker and the Add Specialist specialty list are
+  empty on a fresh ON install. Both scripts pass once the rows are `'1'`.
+- `echart-note-sign-bill`: the alpha-11 WAF policy 403s the note save as soon
+  as the timer's `Start Time:` line is pasted (finding 22). With the
+  `release/2026.08` policy files (`debian/assets/modsecurity/`, PRs #3623 and
+  #3625) copied into `/etc/carlos-emr/modsecurity/` and nginx reloaded, the
+  script passes through `:443`.
+
 ## Observations to review (found while writing the checks, 2026-09-12)
 
 Recorded here so the checks' `WARN` lines and allow-lists have a home; none of
@@ -129,3 +155,18 @@ these are fixed by this change.
     `name`/`id` while its scripts reference `document.RxSearchAllergyForm`;
     and `prevention/index.jsp` / `AddPreventionData.jsp` call a `/cvc` endpoint
     that has no Struts or servlet mapping (lot-number lookups will 404).
+21. (deb) `database/mysql/migration/on/V1.0.2__on_data.sql` seeds all 257
+    `consultationServices` rows with `active = '02'`; the BC seed uses `'1'`
+    and the DAO filters on `'1'`. A fresh Ontario package install therefore has
+    no selectable consultation service and no specialty on Add Specialist
+    until an admin activates them. The dev/demo database hides this because
+    `development.sql` truncates the table and reseeds six active services, and
+    the additive demo build excludes the table.
+22. (deb, fixed in `release/2026.08`) The alpha-11 WAF policy inspects
+    `ARGS:caseNote_note` with the full CRS set, so any encounter note with a
+    line starting `Start `, `Type `, `Find ` (Windows-RCE rule 932115, e.g.
+    the timer's `Start Time:` stamp or "Type 2 diabetes" on a new line) is
+    answered with nginx's 403 and the note is not saved. Probed unauthenticated
+    per the runbook: nginx 403 (146 bytes) on alpha-11, the application's CSRF
+    403 with the release policy. PRs #3623/#3625 carry the fix; the release
+    policy should stay in the next alpha's packages.
