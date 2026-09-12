@@ -31,6 +31,17 @@ test('signature findings and summary retain no browser content or patient identi
   assert.doesNotMatch(source, /visited\.push\([^\n]*url:|\$\{(?:result\.text|text|bodyText|storedPreview\.src)/);
   assert.doesNotMatch(source, /return \{\s*scriptId: prescriptionScriptId/);
   assert.match(source, /signatureMatched: true/);
+  assert.doesNotMatch(source, /isExpectedPageError|Cannot set properties of null|expandPreview/);
+  const handlers = {};
+  const findings = [];
+  const wireStart = source.indexOf('function wirePage(');
+  const wireEnd = source.indexOf('async function assertNoErrorPage(', wireStart);
+  const context = require('node:vm').createContext({ findings, browserErrorClass });
+  require('node:vm').runInContext(source.slice(wireStart, wireEnd), context);
+  context.wirePage({ on: (event, callback) => { handlers[event] = callback; } }, 'signature');
+  handlers.pageerror(new TypeError("Cannot set properties of null (setting 'innerHTML')"));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].errorClass, 'TypeError');
 });
 
 test('eDoc diagnostics omit raw errors and URLs and screenshots require explicit opt-in', () => {

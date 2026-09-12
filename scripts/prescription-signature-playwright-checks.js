@@ -122,11 +122,6 @@ function isExpectedConsoleNoise(message) {
     && /\/imageRenderingServlet\?source=signature_stored&digitalSignatureId=\d+/.test(location.url || '');
 }
 
-function isExpectedPageError(error) {
-  const text = error.stack || error.message || '';
-  return /Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text);
-}
-
 function wirePage(page, label) {
   page.on('response', (response) => {
     const responseUrl = response.url();
@@ -145,9 +140,6 @@ function wirePage(page, label) {
     }
   });
   page.on('pageerror', (error) => {
-    if (isExpectedPageError(error)) {
-      return;
-    }
     findings.push({ label, type: 'pageerror', errorClass: browserErrorClass(error) });
   });
   page.on('dialog', async (dialog) => {
