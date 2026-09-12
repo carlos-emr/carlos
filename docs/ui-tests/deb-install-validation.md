@@ -512,6 +512,16 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
+# First Nations stored-XSS check (first-nations-encoding-playwright-checks.js). It seeds an
+# attribute-breaking payload into this patient's demographicExt First Nations fields, asserts the
+# rendered inputs carry it back whole with no markup, and restores the original rows in a finally.
+# Defaults to the lowest demographic_no in the database, so the export is only needed to pin a
+# different patient. The check always asserts the gate route
+# (/demographic/ViewManageFirstNationsModule); it additionally asserts the patient master record
+# when FIRST_NATIONS_MODULE=true in /etc/carlos-emr/carlos.properties (then `carlos-ctl restart`),
+# which is the path a clinician actually sees -- set it if you want that half covered, since the
+# property ships false and the module is simply absent from the master record without it.
+export FIRST_NATIONS_DEMOGRAPHIC_NO=1
 # FRESH INSTALL ONLY: clear the forced password reset BEFORE the loop below, not inside it.
 #
 # The packaged admin credential (/etc/carlos-emr/initial-admin.txt) is flagged for a forced
