@@ -81,6 +81,10 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     private NioFileManager nioFileManager;
     private FaxJobDao faxJobDao;
     private FaxConfigDao faxConfigDao;
+    private FaxManager faxManager;
+
+    @org.junit.jupiter.api.io.TempDir
+    Path temporaryDirectory;
 
     private EctConsultationFormFax2Action action;
 
@@ -102,7 +106,8 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(NioFileManager.class, nioFileManager);
         registerMock(FaxJobDao.class, faxJobDao);
         registerMock(FaxConfigDao.class, faxConfigDao);
-        registerMock(FaxManager.class, mock(FaxManager.class));
+        faxManager = mock(FaxManager.class);
+        registerMock(FaxManager.class, faxManager);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -209,5 +214,60 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("could not be stored");
         verify(nioFileManager).promoteApplicationTempFile(rendered);
         verify(faxJobDao, never()).persist(any());
+    }
+
+    @Test
+    void shouldRetainFaxArtifacts_whenCommitAcknowledgementIsUncertain() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("consult.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        org.mockito.Mockito.doThrow(new IllegalStateException("commit acknowledgement lost"))
+                .when(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
+        try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class);
+             MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths = mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(1);
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
+                    .thenReturn(pdf.toFile());
+            String result = action.execute();
+            assertThat(pdf).exists();
+            assertThat(result).isEqualTo("faxUncertain");
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(request.getAttribute("faxSuccessful")).isNull();
+            paths.verifyNoInteractions();
+            verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
+        }
+    }
+
+    @Test
+    void shouldReportQueued_whenSecondaryAuditFailsAfterCommit() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("queued.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class)) {
+            edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(1);
+            logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                    io.github.carlos_emr.carlos.log.LogConst.SENT,
+                    io.github.carlos_emr.carlos.log.LogConst.CON_FAX, "CONSULT 456"))
+                    .thenThrow(new IllegalStateException("secondary log unavailable"));
+            assertThat(action.execute()).isEqualTo("success");
+            assertThat(pdf).exists();
+            assertThat(request.getAttribute("faxSuccessful")).isEqualTo(true);
+            verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
+        }
+    }
+
+    @Test
+    void shouldUseNonRetryingWarningView_whenFaxOutcomeIsUncertain() throws Exception {
+        String mapping = java.nio.file.Files.readString(Paths.get("src/main/webapp/WEB-INF/classes/struts-encounter.xml"));
+        assertThat(mapping).contains("<result name=\"faxUncertain\">/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp</result>");
+        String view = java.nio.file.Files.readString(Paths.get("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp"));
+        assertThat(view).contains("id=\"consult-fax-uncertain\"", "consultation.fax.uncertain.message", "ViewDisplayDemographicConsultationRequests");
+        assertThat(view).doesNotContain("<form", "setTimeout", "history.back", "finishPage(");
     }
 }

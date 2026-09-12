@@ -389,6 +389,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         try {
             return generatePDFDocumentBytes(request, getServletContext(), signatureImage);
         } catch (IOException | RuntimeException failure) {
+            // org.openpdf.text.DocumentException in OpenPDF 3 is a RuntimeException,
+            // so this includes it (unlike the separate legacy com.lowagie API).
             if (!isFax) {
                 throw failure;
             }
