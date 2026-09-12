@@ -123,8 +123,6 @@ public class Contact2Action extends ActionSupport {
             return saveProContact();
         } else if ("setEmergencyContact".equals(method)) {
             return setEmergencyContact();
-        } else if ("setDNC".equals(method)) {
-            return setDNC();
         } else if ("setMRP".equals(method)) {
             return setMRP();
         } else if ("searchAllContacts".equals(method)) {
@@ -819,34 +817,6 @@ public class Contact2Action extends ActionSupport {
 
         demographicContactDao.merge(demographicContact);
         request.setAttribute("demographic_no", demographicContact.getDemographicNo());
-        return null;
-    }
-
-    /**
-     * Set whether or not this external providers is allowed to be contacted
-     * by the clinic.
-     */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    @SuppressWarnings("unused")
-    public String setDNC() {
-
-        String contactId = request.getParameter("contactId");
-        String contactGroup = request.getParameter("contactGroup");
-
-        int contactIdInt = Integer.parseInt(contactId);
-
-        boolean dnc = Boolean.parseBoolean(request.getParameter("dnc"));
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if ("pharmacy".equalsIgnoreCase(contactGroup)) {
-            pharmacyManager.setDoNotContact(loggedInInfo, contactIdInt, dnc);
-        } else {
-            DemographicContact demographicContact = demographicManager.getHealthCareMemberbyId(loggedInInfo, contactIdInt);
-            demographicContact.setConsentToContact(dnc);
-            demographicContactDao.merge(demographicContact);
-        }
-
         return null;
     }
 
