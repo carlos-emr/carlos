@@ -55,6 +55,8 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.managers.FormsManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormConverter;
@@ -82,17 +84,60 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 public class FormsService extends AbstractServiceImpl {
     Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Security object guarding eForm (HTML template form) reads. Matches the object used by
+     * {@code EFormService}/{@code EFormsService}, which the #2798 audit already blessed.
+     */
+    private static final String SECOBJ_EFORM = "_eform";
+
+    /**
+     * Security object guarding SQL-table encounter form (BCAR, Rourke, etc.) reads. This is the
+     * encounter-form half of the forms-panel gate in {@code RecordUxService}, which permits the
+     * panel on {@code _newCasemgmt.forms} OR {@code _newCasemgmt.eforms}.
+     */
+    private static final String SECOBJ_FORMS = "_newCasemgmt.forms";
+
     @Autowired
     private FormsManager formsManager;
 
     @Autowired
     private AppDefinitionDao appDefinitionDao;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
+    /**
+     * Enforces read access on a single security object for a non-patient-scoped read (global form
+     * definitions and group listings), failing closed with the CARLOS paren-form
+     * {@link SecurityException} message when the caller lacks the privilege.
+     *
+     * @param secObj the security object name (e.g. {@code _eform} or {@code _newCasemgmt.forms})
+     */
+    private void requireRead(String secObj) {
+        requireRead(secObj, null);
+    }
+
+    /**
+     * Enforces read access on a single security object for a patient-scoped read. Threading the
+     * demographic into the check lets patient-specific no-rights rules take priority over the
+     * general object privilege (per the {@code SecurityInfoManager} contract); pass {@code null}
+     * via {@link #requireRead(String)} for non-patient-scoped reads.
+     *
+     * @param secObj         the security object name (e.g. {@code _eform} or {@code _newCasemgmt.forms})
+     * @param demographicNo  the patient the read is scoped to, or {@code null} when not patient-scoped
+     */
+    private void requireRead(String secObj, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), secObj, "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (" + secObj + ")");
+        }
+    }
+
 
     @GET
     @Path("/{demographicNo}/all")
     @Produces("application/json")
     public FormListTo1 getFormsForHeading(@PathParam("demographicNo") Integer demographicNo, @QueryParam("heading") String heading) {
+        requireRead(SECOBJ_EFORM, demographicNo == null ? null : demographicNo.toString());
         FormListTo1 formListTo1 = new FormListTo1();
         if (heading.equals("Completed")) {
             List<EFormData> completedEforms = formsManager.findByDemographicId(getLoggedInInfo(), demographicNo);
@@ -129,6 +174,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/allEForms")
     @Produces("application/json")
     public AbstractSearchResponse<EFormTo1> getAllEFormNames() {
+        requireRead(SECOBJ_EFORM);
         AbstractSearchResponse<EFormTo1> response = new AbstractSearchResponse<EFormTo1>();
         response.setContent(new EFormConverter(true).getAllAsTransferObjects(getLoggedInInfo(), formsManager.findByStatus(getLoggedInInfo(), true, EFormSortOrder.NAME)));
         response.setTotal(response.getContent().size());
@@ -140,6 +186,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/allEncounterForms")
     @Produces("application/json")
     public AbstractSearchResponse<EncounterFormTo1> getAllFormNames() {
+        requireRead(SECOBJ_FORMS);
         AbstractSearchResponse<EncounterFormTo1> response = new AbstractSearchResponse<EncounterFormTo1>();
         response.setContent(new EncounterFormConverter().getAllAsTransferObjects(getLoggedInInfo(), formsManager.getAllEncounterForms()));
         response.setTotal(response.getContent().size());
@@ -151,6 +198,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/selectedEncounterForms")
     @Produces("application/json")
     public AbstractSearchResponse<EncounterFormTo1> getSelectedFormNames() {
+        requireRead(SECOBJ_FORMS);
         AbstractSearchResponse<EncounterFormTo1> response = new AbstractSearchResponse<EncounterFormTo1>();
         response.setContent(new EncounterFormConverter().getAllAsTransferObjects(getLoggedInInfo(), formsManager.getSelectedEncounterForms()));
         response.setTotal(response.getContent().size());
@@ -163,6 +211,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/{demographicNo}/completedEncounterForms")
     @Produces("application/json")
     public FormListTo1 getCompletedFormNames(@PathParam("demographicNo") String demographicNo) {
+        requireRead(SECOBJ_FORMS, demographicNo);
         FormListTo1 formListTo1 = new FormListTo1();
 
         List<EncounterForm> encounterForms = formsManager.getAllEncounterForms();
@@ -205,6 +254,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/groupNames")
     @Produces("application/json")
     public AbstractSearchResponse<String> getGroupNames() {
+        requireRead(SECOBJ_EFORM);
         AbstractSearchResponse<String> response = new AbstractSearchResponse<String>();
 
         response.setContent(formsManager.getGroupNames());
@@ -217,6 +267,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/getFavouriteFormGroup")
     @Produces("application/json")
     public SummaryTo1 getFavouriteFormGroups() {
+        requireRead(SECOBJ_EFORM);
         UserPropertyDAO userPropertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         String groupName = userPropertyDao.getStringValue(getLoggedInInfo().getLoggedInProviderNo(), "favourite_eform_group");
         logger.debug("favourite eform group name " + groupName);
@@ -236,6 +287,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/getFormGroups")
     @Produces("application/json")
     public List<SummaryTo1> getGroupsWithForms() {
+        requireRead(SECOBJ_EFORM);
         int count = 0;
         List<SummaryTo1> summaryList = new ArrayList<SummaryTo1>();
         List<String> groupNames = formsManager.getGroupNames();
@@ -260,6 +312,13 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/{demographicNo}/formOptions")
     @Produces("application/json")
     public MenuTo1 getFormOptions(@PathParam("demographicNo") String demographicNo) {
+        // Generic forms-panel menu spanning both eForms and encounter forms; allow read on either
+        // of this service's two security objects, failing closed when the caller holds neither.
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_EFORM, "r", demographicNo)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_FORMS, "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_EFORM + ")");
+        }
         ResourceBundle bundle = getResourceBundle();
         MenuTo1 formMenu = new MenuTo1();
         int idCounter = 0;
