@@ -138,8 +138,8 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         // Set required request parameters — minimal set for a clean execute() path
         mockRequest.setParameter("efmfid", "1");
         mockRequest.setParameter("efmdemographic_no", "123");
-        // Use faxEForm=true to exit cleanly after the session write (the fax branch redirects and
-        // returns NONE before the EctProgram DB lookup and MatchManager). print=true used to serve
+        // Use faxEForm=true to exit cleanly after the session write (the fax branch returns
+        // the narrow POST handoff before the EctProgram DB lookup and MatchManager). print=true used to serve
         // this purpose, but it is now the legacy alias of the save-and-download workflow and renders
         // a PDF, which is not what these tests are about.
         mockRequest.setParameter("faxEForm", "true");
@@ -154,16 +154,18 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         if (mockitoMocks != null) mockitoMocks.close();
     }
 
-    @Test
-    @DisplayName("should reject GET requests before saving")
-    void shouldRejectGetRequests_beforeSaving() {
-        mockRequest.setMethod("GET");
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "PO\u017fT"})
+    @DisplayName("should reject non-POST requests before saving")
+    void shouldRejectNonPostRequests_beforeSaving(String verb) {
+        mockRequest.setMethod(verb);
 
         AddEForm2Action action = new AddEForm2Action();
         String result = action.execute();
 
         assertThat(result).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verify(mockEformDataManager, never()).saveEformData(any(), any());
     }
 
@@ -190,12 +192,35 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest.setParameter("eform_link", validLink);
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         HttpSession session = mockRequest.getSession();
         assertThat(session.getAttribute(validLink))
             .as("Session should have fdid stored under valid eform_link key")
             .isEqualTo("42");
+    }
+
+    @Test
+    void shouldKeepImageFailuresAndRejectedLinkValuesOutOfDiagnostics() throws Exception {
+        mockRequest.setParameter("openosp-image-link", "PRIVATE_IMAGE_CONTENT");
+        mockRequest.setParameter("eform_link", "PRIVATE_LINK_VALUE");
+        var failure = new IllegalArgumentException("PRIVATE_IMAGE_MESSAGE",
+                new IllegalStateException("PRIVATE_IMAGE_CAUSE"));
+        try (var forms = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.eform.data.EForm.class, (form, construction) -> {
+                    when(form.getFormFileName()).thenReturn("test.html");
+                    when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>());
+                    doThrow(failure).when(form).addImagePathPlaceholders(any());
+                });
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AddEForm2Action.class)) {
+            assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+            verify(mockEformDataManager).saveEformData(any(), any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("image placeholders (IllegalArgumentException)"));
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Invalid eform_link"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_IMAGE_CONTENT", "PRIVATE_LINK_VALUE",
+                    "PRIVATE_IMAGE_MESSAGE", "PRIVATE_IMAGE_CAUSE");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
     }
 
     @Test
@@ -205,7 +230,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest.setParameter("eform_link", invalidLink);
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         HttpSession session = mockRequest.getSession();
         assertThat(session.getAttribute(invalidLink))
@@ -227,7 +252,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         }
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         // Capture session attribute names after execute
         java.util.Set<String> attrsAfter = new java.util.HashSet<>();
@@ -248,7 +273,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest.setParameter("eform_link", poisonKey);
 
         AddEForm2Action action = new AddEForm2Action();
-        action.execute();
+        assertThat(action.execute()).isEqualTo("faxPreparation");
 
         HttpSession session = mockRequest.getSession();
         assertThat(session.getAttribute(poisonKey))

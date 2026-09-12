@@ -185,7 +185,7 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should emit UTF-8 JSON for report macro")
     void shouldEmitUtf8Json_forReportMacro() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
         request.setParameter("name", "東京");
@@ -203,7 +203,7 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(userPropertyDAO.getProp(eq("999998"), eq(UserProperty.LAB_MACRO_JSON))).thenReturn(macroProperty);
 
-        new ReportMacro2Action().execute();
+        assertThat(new ReportMacro2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
 
         assertThat(response.getContentType()).isEqualTo("application/json; charset=UTF-8");
         assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());

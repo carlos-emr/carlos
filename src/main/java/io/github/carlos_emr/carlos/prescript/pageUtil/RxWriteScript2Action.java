@@ -225,9 +225,9 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             logger.debug("SAVING STASH " + rx.getCustomInstr());
             if (rx.getSpecial() == null) {
-                logger.error("Drug.special is null : " + rx.getSpecial() + " : " + this.getSpecial());
+                logger.error("Prescription drug instructions are missing");
             } else if (rx.getSpecial().length() < 6) {
-                logger.warn("Drug.special appears to be empty : " + rx.getSpecial() + " : " + this.getSpecial());
+                logger.warn("Prescription drug instructions are empty");
             }
 
             bean.setStashItem(bean.getStashIndex(), rx);
@@ -302,7 +302,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 					}
 				}
 			} catch (NumberFormatException e) {
-                logger.error("Error: {}", e.getMessage());
+                logger.error("Prescription update failed ({})", e.getClass().getSimpleName());
 			}
         } else if (action.equals("clearReRxDrugIdList")) {
             bean.clearReRxDrugIdList();
@@ -336,7 +336,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
 
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
         }
 
         return null;
@@ -355,7 +355,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.error("Provider is null", new NullPointerException());
             }
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -419,7 +419,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 today = dateFormat.format(calendar.getTime());
                 // p("today's date", today);
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
             }
             Date tod = RxUtil.StringToDate(today, "yyyy-MM-dd");
             rx.setRxDate(tod);
@@ -427,7 +427,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             request.setAttribute("listRxDrugs", listRxDrugs);
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
         }
         logger.debug("=============END newCustomNote RxWriteScript2Action.java===============");
         return "newRx";
@@ -438,7 +438,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         logger.debug("=============Start listPreviousInstructions RxWriteScript2Action.java===============");
         String randomId = request.getParameter("randomId");
-        randomId = randomId.trim();
         // get prescript from randomId.
         // if prescript is normal drug, if din is not null, use din to find it
         // if din is null, use BN to find it
@@ -449,8 +448,29 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
+        randomId = randomId != null ? randomId.trim() : null;
+        if (randomId == null || !randomId.matches("\\d+")) {
+            logger.warn("listPreviousInstructions: invalid randomId");
+            bean.setListMedHistory(new ArrayList<>());
+            return null;
+        }
+
+        final int randomIdInt;
+        try {
+            randomIdInt = Integer.parseInt(randomId);
+        } catch (NumberFormatException e) {
+            logger.warn("listPreviousInstructions: randomId is out of range");
+            bean.setListMedHistory(new ArrayList<>());
+            return null;
+        }
+
         // create Prescription
-        RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+        RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
+        if (rx == null) {
+            logger.warn("listPreviousInstructions: no stash item found");
+            bean.setListMedHistory(new ArrayList<>());
+            return null;
+        }
         List<HashMap<String, String>> retList = new ArrayList();
         retList = RxUtil.getPreviousInstructions(rx);
 
@@ -512,7 +532,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 today = dateFormat.format(calendar.getTime());
                 // p("today's date", today);
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
             }
             Date tod = RxUtil.StringToDate(today, "yyyy-MM-dd");
             rx.setRxDate(tod);
@@ -520,7 +540,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             request.setAttribute("listRxDrugs", listRxDrugs);
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
         }
         return "newRx";
     }
@@ -774,7 +794,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             try {
                 today = dateFormat.format(calendar.getTime());
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
             }
             Date tod = RxUtil.StringToDate(today, "yyyy-MM-dd");
             rx.setRxDate(tod);
@@ -782,7 +802,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 			rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx)); // check and set if rx was discontinued before.
             request.setAttribute("listRxDrugs", listRxDrugs);
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
             // Fail loud: prescribe.jsp renders this notice in the staging pane rather
             // than returning an empty 200 that looks like "nothing happened" to the user.
             request.setAttribute("rxStageError",
@@ -844,7 +864,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 logger.debug("jsonObject:" + jsonObject.toString());
                 response.getOutputStream().write(jsonObject.toString().getBytes());
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
             }
 
         } else if ("updateQty".equals(action)) {
@@ -927,7 +947,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
                 response.getOutputStream().write(jsonObject.toString().getBytes());
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
             }
         }
 
@@ -1285,7 +1305,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     bean.setStashItem(stashIndex, rx);
                 }
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
                 continue;
             }
         }
@@ -1383,7 +1403,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (StringUtils.filled(rx.getRxDateFormat()))
                     partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error ({})", e.getClass().getSimpleName());
             }
 
             rx = null;
@@ -1395,8 +1415,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         // The stamp is NOT applied here. saveDrug is a separate AJAX request whose response is JSON,
         // so the RX_STAMP_SIGNATURE_APPLIED signal it would set could not reach the ViewScript2
         // render that follows (opened by popForm2 -> RxViewScript2Action), and the pad would be
-        // hidden. The stamp is applied in RxViewScript2Action, which reuses this same script row and
-        // renders the page — keeping the pad available to override the stamp.
+        // hidden. The stamp is applied by the CSRF-protected POST to RxViewScript2Action,
+        // which reuses this same script row and renders the page — keeping the pad available
+        // to override the stamp. Ordinary GET/HEAD preview navigation never stamps or saves.
 
         List<String> reRxDrugList = new ArrayList<String>();
         reRxDrugList = bean.getReRxDrugIdList();
@@ -1839,7 +1860,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     public void setSpecial(String RHS) {
 
         if (RHS == null || RHS.length() < 6)
-            MiscUtils.getLogger().error("drug special is either null or empty : " + RHS, new IllegalArgumentException("special is null or empty"));
+            MiscUtils.getLogger().error("Prescription drug instructions are missing or empty");
 
         this.special = RHS;
     }

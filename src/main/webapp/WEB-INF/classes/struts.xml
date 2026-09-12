@@ -70,6 +70,89 @@
     <constant name="struts.multipart.parser" value="jakarta-stream" />
 
     <!-- Module configurations (alphabetical) -->
+    <!-- Shared parent of every CARLOS module package. struts-default's exception interceptor
+         turns an uncaught exception into a result and, as shipped, LOGS NOTHING: an action that
+         died in a NullPointerException rendered the module's error page and left no trace in the
+         application log, so a request that quietly did nothing looked identical to one that never
+         happened (the consultation save in #3623 was found this way). CarlosExceptionMappingInterceptor
+         keeps the mapping and adds what was missing: one log line per MAPPED failure with an
+         incident id (ERROR with the trace; WARN without one for a SecurityException), the same id
+         handed to the error page as a request attribute, a real 500 or 403 status, and no exception
+         detail on the value stack or in the browser (see the class Javadoc). A package's own typed
+         mapping to a result other than error/securityError (billing's validation pages) keeps
+         struts-default's behaviour, exception on the value stack included, with a WARN line. An
+         exception no package mapping covers is rethrown to the container error path, as before,
+         with no incident id: the provider package maps only SecurityException. The two stacks below are
+         struts-default's defaultStack and basicStack, entry for entry and parameter for parameter,
+         with that interceptor in the exception slot; StrutsGlobalConfigUnitTest reads struts-default.xml
+         from the Struts jar and fails the build if they drift apart on an upgrade. A module package
+         extends carlos-default instead of struts-default and gets carlosDefaultStack by default; an
+         action that names a stack explicitly names one of these two. The global exception-mappings
+         stay in each module package, unchanged: what changes is what the mapping does. -->
+    <package name="carlos-default" extends="struts-default" abstract="true" strict-method-invocation="true">
+        <interceptors>
+            <interceptor name="carlosException" class="io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptor"/>
+            <interceptor-stack name="carlosDefaultStack">
+                <interceptor-ref name="carlosException"/>
+                <interceptor-ref name="alias"/>
+                <interceptor-ref name="servletConfig"/>
+                <interceptor-ref name="httpMethod"/>
+                <interceptor-ref name="i18n"/>
+                <interceptor-ref name="csp">
+                    <param name="disabled">false</param>
+                    <param name="enforcingMode">false</param>
+                </interceptor-ref>
+                <interceptor-ref name="prepare"/>
+                <interceptor-ref name="chain"/>
+                <interceptor-ref name="scopedModelDriven"/>
+                <interceptor-ref name="modelDriven"/>
+                <interceptor-ref name="actionFileUpload"/>
+                <interceptor-ref name="checkbox"/>
+                <interceptor-ref name="datetime"/>
+                <interceptor-ref name="multiselect"/>
+                <interceptor-ref name="staticParams"/>
+                <interceptor-ref name="actionMappingParams"/>
+                <interceptor-ref name="params"/>
+                <interceptor-ref name="conversionError"/>
+                <interceptor-ref name="coep">
+                    <param name="disabled">false</param>
+                    <param name="enforcingMode">false</param>
+                    <param name="exemptedPaths"/>
+                </interceptor-ref>
+                <interceptor-ref name="coop">
+                    <param name="disabled">false</param>
+                    <param name="exemptedPaths"/>
+                    <param name="mode">same-origin</param>
+                </interceptor-ref>
+                <interceptor-ref name="fetchMetadata">
+                    <param name="disabled">false</param>
+                </interceptor-ref>
+                <interceptor-ref name="validation">
+                    <param name="excludeMethods">input,back,cancel,browse</param>
+                </interceptor-ref>
+                <interceptor-ref name="workflow">
+                    <param name="excludeMethods">input,back,cancel,browse</param>
+                </interceptor-ref>
+                <interceptor-ref name="debugging"/>
+            </interceptor-stack>
+            <!-- For the direct-response PDF actions that deliberately avoid the validation and
+                 workflow interceptors (see the basicStack note in struts-scheduling.xml). -->
+            <interceptor-stack name="carlosBasicStack">
+                <interceptor-ref name="carlosException"/>
+                <interceptor-ref name="servletConfig"/>
+                <interceptor-ref name="httpMethod"/>
+                <interceptor-ref name="prepare"/>
+                <interceptor-ref name="checkbox"/>
+                <interceptor-ref name="datetime"/>
+                <interceptor-ref name="multiselect"/>
+                <interceptor-ref name="actionMappingParams"/>
+                <interceptor-ref name="params"/>
+                <interceptor-ref name="conversionError"/>
+            </interceptor-stack>
+        </interceptors>
+        <default-interceptor-ref name="carlosDefaultStack"/>
+    </package>
+
     <include file="struts-admin.xml"/>
     <include file="struts-billing.xml"/>
     <include file="struts-clinical.xml"/>

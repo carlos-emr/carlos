@@ -27,6 +27,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: provide the encounter editor's client-side behavior.
+    Features: note editing, layout, clinical text insertion and prescription paste coordination.
+    Parameters: authenticated provider properties and localized server-side configuration;
+                patient and encounter context are supplied by the containing view.
+    @since 2026-09-12 (promotion documentation and safe paste diagnostics)
+--%>
     <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
     <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
@@ -1310,10 +1317,17 @@ function updateCPPNote() {
         let caseNoteElement = document.getElementById(caseNote);
         if (caseNoteElement) {
             caseNoteElement.value += "\n" + txt;
-            adjustCaseNote();
-            setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            try {
+                adjustCaseNote();
+                setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+            } catch (error) {
+                // Text is already inserted. Layout/focus failure is not a failed paste.
+                console.error('Encounter text inserted; could not update layout');
+            }
+            return true;
         } else {
             console.error('Element with ID caseNote element not found.');
+            return false;
         }
     }
 
@@ -3407,7 +3421,17 @@ function autoSave() {
         frm.pEndDate.value = $F("printEndDate");
         frm.pType.value = $F("printopDates");
 
+        // The print is a top-level form submit whose response is a PDF download, and the
+        // browser fires pagehide for that navigation even though this document stays. The
+        // pagehide handler then released this window's note lock, so every draft autosave
+        // after a print answered 409 and the chart reported "edited in another window" for
+        // the rest of the encounter. Hold the lock across the submit; restore the release
+        // once the download has had time to start and this document is still here. If the
+        // response is not a download (an error page), the document is gone by then and the
+        // lock is left for the next open of this note by the same user to reclaim.
+        needToReleaseLock = false;
         frm.submit();
+        setTimeout(function () { needToReleaseLock = true; }, 3000);
 
         return false;
     }

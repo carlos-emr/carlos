@@ -17,3 +17,10 @@ embedded-library
 # Chromium discards the symbols its own crash handler needs, and would make any
 # renderer crash report unusable. The size cost is accepted for that reason.
 unstripped-binary-or-object
+
+# These guarded calls only query `systemctl is-failed` and clear a stale
+# package-driven failure counter with `systemctl reset-failed`. They do not
+# start, stop, enable, or disable the renderer; lifecycle operations continue
+# to use deb-systemd-invoke so policy-rc.d remains authoritative.
+maintainer-script-calls-systemctl [postinst:176]
+maintainer-script-calls-systemctl [postinst:177]

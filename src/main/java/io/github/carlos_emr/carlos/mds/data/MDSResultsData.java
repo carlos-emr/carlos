@@ -148,7 +148,7 @@ public class MDSResultsData {
                 lbData = new LabResultData(LabResultData.CML);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate", e);
+            logger.error("exception in CMLPopulate ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -234,7 +234,7 @@ public class MDSResultsData {
                 labResults.add(lbData);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate", e);
+            logger.error("exception in CMLPopulate ({})", e.getClass().getSimpleName());
         }
 
         return labResults;
@@ -349,7 +349,7 @@ public class MDSResultsData {
                 }
             }
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -430,7 +430,7 @@ public class MDSResultsData {
                 lData = new LabResultData(LabResultData.MDS);
             }
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -603,7 +603,7 @@ public class MDSResultsData {
             }
         } catch (Exception e) {
             logger.error("Error processing MDS lab, segment # " + seqId);
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
 
         }
         return labResults;
@@ -662,21 +662,31 @@ public class MDSResultsData {
             }
 
         } catch (Exception e) {
-            logger.error("exception in getMatchingCMLLabs", e);
+            logger.error("exception in getMatchingCMLLabs ({})", e.getClass().getSimpleName());
             return labId;
         }
         return ret;
     }
 
+    /**
+     * Finds MDS versions sharing an accession within the legacy date window.
+     * @param labId reviewed MDS lab identifier
+     * @return comma-separated matching identifiers; labId if the accession is absent or
+     *         version lookup fails, never an unbounded query for a missing accession
+     */
     public String getMatchingLabs(String labId) {
         String ret = "";
-        String accessionNum = findMDSAccessionNumber(labId);
         int monthsBetween = 0;
         try {
+            String accessionNum = findMDSAccessionNumber(labId);
+            // A missing accession must not turn into a LIKE '%%' query over unrelated labs.
+            if (accessionNum == null || accessionNum.isBlank()) {
+                return labId;
+            }
             MdsMSHDao dao = SpringUtils.getBean(MdsMSHDao.class);
-            for (Object[] o : dao.findLabsByAccessionNumAndId(ConversionUtils.fromIntString(segmentID), "%" + accessionNum + "%")) {
+            for (Object[] o : dao.findLabsByAccessionNumAndId(ConversionUtils.fromIntString(labId), "%" + accessionNum + "%")) {
                 MdsMSH a = (MdsMSH) o[0];
-                MdsMSH b = (MdsMSH) o[0];
+                MdsMSH b = (MdsMSH) o[1];
 
                 //MDS labs recycle accessoin numbers every two years, accession
                 //numbers for a lab should have lab dates within a year of eachother
@@ -697,7 +707,7 @@ public class MDSResultsData {
                 }
             }
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }
         return ret;

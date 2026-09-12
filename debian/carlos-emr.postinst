@@ -369,31 +369,6 @@ case "$1" in
             : > "${CONSULT_SIG_SENTINEL}"
         fi
 
-        # One-time migration (2026.08), the twin of the signature one above:
-        # earlier packages shipped consultation_fax_enabled=false, install_once
-        # copied it into the persistent /etc override, and that override is the
-        # LAST source carlos-emr-tomcat loads — so the new stock default of true
-        # in the WAR's own carlos.properties cannot reach an upgraded install.
-        # Same conservative shape as the signature migration: flip ONLY the
-        # byte-exact old stock line, ONLY on upgrade, ONLY once (sentinel), and
-        # write the sentinel on fresh installs too so a false the operator sets
-        # after this release is never flipped back. An operator who hand-edited
-        # the line (any spacing, any other value) is left alone by the exact
-        # whole-line match.
-        # Faxing only APPEARS in the UI here; sending still needs an active fax
-        # account (Administration > Faxes > Configure Fax) and the _fax object,
-        # so a site that never configured a provider sees no change.
-        CONSULT_FAX_SENTINEL="${STATE}/.consult-fax-default-migrated"
-        if [ ! -e "${CONSULT_FAX_SENTINEL}" ]; then
-            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
-                && grep -qx 'consultation_fax_enabled=false' "${PROPERTIES}"; then
-                sed -i 's/^consultation_fax_enabled=false$/consultation_fax_enabled=true/' "${PROPERTIES}"
-                echo "carlos-emr: enabled consultation faxing (migrated the old stock default off -> on)"
-            fi
-            mkdir -p "${STATE}"
-            : > "${CONSULT_FAX_SENTINEL}"
-        fi
-
         # Normalise the legacy yes/no spellings of the same key to true/false.
         # Until this release the two buttons that start a consultation fax were
         # rendered by a tag that compared the raw string against the literal
@@ -404,9 +379,9 @@ case "$1" in
         # the property now is, a boolean.
         # Deliberately NOT sentinel-guarded: it is idempotent and semantics-
         # preserving, so it may run on every configure and pick up a legacy
-        # spelling written later by hand. It runs AFTER the flip above so that an
-        # operator's explicit "no" is normalised to false and never seen by the
-        # exact-match flip (which by then has also written its sentinel).
+        # spelling written later by hand. A persistent false is always preserved:
+        # the package cannot distinguish an old stock value from an operator's
+        # deliberate choice, so upgrades must not silently enable the feature.
         if [ -f "${PROPERTIES}" ] && grep -Eqi \
             '^[[:space:]]*consultation_fax_enabled[[:space:]]*=[[:space:]]*(yes|no|on|off)[[:space:]]*$' \
             "${PROPERTIES}"; then

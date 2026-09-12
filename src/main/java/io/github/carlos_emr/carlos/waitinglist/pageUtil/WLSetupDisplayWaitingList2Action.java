@@ -126,7 +126,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         // Mutation path (update=Y) requires write privilege + POST.
         if (update != null && update.equalsIgnoreCase("Y")) {
-            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return NONE;
             }
@@ -242,7 +243,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 }
 
             } catch (Exception ex) {
-                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
+                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ({})", ex.getClass().getSimpleName());
                 return "failure";
             }
         }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???

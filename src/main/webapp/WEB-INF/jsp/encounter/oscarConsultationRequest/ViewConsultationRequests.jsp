@@ -565,15 +565,16 @@
                                 if (bMultisites) {
                                     siteName = theRequests.siteName.get(i);
                                 }
-                                if (status.equals("1") && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
-                                    tickerList.add(demo);
-                                }
 
                                 //multisites. skip record if not belong to same site
                                 // (mgrSite is only populated under multisite; without it
                                 // this check would drop every row).
                                 if (bMultisites && restrictToSiteOrTeam) {
                                     if (!mgrSite.contains(siteName)) continue;
+                                }
+                                if (EctViewConsultationRequestsUtil.isTicklerDemographic(demo)
+                                        && "1".equals(status) && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
+                                    tickerList.add(demo);
                                 }
                                 overdue = false;
 
@@ -623,11 +624,11 @@
                                 <%}%>
                             </td>
                             <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                                <% if (urgency.equals("1")) { %>
+                                <% if ("1".equals(urgency)) { %>
                                 <span class="urgency-urgent"><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyUrgent"/></span>
-                                <% } else if (urgency.equals("2")) { %>
+                                <% } else if ("2".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyNonUrgent"/>
-                                <% } else if (urgency.equals("3")) { %>
+                                <% } else if ("3".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyReturn"/>
                                 <% } %>
                             </td>

@@ -17,6 +17,9 @@ function env(name, required = true) {
 // run against the wrong host must be hard, matching scripts/login-playwright-checks.js.
 function validateBaseUrl(raw) {
   const u = new URL(raw);
+  if (u.username || u.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
   if (!['http:', 'https:'].includes(u.protocol)) {
     throw new Error(`BASE_URL must be http/https, got ${u.protocol}`);
   }
