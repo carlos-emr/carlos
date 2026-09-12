@@ -205,13 +205,14 @@ const WORKFLOWS = [
     formName: 'EctConsultationFormRequest2Form',
     action: '/encounter/RequestConsultation',
     fields: ['reasonForConsultation', 'clinicalInformation', 'concurrentProblems', 'currentMedications', 'allergies'],
-    // checkForm() sets `service` and `saved` before it submits, and refuses without
-    // a service. EctConsultationFormRequest2Action branches on the `submission`
+    // checkForm() sets `service` before it submits and refuses without one (it also
+    // flips the page's `saved` flag, but that input has an id and no name, so the
+    // browser never posts it and the replay must not either). The action branches on the `submission`
     // prefix: `Submit…` creates a request, `Update…` edits the one named by
     // ARGS:requestId. This URL carries no requestId and EctViewRequest2Action sets
     // no reqId attribute, so ConsultationFormRequest.jsp always renders the
     // new-request form — `Submit` is the branch that actually stores the prose.
-    overrides: () => ({ service: consultationServiceId, saved: 'true', submission: 'Submit Consultation Request' }),
+    overrides: () => ({ service: consultationServiceId, submission: 'Submit Consultation Request' }),
     // Guard the assumption above rather than trusting it. If a future change makes
     // this URL render an existing request, `Submit` would file a duplicate instead
     // of measuring this save — the replay would still reach the WAF, but it would
