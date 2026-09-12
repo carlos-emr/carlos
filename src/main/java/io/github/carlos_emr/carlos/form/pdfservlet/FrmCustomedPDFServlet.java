@@ -53,6 +53,7 @@ import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
+import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
@@ -117,6 +118,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private static Logger logger = MiscUtils.getLogger();
     private static final int MAX_FAX_DESTINATION_DIGITS = 11;
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
+    private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final PrescriptionDao prescriptionDao = SpringUtils.getBean(PrescriptionDao.class);
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
@@ -400,6 +402,18 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private PreparedFaxFiles prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
             String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
+        // A missing file does not mean its name is unowned: an older WAITING job
+        // may still reference it after partial cleanup. Never republish new clinical
+        // content under that job's filename, even if every artifact is missing.
+        try {
+            if (!faxJobDao.findByFileName(pdfFile).isEmpty()) {
+                reportFaxUncertain(res, writer, new IllegalStateException("Fax artifact name is already owned by a job"));
+                return null;
+            }
+        } catch (RuntimeException e) {
+            reportFaxUncertain(res, writer, e);
+            return null;
+        }
         try {
             return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
         } catch (FileAlreadyExistsException e) {
@@ -430,11 +444,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         List<Path> createdFiles = new ArrayList<>(3);
         try {
-            writeNewPdfFile(filepath, baosPDF, createdFiles);
+            // Claim the spool names first. Publishing DOCUMENT_DIR before a later
+            // collision would briefly expose new content to an older queue entry.
+            // CREATE_NEW retains exclusive ownership for concurrent submissions,
+            // including when spool and document directories are the same target.
             if (!sameFileTarget(filepath, tempPdf)) {
-                copyToNewFile(filepath, tempPdf, createdFiles);
+                writeNewPdfFile(tempPdf, baosPDF, createdFiles);
             }
             writeFaxTrackingFile(trackingFile, faxNo, createdFiles);
+            writeNewPdfFile(filepath, baosPDF, createdFiles);
             return new PreparedFaxFiles(filepath, createdFiles);
         } catch (IOException | RuntimeException e) {
             cleanupCreatedFiles(createdFiles, e);
@@ -456,15 +474,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             createdFiles.add(filepath);
             baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
-        }
-    }
-
-    private void copyToNewFile(Path source, Path destination, List<Path> createdFiles) throws IOException {
-        try (InputStream in = Files.newInputStream(source);
-                OutputStream out = Files.newOutputStream(destination,
-                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            createdFiles.add(destination);
-            in.transferTo(out);
         }
     }
 
