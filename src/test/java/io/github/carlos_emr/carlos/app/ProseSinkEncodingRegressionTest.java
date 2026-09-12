@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -75,7 +76,39 @@ class ProseSinkEncodingRegressionTest {
                 Arguments.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp",
                         "rows=\"8\"><%=alert%>", "rows=\"8\"><%=SafeEncode.forHtmlContent(alert)%>"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp",
-                        "rows=\"8\"><%=notes%>", "rows=\"8\"><%=SafeEncode.forHtmlContent(notes)%>"));
+                        "rows=\"8\"><%=notes%>", "rows=\"8\"><%=SafeEncode.forHtmlContent(notes)%>"),
+                // The provider encounter-note template body (exclusion 1142). These two already
+                // encode; the rows are here so they cannot quietly stop, now that the packaged
+                // rules no longer score six signature families on the argument that fills them.
+                Arguments.of("src/main/webapp/WEB-INF/jsp/admin/providertemplate.jsp",
+                        "<%=tValue%>", "SafeEncode.forHtml(tValue)"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/provider/providerencountersingle.jsp",
+                        "out.println(val)", "out.println(SafeEncode.forHtml(val))"));
+    }
+
+    /**
+     * The fourth sink for a template body writes it with no encoder at all, and is safe only
+     * because of the line this pins.
+     *
+     * <p>{@code InsertTemplate2.jsp} is the AJAX feed the chart calls to drop a template into the
+     * encounter note. It renders the stored value raw, which is correct for what it is: the
+     * response is {@code text/plain} and {@code writeToEncounterNote()} assigns it to the note
+     * textarea's {@code value}, so nothing parses it as markup and encoding it would corrupt the
+     * clinician's own text. Change the content type to HTML and that raw write becomes a stored
+     * XSS sink on a value the WAF no longer fully scores, so the declaration is the control.
+     */
+    @Test
+    @DisplayName("the template insert feed should stay text/plain, because it writes the body unencoded")
+    void shouldStayPlainText_forTemplateInsertFeed() throws IOException {
+        String source = Files.readString(
+                resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/encounter/InsertTemplate2.jsp")),
+                StandardCharsets.UTF_8);
+
+        assertThat(source)
+                .as("InsertTemplate2.jsp declares a non-markup content type")
+                .contains("contentType=\"text/plain; charset=UTF-8\"")
+                .as("InsertTemplate2.jsp is the raw feed, not an HTML page")
+                .doesNotContain("text/html");
     }
 
     @ParameterizedTest(name = "{0}: {2}")

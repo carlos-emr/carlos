@@ -1,0 +1,229 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.app;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionInvocation;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.config.entities.ExceptionMappingConfig;
+import org.apache.struts2.interceptor.ExceptionHolder;
+import org.apache.struts2.interceptor.ExceptionMappingInterceptor;
+
+/**
+ * The exception interceptor every CARLOS Struts stack runs first (see {@code carlos-default} in
+ * {@code struts.xml}). It keeps struts-default's exception-mapping contract, an action's uncaught
+ * exception still resolves to the {@code error} / {@code securityError} result its package maps,
+ * and changes what happens around that mapping:
+ *
+ * <ul>
+ *   <li><b>Nothing is silent.</b> struts-default's interceptor logs nothing unless configured to,
+ *       so an action that died in a {@code NullPointerException} rendered the error page and left
+ *       no trace. Every mapped exception is now logged once: unexpected failures at ERROR with the
+ *       stack trace, authorization refusals (an expected event) at WARN without one. A refusal is
+ *       a {@link SecurityException}, the type every privilege check throws, plus whatever else the
+ *       package maps to the {@value #SECURITY_RESULT} result (Spring Security's
+ *       {@code AccessDeniedException} in the admin package). The type check is deliberate, not a
+ *       shortcut: packages that map only {@code Exception} would otherwise send a refusal down the
+ *       ERROR branch, whose stack trace carries the exception message.</li>
+ *   <li><b>One reference ties the screen to the log.</b> Each failure gets an incident id, logged
+ *       and exposed to the result page as the {@value #INCIDENT_ID_ATTRIBUTE} request attribute, so
+ *       "it just showed an error" reports arrive with the string that finds the trace.</li>
+ *   <li><b>Nothing about the failure reaches the browser.</b> The exception is not pushed onto the
+ *       value stack (struts-default's {@code publishException} did, exposing {@code exception} and
+ *       {@code exceptionStack} to any page), and the log line carries no request parameters, no
+ *       query string and no exception message: any of those can hold PHI. The class name, the
+ *       action, the method, the request path, and the provider number (sanitised) are enough to find
+ *       the site; the trace itself goes to the log through the throwable, which is what every other
+ *       {@code logger.error(msg, e)} in the application already does.</li>
+ *   <li><b>The status is real.</b> A mapped exception used to leave the response at 200 unless the
+ *       result JSP fixed it up. It is 500 now, and 403 for a {@link SecurityException}, set before
+ *       the result renders when the response is still open, so AJAX callers and monitoring see the
+ *       failure too.</li>
+ *   <li><b>A package's own typed mapping is left to the package.</b> All of the above applies to
+ *       the generic {@value #ERROR_RESULT} and {@value #SECURITY_RESULT} results. A mapping to any
+ *       other result (the billing package maps its validation, file-write and data-load exceptions
+ *       to pages that render the exception's server-composed message) is that package handling an
+ *       expected condition, not an unexpected failure: the exception is published to the value
+ *       stack exactly as struts-default did so the page can read it, the status is left as the
+ *       action set it, and the log gets one WARN line with the incident id and no message.</li>
+ * </ul>
+ *
+ * <p>An exception no mapping covers is rethrown, exactly as before, and reaches the container's
+ * error page through web.xml.</p>
+ *
+ * @since 2026-09
+ */
+public class CarlosExceptionMappingInterceptor extends ExceptionMappingInterceptor {
+
+    private static final long serialVersionUID = 1L;
+
+    /** Request attribute carrying the incident id to the result page. */
+    public static final String INCIDENT_ID_ATTRIBUTE = "carlosIncidentId";
+
+    /** The result every module package maps its authorization-refusal exceptions to. */
+    public static final String SECURITY_RESULT = "securityError";
+
+    /** The generic result every module package maps {@code Exception} to. */
+    public static final String ERROR_RESULT = "error";
+
+    private static final Logger LOGGER = LogManager.getLogger(CarlosExceptionMappingInterceptor.class);
+
+    /** Canonical refusal text (see CLAUDE.md); the object name is a bare identifier. */
+    private static final Pattern SECURITY_OBJECT_REFUSAL =
+            Pattern.compile("^missing required sec object \\(([A-Za-z0-9_.]+)\\)$");
+    private static final String REFUSAL_MESSAGE_WITHHELD = "refusal message withheld";
+
+    @Override
+    public String intercept(ActionInvocation invocation) throws Exception {
+        try {
+            return invocation.invoke();
+        } catch (Exception e) {
+            List<ExceptionMappingConfig> mappings = invocation.getProxy().getConfig().getExceptionMappings();
+            ExceptionMappingConfig mapping = findMappingFromExceptions(mappings, e);
+            if (mapping == null) {
+                throw e;
+            }
+            String incidentId = newIncidentId();
+            HttpServletRequest request = ServletActionContext.getRequest();
+            HttpServletResponse response = ServletActionContext.getResponse();
+            Classification classification = classify(e, mapping);
+
+            logIncident(incidentId, e, classification, invocation, request);
+
+            if (request != null) {
+                request.setAttribute(INCIDENT_ID_ATTRIBUTE, incidentId);
+            }
+            if (classification == Classification.HANDLED) {
+                // The package's own result page reads the exception (request attribute "exception"
+                // resolves through the value stack); without this it renders with no message.
+                publishException(invocation, new ExceptionHolder(e));
+                return mapping.getResult();
+            }
+            if (response != null && !response.isCommitted()) {
+                response.setStatus(classification == Classification.REFUSAL
+                        ? HttpServletResponse.SC_FORBIDDEN
+                        : HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+            return mapping.getResult();
+        }
+    }
+
+    /** What a mapped exception is, which decides the log level, the status, and what the page sees. */
+    enum Classification {
+        /** An authorization refusal: 403, WARN, no trace, message withheld. */
+        REFUSAL,
+        /** An unexpected failure mapped to the generic error page: 500, ERROR with the trace. */
+        UNEXPECTED,
+        /** A typed exception the package maps to its own result: struts-default behaviour, WARN. */
+        HANDLED
+    }
+
+    static Classification classify(Exception e, ExceptionMappingConfig mapping) {
+        if (e instanceof SecurityException || SECURITY_RESULT.equals(mapping.getResult())) {
+            return Classification.REFUSAL;
+        }
+        if (ERROR_RESULT.equals(mapping.getResult())) {
+            return Classification.UNEXPECTED;
+        }
+        return Classification.HANDLED;
+    }
+
+    /**
+     * A fresh, unguessable reference for one failure. It is not a secret, only a correlation key,
+     * so a random UUID is the right shape: unique across nodes and restarts without coordination,
+     * and free of anything derived from the request.
+     */
+    static String newIncidentId() {
+        return UUID.randomUUID().toString();
+    }
+
+    private static void logIncident(String incidentId, Exception e, Classification classification,
+                                    ActionInvocation invocation, HttpServletRequest request) {
+        String actionName = LogSafe.sanitize(invocation.getProxy().getActionName());
+        String method = request == null ? "n/a" : LogSafe.sanitize(request.getMethod());
+        // Path only: the query string is where identifiers, and sometimes clinical text, travel.
+        String path = request == null ? "n/a" : LogSafe.sanitizeUri(request.getRequestURI());
+        String provider = LogSafe.sanitize(providerNo(request));
+        String exceptionType = e.getClass().getName();
+
+        if (classification == Classification.HANDLED) {
+            // An expected condition the package renders itself; the message is the page's to show,
+            // not the log's. One line so the incident id still ties the page to the log.
+            LOGGER.warn("Handled {} [incident {}] in action {} ({} {}) provider={}",
+                    exceptionType, incidentId, actionName, method, path, provider);
+        } else if (classification == Classification.REFUSAL) {
+            // There is nothing a trace would add to "this provider lacks this privilege", and the
+            // message itself is not logged as-is: most refusals carry the fixed
+            // "missing required sec object (_con)" text, but a SecurityException can also be built
+            // from a filename or a resource name, which is PHI here. Only the security object,
+            // validated to a bare identifier, reaches the log; anything else is withheld.
+            String refusal = refusalDetail(e);
+            LOGGER.warn("Authorization refused [incident {}] {} in action {} ({} {}) provider={}: {}",
+                    incidentId, exceptionType, actionName, method, path, provider, refusal);
+        } else {
+            LOGGER.error("Unhandled {} [incident {}] in action {} ({} {}) provider={}",
+                    exceptionType, incidentId, actionName, method, path, provider, e);
+        }
+    }
+
+    /**
+     * The one piece of a refusal message that is safe to log: the security object name from the
+     * canonical {@code missing required sec object (_name)} form, re-emitted from the validated
+     * capture rather than the message. Any other message is replaced by a fixed marker, because its
+     * content is whatever the throwing site interpolated.
+     */
+    static String refusalDetail(Exception e) {
+        String message = e.getMessage();
+        if (message != null) {
+            Matcher matcher = SECURITY_OBJECT_REFUSAL.matcher(message);
+            if (matcher.matches()) {
+                return "missing required sec object (" + matcher.group(1) + ")";
+            }
+        }
+        return REFUSAL_MESSAGE_WITHHELD;
+    }
+
+    private static String providerNo(HttpServletRequest request) {
+        if (request == null) {
+            return "anonymous";
+        }
+        try {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+            return providerNo == null ? "anonymous" : providerNo;
+        } catch (RuntimeException lookupFailure) {
+            // Logging the failure must never become a second failure; the incident is what matters.
+            return "unknown";
+        }
+    }
+}

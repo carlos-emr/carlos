@@ -191,9 +191,21 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             return Integer.parseInt(rawValue);
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().error(logMessage, LogSafe.sanitize(rawValue));
-            addActionError(actionErrorMessage);
+            rejectInput(actionErrorMessage);
             return null;
         }
+    }
+
+    /**
+     * Records why the submission is being turned away. The action error is the Struts-side record;
+     * the request attribute is what the form's alert actually reads, because the {@code input}
+     * result forwards to another action (ViewRequest) and the value stack does not survive that.
+     * Before this the {@code input} result had no mapping at all, so every one of these rejections
+     * ended in the framework's error page.
+     */
+    private void rejectInput(String message) {
+        addActionError(message);
+        request.setAttribute(ATTR_ERROR_MESSAGE, message);
     }
 
     private void requireConsultWritePrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
@@ -212,7 +224,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
     private String consultationUpdateUnavailable(int consultationRequestId) {
         MiscUtils.getLogger().error("Consultation request unavailable for update: {}", consultationRequestId);
-        addActionError(CONSULTATION_REQUEST_UNAVAILABLE);
+        rejectInput(CONSULTATION_REQUEST_UNAVAILABLE);
         return INPUT;
     }
 
@@ -378,8 +390,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 try {
                     demographicId = Integer.parseInt(demographicNo);
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
-                    addActionError(INVALID_DEMOGRAPHIC_NUMBER);
+                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", LogSafe.sanitize(demographicNo));
+                    rejectInput(INVALID_DEMOGRAPHIC_NUMBER);
                     return INPUT;
                 }
                 demographicNo = String.valueOf(demographicId);
@@ -510,8 +522,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     }
                 }
 
-                // only add the professionalSpecialist if it checks out. 0 will obviously return a null.
-                ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(specId);
+                // Look the specialist up only when there is an id to look up. specId is still null here
+                // whenever the consultant was left blank and the Health Care Team bridge above is off,
+                // which is the shipped carlos.properties default; entityManager.find(null) throws
+                // IllegalArgumentException rather than returning null, and that exception escaped into
+                // the Struts global Exception -> error mapping, so an unfilled consultant discarded the
+                // referral with nothing persisted and nothing logged. The bridge's 0 ("unknown") still
+                // resolves to null through the DAO, which is the "no specialist" outcome either way.
+                ProfessionalSpecialist professionalSpecialist =
+                        specId == null ? null : professionalSpecialistDao.find(specId);
 
                 if (professionalSpecialist != null) {
                     request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
@@ -652,16 +671,18 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     }
                 }
 
-                // only add the professionalSpecialist if it checks out.
-                ProfessionalSpecialist professionalSpecialist = new ProfessionalSpecialist();
-                if (specId != null) {
-                    professionalSpecialist = professionalSpecialistDao.find(specId);
-                }
-
+                // On an edit the consultant field is authoritative: blank, the bridge's 0 ("unknown"),
+                // or an id that no longer resolves all mean "no consultant", so the link is cleared
+                // rather than left pointing at whoever was there before. The previous placeholder, a
+                // bare new ProfessionalSpecialist() whenever specId was null, was attached to the
+                // consultation, and because the association cascades MERGE every such edit INSERTed
+                // an all-NULL professionalSpecialists row and re-pointed the request at it.
+                ProfessionalSpecialist professionalSpecialist =
+                        specId == null ? null : professionalSpecialistDao.find(specId);
                 if (professionalSpecialist != null) {
                     request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
-                    consult.setProfessionalSpecialist(professionalSpecialist);
                 }
+                consult.setProfessionalSpecialist(professionalSpecialist);
 
 
                 if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {

@@ -855,7 +855,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - **Struts Configuration** (modular split):
   - `struts.xml` - Parent config with global constants and `<include>` directives for 17 module files
   - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
-  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
+  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="carlos-default"` (the abstract parent in `struts.xml`: `struts-default` plus exception logging; name `carlosDefaultStack` / `carlosBasicStack`, never `defaultStack` / `basicStack`, in an action-level `<interceptor-ref>`)
   - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
   - Canonical action routes are extensionless (`struts.action.extension=""`)
   - Static assets are excluded from Struts by `struts.action.excludePattern`

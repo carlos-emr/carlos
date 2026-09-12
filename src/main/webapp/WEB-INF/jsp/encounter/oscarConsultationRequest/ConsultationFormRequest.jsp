@@ -263,7 +263,16 @@
         if (request.getParameter("error") != null) {
             String errorMessage = (String) request.getAttribute("errorMessage");
             if (StringUtils.isNullOrEmpty(errorMessage)) {
-                errorMessage = "The form could not be printed due to an error. Please refer to the server logs for more details.";
+                // The "error" result is shared by the save, print and fax actions on this form, so the
+                // fallback must not name printing: a failed Submit landed here too and told the clinician
+                // the form "could not be printed" when it had not been saved.
+                errorMessage = "The consultation request could not be saved or printed due to an error. Please refer to the server logs for more details.";
+            }
+            // When the "error" result was reached through an uncaught exception, the interceptor
+            // left the incident id that names the log entry; give the clinician that to quote.
+            Object incidentId = request.getAttribute("carlosIncidentId");
+            if (incidentId != null) {
+                errorMessage = errorMessage + " Reference: " + incidentId + ".";
             }
     %>
     <SCRIPT LANGUAGE="JavaScript">
