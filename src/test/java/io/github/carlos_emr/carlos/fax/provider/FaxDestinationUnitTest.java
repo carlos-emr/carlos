@@ -21,7 +21,7 @@ class FaxDestinationUnitTest {
             statement.execute("CREATE TABLE faxes(id INT PRIMARY KEY, destination VARCHAR(11) DEFAULT NULL)");
             statement.execute("INSERT INTO faxes VALUES(1,'14165550100'),(2,NULL)");
             statement.execute(java.nio.file.Files.readString(java.nio.file.Path.of(
-                    "database/mysql/migration/common/V1.0.19__widen_fax_destination_for_international_numbers.sql")));
+                    "database/mysql/migration/common/V1.0.20__widen_fax_destination_for_international_numbers.sql")));
             statement.execute("INSERT INTO faxes VALUES(3,'+123456789012345')");
             try (var rows = statement.executeQuery("SELECT destination FROM faxes ORDER BY id")) {
                 assertThat(rows.next()).isTrue();

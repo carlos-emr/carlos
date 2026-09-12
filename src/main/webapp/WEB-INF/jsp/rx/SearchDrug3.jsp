@@ -783,7 +783,7 @@ function renderRxStage() {
           padding-left: 20px;
 
         }
-        #statusDisplay {
+        #statusDisplay, #drugrefHeaderMetadata:not([hidden]) {
           font-size: x-small;
           display: flex;
           flex-direction: row;
