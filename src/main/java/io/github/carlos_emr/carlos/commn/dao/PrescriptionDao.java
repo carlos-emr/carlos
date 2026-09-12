@@ -46,6 +46,9 @@ public interface PrescriptionDao extends AbstractDao<Prescription> {
 
     public int updatePrescriptionsByScriptNo(Integer scriptNo, String comment);
 
+    /** Read a scalar value from the database, not a potentially stale managed entity. */
+    boolean hasExactComments(Integer scriptNo, String comment);
+
     public List<Prescription> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
 
     public List<Prescription> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,

@@ -8,6 +8,35 @@ const { EventEmitter } = require('node:events');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const source = fs.readFileSync(path.join(__dirname, 'consultation-nullable-fields-playwright-checks.js'), 'utf8');
 
+function validateDatabaseEnvironment(env) {
+  const start = source.indexOf('const mysqlHost =');
+  const end = source.indexOf('let mysqlDefaults =', start);
+  assert(start >= 0 && end > start && end < source.indexOf('(async () =>'));
+  return vm.runInNewContext(source.slice(start, end), {
+    process: { env }, assert: (condition, message) => assert.ok(condition, message),
+  });
+}
+
+test('nullable consultation rejects non-loopback database hosts before staging any state', () => {
+  for (const host of ['shared.example.invalid', '192.0.2.1', 'db', 'localhost.example.invalid', '127.0.0.1.example.invalid']) {
+    assert.throws(() => validateDatabaseEnvironment({ MYSQL_HOST: host, ALLOW_NON_LOCAL_MYSQL_HOST: 'true' }), /loopback MYSQL_HOST/);
+  }
+});
+
+test('nullable consultation accepts only its documented loopback database targets', () => {
+  for (const host of [undefined, 'localhost', '127.0.0.1', '::1']) {
+    assert.doesNotThrow(() => validateDatabaseEnvironment({ MYSQL_HOST: host }));
+  }
+});
+
+test('nullable consultation rejects credential-file option injection without exposing the password', () => {
+  assert.throws(() => validateDatabaseEnvironment({ MYSQL_PASSWORD: 'fixture-secret\nhost=shared.example.invalid' }), error => {
+    assert.match(error.message, /MYSQL_PASSWORD must not contain line breaks/);
+    assert.doesNotMatch(error.message, /fixture-secret|shared.example/);
+    return true;
+  });
+});
+
 test('nullable consultation rejects non-numeric fixture IDs before any SQL or browser work', () => {
   const start = source.indexOf('const requestId =');
   const end = source.indexOf('const mysqlHost =', start);

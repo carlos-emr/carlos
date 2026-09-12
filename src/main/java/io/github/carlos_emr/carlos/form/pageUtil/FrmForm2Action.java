@@ -125,6 +125,15 @@ public class FrmForm2Action extends ActionSupport {
             // closed rather than persist an unvalidated record.
             throw new IOException("Form definition " + resource + " declares no measurements");
         }
+        for (EctMeasurementTypesBean measurement : measurementTypes) {
+            if (measurement == null || measurement.getValidationRules() == null
+                    || measurement.getValidationRules().isEmpty()
+                    || measurement.getValidationRules().firstElement() == null) {
+                // Both validation and persistence require the first rule. Reject the entire
+                // definition before either loop; silently filtering could discard clinical input.
+                throw new IOException("Form definition has a measurement without validation rules");
+            }
+        }
         return measurementTypes;
     }
 
@@ -171,7 +180,15 @@ public class FrmForm2Action extends ActionSupport {
         // static vector holds whichever form was unmarshalled last anywhere in the JVM (the
         // setup action of another provider's form, say), so a save validated against it could
         // apply another form's measurement rules.
-        Vector<EctMeasurementTypesBean> measurementTypes = loadMeasurementTypes(trustedFormName);
+        Vector<EctMeasurementTypesBean> measurementTypes;
+        try {
+            measurementTypes = loadMeasurementTypes(trustedFormName);
+        } catch (IOException | IllegalStateException invalidDefinition) {
+            logger.error("Measurement form definition could not be loaded ({})", invalidDefinition.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "This form's measurement definition is unavailable or invalid. No measurements were saved.");
+            return NONE;
+        }
         logger.debug("num measurements " + measurementTypes.size());
         String demographicNo = null;
         String providerNo = (String) session.getAttribute("user");

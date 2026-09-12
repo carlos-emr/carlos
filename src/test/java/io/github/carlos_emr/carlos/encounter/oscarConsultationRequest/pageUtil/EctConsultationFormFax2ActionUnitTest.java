@@ -273,15 +273,17 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("should not expose renderer exception details to the browser or logs")
-    void shouldHideRendererDetails_whenPdfGenerationFails() throws Exception {
+    void shouldHideRendererDetails_whenPdfGenerationFails(boolean unchecked) throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        String details = "SensitiveFixturePatient /private/attachment.pdf token=fixture-secret";
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
-                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException(
-                        "SensitiveFixturePatient /private/attachment.pdf token=fixture-secret"));
+                .thenThrow(unchecked ? new IllegalStateException(details)
+                        : new io.github.carlos_emr.carlos.utility.PDFGenerationException(details));
         try (io.github.carlos_emr.carlos.test.logging.LogCapture capture =
                 io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormFax2Action.class)) {
             assertThat(action.execute()).isEqualTo("error");

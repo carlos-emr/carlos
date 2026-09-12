@@ -767,14 +767,14 @@ function bulkInboxAction(url, filelabs) {
                     file = files[i];
                     fileId = file.split(":")[0];
                     const row = labDocumentRows(fileId, file.split(":")[1]);
-                    row.find("input[name='flaggedLabs']").attr("checked", false);
+                    row.find("input[name='flaggedLabs']").prop("checked", false);
 
                     if (url.includes("FileLabs")) {
                         row.remove();
                     }
                 }
 
-                jQuery("input[name='checkA']").attr("checked", false);
+                jQuery("input[name='checkA']").prop("checked", false);
 
                 if (jQuery("input[name='isListView']").length) {
                     updateCategoryList();
