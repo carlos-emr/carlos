@@ -382,7 +382,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"prescription", "privilege", "binding"})
+    @ValueSource(strings = {"prescription", "privilege", "binding", "config"})
     @DisplayName("should report definite failure for pre-persistence record preparation exceptions")
     void shouldReportDefiniteFaxFailure_whenRecordPreparationFails(String stage) throws Exception {
         stubStoredSignature();
@@ -393,8 +393,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         } else if ("privilege".equals(stage)) {
             when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
                     .thenThrow(failure);
-        } else {
+        } else if ("binding".equals(stage)) {
             when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(failure);
+        } else {
+            when(faxConfigDao.getActiveConfigByNumber(anyString())).thenThrow(failure);
         }
         FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
         servlet.init(new MockServletConfig(new MockServletContext()));
@@ -404,7 +406,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("fax-failure")
                 .doesNotContain("fax-uncertain", "fax-success", "fixture", "private diagnostic");
         verifyFaxWasNotQueued();
-        verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
+        if (!"config".equals(stage)) {
+            verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
+        }
     }
 
     @ParameterizedTest

@@ -171,7 +171,8 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", "w", null);
         verify(mockSecurityInfoManager)
@@ -216,7 +217,8 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, tenDigitScript, SIGNATURE_ID);
     }
@@ -250,7 +252,8 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockPrescriptionManager)
                 .setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, tenDigitSignatureId);
@@ -290,7 +293,8 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
         String result = action.saveDigitalSignature();
 
-        assertThat(result).isNull();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isEqualTo("written");
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, SCRIPT_ID, null);
     }

@@ -371,8 +371,10 @@ public String saveDigitalSignature() throws IOException {
                       ip, 
                       String.valueOf(targetPrescription.getDemographicId()));
     
-    // Return null for Ajax-style calls that don't require a view forward
-    return null;
+    // A successful HTTP response alone could be a followed login/error redirect. Let the
+    // browser recognize this exact completed write before enabling outbound fax controls.
+    response.setHeader("X-Carlos-Signature-Write", "written");
+    return NONE;
 }
 
     public String saveReRxDrugIdToStash() throws IOException {

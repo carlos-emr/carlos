@@ -387,7 +387,8 @@
 
             function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
                               previousUnloadHandler) {
-                if (method === 'oscarRxFax' && (faxQueued || faxSubmissionUncertain || faxPreviewReloading)) return false;
+                if (method === 'oscarRxFax' && (faxQueued || faxSubmissionUncertain || faxPreviewReloading
+                        || signatureAssociationPending || signatureAssociationFailed)) return false;
                 var useSC = false;
                 var scAddress = "";
                 var rxPageSize = document.getElementById('printPageSize').value;
@@ -992,6 +993,8 @@
                         || faxQueued
                         || faxSubmissionUncertain
                         || faxPreviewReloading
+                        || signatureAssociationPending
+                        || signatureAssociationFailed
                         || typeof hasPreview === 'undefined'
                         || !hasPreview
                         || !hasFaxNumber
@@ -1113,7 +1116,8 @@
             }
 
             function sendFax(pasteAfterSuccess) {
-                if (faxSubmissionPending || faxQueued || faxSubmissionUncertain || faxPreviewReloading) {
+                if (faxSubmissionPending || faxQueued || faxSubmissionUncertain || faxPreviewReloading
+                        || signatureAssociationPending || signatureAssociationFailed) {
                     return false;
                 }
                 let faxNumber = document.getElementById('faxNumber');
@@ -1165,6 +1169,10 @@
 
             var isSignatureDirty = false;
             var isSignatureSaved = false;
+            var signatureAssociationPending = false;
+            var signatureAssociationFailed = false;
+            var signatureAssociationSequence = 0;
+            var signatureAssociationQueue = Promise.resolve();
             <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { %>
             var hasFaxNumber = <%= hasPharmacyFax ? "true" : "false" %>;
             var hasFaxSenderAccount = <%= hasFaxSenderAccount ? "true" : "false" %>;
@@ -1177,7 +1185,7 @@
 
             function signatureHandler(e) {
                 isSignatureDirty = e.isDirty;
-                isSignatureSaved = e.isSave;
+                isSignatureSaved = false;
                 e.target.onbeforeunload = null;
                 <% if (CarlosProperties.getInstance().isRxFaxEnabled()) { //%>
                 setFaxControlsDisabled(shouldDisableFaxControls());
@@ -1193,32 +1201,64 @@
 		// preview, Additional Notes and fax. Only the digits-validated target is emitted.
 		if (!scriptIdForFax.isEmpty()) {
 		%>
-		try {
-			let signId = new URLSearchParams(e.storedImageUrl.split('?')[1]).get('digitalSignatureId')
-			this.setDigitalSignatureToRx(signId, '<%= scriptIdForFax %>');
-		} catch (e) {
-			console.error(e);
-		}
+                    associateSavedSignature(e, '<%= scriptIdForFax %>');
                     <% } %>
 
-                    refreshImage();
                 }
             }
 
+function updateSignatureAssociationControls() {
+    const warning = document.getElementById('signatureAssociationError');
+    if (warning) warning.hidden = !signatureAssociationFailed;
+    if (typeof canFaxScript !== 'undefined') {
+        setFaxControlsDisabled(shouldDisableFaxControls());
+    }
+}
+
+function associateSavedSignature(event, scriptId) {
+    cancelPendingFax();
+    if (faxSubmissionPending || faxQueued || faxSubmissionUncertain) {
+        return Promise.resolve(false);
+    }
+    const sequence = ++signatureAssociationSequence;
+    const storedImageUrl = event.storedImageUrl;
+    signatureAssociationPending = true;
+    signatureAssociationFailed = false;
+    isSignatureSaved = false;
+    updateSignatureAssociationControls();
+    // Serialize repeated pad saves: an older, slower POST must not overwrite a newer link.
+    const attempt = signatureAssociationQueue.catch(function () {}).then(function () {
+        const signId = new URL(storedImageUrl, window.location.href).searchParams.get('digitalSignatureId');
+        if (!/^[1-9][0-9]*$/.test(signId || '')) throw new Error('Invalid signature identifier');
+        return setDigitalSignatureToRx(signId, scriptId);
+    });
+    signatureAssociationQueue = attempt;
+    return attempt.then(function () {
+        if (sequence !== signatureAssociationSequence) return;
+        isSignatureSaved = true;
+        if (typeof hasStoredSignature !== 'undefined') hasStoredSignature = true;
+        refreshImage();
+    }).catch(function () {
+        if (sequence !== signatureAssociationSequence) return;
+        isSignatureSaved = false;
+        signatureAssociationFailed = true;
+    }).finally(function () {
+        if (sequence !== signatureAssociationSequence) return;
+        signatureAssociationPending = false;
+        updateSignatureAssociationControls();
+    });
+}
+
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
-	fetch('<%=request.getContextPath() %>/rx/saveDigitalSignature', {
+	return fetch('<%=request.getContextPath() %>/rx/saveDigitalSignature', {
 		method: 'POST',
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 		credentials: 'same-origin',
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
 	}).then(function (response) {
-		// Once the drawn signature is linked to the script it is a STORED signature like the stamp
-		// was, so a later pad stroke or Clear must keep Fax enabled (see signatureHandler).
-		if (response.ok && typeof hasStoredSignature !== 'undefined') {
-			hasStoredSignature = true;
-		}
-	}).catch(function (error) {
-		console.error(error);
+		if (!response.ok || response.redirected || response.headers.get('X-Carlos-Signature-Write') !== 'written') {
+            throw new Error('Signature association was not confirmed');
+        }
 	});
 }
 
@@ -1267,6 +1307,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
     <!-- HSFO functionality removed -->
     <div id="bodyView">
+        <p id="signatureAssociationError" class="alert alert-danger" role="alert" hidden><fmt:message key="ViewScript.js.signatureAssociationFailed"/></p>
 
 
             <table border="0" cellpadding="0" cellspacing="0"

@@ -1089,7 +1089,7 @@
             form.address.value = '';
             document.getElementById('annotation').value = '';
             document.getElementById('eFormButton').style.display = 'none';
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = '';
             updateFaxButton();
             <%}%>
@@ -1111,7 +1111,7 @@
 
             document.getElementById('consult-disclaimer').style.display = 'none';
 
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = specData.fax ? specData.fax.trim() : '';
             updateFaxButton();
             <%}%>
@@ -1514,7 +1514,7 @@
                 if (savedFax) form.fax.value = savedFax;
                 if (savedAddress) form.address.value = savedAddress;
 
-                <%if (props.isConsultationFaxEnabled()) {%>
+                <%if (canFaxConsult) {%>
                 if (savedFax) { specialistFaxNumber = savedFax.trim(); updateFaxButton(); }
                 <%}%>
 
@@ -1545,7 +1545,7 @@
                 document.getElementById("annotation").value = "";
 
                 <%
-		if (props.isConsultationFaxEnabled()) {//
+		if (canFaxConsult) {//
 		%>
                 specialistFaxNumber = "";
                 updateFaxButton();
@@ -1578,7 +1578,7 @@
                     document.getElementById("consult-disclaimer").style.display = 'none';
 
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -1627,7 +1627,7 @@
                     document.EctConsultationFormRequest2Form.fax.value = (aSpeci.specFax);					// load the text fields with phone fax and address
                     document.EctConsultationFormRequest2Form.address.value = (aSpeci.specAddress);
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -2106,7 +2106,7 @@ if (userAgent != null) {
             isSignatureDirty = e.isDirty;
             isSignatureSaved = e.isSave;
             <%
-	if (props.isConsultationFaxEnabled()) { //
+	if (canFaxConsult) { //
 	%>
             updateFaxButton();
             <% } %>
@@ -2355,7 +2355,7 @@ if (userAgent != null) {
             }
         %>
 
-        <% if (!props.isConsultationFaxEnabled() || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+        <% if (!canFaxConsult || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demo %>' context="htmlAttribute"/>">
@@ -2674,7 +2674,7 @@ if (userAgent != null) {
                                 %>
 
                                 <table>
-                                    <% if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+                                    <% if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
                                     <tr>
                                         <td class="consult-form-label" style="width:30%"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
                                         <td class="consult-form-value" style="width:70%">
@@ -3043,7 +3043,7 @@ if (userAgent != null) {
                                                 <% }
                                                 }%>
                                             </select>
-                                            <%if (props.isConsultationFaxEnabled()) {%>
+                                            <%if (canFaxConsult) {%>
                                             <div>
                                                 <input type="checkbox" id="ext_letterheadTitle"
                                                        name="ext_letterheadTitle"
@@ -3115,7 +3115,7 @@ if (userAgent != null) {
 							</td>
 						</tr>
 					</table>
-				<% if (props.isConsultationFaxEnabled()) { %>
+				<% if (canFaxConsult) { %>
                         <div class="consult-section-heading">Fax Account</div>
                                 <table class="w-100">
 								<tr>
@@ -3274,7 +3274,7 @@ if (userAgent != null) {
                         <%
                             if (props.isConsultationSignatureEnabled()) {
                                 String signatureProviderNo = providerNo;
-                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
                                     if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
                                         signatureProviderNo = consultUtil.providerNo.trim();
                                     } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {

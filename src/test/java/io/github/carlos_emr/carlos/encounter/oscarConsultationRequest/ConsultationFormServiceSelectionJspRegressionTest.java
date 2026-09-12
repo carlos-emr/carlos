@@ -65,7 +65,8 @@ class ConsultationFormServiceSelectionJspRegressionTest {
                 .contains("isAllowedAccessToPatientRecord(loggedInInfo, Integer.parseInt(consultSecurityTarget))")
                 .contains("hasPrivilege(loggedInInfo, \"_fax\", SecurityInfoManager.WRITE, null)")
                 .contains("hasPrivilege(loggedInInfo, \"_fax\", SecurityInfoManager.READ, null)");
-        assertThat(jsp.split("if \\(canFaxConsult\\)", -1)).hasSize(3);
+        assertThat(jsp).doesNotContain("props.isConsultationFaxEnabled()")
+                .contains("<% if (canFaxConsult) { %>\n                        <div class=\"consult-section-heading\">Fax Account</div>");
     }
 
     @Test

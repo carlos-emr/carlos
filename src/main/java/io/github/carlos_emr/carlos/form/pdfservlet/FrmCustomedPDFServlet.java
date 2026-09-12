@@ -274,7 +274,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                         writer.flush();
                         return;
                     }
-                    FaxConfig selectedFaxConfig = faxConfigDao.getActiveConfigByNumber(faxNumber);
+                    FaxConfig selectedFaxConfig;
+                    try {
+                        selectedFaxConfig = faxConfigDao.getActiveConfigByNumber(faxNumber);
+                    } catch (RuntimeException failure) {
+                        reportFaxFailure(res, writer, "Prescription fax account lookup failed", failure);
+                        return;
+                    }
                     if (selectedFaxConfig == null) {
                         res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                         writer.println("<div id='fax-failure'><h3>Error: the selected fax line is not configured.</h3></div>");

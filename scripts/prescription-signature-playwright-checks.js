@@ -318,7 +318,7 @@ async function savePrescriptionSignatureAssociation(page, digitalSignatureId) {
     form,
     headers,
   });
-  if (response.status() !== 200) {
+  if (response.status() !== 200 || response.headers()['x-carlos-signature-write'] !== 'written') {
     throw new Error(`Saving prescription signature association returned HTTP ${response.status()}`);
   }
 }
@@ -431,7 +431,17 @@ async function runPrescriptionSignatureCheck(context) {
 
     const upload = await uploadPrescriptionSignature(page);
     uploadedSignatureId = upload.signatureId;
-    await savePrescriptionSignatureAssociation(page, uploadedSignatureId);
+    const association = await page.evaluate(async (signatureId) => {
+      const pending = associateSavedSignature({ storedImageUrl:
+        `/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=${signatureId}` }, faxScriptNo);
+      const lockedWhilePending = signatureAssociationPending && shouldDisableFaxControls();
+      await pending;
+      return { lockedWhilePending, saved: isSignatureSaved, failed: signatureAssociationFailed,
+        pending: signatureAssociationPending };
+    }, uploadedSignatureId);
+    if (!association.lockedWhilePending || !association.saved || association.failed || association.pending) {
+      throw new Error('Signature association UI did not enforce pending-to-confirmed fax gating');
+    }
     const livePreview = await refreshLivePreview(page);
 
     await openPrescriptionView(page, 'stored-prescription-view');
