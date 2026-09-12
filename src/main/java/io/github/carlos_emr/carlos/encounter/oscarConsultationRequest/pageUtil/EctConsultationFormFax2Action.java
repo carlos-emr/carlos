@@ -213,15 +213,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
         request.setAttribute("reqId", reqId);
         request.setAttribute("demographicId", demoNo);
-        Path faxPdf = null;
-        try {
-            faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
-        } catch (PDFGenerationException e) {
-            logger.error(e.getMessage(), e);
-            String errorMessage = "This fax could not be sent. \n\n" + e.getMessage();
-            request.setAttribute("errorMessage", errorMessage);
-            return "error";
-        }
         Path pdfToFax;
         List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
         Set<FaxRecipient> faxRecipients;
@@ -268,6 +259,16 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         sender.setFaxNumberOwner(matchedConfig.getAccountName());
 
+        // Validate the complete batch before creating a PHI-bearing temporary document.
+        Path faxPdf;
+        try {
+            faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
+        } catch (PDFGenerationException e) {
+            logger.error(e.getMessage(), e);
+            request.setAttribute("errorMessage", "This fax could not be sent. \n\n" + e.getMessage());
+            return "error";
+        }
+        Path renderedSource = faxPdf;
         Set<Path> attemptFiles = new HashSet<>();
         try {
             faxPdf = nioFileManager.promoteApplicationTempFile(faxPdf);
@@ -277,6 +278,10 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             request.setAttribute("errorMessage",
                     "This fax could not be sent. \n\nThe fax document could not be stored for sending; please retry or contact your administrator.");
             return "error";
+        } finally {
+            // Promotion may copy or move the source. Remove any residual application-temp
+            // copy on both success and failure; never touch a document-store source here.
+            cleanupRenderedSource(renderedSource);
         }
 
         // Build the complete filesystem-backed batch before the transactional database write.
@@ -357,6 +362,18 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         request.setAttribute("faxSuccessful", true);
         return SUCCESS;
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "deletion uses the canonical path validated inside a CARLOS-owned application-temp subtree")
+    private void cleanupRenderedSource(Path renderedSource) {
+        if (renderedSource == null) return;
+        try {
+            Path validated = PathValidationUtils.validateApplicationTempPath(renderedSource.toFile()).toPath();
+            Files.deleteIfExists(validated);
+        } catch (IOException | SecurityException e) {
+            logger.warn("Unable to remove the rendered consultation fax temporary file", e);
+        }
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",

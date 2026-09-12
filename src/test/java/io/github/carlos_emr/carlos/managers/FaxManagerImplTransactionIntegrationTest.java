@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -96,6 +97,9 @@ class FaxManagerImplTransactionIntegrationTest extends CarlosTestBase {
     private Path tempWorkspace;
     private Integer seededConfigId;
     private Integer seededClinicId;
+    private Integer seededFaxId;
+    @Autowired
+    private javax.sql.DataSource dataSource;
 
     @BeforeEach
     void setUpFixtures() throws IOException {
@@ -120,6 +124,7 @@ class FaxManagerImplTransactionIntegrationTest extends CarlosTestBase {
         transactionTemplate.executeWithoutResult(status -> {
             // The manager's rollback removes the FaxJob rows; the committed seed rows are ours.
             faxJobDao.getReadyToSendFaxes(SENDER_FAX_LINE).forEach(faxJobDao::remove);
+            if (seededFaxId != null) faxJobDao.remove((Object) seededFaxId);
             if (seededConfigId != null) {
                 faxConfigDao.remove((Object) seededConfigId);
             }
@@ -184,6 +189,69 @@ class FaxManagerImplTransactionIntegrationTest extends CarlosTestBase {
         assertThat(faxJobDao.getReadyToSendFaxes(SENDER_FAX_LINE))
                 .as("no WAITING FaxJob rows may survive the rolled-back batch")
                 .isEmpty();
+    }
+
+    private void seedFailedInternationalFax() {
+        transactionTemplate.executeWithoutResult(status -> {
+            FaxConfig config = new FaxConfig();
+            config.setFaxNumber(SENDER_FAX_LINE);
+            config.setFaxUser("tx-test-user");
+            config.setProviderType(FaxConfig.ProviderType.SRFAX);
+            config.setActive(true);
+            faxConfigDao.persist(config);
+            seededConfigId = config.getId();
+            FaxJob source = new FaxJob();
+            source.setFax_line(SENDER_FAX_LINE);
+            source.setDestination("+442079460100");
+            source.setStatus(FaxJob.STATUS.ERROR);
+            source.setDirection(FaxJob.Direction.OUT);
+            source.setFile_name("resend-fixture.pdf");
+            faxJobDao.persist(source);
+            seededFaxId = source.getId();
+        });
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("should queue exactly one clone when two resend requests race")
+    void shouldSerializeResends_whenRequestsRace() throws Exception {
+        seedFailedInternationalFax();
+        var ready = new java.util.concurrent.CyclicBarrier(2);
+        var workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Boolean> resend = () -> {
+                ready.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                return faxManager.resendFax(loggedInProvider(), seededFaxId.toString(), "+44 20 7946 0100");
+            };
+            var first = workers.submit(resend);
+            var second = workers.submit(resend);
+            assertThat(java.util.List.of(first.get(20, java.util.concurrent.TimeUnit.SECONDS),
+                    second.get(20, java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(true, false);
+            assertThat(faxJobDao.getReadyToSendFaxes(SENDER_FAX_LINE)).singleElement()
+                    .extracting(FaxJob::getDestination).isEqualTo("+442079460100");
+            assertThat(faxJobDao.find(seededFaxId).getStatus()).isEqualTo(FaxJob.STATUS.RESENT);
+        } finally {
+            workers.shutdownNow();
+            workers.awaitTermination(20, java.util.concurrent.TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("should roll back the cloned fax when recording the source resend state fails")
+    void shouldRollbackResendClone_whenSourceUpdateFails() {
+        seedFailedInternationalFax();
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        // Test-only H2 constraint injects a failure on the second write, not input validation.
+        jdbc.execute("ALTER TABLE faxes ADD CONSTRAINT test_resend_source_failure CHECK(status <> 'RESENT')");
+        try {
+            assertThatThrownBy(() -> faxManager.resendFax(loggedInProvider(), seededFaxId.toString(), null))
+                    .isInstanceOf(RuntimeException.class);
+            assertThat(faxJobDao.getReadyToSendFaxes(SENDER_FAX_LINE)).isEmpty();
+            assertThat(faxJobDao.find(seededFaxId).getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        } finally {
+            jdbc.execute("ALTER TABLE faxes DROP CONSTRAINT test_resend_source_failure");
+        }
     }
 
     private static LoggedInInfo loggedInProvider() {

@@ -908,6 +908,7 @@
             boolean hasFaxSenderAccount = faxConfigs != null && !faxConfigs.isEmpty();
             if (faxConfigs == null) faxConfigs = java.util.Collections.emptyList();
             for (FaxConfig account : faxConfigs) {
+                if (account.getFaxNumber() == null || account.getFaxNumber().isBlank()) continue;
                 try {
                     io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
                             pharmacy == null ? null : pharmacy.getFax(), account.getProviderType());
@@ -917,6 +918,8 @@
                 }
             }
             boolean hasPharmacyFax = !usableFaxSenderNumbers.isEmpty();
+            String selectedFaxSenderNumber = io.github.carlos_emr.carlos.fax.provider.FaxDestination.selectSenderNumber(
+                    faxConfigs, usableFaxSenderNumbers, providerFax);
             // The fourth condition, and the reason it is a variable both halves of the gate read:
             // sendFax() reads frames['preview'].document, and the #preview iframe is only emitted
             // inside `if (bean.getStashSize() > 0)` further down. With an empty stash the buttons
@@ -1510,7 +1513,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                     %>
                                                     <option value="<carlos:encode value='<%= faxConfig.getFaxNumber() %>' context="htmlAttribute"/>"
                                                             <%= usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) ? "" : "disabled" %>
-                                                            <%= usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) && java.util.Objects.equals(providerFax, faxConfig.getFaxNumber()) ? "selected" : "" %>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/>
+                                                            <%= usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) && java.util.Objects.equals(selectedFaxSenderNumber, faxConfig.getFaxNumber()) ? "selected" : "" %>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/>
                                                     </option>
                                                     <%
                                                         }

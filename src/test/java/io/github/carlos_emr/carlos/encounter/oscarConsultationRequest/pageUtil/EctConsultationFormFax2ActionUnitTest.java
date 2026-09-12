@@ -159,7 +159,7 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
             action.setRecipientFaxNumber(scenario);
         }
         assertThat(action.execute()).isEqualTo("error");
-        org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxJobDao);
         verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
@@ -295,6 +295,32 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         verify(faxJobDao, never()).persist(any());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"application-temp", "outside", "symlink"})
+    @DisplayName("should remove only contained application-temp PDFs when promotion fails")
+    void shouldCleanRenderedSource_whenPromotionFails(String scenario) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path root = java.nio.file.Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"), "carlos-temp"));
+        Path ownedDirectory = java.nio.file.Files.createTempDirectory(root, "consult-fax-test-");
+        Path outside = java.nio.file.Files.writeString(temporaryDirectory.resolve("outside.pdf"), "outside fixture");
+        Path rendered = "outside".equals(scenario) ? outside : ownedDirectory.resolve("rendered.pdf");
+        if ("symlink".equals(scenario)) java.nio.file.Files.createSymbolicLink(rendered, outside);
+        else if (!"outside".equals(scenario)) java.nio.file.Files.writeString(rendered, "rendered fixture");
+        try {
+            when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(rendered);
+            when(nioFileManager.promoteApplicationTempFile(rendered)).thenThrow(new FilePromotionException("fixture failure"));
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(java.nio.file.Files.exists(rendered)).isEqualTo(!"application-temp".equals(scenario));
+            assertThat(java.nio.file.Files.readString(outside)).isEqualTo("outside fixture");
+            verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        } finally {
+            if (!"outside".equals(scenario)) java.nio.file.Files.deleteIfExists(rendered);
+            java.nio.file.Files.deleteIfExists(ownedDirectory);
+        }
+    }
+
     @Test
     void shouldRetainFaxArtifacts_whenCommitAcknowledgementIsUncertain() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
@@ -310,12 +336,15 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
             edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(1);
             paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
                     .thenReturn(pdf.toFile());
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath(pdf.toFile()))
+                    .thenThrow(new SecurityException("fixture is outside application temp"));
             String result = action.execute();
             assertThat(pdf).exists();
             assertThat(result).isEqualTo("faxUncertain");
             assertThat(response.getStatus()).isEqualTo(503);
             assertThat(request.getAttribute("faxSuccessful")).isNull();
-            paths.verifyNoInteractions();
+            paths.verify(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(
+                    any(java.io.File.class), any(java.io.File.class)), never());
             verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
         }
     }

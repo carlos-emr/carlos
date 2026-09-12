@@ -6,6 +6,28 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..', 'src/main/webapp/WEB-INF/jsp');
 
+for (const [url, accepted] of [
+  ['http://127.0.0.1:8080/carlos/admin/ViewUpdateDrugref', true],
+  ['https://example.invalid/carlos/admin/ViewUpdateDrugref', false],
+  ['http://127.0.0.1:8081/carlos/admin/ViewUpdateDrugref', false],
+  ['http://127.0.0.1:8080/other/admin/ViewUpdateDrugref', false],
+  ['http://127.0.0.1:8080/carlos/admin/ViewUpdateDrugref/extra', false],
+]) {
+  test(`DrugRef popup validation ${accepted ? 'accepts' : 'rejects'} ${url}`, () => {
+    const source = fs.readFileSync(path.join(__dirname, 'drugref-update-playwright-checks.js'), 'utf8');
+    const start = source.indexOf('const popupUrl = new URL(popup.url());');
+    const end = source.indexOf('// Step 1:', start);
+    assert.ok(start >= 0 && end > start);
+    const check = () => vm.runInNewContext(source.slice(start, end), {
+      URL, assert, popup: { url: () => url }, config: { baseUrl: new URL('http://127.0.0.1:8080/carlos/') },
+    });
+    if (accepted) assert.doesNotThrow(check);
+    else assert.throws(check, /unexpected origin or path/);
+    assert.doesNotMatch(source, /page\.goto\(pageUrl\)/);
+    assert.equal((source.match(/gotoApp\(page, config\.baseUrl, '\/admin\/ViewUpdateDrugref'\)/g) || []).length, 2);
+  });
+}
+
 function adminState() {
   const source = fs.readFileSync(path.join(root, 'admin/updateDrugref.jsp'), 'utf8');
   const script = source.slice(source.indexOf('var POLL_MS'), source.indexOf('document.addEventListener("DOMContentLoaded"'))

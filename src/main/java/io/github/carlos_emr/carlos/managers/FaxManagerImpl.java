@@ -571,6 +571,9 @@ public class FaxManagerImpl implements FaxManager {
                         faxRecipient.getRawFax(), faxJob.getFaxAccount() == null ? null
                                 : faxJob.getFaxAccount().getProviderType());
             } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                // createAndSaveFaxJob validates this same complete recipient list in
+                // createFaxJob before publishing files and returns a displayable ERROR there.
+                // This defensive guard protects direct Java callers from building an invalid batch.
                 throw new IllegalArgumentException("Invalid copy-to fax destination", invalidDestination);
             }
             // Avoid duplicate fax numbers.
@@ -1028,15 +1031,21 @@ public class FaxManagerImpl implements FaxManager {
      * ERROR or COMPLETE.  The fax status of the original fax will be changed to
      * RESENT and cannot be resent again.
      */
+    @Transactional
     @Override
     public boolean resendFax(LoggedInInfo loggedInInfo, String jobId, String destination) {
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
 
         boolean success = false;
         FaxJob faxJob = null;
 
         if (jobId != null && !jobId.isEmpty()) {
             try {
-                faxJob = getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+                faxJob = faxJobDao.findForUpdate(Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
                 logger.error("Invalid fax job ID format: {}", jobId);
                 return false;
@@ -1044,13 +1053,26 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         if (faxJob != null) {
+            // The row lock and outer transaction make concurrent/repeated submissions
+            // observe RESENT after the first commit, rather than queueing a second clone.
+            if (faxJob.getDirection() == FaxJob.Direction.IN
+                    || !(faxJob.getStatus() == STATUS.ERROR || faxJob.getStatus() == STATUS.COMPLETE)) {
+                return false;
+            }
+            FaxConfig account = faxConfigDao.getActiveConfigByNumber(faxJob.getFax_line());
+            if (account == null) return false;
 
             FaxJob reSentFaxJob = new FaxJob(faxJob);
+            reSentFaxJob.setFax_line(account.getFaxNumber());
+            reSentFaxJob.setUser(account.getFaxUser());
 
-            // Destination can be replaced with new user input.
-            if (destination != null && !destination.isEmpty()) {
-                destination = destination.replaceAll("\\D", "");
-                reSentFaxJob.setDestination(destination);
+            // Validate both unchanged and replacement destinations using the actual account.
+            try {
+                reSentFaxJob.setDestination(io.github.carlos_emr.carlos.fax.provider.FaxDestination.forQueue(
+                        destination == null || destination.isEmpty() ? faxJob.getDestination() : destination,
+                        account.getProviderType()));
+            } catch (io.github.carlos_emr.carlos.fax.provider.FaxProviderException invalidDestination) {
+                return false;
             }
 
             reSentFaxJob.setStamp(new Date());

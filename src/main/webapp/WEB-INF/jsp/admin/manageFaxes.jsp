@@ -35,6 +35,7 @@
 <%@ page import="java.util.List, java.util.Collections" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -77,17 +78,28 @@
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript">
-        const manageFaxesResendPrompt = "<fmt:message key='admin.manageFaxes.resendPrompt'/>";
-        const manageFaxesResendFailed = "<fmt:message key='admin.manageFaxes.resendFailed'/>";
-        const manageFaxesFaxNumbersInvalid = "<fmt:message key='admin.manageFaxes.faxNumbersInvalid'/>";
-        const manageFaxesCancelConfirm = "<fmt:message key='admin.manageFaxes.cancelConfirm'/>";
-        const manageFaxesCancelFailed = "<fmt:message key='admin.manageFaxes.cancelFailed'/>";
-        const manageFaxesCompleteConfirm = "<fmt:message key='admin.manageFaxes.completeConfirm'/>";
-        const manageFaxesResentLabel = "<fmt:message key='admin.manageFaxes.resentLabel'/>";
-        const manageFaxesErrorLabel = "<fmt:message key='admin.manageFaxes.errorLabel'/>";
-        const manageFaxesResentStatusLabel = "<fmt:message key='admin.manageFaxes.status.RESENT'/>";
-        const manageFaxesCancelledStatusLabel = "<fmt:message key='admin.manageFaxes.status.CANCELLED'/>";
-        const manageFaxesResolvedStatusLabel = "<fmt:message key='admin.manageFaxes.status.RESOLVED'/>";
+        <fmt:message key="admin.manageFaxes.resendPrompt" var="manageFaxesResendPromptText"/>
+        const manageFaxesResendPrompt = "${carlos:forJavaScript(manageFaxesResendPromptText)}";
+        <fmt:message key="admin.manageFaxes.resendFailed" var="manageFaxesResendFailedText"/>
+        const manageFaxesResendFailed = "${carlos:forJavaScript(manageFaxesResendFailedText)}";
+        <fmt:message key="admin.manageFaxes.faxNumbersInvalid" var="manageFaxesFaxNumbersInvalidText"/>
+        const manageFaxesFaxNumbersInvalid = "${carlos:forJavaScript(manageFaxesFaxNumbersInvalidText)}";
+        <fmt:message key="admin.manageFaxes.cancelConfirm" var="manageFaxesCancelConfirmText"/>
+        const manageFaxesCancelConfirm = "${carlos:forJavaScript(manageFaxesCancelConfirmText)}";
+        <fmt:message key="admin.manageFaxes.cancelFailed" var="manageFaxesCancelFailedText"/>
+        const manageFaxesCancelFailed = "${carlos:forJavaScript(manageFaxesCancelFailedText)}";
+        <fmt:message key="admin.manageFaxes.completeConfirm" var="manageFaxesCompleteConfirmText"/>
+        const manageFaxesCompleteConfirm = "${carlos:forJavaScript(manageFaxesCompleteConfirmText)}";
+        <fmt:message key="admin.manageFaxes.resentLabel" var="manageFaxesResentLabelText"/>
+        const manageFaxesResentLabel = "${carlos:forJavaScript(manageFaxesResentLabelText)}";
+        <fmt:message key="admin.manageFaxes.errorLabel" var="manageFaxesErrorLabelText"/>
+        const manageFaxesErrorLabel = "${carlos:forJavaScript(manageFaxesErrorLabelText)}";
+        <fmt:message key="admin.manageFaxes.status.RESENT" var="manageFaxesResentStatusLabelText"/>
+        const manageFaxesResentStatusLabel = "${carlos:forJavaScript(manageFaxesResentStatusLabelText)}";
+        <fmt:message key="admin.manageFaxes.status.CANCELLED" var="manageFaxesCancelledStatusLabelText"/>
+        const manageFaxesCancelledStatusLabel = "${carlos:forJavaScript(manageFaxesCancelledStatusLabelText)}";
+        <fmt:message key="admin.manageFaxes.status.RESOLVED" var="manageFaxesResolvedStatusLabelText"/>
+        const manageFaxesResolvedStatusLabel = "${carlos:forJavaScript(manageFaxesResolvedStatusLabelText)}";
 
         $(document).ready(function () {
 
@@ -193,10 +205,12 @@
                 return false;
             }
 
-            if (answer.match("^\\d{10,11}$")) {
+            answer = answer.trim().replace(/[()\s.-]/g, '');
+            if (/^\+?\d{7,15}$/.test(answer)) {
 
                 var url = $("#reportForm").attr("action");
-                var data = "method=ResendFax&jobId=" + id + "&faxNumber=" + answer;
+                // Let jQuery encode '+' as %2B; concatenating a form body turns it into a space.
+                var data = { method: 'ResendFax', jobId: id, faxNumber: answer };
 
                 // disable the action buttons
                 $(".btn-link").prop("disabled", true);
