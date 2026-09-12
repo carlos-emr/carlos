@@ -164,7 +164,7 @@
 <%--<tr><td colspan="2">First Nations (INAC)</td></tr>--%>
 <tr>
 
-    <td align="right" class="label"><strong>Status Number:</strong></td>
+    <td align="right" class="label"><strong><label for="statusNum">Status Number:</label></strong></td>
 
     <td align="left">
         <%--
