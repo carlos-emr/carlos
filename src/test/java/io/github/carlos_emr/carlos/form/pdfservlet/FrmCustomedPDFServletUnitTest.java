@@ -300,14 +300,16 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("should write fax files when configured directories are valid")
-    void shouldWriteValidatedFaxFiles_whenConfiguredDirectoriesAreValid(@TempDir Path tempDir) throws Exception {
+    void shouldWriteValidatedFaxFiles_whenConfiguredDirectoriesAreValid(boolean omitPharmacyName, @TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
         Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
         Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
         MockHttpServletRequest request = createFaxRequest();
+        if (omitPharmacyName) request.removeParameter("pharmaName");
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
         stubActiveFaxConfig();
@@ -330,6 +332,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             servlet.service(request, response);
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("fax-success").doesNotContain("<p>null (");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");

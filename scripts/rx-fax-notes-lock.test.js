@@ -117,6 +117,30 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     modalHandlers, unloadHandlers };
 }
 
+for (const previewState of ['absent-frame', 'absent-document', 'absent-elements', 'inaccessible']) {
+  test(`notes still save when preview is ${previewState}`, async () => {
+    const fixture = setup();
+    const { context, notes, savedBodies, releaseSave } = fixture;
+    notes.value = 'exact note\nwith an apostrophe and &';
+    if (previewState === 'absent-frame') delete context.frames.preview;
+    if (previewState === 'absent-document') context.frames.preview.document = null;
+    if (previewState === 'absent-elements') context.frames.preview.document = {
+      getElementById: () => null, getElementsByName: () => [],
+    };
+    if (previewState === 'inaccessible') Object.defineProperty(context.frames.preview, 'document', {
+      get() { throw new Error('cross-origin preview'); },
+    });
+    try {
+      assert.doesNotThrow(() => context.addNotes());
+    } finally {
+      releaseSave();
+      await context.pendingNotesSave;
+    }
+    assert.equal(savedBodies.length, 1);
+    assert.equal(new URLSearchParams(savedBodies[0]).get('comment'), notes.value);
+  });
+}
+
 for (const pasteAfterSuccess of [false, true]) {
   test(`pending ${pasteAfterSuccess ? 'Fax & Paste' : 'Fax'} blocks later note writes`, async () => {
     const fixture = setup();

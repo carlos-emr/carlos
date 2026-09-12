@@ -140,6 +140,23 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS", "post"})
+    @DisplayName("should reject every non-POST fax submission before rendering or queueing")
+    void shouldRejectFax_beforeSideEffectsWhenMethodIsNotPost(String method) {
+        request.setMethod(method);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        assertThat(action.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao);
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.anyInt());
+        action.setMethod("cancel");
+        assertThat(action.execute()).isEqualTo("cancel");
+    }
+
     @Test
     @DisplayName("should reject final fax submission before rendering when account read is denied")
     void shouldRejectFax_beforeRenderingWhenFaxReadIsDenied() {
