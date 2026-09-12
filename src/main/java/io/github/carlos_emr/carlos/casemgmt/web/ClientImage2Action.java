@@ -182,7 +182,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
             throw new SecurityException("User session is not valid");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required security object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
     }
 

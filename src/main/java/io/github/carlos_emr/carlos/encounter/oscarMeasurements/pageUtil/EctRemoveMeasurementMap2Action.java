@@ -108,7 +108,7 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
             return outcome;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin)");
         }
 
     }

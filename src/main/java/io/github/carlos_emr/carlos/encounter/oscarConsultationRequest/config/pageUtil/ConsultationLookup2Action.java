@@ -62,7 +62,7 @@ public class ConsultationLookup2Action extends ActionSupport {
     public String execute() {
         // Security check - user must have consultation read access
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "r", null)) {
-            throw new SecurityException("missing required security object");
+            throw new SecurityException("missing required sec object (_con)");
         }
 
         String method = request.getParameter("method");

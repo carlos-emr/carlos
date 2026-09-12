@@ -62,7 +62,7 @@ public final class EctSetupDisplayMeasurementStyleSheet2Action extends ActionSup
             return "continue";
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin)");
         }
     }
 }
