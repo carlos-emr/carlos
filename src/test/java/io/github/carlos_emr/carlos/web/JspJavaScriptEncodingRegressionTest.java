@@ -195,38 +195,30 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldContainEncodedEncounterPrintFields_inHtmlBodyContext() throws Exception {
-        String encounterPrintJsp = readJsp("encounter/encounterPrint.jsp");
-        String echartHistoryPrintJsp = readJsp("encounter/echarthistoryprint.jsp");
+    @DisplayName("should encode Rx favorites fields in HTML and HTML attribute contexts")
+    @Tag("security")
+    void shouldEncodeRxFavoritesFields_inHtmlAndHtmlAttributeContexts() throws Exception {
+        String editFavoritesJsp = readJsp("rx/EditFavorites2.jsp");
+        String copyFavoritesJsp = readJsp("rx/CopyFavorites2.jsp");
 
-        assertThat(encounterPrintJsp)
-                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo, \"\") %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
-                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
-
-        assertThat(echartHistoryPrintJsp)
+        assertThat(editFavoritesJsp)
+                .contains("<carlos:encode value='<%= f.getFavoriteName() %>' context='htmlAttribute'/>")
+                .contains("<carlos:encode value='<%= f.getCustomName() %>' context='htmlAttribute'/>")
+                .contains("<carlos:encode value='<%=s.trim()%>' context=\"html\"/>")
+                .doesNotContain("value=\"<%= f.getFavoriteName() %>\"")
+                .doesNotContain("value=\"<%= f.getCustomName() %>\"")
+                .doesNotContainPattern(
+                        "<textarea\\s+name=\"fldSpecial<%= i%>\"\\s+style=\"width: 100%\"\\s+rows=\"?5\"?>\\s*<%=\\s*s\\.trim\\(\\)\\s*%>\\s*</textarea>");
+        assertThat(copyFavoritesJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo) %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
-                .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
+                .contains("value=\"<carlos:encode value='<%=providerNo%>' context='htmlAttribute'/>\"")
+                .contains("value=\"<carlos:encode value='<%=copyProviderNo%>' context='htmlAttribute'/>\"")
+                .contains("value=\"<carlos:encode value='<%=((String) allProviders.get(p))%>' context='htmlAttribute'/>\"")
+                .contains("<carlos:encode value='<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>' context=\"html\"/>")
+                .doesNotContain("value=\"<%=providerNo%>\"")
+                .doesNotContain("value=\"<%=copyProviderNo%>\"")
+                .doesNotContainPattern("value=\"<%=\\s*\\(\\(String\\)\\s*allProviders\\.get\\(p\\)\\)\\s*%>\"")
+                .doesNotContain("<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>");
     }
 
     @Test
@@ -238,8 +230,8 @@ class JspJavaScriptEncodingRegressionTest {
         assertThat(jsp)
                 .doesNotContain("<option value=\"<%= prov_no %>\"")
                 .doesNotContain("removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>'")
-                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context=\"htmlAttribute\"/>\"")
-                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context=\"htmlAttribute\"/>\"><carlos:encode "
+                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context='htmlAttribute'/>\"")
+                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context='htmlAttribute'/>\"><carlos:encode "
                         + "value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context=\"html\"/>")
                 .contains("<td><carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context=\"html\"/> "
                         + "<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context=\"html\"/>")
@@ -247,6 +239,7 @@ class JspJavaScriptEncodingRegressionTest {
                         + "context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' "
                         + "context=\"javaScriptAttribute\"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' "
                         + "context=\"javaScriptAttribute\"/>')");
+
     }
 
     @Test
