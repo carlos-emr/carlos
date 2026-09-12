@@ -36,6 +36,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
   const elements = {
     additionalNotes: notes,
     saveAdditionalNotes: save,
+    additionalNotesSaveError: { hidden: true },
     faxButton: { disabled: false },
     faxPasteButton: { disabled: false },
     printPasteButton: { disabled: false },
@@ -118,6 +119,23 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
   return { context, notes, save, elements, savedBodies, releaseSave, deferredTimeouts, clearedTimeouts, closedWindows,
     modalHandlers, unloadHandlers };
 }
+
+test('a failed blur save is observed immediately, stays rejected for fax, and shows a recoverable warning', async () => {
+  const { context, elements } = setup();
+  context.fetch = async () => { throw new Error('fixture save rejection'); };
+  context.addNotes();
+  const failedSave = context.pendingNotesSave;
+  // Yield before attaching a consumer: an unhandled rejection here fails node:test.
+  await new Promise(setImmediate);
+  assert.equal(elements.additionalNotesSaveError.hidden, false);
+  await assert.rejects(failedSave, /fixture save rejection/);
+  assert.equal(context.pendingNotesSave, failedSave, 'the UI observer must not replace the rejected fax guard');
+  context.fetch = async () => ({ ok: true });
+  context.addNotes();
+  await context.pendingNotesSave;
+  assert.equal(elements.additionalNotesSaveError.hidden, true);
+  assert.match(jsp, /<p id="additionalNotesSaveError"[^>]*role="alert"[^>]*hidden>/);
+});
 
 for (const previewState of ['absent-frame', 'absent-document', 'absent-elements', 'inaccessible']) {
   test(`notes still save when preview is ${previewState}`, async () => {

@@ -559,6 +559,8 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=" + encodeURIComponent(faxScriptNo) + "&comment=" + comment + "&rand=" + ran_number;  //]
+                var saveWarning = document.getElementById('additionalNotesSaveError');
+                if (saveWarning) saveWarning.hidden = true;
                 // CHAIN onto the previous save, never replace it. Two edits in quick succession
                 // (type, blur, type, blur) would otherwise leave pendingNotesSave holding only the
                 // second request: if that one resolved first the fax would submit while the first
@@ -584,6 +586,15 @@
                             throw new Error('ViewAddRxComment returned HTTP ' + response.status);
                         }
                     });
+                });
+                // Observe rejection immediately: a blur save can fail before the later Fax
+                // click attaches its handler. Keep the ORIGINAL rejected promise so faxing
+                // still fails closed, but do not raise an unhandled rejection on the page.
+                var currentNotesSave = pendingNotesSave;
+                currentNotesSave.then(function () {
+                    if (pendingNotesSave === currentNotesSave && saveWarning) saveWarning.hidden = true;
+                }, function () {
+                    if (pendingNotesSave === currentNotesSave && saveWarning) saveWarning.hidden = false;
                 });
                 // The persisted save is independent of an omitted, loading or inaccessible
                 // preview. Updating the preview is best effort; fax submission still awaits
@@ -1343,6 +1354,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
+                                    <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
                                 </td>
 
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
@@ -1423,17 +1435,21 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         function expandPreview(text) {
                                             pharmacyPreviewHtml = text;
                                             try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.add('modal-xl'); } catch(e) {}
-                                            document.getElementById('preview').style.width = "600px";
+                                            var frame = document.getElementById('preview');
+                                            if (frame) frame.style.width = "600px";
                                             applyPharmacyPreview();
-                                            document.getElementById("selectedPharmacy").innerHTML = '<fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
+                                            var warning = document.getElementById('selectedPharmacy');
+                                            if (warning) warning.hidden = !frame;
                                         }
 
                                         function reducePreview() {
                                             pharmacyPreviewHtml = '';
                                             try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.remove('modal-xl'); } catch(e) {}
-                                            document.getElementById('preview').style.width = "460px";
+                                            var frame = document.getElementById('preview');
+                                            if (frame) frame.style.width = "460px";
                                             applyPharmacyPreview();
-                                            document.getElementById("selectedPharmacy").innerHTML = "";
+                                            var warning = document.getElementById('selectedPharmacy');
+                                            if (warning) warning.hidden = true;
                                         }
                                         var pharmacyPreviewFrame = document.getElementById('preview');
                                         if (pharmacyPreviewFrame) {
@@ -1601,6 +1617,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                           onchange="javascript:addNotes();"></textarea>
                                                 <input type="button" id="saveAdditionalNotes" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        class="btn btn-outline-secondary" onclick="javascript:addNotes();"/>
+                                                <p id="additionalNotesSaveError" class="alert alert-danger" role="alert" hidden><fmt:message key="tickler.ticklerMain.errorNoteSaveFailed"/></p>
                                             </td>
                                         </tr>
 

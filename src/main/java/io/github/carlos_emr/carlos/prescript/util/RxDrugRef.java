@@ -394,12 +394,12 @@ public class RxDrugRef {
         String lastUpdateTime = getLastUpdateTime();
         Object identifyResult = callWebserviceLite("identify", params);
         if (identifyResult == null) {
-            throw new Exception("DrugRef: 'identify' returned no result for server " + server_url);
+            throw new Exception("DrugRef: 'identify' returned no result");
         }
         String drugDatabase = identifyResult.toString();
         Object versionResult = callWebserviceLite("version", params);
         if (versionResult == null) {
-            throw new Exception("DrugRef: 'version' returned no result for server " + server_url);
+            throw new Exception("DrugRef: 'version' returned no result");
         }
         String version = versionResult.toString();
         Map<String, String> verify = new HashMap<>();
@@ -743,11 +743,11 @@ public class RxDrugRef {
             object = server.execute(procedureName, params);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            logger.error("DrugRef: call interrupted for procedure '{}' on {}", procedureName, server_url, exception);
+            logger.error("DrugRef: call interrupted for procedure '{}'", procedureName);
         } catch (XmlRpcFaultException exception) {
-            logger.error("DrugRef: XML-RPC fault code={} calling '{}' on {}", exception.code, procedureName, server_url, exception);
+            logger.error("DrugRef: XML-RPC fault code={} calling '{}'", exception.code, procedureName);
         } catch (Exception exception) {
-            logger.error("DrugRef: failed to call '{}' on {}", procedureName, server_url, exception);
+            logger.error("DrugRef: failed to call '{}'; failureType={}", procedureName, exception.getClass().getSimpleName());
         }
         return object;
     }
@@ -755,9 +755,10 @@ public class RxDrugRef {
     /**
      * Calls the DrugRef XML-RPC service, propagating non-zero fault codes as exceptions.
      * A fault code of 0 is treated as a "no result" condition — the event is logged at
-     * WARN level and null is returned. {@link XmlRpcFaultException} with a non-zero code
-     * is re-thrown directly; all other exceptions (network, parse, timeout) are logged
-     * as "call failed" and wrapped in a plain {@link Exception}.
+     * WARN level and null is returned. Non-zero {@link XmlRpcFaultException} codes are
+     * preserved in a sanitized fault; other errors report their class in a plain exception.
+     * Raw messages and causes are intentionally not propagated: HTTP/client exceptions can
+     * embed the configured URL, including userinfo or query credentials.
      *
      * @param procedureName String the XML-RPC method name to call on the DrugRef server
      * @param params        Vector of typed parameters to pass to the remote method
@@ -772,18 +773,20 @@ public class RxDrugRef {
             object = server.execute(procedureName, params);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new Exception("DrugRef: call interrupted for procedure '" + procedureName + "'", exception);
+            throw new Exception("DrugRef: call interrupted for procedure '" + procedureName + "'");
         } catch (XmlRpcFaultException exception) {
             if (exception.code == 0) {
                 // Fault code 0 means "no result found" — log at warn level and return null
                 logger.warn("DrugRef: no result (fault code 0) for procedure '{}'", procedureName);
             } else {
-                logger.error("DrugRef: XML-RPC fault code={} calling '{}' on {}", exception.code, procedureName, server_url, exception);
-                throw exception;
+                logger.error("DrugRef: XML-RPC fault code={} calling '{}'", exception.code, procedureName);
+                throw new XmlRpcFaultException(exception.code,
+                        "DrugRef: XML-RPC fault code=" + exception.code + " calling '" + procedureName + "'");
             }
         } catch (Exception exception) {
-            logger.error("DrugRef: call failed for procedure '{}' on {}", procedureName, server_url, exception);
-            throw new Exception("DrugRef: call failed for '" + procedureName + "'", exception);
+            String failureType = exception.getClass().getSimpleName();
+            logger.error("DrugRef: call failed for procedure '{}'; failureType={}", procedureName, failureType);
+            throw new Exception("DrugRef: call failed for '" + procedureName + "' (" + failureType + ")");
         }
         return object;
     }
