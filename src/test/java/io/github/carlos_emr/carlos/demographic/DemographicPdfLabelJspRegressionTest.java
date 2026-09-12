@@ -62,7 +62,12 @@ class DemographicPdfLabelJspRegressionTest {
                 "notes")) {
             assertEncodes(jsp, expression, "html");
         }
-        assertEncodes(jsp, "d.getDemographicNo()", "htmlAttribute");
+        // The demographic number is an Integer on the entity; the tag's value
+        // attribute is declared java.lang.String, so the page must hand it the
+        // precomputed text form or Jasper fails to compile the page.
+        assertThat(jsp).contains("String demographicNoText = String.valueOf(d.getDemographicNo());");
+        assertEncodes(jsp, "demographicNoText", "htmlAttribute");
+        assertEncodes(jsp, "demographicNoText", "html");
         assertEncodes(jsp, "referralDisplayName", "htmlAttribute");
         assertEncodes(jsp, "referralScriptDisplayName", "javaScript");
         assertEncodes(jsp, "referralNo", "javaScript");

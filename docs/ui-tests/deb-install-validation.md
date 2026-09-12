@@ -494,6 +494,19 @@ export RX_FAX_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
 # click can take longer than the check's default 45 s round-trip allowance; raise it for a
 # cold server rather than reading the timeout as a fax failure.
 export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
+# Demographic print-label encoding check
+# (demographic-pdf-label-xss-playwright-checks.js). Needs nothing exported beyond the MYSQL_*
+# block above: it seeds its OWN patient -- a FAKE-XSS-<run> row whose address, alert, notes,
+# HIN, chart number and family-doctor XML all carry markup -- opens
+# /demographic/DemographicPdfLabel for it, and asserts the page renders that markup as text and
+# executes none of it. The fixture is seeded in SQL on purpose: demographic fields arrive by HL7
+# import, Integrator sync and chart conversion, none of which pass the WAF, and ModSecurity
+# answers 403 to the same payload typed into the add-patient form, so the browser path cannot
+# plant it. The row (and the fixture specialist it adds to professionalSpecialists) is removed
+# in a finally, including after a failure. On an install whose carlos.properties sets
+# isMRefDocSelectList=true the check also exercises the referral <select> and its inline
+# <script>; the PASS line names which branch it measured, so a run that never saw the select is
+# not mistaken for one that did. MYSQL_CLIENT=mariadb if the install has no `mysql` alias.
 # Administration > Update Drugref (drugref-update-playwright-checks.js). Read-only by default:
 # it opens the page from the Administration panel and asserts the status panel and the status
 # relay answer. DRUGREF_UPDATE_TRIGGER=true also clicks the button and follows the rebuild to

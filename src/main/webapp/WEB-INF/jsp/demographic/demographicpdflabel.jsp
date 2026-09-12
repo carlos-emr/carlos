@@ -170,6 +170,13 @@
             }
             //----------------------------REFERRAL DOCTOR --------------end-----------
 
+            // carlos:encode declares value as java.lang.String in carlos-tag.tld, so
+            // Jasper passes a runtime-expression attribute straight into
+            // setValue(String): an Integer there fails to compile rather than being
+            // silently stringified. The demographic number is the one non-String
+            // value this page prints, so it is converted once here.
+            String demographicNoText = String.valueOf(d.getDemographicNo());
+
             dob_year = Integer.parseInt(d.getYearOfBirth());
             dob_month = Integer.parseInt(d.getMonthOfBirth());
             dob_date = Integer.parseInt(d.getDateOfBirth());
@@ -184,7 +191,7 @@
         <table width="100%" class="MainTableLeftColumn">
             <tr>
                 <td class="RowTop" colspan="3" align="center" bgcolor="#EEEEFF">
-                    <b>Record</b> (<carlos:encode value='<%=d.getDemographicNo()%>' context="html"/>)
+                    <b>Record</b> (<carlos:encode value='<%=demographicNoText%>' context="html"/>)
                     <carlos:encode value='<%=d.getLastName()%>' context="html"/>,
                     <carlos:encode value='<%=d.getFirstName()%>' context="html"/>
                     <carlos:encode value='<%=d.getSex()%>' context="html"/>
@@ -193,7 +200,7 @@
             </tr>
             <tr>
                 <td align="left"
-                    title="<carlos:encode value='<%=d.getDemographicNo()%>' context='htmlAttribute'/>"><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><carlos:encode value='<%=d.getLastName()%>' context="html"/>
+                    title="<carlos:encode value='<%=demographicNoText%>' context='htmlAttribute'/>"><b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b><carlos:encode value='<%=d.getLastName()%>' context="html"/>
                 </td>
                 <td align="left"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>: </b></td>
                 <td align="left"><carlos:encode value='<%=d.getFirstName()%>' context="html"/>
