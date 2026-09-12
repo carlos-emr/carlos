@@ -83,6 +83,66 @@ import static org.mockito.Mockito.when;
 class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
+    @DisplayName("should keep response-write failures private while refusing a GET scheduler restart")
+    void shouldKeepResponseFailurePrivate_whenErrorCannotBeWritten() {
+        setUpCommonMocks();
+        request.setMethod("GET");
+        request.setParameter("method", "restartFaxScheduler");
+        response = new MockHttpServletResponse() {
+            @Override
+            public void sendError(int status, String message) throws java.io.IOException {
+                throw new java.io.IOException("PRIVATE_RESPONSE_MESSAGE", new IllegalStateException("PRIVATE_RESPONSE_CAUSE"));
+            }
+        };
+        try (var context = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThat(new ConfigureFax2Action().execute()).isEqualTo(ConfigureFax2Action.NONE);
+            verify(faxManager, never()).restartFaxScheduler(any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Error sending error response"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_RESPONSE");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "restartFaxScheduler,false", "restartFaxScheduler,true",
+            "getPendingIncomingFaxes,false", "getPendingIncomingFaxes,true",
+            "getFaxSchedularStatus,false", "getFaxSchedularStatus,true"
+    })
+    @DisplayName("should bound scheduler and pending-import diagnostics for runtime and security failures")
+    void shouldKeepSchedulerDiagnosticsPrivate_whenBackendFails(String method, boolean securityFailure) throws Exception {
+        setUpCommonMocks();
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(String.class), any(String.class), isNull()))
+                .thenReturn(true);
+        RuntimeException failure = securityFailure
+                ? new SecurityException("PRIVATE_SCHEDULER_MESSAGE", new IllegalStateException("PRIVATE_SCHEDULER_CAUSE"))
+                : new IllegalStateException("PRIVATE_SCHEDULER_MESSAGE", new IllegalStateException("PRIVATE_SCHEDULER_CAUSE"));
+        var importer = mock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class);
+        registerMock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class, importer);
+        switch (method) {
+            case "restartFaxScheduler" -> org.mockito.Mockito.doThrow(failure).when(faxManager).restartFaxScheduler(any());
+            case "getPendingIncomingFaxes" -> when(importer.listPendingIncomingFaxes()).thenThrow(failure);
+            case "getFaxSchedularStatus" -> when(faxManager.getFaxSchedularStatus(any())).thenThrow(failure);
+            default -> throw new AssertionError("Unexpected test method");
+        }
+        request.setMethod("POST");
+        request.setParameter("method", method);
+        try (var context = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ConfigureFax2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            assertThat(response.getContentAsString()).contains("\"success\":false").doesNotContain("PRIVATE_SCHEDULER");
+            assertThat(logs.messages()).anyMatch(message -> message.contains(failure.getClass().getSimpleName()));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_SCHEDULER");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
     @DisplayName("should hide unexpected backend argument errors while preserving authored field-validation messages")
     void shouldKeepBackendArgumentErrorPrivate_whenConfigurationSaveFails() throws Exception {
         setUpCommonMocks();

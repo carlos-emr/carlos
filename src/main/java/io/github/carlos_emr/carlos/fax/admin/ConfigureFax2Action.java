@@ -545,7 +545,7 @@ public class ConfigureFax2Action extends ActionSupport {
         try {
             response.sendError(statusCode, message);
         } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error sending error response", ex);
+            MiscUtils.getLogger().error("Error sending error response ({})", ex.getClass().getSimpleName());
         }
     }
 
@@ -699,10 +699,10 @@ public class ConfigureFax2Action extends ActionSupport {
             faxManager.restartFaxScheduler(loggedInInfo);
             sendJsonSuccess(null);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Fax scheduler restart denied: {}", e.getMessage());
+            MiscUtils.getLogger().warn("Fax scheduler restart denied ({})", e.getClass().getSimpleName());
             sendJsonError("Insufficient privileges to restart fax scheduler.");
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Fax scheduler restart failed: {}", e.getMessage(), e);
+            MiscUtils.getLogger().error("Fax scheduler restart failed ({})", e.getClass().getSimpleName());
             sendJsonError("Fax scheduler restart failed unexpectedly.");
         }
     }
@@ -725,10 +725,10 @@ public class ConfigureFax2Action extends ActionSupport {
             jsonObject.set("faxes", faxArray);
             JSONUtil.jsonResponse(response, jsonObject);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Pending faxes check denied: {}", e.getMessage());
+            MiscUtils.getLogger().warn("Pending faxes check denied ({})", e.getClass().getSimpleName());
             sendJsonError("Insufficient privileges.");
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Failed to list pending incoming faxes: {}", e.getMessage(), e);
+            MiscUtils.getLogger().error("Failed to list pending incoming faxes ({})", e.getClass().getSimpleName());
             sendJsonError("Failed to list pending faxes.");
         }
     }
@@ -741,10 +741,10 @@ public class ConfigureFax2Action extends ActionSupport {
             LoggedInInfo loggedInInfo = requireLoggedInWithPrivilege("_admin.fax.restart", "r");
             JSONUtil.jsonResponse(response, faxManager.getFaxSchedularStatus(loggedInInfo));
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Fax scheduler status check denied: {}", e.getMessage());
+            MiscUtils.getLogger().warn("Fax scheduler status check denied ({})", e.getClass().getSimpleName());
             sendJsonError("Insufficient privileges to view fax scheduler status.");
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Fax scheduler status check failed: {}", e.getMessage(), e);
+            MiscUtils.getLogger().error("Fax scheduler status check failed ({})", e.getClass().getSimpleName());
             sendJsonError("Fax scheduler status check failed unexpectedly.");
         }
     }

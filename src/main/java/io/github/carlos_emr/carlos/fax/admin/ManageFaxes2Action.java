@@ -299,7 +299,7 @@ public class ManageFaxes2Action extends Fax2Action {
                 dateBegin = calendar.getTime();
             } catch (ParseException e) {
                 dateBegin = null;
-                MiscUtils.getLogger().error("UNPARSEABLE DATE " + dateBeginStr);
+                MiscUtils.getLogger().error("Unparseable fax status start date");
             }
         }
         if (dateEndStr != null && !dateEndStr.isEmpty()) {
@@ -313,7 +313,7 @@ public class ManageFaxes2Action extends Fax2Action {
 
             } catch (ParseException e) {
                 dateEnd = null;
-                MiscUtils.getLogger().error("UNPARSEABLE DATE " + dateEndStr);
+                MiscUtils.getLogger().error("Unparseable fax status end date");
             }
         }
 

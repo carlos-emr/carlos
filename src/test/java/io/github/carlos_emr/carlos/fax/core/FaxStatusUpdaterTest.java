@@ -54,6 +54,44 @@ import org.junit.jupiter.api.Test;
 @DisplayName("FaxStatusUpdater Unit Tests")
 class FaxStatusUpdaterTest extends CarlosUnitTestBase {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"status-persist", "error-persist", "credential", "runtime"})
+    @DisplayName("should bound backend diagnostic failures while retaining the polling sweep")
+    void shouldKeepBackendDiagnosticsPrivate_whenStatusProcessingFails(String scenario) throws FaxProviderException {
+        FaxJob fax = createFaxJob(40, FAX_LINE_H, FaxJob.STATUS.SENT, 4001L);
+        FaxConfig config = createActiveFaxConfig(40, FAX_LINE_H);
+        when(faxJobDao.getInprogressFaxesByJobId()).thenReturn(Collections.singletonList(fax));
+        when(faxConfigDao.getConfigByNumber(FAX_LINE_H)).thenReturn(config);
+        var failure = new IllegalArgumentException("PRIVATE_BACKEND_MESSAGE", new IllegalStateException("PRIVATE_BACKEND_CAUSE"));
+        switch (scenario) {
+            case "credential" -> when(faxProviderClientFactory.getClient(config)).thenThrow(
+                    new IllegalStateException("PRIVATE_BACKEND_MESSAGE", failure));
+            case "runtime" -> when(faxProviderClientFactory.getClient(config)).thenThrow(failure);
+            case "status-persist", "error-persist" -> {
+                when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+                if ("error-persist".equals(scenario)) {
+                    when(faxProviderClient.fetchFaxStatus(config, fax)).thenThrow(
+                            new FaxProviderException("PRIVATE_BACKEND_PROVIDER", failure, 503));
+                } else {
+                    FaxJob updated = new FaxJob();
+                    updated.setStatus(FaxJob.STATUS.COMPLETE);
+                    when(faxProviderClient.fetchFaxStatus(config, fax)).thenReturn(updated);
+                }
+                doThrow(failure).when(faxJobDao).merge(fax);
+            }
+            default -> throw new AssertionError("Unexpected test scenario");
+        }
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxStatusUpdater.class)) {
+            faxStatusUpdater.updateStatus();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Exception"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_BACKEND");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+        if (!"status-persist".equals(scenario)) {
+            assertThat(fax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
+        }
+    }
+
     private static final String FAX_LINE_A = "6045551234";
     private static final String FAX_LINE_B = "6045559999";
     private static final String FAX_LINE_C = "6045550000";
