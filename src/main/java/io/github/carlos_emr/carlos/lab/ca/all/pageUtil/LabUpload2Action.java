@@ -71,6 +71,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -85,6 +86,13 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     private static final String REQUEST_ATTRIBUTE_AUDIT = "audit";
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
     private static final String OUTCOME_EXCEPTION = "exception";
+
+    /**
+     * Deliberately non-specific outcome for a message the receiver refuses before it can
+     * attribute it to a sender. It must not distinguish "no such service" from "key unusable"
+     * or "undecryptable", so a caller cannot probe which services are configured.
+     */
+    private static final String OUTCOME_REJECTED = "rejected";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -103,9 +111,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
-            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
-            request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, "");
-            return SUCCESS;
+            return respond(OUTCOME_EXCEPTION, "", HttpServletResponse.SC_BAD_REQUEST);
         }
 
         String signature = request.getParameter("signature");
@@ -115,7 +121,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String audit = "";
         Integer httpCode = 200;
 
+        // getClientInfo() returns an empty list when the service is unknown or its stored key
+        // cannot be parsed. Reading element 0 in that state threw out of execute(), and the lab
+        // package maps java.lang.Exception to errorpage.jsp — a JSP forward, which renders HTTP
+        // 200. Senders using use_http_response_code therefore read a misconfigured or retired
+        // service as a successful delivery and silently drop results. Reject it explicitly.
         ArrayList<Object> clientInfo = getClientInfo(service);
+        if (clientInfo.size() < 2) {
+            logger.warn("Rejected lab upload: no usable sender public key for the requested service");
+            return respond(OUTCOME_REJECTED, "", HttpServletResponse.SC_BAD_REQUEST);
+        }
         PublicKey clientKey = (PublicKey) clientInfo.get(0);
         String type = (String) clientInfo.get(1);
 
@@ -123,11 +138,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
                 logger.error("No file provided for upload");
-                outcome = OUTCOME_EXCEPTION;
-                httpCode = HttpServletResponse.SC_BAD_REQUEST;
-                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
-                return SUCCESS;
+                return respond(OUTCOME_EXCEPTION, audit, HttpServletResponse.SC_BAD_REQUEST);
             }
 
             // Validate file is from an allowed temp directory
@@ -135,25 +146,47 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
                 logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
-                outcome = OUTCOME_EXCEPTION;
-                httpCode = HttpServletResponse.SC_FORBIDDEN;
-                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
-                return SUCCESS;
+                return respond(OUTCOME_EXCEPTION, audit, HttpServletResponse.SC_FORBIDDEN);
             }
 
-            InputStream is = decryptMessage(Files.newInputStream(importFile.toPath()), key, clientKey);
+            InputStream decrypted = decryptMessage(Files.newInputStream(importFile.toPath()), key, clientKey);
+            if (decrypted == null) {
+                // decryptMessage() logs the cause and returns null; do not tell the caller which
+                // stage failed. Previously this NPE'd downstream and surfaced as a 500.
+                logger.warn("Rejected lab upload: message could not be decrypted");
+                return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
+            }
+
             String fileName = importFile.getName();
-            String filePath = null;
-            if (type.equals("PDFDOC")) {
-                filePath = Utilities.savePdfFile(is, fileName);
-            } else {
-                filePath = Utilities.saveFile(is, fileName);
-            }
-            File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
 
-            if (validateSignature(clientKey, signature, file)) {
+            // Stage the decrypted message OUTSIDE DOCUMENT_DIR until the sender signature
+            // verifies. The wrapping key is the receiver's public key, which every sender holds,
+            // so anyone able to reach this action can produce a message that decrypts cleanly.
+            // The signature is the only evidence the content is genuine, and persisting before
+            // checking it let an unverified message become a stored clinical document that
+            // nothing later removed. The staged copy is owner-only: it holds cleartext PHI.
+            File staged = PathValidationUtils.createSecureTempFile("LabUploadVerify", ".tmp");
+            try {
+                try (InputStream in = decrypted) {
+                    Files.copy(in, staged.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                if (!validateSignature(clientKey, signature, staged)) {
+                    logger.info("failed to validate");
+                    return respond("validation failed", audit, HttpServletResponse.SC_NOT_ACCEPTABLE);
+                }
                 logger.debug("Validated Successfully");
+
+                // Verified: only now may the plaintext become a document. fileName is still
+                // derived from the upload, so stored names are unchanged from before this fix.
+                String filePath;
+                try (InputStream verified = Files.newInputStream(staged.toPath())) {
+                    filePath = type.equals("PDFDOC")
+                            ? Utilities.savePdfFile(verified, fileName)
+                            : Utilities.saveFile(verified, fileName);
+                }
+                File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+
                 MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
 
                 if (type.equals("HHSEMR") && CarlosProperties.getInstance().getProperty("lab.hhsemr.filter_ordering_provider", "false").equals("true")) {
@@ -164,16 +197,12 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     OtherId providerOtherId = OtherIdManager.searchTable(OtherIdManager.PROVIDER, "STAR", filterHandler.getClientRef());
                     if (providerOtherId == null) {
                         logger.info("Filtering out this message, as we don't have client ref " + filterHandler.getClientRef() + " in our database (" + file + ")");
-                        outcome = "uploaded";
-                        request.setAttribute("outcome", outcome);
-                        return SUCCESS;
+                        return respond("uploaded", audit, HttpServletResponse.SC_OK);
                     }
                 }
 
-
-                is = new FileInputStream(file);
-                try {
-                    int check = FileUploadCheck.addFile(file.getName(), is, "0");
+                try (InputStream stored = new FileInputStream(file)) {
+                    int check = FileUploadCheck.addFile(file.getName(), stored, "0");
                     if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
                         if ((audit = msgHandler.parse(loggedInInfo, service, filePath, check, request.getRemoteAddr())) != null) {
                             outcome = "uploaded";
@@ -186,21 +215,35 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         outcome = "uploaded previously";
                         httpCode = HttpServletResponse.SC_CONFLICT;
                     }
-                } finally {
-                    is.close();
                 }
-            } else {
-                logger.info("failed to validate");
-                outcome = "validation failed";
-                httpCode = HttpServletResponse.SC_NOT_ACCEPTABLE;
+            } finally {
+                Files.deleteIfExists(staged.toPath());
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             outcome = OUTCOME_EXCEPTION;
             httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         }
+        return respond(outcome, audit, httpCode);
+    }
+
+    /**
+     * Single exit point for {@link #execute()}.
+     *
+     * <p>Every terminating path routes through here so that a sender passing
+     * {@code use_http_response_code} observes the status the receiver actually recorded.
+     * Several early returns previously assigned a status code and then returned SUCCESS,
+     * which rendered a 200 page and hid the failure from the sender.
+     *
+     * @param outcome  short outcome token, also sent as the error message when the caller
+     *                 requested HTTP status codes
+     * @param audit    handler audit string; null is normalized to empty for the view
+     * @param httpCode status to send when {@code use_http_response_code} is present
+     * @return {@link #NONE} once the response has been written, otherwise {@link #SUCCESS}
+     */
+    private String respond(String outcome, String audit, int httpCode) {
         request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-        request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
+        request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit == null ? "" : audit);
 
         if (request.getParameter("use_http_response_code") != null) {
             try {
@@ -208,8 +251,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } catch (IOException e) {
                 logger.error("Error", e);
             }
-            return (null);
-        } else return SUCCESS;
+            return NONE;
+        }
+        return SUCCESS;
     }
 
     public LabUpload2Action() {
@@ -237,7 +281,13 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 
-            // Decrypt the message using the secret key
+            // Decrypt the message using the secret key.
+            // The bare "AES" transformation resolves to AES/ECB/PKCS5Padding under SunJCE,
+            // so this path has no ciphertext integrity. It is deliberately left unsuppressed:
+            // code scanning alerts 6904 and 5637 must stay open until the legacy format is
+            // removed, because the senders — not this receiver — dictate the wire format.
+            // Migration contract and sender coordination gates:
+            // docs/security/lab-upload-authenticated-encryption-migration.md
             SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
             Cipher msgCipher = Cipher.getInstance("AES");
             msgCipher.init(Cipher.DECRYPT_MODE, skeySpec);
