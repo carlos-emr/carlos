@@ -57,7 +57,7 @@ import static org.mockito.Mockito.when;
  * rejected on every non-POST method before dispatch. {@code getPreview} and
  * {@code getPageCount} are reads used by CoverPage image, link, and polling requests.
  * Preparation writes staged files and capabilities and is POST-only;
- * {@code AddEForm2Action.redirectToPreparedFax()} preserves POST through a 307 redirect.
+ * the protected eForm save renders a narrow CSRF-protected POST handoff.
  */
 @DisplayName("Fax2Action execute() HTTP-method gate unit tests")
 @Tag("unit")
