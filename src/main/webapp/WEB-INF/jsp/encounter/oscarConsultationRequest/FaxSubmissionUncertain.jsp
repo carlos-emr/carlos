@@ -1,4 +1,11 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. GPL version 2 or later. --%>
+<%--
+    Consultation fax outcome page for submissions whose queue state cannot be confirmed.
+    Displays localized guidance without a retry control or automatic navigation, since
+    resubmission could duplicate a fax. The action supplies demographicId as a request
+    attribute for the encoded return-to-consultations link; no mutation parameters are read.
+    @since 2026.08
+--%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

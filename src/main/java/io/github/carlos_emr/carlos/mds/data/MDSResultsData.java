@@ -668,6 +668,12 @@ public class MDSResultsData {
         return ret;
     }
 
+    /**
+     * Finds MDS versions sharing an accession within the legacy date window.
+     * @param labId reviewed MDS lab identifier
+     * @return comma-separated matching identifiers; labId if the accession is absent or
+     *         version lookup fails, never an unbounded query for a missing accession
+     */
     public String getMatchingLabs(String labId) {
         String ret = "";
         String accessionNum = findMDSAccessionNumber(labId);

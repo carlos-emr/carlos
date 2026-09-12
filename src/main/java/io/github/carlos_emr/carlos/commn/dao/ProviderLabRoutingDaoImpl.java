@@ -47,6 +47,15 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     }
 
     @Override
+    public int transitionNewRoutingRows(int labNo, String labType, String providerNo, char status) {
+        if (status == 'N') return 0;
+        return entityManager.createQuery("update ProviderLabRoutingModel x set x.status=?4 "
+                        + "where x.labNo=?1 and x.labType=?2 and x.providerNo=?3 and x.status='N'")
+                .setParameter(1, labNo).setParameter(2, labType).setParameter(3, providerNo)
+                .setParameter(4, String.valueOf(status)).executeUpdate();
+    }
+
+    @Override
     public List<ProviderLabRoutingModel> findByLabNoAndLabTypeAndProviderNo(int labNo, String labType,
                                                                             String providerNo) {
         Query q = entityManager.createQuery(

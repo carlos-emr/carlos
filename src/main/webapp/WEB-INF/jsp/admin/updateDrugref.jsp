@@ -93,6 +93,8 @@
             // two reported a successful first-ever update as an unknown outcome.
             var baselineKnown = false;
             var baselineKnownBeforeRun = false;
+            var updateRequestUncertain = false;
+            var observedUncertainRun = false;
 
             function getCsrfToken() {
                 var el = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -136,7 +138,7 @@
                 // with an HTML 500, and a future branch that forgets to check would reintroduce
                 // exactly that. This is presentation only -- the control is the refusal in
                 // RxUpdateDrugref2Action, which does not consult anything the browser sends.
-                if (id === 'updateButton' && !canTriggerUpdate) {
+                if (id === 'updateButton' && (!canTriggerUpdate || updateRequestUncertain)) {
                     visible = false;
                 }
                 var el = document.getElementById(id);
@@ -247,6 +249,7 @@
             }
 
             function pollStatus() {
+                if (updateRequestUncertain) return pollUncertainUpdate();
                 callDrugref('status')
                     .then(function (status) {
                         var running = renderStatus(status);
@@ -327,6 +330,7 @@
             }
 
             function updateDB() {
+                if (updateRequestUncertain) return;
                 setResult('Starting the update...', 'info');
                 // Hidden now, not in startUpdate(): the re-probe below is a round trip, and the
                 // trigger must not stay clickable across it.
@@ -372,6 +376,7 @@
             }
 
             function startUpdate() {
+                if (updateRequestUncertain) return;
                 // Frozen immediately before the POST. If the page was opened mid-run, or the
                 // re-probe above could not reach DrugRef, this is unknown -- and the legacy
                 // fallback says so rather than guessing either way.
@@ -383,35 +388,70 @@
                 show('updateButton', false);
                 callDrugref('updateDB')
                     .then(function (json) {
-                        if (json.result === 'running') {
+                        if (json && json.result === 'running') {
                             setResult("Update has started. It rebuilds the drug database from Health Canada's "
                                 + "extract and usually takes 15 to 60 minutes; drug lookups are limited until it "
                                 + "finishes. This page follows its progress.", 'info');
                             show('updateButton', false);
                             pollStatus();
-                        } else if (json.result === 'updating') {
+                        } else if (json && json.result === 'updating') {
                             setResult('An update is already running.', 'info');
                             show('updateButton', false);
                             pollStatus();
                         } else {
-                            setResult('The update could not be started: DrugRef did not answer. Check that the '
-                                + 'DrugRef service is running (drug lookups also need it).', 'danger');
-                            // Nothing was started, so the trigger comes back: the operator can
-                            // start the service or fix the proxy and retry in place. It is
-                            // hidden before the POST to stop a double-click across the round
-                            // trip, and leaving it hidden here would strand them on a dead page
-                            // with a reload as the only way forward. show() still withholds it
-                            // from anyone without write rights.
-                            show('updateButton', true);
+                            markUpdateUncertain();
                         }
                     })
                     .catch(function (error) {
-                        console.error('Error updating database:', error);
-                        setResult('The update could not be started: ' + error.message, 'danger');
-                        // Same reasoning as above: the request failed, so no run is in flight
-                        // and a retry is exactly what the operator should be able to do.
-                        show('updateButton', true);
+                        markUpdateUncertain();
                     });
+            }
+
+            function markUpdateUncertain() {
+                updateRequestUncertain = true;
+                observedUncertainRun = false;
+                setResult('DrugRef did not confirm the request. An update may already be running. '
+                    + 'Do not start another update; this page is checking its status.', 'warning');
+                show('updateButton', false);
+                schedulePoll();
+            }
+
+            // A stale SUCCEEDED/FAILED status from an earlier run is not acknowledgement of
+            // this request. Require an observed active run followed by a terminal state, or
+            // a verified timestamp newer than this attempt's baseline, before enabling retry.
+            function pollUncertainUpdate() {
+                return callDrugref('status').then(function (status) {
+                    return callDrugref('verify').then(function (verify) {
+                        if ((status && status.state === 'RUNNING') || (verify && verify.lastUpdate === 'updating')) {
+                            observedUncertainRun = true;
+                            setResult('An update is running. This page is following it; do not start another.', 'info');
+                            return;
+                        }
+                        var terminal = status && (status.state === 'SUCCEEDED' || status.state === 'FAILED');
+                        var currentTimestamp = verify && verify.lastUpdate ? Date.parse(verify.lastUpdate) : NaN;
+                        var baselineTimestamp = lastUpdateBeforeRun == null ? null : Date.parse(lastUpdateBeforeRun);
+                        var timestampChanged = baselineKnownBeforeRun && Number.isFinite(currentTimestamp)
+                            && (baselineTimestamp === null || (Number.isFinite(baselineTimestamp)
+                                && currentTimestamp > baselineTimestamp));
+                        if ((observedUncertainRun && terminal) || timestampChanged) {
+                            updateRequestUncertain = false;
+                            renderVerify(verify);
+                            if (observedUncertainRun && terminal) renderStatus(status);
+                            else setResult('DrugRef reports a completed update at ' + verify.lastUpdate + '.', 'success');
+                        } else {
+                            setResult('The update request outcome is still unknown. Do not retry. '
+                                + 'This page is checking; contact support if DrugRef cannot confirm the outcome.', 'warning');
+                        }
+                    });
+                }).catch(function () {
+                    setResult('The update request outcome is unknown and DrugRef is not responding. '
+                        + 'Do not retry; this page will keep checking.', 'warning');
+                }).finally(function () {
+                    if (updateRequestUncertain) {
+                        show('updateButton', false);
+                        schedulePoll();
+                    }
+                });
             }
 
             document.addEventListener("DOMContentLoaded", function () {

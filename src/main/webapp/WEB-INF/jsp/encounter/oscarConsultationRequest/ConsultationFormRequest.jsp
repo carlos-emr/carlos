@@ -204,9 +204,22 @@
             return;
         }
         boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, consultSecurityTarget);
+        Integer consultPatientId = null;
+        if (consultSecurityTarget != null) {
+            try {
+                consultPatientId = Integer.valueOf(consultSecurityTarget);
+                if (consultPatientId <= 0) consultPatientId = null;
+            } catch (NumberFormatException invalidPatientId) {
+                // Reject malformed/overflowing IDs before patient loading or any fax controls.
+            }
+            if (consultPatientId == null) {
+                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+        }
         boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()
-                && consultSecurityTarget != null && consultSecurityTarget.matches("[0-9]+")
-                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.parseInt(consultSecurityTarget))
+                && consultPatientId != null
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, consultPatientId)
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
 
@@ -3130,6 +3143,7 @@ if (userAgent != null) {
 										<select name="faxAccount" id="faxAccount" class="form-select form-select-sm">
 								<%
                                     for (FaxConfig faxConfig : faxConfigs) {
+                                        if (!faxConfig.isActive() || faxConfig.getFaxNumber() == null) continue;
                                 %>
 										<option value="<carlos:encode value='<%= faxConfig.getFaxNumber() %>' context="htmlAttribute"/>" <%=faxConfig.getFaxNumber().equalsIgnoreCase(consultUtil.letterheadFax) ? "selected" : ""%>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/></option>
 								<%

@@ -188,6 +188,15 @@ public class ReportMacro2Action extends ActionSupport {
         return runMacroOutcome(macro, request).success();
     }
 
+    /**
+     * Executes the configured macro effects for the session provider, including optional
+     * acknowledgement of the trusted report chain and creation of linked patient ticklers.
+     * The caller must have passed the POST and lab-write authorization checks.
+     * @param macro parsed macro configuration
+     * @param request authorized request containing the report and demographic identifiers
+     * @return success, acknowledgement flag, and actual cleared routing-row count
+     * @throws RuntimeException if malformed configuration or an underlying mutation fails
+     */
     protected MacroOutcome runMacroOutcome(ObjectNode macro, HttpServletRequest request) {
         logger.info("running macro {}", LogSafe.sanitize(macro.get("name").asText("")));
         String segmentID = request.getParameter("segmentID");

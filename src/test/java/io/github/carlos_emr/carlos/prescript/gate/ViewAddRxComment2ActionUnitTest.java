@@ -233,4 +233,27 @@ class ViewAddRxComment2ActionUnitTest extends CarlosUnitTestBase {
         prescription.setDemographicId(DEMOGRAPHIC_NO);
         return prescription;
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "NULL", "", "  "})
+    @DisplayName("should preserve literal clinical note text including explicit clearing")
+    void shouldPreserveLiteralComment_whenAuthorized(String comment) throws Exception {
+        request.setParameter("comment", comment);
+        when(prescriptionDao.find(SCRIPT_NO)).thenReturn(prescription(PROVIDER_NO));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE,
+                String.valueOf(DEMOGRAPHIC_NO))).thenReturn(true);
+        when(prescriptionDao.updatePrescriptionsByScriptNo(SCRIPT_NO, comment)).thenReturn(1);
+        assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NO_CONTENT);
+        verify(prescriptionDao).updatePrescriptionsByScriptNo(SCRIPT_NO, comment);
+    }
+
+    @Test
+    @DisplayName("should reject an absent comment without modifying the prescription")
+    void shouldRejectAbsentComment_beforeLookup() throws Exception {
+        request.removeParameter("comment");
+        assertThat(new ViewAddRxComment2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(prescriptionDao);
+    }
 }

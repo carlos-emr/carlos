@@ -124,6 +124,41 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should validate SRFax primary and copy destinations before reading or publishing the PDF")
+    void shouldRejectUndialableSrfaxRecipient_beforeFileAccess(boolean copy) throws Exception {
+        faxConfigDao.getActiveConfigByNumber("1234567890").setProviderType(FaxConfig.ProviderType.SRFAX);
+        Map<String, Object> input = new java.util.HashMap<>();
+        input.put("faxFilePath", "/tmp/not-read.pdf");
+        input.put("recipient", "Test Recipient");
+        input.put("recipientFaxNumber", copy ? "4165550100" : "12345678");
+        input.put("senderFaxNumber", "1234567890");
+        input.put("demographicNo", 17);
+        if (copy) input.put("copyToRecipients", new String[]{"\"name\":\"Copy\",\"fax\":\"12345678\""});
+        FaxJob result = manager.createFaxJob(loggedInInfo, input);
+        assertThat(result.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        verifyNoInteractions(nioFileManager);
+        verify(manager, never()).resolveAndValidateFilePath(any(String.class));
+    }
+
+    @Test
+    @DisplayName("should deduplicate equivalent domestic and international SRFax recipients")
+    void shouldDeduplicateEquivalentNumbers_whenAddingSrfaxRecipients() {
+        FaxConfig config = new FaxConfig();
+        config.setProviderType(FaxConfig.ProviderType.SRFAX);
+        FaxJob primary = new FaxJob();
+        primary.setDestination("14165550100");
+        primary.setFaxAccount(new io.github.carlos_emr.carlos.fax.core.FaxAccount(config));
+        List<FaxJob> copies = manager.addRecipients(loggedInInfo, primary, List.of(
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("Same", "416-555-0100"),
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("Same", "+1 4165550100"),
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("International", "+44 20 7946 0100"),
+                new io.github.carlos_emr.carlos.fax.core.FaxRecipient("Same international", "011442079460100")));
+        assertThat(copies).hasSize(1);
+        assertThat(copies.get(0).getDestination()).isEqualTo("+442079460100");
+    }
+
     @Test
     @DisplayName("should copy allowed temp renderer PDFs into Oscar documents before queuing")
     void shouldCopyAllowedTempRendererPdfIntoOscarDocuments_beforeQueuingFaxJob() throws Exception {

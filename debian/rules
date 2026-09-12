@@ -164,7 +164,10 @@ override_dh_auto_test:
 	# for known-good compressed system pages. groff returns zero for warnings,
 	# so capture diagnostics and explicitly make any warning a package failure.
 	set -e; \
-	warnings="$$(groff -ww -z -Tutf8 -man debian/carlos-ctl.8 2>&1)"; \
+	if ! warnings="$$(groff -ww -z -Tutf8 -man debian/carlos-ctl.8 2>&1)"; then \
+		printf '%s\n' "$$warnings" >&2; \
+		exit 1; \
+	fi; \
 	if [ -n "$$warnings" ]; then \
 		printf '%s\n' "$$warnings" >&2; \
 		exit 1; \

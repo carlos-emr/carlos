@@ -785,18 +785,21 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should reject a destination longer than the fax table can store before writing files")
-    void shouldRejectFaxBeforeWriting_whenDestinationIsTooLong(@TempDir Path tempDir) throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"MIDDLEWARE", "SRFAX"})
+    @DisplayName("should reject an undialable destination before writing files")
+    void shouldRejectFaxBeforeWriting_whenDestinationIsInvalidForProvider(String providerType, @TempDir Path tempDir) throws Exception {
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
         Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
         Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
         MockHttpServletRequest request = createFaxRequest();
-        request.setParameter("pharmaFax", "123456789012");
+        request.setParameter("pharmaFax", "SRFAX".equals(providerType) ? "12345678" : "123456789012");
         MockHttpServletResponse response = new MockHttpServletResponse();
         stubStoredSignature();
         stubRecordDemographic();
+        stubActiveFaxConfig();
+        faxConfigDao.getActiveConfigByNumber("4165553434").setProviderType(FaxConfig.ProviderType.valueOf(providerType));
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
@@ -813,7 +816,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).doesNotExist();
             assertThat(faxDir.resolve("prescription_rx-123.txt")).doesNotExist();
-            verify(faxConfigDao, never()).getActiveConfigByNumber(any());
+            verify(faxConfigDao, org.mockito.Mockito.atLeastOnce()).getActiveConfigByNumber("4165553434");
             verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
