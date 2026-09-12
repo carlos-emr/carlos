@@ -8,7 +8,7 @@
     <c:param name="de" value="${demographicId}"/>
 </c:url>
 <!DOCTYPE html>
-<html>
+<html lang="<carlos:encode value='${pageContext.request.locale.toLanguageTag()}' context="htmlAttribute"/>">
 <head>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <title><fmt:message key="consultation.fax.uncertain.title"/></title>

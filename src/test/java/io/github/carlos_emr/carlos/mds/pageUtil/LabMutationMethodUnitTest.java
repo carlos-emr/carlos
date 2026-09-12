@@ -6,7 +6,6 @@ package io.github.carlos_emr.carlos.mds.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;

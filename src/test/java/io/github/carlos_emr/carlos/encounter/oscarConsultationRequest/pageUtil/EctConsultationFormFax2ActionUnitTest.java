@@ -310,7 +310,8 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         String mapping = java.nio.file.Files.readString(Paths.get("src/main/webapp/WEB-INF/classes/struts-encounter.xml"));
         assertThat(mapping).contains("<result name=\"faxUncertain\">/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp</result>");
         String view = java.nio.file.Files.readString(Paths.get("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp"));
-        assertThat(view).contains("id=\"consult-fax-uncertain\"", "consultation.fax.uncertain.message", "ViewDisplayDemographicConsultationRequests");
+        assertThat(view).contains("id=\"consult-fax-uncertain\"", "consultation.fax.uncertain.message", "ViewDisplayDemographicConsultationRequests")
+                .contains("<html lang=\"<carlos:encode", "pageContext.request.locale.toLanguageTag()");
         assertThat(view).doesNotContain("<form", "setTimeout", "history.back", "finishPage(");
     }
 }
