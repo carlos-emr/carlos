@@ -223,8 +223,8 @@ public class FaxManagerImpl implements FaxManager {
 
     /**
      * Builds and persists an all-or-none recipient batch. Recipient parsing and file preparation
-     * complete before persistence; any failed job rejects the batch. Database rollback and
-     * commit-time failure callbacks remove files created for the attempt.
+     * complete before persistence; any failed job rejects the batch. A confirmed database
+     * rollback removes attempt files; an unknown commit outcome must retain them.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
@@ -289,7 +289,7 @@ public class FaxManagerImpl implements FaxManager {
                     faxJobObject.setNumPages(faxJobObject.getNumPages() + 1);
                     faxJobObject.setFile_name(coveredFileName.toString());
                     attemptFiles.add(faxDocument);
-                } catch (IOException e) {
+                } catch (IOException | RuntimeException e) {
                     logger.error("CRITICAL: Failed to add cover page for fax job to {} - Fax will NOT be sent without cover page",
                             faxJobObject.getRecipient(), e);
                     faxJobObject.setStatus(STATUS.ERROR);
@@ -314,12 +314,9 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         registerFaxAttemptRollbackCleanup(attemptFiles);
-        try {
-            saveFaxJob(loggedInInfo, faxJobList);
-        } catch (RuntimeException e) {
-            cleanupFaxAttemptFiles(attemptFiles, List.of());
-            throw e;
-        }
+        // Only the transaction completion callback can establish a known rollback.
+        // A persistence exception alone is not proof that no WAITING row committed.
+        saveFaxJob(loggedInInfo, faxJobList);
         cleanupFaxAttemptFiles(attemptFiles, faxJobList);
         return faxJobList;
     }
@@ -332,8 +329,10 @@ public class FaxManagerImpl implements FaxManager {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
-                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
                     cleanupFaxAttemptFiles(files, List.of());
+                } else if (status == TransactionSynchronization.STATUS_UNKNOWN) {
+                    logger.error("Fax queue transaction outcome is unknown; retaining prepared documents");
                 }
             }
         });

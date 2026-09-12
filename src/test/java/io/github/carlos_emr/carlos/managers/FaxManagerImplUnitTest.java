@@ -127,6 +127,39 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,false", "1,false", "2,false", "1,true", "2,true"})
+    @DisplayName("should delete prepared fax files only after a confirmed rollback")
+    void shouldRetainPreparedFiles_untilRollbackIsKnown(int completion, boolean persistenceThrows,
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path pdf = Files.writeString(directory.resolve("fax.pdf"), "fixture fax");
+        FaxJob job = new FaxJob();
+        job.setStatus(FaxJob.STATUS.WAITING);
+        job.setFile_name("fax.pdf");
+        doReturn(job).when(manager).createFaxJob(eq(loggedInInfo), anyMap());
+        when(nioFileManager.getOscarDocument(Path.of("fax.pdf"))).thenReturn(pdf);
+        if (persistenceThrows) doThrow(new IllegalStateException("injected persistence failure"))
+                .when(manager).saveFaxJob(eq(loggedInInfo), anyList());
+        else doReturn(List.of(job)).when(manager).saveFaxJob(eq(loggedInInfo), anyList());
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try (MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths =
+                Mockito.mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.isInApplicationTempDirectory(any(java.io.File.class)))
+                    .thenReturn(true);
+            Map<String, Object> params = Map.of("faxFilePath", pdf.toString(), "coverpage", "false");
+            if (persistenceThrows) assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, params))
+                    .isInstanceOf(IllegalStateException.class);
+            else assertThat(manager.createAndSaveFaxJob(loggedInInfo, params)).singleElement().isSameAs(job);
+            assertThat(pdf).exists();
+            var callbacks = org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            assertThat(callbacks).hasSize(1);
+            callbacks.get(0).afterCompletion(completion);
+            assertThat(Files.exists(pdf)).isEqualTo(completion != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {SecurityInfoManager.READ, SecurityInfoManager.WRITE})
     @DisplayName("should reject resend before locking or saving when either fax permission is missing")
     void shouldRejectResend_whenPermissionIsMissing(String deniedPermission) {

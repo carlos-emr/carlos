@@ -223,6 +223,27 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
         verify(mockPrescriptionManager).setPrescriptionSignature(mockLoggedInInfo, tenDigitScript, SIGNATURE_ID);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "wrong-module", "wrong-patient", "null-module", "null-patient"})
+    @DisplayName("should independently reject missing or incorrectly bound signature metadata")
+    void shouldRejectInvalidSignatureMetadata_withoutWriting(String scenario) throws Exception {
+        DigitalSignature signature = new DigitalSignature();
+        signature.setProviderNo("999998");
+        signature.setDemographicId("null-patient".equals(scenario) ? null
+                : "wrong-patient".equals(scenario) ? SIGNATURE_DEMOGRAPHIC_NO + 1 : SIGNATURE_DEMOGRAPHIC_NO);
+        signature.setModuleType("null-module".equals(scenario) ? null
+                : "wrong-module".equals(scenario) ? ModuleType.CONSULTATION
+                        : ModuleType.PRESCRIPTION);
+        when(mockDigitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID))
+                .thenReturn("missing".equals(scenario) ? null : signature);
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+        assertThat(action.saveDigitalSignature()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getHeader("X-Carlos-Signature-Write")).isNull();
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
     @Test
     @DisplayName("should reject a 10-digit script id that overflows an int")
     void shouldRejectScriptId_whenTenDigitsOverflowInt() throws Exception {

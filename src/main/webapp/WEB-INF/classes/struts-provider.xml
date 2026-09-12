@@ -56,6 +56,7 @@
             <result name="faxstatus">/WEB-INF/jsp/admin/faxStatusResults.jspf</result>
         </action>
         <action name="fax/faxAction" class="io.github.carlos_emr.carlos.fax.action.Fax2Action">
+            <result name="faxUncertain">/WEB-INF/jsp/fax/FaxSubmissionUncertain.jsp</result>
             <result name="preview">/WEB-INF/jsp/fax/CoverPage.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="CONSULTATION">/encounter/ViewRequest</result>
