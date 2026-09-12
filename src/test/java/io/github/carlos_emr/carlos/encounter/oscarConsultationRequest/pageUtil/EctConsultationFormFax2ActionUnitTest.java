@@ -139,6 +139,7 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         when(config.getAccountName()).thenReturn("Test Account");
         when(faxConfigDao.findAll(null, null)).thenReturn(java.util.List.of(config));
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, "123")).thenReturn(true);
     }
 
     @AfterEach
@@ -149,6 +150,20 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    @DisplayName("should require patient-scoped consultation write before standalone faxing but preserve cancel")
+    void shouldRejectStandaloneFax_whenConsultationWriteIsDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, "123")).thenReturn(false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required consultation write access");
+        org.mockito.Mockito.verifyNoInteractions(consultationRequestDao, documentAttachmentManager, nioFileManager, faxConfigDao, faxJobDao);
+        action.setMethod("cancel");
+        assertThat(action.execute()).isEqualTo("cancel");
     }
 
     @org.junit.jupiter.params.ParameterizedTest

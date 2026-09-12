@@ -162,6 +162,10 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 		if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoValue)) {
 			throw new SecurityException("missing required patient access");
 		}
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE,
+                Integer.toString(demographicNoValue))) {
+            throw new SecurityException("missing required consultation write access");
+        }
         final int reqIdValue;
         try {
             reqIdValue = Integer.parseInt(reqId);

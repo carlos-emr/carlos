@@ -92,6 +92,8 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     hasFaxSenderAccount: true,
     canFaxScript: true,
     isSignatureSaved: true,
+    signatureAssociationPending: false,
+    signatureAssociationFailed: false,
     hasStoredSignature: false,
     getCsrfToken: () => 'fixture-token',
     fetch: async (_url, options) => {

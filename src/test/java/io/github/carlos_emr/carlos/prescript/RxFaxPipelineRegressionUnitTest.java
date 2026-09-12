@@ -162,7 +162,7 @@ class RxFaxPipelineRegressionUnitTest {
                 .contains("\"scriptNo=\" + encodeURIComponent(faxScriptNo)")
                 .contains("var faxScriptNo = \"<carlos:encode value='<%= scriptIdForFax %>'")
                 .contains("/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>")
-                .contains("this.setDigitalSignatureToRx(signId, '<%= scriptIdForFax %>')")
+                .contains("associateSavedSignature(e, '<%= scriptIdForFax %>')")
                 .contains("onPrint2('oscarRxFax', faxScriptNo,");
     }
 
