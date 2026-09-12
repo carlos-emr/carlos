@@ -671,12 +671,16 @@ public class MDSResultsData {
     public String getMatchingLabs(String labId) {
         String ret = "";
         String accessionNum = findMDSAccessionNumber(labId);
+        // A missing accession must not turn into a LIKE '%%' query over unrelated labs.
+        if (accessionNum == null || accessionNum.isBlank()) {
+            return labId;
+        }
         int monthsBetween = 0;
         try {
             MdsMSHDao dao = SpringUtils.getBean(MdsMSHDao.class);
-            for (Object[] o : dao.findLabsByAccessionNumAndId(ConversionUtils.fromIntString(segmentID), "%" + accessionNum + "%")) {
+            for (Object[] o : dao.findLabsByAccessionNumAndId(ConversionUtils.fromIntString(labId), "%" + accessionNum + "%")) {
                 MdsMSH a = (MdsMSH) o[0];
-                MdsMSH b = (MdsMSH) o[0];
+                MdsMSH b = (MdsMSH) o[1];
 
                 //MDS labs recycle accessoin numbers every two years, accession
                 //numbers for a lab should have lab dates within a year of eachother

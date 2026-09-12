@@ -391,7 +391,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         Path documentPdf = documentDir.resolve("prescription_rx-123.pdf");
         ByteArrayOutputStream bytes = new ByteArrayOutputStream() {
             @Override
-            public void writeTo(java.io.OutputStream output) throws java.io.IOException {
+            public synchronized void writeTo(java.io.OutputStream output) throws java.io.IOException {
                 // Observe the publication boundary itself, not just final cleanup. The
                 // background sender can open DOCUMENT_DIR as soon as this path exists.
                 if (Files.exists(documentPdf)) {

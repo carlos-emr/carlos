@@ -40,6 +40,7 @@ import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
@@ -57,6 +58,8 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
+import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -216,6 +219,23 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         return row;
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldTreatCommentsAsLiteralText_andHonorSkipCommentOnUpdate(boolean skip) {
+        registerStaticInitializerMocks();
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        Mockito.reset(dao);
+        ProviderLabRoutingModel row = routingRow("N");
+        row.setComment("Prior [review] $1 (");
+        when(dao.findByLabNoAndLabTypeAndProviderNo(42, "DOC", "999998"))
+                .thenReturn(List.of(row));
+        String revised = "Updated [review] $2";
+        CommonLabResultData.updateReportStatus(42, "999998", 'A', revised, "DOC", skip);
+        assertThat(row.getComment()).isEqualTo(skip ? "Prior [review] $1 (" : revised);
+        assertThat(row.getStatus()).isEqualTo("A");
+        Mockito.verify(dao).merge(row);
+    }
+
     /**
      * The ProviderLabRoutingDao instance CommonLabResultData actually holds.
      *
@@ -369,6 +389,45 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             hl7Results.when(() -> Hl7textResultsData.getMatchingLabs("170")).thenReturn("170");
 
             assertThat(CommonLabResultData.olderVersionsOf(170, "HL7", "170")).isEmpty();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"DOC", "HRM", "Epsilon", "unknown"})
+    void shouldNeverFilePostedUnrelatedRecords_forTypesWithoutVersionLookup(String type) {
+        registerStaticInitializerMocks();
+        assertThat(CommonLabResultData.olderVersionsOf(42, type, "900,901,42")).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML"})
+    void shouldDeriveLegacyOntarioVersions_onTheServer(String type) {
+        registerStaticInitializerMocks();
+        try (MockedConstruction<MDSResultsData> constructed = Mockito.mockConstruction(
+                MDSResultsData.class, (mock, context) -> {
+                    when(mock.getMatchingLabs("42")).thenReturn("40,41,42,43");
+                    when(mock.getMatchingCMLLabs("42")).thenReturn("40,41,42,43");
+                })) {
+            assertThat(CommonLabResultData.olderVersionsOf(42, type, "900,901,42"))
+                    .containsExactly(40, 41);
+            assertThat(constructed.constructed()).hasSize(1);
+            if ("MDS".equals(type)) {
+                Mockito.verify(constructed.constructed().get(0)).getMatchingLabs("42");
+            } else {
+                Mockito.verify(constructed.constructed().get(0)).getMatchingCMLLabs("42");
+            }
+        }
+    }
+
+    @Test
+    void shouldDerivePathnetVersions_onTheServer() {
+        registerStaticInitializerMocks();
+        try (MockedConstruction<PathnetResultsData> constructed = Mockito.mockConstruction(
+                PathnetResultsData.class, (mock, context) ->
+                        when(mock.getMatchingLabs("42")).thenReturn("40,41,42,43"))) {
+            assertThat(CommonLabResultData.olderVersionsOf(42, "BCP", "900,901,42"))
+                    .containsExactly(40, 41);
+            Mockito.verify(constructed.constructed().get(0)).getMatchingLabs("42");
         }
     }
 }

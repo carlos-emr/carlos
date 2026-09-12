@@ -430,7 +430,7 @@ public class CommonLabResultData {
      * @param comment comment for {@code labNo}, may be null or empty
      * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
      * @param skipCommentOnUpdate true to leave an existing comment untouched
-     * @param multiId the client's version chain; only consulted for types with no server-side chain
+     * @param multiId the client's version chain, retained for caller compatibility but not trusted
      * @return how many of this provider's routing rows this call took OUT of the NEW state.
      *         The inbox counters count NEW routing rows, not the collapsed list rows, so a
      *         caller adjusting them live has to know this number rather than assume one per
@@ -492,23 +492,23 @@ public class CommonLabResultData {
     /**
      * Resolves the versions of {@code labNo} that are OLDER than it, oldest first.
      *
-     * <p>For HL7 labs the chain is ALWAYS derived server side from the accession number and the
+     * <p>For labs the chain is ALWAYS derived server side from the accession number and the
      * posted {@code multiID} is ignored. That is the same source the view used to build
      * {@code multiID}, so the result is identical for an honest client — but a forged or stale
      * chain can no longer name unrelated labs and have them filed. A chain is not a hint here;
      * every id in it becomes a write to another lab's routing row.
      *
-     * <p>Other report types have no accession chain to derive, so they fall back to the posted
-     * value (a BC lab display posts one). Those types are read no more trustingly than before
-     * this method existed, and a chain that does not contain {@code labNo} files nothing.
+     * <p>The shared lookup also supports MDS, CML and BC PathNet. Documents and HRM reports
+     * have no version chain; unknown types have no trusted lookup. None may fall back to a
+     * posted chain: a forged chain containing the reviewed id could otherwise file unrelated
+     * clinical records. A missing or unusable server chain files no additional versions.
      *
      * <p>Exact type match, not a case-insensitive one: the routing rows are looked up by this
      * same lab_type string, so accepting a spelling the lookup would miss buys nothing.
      */
     static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
-        String chain = LabResultData.HL7TEXT.equals(labType)
-                ? Hl7textResultsData.getMatchingLabs(String.valueOf(labNo))
-                : multiId;
+        String chain = labType == null ? null
+                : new CommonLabResultData().getMatchingLabs(String.valueOf(labNo), labType);
         return LabVersionChain.olderThan(labNo, chain);
     }
 
@@ -541,8 +541,10 @@ public class CommonLabResultData {
                 }
 
                 // use the new incoming comment on these conditions.
-                if (!comment.isEmpty() && !comment.equalsIgnoreCase(currentComment.trim())) {
-                    providerLabRoutingModel.setComment(comment.replaceAll(currentComment, currentComment));
+                if (!skipCommentOnUpdate && !comment.isEmpty()
+                        && !comment.equalsIgnoreCase(currentComment.trim())) {
+                    // Clinical text is not a regular expression or replacement template.
+                    providerLabRoutingModel.setComment(comment);
                 }
                 providerLabRoutingModel.setTimestamp(new Date());
                 providerLabRoutingDao.merge(providerLabRoutingModel);

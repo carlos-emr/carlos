@@ -89,9 +89,9 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         String multiID = request.getParameter("multiID");
         // Session-derived, NOT the posted providerNo: this writes the acknowledgement into the
         // clinical audit trail, and a posted value let any user with _lab write record it
-        // against a colleague. Every real caller already posts the logged-in provider (the
-        // inbox builds its links from the session), so nothing legitimate changes; the macro
-        // path in ReportMacro2Action has always done it this way.
+        // against a colleague. An encounter link can name a different routed provider, but
+        // that must not let this acknowledgement impersonate them; their inbox remains
+        // outstanding until they acknowledge it. The macro path uses the same policy.
         String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         char status = request.getParameter("status").charAt(0);
         String comment = request.getParameter("comment");

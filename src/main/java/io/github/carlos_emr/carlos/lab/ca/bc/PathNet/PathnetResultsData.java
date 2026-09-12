@@ -260,16 +260,20 @@ public class PathnetResultsData {
     public String getMatchingLabs(String labId) {
         String ret = "";
         String accessionNum = "";
-        String labDate = "";
+        Date labDate = null;
         int monthsBetween = 0;
 
         try {
             // find the accession number
-            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labDate))) {
+            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labId))) {
                 String fillerOrderNumber = String.valueOf(o[0]);
-                Date date = (Date) o[1];
                 accessionNum = justGetAccessionNumber(fillerOrderNumber);
-                labDate = ConversionUtils.toDateString(date);
+                labDate = (Date) o[1];
+            }
+
+            // No matching lab/accession means no version chain, not a wildcard search.
+            if (accessionNum.isBlank() || labDate == null) {
+                return labId;
             }
 
             Hl7PidDao pidDao = SpringUtils.getBean(Hl7PidDao.class);
@@ -279,7 +283,7 @@ public class PathnetResultsData {
                 Date resultsReportStatusChange = (Date) o[1];
 
                 Date dateA = resultsReportStatusChange;
-                Date dateB = UtilDateUtilities.StringToDate(labDate, "yyyy-MM-dd HH:mm:ss");
+                Date dateB = labDate;
                 if (dateA.before(dateB)) {
                     monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
                 } else {
