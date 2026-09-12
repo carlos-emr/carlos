@@ -41,6 +41,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -137,7 +138,10 @@ class RxWriteScript2ActionListPreviousInstructionsTest extends CarlosUnitTestBas
         }
     }
 
+    // @NullSource covers the parameter being absent altogether, which is the shape the
+    // unguarded randomId.trim() used to throw on before the session-bean check even ran.
     @ParameterizedTest
+    @NullSource
     @ValueSource(strings = {"12\r\ninvalid", "999999999999999999999", "42"})
     @DisplayName("should clear history without sending an error for an invalid or missing randomId")
     void shouldClearHistory_whenRandomIdIsInvalidOrMissing(String randomId) throws Exception {

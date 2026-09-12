@@ -100,45 +100,54 @@ function modalFrame(page) {
 }
 
 /**
- * The text a prescriber can actually READ in the modal.
+ * The text a prescriber can actually READ in the modal opened for `randomId`.
  *
- * Not `body.innerText`: the response-rewriting filters inject their own
- * <script> into every HTML response, and its source comes back in the body
- * text. A modal that rendered nothing at all therefore measures as several
- * hundred non-empty characters, so "the body is not empty" is exactly the
- * hollow assertion this defect would slip through. Strip script and style
- * before measuring.
+ * Two traps, both of which make a blank modal look fine:
+ *
+ *   - Not `body.innerText`: the response-rewriting filters inject their own
+ *     <script> into every HTML response, and its source comes back in the body
+ *     text, so a window that rendered nothing still measures as several hundred
+ *     non-empty characters. Strip script and style before measuring.
+ *   - The page REUSES one #xmaskframe for every modal. After the first one has
+ *     rendered, a read taken before the next navigation commits returns the
+ *     PREVIOUS drug's document — so a later assertion could pass, or fail, on
+ *     text that has nothing to do with what it just asked for. Every read is
+ *     therefore pinned to the document whose URL carries the requested id;
+ *     anything else reads as empty, which is what the assertions report.
  */
-async function modalVisibleText(page) {
-  const text = await page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed function over the page's own DOM, nothing interpolated
+async function modalVisibleText(page, randomId) {
+  const text = await page.evaluate((id) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the id is passed as an argument, never interpolated into the page script
     const frame = document.getElementById('xmaskframe');
-    const body = frame && frame.contentDocument && frame.contentDocument.body;
-    if (!body) return '';
-    const clone = body.cloneNode(true);
+    const doc = frame && frame.contentDocument;
+    if (!doc || !(doc.URL || '').includes(`randomId=${id}`) || !doc.body) return '';
+    const clone = doc.body.cloneNode(true);
     clone.querySelectorAll('script, style').forEach((node) => node.remove());
     return clone.textContent || '';
-  });
+  }, String(randomId));
   return text.replace(/\s+/g, ' ').trim();
 }
 
 /**
- * Wait for the modal to put something readable on screen.
+ * Wait for the modal to finish loading the document for `randomId` and put
+ * something readable in it.
  *
- * Tolerant on purpose: a modal that stays blank is a finding for the assertion
- * that follows to report in full, not a bare timeout here.
+ * Tolerant on purpose: a modal that stays blank, or never navigates, is a
+ * finding for the assertion that follows to report in full, not a bare timeout
+ * here.
  */
-async function waitForModalText(page) {
+async function waitForModalDocument(page, randomId) {
   await page.waitForFunction(
-    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed predicate over the page's own DOM, no interpolation
-    () => {
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the id is passed as an argument, never interpolated into the page script
+    (id) => {
       const frame = document.getElementById('xmaskframe');
-      const body = frame && frame.contentDocument && frame.contentDocument.body;
-      if (!body) return false;
-      const clone = body.cloneNode(true);
+      const doc = frame && frame.contentDocument;
+      if (!doc || doc.readyState !== 'complete') return false;
+      if (!(doc.URL || '').includes(`randomId=${id}`) || !doc.body) return false;
+      const clone = doc.body.cloneNode(true);
       clone.querySelectorAll('script, style').forEach((node) => node.remove());
       return (clone.textContent || '').trim().length > 0;
     },
-    null,
+    String(randomId),
     { timeout: 20000 },
   ).catch(() => {});
 }
@@ -269,11 +278,11 @@ async function openPreviousInstructions(page, randomId) {
     const iframe = rxPage.locator('#xmaskframe');
     await iframe.waitFor({ state: 'visible', timeout: 20000 });
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
-    await waitForModalText(rxPage);
+    await waitForModalDocument(rxPage, randomId);
 
     // The whole defect is "the window is empty", so measure the rendered text,
     // not the presence of the frame.
-    const modalText = await modalVisibleText(rxPage);
+    const modalText = await modalVisibleText(rxPage, randomId);
     assert(
       modalText.length > 0,
       'The previous-instructions modal opened with a completely empty body. displayMedHistory.jsp '
@@ -305,14 +314,57 @@ async function openPreviousInstructions(page, randomId) {
 
     // Choosing an entry must write it back into the prescription, which is the
     // only reason the window exists.
-    const chosen = (await instructionRows.first().innerText()).trim();
-    await instructionRows.first().click();
-    const instructionsInput = rxPage.locator(`#instructions_${randomId}`);
-    await instructionsInput.waitFor({ state: 'visible', timeout: 10000 });
-    const applied = (await instructionsInput.inputValue()).trim();
+    //
+    // Two things this has to get right, and neither is obvious:
+    //
+    //   - The two column links go to DIFFERENT fields. mhInst_* calls
+    //     addInstruction (-> #instructions_<id>) and mhSpecInst_* calls
+    //     addSpecialInstruction (-> #siInput_<id>), so clicking whichever link
+    //     happens to be first and then asserting on the Instructions field
+    //     fails on a history entry that only carries a special instruction,
+    //     even though the handoff worked. Pick the link that matches the field
+    //     being asserted.
+    //   - A ReRx-staged prescription arrives with its existing text ALREADY in
+    //     the field (prescribe.jsp seeds it from rx.getSpecial()), so "the
+    //     field is non-empty afterwards" is true before the click and measures
+    //     nothing. Clear it first.
+    //
+    // The assertion is "non-empty after clearing" rather than an equality
+    // against the link text on purpose: addInstruction runs the value through
+    // parseIntr, which rewrites it (it lifts quantity and repeats out of the
+    // sig), so an exact match would fail on a working handoff.
+    const plainRows = modalFrame(rxPage).locator("a[id^='mhInst_']");
+    const specialRows = modalFrame(rxPage).locator("a[id^='mhSpecInst_']");
+    const usePlainRow = (await plainRows.count()) > 0;
+    const chosenRow = usePlainRow ? plainRows.first() : specialRows.first();
+    const targetSelector = usePlainRow ? `#instructions_${randomId}` : `#siInput_${randomId}`;
+    const targetField = usePlainRow ? 'Instructions' : 'Special Instructions';
+
+    const chosen = (await chosenRow.innerText()).trim();
+    const appliedInput = rxPage.locator(targetSelector);
+    await appliedInput.waitFor({ state: 'attached', timeout: 10000 });
+    await appliedInput.fill('');
+    assert(
+      (await appliedInput.inputValue()).trim() === '',
+      `Could not clear the ${targetField} field before testing the modal's handoff, so the `
+        + 'assertion that follows would not measure the click.',
+    );
+
+    await chosenRow.click();
+    await rxPage.waitForFunction(
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the selector is passed as an argument, never interpolated into the page script
+      (selector) => {
+        const el = document.querySelector(selector);
+        return !!el && el.value.trim().length > 0;
+      },
+      targetSelector,
+      { timeout: 10000 },
+    ).catch(() => {});
+    const applied = (await appliedInput.inputValue()).trim();
     assert(
       applied.length > 0,
-      `Clicking "${chosen}" in the modal left the Instructions field empty; the modal renders but `
+      `Clicking "${chosen}" in the modal left the ${targetField} field empty (it was cleared `
+        + 'first, so this is the click being measured, not leftover text). The modal renders but '
         + 'cannot hand its selection back to the prescription.',
     );
 
@@ -330,8 +382,8 @@ async function openPreviousInstructions(page, randomId) {
     );
 
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
-    await waitForModalText(rxPage);
-    const customText = await modalVisibleText(rxPage);
+    await waitForModalDocument(rxPage, customRandomId);
+    const customText = await modalVisibleText(rxPage, customRandomId);
     assert(
       /Rx\s*Examples/i.test(customText),
       `A history-less drug rendered "${customText.slice(0, 200)}" instead of its Rx Examples table. `
@@ -374,8 +426,8 @@ async function openPreviousInstructions(page, randomId) {
     );
 
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
-    await waitForModalText(rxPage);
-    const strayText = await modalVisibleText(rxPage);
+    await waitForModalDocument(rxPage, strayId);
+    const strayText = await modalVisibleText(rxPage, strayId);
     assert(
       /Medication history is unavailable/i.test(strayText),
       `An unresolvable randomId rendered "${strayText.slice(0, 200)}" instead of the explicit `

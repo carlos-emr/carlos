@@ -88,7 +88,11 @@
                     }
 %>
 
-<a onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
+<%-- href plus onclick, not a bare onMouseDown: without an href the anchor takes no
+     focus and no keyboard activation, so the only way to dismiss this window was the
+     mouse. onclick covers both pointer and Enter. --%>
+<a href="javascript:void(0);" onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';"
+   onclick="parent.mb.hide();"><img
         src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>
@@ -173,7 +177,11 @@
 
         if (!renderedHistory) {
     %>
-<a onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
+<%-- href plus onclick, not a bare onMouseDown: without an href the anchor takes no
+     focus and no keyboard activation, so the only way to dismiss this window was the
+     mouse. onclick covers both pointer and Enter. --%>
+<a href="javascript:void(0);" onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';"
+   onclick="parent.mb.hide();"><img
         src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>

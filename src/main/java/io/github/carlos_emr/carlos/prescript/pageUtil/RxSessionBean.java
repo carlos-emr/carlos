@@ -172,11 +172,21 @@ public class RxSessionBean implements java.io.Serializable {
         return stash.get(index);
     }
 
-    //return prescript from its random id
+    /**
+     * The staged prescription carrying this random id, or {@code null} when the stash
+     * does not hold one.
+     *
+     * <p>The null element check is defensive rather than a reproduced defect: no caller
+     * puts a null in the stash today. It is here because every caller of this method
+     * treats a missing item as "no history to show", and a NullPointerException raised
+     * while scanning would instead surface as a 500 on an AJAX lookup whose modal only
+     * opens from the success callback — the failure this whole path was hardened
+     * against.</p>
+     */
     public RxPrescriptionData.Prescription getStashItem2(int randomId) {
         RxPrescriptionData.Prescription psp = null;
         for (RxPrescriptionData.Prescription rx : stash) {
-            if (rx.getRandomId() == randomId) {
+            if (rx != null && rx.getRandomId() == randomId) {
                 psp = rx;
             }
         }
