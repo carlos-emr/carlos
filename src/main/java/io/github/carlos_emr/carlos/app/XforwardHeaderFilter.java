@@ -207,6 +207,162 @@ public class XforwardHeaderFilter implements Filter {
             String clientIp = extractClientIp(forwardedFor, trustedProxyIps, trustedProxyCidrs);
             return clientIp != null ? clientIp : remoteAddr;
         }
+
+        @Override
+        public String getScheme() {
+            String proto = forwardedProto();
+            return proto != null ? proto : super.getScheme();
+        }
+
+        @Override
+        public boolean isSecure() {
+            String proto = forwardedProto();
+            return proto != null ? "https".equals(proto) : super.isSecure();
+        }
+
+        @Override
+        public String getServerName() {
+            String host = forwardedHostName();
+            return host != null ? host : super.getServerName();
+        }
+
+        @Override
+        public int getServerPort() {
+            if (!peerIsTrusted()) {
+                return super.getServerPort();
+            }
+            Integer explicitPort = parsePort(firstToken(super.getHeader("X-Forwarded-Port")));
+            if (explicitPort != null) {
+                return explicitPort;
+            }
+            Integer hostPort = parsePort(hostPortPart(firstToken(super.getHeader("X-Forwarded-Host"))));
+            if (hostPort != null) {
+                return hostPort;
+            }
+            String proto = forwardedProto();
+            if (proto != null) {
+                return "https".equals(proto) ? 443 : 80;
+            }
+            return super.getServerPort();
+        }
+
+        private boolean peerIsTrusted() {
+            return isTrustedProxy(super.getRemoteAddr(), trustedProxyIps, trustedProxyCidrs);
+        }
+
+        /**
+         * @return the lowercased {@code X-Forwarded-Proto} value ({@code http} or {@code https})
+         *         when the peer is trusted and the header is present and valid, otherwise {@code null}.
+         */
+        private String forwardedProto() {
+            if (!peerIsTrusted()) {
+                return null;
+            }
+            String proto = firstToken(super.getHeader("X-Forwarded-Proto"));
+            if (equalsAsciiIgnoreCase(proto, "https")) {
+                return "https";
+            }
+            if (equalsAsciiIgnoreCase(proto, "http")) {
+                return "http";
+            }
+            return null;
+        }
+
+        /**
+         * @return the host portion (port stripped) of {@code X-Forwarded-Host} when the peer is
+         *         trusted and the header is present, otherwise {@code null}. A bracketed IPv6
+         *         literal keeps its brackets so it remains valid in a reconstructed URL.
+         */
+        private String forwardedHostName() {
+            if (!peerIsTrusted()) {
+                return null;
+            }
+            String host = firstToken(super.getHeader("X-Forwarded-Host"));
+            if (host == null) {
+                return null;
+            }
+            String name;
+            if (host.startsWith("[")) {
+                int close = host.indexOf(']');
+                // A bracketed value with no closing bracket is malformed; ignore it so it
+                // cannot override the server name (an empty name falls back to the peer below).
+                name = (close >= 0) ? host.substring(0, close + 1).trim() : "";
+            } else {
+                int colon = host.indexOf(':');
+                // Only treat as host:port when there is a single colon (IPv4 / hostname); an
+                // unbracketed value with multiple colons is a bare IPv6 literal, so keep it whole.
+                name = (colon >= 0 && host.indexOf(':', colon + 1) < 0)
+                        ? host.substring(0, colon).trim() : host;
+            }
+            return name.isEmpty() ? null : name;
+        }
+
+        private static String hostPortPart(String host) {
+            if (host == null) {
+                return null;
+            }
+            if (host.startsWith("[")) {
+                int close = host.indexOf(']');
+                if (close >= 0 && close + 1 < host.length() && host.charAt(close + 1) == ':') {
+                    String port = host.substring(close + 2).trim();
+                    return port.isEmpty() ? null : port;
+                }
+                return null;
+            }
+            int colon = host.indexOf(':');
+            // A single colon delimits host:port; multiple colons mean a bare IPv6 literal (no port).
+            if (colon >= 0 && colon < host.length() - 1 && host.indexOf(':', colon + 1) < 0) {
+                return host.substring(colon + 1).trim();
+            }
+            return null;
+        }
+
+        private static String firstToken(String header) {
+            if (header == null) {
+                return null;
+            }
+            int comma = header.indexOf(',');
+            String token = (comma >= 0 ? header.substring(0, comma) : header).trim();
+            return token.isEmpty() ? null : token;
+        }
+
+        private static Integer parsePort(String value) {
+            if (value == null) {
+                return null;
+            }
+            try {
+                int port = Integer.parseInt(value);
+                return (port >= 1 && port <= 65535) ? port : null;
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+
+        /**
+         * ASCII-only case-insensitive equality against a known lowercase token. This deliberately
+         * avoids {@link String#equalsIgnoreCase} / {@link String#toLowerCase}, whose Unicode case
+         * folding trips the Find Security Bugs IMPROPER_UNICODE rule, while still matching the
+         * small fixed set of expected scheme tokens.
+         *
+         * @param value             the candidate value (may be {@code null})
+         * @param asciiLowerTarget  the target token, expected to be ASCII lowercase
+         * @return {@code true} when {@code value} equals the target ignoring ASCII letter case
+         */
+        private static boolean equalsAsciiIgnoreCase(String value, String asciiLowerTarget) {
+            if (value == null || value.length() != asciiLowerTarget.length()) {
+                return false;
+            }
+            for (int i = 0; i < value.length(); i++) {
+                char c = value.charAt(i);
+                if (c >= 'A' && c <= 'Z') {
+                    c += 32;
+                }
+                if (c != asciiLowerTarget.charAt(i)) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 
     static final class CidrRange {
