@@ -58,6 +58,15 @@
  * rather than a longer sentinel-assigning handler. It still proves attribute
  * breakout, and check (2) covers execution via the page-error path.
  *
+ * Prerequisite, like the other check scripts here: the test account must be able
+ * to log straight in. On a database provisioned purely from the Flyway seed the
+ * shipped `carlosdoc` row carries forcePasswordReset=1 (see the security INSERT in
+ * database/mysql/migration/on/V1.0.2__on_data.sql), which lands the login on
+ * /forcepasswordreset instead of the provider screen. Clear it on the disposable
+ * test database before running. Only login-playwright-checks.js and
+ * add-login-account-playwright-checks.js manage that flag themselves, because
+ * exercising it is their subject.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/export-jsp-xss-playwright-checks.js
  *
@@ -129,7 +138,7 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const ROURKE_TYPE = 'Rourke';
 const stamp = String(Date.now()).slice(-8);
 
-// demographicSets.set_name is varchar(20); this payload is 17 characters and
+// demographicSets.set_name is varchar(20); this payload is 18 characters and
 // still breaks out of both the value attribute and the element text if either
 // is rendered raw. x() is deliberately undefined so that execution surfaces as
 // a page error even though the payload has no room for a sentinel assignment.
@@ -499,10 +508,14 @@ async function checkRourkeExportPage(context) {
     launchOptions.executablePath = chromePath;
   }
 
+  // Seeding happens before the browser exists, so the launch itself has to sit
+  // inside the try: a launch failure used to leave the seeded XSS payload rows
+  // behind in the database with no cleanup path.
   seedPayloadRows();
 
-  const browser = await chromium.launch(launchOptions);
+  let browser = null;
   try {
+    browser = await chromium.launch(launchOptions);
     // Certificate validation is only relaxed for local targets (self-signed dev
     // certs are common there). A non-local target reached via ALLOW_NON_LOCAL_BASE_URL
     // still gets full TLS validation, so a spoofed/invalid cert can't silently
@@ -525,7 +538,9 @@ async function checkRourkeExportPage(context) {
     console.log('PASS export JSP output stays encoded and lossless for seeded XSS payloads');
   } finally {
     cleanupPayloadRows();
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 })().catch((error) => {
   console.error('FAIL export JSP XSS Playwright check');
