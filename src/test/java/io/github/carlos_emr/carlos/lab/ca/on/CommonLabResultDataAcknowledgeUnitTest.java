@@ -85,8 +85,12 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     private void registerStaticInitializerMocks() {
         org.springframework.transaction.PlatformTransactionManager transactions =
                 createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(
-                new org.springframework.transaction.support.SimpleTransactionStatus());
+        when(transactions.getTransaction(any())).thenAnswer(call -> {
+            org.springframework.transaction.TransactionDefinition definition = call.getArgument(0);
+            assertThat(definition.getIsolationLevel()).isEqualTo(
+                    org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            return new org.springframework.transaction.support.SimpleTransactionStatus();
+        });
         registerMock(OscarLogDao.class, mock(OscarLogDao.class));
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));

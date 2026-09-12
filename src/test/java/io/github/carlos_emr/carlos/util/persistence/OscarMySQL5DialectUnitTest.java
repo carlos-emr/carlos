@@ -16,6 +16,45 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Shared MySQL and MariaDB pessimistic locking syntax")
 class OscarMySQL5DialectUnitTest {
     @Test
+    @DisplayName("should apply routing isolation through the production Spring Hibernate JPA adapter")
+    void shouldApplyReadCommitted_whenJpaTransactionStarts() {
+        var dataSource = new org.h2.jdbcx.JdbcDataSource();
+        dataSource.setURL("jdbc:h2:mem:jpa-routing-isolation-" + java.util.UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1");
+        var bean = new org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean();
+        bean.setDataSource(dataSource);
+        bean.setManagedTypes(org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes.of(
+                ProviderLabRoutingModel.class.getName()));
+        bean.setJpaVendorAdapter(new org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter());
+        bean.setJpaPropertyMap(java.util.Map.of("hibernate.dialect", OscarMySQL5Dialect.class.getName(),
+                "hibernate.hbm2ddl.auto", "create-drop"));
+        bean.afterPropertiesSet();
+        try {
+            var factory = bean.getObject();
+            var manager = new org.springframework.orm.jpa.JpaTransactionManager(factory);
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(manager);
+            transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            transaction.executeWithoutResult(status -> {
+                var entityManager = org.springframework.orm.jpa.EntityManagerFactoryUtils.getTransactionalEntityManager(factory);
+                assertThat(entityManager).isNotNull();
+                int isolation = entityManager.unwrap(org.hibernate.Session.class)
+                        .doReturningWork(java.sql.Connection::getTransactionIsolation);
+                assertThat(isolation).isEqualTo(java.sql.Connection.TRANSACTION_READ_COMMITTED);
+                var row = new ProviderLabRoutingModel();
+                row.setLabNo(170);
+                row.setLabType("HL7");
+                row.setProviderNo("999998");
+                row.setStatus("A");
+                entityManager.persist(row);
+                entityManager.flush();
+                entityManager.refresh(row, LockModeType.PESSIMISTIC_WRITE);
+                status.setRollbackOnly();
+            });
+        } finally {
+            bean.destroy();
+        }
+    }
+
+    @Test
     @DisplayName("should omit alias lists from write locks and use portable shared locks")
     void shouldRenderPortableLocks_whenAliasesAreSupplied() {
         var dialect = new OscarMySQL5Dialect();

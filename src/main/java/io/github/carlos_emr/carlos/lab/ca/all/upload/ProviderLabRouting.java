@@ -94,6 +94,9 @@ public class ProviderLabRouting {
     public void routeMagic(int labId, String provider_no, String labType) {
         var transaction = new org.springframework.transaction.support.TransactionTemplate(
                 SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        // Keep the report lock through commit, but see rows committed by its previous owner
+        // under MariaDB 11.8's default innodb_snapshot_isolation=ON.
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.executeWithoutResult(status -> {
             providerLabRoutingDao.lockRoutingReport(labId);
             routeInTransaction(labId, provider_no, labType);
@@ -138,8 +141,23 @@ public class ProviderLabRouting {
         return info;
     }
 
+    /**
+     * Routes a legacy string report id through the same locked transaction as normal delivery.
+     *
+     * @param labId numeric report identifier
+     * @param provider_no destination provider identifier
+     * @param labType exact routing type
+     * @throws SQLException if the report identifier is not a valid integer; no routing is attempted
+     */
     public void route(String labId, String provider_no, String labType) throws SQLException {
-        routeMagic(Integer.parseInt(labId), provider_no, labType);
+        final int numericLabId;
+        try {
+            numericLabId = Integer.parseInt(labId);
+        } catch (NumberFormatException invalidId) {
+            // Preserve the checked failure contract without echoing the supplied identifier.
+            throw new SQLException("Invalid numeric lab identifier");
+        }
+        routeMagic(numericLabId, provider_no, labType);
     }
 
     public static HashMap<String, Object> getInfo(String lab_no, String lab_type) {

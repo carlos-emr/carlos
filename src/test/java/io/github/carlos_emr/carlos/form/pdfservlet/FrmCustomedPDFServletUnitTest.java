@@ -96,6 +96,33 @@ import static org.mockito.ArgumentMatchers.isNull;
 @Tag("security")
 class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should report fixed fax errors without logging clinical exception messages or causes")
+    void shouldKeepClinicalExceptionsPrivate_whenReportingFaxFailure(boolean uncertain) throws Exception {
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        var failure = new IllegalStateException("PRIVATE_CLINICAL_MESSAGE",
+                new IllegalArgumentException("PRIVATE_CLINICAL_CAUSE"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FrmCustomedPDFServlet.class)) {
+            var servlet = new FrmCustomedPDFServlet();
+            if (uncertain) {
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(servlet,
+                        "reportFaxUncertain", response, response.getWriter(), failure);
+            } else {
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(servlet,
+                        "reportFaxFailure", response, response.getWriter(), "Preparing prescription fax", failure);
+            }
+            assertThat(response.getStatus()).isEqualTo(uncertain ? 503 : 500);
+            assertThat(response.getContentAsString()).contains(uncertain ? "fax-uncertain" : "fax-failure")
+                    .doesNotContain("PRIVATE_CLINICAL");
+            assertThat(logs.events()).isNotEmpty().allSatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).contains("IllegalStateException")
+                        .doesNotContain("PRIVATE_CLINICAL");
+                assertThat(event.getThrown()).isNull();
+            });
+        }
+    }
+
     private static final int SCRIPT_ID = 1;
     private static final int DEMOGRAPHIC_NO = 1;
     private static final int SIGNATURE_ID = 77;

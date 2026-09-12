@@ -102,8 +102,11 @@ public class Fax2Action extends ActionSupport {
     static final String CLAIMED_FAX_FILE_PATHS_SESSION_KEY =
             "io.github.carlos_emr.carlos.fax.action.Fax2Action.boundFaxFilePaths.v2";
 
-    record FaxPreviewClaim(Integer eformId, Integer demographicId, String providerNo) implements java.io.Serializable {
+    record FaxPreviewClaim(Integer eformId, Integer demographicId, String providerNo, boolean cancelled) implements java.io.Serializable {
         private static final long serialVersionUID = 1L;
+        FaxPreviewClaim(Integer eformId, Integer demographicId, String providerNo) {
+            this(eformId, demographicId, providerNo, false);
+        }
     }
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -187,15 +190,33 @@ public class Fax2Action extends ActionSupport {
         String faxForward = transactionType;
 
         if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
-            faxManager.validateFilePath(faxFilePath);
-            if (!faxManager.flush(loggedInInfo, faxFilePath)) {
+            String ownedPath = claimFaxPreviewForCancellation(loggedInInfo);
+            if (ownedPath == null) {
+                sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, "This fax preview is not owned by the current session.");
+                return NONE;
+            }
+            faxManager.validateFilePath(ownedPath);
+            boolean cleaned = false;
+            try {
+                cleaned = faxManager.flush(loggedInInfo, ownedPath);
+            } catch (RuntimeException failure) {
+                logger.warn("Owned fax preview cleanup failed ({})", failure.getClass().getSimpleName());
+            }
+            if (!cleaned) {
                 if (logger.isErrorEnabled()) {
-                    logger.error("Failed to clear fax preview cache or temporary file: {}", LogSafe.sanitize(faxFilePath, 1024));
+                    logger.error("Failed to clear an owned fax preview cache or temporary file");
                 }
                 // Do not redirect: a redirect discards the action error and the user believes the
                 // cancel (and PHI cleanup) succeeded. Render the preview page with the failure.
                 request.setAttribute("faxCleanupFailed", Boolean.TRUE);
                 return "preview";
+            }
+            // Keep a failed cleanup claim retryable but never queueable. Only confirmed
+            // cleanup removes this session-owned, cancellation-only claim.
+            var claims = claimedFaxFilePathsInSession(request.getSession(false));
+            synchronized (claims) {
+                claims.remove(ownedPath, new FaxPreviewClaim(transactionId, demographicNo,
+                        loggedInInfo.getLoggedInProviderNo(), true));
             }
         }
 
@@ -474,8 +495,7 @@ public class Fax2Action extends ActionSupport {
                 && promotionDemographicNo.equals(String.valueOf(demographicNo))) {
             return claimedFaxFilePath;
         }
-        logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
-                transactionId);
+        logger.warn("Rejected fax promotion: eForm no longer belongs to the submitted demographic");
         if (claimedFaxFilePath != null) {
             deleteRejectedClaimedFaxFile(claimedFaxFilePath);
         }
@@ -960,13 +980,9 @@ public class Fax2Action extends ActionSupport {
     }
 
     /**
-     * Removes and returns the entry matching the path, eForm, patient and authenticated provider
-     * from this session's map of
-     * outstanding claimed fax file paths, or {@code null} if none matches. Single-use per claim:
-     * once consumed here, the same claim can never be consumed again, whether the promotion it
-     * belongs to is accepted or rejected -- so it cannot linger in the session past the request
-     * that resolves it, and a later, distinct claim for the same fdid is never confused with this
-     * one.
+     * Marks the exact session-owned path/eForm/patient/provider claim cancellation-only,
+     * returning its server-issued path or {@code null} when the binding does not match.
+     * Failed cleanup remains retryable, but queueing can no longer consume this claim.
      *
      * <p>Returns the path actually stored in the session's claim map -- populated only by
      * {@link #recordClaimedFaxFilePathInSession} from a server-generated renderer path, never from
@@ -974,6 +990,28 @@ public class Fax2Action extends ActionSupport {
      * file) do so with a value a static analyzer can see originates from that trusted store, not
      * from the client-supplied request field, even though the two are verified equal here.</p>
      */
+    private String claimFaxPreviewForCancellation(LoggedInInfo loggedInInfo) {
+        HttpSession session = request.getSession(false);
+        String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        if (session == null || faxFilePath == null || providerNo == null || providerNo.isBlank()) return null;
+        var claims = claimedFaxFilePathsInSession(session);
+        var active = new FaxPreviewClaim(transactionId, demographicNo, providerNo);
+        var cancelled = new FaxPreviewClaim(transactionId, demographicNo, providerNo, true);
+        synchronized (claims) {
+            for (var entry : claims.entrySet()) {
+                if (entry.getKey().equals(faxFilePath)
+                        && (active.equals(entry.getValue()) || cancelled.equals(entry.getValue()))) {
+                    // A server-issued path and exact patient/provider/eForm tuple are required.
+                    // Mark it before IO so a concurrent queue cannot consume a cancelled preview.
+                    entry.setValue(cancelled);
+                    return entry.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Removes and returns an exact, active server-issued preview claim once; cancelled claims cannot queue. */
     private String consumeClaimedFaxFilePathFromSession() {
         HttpSession session = request.getSession(false);
         if (session == null || faxFilePath == null) {

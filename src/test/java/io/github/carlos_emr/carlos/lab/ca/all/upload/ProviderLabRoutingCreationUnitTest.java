@@ -28,6 +28,18 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @DisplayName("Lab delivery and acknowledgement coordination")
 class ProviderLabRoutingCreationUnitTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PRIVATE_INVALID_ID", "2147483648", " "})
+    @DisplayName("should reject malformed legacy ids with a fixed checked error before routing")
+    void shouldRejectInvalidIdentifier_whenLegacyStringRouteIsCalled(String id) {
+        var router = mock(ProviderLabRouting.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        assertThatThrownBy(() -> router.route(id, "999998", "HL7"))
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasMessage("Invalid numeric lab identifier").hasNoCause();
+        verify(router, never()).routeMagic(anyInt(), anyString(), anyString());
+    }
+
     private static final String LOCK_SQL = "INSERT INTO providerLabRoutingLock(lab_no) VALUES(?) ON DUPLICATE KEY UPDATE lab_no=VALUES(lab_no)";
 
     private static class Fixture {
@@ -43,6 +55,8 @@ class ProviderLabRoutingCreationUnitTest {
             jdbc.execute("CREATE TABLE routing(lab_no INT, provider_no VARCHAR(20), lab_type VARCHAR(20), status VARCHAR(1))");
             doAnswer(call -> {
                 assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                assertThat(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel()).isEqualTo(
+                        org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
                 jdbc.update(LOCK_SQL, call.getArgument(0, Integer.class));
                 return null;
             }).when(dao).lockRoutingReport(anyInt());

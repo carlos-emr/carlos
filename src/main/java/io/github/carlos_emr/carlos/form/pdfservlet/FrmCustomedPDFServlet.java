@@ -520,7 +520,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     private void reportFaxUncertain(HttpServletResponse res, PrintWriter writer, Exception failure) {
-        logger.error("Prescription fax outcome is uncertain; preserving existing fax artifacts", failure);
+        logger.error("Prescription fax outcome is uncertain; preserving existing fax artifacts ({})", failure.getClass().getSimpleName());
         res.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         writer.println("<div id='fax-uncertain'><h3>The fax result could not be confirmed.</h3>"
                 + "<p>The job may already be queued. Check the fax outbox before sending again.</p></div>");
@@ -528,8 +528,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     private void reportFaxFailure(HttpServletResponse res, PrintWriter writer, String stage, Exception failure) {
-        logger.warn("{}: type={}, message={}", stage, failure.getClass().getSimpleName(),
-                LogSafe.sanitize(failure.getMessage(), 1024), failure);
+        logger.warn("{}: type={}", stage, failure.getClass().getSimpleName());
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
         writer.flush();
@@ -543,8 +542,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 Files.deleteIfExists(createdFile);
             } catch (IOException | RuntimeException cleanupFailure) {
                 originalFailure.addSuppressed(cleanupFailure);
-                logger.warn("Unable to clean up failed prescription fax artifact {}",
-                        LogSafe.sanitize(createdFile.toString()), cleanupFailure);
+                logger.warn("Unable to clean up failed prescription fax artifact ({})",
+                        cleanupFailure.getClass().getSimpleName());
             }
         }
     }

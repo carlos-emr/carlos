@@ -40,6 +40,7 @@
  *   TEST_PIN=2026
  *   SAVED_RENDER_DEMOGRAPHIC_NO=1
  *   SAVED_RENDER_SCREENSHOT_DIR=/tmp
+ *   EFORM_FAX_PREVIEW_CHECK=true to test owned-preview cancellation (requires an active fax account)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -383,6 +384,80 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
   await screenshot(page, screenshotName);
 }
 
+async function checkOwnedFaxPreview(browser, context, fdid) {
+  const page = await context.newPage();
+  const pageErrors = [];
+  page.on('pageerror', () => pageErrors.push('browser-script-error'));
+  let otherContext;
+  let faxFilePath;
+  let csrfToken;
+  let cancelled = false;
+  const endpoint = appUrl('/fax/faxAction');
+  const form = overrides => ({ 'CSRF-TOKEN': csrfToken, method: 'cancel', transactionType: 'EFORM',
+    transactionId: String(fdid), demographicNo: String(demographicNo), faxFilePath, ...overrides });
+  const readCsrfToken = async tokenPage => {
+    await tokenPage.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
+    return tokenPage.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+  };
+  try {
+    const parameters = new URLSearchParams({ method: 'prepareFax', transactionType: 'EFORM',
+      transactionId: String(fdid), demographicNo: String(demographicNo) });
+    const prepared = await page.goto(`${endpoint}?${parameters}`, { waitUntil: 'domcontentloaded', timeout: 180000 });
+    assert(prepared && prepared.status() === 200, 'eForm fax preview preparation must succeed');
+    await page.locator('#btnCancel').waitFor({ state: 'visible' });
+    faxFilePath = await page.locator('input[name="faxFilePath"]').inputValue();
+    assert(faxFilePath.length > 0, 'preview must contain its server-issued path');
+    csrfToken = await readCsrfToken(page);
+    const preview = async () => {
+      const response = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+      assert(response.status() === 200, 'owned preview must remain available');
+      assert((await response.body()).subarray(0, 5).toString() === '%PDF-', 'owned preview must remain a PDF');
+      await response.dispose();
+    };
+    await preview();
+    const wrongPatient = await context.request.post(endpoint, { form: form({ demographicNo: String(Number(demographicNo) + 1) }), maxRedirects: 0 });
+    assert(wrongPatient.status() === 403, 'mismatched patient must not cancel a preview');
+    await wrongPatient.dispose();
+    await preview();
+
+    otherContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    const otherLogin = await login(otherContext);
+    // Use this session's own valid token, so a CSRF refusal cannot satisfy the ownership assertion.
+    await otherLogin.goto(appUrl(`/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=${encodeURIComponent(demographicNo)}`),
+      { waitUntil: 'domcontentloaded' });
+    const otherToken = await readCsrfToken(otherLogin);
+    await otherLogin.close();
+    const otherSession = await otherContext.request.post(endpoint, { form: form({ 'CSRF-TOKEN': otherToken }), maxRedirects: 0 });
+    assert(otherSession.status() === 403, 'a second authenticated session must not cancel another session preview');
+    await otherSession.dispose();
+    await preview();
+
+    await Promise.all([
+      page.waitForURL(/\/eform\/efmshowform_data/, { timeout: 30000 }),
+      page.locator('#btnCancel').click(),
+    ]);
+    cancelled = true;
+    const replay = await context.request.post(endpoint, { form: form({}), maxRedirects: 0 });
+    assert(replay.status() === 403, 'successful cancellation must consume the owned claim');
+    await replay.dispose();
+    assert(pageErrors.length === 0, 'fax preview cancellation must not produce browser script errors');
+    console.log('PASS eForm fax preview rejects wrong-patient and other-session cancellation, preserves the PDF, and cancels once through the real button');
+  } finally {
+    // Only the exact preview created by this check is eligible for cleanup; never queue a fax.
+    try {
+      if (faxFilePath && !cancelled) {
+        const cleanup = await context.request.post(endpoint, { form: form({}), maxRedirects: 0 });
+        const status = cleanup.status();
+        await cleanup.dispose();
+        assert([302, 303].includes(status), 'owned test preview cleanup must succeed');
+      }
+    } finally {
+      if (otherContext) await otherContext.close();
+      await page.close();
+    }
+  }
+}
+
 (async () => {
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
@@ -424,6 +499,12 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);
     await assertSavedFormState(patientListPopup, savedValue, fdid, 'saved-render-patient-list');
     await patientListPopup.close();
+
+    if (process.env.EFORM_FAX_PREVIEW_CHECK === 'true') {
+      await checkOwnedFaxPreview(browser, context, fdid);
+    } else {
+      console.log('SKIP owned fax preview cancellation (set EFORM_FAX_PREVIEW_CHECK=true with an active fax account)');
+    }
 
     assertDisplayImageFetchesSucceeded(bgImageName);
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
