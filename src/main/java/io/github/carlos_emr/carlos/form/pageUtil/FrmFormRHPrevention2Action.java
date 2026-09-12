@@ -31,10 +31,10 @@
 package io.github.carlos_emr.carlos.form.pageUtil;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -129,7 +129,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         String workflowType = "RH";
         WorkFlowFactory flowFactory = new WorkFlowFactory();
         WorkFlow flow = flowFactory.getWorkFlow(workflowType);
-        ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
+        List<Map<String, Object>> currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
         String dateToParse = request.getParameter("edd");
         MiscUtils.getLogger().debug("New workflow for " + demographicNo + " EDD " + dateToParse);
@@ -139,7 +139,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
             MiscUtils.getLogger().debug("size of current workflows " + currentWorkFlows.size());
             request.setAttribute("currentWorkFlow", currentWorkFlows.get(0));
-            Hashtable h = (Hashtable) currentWorkFlows.get(0);
+            Map<String, Object> h = currentWorkFlows.get(0);
             String currentId = (String) h.get("ID");
             if (workflowId != null) {
                 //LOG CHANGE NOW
@@ -169,8 +169,8 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         try {
             rec = recorder.factory(request.getParameter("form_class"));
             Properties props = new Properties();
-            for (Enumeration varEnum = request.getParameterNames(); varEnum.hasMoreElements(); ) {
-                String name = (String) varEnum.nextElement();
+            for (Enumeration<String> varEnum = request.getParameterNames(); varEnum.hasMoreElements(); ) {
+                String name = varEnum.nextElement();
                 props.setProperty(name, request.getParameter(name));
             }
             if (!props.containsKey("workflowId")) {

@@ -39,10 +39,9 @@
 
 package io.github.carlos_emr.carlos.workflow;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Generic WorkFlow Description.
@@ -50,17 +49,17 @@ import java.util.List;
  * @author jay
  */
 public interface WorkFlow {
-    public ArrayList getActiveWorkFlowList(String demographicNo);
+    public List<Map<String, Object>> getActiveWorkFlowList(String demographicNo);
 
-    public ArrayList getActiveWorkFlowList();
+    public List<Map<String, Object>> getActiveWorkFlowList();
 
     public String getState(String state);
 
-    public List getStates();
+    public List<WFState> getStates();
 
-    public WorkFlowInfo executeRules(Hashtable hashtable);
+    public WorkFlowInfo executeRules(Map<String, Object> data);
 
-    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Hashtable hashtable);
+    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Map<String, Object> data);
 
     public String getLink(String demographic, String workFlowId);
 

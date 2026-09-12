@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -48,8 +49,8 @@ public class RHWorkFlow implements WorkFlow {
      * Creates a new instance of RHWorkFlow
      */
     static final String WORKFLOWTYPE = "RH";
-    static Hashtable<String, WFState> states = null;
-    static ArrayList<WFState> stateList = null;
+    static Map<String, WFState> states = null;
+    static List<WFState> stateList = null;
 
     public RHWorkFlow() {
         states = new Hashtable<String, WFState>();
@@ -80,12 +81,12 @@ public class RHWorkFlow implements WorkFlow {
     }
 
 
-    public ArrayList getActiveWorkFlowList(String demographicNo) {
+    public List<Map<String, Object>> getActiveWorkFlowList(String demographicNo) {
         WorkFlowState wfs = new WorkFlowState();
         return wfs.getActiveWorkFlowList(RHWorkFlow.WORKFLOWTYPE, demographicNo);
     }
 
-    public ArrayList getActiveWorkFlowList() {
+    public List<Map<String, Object>> getActiveWorkFlowList() {
         WorkFlowState wfs = new WorkFlowState();
         return wfs.getActiveWorkFlowList(RHWorkFlow.WORKFLOWTYPE);
     }
@@ -111,8 +112,8 @@ public class RHWorkFlow implements WorkFlow {
         return wfs.addToWorkFlow(WorkFlowState.RHWORKFLOW, providerNo, demographicNo, endDate, WorkFlowState.INIT_STATE);
     }
 
-    public WorkFlowInfo executeRules(Hashtable hashtable) {
-        WorkFlowInfo wfi = new WorkFlowInfo(hashtable);
+    public WorkFlowInfo executeRules(Map<String, Object> data) {
+        WorkFlowInfo wfi = new WorkFlowInfo(data);
         WorkFlowDS wfDS = WorkFlowDSFactory.getWorkFlowDS("Rh_workflow.drl");
         try {
             wfi = wfDS.getMessages(wfi);
@@ -122,8 +123,8 @@ public class RHWorkFlow implements WorkFlow {
         return wfi;
     }
 
-    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Hashtable hashtable) {
-        WorkFlowInfo wfi = new WorkFlowInfo(hashtable);
+    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Map<String, Object> data) {
+        WorkFlowInfo wfi = new WorkFlowInfo(data);
         try {
             wfi = wfDS.getMessages(wfi);
         } catch (Exception e) {
