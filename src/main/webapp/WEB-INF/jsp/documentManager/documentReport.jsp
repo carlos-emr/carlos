@@ -307,7 +307,8 @@
                 }
             }
 
-            var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
+            <fmt:message key="dms.documentReport.msgNoDocSelected" var="noDocSelectedText"/>
+            var msgNoDocSelected = '${carlos:forJavaScript(noDocSelectedText)}';
             <%-- Emitted through forJavaScript: a translation containing an apostrophe or a
                  backslash would otherwise terminate this string literal and break the whole
                  script block, taking the delete/undelete handlers down with it. --%>

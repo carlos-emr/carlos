@@ -2,3 +2,10 @@
 # third-party jars, for the same reasons given in carlos-emr's overrides.
 jar-contains-source
 unknown-java-class-version
+
+# These guarded calls only query `systemctl is-failed` and clear a stale
+# package-driven failure counter with `systemctl reset-failed`. They do not
+# start, stop, enable, or disable DrugRef; lifecycle operations continue to use
+# deb-systemd-invoke so policy-rc.d remains authoritative.
+maintainer-script-calls-systemctl [postinst:133]
+maintainer-script-calls-systemctl [postinst:134]

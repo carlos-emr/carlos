@@ -41,6 +41,28 @@ import static org.mockito.Mockito.when;
 @Tag("billing")
 class DbManageBillingformService2ActionUnitTest extends CarlosUnitTestBase {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should bound validation and transactional billing configuration diagnostics")
+    void shouldKeepBillingDiagnosticsPrivate_whenUpdateFails(boolean persistenceFailure) throws Exception {
+        request.setParameter("group1", "Fixture Codes");
+        request.setParameter("group1_service0", "A007A");
+        request.setParameter("group1_service0_order", persistenceFailure ? "1" : "PRIVATE_ORDER_VALUE");
+        if (persistenceFailure) org.mockito.Mockito.doThrow(new IllegalStateException("PRIVATE_BILLING_MESSAGE",
+                new IllegalArgumentException("PRIVATE_BILLING_CAUSE")))
+                .when(billingFormConfigurationService).replaceServiceCodes(eq("42"), any());
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(DbManageBillingformService2Action.class)) {
+            assertThat(new DbManageBillingformService2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(persistenceFailure ? 500 : 400);
+            // parseServiceOrder wraps the numeric exception; neither its sensitive cause
+            // nor its message may be attached to the emitted validation diagnostic.
+            assertThat(logs.messages()).anyMatch(message -> message.contains(persistenceFailure ? "IllegalStateException" : "IllegalArgumentException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            if (!persistenceFailure) verify(billingFormConfigurationService, never()).replaceServiceCodes(any(), any());
+        }
+    }
+
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private SecurityInfoManager securityInfoManager;

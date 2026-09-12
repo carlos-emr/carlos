@@ -85,6 +85,8 @@
  */
 
 const { chromium } = require('playwright');
+const { randomUUID } = require('node:crypto');
+const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 const {
   assert,
   assertNoPageErrors,
@@ -126,8 +128,12 @@ const drugTerm = process.env.ALLERGY_DRUG_TERM || 'biaxin';
 // patient. Part 4 drives it against the TYPED allergy so both recording paths are
 // shown to alert, not just the free-text one.
 const typedDrugTerm = process.env.ALLERGY_TYPED_DRUG_TERM || 'amoxil';
-const typedReaction = 'Rash (typed allergen check)';
-const freeTextReaction = 'Rash (free-text allergen check)';
+// A per-run marker prevents a prior interrupted run from satisfying this run's persistence and
+// alert assertions. The finally block deactivates only rows carrying these exact markers.
+const runMarker = randomUUID();
+const typedReaction = `Rash typed check ${runMarker}`;
+const freeTextReaction = `Rash free-text check ${runMarker}`;
+const attemptedReactionMarkers = [];
 
 assert(/^\d+$/.test(demographicNo), `ALLERGY_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
 // The drug picker debounces and only fires at minLength 3; a shorter term never
@@ -138,10 +144,102 @@ assert(typedDrugTerm.length >= 3, `ALLERGY_TYPED_DRUG_TERM must be at least 3 ch
 // reference knows for the free-text branch to have anything to resolve.
 assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 characters, got "${customAllergen}"`);
 
+async function deactivateCreatedAllergies(context) {
+  const cleanupPage = await context.newPage();
+  try {
+    await gotoApp(cleanupPage, config.baseUrl, `/rx/showAllergy?demographicNo=${demographicNo}`);
+    await cleanupPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await assertNotErrorPage(cleanupPage, 'allergy cleanup profile');
+    await cleanupPage.locator('form#searchAllergy2').waitFor({ state: 'attached', timeout: 20000 });
+    await cleanupPage.locator('table.allergy_table').waitFor({ state: 'attached', timeout: 20000 });
+
+    for (const marker of attemptedReactionMarkers) {
+      // Archive every active exact match. There should normally be one, but if a retry produced a
+      // duplicate then abandoning cleanup on count != 1 would leave both test rows behind.
+      while (true) {
+        const allergyRows = cleanupPage.locator("tr[id^='allergy_']");
+        let matchingActiveIndex = -1;
+        for (let index = 0; index < await allergyRows.count(); index += 1) {
+          const row = allergyRows.nth(index);
+          const reaction = ((await row.locator('td').nth(8).innerText()) || '').trim();
+          if (reaction === marker && await row.locator('a.deleteAllergyLink').count() === 1) {
+            matchingActiveIndex = index;
+            break;
+          }
+        }
+        if (matchingActiveIndex < 0) {
+          break;
+        }
+        const matchingRow = allergyRows.nth(matchingActiveIndex);
+        const matchingRowId = await matchingRow.getAttribute('id');
+        assert(/^allergy_\d+$/.test(matchingRowId || ''), 'Created allergy row has no numeric record id');
+        const inactivateLink = matchingRow.locator('a.deleteAllergyLink');
+        const expectedDialog = cleanupPage.waitForEvent('dialog', { timeout: 30000 }).then(async (dialog) => {
+          if (dialog.type() !== 'confirm' || dialog.message() !== 'Inactivate this Allergy?') {
+            await dialog.dismiss().catch(() => {});
+            throw new Error(`Allergy cleanup opened an unexpected ${dialog.type()} dialog`);
+          }
+          await dialog.accept();
+        });
+        const [deleteResponse] = await Promise.all([
+          cleanupPage.waitForResponse(
+            (response) => response.url().includes('/rx/deleteAllergy2')
+              && response.request().method() === 'POST',
+            { timeout: 30000 },
+          ),
+          expectedDialog,
+          cleanupPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+          inactivateLink.click(),
+        ]);
+        assert(deleteResponse.status() === 200,
+          `Inactivating created allergy returned HTTP ${deleteResponse.status()} instead of 200`);
+        await cleanupPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await assertNotErrorPage(cleanupPage, 'allergy cleanup profile after inactivation');
+        await cleanupPage.locator('form#searchAllergy2').waitFor({ state: 'attached', timeout: 20000 });
+        await cleanupPage.locator('table.allergy_table').waitFor({ state: 'attached', timeout: 20000 });
+        const reloadedRow = cleanupPage.locator(`#${matchingRowId}`);
+        if (await reloadedRow.count() === 1) {
+          const reloadedReaction = ((await reloadedRow.locator('td').nth(8).innerText()) || '').trim();
+          assert(reloadedReaction !== marker || await reloadedRow.locator('a.deleteAllergyLink').count() === 0,
+            `Created allergy ${marker} remained active after cleanup`);
+        }
+      }
+    }
+  } finally {
+    await cleanupPage.close();
+  }
+}
+
+async function recordAllergy(page, marker, cancellation) {
+  await cancellation.run(async () => {
+    attemptedReactionMarkers.push(marker);
+    // Wait for every initiated operation, even if one fails. In particular, a
+    // signal must not start cleanup while the form submission is still pending.
+    const results = await Promise.allSettled([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('#RxAddAllergyForm input[value="Add Allergy"]').click(),
+    ]);
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
+    const response = results[0].value;
+    assert(response && response.ok(), `Adding allergy returned HTTP ${response?.status()}`);
+  });
+}
+
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const cancellation = createGracefulSignalCancellation();
+  let browser;
+  let context;
   try {
+    browser = await chromium.launch({
+      ...getLaunchOptions(config.chromePath),
+      // Keep Chromium available to finally; Playwright otherwise closes it on
+      // these signals before the script can archive its generated allergies.
+      handleSIGINT: false,
+      handleSIGTERM: false,
+    });
+    cancellation.throwIfCancelled();
     if (config.baseUrl.protocol !== 'https:') {
       console.log(
         '[warn] BASE_URL is not HTTPS, so this run does NOT go through nginx and '
@@ -157,16 +255,34 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     // script submits clinician credentials to it.
     const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
     const host = config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
-    const context = await browser.newContext({
+    context = await browser.newContext({
       ignoreHTTPSErrors: loopback.has(host),
       viewport: { width: 1440, height: 1000 },
     });
+    context.setDefaultTimeout(30000);
+    cancellation.throwIfCancelled();
     const landing = await login(context, config, recorder);
     await landing.close();
+    cancellation.throwIfCancelled();
 
     // ---------------------------------------------------------------- part 1
     const allergyPage = await context.newPage();
-    wirePage(allergyPage, 'allergy', recorder);
+    let customConfirmMode = null;
+    const customConfirmMessage = `Adding custom allergy: ${customAllergen.toUpperCase()}`;
+    wirePage(allergyPage, 'allergy', recorder, async (dialog, entry) => {
+      if (customConfirmMode && dialog.type() === 'confirm' && dialog.message() === customConfirmMessage) {
+        const mode = customConfirmMode;
+        customConfirmMode = null;
+        if (mode === 'accept') {
+          await dialog.accept();
+        } else {
+          await dialog.dismiss();
+        }
+        return;
+      }
+      recorder.dialogs.push(entry);
+      await dialog.dismiss().catch(() => {});
+    });
     await gotoApp(allergyPage, config.baseUrl, `/rx/showAllergy?demographicNo=${demographicNo}`);
     await allergyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(allergyPage, 'allergy profile');
@@ -210,6 +326,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     const chosenName = ((await chosen.textContent()) || '').trim();
     assert(chosenName.length > 0, 'Search result anchor has no text');
 
+    cancellation.throwIfCancelled();
     const [reactionResponse] = await Promise.all([
       allergyPage.waitForResponse(
         (r) => r.url().includes('/rx/addReaction') && r.request().method() === 'POST',
@@ -227,10 +344,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     const reactionForm = allergyPage.locator('#RxAddAllergyForm');
     await reactionForm.waitFor({ state: 'visible', timeout: 20000 });
     await allergyPage.locator('#reactionDescription').fill(typedReaction);
-    await Promise.all([
-      allergyPage.waitForLoadState('domcontentloaded'),
-      allergyPage.locator('#RxAddAllergyForm input[value="Add Allergy"]').click(),
-    ]);
+    await recordAllergy(allergyPage, typedReaction, cancellation);
     await allergyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(allergyPage, 'allergy profile after add');
 
@@ -248,8 +362,19 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     // ------------------------------------------------- part 2, the free-text allergy
     // "Custom Allergy" is how a clinician records an allergen they did not pick out
     // of the reference. It posts ID=0&type=0, the category DrugRef used to skip.
-    allergyPage.once('dialog', (dialog) => dialog.accept().catch(() => {}));
+    cancellation.throwIfCancelled();
     await allergyPage.locator('#searchString').fill(customAllergen);
+    customConfirmMode = 'dismiss';
+    const cancelledRequest = allergyPage.waitForRequest(
+      (request) => request.url().includes('/rx/addReaction') && request.method() === 'POST',
+      { timeout: 1000 },
+    ).then(() => true, () => false);
+    await allergyPage.locator('input[value="Custom Allergy"]').click();
+    assert(customConfirmMode === null, 'The Custom Allergy control did not open its confirmation');
+    assert(!(await cancelledRequest), 'Cancelling Custom Allergy still submitted addReaction2');
+
+    cancellation.throwIfCancelled();
+    customConfirmMode = 'accept';
     const [customReactionResponse] = await Promise.all([
       allergyPage.waitForResponse(
         (r) => r.url().includes('/rx/addReaction') && r.request().method() === 'POST',
@@ -257,6 +382,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
       ),
       allergyPage.locator('input[value="Custom Allergy"]').click(),
     ]);
+    assert(customConfirmMode === null, 'The Custom Allergy confirmation was not accepted');
     assert(
       customReactionResponse.status() < 400,
       `Adding custom allergy "${customAllergen}" got HTTP ${customReactionResponse.status()}`,
@@ -268,10 +394,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     // A free-text allergy renders the non-drug selector, and the form's own
     // doSubmit() refuses to submit while it is unset.
     await allergyPage.locator('#nonDrug').selectOption('off');
-    await Promise.all([
-      allergyPage.waitForLoadState('domcontentloaded'),
-      allergyPage.locator('#RxAddAllergyForm input[value="Add Allergy"]').click(),
-    ]);
+    await recordAllergy(allergyPage, freeTextReaction, cancellation);
     await allergyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(allergyPage, 'allergy profile after custom add');
 
@@ -284,6 +407,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     await allergyPage.close();
 
     // ---------------------------------------------------------------- part 3
+    cancellation.throwIfCancelled();
     const rxPage = await context.newPage();
     wirePage(rxPage, 'rx-alert', recorder);
     await gotoApp(rxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
@@ -308,6 +432,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     // The allergy probe is a POST to /rx/showAllergy?method=allergyData fired by
     // prescribe.jsp as the drug lands in the stash. Wait on the response so the
     // assertion below is not racing the fetch.
+    cancellation.throwIfCancelled();
     const [allergyDataResponse] = await Promise.all([
       rxPage.waitForResponse(
         (r) => r.url().includes('/rx/showAllergy') && r.request().method() === 'POST',
@@ -354,6 +479,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
     // ---------------------------------------------------------------- part 4
     // The literally reported scenario: a penicillin prescribed to a patient carrying
     // the penicillin allergy recorded in part 1.
+    cancellation.throwIfCancelled();
     if (!matchedRequestedAllergen) {
       console.log(
         `[skip] part 4: the search for "${allergySearchTerm}" did not return "${allergenName}", so `
@@ -381,6 +507,7 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
       const typedDrugItems = typedRxPage.locator('ul.ui-autocomplete li');
       await typedDrugItems.first().waitFor({ state: 'visible', timeout: 20000 });
 
+      cancellation.throwIfCancelled();
       const [typedAllergyResponse] = await Promise.all([
         typedRxPage.waitForResponse(
           (r) => r.url().includes('/rx/showAllergy') && r.request().method() === 'POST',
@@ -408,9 +535,10 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
       await typedRxPage.close();
     }
 
+    cancellation.throwIfCancelled();
     assertNoPageErrors(recorder);
-    await context.close();
-
+    assert(recorder.dialogs.length === 0,
+      `The browser opened ${recorder.dialogs.length} unexpected dialog(s)`);
     console.log('allergy-rx-alert checks passed');
     console.log(`  recorded from search: ${chosenName}`);
     console.log(`  recorded as free text: ${customAllergen}`);
@@ -419,19 +547,40 @@ assert(customAllergen.length <= 16, `ALLERGY_CUSTOM_ALLERGEN must be at most 16 
       console.log(`  ${typedDrugTerm} warned on the allergen recorded from the search results`);
     }
   } catch (error) {
-    console.error('allergy-rx-alert checks FAILED:', error.message);
-    // Deliberately narrower than buildFailureDetails(): this check drives a real patient's
-    // allergy list, and the recorded reactions that come back in the probe JSON are the
-    // patient's own clinical text. Report the diagnostics that identify the defect --
-    // failed requests, console errors, dialogs -- and leave response bodies out.
-    console.error(JSON.stringify({
-      badResponses: recorder.badResponses,
-      consoleIssues: recorder.consoleIssues,
-      pageErrors: recorder.pageErrors,
-      dialogs: recorder.dialogs,
-    }, null, 2));
-    process.exitCode = 1;
+    if (cancellation.isCancellation(error)) {
+      console.error(error.message);
+    } else {
+      console.error('allergy-rx-alert checks FAILED:', error.message);
+      // Deliberately narrower than buildFailureDetails(): this check drives a real patient's
+      // allergy list, and the recorded reactions that come back in the probe JSON are the
+      // patient's own clinical text. Report the diagnostics that identify the defect --
+      // failed requests, console errors, dialogs -- and leave response bodies out.
+      console.error(JSON.stringify({
+        badResponses: recorder.badResponses,
+        consoleIssues: recorder.consoleIssues,
+        pageErrors: recorder.pageErrors,
+        dialogs: recorder.dialogs,
+      }, null, 2));
+      process.exitCode = 1;
+    }
   } finally {
-    await browser.close();
+    try {
+      if (context && attemptedReactionMarkers.length > 0) {
+        try {
+          await deactivateCreatedAllergies(context);
+        } catch (cleanupError) {
+          console.error('allergy-rx-alert cleanup FAILED:', cleanupError.message);
+          process.exitCode = 1;
+        }
+      }
+      try {
+        if (context) await context.close();
+      } finally {
+        if (browser) await browser.close();
+      }
+    } finally {
+      if (cancellation.exitCode) process.exitCode = cancellation.exitCode;
+      cancellation.dispose();
+    }
   }
 })();

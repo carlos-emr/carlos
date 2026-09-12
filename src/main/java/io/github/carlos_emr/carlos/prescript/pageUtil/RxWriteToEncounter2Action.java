@@ -51,8 +51,6 @@ import java.util.Date;
 
 import java.util.Locale;
 
-import org.owasp.encoder.Encode;
-
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -65,17 +63,45 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     private RxSessionBean rxSessionBean = null;
 
 
+    /**
+     * Appends prescription text to the originating patient's encounter.
+     *
+     * <p>After the session and prescription-write privilege check, known pre-write
+     * rejection returns HTTP 405 (non-POST) or 409 (missing or
+     * changed Rx patient context), with {@code X-Carlos-Encounter-Write: not-written}.
+     * Successful completion sets that header to {@code written}. Exceptions after
+     * persistence may mean the write committed: absence of the header is never
+     * proof that retrying is safe.</p>
+     *
+     * @return {@link #NONE}, since this action owns the HTTP response
+     * @throws SecurityException if the session or required prescription write privilege is absent
+     * @throws IOException if request/response processing fails
+     * @throws ServletException if servlet processing fails
+     */
+    @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, "w");
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            return rejectBeforeWrite(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        }
 
-        HttpSession session = request.getSession();
-        rxSessionBean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        HttpSession session = request.getSession(false);
+        rxSessionBean = session == null ? null : (RxSessionBean) session.getAttribute("RxSessionBean");
         if (rxSessionBean == null) {
-            response.sendRedirect("error.html");
-            return null;
+            return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
         }
         String demographicNo = String.valueOf(rxSessionBean.getDemographicNo());
+        // Bind the append to the originating prescription window. Another tab may
+        // have changed RxSessionBean since this window rendered or queued its fax.
+        if (rxSessionBean.getDemographicNo() <= 0
+                || !demographicNo.equals(request.getParameter("expectedDemographicNo"))) {
+            return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, demographicNo)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
         String programNo = new EctProgram(session).getProgram(session.getAttribute("user").toString());
 
 
@@ -85,7 +111,9 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         CaseManagementTmpSave tmpSave = caseManagementMgr.getTmpSave(loggedInInfo.getLoggedInProviderNo(), demographicNo, programNo);
         Date today = new Date();
         if (tmpSave != null) {
-            String noteBody = generateNote(loggedInInfo, Encode.forJavaScript(request.getParameter("body")), false);
+            // Persist clinical text, not a JavaScript string literal. Apply output
+            // encoding at the rendering boundary, as for the non-draft paths below.
+            String noteBody = generateNote(loggedInInfo, request.getParameter("body"), false);
 
             if (tmpSave.getNoteId() > 0) {
                 note = caseManagementMgr.getNote(String.valueOf(tmpSave.getNoteId()));
@@ -109,9 +137,16 @@ public class RxWriteToEncounter2Action extends ActionSupport {
             String noteBody = generateNote(loggedInInfo, request.getParameter("body"), true);
             createAndSaveNewNote(loggedInInfo, demographicNo, programNo, caseManagementMgr, today, noteBody, request.getParameter("sign"));
         }
+        // Never emit this for an exception after saveNoteSimple: the append may
+        // already have committed, so the client must not blindly repeat it.
+        response.setHeader("X-Carlos-Encounter-Write", "written");
+        return NONE;
+    }
 
-
-        return null;
+    private String rejectBeforeWrite(int status) {
+        response.setHeader("X-Carlos-Encounter-Write", "not-written");
+        response.setStatus(status);
+        return NONE;
     }
 
     private String generateNote(LoggedInInfo loggedInInfo, String noteBody, boolean addDateString) {
@@ -126,8 +161,8 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     }
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
     }
 
