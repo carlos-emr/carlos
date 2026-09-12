@@ -92,6 +92,11 @@ Exploded WAR".
     * Password: carlos2026
     * PIN     : 2026
     * **Note**: On first login, you will be forced to change the password. Use the same credentials above to complete the password reset process.
+* JavaMelody monitoring is available at `https://localhost:8443/carlos/monitoring`.
+    * The development image uses a self-signed certificate, so your browser will show a local certificate warning.
+    * Monitoring credentials are `oscar` / `oscar`.
+    * These credentials enable sensitive runtime inspection and system actions. Use them only for local development; do not reuse them in a deployed environment.
+    * Application, monitoring, and debugger ports bind to host loopback only.
 
 ### Subsequent Compilations
 

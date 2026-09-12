@@ -23,6 +23,19 @@
                    maxSwallowSize="52428800"
                    redirectPort="8443"/>
 
+        <!-- Development-only TLS endpoint used by resources that require CONFIDENTIAL transport,
+             including JavaMelody monitoring. The image build generates this local keystore. -->
+        <Connector port="8443"
+                   protocol="org.apache.coyote.http11.Http11NioProtocol"
+                   SSLEnabled="true"
+                   maxThreads="150">
+            <SSLHostConfig>
+                <Certificate certificateKeystoreFile="/usr/local/tomcat/conf/dev-localhost.p12"
+                             certificateKeystorePassword="changeit"
+                             certificateKeystoreType="PKCS12"/>
+            </SSLHostConfig>
+        </Connector>
+
         <Engine name="Catalina" defaultHost="localhost">
             <Realm className="org.apache.catalina.realm.LockOutRealm">
                 <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
