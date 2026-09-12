@@ -48,6 +48,7 @@ const {
   gotoApp,
   login,
   validateBaseUrl,
+  validateMysqlHost,
   wirePage,
 } = require('./eform-local-playwright-utils');
 
@@ -58,7 +59,7 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
 };
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -158,14 +159,46 @@ async function save(page) {
   return page.locator('.alert').first().innerText().catch(() => '');
 }
 
+let browser = null;
+let cleanupDone = false;
+// Runs once from the finally block or the signal handler: every step is attempted
+// and a step that fails marks the run as failed, because a fixture left behind is
+// a failure of this check even when every assertion passed.
+function runCleanup() {
+  if (cleanupDone || !mysqlDefaults) {
+    return;
+  }
+  cleanupDone = true;
+  for (const step of [restoreOriginalBySql, cleanupRows]) {
+    try {
+      step();
+    } catch (cleanupError) {
+      console.error(`FAIL cleanup step ${step.name} failed: ${cleanupError.message}`);
+      process.exitCode = 1;
+    }
+  }
+}
+// Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
+// sends TERM), so restore the fixtures here too before exiting.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    console.error(`${signal} received; restoring fixtures before exiting.`);
+    runCleanup();
+    cleanupMysqlDefaults();
+    process.exit(130);
+  });
+}
+
 (async () => {
   const recorder = createRecorder();
   initMysqlDefaults();
-  cleanupRows();
-  original = latestRow(existingCode);
-  assert(original, `service code ${existingCode} is not in billingservice`);
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  // Staging and the browser launch sit inside the protected scope so a failure in
+  // either still reaches the fixture cleanup below.
   try {
+    cleanupRows();
+    original = latestRow(existingCode);
+    assert(original, `service code ${existingCode} is not in billingservice`);
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     await login(context, config, recorder);
     const page = await openAdminPage(context, recorder);
@@ -185,7 +218,7 @@ async function save(page) {
     await page.locator('input[name="value"]').fill(newFee);
     await page.locator('textarea[name="description"]').fill(newDescription);
     banner = await save(page);
-    assert(new RegExp(`${existingCode} is updated`).test(banner), `save banner was "${banner}"`);
+    assert(banner.includes(`${existingCode} is updated`), `save banner was "${banner}"`);
     let row = latestRow(existingCode);
     assert(row.id === original.id, 'save created a new row instead of updating the searched entry');
     assert(Number(row.value) === Number(newFee), `fee after save was ${row.value}, expected ${newFee}`);
@@ -199,7 +232,7 @@ async function save(page) {
     await page.locator('input[name="value"]').fill(Number(original.value).toFixed(2));
     await page.locator('textarea[name="description"]').fill(original.description.trim());
     banner = await save(page);
-    assert(new RegExp(`${existingCode} is updated`).test(banner), `restore banner was "${banner}"`);
+    assert(banner.includes(`${existingCode} is updated`), `restore banner was "${banner}"`);
     row = latestRow(existingCode);
     assert(Number(row.value) === Number(original.value) && row.description.trim() === original.description.trim(),
       'restore did not put the original fee and description back');
@@ -216,7 +249,7 @@ async function save(page) {
     await page.locator('textarea[name="description"]').click();
     assert((await page.locator('#billingservice_date').inputValue()) === '2026-01-01', 'issued date did not keep the typed value');
     banner = await save(page);
-    assert(new RegExp(`${newCode} is added`).test(banner), `add banner was "${banner}"`);
+    assert(banner.includes(`${newCode} is added`), `add banner was "${banner}"`);
     row = latestRow(newCode);
     assert(row, `${newCode} row was not added`);
     assert(Number(row.value) === 12.34 && row.description.trim() === `${stamp} new code`, `added row was ${JSON.stringify(row)}`);
@@ -233,8 +266,10 @@ async function save(page) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close().catch(() => {});
-    try { restoreOriginalBySql(); cleanupRows(); } catch (cleanupError) { console.error(`cleanup failed: ${cleanupError.message}`); }
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+    runCleanup();
     cleanupMysqlDefaults();
   }
 })();

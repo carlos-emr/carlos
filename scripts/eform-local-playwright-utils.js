@@ -61,6 +61,22 @@ function validateBaseUrl(rawBaseUrl) {
   return parsed;
 }
 
+/*
+ * The fixture-writing checks seed and delete rows through the mysql client. A
+ * mistyped MYSQL_HOST must not point that at a shared or production database,
+ * so the host has to be loopback unless the caller opts in for a disposable
+ * non-local test database. Mirrors validateBaseUrl's loopback rule.
+ */
+function validateMysqlHost(rawHost, env = process.env) {
+  const host = String(rawHost || '').trim().toLowerCase();
+  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
+  }
+  return rawHost;
+}
+
 function appUrl(baseUrl, appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
@@ -458,6 +474,7 @@ module.exports = {
   saveCurrentEform,
   screenshot,
   validateBaseUrl,
+  validateMysqlHost,
   waitForPopupReady,
   wirePage,
 };

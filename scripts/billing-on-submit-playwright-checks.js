@@ -60,6 +60,7 @@ const {
   gotoApp,
   login,
   validateBaseUrl,
+  validateMysqlHost,
   wirePage,
 } = require('./eform-local-playwright-utils');
 
@@ -70,7 +71,7 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
 };
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -239,7 +240,8 @@ async function submitToReview(page, label) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(page, `${label} review page`);
   const reviewText = await page.locator('body').innerText();
-  assert(!/duplicate/i.test(reviewText) || page.locator('input[type="submit"][value="Save"]').count() > 0,
+  const saveOffered = (await page.locator('input[type="submit"][value="Save"]').count()) > 0;
+  assert(!/duplicate/i.test(reviewText) || saveOffered,
     `${label} review page reported a problem: ${reviewText.slice(0, 300)}`);
 }
 
@@ -349,11 +351,43 @@ async function billBonus(context, recorder, { label, startTime }) {
   return id;
 }
 
+let browser = null;
+let cleanupDone = false;
+// Runs once from the finally block or the signal handler: every step is attempted
+// and a step that fails marks the run as failed, because a fixture left behind is
+// a failure of this check even when every assertion passed.
+function runCleanup() {
+  if (cleanupDone || !mysqlDefaults) {
+    return;
+  }
+  cleanupDone = true;
+  for (const step of [cleanupRows]) {
+    try {
+      step();
+    } catch (cleanupError) {
+      console.error(`FAIL cleanup step ${step.name} failed: ${cleanupError.message}`);
+      process.exitCode = 1;
+    }
+  }
+}
+// Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
+// sends TERM), so restore the fixtures here too before exiting.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    console.error(`${signal} received; restoring fixtures before exiting.`);
+    runCleanup();
+    cleanupMysqlDefaults();
+    process.exit(130);
+  });
+}
+
 (async () => {
   const recorder = createRecorder();
   initMysqlDefaults();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  // Staging and the browser launch sit inside the protected scope so a failure in
+  // either still reaches the fixture cleanup below.
   try {
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     await login(context, config, recorder);
 
@@ -379,8 +413,10 @@ async function billBonus(context, recorder, { label, startTime }) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close().catch(() => {});
-    try { cleanupRows(); } catch (cleanupError) { console.error(`cleanup failed: ${cleanupError.message}`); }
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+    runCleanup();
     cleanupMysqlDefaults();
   }
 })();
