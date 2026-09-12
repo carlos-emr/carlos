@@ -37,7 +37,9 @@ import jakarta.xml.ws.handler.MessageContext;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
 public abstract class AbstractWs {
@@ -64,5 +66,27 @@ public abstract class AbstractWs {
 
     protected LoggedInInfo getLoggedInInfo() {
         return (LoggedInInfo.getLoggedInInfoFromRequest(getHttpServletRequest()));
+    }
+
+    protected SecurityInfoManager getSecurityInfoManager() {
+        return SpringUtils.getBean(SecurityInfoManager.class);
+    }
+
+    protected void requirePrivilege(String objectName, String privilege) {
+        requirePrivilege(getLoggedInInfo(), objectName, privilege, null);
+    }
+
+    protected void requirePrivilege(String objectName, String privilege, String demographicNo) {
+        requirePrivilege(getLoggedInInfo(), objectName, privilege, demographicNo);
+    }
+
+    protected void requirePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege) {
+        requirePrivilege(loggedInInfo, objectName, privilege, null);
+    }
+
+    protected void requirePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo) {
+        if (!getSecurityInfoManager().hasPrivilege(loggedInInfo, objectName, privilege, demographicNo)) {
+            throw new SecurityException("missing required sec object (" + objectName + ")");
+        }
     }
 }

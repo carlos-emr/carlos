@@ -51,6 +51,7 @@ public class ProgramWs extends AbstractWs {
     private ProgramManager2 programManager;
 
     public ProgramTransfer[] getAllPrograms() {
+        requirePrivilege("_pmm_management", "r");
         List<Program> tempResults = programManager.getAllPrograms(getLoggedInInfo());
 
         ProgramTransfer[] results = ProgramTransfer.toTransfers(tempResults);
@@ -59,6 +60,7 @@ public class ProgramWs extends AbstractWs {
     }
 
     public ProgramProviderTransfer[] getAllProgramProviders() {
+        requirePrivilege("_pmm_management", "r");
         List<ProgramProvider> tempResults = programManager.getAllProgramProviders(getLoggedInInfo());
 
         ProgramProviderTransfer[] results = ProgramProviderTransfer.toTransfers(tempResults);
