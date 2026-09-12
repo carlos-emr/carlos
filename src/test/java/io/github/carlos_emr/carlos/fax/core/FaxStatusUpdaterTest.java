@@ -217,7 +217,7 @@ class FaxStatusUpdaterTest extends CarlosUnitTestBase {
         // Then - first fax status enum unchanged but statusString replaced, second fax fully updated
         assertThat(failingFax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
         assertThat(failingFax.getStatusString())
-                .isEqualTo("Status check failed: Provider API timeout");
+                .isEqualTo("Status check failed. Delivery status has not been confirmed.");
         assertThat(succeedingFax.getStatus()).isEqualTo(FaxJob.STATUS.COMPLETE);
         assertThat(succeedingFax.getStatusString()).isEqualTo("Sent successfully");
         verify(faxJobDao).merge(failingFax);
@@ -306,15 +306,20 @@ class FaxStatusUpdaterTest extends CarlosUnitTestBase {
         when(faxConfigDao.getConfigByNumber(FAX_LINE_H)).thenReturn(config);
         when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
         when(faxProviderClient.fetchFaxStatus(config, fax))
-                .thenThrow(new FaxProviderException("API rate limit exceeded"));
+                .thenThrow(new FaxProviderException("PRIVATE_STATUS_MESSAGE", new IllegalStateException("PRIVATE_STATUS_CAUSE")));
 
-        // When
-        faxStatusUpdater.updateStatus();
+        // When: provider details must not enter persisted UI status or diagnostic logs.
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxStatusUpdater.class)) {
+            faxStatusUpdater.updateStatus();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Failed to update fax status"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_STATUS");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
 
         // Then - status enum unchanged, statusString replaced (not appended) to prevent unbounded growth
         assertThat(fax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
         assertThat(fax.getStatusString())
-                .isEqualTo("Status check failed: API rate limit exceeded");
+                .isEqualTo("Status check failed. Delivery status has not been confirmed.");
         verify(faxJobDao).merge(fax);
     }
 

@@ -400,7 +400,7 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
         FaxProviderClient providerClient = mock(FaxProviderClient.class);
         when(faxProviderClientFactory.getClient(faxConfig)).thenReturn(providerClient);
         when(providerClient.cancelFax(faxConfig, faxJob))
-                .thenThrow(new FaxProviderException("Unable to Cancel Fax"));
+                .thenThrow(new FaxProviderException("PRIVATE_PROVIDER_MESSAGE", new IllegalStateException("PRIVATE_PROVIDER_CAUSE")));
 
         request.setMethod("POST");
         request.setParameter("method", "CancelFax");
@@ -410,13 +410,19 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
-            new ManageFaxes2Action().execute();
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ManageFaxes2Action.class)) {
+                new ManageFaxes2Action().execute();
+                assertThat(logs.messages()).anyMatch(message -> message.contains("cancel could not be confirmed"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_PROVIDER");
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
 
             // A failed provider cancel must not rewrite the job's state.
             verify(faxJobDao, never()).merge(any());
             assertThat(response.getContentAsString())
                     .contains("\"success\":false")
-                    .contains("Unable to Cancel Fax");
+                    .contains("Unable to confirm fax cancellation. Check the fax status before retrying.")
+                    .doesNotContain("PRIVATE_PROVIDER");
         }
     }
 
