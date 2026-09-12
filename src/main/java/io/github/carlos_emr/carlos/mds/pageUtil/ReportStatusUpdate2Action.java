@@ -117,12 +117,10 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         String lab_type = request.getParameter("labType");
         String ajaxcall = request.getParameter("ajaxcall");
 
-        if (status == 'A') {
-            String demographicID = getDemographicIdFromLab(lab_type, labNo);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ACK, LogConst.CON_HL7_LAB, "" + labNo, request.getRemoteAddr(), demographicID);
-        }
-
         try {
+            // Resolve audit metadata before any mutation, but do not record an ACK until
+            // the routing transaction has completed successfully.
+            String demographicID = status == 'A' ? getDemographicIdFromLab(lab_type, labNo) : null;
             // A real acknowledgement failure throws (handled below); updateReportStatus otherwise
             // persists the status. Its boolean is not an ack-success signal — do not gate the
             // response on it.
@@ -132,6 +130,17 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             // cannot drift apart again.
             int clearedCount = CommonLabResultData.updateReportStatusWithOlderVersions(
                     labNo, providerNo, status, comment, lab_type, false, multiID);
+            if (status == 'A') {
+                try {
+                    LogAction.addLog(providerNo, LogConst.ACK, LogConst.CON_HL7_LAB,
+                            "" + labNo, request.getRemoteAddr(), demographicID);
+                } catch (RuntimeException auditFailure) {
+                    // Routing has committed. Do not advertise a retryable mutation failure
+                    // if the separate legacy audit writer is unavailable.
+                    logger.error("Lab acknowledgement committed but its ACK audit write failed ({})",
+                            auditFailure.getClass().getSimpleName());
+                }
+            }
             if (ajaxcall != null && ajaxcall.equals("yes")) {
                 // The browser cannot work this number out for itself. It walks the posted
                 // multiID, which the server ignores for HL7 in favour of the chain it derives

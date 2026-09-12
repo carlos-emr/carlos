@@ -274,7 +274,7 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not expose renderer exception details to the browser")
+    @DisplayName("should not expose renderer exception details to the browser or logs")
     void shouldHideRendererDetails_whenPdfGenerationFails() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
@@ -282,7 +282,14 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException(
                         "SensitiveFixturePatient /private/attachment.pdf token=fixture-secret"));
-        assertThat(action.execute()).isEqualTo("error");
+        try (io.github.carlos_emr.carlos.test.logging.LogCapture capture =
+                io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormFax2Action.class)) {
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(capture.messages()).anyMatch(message -> message.contains("PDF preparation failed"));
+            assertThat(capture.messages().toString())
+                    .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret", "attachment.pdf");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
         assertThat(request.getAttribute("errorMessage")).asString()
                 .contains("consultation PDF could not be prepared")
                 .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret", "attachment.pdf");
