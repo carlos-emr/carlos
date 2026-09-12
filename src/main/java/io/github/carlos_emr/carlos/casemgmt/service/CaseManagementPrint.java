@@ -751,8 +751,10 @@ public class CaseManagementPrint {
      * Deletes a temp PDF that holds PHI, tolerating one that is already gone (the encounter PDF is
      * deleted through two handles) and never throwing out of cleanup: a failure is a warning with
      * the reason, which {@code File#delete}'s boolean never gave.
+     *
+     * @return {@code true} when the file is gone, {@code false} after the warning when the delete
+     *         was refused, so the caller can keep the file for a retry
      */
-    /** Deletes a temp PDF if it exists; returns false, after a WARN, when the delete failed. */
     private static boolean deleteTempPdf(File tempPdf, String description) {
         try {
             Files.deleteIfExists(tempPdf.toPath());
