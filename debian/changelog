@@ -16,6 +16,26 @@ carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
   * The packaging README now describes the encounter-form firewall coverage
     as it is -- generated per form, with the two cell groups that remain
     inspected named -- instead of calling the forms uncovered.
+  * A new consultation request with no consultant chosen is saved again. With
+    the Health Care Team bridge off (the shipped carlos.properties default) the
+    save looked the consultant up with a null id, which the persistence layer
+    rejects, and the request died in the framework's silent error mapping:
+    nothing stored, nothing logged, and the "form could not be printed" alert.
+    Editing a request with a blank consultant no longer inserts an empty
+    specialist row and points the request at it; it clears the consultant.
+    That alert now says the request could not be saved or printed.
+  * Uncaught exceptions in any action are logged at ERROR with their stack
+    trace instead of being mapped to the error page silently, and the
+    application's default log level is WARN rather than ERROR. The
+    "property is missing" warning is reported once per key per start, not on
+    every page render, so WARN stays readable; Hibernate's per-column
+    deprecation notice is held at ERROR for the same reason. LOG_VERBOSITY
+    still overrides the default.
+  * The free-text browser check now requires the consultation save to answer
+    with its confirmation redirect, so a request the front door accepted but
+    the application then discarded fails the check instead of passing as
+    "not a 403". It files one request per phrase; the runbook gives the
+    cleanup SQL keyed on the run stamp.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 00:00:00 +0000
 

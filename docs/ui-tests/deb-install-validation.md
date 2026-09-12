@@ -671,14 +671,28 @@ Notes on the contract:
   into the patient's Alert/Notes and puts the original text back at the end,
   on the failure path as well as the success path (the restore is a save
   through the same route and a failed restore fails the run). **The two
-  workflows differ in what they actually write, measured on a packaged
-  install:** the demographic save runs (a seven-phrase run leaves eight
+  workflows write different things, measured on a packaged install:** the
+  demographic save runs in place (a seven-phrase run leaves eight
   `demographicArchive` rows for the patient, the replays plus the restore),
-  while the consultation replay reaches the application but is **not persisted
-  by it** -- no `consultationRequests` row was created or updated by a run. So
-  the consultation half needs no cleanup, and a pass on it means the front door
-  accepted the prose, not that a consultation saved. Making that replay store
-  is an application question, not a WAF one.
+  while the consultation replay **files a new request per phrase** -- seven
+  `consultationRequests` rows for the patient per run, each with the phrase
+  and the run stamp in its `reason` -- and the check requires the application's
+  confirmation redirect back for every one of them. A 200 on that route is the
+  form re-rendered with its error alert, which is how the blank-consultant save
+  defect fixed in #3623 presented (the front door accepted the prose; the
+  application then threw and stored nothing), so the check reports it as a
+  failure and points at the application log. There is no delete route for a
+  consultation request, so the rows stay until you remove them; the stamp is
+  the key:
+
+  ```sql
+  -- <n> is CLINICAL_DEMOGRAPHIC_NO (default 1). Ext rows first: no FK cascades.
+  DELETE e FROM consultationRequestExt e
+    JOIN consultationRequests r ON r.requestId = e.requestId
+   WHERE r.demographicNo = <n> AND r.reason LIKE '%(Playwright clinical-freetext run %';
+  DELETE FROM consultationRequests
+   WHERE demographicNo = <n> AND reason LIKE '%(Playwright clinical-freetext run %';
+  ```
   After each workflow's replays it re-opens that page and requires
   its free-text control to render again, because a session that lapsed mid-run
   would answer every replay with an opaque redirect indistinguishable from a
@@ -739,6 +753,22 @@ lxc exec carlos-test -- bash -c '
 lxc exec carlos-test -- carlos-ctl check   # expect the same all-OK, with any
                                            # new migrations counted in flyway_schema_history
 ```
+
+Two things a same-day rebuild does NOT do for you, both met while validating
+#3623. First, `apt-get install --reinstall` of the same version replaces the
+files but, with `policy-rc.d` denying starts in the container, leaves the
+already-running JVM alone: run `carlos-ctl restart` (or check
+`systemctl show carlos-emr -p ExecMainStartTimestamp`) before believing that
+what you are exercising is the build you just installed. Second, the package is
+built reproducibly, so every shipped file carries the changelog entry's date
+as its mtime; Tomcat decides whether to recompile a JSP by comparing that mtime
+with the one it recorded at the last compile, and two builds from the same
+changelog entry carry the same date, so an edited JSP keeps serving its
+previous compiled form. `touch` the JSPs you changed under
+`/usr/share/carlos-emr/webapp/carlos/WEB-INF/jsp/` (or clear
+`/var/lib/carlos-emr/catalina/work/Catalina/localhost/carlos/`) and Tomcat
+recompiles them on the next request. Neither applies to a real upgrade, whose
+changelog entry carries a new date.
 
 ## Diagnosing failures
 

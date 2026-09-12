@@ -51,16 +51,20 @@
  *                              demographicArchive for a 7-phrase run plus the
  *                              restore). The check puts the Alert and Notes
  *                              back to what the page rendered when it is done.
- *   consultation request       the POST reaches the application -- which is
- *                              the whole WAF question -- but the application
- *                              does not persist this replay: no row in
- *                              consultationRequests was created or updated by
- *                              a run. So nothing is filed and there is nothing
- *                              to clean up. Do NOT read a passing run as proof
- *                              that a consultation SAVES; it proves the front
- *                              door let the prose through. Making the replay
- *                              store is an application question, tracked
- *                              separately from this WAF guard.
+ *   consultation request       FILES a new consultation request per phrase --
+ *                              seven consultationRequests rows for the patient
+ *                              per run, each with the phrase and the run stamp
+ *                              in `reason` -- and requires the application's
+ *                              confirmation redirect back for every one of
+ *                              them. A 200 here is the form re-rendered with
+ *                              the error alert, i.e. the front door let the
+ *                              prose through and the application then failed
+ *                              to save it (exactly how the blank-consultant
+ *                              save defect in #3623 presented), so it FAILS the
+ *                              check rather than passing as "not a 403". The
+ *                              rows stay: there is no delete route, and the
+ *                              stamp is the cleanup key -- see
+ *                              docs/ui-tests/deb-install-validation.md.
  *
  * The loopback guard bounds the HOST, not the data: a local install can hold
  * real patient records, so before the first write the check opens the patient's
@@ -90,8 +94,9 @@ const SYNTHETIC_NAME_PREFIXES = ['FAKE-', 'PLAYWRIGHT-'];
 // Appended to every replayed phrase so text a half-finished run left in the record
 // can be recognised as this check's. Plain words and parentheses only: nothing in it
 // is a shape the CRS scores, so the phrase in front of it is still what the WAF is
-// measured on. It is not a cleanup key -- the restore below is what puts the record
-// back, and the consultation replay stores nothing to key on.
+// measured on. For the demographic workflow the restore below is what puts the
+// record back; for the consultation workflow, which files a request per phrase,
+// this stamp in `reason` is the key the runbook's cleanup SQL deletes by.
 const RUN_STAMP = `(Playwright clinical-freetext run ${Date.now()})`;
 
 const saveResults = [];
@@ -269,6 +274,12 @@ const WORKFLOWS = [
     // of measuring this save — the replay would still reach the WAF, but it would
     // stop being the save this check reports.
     requireEmptyFields: { requestId: 'the page rendered an existing consultation, not the new-request form' },
+    // A successful Submit answers with a redirect to the confirmation page; the
+    // action's error result FORWARDS to this same form with an alert, a 200. So on
+    // this route 200 is not "the WAF let it through and all is well" -- it is the
+    // application discarding the request after the front door accepted it. Require
+    // the redirect, so the check can tell the two apart.
+    requireSaveRedirect: true,
   },
   {
     name: 'demographic alert and notes',
@@ -518,6 +529,13 @@ async function runWorkflow(context, workflow) {
     assert(failed.length === 0,
       `a clinical free-text save did not return HTTP 200 or a save redirect: ${JSON.stringify(failed, null, 2)}`);
 
+    const redirectRequired = new Set(WORKFLOWS.filter((workflow) => workflow.requireSaveRedirect).map((workflow) => workflow.name));
+    const notSaved = saveResults.filter((result) => redirectRequired.has(result.workflow) && result.status !== 'redirect');
+    assert(notSaved.length === 0,
+      'the front door accepted the prose but the application did not save it: these replays came back as the '
+      + 'form with its error alert (HTTP 200) instead of the confirmation redirect. Read the application log '
+      + `(carlos-ctl logs) for the exception behind it: ${JSON.stringify(notSaved, null, 2)}`);
+
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);
     assert(wafBlocked.length === 0,
       `a request carrying clinical free text was rejected with HTTP 403: ${JSON.stringify(wafBlocked, null, 2)}`);
@@ -526,8 +544,10 @@ async function runWorkflow(context, workflow) {
 
     console.log(`PASS ${WORKFLOWS.length} clinical free-text workflows saved `
       + `${PROSE_CORPUS.length} prose variants each without a WAF rejection`);
-    console.log(`Alert/Notes restored. The consultation replay is not persisted by the application, `
-      + 'so it files nothing; a pass means the front door accepted the prose, not that a consultation saved.');
+    const filed = saveResults.filter((result) => redirectRequired.has(result.workflow)).length;
+    console.log(`Alert/Notes restored. ${filed} consultation requests were filed for demographic ${demographicNo} `
+      + `and answered with the confirmation redirect; each carries the run stamp "${RUN_STAMP}" in its reason, `
+      + 'which is the cleanup key (see docs/ui-tests/deb-install-validation.md).');
   } finally {
     await browser.close();
   }
