@@ -148,7 +148,9 @@ class ClinicalProseWafExclusionRegressionTest {
                 // markup left to invoke it and was removed.
                 Arguments.of("1140", "/carlos/encounter/IncomingEncounter", "GET", List.of("reason")),
                 // The other GET: the tickler list's DataTables search term rides the query string.
-                Arguments.of("1141", "/carlos/tickler/ListTicklers", "GET", List.of("search[value]")));
+                Arguments.of("1141", "/carlos/tickler/ListTicklers", "GET", List.of("search[value]")),
+                // Back to POST: the provider encounter-note template body, note prose by construction.
+                Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")));
     }
 
     /** Routes whose prose rides a GET query string; everything else must chain to POST. */
