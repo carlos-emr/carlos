@@ -526,7 +526,7 @@ public class Fax2Action extends ActionSupport {
         try {
             deleteUnownedStagedFaxPreview(Path.of(claimedFaxFilePath));
         } catch (InvalidPathException e) {
-            logger.warn("Unable to parse fax file path while cleaning up a rejected promotion", e);
+            logger.warn("Unable to parse fax file path while cleaning up a rejected promotion ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -555,7 +555,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
-                logger.warn("Invalid jobId supplied for fax preview: {}", LogSafe.sanitize(jobId, 1024), e);
+                logger.warn("Invalid jobId supplied for fax preview ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
                 return;
             }
@@ -581,7 +581,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 page = Integer.parseInt(pageNumber);
             } catch (NumberFormatException e) {
-                logger.warn("Invalid pageNumber supplied for fax preview: {}", LogSafe.sanitize(pageNumber, 1024), e);
+                logger.warn("Invalid pageNumber supplied for fax preview ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
                 return;
             }
@@ -612,11 +612,11 @@ public class Fax2Action extends ActionSupport {
                 try {
                     outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for fax preview image: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Security validation failed for fax preview image ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return;
                 } catch (RuntimeException e) {
-                    logger.error("Error generating fax preview image: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Error generating fax preview image ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate fax preview");
                     return;
                 }
@@ -640,11 +640,11 @@ public class Fax2Action extends ActionSupport {
                     outfile = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Security validation failed for fax preview file path ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return;
                 } catch (IOException e) {
-                    logger.error("File not found or error processing file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    logger.error("Fax preview file not found or unreadable ({})", e.getClass().getSimpleName());
                     sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
                     return;
                 }
@@ -660,7 +660,7 @@ public class Fax2Action extends ActionSupport {
                 outs.flush();
                 logger.debug("Streamed fax preview to client");
             } catch (IOException e) {
-                logger.error("Error reading or writing file", e);
+                logger.error("Error streaming fax preview ({})", e.getClass().getSimpleName());
                 // The file vanished or broke mid-stream. If nothing has been committed yet, tell
                 // the client instead of ending with an empty 200 it will render as a broken image.
                 if (!response.isCommitted()) {
@@ -909,7 +909,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
-                logger.warn("Invalid jobId supplied for fax page count: {}", LogSafe.sanitize(jobId, 1024), e);
+                logger.warn("Invalid jobId supplied for fax page count ({})", e.getClass().getSimpleName());
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
                 return 0;
             }
@@ -931,10 +931,10 @@ public class Fax2Action extends ActionSupport {
                 return pdf.getNumberOfPages();
             }
         } catch (SecurityException e) {
-            logger.error("Security validation failed for page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+            logger.error("Security validation failed for fax page count path ({})", e.getClass().getSimpleName());
             sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
         } catch (IOException e) {
-            logger.error("File not found or error processing page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+            logger.error("Fax page count file not found or unreadable ({})", e.getClass().getSimpleName());
             sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
         }
         return 0;
@@ -949,7 +949,7 @@ public class Fax2Action extends ActionSupport {
         try {
             response.sendError(statusCode, message);
         } catch (IOException ex) {
-            logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
+            logger.error("{} ({})", ERROR_SENDING_ERROR_RESPONSE, ex.getClass().getSimpleName());
         }
     }
 
@@ -960,8 +960,8 @@ public class Fax2Action extends ActionSupport {
         try {
             Files.deleteIfExists(path);
         } catch (IOException e) {
-            logger.warn("Unable to delete staged fax preview after approval issuance failed: {}",
-                    path, e);
+            logger.warn("Unable to delete staged fax preview after approval issuance failed ({})",
+                    e.getClass().getSimpleName());
         }
     }
 

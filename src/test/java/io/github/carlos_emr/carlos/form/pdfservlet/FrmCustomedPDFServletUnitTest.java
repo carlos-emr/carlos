@@ -791,11 +791,16 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
             logActionMock.when(() -> LogAction.addLog("999998", LogConst.SENT, LogConst.CON_FAX,
                             "PRESCRIPTION prescription_rx-123.pdf"))
-                    .thenThrow(new IllegalStateException("audit unavailable"));
+                    .thenThrow(new IllegalStateException("PRIVATE_AUDIT_MESSAGE", new IllegalArgumentException("PRIVATE_AUDIT_CAUSE")));
             FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
             servlet.init(new MockServletConfig(new MockServletContext()));
 
-            serviceAs(servlet, request, response, loggedInInfo);
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FrmCustomedPDFServlet.class)) {
+                serviceAs(servlet, request, response, loggedInInfo);
+                assertThat(logs.messages()).anyMatch(message -> message.contains("legacy SENT audit entry failed"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_AUDIT", "prescription_rx-123.pdf", documentDir.toString());
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsString()).contains("fax-success").doesNotContain("fax-failure");
