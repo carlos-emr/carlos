@@ -43,17 +43,33 @@
  *   CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true only when the target patient is
  *     known to be test data but does not carry the FAKE-/PLAYWRIGHT- name prefix
  *
- * What it writes, and what it leaves behind. Both workflows are real saves. The
- * loopback guard bounds the HOST, not the data: a local install can hold real
- * patient records, so before the first write the check opens the patient's
+ * What it writes, and what it leaves behind. MEASURED on a packaged install
+ * (2026-09-12, deb 2026.09.0~snapshot22), because the two workflows differ:
+ *
+ *   demographic master record  the save runs. Each replay updates the record
+ *                              and archives the previous state (8 rows in
+ *                              demographicArchive for a 7-phrase run plus the
+ *                              restore). The check puts the Alert and Notes
+ *                              back to what the page rendered when it is done.
+ *   consultation request       the POST reaches the application -- which is
+ *                              the whole WAF question -- but the application
+ *                              does not persist this replay: no row in
+ *                              consultationRequests was created or updated by
+ *                              a run. So nothing is filed and there is nothing
+ *                              to clean up. Do NOT read a passing run as proof
+ *                              that a consultation SAVES; it proves the front
+ *                              door let the prose through. Making the replay
+ *                              store is an application question, tracked
+ *                              separately from this WAF guard.
+ *
+ * The loopback guard bounds the HOST, not the data: a local install can hold
+ * real patient records, so before the first write the check opens the patient's
  * master record and refuses to run unless the first or last name carries the
  * synthetic-data prefix the demo dataset uses (FAKE-, see
  * .devcontainer/db/scripts/demo-name-sanitization.sql) or the PLAYWRIGHT- prefix
- * the other checks give their own fixtures. The Alert and Notes are put back to
- * the values the page rendered once the replays are done. The consultation
- * requests it files cannot be deleted through the UI, so each replayed phrase
- * carries a "(Playwright clinical-freetext run <epoch>)" stamp and the runbook
- * gives the SQL that removes them.
+ * the other checks give their own fixtures. Each replayed phrase carries a
+ * "(Playwright clinical-freetext run <epoch>)" stamp so that text left behind by
+ * a run that died before its restore can be recognised for what it is.
  */
 
 const { chromium } = require('playwright');
@@ -71,9 +87,11 @@ const allowNonSyntheticPatient = process.env.CLINICAL_ALLOW_NON_SYNTHETIC_PATIEN
 // sanitisation writes on every person name, PLAYWRIGHT- is what the fixture-owning
 // checks name the patients they create. A real patient carries neither.
 const SYNTHETIC_NAME_PREFIXES = ['FAKE-', 'PLAYWRIGHT-'];
-// Appended to every replayed phrase so what this run wrote can be found again. Plain
-// words and parentheses only: nothing in it is a shape the CRS scores, so the phrase
-// in front of it is still what the WAF is measured on.
+// Appended to every replayed phrase so text a half-finished run left in the record
+// can be recognised as this check's. Plain words and parentheses only: nothing in it
+// is a shape the CRS scores, so the phrase in front of it is still what the WAF is
+// measured on. It is not a cleanup key -- the restore below is what puts the record
+// back, and the consultation replay stores nothing to key on.
 const RUN_STAMP = `(Playwright clinical-freetext run ${Date.now()})`;
 
 const saveResults = [];
@@ -504,7 +522,8 @@ async function runWorkflow(context, workflow) {
 
     console.log(`PASS ${WORKFLOWS.length} clinical free-text workflows saved `
       + `${PROSE_CORPUS.length} prose variants each without a WAF rejection`);
-    console.log(`Alert/Notes restored; the consultation requests this run filed carry the stamp "${RUN_STAMP}"`);
+    console.log(`Alert/Notes restored. The consultation replay is not persisted by the application, `
+      + 'so it files nothing; a pass means the front door accepted the prose, not that a consultation saved.');
   } finally {
     await browser.close();
   }

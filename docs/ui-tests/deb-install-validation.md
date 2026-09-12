@@ -667,12 +667,15 @@ Notes on the contract:
   corpus, each phrase stamped `(Playwright clinical-freetext run <epoch>)`,
   into the patient's Alert/Notes and puts the original text back at the end,
   on the failure path as well as the success path (the restore is a save
-  through the same route and a failed restore fails the run), and files seven
-  new consultation requests against that patient (the
-  consultation page renders the new-request form, so each replay creates a
-  record rather than editing one). Those requests have no delete path in the UI;
-  clear them with
-  `DELETE FROM consultationRequests WHERE reason LIKE '%(Playwright clinical-freetext run %';`.
+  through the same route and a failed restore fails the run). **The two
+  workflows differ in what they actually write, measured on a packaged
+  install:** the demographic save runs (a seven-phrase run leaves eight
+  `demographicArchive` rows for the patient, the replays plus the restore),
+  while the consultation replay reaches the application but is **not persisted
+  by it** -- no `consultationRequests` row was created or updated by a run. So
+  the consultation half needs no cleanup, and a pass on it means the front door
+  accepted the prose, not that a consultation saved. Making that replay store
+  is an application question, not a WAF one.
   After each workflow's replays it re-opens that page and requires
   its free-text control to render again, because a session that lapsed mid-run
   would answer every replay with an opaque redirect indistinguishable from a
