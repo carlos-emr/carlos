@@ -497,8 +497,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     }
                 }
 
-                // only add the professionalSpecialist if it checks out. 0 will obviously return a null.
-                ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(specId);
+                // Look the specialist up only when there is an id to look up. specId is still null here
+                // whenever the consultant was left blank and the Health Care Team bridge above is off,
+                // which is the shipped carlos.properties default; entityManager.find(null) throws
+                // IllegalArgumentException rather than returning null, and that exception escaped into
+                // the Struts global Exception -> error mapping, so an unfilled consultant discarded the
+                // referral with nothing persisted and nothing logged. The bridge's 0 ("unknown") still
+                // resolves to null through the DAO, which is the "no specialist" outcome either way.
+                ProfessionalSpecialist professionalSpecialist =
+                        specId == null ? null : professionalSpecialistDao.find(specId);
 
                 if (professionalSpecialist != null) {
                     request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
@@ -639,15 +646,18 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     }
                 }
 
-                // only add the professionalSpecialist if it checks out.
-                ProfessionalSpecialist professionalSpecialist = new ProfessionalSpecialist();
-                if (specId != null) {
-                    professionalSpecialist = professionalSpecialistDao.find(specId);
-                }
-
-                if (professionalSpecialist != null) {
-                    request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
-                    consult.setProfessionalSpecialist(professionalSpecialist);
+                // A blank consultant on an edit means "no consultant", so clear the link. The previous
+                // placeholder, a bare new ProfessionalSpecialist() whenever specId was null, was attached
+                // to the consultation, and because the association cascades MERGE every such edit
+                // INSERTed an all-NULL professionalSpecialists row and re-pointed the request at it.
+                if (specId == null) {
+                    consult.setProfessionalSpecialist(null);
+                } else {
+                    ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(specId);
+                    if (professionalSpecialist != null) {
+                        request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
+                        consult.setProfessionalSpecialist(professionalSpecialist);
+                    }
                 }
 
 
