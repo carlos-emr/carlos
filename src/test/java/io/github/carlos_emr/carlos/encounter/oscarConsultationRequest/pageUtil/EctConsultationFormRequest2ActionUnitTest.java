@@ -642,6 +642,43 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     /**
+     * The consultant field is authoritative on an edit: an id that does not resolve (the bridge's 0,
+     * a deleted specialist) clears the link the same way a blank does, instead of silently keeping
+     * whoever the request pointed at before.
+     */
+    @Test
+    @DisplayName("clears the specialist when the consultant id does not resolve on update")
+    void shouldClearSpecialist_whenConsultantIdDoesNotResolveOnUpdate() throws Exception {
+        ProfessionalSpecialistDao professionalSpecialistDao = mock(ProfessionalSpecialistDao.class);
+        when(professionalSpecialistDao.find((Object) 0)).thenReturn(null);
+        registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
+        ConsultationRequest stored = consultationRequest(1);
+        stored.setProfessionalSpecialist(new ProfessionalSpecialist());
+        when(consultationRequestDao.find(9)).thenReturn(stored);
+
+        action.setSubmission("Update");
+        action.setService("1");
+        action.setSpecialist("0");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        CarlosProperties carlosProperties = mock(CarlosProperties.class);
+        when(carlosProperties.getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
+                .thenReturn(false);
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+
+            action.execute();
+        }
+
+        ArgumentCaptor<ConsultationRequest> mergedConsultation =
+                ArgumentCaptor.forClass(ConsultationRequest.class);
+        verify(consultationRequestDao).merge(mergedConsultation.capture());
+        assertThat(mergedConsultation.getValue().getProfessionalSpecialist()).isNull();
+    }
+
+    /**
      * Regression for #2241. The blank-service parse existed on the update branch too, so clearing
      * the service on an existing consultation discarded the edit the same way.
      */

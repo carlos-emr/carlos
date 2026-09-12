@@ -86,6 +86,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.File;
+import java.nio.file.Files;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -398,9 +399,7 @@ public class CaseManagementPrint {
 
                         // One lab per iteration: the finally block below only sees the last file2, so
                         // every earlier lab's intermediate PDF (PHI) used to outlive the print.
-                        if (!file2.delete()) {
-                            logger.warn("Failed to delete temporary lab PDF; leaving it for the OS temp sweep");
-                        }
+                        deleteTempPdf(file2, "temporary lab PDF");
                         file2 = null;
                     }
                 }
@@ -441,9 +440,7 @@ public class CaseManagementPrint {
                     File tempPdf = PathValidationUtils.resolveTrustedPath(new File((String) o));
                     // The encounter PDF is in this list AND deleted via `file` above, so a missing
                     // file here is the normal case for it, not a failed delete worth a warning.
-                    if (tempPdf.exists() && !tempPdf.delete()) {
-                        logger.warn("Failed to delete temporary print PDF; leaving it for the OS temp sweep");
-                    }
+                    deleteTempPdf(tempPdf, "temporary print PDF");
                 } catch (RuntimeException ex) {
                     logger.warn("Could not delete temporary print PDF; leaving it for the OS temp sweep", ex);
                 }
@@ -737,4 +734,17 @@ public class CaseManagementPrint {
         return strNewDate;
     }
 
+
+    /**
+     * Deletes a temp PDF that holds PHI, tolerating one that is already gone (the encounter PDF is
+     * deleted through two handles) and never throwing out of cleanup: a failure is a warning with
+     * the reason, which {@code File#delete}'s boolean never gave.
+     */
+    private static void deleteTempPdf(File tempPdf, String description) {
+        try {
+            Files.deleteIfExists(tempPdf.toPath());
+        } catch (IOException ex) {
+            logger.warn("Failed to delete {}; leaving it for the OS temp sweep", description, ex);
+        }
+    }
 }

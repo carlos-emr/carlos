@@ -148,12 +148,11 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         Map<String, List<String>> stockStacks = describeStacks(strutsDefault);
         Map<String, List<String>> carlosStacks = describeStacks(parent);
         assertThat(carlosStacks.keySet()).containsExactlyInAnyOrder("carlosDefaultStack", "carlosBasicStack");
-        assertThat(carlosStacks.get("carlosDefaultStack"))
+        assertThat(carlosStacks)
                 .as("carlosDefaultStack must be struts-default's defaultStack with carlosException in the exception slot")
-                .isEqualTo(withCarlosException(stockStacks.get("defaultStack")));
-        assertThat(carlosStacks.get("carlosBasicStack"))
+                .containsEntry("carlosDefaultStack", withCarlosException(stockStacks.get("defaultStack")))
                 .as("carlosBasicStack must be struts-default's basicStack with carlosException in the exception slot")
-                .isEqualTo(withCarlosException(stockStacks.get("basicStack")));
+                .containsEntry("carlosBasicStack", withCarlosException(stockStacks.get("basicStack")));
 
         NodeList defaultRefs = carlosDefault.getElementsByTagName("default-interceptor-ref");
         assertThat(defaultRefs.getLength()).isEqualTo(1);

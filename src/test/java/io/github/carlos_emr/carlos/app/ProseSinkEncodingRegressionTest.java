@@ -106,8 +106,7 @@ class ProseSinkEncodingRegressionTest {
 
         assertThat(source)
                 .as("InsertTemplate2.jsp declares a non-markup content type")
-                .contains("contentType=\"text/plain; charset=UTF-8\"");
-        assertThat(source)
+                .contains("contentType=\"text/plain; charset=UTF-8\"")
                 .as("InsertTemplate2.jsp is the raw feed, not an HTML page")
                 .doesNotContain("text/html");
     }

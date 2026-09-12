@@ -167,6 +167,36 @@ class CarlosExceptionMappingInterceptorUnitTest {
                 .contains("provider=999998");
     }
 
+    /**
+     * struts-admin.xml maps Spring Security's AccessDeniedException to securityError as well; the
+     * refusal classification must follow that configured mapping, not the exception type alone.
+     */
+    @Test
+    @DisplayName("treats any exception the package maps to securityError as a refusal")
+    void shouldTreatMappedSecurityResult_asRefusal() throws Exception {
+        ActionConfig config = new ActionConfig.Builder("admin", "admin/x", "Some2Action")
+                .addExceptionMapping(new ExceptionMappingConfig.Builder("denied", IllegalStateException.class.getName(), "securityError").build())
+                .addExceptionMapping(new ExceptionMappingConfig.Builder("any", Exception.class.getName(), "error").build())
+                .build();
+        ActionProxy proxy = mock(ActionProxy.class);
+        when(proxy.getConfig()).thenReturn(config);
+        when(proxy.getActionName()).thenReturn("admin/x");
+        when(invocation.getProxy()).thenReturn(proxy);
+        when(invocation.invoke()).thenThrow(new IllegalStateException("Access is denied"));
+
+        String result;
+        List<String> messages;
+        try (LogCapture logCapture = LogCapture.forLogger(CarlosExceptionMappingInterceptor.class)) {
+            result = interceptor.intercept(invocation);
+            messages = logCapture.messages();
+        }
+
+        assertThat(result).isEqualTo("securityError");
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0)).startsWith("Authorization refused").contains("Access is denied");
+    }
+
     @Test
     @DisplayName("leaves a committed response's status alone but still records the incident")
     void shouldNotTouchStatus_whenResponseIsCommitted() throws Exception {

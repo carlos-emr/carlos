@@ -46,8 +46,10 @@ import org.apache.struts2.interceptor.ExceptionMappingInterceptor;
  *   <li><b>Nothing is silent.</b> struts-default's interceptor logs nothing unless configured to,
  *       so an action that died in a {@code NullPointerException} rendered the error page and left
  *       no trace. Every mapped exception is now logged once: unexpected failures at ERROR with the
- *       stack trace, {@link SecurityException} (an authorization refusal, an expected event) at WARN
- *       without one.</li>
+ *       stack trace, authorization refusals (an expected event) at WARN without one. A refusal is
+ *       whatever the package maps to the {@value #SECURITY_RESULT} result, {@link SecurityException}
+ *       everywhere and Spring Security's {@code AccessDeniedException} in the admin package, so the
+ *       classification follows the configured contract rather than a hard-coded type.</li>
  *   <li><b>One reference ties the screen to the log.</b> Each failure gets an incident id, logged
  *       and exposed to the result page as the {@value #INCIDENT_ID_ATTRIBUTE} request attribute, so
  *       "it just showed an error" reports arrive with the string that finds the trace.</li>
@@ -76,6 +78,9 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
     /** Request attribute carrying the incident id to the result page. */
     public static final String INCIDENT_ID_ATTRIBUTE = "carlosIncidentId";
 
+    /** The result every module package maps its authorization-refusal exceptions to. */
+    public static final String SECURITY_RESULT = "securityError";
+
     private static final Logger LOGGER = LogManager.getLogger(CarlosExceptionMappingInterceptor.class);
 
     @Override
@@ -91,7 +96,7 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
             String incidentId = newIncidentId();
             HttpServletRequest request = ServletActionContext.getRequest();
             HttpServletResponse response = ServletActionContext.getResponse();
-            boolean securityRefusal = e instanceof SecurityException;
+            boolean securityRefusal = e instanceof SecurityException || SECURITY_RESULT.equals(mapping.getResult());
 
             logIncident(incidentId, e, securityRefusal, invocation, request);
 
@@ -128,8 +133,9 @@ public class CarlosExceptionMappingInterceptor extends ExceptionMappingIntercept
         if (securityRefusal) {
             // The message is the application's own static text ("missing required sec object (_con)"),
             // and there is nothing a trace would add to "this provider lacks this privilege".
+            String refusal = LogSafe.sanitize(e.getMessage());
             LOGGER.warn("Authorization refused [incident {}] {} in action {} ({} {}) provider={}: {}",
-                    incidentId, exceptionType, actionName, method, path, provider, LogSafe.sanitize(e.getMessage()));
+                    incidentId, exceptionType, actionName, method, path, provider, refusal);
         } else {
             LOGGER.error("Unhandled {} [incident {}] in action {} ({} {}) provider={}",
                     exceptionType, incidentId, actionName, method, path, provider, e);

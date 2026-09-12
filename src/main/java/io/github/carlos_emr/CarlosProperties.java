@@ -83,9 +83,13 @@ public class CarlosProperties extends Properties {
     /**
      * Keys already reported as "missing or not configured". That warning is per key per JVM, not
      * per lookup: several of these keys are read on every page render, and at the WARN root default
-     * a per-lookup warning made the journal mostly this one line.
+     * a per-lookup warning made the journal mostly this one line. The set is bounded as defence in
+     * depth (keys are code literals, a few hundred at most, but the lookup API is open to any
+     * caller): once {@link #MAX_MISSING_KEYS_REMEMBERED} distinct keys are held, further unknown
+     * keys are still warned about, on every lookup, and simply not remembered.
      */
     private static final Set<String> MISSING_KEYS_WARNED = ConcurrentHashMap.newKeySet();
+    private static final int MAX_MISSING_KEYS_REMEMBERED = 2048;
 
     /**
      * Blacklisted namespace patterns for property values that should be ignored.
@@ -105,6 +109,19 @@ public class CarlosProperties extends Properties {
         "hibernate.dialect", "io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect",
         "ColourClass", "io.github.carlos_emr.carlos.casemgmt.common.Colour"
     );
+
+    /**
+     * Once per key while the bounded set has room; every time once it is full. Never silent.
+     */
+    private static boolean shouldWarnMissingKey(String key) {
+        if (MISSING_KEYS_WARNED.contains(key)) {
+            return false;
+        }
+        if (MISSING_KEYS_WARNED.size() >= MAX_MISSING_KEYS_REMEMBERED) {
+            return true;
+        }
+        return MISSING_KEYS_WARNED.add(key);
+    }
 
     /**
      * Gets the singleton instance of CarlosProperties.
@@ -138,7 +155,7 @@ public class CarlosProperties extends Properties {
 
         // If no value, return the default if one is configured
         if (value == null) {
-            if (MISSING_KEYS_WARNED.add(key)) {
+            if (shouldWarnMissingKey(key)) {
                 // key is caller-supplied and may carry CR/LF; sanitize before logging to
                 // prevent log forging (CodeQL log-injection). Default values come from the
                 // internal PROPERTY_DEFAULTS map and are trusted.

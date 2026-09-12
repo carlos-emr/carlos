@@ -658,19 +658,18 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     }
                 }
 
-                // A blank consultant on an edit means "no consultant", so clear the link. The previous
-                // placeholder, a bare new ProfessionalSpecialist() whenever specId was null, was attached
-                // to the consultation, and because the association cascades MERGE every such edit
-                // INSERTed an all-NULL professionalSpecialists row and re-pointed the request at it.
-                if (specId == null) {
-                    consult.setProfessionalSpecialist(null);
-                } else {
-                    ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(specId);
-                    if (professionalSpecialist != null) {
-                        request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
-                        consult.setProfessionalSpecialist(professionalSpecialist);
-                    }
+                // On an edit the consultant field is authoritative: blank, the bridge's 0 ("unknown"),
+                // or an id that no longer resolves all mean "no consultant", so the link is cleared
+                // rather than left pointing at whoever was there before. The previous placeholder, a
+                // bare new ProfessionalSpecialist() whenever specId was null, was attached to the
+                // consultation, and because the association cascades MERGE every such edit INSERTed
+                // an all-NULL professionalSpecialists row and re-pointed the request at it.
+                ProfessionalSpecialist professionalSpecialist =
+                        specId == null ? null : professionalSpecialistDao.find(specId);
+                if (professionalSpecialist != null) {
+                    request.setAttribute("professionalSpecialistName", professionalSpecialist.getFormattedTitle());
                 }
+                consult.setProfessionalSpecialist(professionalSpecialist);
 
 
                 if (this.getAppointmentDate() != null && !this.getAppointmentDate().equals("")) {
