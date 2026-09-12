@@ -20,6 +20,88 @@ carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
     the fix lives in DrugRef, so it needs carlos-emr-drugref built at or past
     the revision in debian/drugref.pin, which this upload moves.
 
+  * Clinical prose in an encounter note no longer trips the web application
+    firewall. The note body travels under four parameter names on the note
+    route -- the serialized chart form, the draft autosave, the save that runs
+    when unsaved text is left for another note, and the CPP editor -- and only
+    the last was exempt from the rule groups that read prose as an attack, so
+    a note containing something as ordinary as a pasted link with
+    "&cmd" in its query string, or one that simply begins with a pasted PACS
+    link on an internal IP address, was answered 403 at the front door. That broke
+    the note save, silently stopped its autosave, and made saving a Social
+    History or other CPP item report "403 ... your session has expired" on an
+    item that had in fact already saved. Exclusion 1010 now covers every
+    clinician free-text argument on that route, each one individually and only
+    on POST, including the save that runs when a note with unsaved text is
+    left for another note or for a new one; the WAF still blocks a probe
+    injection.
+  * That same save-on-switch no longer cuts an encounter note off at its first
+    "&" -- "H&P", or a pasted link with "&cmd=" in it, arrived truncated on the
+    server -- and no longer turns a "+" into a space. The same cut-off is fixed
+    on the patient page's custom telephone-encounter reason and the document
+    description templates.
+  * The same firewall false positive is closed on the rest of the free-text
+    clinical fields: consultation requests, ticklers, prescriptions and
+    allergies, preventions, document and lab comments, HRM, messenger and
+    patient email, appointment reasons and notes, master-record notes and
+    alerts, billing comments, fax cover comments and program notes. Each is
+    exempted per argument on its own route; the firewall still inspects every
+    other argument, keeps its script-injection rules on all of them, and still
+    blocks a probe injection. The four fields whose
+    names carry a row number (measurement comments, manual lab notes, contact
+    notes, waiting-list notes) are exempted by an anchored name pattern
+    instead, since the firewall cannot list them. The encounter forms (Rourke,
+    antenatal, mental health, palliative care and the rest) are covered by a
+    generated per-form list of their narrative cells, keyed on each form's
+    save route and form class; a regression test keeps that list in step
+    with the form pages. Two groups of cells are left inspected on purpose,
+    because the only way to exempt them would apply to every route: the
+    Vascular Tracker's bracketed cell names, which the firewall cannot list
+    per route (and whose form cannot be submitted on this line anyway, see
+    below), and the growth-chart and chart-checklist per-row cells, whose
+    generic names (comment_<n>) a prescription field shares, so exempting
+    them globally would weaken an unrelated route. The Rh-injection page
+    (form/addRhInjection.jsp) posts its
+    typed "other" reason as reason and reasonOtherText to the prevention route,
+    and both are exempted there.
+  * Reading a measurement definition file (the Vascular Tracker's, or one
+    given to the measurement-type import) no longer fails on its validation
+    rules, which were bound to an untyped list. The Vascular Tracker form
+    itself remains unusable on this line for reasons unrelated to the
+    firewall (its shortcut, setup and save actions were never finished for
+    the current framework); that is a form migration, not part of this
+    change, and is described in docs/ui-tests/deb-install-validation.md.
+  * Opening an encounter form from the chart for a patient who has never had
+    that form no longer fails with an error page: the shortcut now opens a
+    new form. The Discharge Summary also opens at a clinic that does not use
+    programs.
+  * Saving an encounter form validates it against that form's own measurement
+    definitions. The save read a process-wide list that holds whichever
+    definition file was read last anywhere on the server, so a form saved
+    while another provider was opening a different form could be checked
+    against the other form's rules. The save and the setup step now each read
+    the file they were given.
+  * Leaving a note with unsaved text for another note, or for a new one, now
+    shows the saved note in place. The refresh that runs after that save never
+    received the note text, so the note came back as an empty box until the
+    chart was reloaded, and for a brand-new note the refresh then failed on an
+    element it looked up under the wrong name. Reopening a saved note for
+    editing also escapes the text it puts into the editor, so a note holding
+    something like "</textarea>" cannot become markup when the next clinician
+    opens it. Both script-built note boxes now carry an accessible label.
+  * Editing a patient's note or date on a waiting list saves again. The page
+    named its row fields plainly, so the update's row selectors came out as
+    "waitingListBean[undefined]" and every update fell through to a
+    re-numbering of the list; the fields now carry their row index and their
+    current values, as the update expects. An update posted without a usable
+    list id, or a row edit missing its patient number or date, is now refused
+    rather than run against an empty id or quietly turned into a re-numbering.
+  * The legacy encounter-note entry view, the note history popup, the legacy
+    tickler list, the prescription record and reason comments, and the
+    demographic alert and notes boxes now encode the text they put back on
+    the page. With the firewall no longer reading that note as a
+    script attack, the application's own output encoding is what keeps a
+    stored "</textarea><script>" from running on the next open of that view.
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 06 Sep 2026 00:00:00 +0000
 
 carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium

@@ -80,7 +80,7 @@
         <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
             <div>
                 <p>
-                ${note.note}
+                ${carlos:forHtmlContentWithBreaks(note.note)}
                 </p>
             </div>
             <div style="color: #0000FF;">
