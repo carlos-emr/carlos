@@ -1,0 +1,249 @@
+# OSCAR 19 → CARLOS migration tooling (experimental)
+
+Development-side tooling for the `carlos-ctl import-o19` clinic importer.
+Design and operational spec: `docs/oscar19-to-carlos-migration-plan.md`;
+operator runbook for the shipped verbs: `docs/o19-import-deb.md`.
+The importer itself ships with the Debian package
+(`debian/assets/carlos_ctl/o19*.py`); this directory holds what does NOT
+ship — the manifest generator, its curation overlays, and rehearsal fixtures.
+
+> The migration path is **(experimental)**: every migration's output should
+> receive a technical review — verification report, spot checks, UI smoke —
+> before clinical use.
+
+## Layout
+
+```
+generate_manifests.py    regenerates the shipped manifest modules from an
+                         OSCAR 19 checkout + the CARLOS Flyway set (read-only)
+verify_ddl_parse.py      checks that generator's DDL reader against a real
+                         MariaDB (see "Verifying the DDL parse")
+verify_sql_semantics.py  settles the merge/id-map and charset-repair
+                         behaviour against a real MariaDB, and proves a
+                         copied id into a merged parent lands on the right
+                         row by NAME and an import_archived_ column keeps
+                         a full latin1 TEXT (see "Verifying the ETL's SQL
+                         semantics")
+overrides_schema.py      hand-curated table/column classifications (durable)
+overrides_props.py       hand-curated oscar.properties dispositions (durable)
+build-o19-fixture.sh     builds the rehearsal database + turnkey inputs
+fixtures/                vendored O19 demo data & stock properties
+                         (PROVENANCE.md), synthetic clinic properties and
+                         role/legacy-data cases (demo-data/roles.sql) and
+                         clinical rows + text encodings the vendored
+                         dataset lacks (demo-data/clinical.sql),
+                         documents-tree manifest/generator + fixture rows,
+                         documents/make-o19-bundle.sh (packs the inputs into
+                         every --bundle variant used by the rehearsal)
+```
+
+## Packing the rehearsal bundles
+
+```bash
+scripts/migration/o19/fixtures/documents/make-o19-bundle.sh \
+    /tmp/o19-inputs /tmp/o19-bundles
+```
+
+Writes `o19-bundle.tar`, `.tar.gz`, `.tar.enc` and `.tar.gz.enc`, the matching
+`o19-bundle.sha256` (what `--bundle-sha256` verifies) and
+`bundle-password.txt`. The password is a fixed test value: rehearsal and test
+use only, never a clinic handoff.
+
+## Regenerating the manifests
+
+```bash
+git clone --branch OSCAR_19_RC1 --depth 1 \
+    https://bitbucket.org/oscaremr/oscar.git /tmp/oscar19
+python3 scripts/migration/o19/generate_manifests.py --oscar-src /tmp/oscar19
+cd debian/assets && python3 -m unittest discover -s carlos_ctl/tests -t .
+```
+
+Outputs (generated — never hand-edit): `debian/assets/carlos_ctl/
+o19map_schema.py`, `o19map_props.py`, and the marker-delimited data block in
+`o19_preflight.py`. Any O19 table the overlays don't classify is emitted as
+class `unknown`, which `test_manifest_integrity.py` refuses — classify it in
+`overrides_schema.py` and bump `SCHEMA_MAP_VERSION` (`o19map-N`; deliberately
+not CalVer-shaped so it can't be misread as a CARLOS release version).
+
+`--check` regenerates in memory and exits non-zero on drift (for review);
+it covers both manifest modules and the generated block in
+`o19_preflight.py`. The outputs carry no wall-clock stamp, only the O19
+source commit, so an unchanged input regenerates byte-identical output.
+Credential-bearing stock defaults are never emitted (`SECRET_DEFAULT_KEYS`
+lists the keys instead; the props phase always surfaces them for review).
+
+The props generator also reads two files outside the O19 checkout:
+`src/main/resources/carlos.properties`, to emit `CARLOS_DEFAULTS` (CARLOS's own
+value for each `carry` key whose O19 default differs — the props report names
+those so a baseline-skipped key cannot flip behaviour silently), and
+`src/main/resources/oscarResources_en.properties`, to verify the
+`BUNDLE_KEY_RENAMES` targets `overrides_props.BUNDLE_PREFIX_RENAMES` asks for.
+A declared bundle prefix that matches no O19 key, or that still resolves in the
+CARLOS bundle, fails generation.
+
+## Verifying the DDL parse
+
+`generate_manifests.py` reads the SQL with a hand-written DDL reader
+(`walk_ddl` + `Schema`). That reader decides which columns exist, so it
+decides what `carlos-ctl import-o19` copies, archives or leaves behind: a
+column it silently misses is a column the import silently drops. Rather than
+trust it, ask MariaDB.
+
+```bash
+python3 scripts/migration/o19/verify_ddl_parse.py --oscar-src /tmp/oscar19 \
+    --mysql-arg=--socket=/run/mysqld/mysqld.sock --mysql-arg=-uroot
+```
+
+Every CREATE TABLE is replayed into a scratch schema under a probe name and
+every ALTER TABLE against a probe built from the model's state at that point;
+the resulting columns and primary key, read back from `information_schema`,
+are compared with what the generator concluded from the same statement. Exit
+0 means they agree everywhere they could be compared. The scratch schema
+(`--db`, default `carlos_ddl_verify`) is **dropped and recreated on every
+run** — point it at a throwaway server, never at a clinic's.
+
+Statements a modern server refuses outright (a 2006 definition such as
+`AUTO_INCREMENT` with no key, or an ALTER whose anchor column the model does
+not carry) are reported as "not comparable" rather than as disagreements.
+
+A probe table the script itself fails to build is counted and reported
+separately, and it exits 1. That is a hole in the oracle rather than in the
+generator, and it is not benign: the statements it hides are the widest
+tables in the schema, which are the clinical encounter forms. It was one
+before — a `varchar(191)` probe hit MariaDB's 65535-byte row cap at 86
+columns and InnoDB's 1017-column cap above that, so 649 statements were
+filed as "server refused" and the run still printed OK.
+
+Run it after any change to the reader. It found three defects on its first
+pass — a primary key recorded in the clause's spelling rather than the
+column's, `ADD COLUMN ... AFTER x` appending instead of positioning, and
+`CHANGE` matching a column name case-sensitively — each now also pinned by a
+database-free unit test in `test_generator.py::TestTheDdlParser`.
+
+**Why not an off-the-shelf SQL parser?** Measured on this corpus, not
+assumed. sqlglot 30.18.0 (MySQL dialect) silently degrades 7 CREATE TABLE and
+7 ALTER TABLE statements to opaque nodes carrying no column list — among them
+`facility`, `custom_filter*`, `tickler_*` and `bed_check_time` — which would
+drop those tables from the manifest with no error. simple-ddl-parser reads
+those but returns a grouped result rather than an ordered statement stream,
+and document order is load-bearing here (a file that DROPs then CREATEs the
+same table must not be applied phase-ordered). sqlparse builds no DDL model
+at all. The reader stays; this script is what makes it checkable, and is also
+how you would prove a future library good enough to replace it.
+
+## Verifying the ETL's SQL semantics
+
+`o19etl.merge_statement` is an anti-join that reads the table it inserts into,
+so whether the `NOT EXISTS` sees rows the same statement just added is an
+engine question the unit tests cannot answer — they assert on generated SQL
+text. It matters: if it did see them, a clinic table holding two rows on one
+natural key would silently lose one.
+
+```bash
+python3 scripts/migration/o19/verify_sql_semantics.py \
+    --mysql-arg=--socket=/run/mysqld/mysqld.sock --mysql-arg=-uroot
+```
+
+Builds the real tables, runs the real generated statements over four
+seed/staging shapes, and asserts on rows: the CARLOS seed keeps its row, the
+clinic's twins are preserved rather than deduplicated, every source id gets an
+id-map entry (a source id with no entry is a dangling child foreign key), and
+the "overridden" figure the operator's report carries adds up against what
+actually landed. Scratch schemas are dropped and recreated on every run —
+throwaway server only.
+
+Answer on MariaDB 10.11.14 (2026-09-04): the anti-join does **not** see
+same-statement inserts, and the id map's twin pairing holds in all four
+shapes. Removing the surplus-twin fallback from `idmap_statements` breaks
+three of them, which is what makes the check worth keeping.
+
+The same script also pins the per-row charset repair, which turns on what
+MySQL means by `latin1` — and MySQL's latin1 is **CP1252**, not ISO-8859-1.
+Every mojibake a MySQL-based OSCAR 19 can produce is repaired, and correct
+text is never altered, which is the property that actually matters: the text
+in question is patient names. Mind the trap this check itself fell into —
+building the sample mojibake with Python's ISO-8859-1 rather than CP1252
+produces inputs no MySQL could hold and three false failures.
+
+It also pins the digest against `max_allowed_packet`. `CONCAT` returns NULL
+(warning 1301, no error) when its result would exceed that setting, and the
+format-1 digest concatenated a document's whole HEX rendering: under the
+clinic's stock 16M an 8.4 MB document was filed as a NULL, two different
+documents hashed alike, and one table digested differently under 16M and 1G.
+Format 2 hashes every TEXT/BLOB value on its own first, joins the row with
+NULL-propagating `CONCAT`, and counts rows whose hash is NULL in a fourth
+lane; the check moves the global between 16M and 1G, requires the same
+answer with nothing unhashed, requires the format-1 rendering to disagree
+with itself, and requires a deliberately broken join to be counted.
+
+It also settles the capacity of an `import_archived_` column. TEXT is 65535
+**bytes**: a latin1 `text` holds 65535 characters, a utf8mb4 one as few as
+16383, and an archived column that took the CARLOS table's utf8mb4 lost half
+of a full accented TEXT — with a warning `sql_mode=''` turns into silence.
+The ALTER now carries the staging column's own charset and collation; the
+check copies a full 65535-character latin1 TEXT and the six CP1252-only
+bytes through the real plan/ALTER/copy path, asserts byte-identity and P7's
+agreement, and re-runs the copy with the clause stripped to show the
+truncation it guards against.
+
+## Building the rehearsal fixture
+
+```bash
+scripts/migration/o19/build-o19-fixture.sh \
+    --oscar-src /tmp/oscar19 --out /tmp/o19-inputs \
+    --province on \
+    --mysql-cmd mariadb --mysql-arg -uroot --mysql-password-file /root/.o19pw
+```
+
+`--province on|bc` (default `on`) picks which OSCAR 19 install to build,
+exactly as OSCAR's own `createdatabase_<p>.sh` does: the `_on` or `_bc`
+init/data pair, OLIS for Ontario only (it is the Ontario lab network, and
+`--with-olis` is refused for BC), and for BC the extra
+`rourke2009_from_oscarinit_bc.sql`. The provincial clinical rows follow —
+`clinical-on.sql` (OHIP claims) or `clinical-bc.sql` (MSP claims and
+their service lines, a WorkSafeBC report, a BCAR form, a clinic-added MSP
+visit type, and a Rourke 2009 record whose BC-only columns hold answers).
+Neither province's billing tables exist in the other's database, so that
+file is the one that cannot be shared. **The fixture's province must
+match the CARLOS host it is imported into** — the import asserts the
+manifest profile against the host's province before P0.
+
+The clinic-example properties deliberately set `ldap.enabled=true`, which
+is a preflight BLOCKER with no `--accept` (CARLOS has no LDAP
+authentication, so staff could not log in after cutover). That is the
+point — it exercises B5 — but it also means a rehearsal that passes
+`--properties` gets a `no-go` until you do what a real clinic would do
+and remediate it first: drop the three `ldap.*` lines from your copy of
+`oscar.properties`, then re-run.
+
+The password never goes on the command line (`-pSECRET` is refused): use
+`--mysql-password-file` (exported as `MYSQL_PWD` for the client), a client
+defaults file (`--mysql-arg --defaults-extra-file=FILE`), or a pre-set
+`MYSQL_PWD`.
+
+Creates a **latin1** `o19_fixture` database (init scripts in
+`createdatabase_generic.sh` order, then the vendored `release/demo.sql` demo
+dataset, the fixture document rows, `demo-data/roles.sql` — the synthetic
+role/privilege and legacy-data cases the roles post-step reconciles — and
+`demo-data/clinical.sql`, which adds the encounter notes, appointments,
+ticklers and consultations the vendored dataset does not carry, together
+with accented text in both the correctly-encoded and the deliberately
+double-encoded form so the charset scan, the per-row repair and the
+`charset-repair` sign-off are actually exercised, plus the province's own
+`demo-data/clinical-<province>.sql`) and emits the
+three turnkey inputs:
+`o19-fixture.sql.gz`, `o19-documents.tar.gz` (generated placeholder tree —
+includes one deliberate missing-file row and one orphan file so the
+documents-phase reconciliation gate is exercised), and `oscar.properties`
+(the synthetic clinic-example file covering every props disposition).
+`--with-olis` additionally loads `olis/olisinit.sql` to exercise the
+OLIS-dropped path. `--with-updates` applies the O19 `updates/*.sql` patch
+history best-effort before the demo data (real dumps carry ~280 privilege
+rows those patches add; 2006-era patches routinely fail on a modern server,
+each failure is named with its diagnostic, and a failed file may have applied
+its earlier statements — a rehearsal input, not a clinic). Note that
+`update-2008-04-07.sql` recreates `secUserRole`: the stock assignments are
+renumbered and every one becomes `activeyn = 1`, so the roles.sql cases
+are the only NULL-activeyn rows left; the builder asserts the anchors the
+rehearsal depends on (the seed clinician's two roles, a Facility, a
+clinic row) after the replay.
