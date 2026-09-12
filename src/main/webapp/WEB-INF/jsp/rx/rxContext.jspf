@@ -1,0 +1,10 @@
+<%@ taglib uri="carlos" prefix="rxcontext" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="rxcsrf" %>
+<meta name="rx-context-id" content="<rxcontext:encode value='${requestScope.rxContextId}' context='htmlAttribute'/>" />
+<meta name="rx-context-path" content="<rxcontext:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>" />
+<meta name="rx-demographic-no" content="<rxcontext:encode value='${requestScope.rxDemographicNo}' context='htmlAttribute'/>" />
+<meta name="rx-appointment-no" content="<rxcontext:encode value='${requestScope.rxAppointmentNo}' context='htmlAttribute'/>" />
+<meta name="rx-program-id" content="<rxcontext:encode value='${requestScope.rxProgramId}' context='htmlAttribute'/>" />
+<meta name="rx-context-owner" content="<rxcontext:encode value='${requestScope.rxContextOwnerPage}' context='htmlAttribute'/>" />
+<meta name="rx-csrf-token" content="<rxcsrf:tokenvalue/>" />
+<script type="text/javascript" src="<rxcontext:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/oscarRx/js/rxSessionInterceptor.js"></script>

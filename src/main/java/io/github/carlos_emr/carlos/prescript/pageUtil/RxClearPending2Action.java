@@ -71,7 +71,12 @@ public final class RxClearPending2Action extends ActionSupport {
 
         bean.clearStash();
 
-        if (action.equals("close")) {
+        if ("close".equals(action)) {
+            RxWorkspaceRegistry registry = RxWorkspaceRegistry.get(request.getSession());
+            Object contextId = request.getAttribute(RxSessionFilter.CONTEXT_REQUEST_ATTRIBUTE);
+            if (registry != null && contextId != null) {
+                registry.remove(contextId.toString());
+            }
             return "close";
         }
 

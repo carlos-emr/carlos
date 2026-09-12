@@ -112,7 +112,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
                 // demoNoParam validated as numeric at method entry
                 request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             }
-            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
+            String contextId = request.getAttribute(RxSessionFilter.CONTEXT_REQUEST_ATTRIBUTE).toString();
+            response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo="
+                    + Encode.forUriComponent(demoNoParam) + "&rxContextId="
+                    + Encode.forUriComponent(contextId));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -178,28 +181,16 @@ public final class RxShowAllergy2Action extends ActionSupport {
         if (!demo_no.matches("\\d{1,9}")) {
             return "failure";
         }
-        // Setup bean
-        RxSessionBean bean;
-
-        if (request.getSession().getAttribute("RxSessionBean") != null) {
-            bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            if ((bean.getProviderNo() != user_no) || (bean.getDemographicNo() != Integer.parseInt(demo_no))) {
-                bean = new RxSessionBean();
-            }
-
-        } else {
-            bean = new RxSessionBean();
+        int demographicNoInt = Integer.parseInt(demo_no);
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null || bean.getDemographicNo() != demographicNoInt) {
+            throw new ServletException("Prescription workspace demographic mismatch");
         }
 
-
         bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(demo_no));
         if (view != null) {
             bean.setView(view);
         }
-
-        // demographicNo validated via Integer.parseInt(); bean setters use validated values
-        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 

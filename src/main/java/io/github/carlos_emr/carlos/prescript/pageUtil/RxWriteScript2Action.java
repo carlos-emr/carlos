@@ -66,6 +66,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -786,9 +787,16 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             try {
                 String quantity = request.getParameter("quantity");
-                String randomId = request.getParameter("randomId");
-                RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
-                // get prescript from randomId
+                Integer randomId = parsePrescriptionIdentifier(request.getParameter("randomId"));
+                if (randomId == null) {
+                    return null;
+                }
+                RxPrescriptionData.Prescription rx = bean.getStashItem2(randomId);
+                if (rx == null) {
+                    logger.warn("Prescription identifier was not found in the selected workspace stash");
+                    sendBadRequest("Prescription not found. Please refresh and try again.");
+                    return null;
+                }
                 if (quantity == null || quantity.equalsIgnoreCase("null")) {
                     quantity = "";
                 }
@@ -842,7 +850,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     // if not, recalculate duration based on frequency if frequency is not empty
                     // if there is already a duration uni present, use that duration unit. if not, set duration unit to days, and output duration in days
                 }
-                bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), rx);
+                bean.setStashItem(bean.getIndexFromRx(randomId), rx);
 
                 if (rx.getRoute() == null) {
                     rx.setRoute("");
@@ -1470,6 +1478,24 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
+    private Integer parsePrescriptionIdentifier(String value) throws IOException {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            logger.warn("Rejected an invalid prescription identifier");
+            sendBadRequest("Invalid prescription identifier.");
+            return null;
+        }
+    }
+
+    private void sendBadRequest(String errorMessage) throws IOException {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json;charset=UTF-8");
+        ObjectNode errorResponse = objectMapper.createObjectNode();
+        errorResponse.put("error", errorMessage);
+        response.getOutputStream().write(errorResponse.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
     private void addDrugReason(String codingSystem,
                                String primaryReasonFlagStr, String comments,
                                String code, String drugIdStr, String demographicNo,
@@ -1577,9 +1603,22 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.demographicNo;
     }
 
+    /**
+     * Sets the demographic number from a String value, as provided by Struts2
+     * parameter binding from the {@code demographicNo} request parameter.
+     *
+     * @param value String the demographic number to parse; ignored if null, empty, or non-numeric
+     * @since 2026-01-30
+     */
     @StrutsParameter
-    public void setDemographicNo(int RHS) {
-        this.demographicNo = RHS;
+    public void setDemographicNo(String value) {
+        if (value != null && !value.isEmpty()) {
+            try {
+                this.demographicNo = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                // Keep default value (0) if parse fails
+            }
+        }
     }
 
     public String getRxDate() {

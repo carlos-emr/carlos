@@ -54,6 +54,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*, io.github.carlos_emr.CarlosProperties" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <c:if test="${empty RxSessionBean}">
@@ -348,7 +349,7 @@
                             <script language="javascript">
                                 function customWarning() {
                                     if (confirm("<fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
-                                        window.location.href = '<%= request.getContextPath() %>/rx/chooseDrug?demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>';
+                                        window.location.href = RxContext.addToUrl('<%= request.getContextPath() %>/rx/chooseDrug?demographicNo=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>');
                                     }
                                 }
                             </script>

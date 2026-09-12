@@ -85,14 +85,19 @@ public final class RxChoosePatient2Action extends ActionSupport {
         user_no = (String) request.getSession().getAttribute("user");
         // p("user_no", user_no);
         // p("frm", frm.toString());
-        // Setup bean
-        RxSessionBean bean = new RxSessionBean();
+        int demographicNoInt;
+        try {
+            demographicNoInt = Integer.parseInt(this.getDemographicNo());
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().error("Invalid demographicNo in RxChoosePatient");
+            return redirect;
+        }
 
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null || bean.getDemographicNo() != demographicNoInt) {
+            throw new ServletException("Prescription workspace demographic mismatch");
+        }
         bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(this.getDemographicNo()));
-
-        // nosemgrep: tainted-session-from-http-request -- bean is built from session-sourced providerNo and validated demographicNo (parseInt)
-        request.getSession().setAttribute("RxSessionBean", bean);
 
         RxPatientData rx = null;
         RxPatientData.Patient patient = null;

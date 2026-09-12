@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>

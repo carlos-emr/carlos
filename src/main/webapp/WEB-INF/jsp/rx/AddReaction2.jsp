@@ -1,3 +1,4 @@
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
@@ -318,7 +319,7 @@
                                     <td>
                                         <input type="submit" name="submit" value="Add Allergy" class="ControlPushButton" onclick="return doSubmit()"/>
                                         <input type=button class="ControlPushButton" id="cancelAddReactionButton"
-                                               onclick="window.location='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=bean.getDemographicNo() %>'"
+                                               onclick="window.location=RxContext.addToUrl('<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=bean.getDemographicNo() %>')"
                                                value="Cancel"/>
                                     </td>
                                 </tr>
@@ -332,7 +333,7 @@
                             <%
                                 String sBack = request.getContextPath() + "/rx/showAllergy";
                             %> <input type=button class="ControlPushButton"
-                                      onclick="window.location.href='<%=sBack%>';"
+                                      onclick="window.location.href=RxContext.addToUrl('<%=sBack%>');"
                                       value="Back to View Allergies"/></td>
                     </tr>
 

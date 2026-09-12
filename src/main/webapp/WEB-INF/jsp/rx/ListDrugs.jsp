@@ -48,6 +48,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
@@ -69,6 +70,7 @@
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
         }
+
         patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
     %>
 </c:if>

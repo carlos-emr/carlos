@@ -40,6 +40,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.ArrayList,io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ include file="rxContext.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>

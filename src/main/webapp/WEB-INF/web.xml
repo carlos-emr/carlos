@@ -53,6 +53,12 @@
 			<dispatcher>ASYNC</dispatcher>
         </filter-mapping>
 
+    <!-- RxSessionFilter: Selects the per-window prescription workspace. -->
+    <filter>
+        <filter-name>RxSessionFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionFilter</filter-class>
+    </filter>
+
     <!-- ==================== WAF Layer (runs before all application filters) ====================
          All WAF components are disabled by default — enable via carlos.properties:
            WAF_RATE_LIMIT_ENABLED=true    (per-IP rate limiting with path tiers)
@@ -184,6 +190,10 @@
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
+    <filter-mapping>
+        <filter-name>RxSessionFilter</filter-name>
+        <url-pattern>/rx/*</url-pattern>
+    </filter-mapping>
 	<filter>
 		<filter-name>struts2-prepare</filter-name>
 		<filter-class>org.apache.struts2.dispatcher.filter.StrutsPrepareFilter</filter-class>
