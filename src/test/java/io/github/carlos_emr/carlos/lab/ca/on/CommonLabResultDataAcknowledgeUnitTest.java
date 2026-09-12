@@ -163,6 +163,12 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
 
             CommonLabResultData.acknowledgeReport(171, "999998", "Reviewed", "HL7", false, "169,170,171");
 
+            org.mockito.InOrder locks = Mockito.inOrder(staticRoutingDao());
+            locks.verify(staticRoutingDao()).lockRoutingReport(169);
+            locks.verify(staticRoutingDao()).lockRoutingReport(170);
+            locks.verify(staticRoutingDao()).lockRoutingReport(171);
+            locks.verify(staticRoutingDao()).transitionNewRoutingRows(169, "HL7", "999998", 'F');
+
             commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
                     171, "999998", 'A', "Reviewed", "HL7", false));
             commonLabResultData.verify(() -> CommonLabResultData.updateReportStatus(
@@ -253,7 +259,7 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             return jdbc.update("UPDATE routing SET status='A' WHERE id=170 AND status='N'");
         });
         // Normal metadata writes follow the real atomic transition in each transaction.
-        when(dao.findByLabNoAndLabTypeAndProviderNo(170, "DOC", "999998"))
+        when(dao.findRoutingForUpdate(170, "DOC", "999998"))
                 .thenAnswer(call -> List.of(routingRow(jdbc.queryForObject("SELECT status FROM routing WHERE id=170", String.class))));
         var manager = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
                 org.springframework.transaction.PlatformTransactionManager.class);
@@ -282,13 +288,94 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should create only one missing routing row across simultaneous acknowledgements")
+    void shouldCreateMissingRoutingOnce_whenAcknowledgementsRace(boolean wholeChain) throws Exception {
+        registerStaticInitializerMocks();
+        org.h2.jdbcx.JdbcDataSource source = new org.h2.jdbcx.JdbcDataSource();
+        source.setURL("jdbc:h2:mem:lab-missing-race-" + java.util.UUID.randomUUID()
+                + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000");
+        org.springframework.jdbc.core.JdbcTemplate jdbc = new org.springframework.jdbc.core.JdbcTemplate(source);
+        var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(source);
+        jdbc.execute("CREATE TABLE routing(id INT AUTO_INCREMENT PRIMARY KEY, lab_no INT, status CHAR(1), comment VARCHAR(255))");
+        jdbc.execute("CREATE TABLE providerLabRoutingLock(lab_no INT PRIMARY KEY)");
+        java.util.concurrent.CountDownLatch missingReaders = new java.util.concurrent.CountDownLatch(2);
+        ProviderLabRoutingDao dao = staticRoutingDao();
+        Mockito.doAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            jdbc.update("INSERT INTO providerLabRoutingLock (lab_no) VALUES (?) ON DUPLICATE KEY UPDATE lab_no=VALUES(lab_no)",
+                    call.getArgument(0, Integer.class));
+            return null;
+        }).when(dao).lockRoutingReport(anyInt());
+        when(dao.findRoutingForUpdate(anyInt(), eq("DOC"), eq("999998"))).thenAnswer(call -> {
+            List<ProviderLabRoutingModel> rows = jdbc.query("SELECT id,status,comment FROM routing WHERE lab_no=? FOR UPDATE", (rs, index) -> {
+                ProviderLabRoutingModel row = routingRow(rs.getString("status"));
+                org.springframework.test.util.ReflectionTestUtils.setField(row, "id", rs.getInt("id"));
+                row.setComment(rs.getString("comment"));
+                return row;
+            }, call.getArgument(0, Integer.class));
+            if (rows.isEmpty()) {
+                missingReaders.countDown();
+                // Before serialization both readers observe absence. After serialization the
+                // first reader times out here; the next reader sees its committed insertion.
+                missingReaders.await(300, java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+            return rows;
+        });
+        Mockito.doAnswer(call -> {
+            ProviderLabRoutingModel row = call.getArgument(0);
+            jdbc.update("INSERT INTO routing(lab_no,status,comment) VALUES (?,?,?)", row.getLabNo(), row.getStatus(), row.getComment());
+            return null;
+        }).when(dao).persist(any(ProviderLabRoutingModel.class));
+        Mockito.doAnswer(call -> {
+            ProviderLabRoutingModel row = call.getArgument(0);
+            jdbc.update("UPDATE routing SET status=?,comment=? WHERE id=?", row.getStatus(), row.getComment(), row.getId());
+            return null;
+        }).when(dao).merge(any(ProviderLabRoutingModel.class));
+        java.util.concurrent.ExecutorService workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<Boolean> acknowledge = () -> {
+                try (MockedStatic<io.github.carlos_emr.carlos.utility.SpringUtils> spring =
+                             mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class);
+                     MockedStatic<CommonLabResultData> common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS)) {
+                    spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                            org.springframework.transaction.PlatformTransactionManager.class)).thenReturn(manager);
+                    if (wholeChain) {
+                        // Exercise materialization of an older routing row too, independently
+                        // of the already separately tested server-side version-chain lookup.
+                        common.when(() -> CommonLabResultData.olderVersionsOf(170, "DOC", null)).thenReturn(List.of(169));
+                        assertThat(CommonLabResultData.acknowledgeReport(170, "999998", "Keep [clinical] $1", "DOC", false, null))
+                                .isZero();
+                        return true;
+                    }
+                    return CommonLabResultData.updateReportStatus(170, "999998", 'A', "Keep [clinical] $1", "DOC");
+                }
+            };
+            var first = workers.submit(acknowledge);
+            var second = workers.submit(acknowledge);
+            assertThat(first.get(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM routing", Integer.class)).isEqualTo(wholeChain ? 2 : 1);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM routing WHERE lab_no=170", Integer.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT comment FROM routing WHERE lab_no=170", String.class)).isEqualTo("Keep [clinical] $1");
+            if (wholeChain) {
+                assertThat(jdbc.queryForObject("SELECT status FROM routing WHERE lab_no=169", String.class)).isEqualTo("F");
+            }
+        } finally {
+            workers.shutdownNow();
+            workers.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS);
+            jdbc.execute("SHUTDOWN");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void shouldTreatCommentsAsLiteralText_andHonorSkipCommentOnUpdate(boolean skip) {
         registerStaticInitializerMocks();
         ProviderLabRoutingDao dao = staticRoutingDao();
         Mockito.reset(dao);
         ProviderLabRoutingModel row = routingRow("N");
         row.setComment("Prior [review] $1 (");
-        when(dao.findByLabNoAndLabTypeAndProviderNo(42, "DOC", "999998"))
+        when(dao.findRoutingForUpdate(42, "DOC", "999998"))
                 .thenReturn(List.of(row));
         String revised = "Updated [review] $2";
         CommonLabResultData.updateReportStatus(42, "999998", 'A', revised, "DOC", skip);

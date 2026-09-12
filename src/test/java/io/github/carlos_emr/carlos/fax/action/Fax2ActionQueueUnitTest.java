@@ -78,12 +78,22 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
 
         request = new MockHttpServletRequest();
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("999998");
+        loggedInInfo.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         response = new MockHttpServletResponse();
 
         registerMock(FaxManager.class, faxManager);
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+    }
+
+    private java.util.Map<String, Fax2Action.FaxPreviewClaim> boundClaims(String... paths) {
+        java.util.Map<String, Fax2Action.FaxPreviewClaim> claims = new java.util.HashMap<>();
+        for (String path : paths) claims.put(path, new Fax2Action.FaxPreviewClaim(7, 42, "999998"));
+        return claims;
     }
 
     @Test
@@ -213,7 +223,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
             Fax2Action action = new Fax2Action();
-            action.setTransactionType("EFORM");
+            action.setTransactionType("RX");
             action.setRecipientFaxNumber("1234567890");
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setCopyToRecipients(new String[] {"\"name\":\"Jane Doe\",\"fax\":\"9876543210\""});
@@ -247,7 +257,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
                 java.nio.file.Files.createTempFile(appTempRoot, "queue-reject-test-", ".pdf");
         // Seed the session the same way prepareFax() would have, right after claiming this file.
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new java.util.HashSet<>(java.util.List.of(stagedFile.toString())));
+                boundClaims(stagedFile.toString()));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -299,7 +309,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         // re-approved after a blocking-issue resubmission, or refreshed the cover page before
         // queuing the first submission).
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new java.util.HashSet<>(java.util.List.of(firstPreview.toString(), secondPreview.toString())));
+                boundClaims(firstPreview.toString(), secondPreview.toString()));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -323,9 +333,9 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             // second's still-valid claim.
             assertThat(java.nio.file.Files.exists(secondPreview)).isTrue();
             @SuppressWarnings("unchecked")
-            java.util.Set<String> remainingClaims = (java.util.Set<String>) request.getSession(true)
+            java.util.Map<String, Fax2Action.FaxPreviewClaim> remainingClaims = (java.util.Map<String, Fax2Action.FaxPreviewClaim>) request.getSession(true)
                     .getAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
-            assertThat(remainingClaims).containsExactly(secondPreview.toString());
+            assertThat(remainingClaims.keySet()).containsExactly(secondPreview.toString());
         } finally {
             java.nio.file.Files.deleteIfExists(firstPreview);
             java.nio.file.Files.deleteIfExists(secondPreview);
@@ -351,7 +361,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         java.nio.file.Path stagedFile =
                 java.nio.file.Files.createTempFile(appTempRoot, "queue-success-", ".pdf");
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
-                new java.util.HashSet<>(java.util.List.of(stagedFile.toString())));
+                boundClaims(stagedFile.toString()));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -368,7 +378,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("preview");
             @SuppressWarnings("unchecked")
-            java.util.Set<String> remainingClaims = (java.util.Set<String>) request.getSession(true)
+            java.util.Map<String, Fax2Action.FaxPreviewClaim> remainingClaims = (java.util.Map<String, Fax2Action.FaxPreviewClaim>) request.getSession(true)
                     .getAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
             assertThat(remainingClaims)
                     .describedAs("a resolved claim (accepted or rejected) must not linger in the session")
@@ -394,8 +404,8 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         java.nio.file.Path root = java.nio.file.Files.createDirectories(java.nio.file.Path.of(APP_TEMP_ROOT));
         java.nio.file.Path staged = java.nio.file.Files.createTempFile(root, "queue-outcome-", ".pdf");
         java.nio.file.Path unrelated = java.nio.file.Files.createTempFile(root, "queue-unrelated-", ".pdf");
-        java.util.Set<String> claims = new java.util.HashSet<>(java.util.List.of(unrelated.toString()));
-        if (claimed) claims.add(staged.toString());
+        java.util.Map<String, Fax2Action.FaxPreviewClaim> claims = boundClaims(unrelated.toString());
+        if (claimed) claims.putAll(boundClaims(staged.toString()));
         request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claims);
         var operation = when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()));
         if ("invalid".equals(outcome)) operation.thenThrow(new io.github.carlos_emr.carlos.managers.FaxPreparationException("sensitive fixture parser state"));
@@ -414,6 +424,14 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             action.setDemographicNo(42);
             action.setRecipientFaxNumber("1234567890");
             action.setFaxFilePath(staged.toString());
+            if (!claimed) {
+                assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class).hasMessageContaining("not owned");
+                verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+                assertThat(staged).exists();
+                assertThat(unrelated).exists();
+                assertThat(claims.keySet()).containsExactly(unrelated.toString());
+                return;
+            }
             String result = action.queue();
             boolean unknown = "unknown".equals(outcome);
             boolean definiteResponse = !unknown && (claimed || "invalid".equals(outcome));
@@ -422,7 +440,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             if (definiteResponse) assertThat(response.getErrorMessage()).contains("not queued").doesNotContain("sensitive fixture");
             assertThat(java.nio.file.Files.exists(staged)).isEqualTo(unknown || !claimed);
             assertThat(unrelated).exists();
-            assertThat(claims).containsExactly(unrelated.toString());
+            assertThat(claims.keySet()).containsExactly(unrelated.toString());
         } finally {
             java.nio.file.Files.deleteIfExists(staged);
             java.nio.file.Files.deleteIfExists(unrelated);
@@ -477,6 +495,8 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     @DisplayName("should accept queue when the eForm's demographic still matches at promotion time")
     void shouldAcceptQueue_whenEFormDemographicStillMatches() {
         setUpCommonMocks();
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, boundClaims(APP_TEMP_ROOT + "/fax.pdf"));
+        when(faxManager.getFaxGatewayAccounts(any())).thenThrow(new IllegalStateException("account database unavailable"));
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
                 .thenReturn(true);
         EFormDataDao eFormDataDao = mock(EFormDataDao.class);
@@ -502,6 +522,47 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("preview");
             verify(faxManager).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
+            verify(faxManager, never()).getFaxGatewayAccounts(any());
+            assertThat(request.getAttribute("faxSuccessful")).isEqualTo(true);
+            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class).hasMessageContaining("not owned");
+            verify(faxManager, org.mockito.Mockito.times(1)).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "eform", "patient", "provider", "path"})
+    @DisplayName("should reject missing or swapped preview claims without queueing or deleting another preview")
+    void shouldRejectQueue_whenPreviewClaimBindingDoesNotMatch(String mismatch) throws Exception {
+        setUpCommonMocks();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42))).thenReturn(true);
+        EFormDataDao dao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, dao);
+        EFormData eform = new EFormData();
+        eform.setDemographicId(42);
+        when(dao.find(7)).thenReturn(eform);
+        java.nio.file.Path root = java.nio.file.Files.createDirectories(java.nio.file.Path.of(APP_TEMP_ROOT));
+        java.nio.file.Path source = java.nio.file.Files.createTempFile(root, "bound-claim-", ".pdf");
+        var claims = new java.util.HashMap<String, Fax2Action.FaxPreviewClaim>();
+        if (!"missing".equals(mismatch)) claims.put("path".equals(mismatch) ? source + ".other" : source.toString(),
+                new Fax2Action.FaxPreviewClaim("eform".equals(mismatch) ? 8 : 7,
+                        "patient".equals(mismatch) ? 99 : 42, "provider".equals(mismatch) ? "111111" : "999998"));
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claims);
+        int originalClaims = claims.size();
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(source.toString());
+            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class).hasMessageContaining("not owned");
+            verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+            assertThat(source).exists();
+            assertThat(claims).hasSize(originalClaims);
+        } finally {
+            java.nio.file.Files.deleteIfExists(source);
         }
     }
 
@@ -509,6 +570,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     @DisplayName("should show a no-resend warning when the queue transaction outcome cannot be confirmed")
     void shouldWarnWithoutResend_whenQueueOutcomeIsUncertain() throws Exception {
         setUpCommonMocks();
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, boundClaims(APP_TEMP_ROOT + "/fax.pdf"));
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42))).thenReturn(true);
         EFormDataDao eFormDataDao = mock(EFormDataDao.class);
         registerMock(EFormDataDao.class, eFormDataDao);
@@ -543,6 +605,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     @DisplayName("should register a dedicated per-session lock (not a single shared one) for the claimed fax file paths set")
     void shouldRegisterPerSessionLock_forClaimedFaxFilePaths() {
         setUpCommonMocks();
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, boundClaims(APP_TEMP_ROOT + "/fax.pdf"));
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
                 .thenReturn(true);
         EFormDataDao eFormDataDao = mock(EFormDataDao.class);

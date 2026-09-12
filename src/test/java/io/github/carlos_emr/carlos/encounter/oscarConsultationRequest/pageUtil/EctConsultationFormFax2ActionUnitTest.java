@@ -353,10 +353,12 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("consult.pdf"), "fixture PDF");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
         when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
-        org.mockito.Mockito.doThrow(new IllegalStateException("commit acknowledgement lost"))
+        org.mockito.Mockito.doThrow(new IllegalStateException("commit acknowledgement lost: SensitiveFixturePatient"))
                 .when(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
         try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class);
-             MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths = mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+             MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths = mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class);
+             io.github.carlos_emr.carlos.test.logging.LogCapture capture =
+                     io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EctConsultationFormFax2Action.class)) {
             edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(1);
             paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
                     .thenReturn(pdf.toFile());
@@ -367,6 +369,10 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo("faxUncertain");
             assertThat(response.getStatus()).isEqualTo(503);
             assertThat(request.getAttribute("faxSuccessful")).isNull();
+            assertThat(capture.messages().toString()).doesNotContain("SensitiveFixturePatient");
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getMessage().getFormattedMessage().contains("outcome is uncertain"))
+                    .singleElement().satisfies(event -> assertThat(event.getThrown()).isNull());
             paths.verify(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(
                     any(java.io.File.class), any(java.io.File.class)), never());
             verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo), any(), eq(456));
@@ -424,6 +430,30 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
             verify(faxManager).persistAndLogConsultationFaxJobs(eq(loggedInInfo),
                     org.mockito.ArgumentMatchers.argThat(jobs -> jobs.size() == 1
                             && (srfax ? "+442079460100" : "19876543210").equals(jobs.get(0).getDestination())), eq(456));
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, -1})
+    @DisplayName("should reject unreadable consultation PDFs before persisting any recipient")
+    void shouldRejectNonPositivePageCount_beforePersistence(int pages) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
+        Path pdf = java.nio.file.Files.writeString(temporaryDirectory.resolve("invalid-pages.pdf"), "fixture PDF");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdf);
+        when(nioFileManager.promoteApplicationTempFile(pdf)).thenReturn(pdf);
+        try (MockedStatic<io.github.carlos_emr.carlos.documentManager.EDocUtil> edoc = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class);
+             MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths = mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            edoc.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(pdf.toString())).thenReturn(pages);
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
+                    .thenReturn(pdf.toFile());
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.validateApplicationTempPath(pdf.toFile()))
+                    .thenThrow(new SecurityException("fixture is outside application temp"));
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(pdf).doesNotExist();
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         }
     }
 

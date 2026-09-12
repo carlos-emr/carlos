@@ -466,6 +466,9 @@ public class CommonLabResultData {
         // chain write locks in numeric order, including when callers reviewed different versions.
         java.util.SortedSet<Integer> versions = new java.util.TreeSet<>(olderLabNos);
         versions.add(labNo);
+        for (Integer version : versions) {
+            providerLabRoutingDao.lockRoutingReport(version);
+        }
         int clearedFromNew = 0;
         for (Integer version : versions) {
             char destination = version == labNo ? status : 'F';
@@ -474,9 +477,12 @@ public class CommonLabResultData {
                         version, labType, providerNo, destination);
             }
         }
-        updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
-        for (Integer olderLabNo : olderLabNos) {
-            updateReportStatus(olderLabNo, providerNo, 'F', "", labType);
+        for (Integer version : versions) {
+            if (version == labNo) {
+                updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
+            } else {
+                updateReportStatus(version, providerNo, 'F', "", labType);
+            }
         }
         return clearedFromNew;
     }
@@ -511,7 +517,18 @@ public class CommonLabResultData {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType, boolean skipCommentOnUpdate) {
+        org.springframework.transaction.support.TransactionTemplate transaction =
+                new org.springframework.transaction.support.TransactionTemplate(
+                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        return Boolean.TRUE.equals(transaction.execute(transactionStatus -> {
+            providerLabRoutingDao.lockRoutingReport(labNo);
+            return updateReportStatusInTransaction(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
+        }));
+    }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of clinical comment text, not an authorization decision")
+    private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
+                                                            String comment, String labType, boolean skipCommentOnUpdate) {
         if (comment == null) {
             comment = "";
         }
@@ -521,7 +538,7 @@ public class CommonLabResultData {
         /*
          * Update an existing entry
          */
-        List<ProviderLabRoutingModel> providerLabRoutingModelList = providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
+        List<ProviderLabRoutingModel> providerLabRoutingModelList = providerLabRoutingDao.findRoutingForUpdate(labNo, labType, providerNo);
         if (providerLabRoutingModelList != null && !providerLabRoutingModelList.isEmpty()) {
             for (ProviderLabRoutingModel providerLabRoutingModel : providerLabRoutingModelList) {
                 providerLabRoutingModel.setStatus("" + status);
@@ -565,7 +582,7 @@ public class CommonLabResultData {
             // destroy a routing row without a successful audit copy. recordRowsToBeDeleted returns -1
             // on failure, >= 0 on success.
             List<ProviderLabRoutingModel> rowsToDelete =
-                    providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0");
+                    providerLabRoutingDao.findRoutingForUpdate(labNo, labType, "0");
             if (rowsToDelete != null && !rowsToDelete.isEmpty()) {
                 ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
                 int archived = adr.recordRowsToBeDeleted(rowsToDelete, "0", "providerLabRouting");

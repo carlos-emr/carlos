@@ -218,7 +218,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         try {
             faxRecipients = this.getAllFaxRecipients();
         } catch (RuntimeException e) {
-            logger.error("Consultation fax aborted: could not parse the copy-to recipient list", e);
+            logger.error("Consultation fax aborted: could not parse the copy-to recipient list ({})", e.getClass().getSimpleName());
             request.setAttribute("errorMessage",
                     "This fax could not be sent. \n\nOne or more copy-to recipients could not be read; no faxes were queued.");
             return "error";
@@ -323,6 +323,9 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                     throw new IOException("The consultation fax document has no usable file name.");
                 }
                 int numPages = EDocUtil.getPDFPageCount(pdfToFax.toString());
+                if (numPages <= 0) {
+                    throw new IOException("The consultation fax document has no readable pages.");
+                }
 
                 faxJob.setFile_name(faxFileName.toString());
                 faxJob.setNumPages(numPages);
@@ -348,7 +351,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         } catch (RuntimeException e) {
             // A transaction exception can be a lost commit acknowledgement. WAITING jobs
             // may already reference these files: never delete them or invite an automatic retry.
-            logger.error("Consultation fax queue outcome is uncertain; retaining all prepared files", e);
+            logger.error("Consultation fax queue outcome is uncertain; retaining all prepared files ({})", e.getClass().getSimpleName());
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return "faxUncertain";
         }

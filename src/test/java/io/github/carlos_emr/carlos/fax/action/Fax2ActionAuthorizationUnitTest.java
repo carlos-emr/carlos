@@ -691,7 +691,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
             Fax2Action action = new Fax2Action();
-            action.setTransactionType("EFORM");
+            action.setTransactionType("RX");
             action.setRecipientFaxNumber("1234567890");
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
 

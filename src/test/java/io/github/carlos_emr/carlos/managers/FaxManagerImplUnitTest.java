@@ -171,6 +171,20 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         verify(manager, never()).saveFaxJob(any(), any(FaxJob.class));
     }
 
+    @Test
+    @DisplayName("should reject a malformed resend id without logging attacker-controlled text")
+    void shouldAvoidLogInjection_whenResendIdIsMalformed() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
+        try (LogCapture capture = LogCapture.forLogger(FaxManagerImpl.class)) {
+            assertThat(manager.resendFax(loggedInInfo, "123\r\nSensitiveFixturePatient forged-log", null)).isFalse();
+            assertThat(capture.messages()).contains("Invalid fax job ID format");
+            assertThat(capture.messages().toString()).doesNotContain("SensitiveFixturePatient", "forged-log");
+            assertThat(capture.events()).allMatch(event -> event.getThrown() == null);
+        }
+        verifyNoInteractions(faxJobDao);
+        verify(manager, never()).saveFaxJob(any(), any(FaxJob.class));
+    }
+
     private FaxJob stubResendSource() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)).thenReturn(true);
         faxConfigDao.getActiveConfigByNumber("1234567890").setProviderType(FaxConfig.ProviderType.SRFAX);
@@ -292,6 +306,48 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             }
             Files.deleteIfExists(tempRoot);
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should reject unreadable PDFs and clean only copies owned by this fax attempt")
+    void shouldRejectZeroPagePdf_beforePersistence(boolean promoted,
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path source = Files.writeString(directory.resolve("source.pdf"), "unreadable fixture");
+        Path copy = Files.writeString(directory.resolve("copy.pdf"), "unreadable fixture");
+        doReturn(source).when(manager).resolveAndValidateFilePath(source.toString());
+        when(nioFileManager.promoteApplicationTempFile(source)).thenReturn(copy);
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(any(String.class))).thenReturn(0);
+        try (MockedStatic<io.github.carlos_emr.carlos.utility.PathValidationUtils> paths =
+                     Mockito.mockStatic(io.github.carlos_emr.carlos.utility.PathValidationUtils.class)) {
+            paths.when(() -> io.github.carlos_emr.carlos.utility.PathValidationUtils.isInApplicationTempDirectory(any(java.io.File.class)))
+                    .thenReturn(promoted);
+            List<FaxJob> jobs = manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                    "faxFilePath", source.toString(), "coverpage", "false", "recipient", "Fixture",
+                    "recipientFaxNumber", "4165551234", "senderFaxNumber", "1234567890", "demographicNo", 17));
+            assertThat(jobs).hasSize(1);
+            assertThat(jobs.get(0).getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(jobs.get(0).getStatusString()).contains("no readable pages");
+            assertThat(source).exists();
+            assertThat(Files.exists(copy)).isEqualTo(!promoted);
+            verify(manager, never()).saveFaxJob(any(), anyList());
+        }
+    }
+
+    @Test
+    @DisplayName("should reject and remove an unreadable generated cover PDF before saving")
+    void shouldRejectZeroPageCover_beforePersistence(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path covered = Files.writeString(directory.resolve("covered.pdf"), "unreadable fixture");
+        FaxJob job = new FaxJob();
+        job.setStatus(FaxJob.STATUS.WAITING);
+        job.setFile_name("source.pdf");
+        doReturn(job).when(manager).createFaxJob(eq(loggedInInfo), anyMap());
+        doReturn(covered).when(manager).addCoverPage(eq(loggedInInfo), any(), any(), any(), any(Path.class));
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(covered.toString())).thenReturn(0);
+        List<FaxJob> jobs = manager.createAndSaveFaxJob(loggedInInfo, Map.of("coverpage", "true"));
+        assertThat(jobs.get(0).getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(covered).doesNotExist();
+        verify(manager, never()).saveFaxJob(any(), anyList());
     }
 
 
@@ -579,6 +635,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                 .addRecipients(eq(loggedInInfo), eq(waitingJob), anyList());
 
         Path coveredDocument = Paths.get("Cover_test-uuid_queued-fax.pdf");
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getPDFPageCount(coveredDocument.toString())).thenReturn(2);
         doReturn(coveredDocument).when(manager)
                 .addCoverPage(eq(loggedInInfo), any(), any(), any(), eq(Paths.get("queued-fax.pdf")));
         List<FaxJob> result = manager.createAndSaveFaxJob(loggedInInfo, Map.of(

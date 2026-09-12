@@ -286,9 +286,11 @@ public class FaxManagerImpl implements FaxManager {
                         throw new IOException("The fax cover page was not created.");
                     }
                     faxDocument = coveredDocument;
-                    faxJobObject.setNumPages(faxJobObject.getNumPages() + 1);
-                    faxJobObject.setFile_name(coveredFileName.toString());
                     attemptFiles.add(faxDocument);
+                    int coveredPages = EDocUtil.getPDFPageCount(coveredDocument.toString());
+                    if (coveredPages <= 0) throw new IOException("The covered fax document has no readable pages.");
+                    faxJobObject.setNumPages(coveredPages);
+                    faxJobObject.setFile_name(coveredFileName.toString());
                 } catch (IOException | RuntimeException e) {
                     logger.error("Fax cover-page preparation failed ({}); batch will not be queued",
                             e.getClass().getSimpleName());
@@ -462,7 +464,8 @@ public class FaxManagerImpl implements FaxManager {
 
         // Only application-owned temporary files may be promoted; the source remains available for
         // retry until the normal preview cleanup path removes it.
-        if (PathValidationUtils.isInApplicationTempDirectory(faxDocument.toFile())) {
+        boolean promotedForAttempt = PathValidationUtils.isInApplicationTempDirectory(faxDocument.toFile());
+        if (promotedForAttempt) {
             try {
                 faxDocument = nioFileManager.promoteApplicationTempFile(faxDocument);
             } catch (FilePromotionException e) {
@@ -475,13 +478,21 @@ public class FaxManagerImpl implements FaxManager {
 
         Path faxFileName = faxDocument.getFileName();
         if (faxFileName == null) {
+            if (promotedForAttempt) cleanupFaxAttemptFiles(Set.of(faxDocument), List.of());
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("The fax document has no usable file name.");
             return faxJob;
         }
-        faxJob.setStatus(FaxJob.STATUS.WAITING);
         faxJob.setFile_name(faxFileName.toString());
-        faxJob.setNumPages(EDocUtil.getPDFPageCount(faxDocument.toString()));
+        int pages = EDocUtil.getPDFPageCount(faxDocument.toString());
+        if (pages <= 0) {
+            if (promotedForAttempt) cleanupFaxAttemptFiles(Set.of(faxDocument), List.of());
+            faxJob.setStatus(STATUS.ERROR);
+            faxJob.setStatusString("The fax document has no readable pages. Fax not sent.");
+            return faxJob;
+        }
+        faxJob.setNumPages(pages);
+        faxJob.setStatus(FaxJob.STATUS.WAITING);
 
         return faxJob;
 
@@ -1041,7 +1052,7 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 faxJob = faxJobDao.findForUpdate(Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
-                logger.error("Invalid fax job ID format: {}", jobId);
+                logger.error("Invalid fax job ID format");
                 return false;
             }
         }
