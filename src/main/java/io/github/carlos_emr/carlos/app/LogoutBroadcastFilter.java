@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -35,6 +37,7 @@ import java.util.Set;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
@@ -51,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that injects session heartbeat and logout broadcast JavaScript
@@ -192,6 +196,16 @@ public class LogoutBroadcastFilter implements Filter {
         chain.doFilter(request, delegatingResponse);
         delegatingResponse.markChainComplete();
 
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            // Skip-injection responses are passed through unchanged, so an explicitly-supplied
+            // Content-Length is still correct and must be replayed. Do NOT discard it here (only the
+            // SCRIPT_INJECTED / append paths below, which lengthen the body, discard). Routing straight
+            // through completeWithoutInjection() preserves the header, matching the no-session path
+            // below.
+            delegatingResponse.completeWithoutInjection();
+            return;
+        }
+
         if (Boolean.TRUE.equals(httpRequest.getAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE))) {
             delegatingResponse.discardDeferredContentLength();
             delegatingResponse.completeWithoutInjection();
@@ -266,6 +280,9 @@ public class LogoutBroadcastFilter implements Filter {
      * @return true when the response should be wrapped for possible script injection
      */
     private boolean isResponseWrappingCandidate(HttpServletRequest request) {
+        if (Boolean.TRUE.equals(request.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            return false;
+        }
         if (isExcluded(request) || isStaticAssetPath(request) || RequestNegotiation.isAjax(request)) {
             return false;
         }
@@ -300,6 +317,8 @@ public class LogoutBroadcastFilter implements Filter {
      * @param request current HTTP request
      * @return true for session-establishing POST routes
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isSessionEstablishingPath(HttpServletRequest request) {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             return false;
@@ -345,6 +364,14 @@ public class LogoutBroadcastFilter implements Filter {
     /**
      * Returns a context-relative request path for filter matching.
      *
+     * <p>During a {@code RequestDispatcher.forward()} — e.g. a Struts action forwarding its route to
+     * an internal {@code /WEB-INF/jsp} view — {@code getServletPath()}/{@code getRequestURI()} reflect
+     * the forward <em>target</em> (the JSP), not the route the client requested. The exclusion list is
+     * configured with client-facing routes, and the heartbeat script is appended on the FORWARD
+     * dispatch, so matching against the forward target would silently miss excluded routes on the very
+     * dispatch where injection happens. When the original request URI is available via the standard
+     * {@link RequestDispatcher#FORWARD_REQUEST_URI} attribute, match against it instead (issue #3099).</p>
+     *
      * <p>Some servlet containers or tests leave {@code servletPath} empty for extensionless routes,
      * so this method falls back to {@code requestURI} and removes the context path before
      * normalizing.</p>
@@ -353,22 +380,56 @@ public class LogoutBroadcastFilter implements Filter {
      * @return normalized path beginning with {@code /}, or null when no path is available
      */
     private String getNormalizedRequestPath(HttpServletRequest request) {
-        String servletPath = request.getServletPath();
-        if (servletPath == null || servletPath.trim().isEmpty()) {
-            servletPath = request.getRequestURI();
-            String contextPath = request.getContextPath();
-            if (servletPath != null && contextPath != null && !contextPath.isEmpty()
-                    && servletPath.startsWith(contextPath)) {
-                servletPath = servletPath.substring(contextPath.length());
+        String path = (String) request.getAttribute(RequestDispatcher.FORWARD_REQUEST_URI);
+        if (path != null && !path.trim().isEmpty()) {
+            path = stripContextPath(path, request.getContextPath());
+        } else {
+            path = request.getServletPath();
+            if (path == null || path.trim().isEmpty()) {
+                path = stripContextPath(request.getRequestURI(), request.getContextPath());
             }
         }
 
-        if (servletPath == null || servletPath.trim().isEmpty()) {
+        if (path == null || path.trim().isEmpty()) {
             return null;
         }
 
-        servletPath = normalizeServletPath(servletPath);
-        return servletPath.startsWith("/") ? servletPath : "/" + servletPath;
+        path = stripPathParameters(path);
+        path = normalizeServletPath(path);
+        return path.startsWith("/") ? path : "/" + path;
+    }
+
+    /**
+     * Removes the leading context path from an absolute request URI so it can be matched against the
+     * context-relative routes configured in the exclusion list.
+     *
+     * @param uri absolute request URI (may be null)
+     * @param contextPath servlet context path (may be null or empty for the root context)
+     * @return the context-relative path, or the original URI when no context path prefix applies
+     */
+    private String stripContextPath(String uri, String contextPath) {
+        if (uri != null && contextPath != null && !contextPath.isEmpty()
+                && uri.startsWith(contextPath)) {
+            return uri.substring(contextPath.length());
+        }
+        return uri;
+    }
+
+    /**
+     * Removes path/matrix parameters (e.g. {@code ;jsessionid=...}) from each path segment so a route
+     * matches the exclusion list regardless of URL-rewritten session ids. This mirrors the container's
+     * {@code getServletPath()}, which strips them on its own; the {@code requestURI} and
+     * {@code FORWARD_REQUEST_URI} fallbacks used above do not, so an excluded route carrying a rewritten
+     * {@code ;jsessionid} would otherwise fail to match.
+     *
+     * @param path context-relative path that may carry path parameters
+     * @return the path with any {@code ;param} suffix stripped from every segment
+     */
+    private String stripPathParameters(String path) {
+        if (path.indexOf(';') < 0) {
+            return path;
+        }
+        return path.replaceAll(";[^/]*", "");
     }
 
     /**
@@ -428,6 +489,8 @@ public class LogoutBroadcastFilter implements Filter {
      * @param script String the script content to append
      * @throws IOException if the writer flush fails
      */
+    // FindSecBugs XSS_SERVLET: intentionally injects logout-broadcast script; buildScript encodes dynamic values for JavaScript.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "intentionally injects logout-broadcast script; buildScript encodes dynamic values for JavaScript")
     private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
         PrintWriter writer = delegatingResponse.getWriter();
@@ -956,10 +1019,14 @@ public class LogoutBroadcastFilter implements Filter {
             deferredContentLengthIsLong = false;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentLengthHeader(String name) {
             return "Content-Length".equalsIgnoreCase(name);
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentTypeHeader(String name) {
             return "Content-Type".equalsIgnoreCase(name);
         }

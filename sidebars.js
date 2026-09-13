@@ -19,6 +19,7 @@ const sidebars = {
       type: 'category',
       label: 'Getting Started',
       items: [
+        'install-deb',
         'README-form-resources',
         'resources-directory',
       ],

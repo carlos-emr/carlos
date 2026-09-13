@@ -27,35 +27,91 @@
 
 --%>
 
+<%--
+mfa_otp_handler.jsp
+  
+This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp (inside card-body) and from mfa_registration.jsp
+  It provides the field to input the MFA key
+  and the submit button
+
+--%>
+
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="csrf" uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="mfa.otp.handler.placeholder" var="otpPlaceholder"/>
+<fmt:message key="mfa.otp.handler.verify.button" var="otpVerifyButton"/>
 
 
-<html>
-<body>
+  <style>
+    :where([autocomplete=one-time-code]) {
+      --otp-digits: 6; /* length */
+      --otp-ls: 2ch;
+      --otp-gap: 1.25;
+      /* private consts */
+      --_otp-bgsz: calc(var(--otp-ls) + 1ch);
+      --_otp-digit: 0;
+    
+      all: unset;
+      background:   linear-gradient(90deg, 
+        var(--otp-bg, #BBB) calc(var(--otp-gap) * var(--otp-ls)),
+        transparent 0),
+        linear-gradient(90deg, 
+        var(--otp-bg, #EEE) calc(var(--otp-gap) * var(--otp-ls)),
+        transparent 0
+      );
+      background-position: calc(var(--_otp-digit) * var(--_otp-bgsz)) 0, 0 0;
+      background-repeat: no-repeat, repeat-x;
+      background-size: var(--_otp-bgsz) 100%;
+      caret-color: var(--otp-cc, #222);
+      caret-shape: block;
+      clip-path: inset(0% calc(var(--otp-ls) * 0.5) 0% 0%);
+      font-family: ui-monospace, monospace !important;
+      font-size: var(--otp-fz, 2.5em);
+      inline-size: calc(var(--otp-digits) * var(--_otp-bgsz));
+      letter-spacing: var(--otp-ls);
+      padding-block: var(--otp-pb, 1ch);
+      padding-inline-start: calc(((var(--otp-ls) - 1ch) * 0.5) * var(--otp-gap));
+      padding-left: 0.9ch !important;
+    }
+
+    :where([autocomplete=one-time-code]):focus-visible {
+      outline: 2px solid #0d6efd;
+      outline-offset: 2px;
+    }
+
+  </style>
+
+
 <div class="card-body d-flex align-items-center justify-content-center">
 
     <form action="<%= request.getContextPath() %>/mfa/loginMfa" method="post">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="mfaRegistrationFlow" value="${requestScope.mfaRegistrationRequired}">
         <div class="">
-            <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3">
-                <input class="form-control form-control-sm ${not empty requestScope.mfaValidateCodeErr ? 'is-invalid' : ''}"
+            <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3" style="display:flex; justify-content:center;">
+                <input class="${not empty requestScope.mfaValidateCodeErr ? 'is-invalid' : ''}"
                        type="text" name="code" id="otpInput" autofocus
-                       placeholder="Enter code" aria-label=".form-control-sm"
-                       required maxlength="6">
+                       required
+                       autocomplete="one-time-code"
+                       inputmode="numeric"
+                       maxlength="6"
+                       pattern="\d{6}"
+                       placeholder="${carlos:forHtmlAttribute(otpPlaceholder)}"
+                       aria-label="${carlos:forHtmlAttribute(otpPlaceholder)}"
+                       style="width: 16.6ch; text-align: left;"
+                       oninput="if(this.value.length===6 && this.form.requestSubmit)this.form.requestSubmit();">
                 <div id="otpInputFeedback" class="invalid-feedback">
                     ${carlos:forHtml(requestScope.mfaValidateCodeErr)}
                 </div>
             </div>
 
             <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3">
-                <input name="submit" type="submit" class="btn btn-success btn-sm w-100"
-                       id="verifyButton" value="Verify Code"/>
+                <input name="btnSubmit" type="submit" class="btn btn-success btn-sm w-100"
+                       id="verifyButton" value="${carlos:forHtmlAttribute(otpVerifyButton)}"/>
             </div>
         </div>
 
@@ -64,6 +120,8 @@
         </div>
     </form>
 </div>
-</body>
+  <script>
+    const input = document.querySelector('[autocomplete=one-time-code]');
+    input.addEventListener('input', () => input.style.setProperty('--_otp-digit', input.selectionStart));
+  </script>
 
-</html>

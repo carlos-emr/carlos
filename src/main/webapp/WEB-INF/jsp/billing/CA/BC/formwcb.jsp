@@ -298,7 +298,7 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem"/>'
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem" context="javaScriptBlock"/>'
                     + '?form=' + encodeURIComponent(form)
                     + '&field=' + encodeURIComponent(field)
                     + '&searchStr=' + encodeURIComponent(str);
@@ -310,7 +310,7 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/Icd9"/>'
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/Icd9" context="javaScriptBlock"/>'
                     + '?form=' + encodeURIComponent(form)
                     + '&field=' + encodeURIComponent(field)
                     + '&searchStr=' + encodeURIComponent(str);
@@ -322,7 +322,10 @@
                 var width = 650;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BodyPart"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BodyPart" context="javaScriptBlock"/>'
+                    + '?form=' + encodeURIComponent(form)
+                    + '&field=' + encodeURIComponent(field)
+                    + '&searchStr=' + encodeURIComponent(str);
                 var windowName = field;
                 popup(height, width, url, windowName);
             }
@@ -331,7 +334,10 @@
                 var width = 800;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/NatureInjury"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/NatureInjury" context="javaScriptBlock"/>'
+                    + '?form=' + encodeURIComponent(form)
+                    + '&field=' + encodeURIComponent(field)
+                    + '&searchStr=' + encodeURIComponent(str);
                 var windowName = field;
                 popup(height, width, url, windowName);
             }

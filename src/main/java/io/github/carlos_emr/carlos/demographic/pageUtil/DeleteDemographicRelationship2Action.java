@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DeleteDemographicRelationship2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -65,7 +66,9 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
 
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -78,7 +81,7 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
         demo.deleteDemographicRelationship(idRel);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_DEMOGRAPHIC_RELATION, id, ip);
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_DEMOGRAPHIC_RELATION, id, ip);
         request.setAttribute("demo", origDemo);
         return SUCCESS;
     }
@@ -99,6 +102,8 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
         return relationID;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     String getRelationshipID(String demo_no, String demo_r, String[] rel_of) {
         String relationshipID = "";
         DemographicRelationship demo = new DemographicRelationship();
@@ -123,6 +128,8 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
         return relationshipID;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     String[] getRelationOf(String relation) {
         relation = relation.trim().toLowerCase();
         String[] relationOf = new String[3];

@@ -57,13 +57,9 @@ public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Messag
 
     @Override
     public void handleMessage(Message message) throws Fault {
-        // allows WADL requests for unauthenticated users
-        String messageQueryString = String.valueOf(message.get(Message.QUERY_STRING));
-        boolean isServiceRequest = "_wadl".equalsIgnoreCase(messageQueryString);
-        if (isServiceRequest) {
-            return;
-        }
-
+        // WADL / service metadata is NOT exempt from authentication. Serving it
+        // to anonymous callers enumerates every REST resource and its paths;
+        // an authenticated client still receives it through the check below.
         LoggedInInfo info = getLoggedInInfo(message);
         boolean isAuthenticated = info != null && (info.getLoggedInProvider() != null || info.getLoggedInSecurity() != null);
         if (isAuthenticated) {

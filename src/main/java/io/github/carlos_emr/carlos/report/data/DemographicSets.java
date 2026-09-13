@@ -37,6 +37,7 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicSetsDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author Jay Gallagher
@@ -96,6 +97,8 @@ public class DemographicSets {
         return retval;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<Map<String, String>> getDemographicSetExt(String setName) {
         List<Map<String, String>> retval = new ArrayList<Map<String, String>>();
 

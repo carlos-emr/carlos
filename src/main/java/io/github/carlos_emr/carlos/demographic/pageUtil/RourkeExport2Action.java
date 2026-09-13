@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.DataExport;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -62,6 +63,7 @@ import java.sql.Timestamp;
 import java.util.*;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RourkeExport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -120,7 +122,7 @@ public class RourkeExport2Action extends ActionSupport {
     @SuppressWarnings("rawtypes")
     @Override
     public String execute() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
@@ -3684,6 +3686,8 @@ public class RourkeExport2Action extends ActionSupport {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void buildPatientDemographic(Demographic demo, Patient patient) {
 
         String healthCard = demo.getHin();
@@ -3770,33 +3774,63 @@ public class RourkeExport2Action extends ActionSupport {
 
         options.setSaveOuter();
 
-        String fileName = "Rourke2009Export.xml";
-        File xmlFile = new File(tmpDir, fileName);
-        try {
-            patientDocument.save(xmlFile, options);
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Cannot write .xml file(s) to export directory " + tmpDir + ".\nPlease check directory permissions.", e);
-        }
-
+        // Per-export unique id shared by the XML and zip names so concurrent or repeated
+        // exports cannot collide on a shared temp filename and package another patient's data.
+        String exportId = UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + "-" + UUID.randomUUID();
+        String fileName = "Rourke2009Export-" + exportId + ".xml";
+        File tmpDirectory = PathValidationUtils.resolveConfiguredDirectory(tmpDir, "Rourke export temp directory");
+        File xmlFile = PathValidationUtils.validateGeneratedChildPath(fileName, tmpDirectory);
+        String zipName = "rourke2009_export-" + exportId + ".zip";
+        File zipFile = PathValidationUtils.validateGeneratedChildPath(zipName, tmpDirectory);
         ArrayList<File> files = new ArrayList<File>();
         files.add(xmlFile);
-        //Zip export files
-        String zipName = "rourke2009_export-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".zip";
-        if (!Util.zipFiles(files, zipName, tmpDir)) {
-            MiscUtils.getLogger().error("Error! Failed zipping export files");
+        try {
+            try {
+                patientDocument.save(xmlFile, options);
+            } catch (IOException e) {
+                // Abort: never zip/persist a missing or partial XML, which could otherwise
+                // ship a stale file (another patient's data) from the temp directory.
+                MiscUtils.getLogger().error("Cannot write .xml file(s) to export directory " + tmpDir + ".\nPlease check directory permissions.", e);
+                throw e;
+            }
+
+            //Zip export files
+            if (!Util.zipFiles(files, zipName, tmpDir)) {
+                // Abort rather than copying a missing/partial zip into DOCUMENT_DIR below.
+                MiscUtils.getLogger().error("Error! Failed zipping export files");
+                throw new Exception("Failed to zip Rourke export files; aborting export");
+            }
+
+            //copy zip to document directory
+            CarlosProperties properties = CarlosProperties.getInstance();
+            // Require DOCUMENT_DIR to be an existing directory: fail fast on misconfiguration
+            // rather than letting copyFileToDirectory lazily create an unintended location.
+            File destDir = PathValidationUtils.validateConfiguredDirectory(properties.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
+
+            return zipName;
+        } finally {
+            // Always remove the temp XML/zip (PHI) on every exit path — including the save,
+            // zip, and DOCUMENT_DIR-validation abort paths — so a failed export never leaves
+            // persistent patient-data artifacts in the temp directory. Guarded by existence
+            // so absent files don't emit misleading delete-failure logs. Each cleanup is
+            // independently failure-isolated so neither a cleanup error masks the original
+            // save/zip/validation failure nor one failing cleanup skips the other.
+            try {
+                if (xmlFile.exists()) {
+                    Util.cleanFiles(files);
+                }
+            } catch (RuntimeException cleanupError) {
+                MiscUtils.getLogger().warn("Failed to clean up Rourke export temp XML in " + tmpDir, cleanupError);
+            }
+            try {
+                if (zipFile.exists()) {
+                    Util.cleanFile(zipName, tmpDir);
+                }
+            } catch (RuntimeException cleanupError) {
+                MiscUtils.getLogger().warn("Failed to clean up Rourke export temp zip in " + tmpDir, cleanupError);
+            }
         }
-
-        //copy zip to document directory
-        File zipFile = new File(tmpDir, zipName);
-        CarlosProperties properties = CarlosProperties.getInstance();
-        File destDir = new File(properties.getProperty("DOCUMENT_DIR"));
-        org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
-
-        //Remove zip & export files from temp dir
-        Util.cleanFile(zipName, tmpDir);
-        Util.cleanFiles(files);
-
-        return zipName;
     }
 
     private String patientSet;

@@ -197,5 +197,24 @@
     // Day/month stay as WEB-INF JSP includes because Struts action includes render empty
     // under the response-buffering filter chain; keep the shared appointment gate above.
     String includeTarget = opToFileDict.getDef(operation, "");
+    boolean statusRequest = "addstatus".equals(operation);
+    boolean ajaxStatusRequest = statusRequest
+      && "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+    if (ajaxStatusRequest) {
+        response.setContentType("text/plain;charset=UTF-8");
+    }
     request.getRequestDispatcher(includeTarget).include(request, response);
+    if (statusRequest) {
+        Object status = request.getAttribute("providerAddStatusHttpStatus");
+        if (status instanceof Integer) {
+            response.sendError((Integer) status);
+        } else if (ajaxStatusRequest) {
+            response.setContentType("text/plain;charset=UTF-8");
+        } else {
+            Object redirectTarget = request.getAttribute("providerAddStatusRedirectTarget");
+            if (redirectTarget instanceof String) {
+                response.sendRedirect((String) redirectTarget);
+            }
+        }
+    }
 %>

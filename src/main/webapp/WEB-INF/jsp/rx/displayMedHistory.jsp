@@ -69,16 +69,31 @@
     try {
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         String randomId = request.getParameter("randomId");
-        if (randomId != null) {
-            RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
-            String drugName = rx.getBrandName();
-            if (drugName == null || drugName.equalsIgnoreCase("null") || drugName.trim().length() == 0)
-                drugName = rx.getCustomName();
-            List<HashMap<String, String>> listMedHistory = (List<HashMap<String, String>>) bean.getListMedHistory();
+        randomId = randomId != null ? randomId.trim() : null;
+        boolean renderedHistory = false;
+        if (bean != null && randomId != null && randomId.matches("\\d+")) {
+            try {
+                RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+                if (rx != null) {
+                    renderedHistory = true;
+                    String drugName = rx.getBrandName();
+                    if (drugName == null || drugName.equalsIgnoreCase("null") || drugName.trim().length() == 0)
+                        drugName = rx.getCustomName();
+                    List<HashMap<String, String>> listMedHistory = (List<HashMap<String, String>>) bean.getListMedHistory();
+                    // The action always sets a list, but a null here would throw out of the
+                    // loop below and be swallowed by the catch at the foot of the page --
+                    // rendering the blank window this page exists to stop rendering.
+                    if (listMedHistory == null) {
+                        listMedHistory = new ArrayList<HashMap<String, String>>();
+                    }
 %>
 
-<a onmouseover="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
-        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" TITLE="Close"
+<%-- href plus onclick, not a bare onMouseDown: without an href the anchor takes no
+     focus and no keyboard activation, so the only way to dismiss this window was the
+     mouse. onclick covers both pointer and Enter. --%>
+<a href="javascript:void(0);" onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';"
+   onclick="parent.mb.hide();"><img
+        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>
 <table class="mhTable">
@@ -94,6 +109,11 @@
     </tr>
     <%
         int i = 0;
+        // Rows rendered, NOT entries iterated: an entry whose instruction and special
+        // instruction are both blank renders no row at all, so a list of those would
+        // leave a header with nothing under it -- which is "the modal shows nothing"
+        // from where the prescriber sits.
+        int renderedRows = 0;
         for (HashMap<String, String> hm : listMedHistory) {
             String ins = hm.get("instruction");
             String specIns = hm.get("special_instruction");
@@ -131,14 +151,48 @@
     </tr>
     <%}%>
     <%
+                    if (instructionExist || specialInstructionExist) {
+                        renderedRows++;
+                    }
                     i++;
                 }
+                if (renderedRows == 0) {
+    %>
+    <tr>
+        <td colspan="2" align="center"
+            style="font-style:normal;font-family:sans-serif;font-size:80%;padding:0.75em;">
+            No previous instructions recorded for this medication.
+        </td>
+    </tr>
+    <%
+                }
+    %>
+</table>
+    <%
+                } // end if (rx != null)
+            } catch (NumberFormatException ignored) {
+                // Out-of-range digit strings render the empty state below.
             }
+        } // end if (bean != null && randomId != null && randomId.matches("\\d+"))
 
+        if (!renderedHistory) {
+    %>
+<%-- href plus onclick, not a bare onMouseDown: without an href the anchor takes no
+     focus and no keyboard activation, so the only way to dismiss this window was the
+     mouse. onclick covers both pointer and Enter. --%>
+<a href="javascript:void(0);" onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';"
+   onclick="parent.mb.hide();"><img
+        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
+        style="position: absolute; top: 0.5em; right: 0.5em; "></a>
+<br/><br/>
+<div class="mhTable" style="font-style:normal;font-family:sans-serif;font-size:80%;padding:1em;">
+    Medication history is unavailable.
+</div>
+    <%
+        }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
     %>
-</table>
 </body>
 </html>

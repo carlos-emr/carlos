@@ -61,6 +61,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.CarlosProperties;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * @author jay
  */
@@ -89,6 +91,8 @@ public class GenTa2Action extends ActionSupport {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute()
             throws IOException, ServletException, Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

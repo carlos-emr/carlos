@@ -150,7 +150,7 @@ for: identification; authentication; and authorization of
 parties using EBS as well as ensuring message
 integrity by means of a digital signature applied to each
 message. For more information refer to:
-http://www.oasisopen.org/committees/tc_home.php?wg_abbrev=wss.
+http://www.oasis-open.org/committees/tc_home.php?wg_abbrev=wss.
 
 <!-- page 6 -->
 
@@ -803,7 +803,7 @@ Final February 2013 Version 4.0 Page 23 of 52
 Final February 2013 Version 4.0 Page 24 of 52
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
@@ -812,8 +812,8 @@ Final February 2013 Version 4.0 Page 24 of 52
 <sp:SignedParts>
 <sp:Header Name="EBS" Namespace="http://ebs.health.ontario.ca/"/>
 <sp:Header Name="MSA" Namespace="http://msa.ebs.health.ontario.ca/"/>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -842,7 +842,7 @@ Final February 2013 Version 4.0 Page 25 of 52
 <sp:Header Name="IDP" Namespace="http://idp.ebs.health.ontario.ca/"/>
 <sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-
 wss-wssecurity-utility-1.0.xsd"/>
-<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="UsernameToken" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"/>
 <sp:Body/>
 </sp:SignedParts>
 </wsp:All>
@@ -869,7 +869,7 @@ Final February 2013 Version 4.0 Page 26 of 52
 <sp:Header Name="ServiceUserMUID" Namespace=""/>
 </sp:RequiredParts>
 <sp:RequiredParts>
-<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis200401-wss-wssecurity-utility-1.0.xsd"/>
+<sp:Header Name="Timestamp" Namespace="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"/>
 </sp:RequiredParts>
 </wsp:All>
 </wsp:ExactlyOne>
@@ -1406,8 +1406,8 @@ APPENDIX H: MSA Response Message Example
  <dsig:KeyInfo xmlns:dsig="http://www.w3.org/2000/09/xmldsig#" >
  <wsse:SecurityTokenReference>
  <wsse:KeyIdentifier
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509SubjectKeyIdentifier"
-EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security1.0#Base64Binary">
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509SubjectKeyIdentifier"
+EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary">
 MyXZQNYrNkOJu5c9ZOAH7su3vEM=
 </wsse:KeyIdentifier>
  </wsse:SecurityTokenReference>
@@ -1526,8 +1526,8 @@ xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-s
  <dsig:KeyInfo xmlns:dsig="http://www.w3.org/2000/09/xmldsig#" >
  <wsse:SecurityTokenReference>
  <wsse:KeyIdentifier
-ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile1.0#X509SubjectKeyIdentifier"
-EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security1.0#Base64Binary">
+ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0#X509SubjectKeyIdentifier"
+EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary">
 MyXZQNYrNkOJu5c9ZOAH7su3vEM=
 </wsse:KeyIdentifier>
  </wsse:SecurityTokenReference>

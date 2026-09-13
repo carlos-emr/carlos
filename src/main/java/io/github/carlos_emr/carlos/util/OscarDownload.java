@@ -41,17 +41,21 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OscarDownload extends GenericDownload {
+
+    private static final long serialVersionUID = 1L;
     private static final Logger log = MiscUtils.getLogger();
 
     private static final Set<String> ALLOWED_HOMEPATH_KEYS = Set.of(
             "homepath", "ohipdownload", "obecdownload"
     );
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            HttpSession session = req.getSession(true);
             String rawFilename = req.getParameter("filename");
             String filename = rawFilename == null ? null : PathValidationUtils.validateStrictFileName(rawFilename);
             String homepath = req.getParameter("homepath");
@@ -65,6 +69,12 @@ public class OscarDownload extends GenericDownload {
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
                 return;
             }
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN,
+                        "You have no right to download the file(s).");
+                return;
+            }
 
             String backupfilepath = (String) session.getAttribute(homepath); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): homepath is user-supplied but allowlist-validated against ALLOWED_HOMEPATH_KEYS before use as session lookup key; session value is server-side data
             if (backupfilepath != null
@@ -76,10 +86,8 @@ public class OscarDownload extends GenericDownload {
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
-                // Path traversal protection is enforced by GenericDownload.transferFile() via PathValidationUtils.validatePath(filename, directory)
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
-                stream.close();
             } else {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }

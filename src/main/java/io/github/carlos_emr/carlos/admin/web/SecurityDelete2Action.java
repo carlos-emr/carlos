@@ -39,6 +39,7 @@ import org.apache.struts2.ServletActionContext;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Admin action for permanently deleting a security (user account) record.
@@ -75,6 +76,8 @@ public class SecurityDelete2Action extends ActionSupport {
         this.methodSecurity = methodSecurity;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
