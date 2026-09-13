@@ -67,6 +67,7 @@ public class AnnotateDocument2Action extends ActionSupport {
     private int docId;
     private int pageCount;
     private String documentTitle;
+    private String sourceDigest;
     private int demographicNo;
     private String message;
 
@@ -124,6 +125,7 @@ public class AnnotateDocument2Action extends ActionSupport {
         // worse, let a document past the page ceiling that the save path then had to refuse. The
         // count is read from the file instead, under a deadline because it is untrusted input.
         try {
+            sourceDigest = AnnotatedDocumentService.sourceDigest(doc);
             pageCount = AnnotatedDocumentService.pageCountOf(doc);
         } catch (IOException | RuntimeException e) {
             logger.warn("Could not read the page count for document {}", docId);
@@ -161,6 +163,8 @@ public class AnnotateDocument2Action extends ActionSupport {
     public int getPageCount() {
         return pageCount;
     }
+
+    public String getSourceDigest() { return sourceDigest; }
 
     public String getDocumentTitle() {
         return documentTitle;

@@ -154,6 +154,7 @@
     window.CARLOS_ANNOTATE = {
         contextPath: '<carlos:encode value="<%=ctx%>" context="javaScript"/>',
         docId: ${docId},
+        sourceDigest: '<carlos:encode value="${sourceDigest}" context="javaScript"/>',
         pageCount: ${pageCount},
         demographicNo: ${demographicNo},
         i18n: {

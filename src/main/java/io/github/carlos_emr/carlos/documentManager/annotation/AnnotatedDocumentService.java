@@ -141,7 +141,7 @@ public class AnnotatedDocumentService {
     // gating it behind isInfoEnabled() would make a security control conditional.
     @SuppressWarnings("java:S2629") // INFO is enabled here; LogSafe.sanitize is required, not optional
     public int save(LoggedInInfo loggedInInfo, int sourceDocNo,
-                    List<DocumentAnnotationDto> annotations) throws IOException {
+                    List<DocumentAnnotationDto> annotations, String expectedDigest) throws IOException {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -172,6 +172,11 @@ public class AnnotatedDocumentService {
         byte[] composed;
         int actualPageCount;
         try {
+            try (var input = Files.newInputStream(readOnlyCopy)) {
+                if (!org.apache.commons.codec.digest.DigestUtils.sha256Hex(input).equals(expectedDigest)) {
+                    throw new IllegalArgumentException("The source document changed. Reopen it and review your annotations before saving.");
+                }
+            }
             actualPageCount = assertPageCountWithinLimit(readOnlyCopy);
             composed = composeBounded(readOnlyCopy, annotations,
                     signatureFor(loggedInInfo.getLoggedInProviderNo()), fontPath());
@@ -213,11 +218,15 @@ public class AnnotatedDocumentService {
         try {
             TransactionTemplate tx = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
             tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            java.util.concurrent.atomic.AtomicBoolean commitStarted = new java.util.concurrent.atomic.AtomicBoolean();
             return tx.execute(status -> {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
+                    public void beforeCommit(boolean readOnly) { commitStarted.set(true); }
+
+                    @Override
                     public void afterCompletion(int completion) {
-                        if (completion == STATUS_ROLLED_BACK) {
+                        if (completion == STATUS_ROLLED_BACK && !commitStarted.get()) {
                             try {
                                 Files.deleteIfExists(target);
                             } catch (IOException failure) {
@@ -280,6 +289,19 @@ public class AnnotatedDocumentService {
         AnnotatedDocumentComposer probe = new AnnotatedDocumentComposer();
         return BoundedPdfTask.runWithin(COMPOSE_TIMEOUT_SECONDS, "annotated-document-pagecount",
                 () -> probe.pageCount(file.toPath()));
+    }
+
+    /** Identifies the bytes shown when annotation starts; a changed source must be reviewed again. */
+    public static String sourceDigest(EDoc doc) throws IOException {
+        File root = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getDocumentDirectory(), DOCUMENT_DIR_LABEL);
+        File file = PathValidationUtils.validateExistingPath(new File(root, doc.getFileName()), root);
+        if (file.length() > MAX_ANNOTATABLE_BYTES) {
+            throw new IllegalArgumentException("This document is too large to annotate.");
+        }
+        try (var input = Files.newInputStream(file.toPath())) {
+            return org.apache.commons.codec.digest.DigestUtils.sha256Hex(input);
+        }
     }
 
     /**

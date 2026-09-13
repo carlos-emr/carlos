@@ -543,6 +543,7 @@
         document.getElementById('btnSaveFax').disabled = true;
 
         var payload = {
+            sourceDigest: cfg.sourceDigest,
             annotations: state.annotations.map(function (a) {
                 var out = { type: a.type, page: a.page, color: a.color };
                 if (a.type === 'ink') {

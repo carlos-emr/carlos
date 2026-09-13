@@ -83,6 +83,31 @@ class SaveAnnotatedDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertRefusedWithoutSideEffects("HEAD");
     }
 
+    @Test
+    @DisplayName("should check patient access before parsing the source PDF")
+    void shouldRejectUnauthorizedPatient_beforePdfParsing() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("docId", "42");
+        org.mockito.Mockito.when(securityInfoManager.hasPrivilege(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("_edoc"),
+                org.mockito.ArgumentMatchers.eq("w"), org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        var doc = new io.github.carlos_emr.carlos.documentManager.EDoc();
+        doc.setFileName("synthetic.pdf");
+        doc.setModule("demographic");
+        doc.setModuleId("10");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var documents = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class);
+             var pdf = mockStatic(AnnotatedDocumentService.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            documents.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getDoc("42")).thenReturn(doc);
+            action().execute();
+            assertThat(response.getStatus()).isEqualTo(403);
+            pdf.verifyNoInteractions();
+            verifyNoInteractions(service);
+        }
+    }
+
     private void assertRefusedWithoutSideEffects(String verb) throws Exception {
         request.setMethod(verb);
         request.setParameter("docId", "42");

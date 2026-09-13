@@ -73,7 +73,7 @@ class AnnotatedDocumentFilingUnitTest extends CarlosUnitTestBase {
             documents.when(() -> EDocUtil.addDocumentSQL(copy)).thenReturn("42");
             assertThat(service(tx, audit).fileCopy(copy, target, 10, new LoggedInInfo())).isEqualTo(42);
             assertThat(tx.committed).isTrue();
-            verify(audit).persist(argThat(log -> log.getDemographicId() == 10 && "42".equals(log.getContentId())));
+            verify(audit).persist(argThat((io.github.carlos_emr.carlos.commn.model.OscarLog log) -> log.getDemographicId() == 10 && "42".equals(log.getContentId())));
             assertThat(target).exists();
         }
     }

@@ -290,6 +290,10 @@ public class AnnotatedDocumentComposer {
         // so drop by roughly the font's ascent to keep the glyphs inside the box the provider drew.
         float baseline = (float) ((mark.getY() * pageH) + size * TEXT_BASELINE_RATIO);
 
+        String text = sanitize(mark.getText(), font);
+        if (font.getStringWidth(text) * size / 1000f > pageW - x) {
+            throw new IllegalArgumentException("The annotation text extends beyond the page. Shorten it or place it further left.");
+        }
         content.saveGraphicsState();
         content.setNonStrokingColor(color(mark.getColor()));
         content.beginText();
@@ -297,7 +301,7 @@ public class AnnotatedDocumentComposer {
         // mirrored. This text matrix re-flips just the glyphs while keeping the position.
         content.setTextMatrix(new Matrix(size, 0, 0, -size, x, baseline));
         content.setFont(font, 1f);
-        content.showText(sanitize(mark.getText(), font));
+        content.showText(text);
         content.endText();
         content.restoreGraphicsState();
     }

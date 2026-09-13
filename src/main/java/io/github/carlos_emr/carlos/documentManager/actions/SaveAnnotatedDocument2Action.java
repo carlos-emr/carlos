@@ -171,9 +171,14 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
                     error("The annotation data was too large."));
         }
 
+        String expectedDigest;
         List<DocumentAnnotationDto> annotations;
         try {
             annotations = parser.parse(body, pageCount);
+            expectedDigest = objectMapper.readTree(body).path("sourceDigest").asText("");
+            if (!expectedDigest.matches("[a-f0-9]{64}")) {
+                throw new IllegalArgumentException("Reopen the document before saving annotations.");
+            }
         } catch (IllegalArgumentException e) {
             // Parser messages name the rule that failed and contain no annotation content.
             return json(response, HttpServletResponse.SC_BAD_REQUEST, error(e.getMessage()));
@@ -188,7 +193,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
                         request.getServletContext().getRealPath("/"));
 
         try {
-            int newDocNo = service.save(loggedInInfo, docId, annotations);
+            int newDocNo = service.save(loggedInInfo, docId, annotations, expectedDigest);
             ObjectNode ok = objectMapper.createObjectNode();
             ok.put("success", true);
             ok.put("documentNo", newDocNo);

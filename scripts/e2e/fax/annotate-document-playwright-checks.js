@@ -71,13 +71,13 @@ function validateBaseUrl(rawBaseUrl) {
     throw new Error('BASE_URL must not embed credentials');
   }
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
   const local = localHosts.has(host) || privateIpv4;
   if (!local && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
-  return { href: parsed.href.replace(/\/+$/, ''), local };
+  return { href: parsed.href.replace(/\/+$/, ''), local, loopback: ['localhost', '127.0.0.1', '[::1]'].includes(host) };
 }
 
 const validatedBaseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -152,7 +152,7 @@ async function main() {
   // Self-signed certificates are normal on a local dev deployment and never acceptable for a
   // remote one: this script sends a real password, and skipping verification there would put it
   // on an unauthenticated TLS channel.
-  const context = await browser.newContext({ ignoreHTTPSErrors: validatedBaseUrl.local });
+  const context = await browser.newContext({ ignoreHTTPSErrors: validatedBaseUrl.loopback });
 
   const forbiddenRequests = [];
   const imageRequests = [];
@@ -180,6 +180,7 @@ async function main() {
     await login(page);
 
     const docId = process.env.DOC_ID || '1';
+    if (!/^[1-9][0-9]*$/.test(docId)) { throw new Error('DOC_ID must be a positive integer'); }
 
     // ---- word boxes are optional ----
     const boxes = await page.evaluate(async (args) => {
@@ -223,7 +224,8 @@ async function main() {
     const viewerResponse = await page.goto(
       `${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`,
       { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2500);
+    await page.locator('svg.overlay').first().waitFor();
+    await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
 
     const csp = viewerResponse.headers()['content-security-policy'] || '';
     check('viewer sends a Content-Security-Policy', csp.length > 0, '(no header)');
@@ -310,6 +312,7 @@ async function main() {
               'CSRF-TOKEN': input ? input.value : '',
             },
             body: JSON.stringify({
+              sourceDigest: window.CARLOS_ANNOTATE.sourceDigest,
               annotations: [
                 { type: 'highlight', page: 1, x: 0.1, y: 0.2, w: 0.5, h: 0.03, color: 'yellow' },
                 { type: 'date', page: 1, x: 0.6, y: 0.05, w: 0.25, h: 0.03, text: '2026-01-01', fontSize: 11 },
@@ -355,7 +358,7 @@ async function main() {
       // which is why this script is for disposable deployments only.
       await page.locator('#btnSave').click();
       await page.waitForFunction(
-        () => document.getElementById('status').textContent.trim().length > 0,
+        () => /(?:ok|error)/.test(document.getElementById('status').className),
         null, { timeout: 20000 },
       ).catch(() => {});
       const statusAfterSave = await page.locator('#status').evaluate(el => ({
@@ -363,6 +366,7 @@ async function main() {
         cls: el.className,
         display: getComputedStyle(el).display,
       }));
+      check('clicking Save confirms successful filing', statusAfterSave.cls === 'status ok', JSON.stringify(statusAfterSave));
       check('clicking Save writes into the status region',
         statusAfterSave.text.length > 0, JSON.stringify(statusAfterSave));
       check('setStatus applies its state class to the status region',
@@ -376,6 +380,117 @@ async function main() {
     } else {
       findings.push('FAIL  overlay had no usable geometry to draw on');
     }
+
+    // Run against the deployed viewer, injecting only the named failure at its network boundary.
+    async function openViewer() {
+      const dismiss = dialog => dialog.dismiss();
+      page.on('dialog', dismiss);
+      await page.goto(`${baseUrl}/documentManager/AnnotateDocument?docId=${docId}`);
+      page.off('dialog', dismiss);
+      await page.waitForFunction(() => document.querySelector('.page img')?.naturalWidth > 0);
+    }
+    async function mark(tool = 'highlight') {
+      await page.locator(`.tool[data-tool="${tool}"]`).click();
+      const bounds = await page.locator('svg.overlay').first().boundingBox();
+      await page.mouse.move(bounds.x + 30, bounds.y + 80);
+      await page.mouse.down();
+      await page.mouse.move(bounds.x + 170, bounds.y + 110, { steps: 12 });
+      await page.mouse.up();
+    }
+    async function waitForSave() {
+      await page.waitForFunction(() => /(?:ok|error)/.test(document.getElementById('status').className));
+    }
+
+    // A successful save must not suppress warnings for subsequent unsaved edits.
+    await mark('draw');
+    check('editing after a save enables saving again', await page.locator('#btnSave').isEnabled());
+    await page.locator('.tool[data-tool="date"]').click();
+    await page.locator('svg.overlay').first().click({ position: { x: 230, y: 140 } });
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic note é 3618'));
+    await page.locator('svg.overlay').first().click({ position: { x: 230, y: 180 } });
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('ink, date and Unicode text save through the real toolbar',
+      await page.locator('#status').getAttribute('class') === 'status ok');
+
+    await openViewer();
+    await page.locator('.tool[data-tool="text"]').click();
+    page.once('dialog', dialog => dialog.accept('Synthetic unsupported 🧬'));
+    await page.locator('svg.overlay').first().click({ position: { x: 180, y: 140 } });
+    const unsupportedResponse = page.waitForResponse(r => r.url().includes('/SaveAnnotatedDocument'));
+    await page.locator('#btnSave').click();
+    check('unsupported glyph is rejected instead of silently erased', (await unsupportedResponse).status() === 409);
+    await waitForSave();
+    check('unsupported glyph rejection stays visible and editable',
+      (await page.locator('#status').textContent()).includes('cannot display') && await page.locator('#btnSave').isEnabled());
+
+    await openViewer();
+    let wordAttempts = 0;
+    await page.route('**/DocumentTextBoxes?*', route => {
+      wordAttempts += 1;
+      return wordAttempts === 1 ? route.fulfill({ status: 503, body: '{}' }) : route.continue();
+    });
+    await mark();
+    await page.waitForTimeout(200);
+    await mark();
+    check('text-layer HTTP failure retries on the next drag', wordAttempts >= 2);
+    await page.unroute('**/DocumentTextBoxes?*');
+
+    // Hold an actual server save response; attempted edits must not re-enable duplicate submission.
+    let releaseSave;
+    const hold = new Promise(resolve => { releaseSave = resolve; });
+    let responseReceived;
+    const received = new Promise(resolve => { responseReceived = resolve; });
+    await page.route('**/SaveAnnotatedDocument?*', async route => {
+      const result = await route.fetch();
+      responseReceived();
+      await hold;
+      await route.fulfill({ response: result });
+    });
+    const beforeMarks = await page.locator('#markCount').textContent();
+    await page.locator('#btnSave').click();
+    await received;
+    await mark('draw');
+    check('edits cannot re-enable saving during an in-flight save',
+      (await page.locator('#markCount').textContent()) === beforeMarks && await page.locator('#btnSave').isDisabled());
+    releaseSave();
+    await waitForSave();
+    await page.unroute('**/SaveAnnotatedDocument?*');
+
+    await openViewer();
+    await mark();
+    await page.route('**/SaveAnnotatedDocument?*', route => route.abort('failed'));
+    await page.locator('#btnSave').click();
+    await waitForSave();
+    check('lost save response gives a check-chart warning and prevents blind retries',
+      (await page.locator('#status').textContent()).includes('could not be confirmed')
+      && await page.locator('#btnSave').isDisabled());
+    await page.unroute('**/SaveAnnotatedDocument?*');
+
+    await openViewer();
+    await mark();
+    await page.locator('#btnSaveFax').click();
+    await page.waitForURL('**/fax/faxAction*', { timeout: 30000 });
+    check('Save and fax reaches the protected POST cover page', await page.locator('#btnSend').count() === 1);
+    const preview = await page.locator('input[name="faxFilePath"]').inputValue();
+    check('document fax uses a staged copy', preview.includes('carlos-temp'));
+    const countResponse = await context.request.get(`${baseUrl}/fax/faxAction`, {
+      params: { method: 'getPageCount', faxFilePath: preview }
+    });
+    check('session-owned document fax preview can be read', countResponse.status() === 200);
+    const directory = await context.request.get(`${baseUrl}/fax/SearchFaxRecipient?term=Test`);
+    check('both recipient directory queries execute on MariaDB', directory.status() === 200 && Array.isArray(await directory.json()));
+    await page.locator('#btnCancel').click();
+    await page.waitForURL('**/documentManager/ManageDocument?*', { timeout: 30000 });
+    check('cancelling returns to the saved document without a missing result error',
+      !(await page.title()).includes('Error'));
+    const cancelledPreview = await context.request.get(`${baseUrl}/fax/faxAction`, {
+      params: { method: 'getPageCount', faxFilePath: preview }
+    });
+    check('cancelled document preview cannot be read again', cancelledPreview.status() === 403);
+    check('annotation flow has no CSP or uncaught script errors', cspViolations.length === 0, cspViolations.join(' | '));
+
   } finally {
     await context.close();
     await browser.close();
