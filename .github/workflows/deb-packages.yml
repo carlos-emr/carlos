@@ -59,6 +59,7 @@ jobs:
   build-debs:
     name: Build and attach .deb packages
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     # Pin the shell: container run steps otherwise default to /bin/sh, which
     # differs from the runner's bash and broke earlier iterations. bash ships
     # in the ubuntu:26.04 image, so set it once for the whole job.

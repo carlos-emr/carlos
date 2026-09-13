@@ -159,9 +159,10 @@ Then:
    ```
 
 6. The tag workflow re-runs the full build and tests, creates a clean WAR and
-   CycloneDX SBOM, generates signed provenance attestations, attaches and
-   verifies checksums, then publishes the verified draft as an immutable GitHub
-   release.
+   CycloneDX SBOM inside a minimal, digest-pinned JDK 21 + Maven image built
+   from `.github/release-build/Dockerfile` in the tagged source, generates signed
+   provenance attestations, attaches and verifies checksums, then publishes
+   the verified draft as an immutable GitHub release.
 7. Confirm prerelease/latest classification and asset attestations, then unfreeze
    the source branch.
 8. If publication occurred from `main`, back-merge the tagged commit into its
@@ -180,6 +181,11 @@ For a retry, dispatch the release workflow with the existing tag. Do not create
 a replacement tag, move the original tag, or tag a newer branch head with the
 same version. The workflow accepts an ancestor only when a prior unsuccessful
 tag-push run provides evidence that this is a retry of the immutable tag.
+Dispatch it on the tag's own ref, for example
+`gh workflow run publish-release.yml --ref refs/tags/2026.08.0-alpha3 -f tag=2026.08.0-alpha3`:
+the verification jobs load the local `.github/actions/dev-container` action from
+the checked-out tree, so the workflow definition and the tagged source must come
+from the same ref.
 
 ## Pull-request and CI coverage
 

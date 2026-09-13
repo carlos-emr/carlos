@@ -50,6 +50,14 @@ on:
   schedule:
     - cron: '0 5 * * 1'  # Monday 5:00 UTC (weekly full scan)
 
+# Superseded pushes to the same PR cancel the in-progress run; every other
+# event (push to a protected branch, schedule, dispatch) gets a unique group
+# via run_id and is never queued behind or cancelled by another run. The final
+# head of a PR always gets its own complete run, so no check outcome changes.
+concurrency:
+  group: pmd-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
   security-events: write
@@ -62,10 +70,13 @@ jobs:
   pmd:
     name: PMD Static Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Set up Java 21
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
