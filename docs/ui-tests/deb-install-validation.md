@@ -592,8 +592,13 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
 # First Nations stored-XSS check (first-nations-encoding-playwright-checks.js). It seeds an
 # attribute-breaking payload into this patient's demographicExt First Nations fields, asserts the
-# rendered inputs carry it back whole with no markup, and restores the original rows in a finally
-# (byte for byte, via HEX/UNHEX, so a stored tab, newline, backslash or SQL NULL survives).
+# rendered inputs carry it back whole with no markup, and restores the original rows byte for byte
+# (via HEX/UNHEX, so a stored tab, newline, backslash, empty string or SQL NULL survives). The
+# restore runs from the finally AND from SIGINT/SIGTERM/SIGHUP handlers, because the loop below
+# runs every check under `timeout --foreground` and a hard timeout would otherwise strand the
+# payload in the record; a restore that cannot complete fails the run rather than warning, and
+# names the demographic to repair by hand. MYSQL_HOST goes through the usual loopback guard, so a
+# non-loopback target needs ALLOW_NON_LOCAL_MYSQL_HOST=true.
 # Defaults to the lowest demographic_no in the database, so the export is only needed to pin a
 # different patient. The check always asserts the gate route
 # (/demographic/ViewManageFirstNationsModule); it additionally asserts the patient master record

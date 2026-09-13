@@ -45,6 +45,14 @@ class ManageFirstNationsModuleAssetRegressionTest {
     void shouldEncodeStoredValuesForHtmlAttributes_whenRenderingManageFirstNationsModule() throws IOException {
         String jsp = Files.readString(MANAGE_FIRST_NATIONS_MODULE_JSP, StandardCharsets.UTF_8);
 
+        // statusNum reaches the page twice -- the visible input and the hidden
+        // statusNumOrig -- and AssertJ's contains() is satisfied by either one.
+        // Pin the count so the hidden sink cannot quietly regress to raw EL
+        // while the visible one keeps this assertion green.
+        assertThat(countOccurrences(jsp, "value=\"${carlos:forHtmlAttribute(demoExt['statusNum'])}\""))
+                .as("both the statusNum input and the hidden statusNumOrig must be attribute-encoded")
+                .isEqualTo(2);
+
         assertThat(jsp)
                 .contains("value=\"${carlos:forHtmlAttribute(demoExt['statusNum'])}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(firstNationCommunity.value)}\"")
@@ -102,5 +110,13 @@ class ManageFirstNationsModuleAssetRegressionTest {
                 .contains("if (communityField && !communityField.value) {")
                 .doesNotContain("document.getElementById('fNationCom').addEventListener(")
                 .doesNotContain("if (!document.getElementById('fNationCom').value) {");
+    }
+
+    private static int countOccurrences(String haystack, String needle) {
+        int count = 0;
+        for (int at = haystack.indexOf(needle); at >= 0; at = haystack.indexOf(needle, at + needle.length())) {
+            count++;
+        }
+        return count;
     }
 }

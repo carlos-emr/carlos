@@ -78,6 +78,7 @@ const {
   login,
   screenshot,
   validateBaseUrl,
+  validateMysqlHost,
   wirePage,
 } = require('./eform-local-playwright-utils');
 
@@ -91,7 +92,7 @@ const config = {
   screenshotDir: process.env.FIRST_NATIONS_SCREENSHOT_DIR || '/tmp',
 };
 
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -131,6 +132,22 @@ function sql(query) {
     '-h', mysqlHost, '-u', mysqlUser, mysqlDatabase, '-N', '-B', '-e', query,
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
+/**
+ * Same query, but only the final newline is stripped.
+ *
+ * `sql()` trims, which is right for a single scalar and wrong for a result set:
+ * an empty VARCHAR comes back as an empty trailing FIELD (`key\tV\t`), and
+ * trimming eats that tab along with the line ending. The row then parses one
+ * field short, `hex` is undefined, and the restore writes UNHEX('undefined') --
+ * SQL NULL -- over a value that was the empty string. Keep the tabs.
+ */
+function sqlRows(query) {
+  assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
+  return execFileSync('mysql', [
+    `--defaults-extra-file=${mysqlDefaults.file}`,
+    '-h', mysqlHost, '-u', mysqlUser, mysqlDatabase, '-N', '-B', '-e', query,
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).replace(/\n$/, '');
+}
 function sqlString(value) {
   return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
 }
@@ -149,13 +166,21 @@ function sqlString(value) {
  * value goes back through UNHEX() byte for byte.
  */
 function readOriginalExtRows(demographicNo, keys) {
-  const rows = sql(
+  const rows = sqlRows(
     `SELECT key_val, IF(value IS NULL, 'N', 'V'), IFNULL(HEX(value), '')`
       + ` FROM demographicExt WHERE demographic_no=${demographicNo}`
       + ` AND key_val IN (${keys.map(sqlString).join(',')})`,
   );
   return rows.split('\n').filter(Boolean).map((line) => {
-    const [key, nullFlag, hex] = line.split('\t');
+    const fields = line.split('\t');
+    // Silent corruption is the whole hazard here, so refuse to guess: a row that
+    // does not parse into exactly the three requested fields must stop the run
+    // rather than restore something invented.
+    assert(
+      fields.length === 3 && (fields[1] === 'N' || fields[1] === 'V') && /^[0-9A-F]*$/.test(fields[2]),
+      `Unparseable demographicExt capture row ${JSON.stringify(line)}; refusing to seed`,
+    );
+    const [key, nullFlag, hex] = fields;
     return { key, isNull: nullFlag === 'N', hex };
   });
 }
@@ -236,13 +261,71 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
   return { communityAsserted };
 }
 
+// Seeding state lives at module scope so the signal handlers below can put the
+// patient's rows back. This check plants an attribute-breaking payload in a real
+// demographic record; leaving it there is a worse outcome than any assertion
+// failure, so every exit path has to run the restore.
+let demographicNo = null;
+let originalExt = null;
+let seededLookupListId = null;
+let restoreDone = false;
+
+/**
+ * Put back every row this check touched. Throws if anything could not be
+ * restored -- callers must treat that as a failed run, never a warning.
+ */
+function restoreSeededRows() {
+  if (restoreDone) {
+    return;
+  }
+  restoreDone = true;
+  if (demographicNo && originalExt) {
+    const restored = new Map(originalExt.map((row) => [row.key, row]));
+    for (const key of SEEDED_KEYS) {
+      const row = restored.get(key);
+      if (row) {
+        // UNHEX('') is the empty string, not NULL, so the two cases stay
+        // distinct all the way back into the column.
+        const literal = row.isNull ? 'NULL' : `UNHEX(${sqlString(row.hex)})`;
+        sql(
+          `UPDATE demographicExt SET value=${literal}`
+            + ` WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)}`,
+        );
+      } else {
+        sql(`DELETE FROM demographicExt WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)}`);
+      }
+    }
+  }
+  if (seededLookupListId) {
+    sql(`DELETE FROM LookupListItem WHERE lookupListId=${seededLookupListId}`);
+    sql(`DELETE FROM LookupList WHERE id=${seededLookupListId}`);
+    seededLookupListId = null;
+  }
+}
+
+// The deb-install runbook drives every check under `timeout --foreground`, and a
+// SIGTERM would otherwise kill this process between seeding and the finally,
+// stranding the payload in the record. Every sql() call is synchronous, so the
+// restore completes inside the handler.
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(signal, () => {
+    try {
+      restoreSeededRows();
+      console.error(`WARN received ${signal}; restored seeded First Nations rows before exiting.`);
+    } catch (restoreError) {
+      console.error(`FAIL received ${signal} and could NOT restore seeded First Nations rows: ${restoreError.message}`);
+      console.error(`Restore by hand before using demographic ${demographicNo}: it still holds the test payload.`);
+    } finally {
+      cleanupMysqlDefaults();
+      process.exit(1);
+    }
+  });
+}
+
 (async () => {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   initMysqlDefaults();
-  let demographicNo = null;
-  let originalExt = null;
-  let seededLookupListId = null;
   let coveredMasterRecord = false;
   let communityAsserted = false;
   try {
@@ -373,29 +456,14 @@ async function assertEncodedRender(page, label, { expectCommunity }) {
     process.exitCode = 1;
   } finally {
     try {
-      if (demographicNo && originalExt) {
-        const restored = new Map(originalExt.map((row) => [row.key, row]));
-        for (const key of SEEDED_KEYS) {
-          const row = restored.get(key);
-          if (row) {
-            // UNHEX('') is the empty string, not NULL, so the two cases stay
-            // distinct all the way back into the column.
-            const literal = row.isNull ? 'NULL' : `UNHEX(${sqlString(row.hex)})`;
-            sql(
-              `UPDATE demographicExt SET value=${literal}`
-                + ` WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)}`,
-            );
-          } else {
-            sql(`DELETE FROM demographicExt WHERE demographic_no=${demographicNo} AND key_val=${sqlString(key)}`);
-          }
-        }
-      }
-      if (seededLookupListId) {
-        sql(`DELETE FROM LookupListItem WHERE lookupListId=${seededLookupListId}`);
-        sql(`DELETE FROM LookupList WHERE id=${seededLookupListId}`);
-      }
+      restoreSeededRows();
     } catch (restoreError) {
-      console.error(`WARN failed to restore seeded First Nations rows: ${restoreError.message}`);
+      // A failed restore leaves an XSS payload in a patient's record. The PASS
+      // line may already be on stdout, so the exit code is the only thing left
+      // that can stop a green run from hiding it.
+      console.error(`FAIL could not restore seeded First Nations rows: ${restoreError.message}`);
+      console.error(`Restore by hand before using demographic ${demographicNo}: it still holds the test payload.`);
+      process.exitCode = 1;
     }
     cleanupMysqlDefaults();
     await browser.close();
