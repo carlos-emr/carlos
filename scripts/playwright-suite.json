@@ -109,6 +109,24 @@
       ]
     },
     {
+      "name": "anonymous-access-refused",
+      "script": "scripts/anonymous-access-refused-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "ANON_ROUTE_LIMIT",
+        "ANON_SEARCH",
+        "ANON_DEMOGRAPHIC_NO",
+        "ANON_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "application-health",
       "script": "scripts/application-health-playwright-checks.js",
       "tiers": [
@@ -225,6 +243,23 @@
         "SURFACE_DEMOGRAPHIC_NO",
         "SURFACE_SCREENSHOT_DIR",
         "SURFACE_SEARCH_TERM"
+      ]
+    },
+    {
+      "name": "clinical-calculators",
+      "script": "scripts/clinical-calculators-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CALCULATOR_SEARCH",
+        "CALCULATOR_DEMOGRAPHIC_NO",
+        "CALCULATOR_TIMEOUT_MS"
       ]
     },
     {
@@ -346,40 +381,6 @@
       ]
     },
     {
-      "name": "patient-search-modes",
-      "script": "scripts/patient-search-modes-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 420,
-      "env": [
-        "SEARCH_MODES",
-        "SEARCH_INACTIVE_STATUSES",
-        "SEARCH_TIMEOUT_MS"
-      ]
-    },
-    {
-      "name": "clinical-calculators",
-      "script": "scripts/clinical-calculators-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": false,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "CALCULATOR_SEARCH",
-        "CALCULATOR_DEMOGRAPHIC_NO",
-        "CALCULATOR_TIMEOUT_MS"
-      ]
-    },
-    {
       "name": "demographic-labels",
       "script": "scripts/demographic-labels-playwright-checks.js",
       "tiers": [
@@ -394,70 +395,6 @@
         "LABELS_SEARCH",
         "LABELS_DEMOGRAPHIC_NO",
         "LABELS_TIMEOUT_MS"
-      ]
-    },
-    {
-      "name": "inboxhub-filters",
-      "script": "scripts/inboxhub-filters-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": false,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 600,
-      "env": [
-        "INBOX_TIMEOUT_MS"
-      ]
-    },
-    {
-      "name": "mutator-get-rejection-live",
-      "script": "scripts/mutator-get-rejection-live-playwright-checks.js",
-      "tiers": [
-        "smoke",
-        "core"
-      ],
-      "assertsDatabase": false,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "MUTATOR_GET_TIMEOUT_MS"
-      ]
-    },
-    {
-      "name": "anonymous-access-refused",
-      "script": "scripts/anonymous-access-refused-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": false,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 420,
-      "env": [
-        "ANON_ROUTE_LIMIT",
-        "ANON_SEARCH",
-        "ANON_DEMOGRAPHIC_NO",
-        "ANON_TIMEOUT_MS"
-      ]
-    },
-    {
-      "name": "schedule-date-navigation",
-      "script": "scripts/schedule-date-navigation-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": false,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "SCHEDULE_NAV_TIMEOUT_MS"
       ]
     },
     {
@@ -931,6 +868,23 @@
       ]
     },
     {
+      "name": "first-nations-encoding",
+      "script": "scripts/first-nations-encoding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FIRST_NATIONS_DEMOGRAPHIC_NO",
+        "FIRST_NATIONS_SCREENSHOT_DIR",
+        "RESET_PASSWORD"
+      ]
+    },
+    {
       "name": "flowsheet-admin",
       "script": "scripts/flowsheet-admin-playwright-checks.js",
       "tiers": [
@@ -968,6 +922,21 @@
       "env": [
         "ROURKE_DEMOGRAPHIC_NO",
         "ROURKE_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "inboxhub-filters",
+      "script": "scripts/inboxhub-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "INBOX_TIMEOUT_MS"
       ]
     },
     {
@@ -1141,6 +1110,40 @@
       "timeoutSec": 300
     },
     {
+      "name": "mutator-get-rejection-live",
+      "script": "scripts/mutator-get-rejection-live-playwright-checks.js",
+      "tiers": [
+        "smoke",
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MUTATOR_GET_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "o19-migrated-smoke",
+      "script": "scripts/o19-migrated-smoke-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "O19_ADMIN_CREDENTIALS",
+        "O19_ARCHIVE_SCHEMA",
+        "O19_SMOKE_SCREENSHOT_DIR",
+        "O19_STATE_DIR"
+      ]
+    },
+    {
       "name": "patient-list-by-appointment-export",
       "script": "scripts/patient-list-by-appointment-export-playwright-checks.js",
       "tiers": [
@@ -1166,6 +1169,23 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "patient-search-modes",
+      "script": "scripts/patient-search-modes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SEARCH_MODES",
+        "SEARCH_INACTIVE_STATUSES",
+        "SEARCH_TIMEOUT_MS"
+      ]
     },
     {
       "name": "pr-hardening",
@@ -1330,6 +1350,21 @@
       ]
     },
     {
+      "name": "schedule-date-navigation",
+      "script": "scripts/schedule-date-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "SCHEDULE_NAV_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "schedule-links",
       "script": "scripts/schedule-links-playwright-checks.js",
       "tiers": [
@@ -1414,27 +1449,6 @@
         "all"
       ],
       "timeoutSec": 300
-    },
-    {
-      "name": "surface-audit:referrals-surface",
-      "script": "scripts/surface-audit-playwright-checks.js",
-      "envSet": {
-        "SURFACE": "referrals-surface"
-      },
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": false,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 420,
-      "env": [
-        "SURFACE_LIMIT",
-        "SURFACE_TIMEOUT_MS",
-        "SURFACE_SCREENSHOT_DIR",
-        "SURFACE_PROVINCE"
-      ]
     },
     {
       "name": "surface-audit:consultations-surface",
@@ -1525,6 +1539,27 @@
       "script": "scripts/surface-audit-playwright-checks.js",
       "envSet": {
         "SURFACE": "preferences-surface"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "SURFACE_LIMIT",
+        "SURFACE_TIMEOUT_MS",
+        "SURFACE_SCREENSHOT_DIR",
+        "SURFACE_PROVINCE"
+      ]
+    },
+    {
+      "name": "surface-audit:referrals-surface",
+      "script": "scripts/surface-audit-playwright-checks.js",
+      "envSet": {
+        "SURFACE": "referrals-surface"
       },
       "tiers": [
         "core"

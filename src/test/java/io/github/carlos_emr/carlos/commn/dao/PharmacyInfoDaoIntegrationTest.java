@@ -77,6 +77,18 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         return info;
     }
 
+    @Test
+    @DisplayName("should match literal metacharacters and exclude pharmacies without fax numbers")
+    void shouldMatchLiteralMetacharacters_whenSearchingFaxablePharmacies() {
+        PharmacyInfo exact = createPharmacy("Review!_% Pharmacy", "Ottawa", '1');
+        createPharmacy("Review!ABC Pharmacy", "Ottawa", '1');
+        PharmacyInfo unavailable = createPharmacy("Review!_% No Fax", "Ottawa", '1');
+        unavailable.setFax("");
+        pharmacyInfoDao.merge(unavailable);
+        assertThat(pharmacyInfoDao.searchFaxablePharmacies("Review!_%", "", 20))
+                .extracting(PharmacyInfo::getId).containsExactly(exact.getId());
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

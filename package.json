@@ -65,6 +65,7 @@
     "test:select-forms-panel-playwright": "node scripts/select-forms-panel-playwright-checks.js",
     "test:flu-billing-report-playwright": "node scripts/flu-billing-report-playwright-checks.js",
     "test:billing-on-third-party-playwright": "node scripts/billing-on-third-party-playwright-checks.js",
+    "test:annotate-document-playwright": "node scripts/e2e/fax/annotate-document-playwright-checks.js",
     "test:rx-med-history-playwright": "node scripts/rx-med-history-playwright-checks.js",
     "test:consultation-request-create-playwright": "node scripts/consultation-request-create-playwright-checks.js",
     "test:billing-on-submit-playwright": "node scripts/billing-on-submit-playwright-checks.js",
@@ -103,7 +104,9 @@
     "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js",
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
-    "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js"
+    "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
+    "test:o19-migrated-smoke": "node scripts/o19-migrated-smoke-playwright-checks.js",
+    "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

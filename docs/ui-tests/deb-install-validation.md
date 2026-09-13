@@ -605,6 +605,28 @@ export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000
 #     DRUGREF_UPDATE_TIMEOUT_SEC=3600 \
 #     timeout 3900 node scripts/drugref-update-playwright-checks.js
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
+# First Nations stored-XSS check (first-nations-encoding-playwright-checks.js). It seeds an
+# attribute-breaking payload into this patient's demographicExt First Nations fields, asserts the
+# rendered inputs carry it back whole with no markup, and restores the original rows byte for byte
+# (via HEX/UNHEX, so a stored tab, newline, backslash, empty string or SQL NULL survives). The
+# restore runs from the finally AND from SIGINT/SIGTERM/SIGHUP handlers, because the loop below
+# runs every check under `timeout --foreground` and a hard timeout would otherwise strand the
+# payload in the record; a restore that cannot complete fails the run rather than warning, and
+# names the demographic to repair by hand. MYSQL_HOST goes through the usual loopback guard, so a
+# non-loopback target needs ALLOW_NON_LOCAL_MYSQL_HOST=true.
+# Defaults to the lowest demographic_no in the database, so the export is only needed to pin a
+# different patient. The check always asserts the gate route
+# (/demographic/ViewManageFirstNationsModule); it additionally asserts the patient master record
+# when FIRST_NATIONS_MODULE=true in /etc/carlos-emr/carlos.properties (then `carlos-ctl restart`),
+# which is the path a clinician actually sees -- set it if you want that half covered, since the
+# property ships false and the module is simply absent from the master record without it.
+# The community <option> half is skipped, and says so in its PASS line, on an install that
+# already has a firstNationCommunity lookup list (the DAO caches it) or that runs
+# showBandNumberOnly=true (the control is not rendered at all). Because the fixture deletes its
+# seeded list with direct SQL, it cannot fire the DAO's @CacheEvict: a running CARLOS can keep
+# serving that deleted list until a lookup-list write or cache expiry, so run the community half
+# at most once per application start and `carlos-ctl restart` before repeating it.
+export FIRST_NATIONS_DEMOGRAPHIC_NO=1
 # A browser failure may be the first symptom of the JVM being killed and
 # restarted. Record the service counter so the suite cannot finish green after
 # silently testing two different application processes.

@@ -50,6 +50,18 @@ Environment=LC_ALL=C.UTF-8
 # docs/eform-browser-pdf-renderer.md; do not re-derive drop-ins that relax
 # RestrictNamespaces or ProtectProc from old revisions of this file.
 
+# Never start into a half-copied schema. While `carlos-ctl import-o19` is
+# mid-run the application must stay down: its startup listener writes rows
+# the import's row-parity gate rejects, and a live session could read a
+# half-copied chart. `carlos-ctl stop` leaves the unit ENABLED, so a reboot
+# during an import -- or a colleague's `systemctl start` -- would otherwise
+# start it as if nothing were happening (seen on the Ubuntu 26.04
+# rehearsal). ExecCondition= makes such a start a clean "condition failed"
+# skip, not a failure; the guard explains itself in the journal. The `+`
+# runs it with full privileges, outside this unit's sandbox: the ledger it
+# reads is root-only, and the guard reads one file and runs python3 on it.
+# The postinst consults the same file, so the two cannot drift apart.
+ExecCondition=+/usr/lib/carlos-emr/carlos-emr-o19-guard
 ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 # catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and
 # Tomcat performs its normal shutdown. 143 is 128+SIGTERM, which is what a JVM
