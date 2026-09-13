@@ -25,10 +25,15 @@ from a search result or the day sheet's M link; "Chart" is the E-Chart opened fr
 day sheet's E link or the Master Record, and "Chart ▸ ‹module›" is an item in its left
 navigation (Rx, Allergies, Consultations, Immunization, Preventions, Dx Registry, Forms,
 eForms, Documents, Messenger, Flowsheet, Measurements, Ticklers, Calculators, Bill).
-"Administration" is the panel the top bar opens (the `/administration` shell renders the same
-groups: User Management, Billing, Labs/Inbox, Forms/eForms, Reports, Provider, eChart,
-Schedule Management, System Management, Messages, Integration, System Reports,
-Data Management).
+"Administration" is the panel the top bar opens, whose groups are User Management, Billing,
+Labs/Inbox, Forms/eForms, Reports, eChart, CAISI (which, oddly, is where System Messages,
+Facility Messages, Issue Editor, Default Encounter Issue and Lookup Field Editor live),
+Schedule Management, Doctor Content Management, System Management, System Reports,
+Integration, Status and Data Management. The `/administration` shell renders the same groups
+plus Faxes (Configure Fax, Manage Faxes) and Emails (Configure Email, Manage Emails), and
+puts Jobs Management / Job Type Management under System Management and Purge Audit Log under
+Data Management. Paths below use the panel's grouping and say "(shell)" where an item exists
+only there.
 
 A URL appears in a path **only where the check must use one**: negative authorisation and
 CSRF probes (the point is that a typed address is refused), and byte assertions on a download
@@ -111,7 +116,7 @@ service plus the demo load (`.devcontainer/db/scripts/populate_db.sh`) — not a
 
 ### 1.1 Route coverage, measured
 
-For every `<action name>` in `struts-*.xml` (1,064 after dropping one-word generic names),
+For every `<action name>` in `struts-*.xml` (1,064 after dropping short un-namespaced names),
 does any check script reference it? (`grep -F` over all scripts; "touched" over-counts slightly
 where a name is a substring of another.)
 
@@ -175,7 +180,7 @@ priority group where its module lives:
 | `billing-service-code-admin` | `billing/CA/ON/AddEditServiceCode` | Schedule ▸ Administration ▸ Billing ▸ Manage Billing Service Code |
 | `schedule-template-crud` | `schedule/TemplateSetting` | Schedule ▸ Administration ▸ Schedule Management ▸ Schedule Setting ▸ Template |
 | `specialist-add-cpso` | `…/config/ViewAddSpecialist`, `ShowAllServices` | Schedule ▸ Consultations ▸ configuration icon ▸ Add Specialist |
-| `fax-configure` | `admin/ViewConfigureFax` | Schedule ▸ Administration ▸ Integration ▸ Fax Status / Configure Fax |
+| `fax-configure` | `admin/ViewConfigureFax` | Schedule ▸ Administration ▸ Faxes ▸ Configure Fax (shell; the panel lists Status ▸ Fax Status) |
 | `rx-*` (five scripts) | `rx/choosePatient?demographicNo=…` | Chart ▸ Rx (or Master Record ▸ Prescriptions) |
 | `messenger`, `messenger-inbox-actions` | `messenger/DisplayMessages` | Schedule ▸ Msg |
 | `tickler-crud`, `tickler-note-dialog` | `tickler/ViewAddTickler`, `ViewTicklerMain` | Schedule ▸ Tickler ▸ Add Tickler |
@@ -310,8 +315,8 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `password-change-preferences` | Schedule ▸ Preferences ▸ Change Password | Weak password refused server-side; good one accepted; old password fails to log in; hash changed | Restore hash as `login` does | `provider/ViewProviderChangePassword`, `ViewProviderUpdatePassword` |
 | `account-lockout-unlock` (runLast) | Three bad logins on a throwaway record → Schedule ▸ Administration ▸ User Management ▸ Unlock Account | Locked row; login refused with the lockout message; unlock clears it; login succeeds | Throwaway record | `admin/UnLock` |
 | `security-record-admin` | Administration ▸ User Management ▸ Search/Edit/Delete Security Records ▸ edit ▸ delete | `security` row updated then removed; a deleted login cannot log in | Throwaway record | `admin/SecurityUpdate`, `SecurityDelete` |
-| `provider-record-admin` | Administration ▸ User Management ▸ Search/Edit Provider Records ▸ Update; Assign Role/Rights to Object; provider template | `provider` fields (OHIP no, billing no, status) updated; an inactive provider disappears from the day sheet's provider list | Throwaway provider | `admin/ProviderUpdate`, `ProviderPrivilege`, `ProviderTemplate` |
-| `role-privilege-matrix` | Administration ▸ System Management ▸ Add A Role (no `_rx`, `_billing`, `_admin`) ▸ Assign Role to Provider; log in as that provider | Chart shows no Rx/Bill links and the top bar no Billing/Administration; **typed URLs** to `rx/choosePatient`, `billing/CA/ON/*`, `admin/ViewAdmin` answer the sanitised security page, not content; audit rows recorded | Throwaway role + provider — the one place a typed address is the point | `SecurityInfoManager` gates |
+| `provider-record-admin` | Administration ▸ User Management ▸ Search/Edit Provider Records ▸ Update; System Management ▸ Assign Role/Rights to Object; provider template | `provider` fields (OHIP no, billing no, status) updated; an inactive provider disappears from the day sheet's provider list | Throwaway provider | `admin/ProviderUpdate`, `ProviderPrivilege`, `ProviderTemplate` |
+| `role-privilege-matrix` | Administration ▸ System Management ▸ Add A Role (no `_rx`, `_billing`, `_admin`) ▸ User Management ▸ Assign Role to Provider; log in as that provider | Chart shows no Rx/Bill links and the top bar no Billing/Administration; **typed URLs** to `rx/choosePatient`, `billing/CA/ON/*`, `admin/ViewAdmin` answer the sanitised security page, not content; audit rows recorded | Throwaway role + provider — the one place a typed address is the point | `SecurityInfoManager` gates |
 | `csrf-negative-matrix` | For each mutator family (tickler, appointment, note, Rx, allergy, billing, provider admin, eForm): perform the action through the UI, then replay the captured POST **without** its token | Replay → 403 and **no row**; the UI action → row | Reuses each family's seed; parameterised from the manifest | `CarlosCsrfGuardFilter` |
 | `mutator-get-rejection-live` | Same families, replay as GET | 405 / security page and no side effect — the live twin of `MutatorActionGetRejectionContractUnitTest` | none | contract manifest |
 
@@ -323,8 +328,8 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `appointment-repeat-group-copy` | Add Appointment ▸ Repeat; ▸ Group; day sheet ▸ appointment ▸ Cut / Paste, Copy; ▸ Print | N rows for a repeat; group rows share the group id; cut moves, copy duplicates; print answers a printable page | Same | `appointmentrepeatbooking`, `appointmentgrouprecords`, `CutRecord`, `appointmentcopyrecord`, `printappointment` |
 | `schedule-views` | Top bar: Day / Week / Month / Flip / Zoom / Search views; All (providers); multiplier; jump-to-date calendar; Find a Provider | Each view renders the seeded appointment; the week-view deep link hides E/B links only on week view (obs. 13 fixed behaviour) | Seeded appointment | `provider/providercontrol` modes, `ViewReceptionistFindProvider`, `schedule/FlipView` |
 | `schedule-admin-settings` | Administration ▸ Schedule Management ▸ Schedule Setting (Holiday, Template Code), Appointment Status Setting, Appointment Type List; Preferences ▸ General ▸ Provider Colour | Rows in `scheduleholiday`, `scheduletemplatecode`, `appointment_status`, `appointmentType`; the new status appears in the edit popup | Restore | `schedule/HolidaySetting`, `TemplateCodeSetting`, `appointment/apptStatusSetting`, `appointmentTypeAction`, `setProviderColour` |
-| `waiting-list` | Master Record ▸ Waiting List; Administration ▸ waiting list names | Add / remove / rename; `waitingList`, `waitingListName` rows | Throwaway list | `waitinglist/*` |
-| `appointment-search-history` | Schedule ▸ Search ▸ Appointments; Master Record ▸ Appt. History | The seeded appointment is found by date/provider/patient; history lists it | Seeded appointment | `appointment/appointmentsearch`, `demographic/DemographicApptHistory` |
+| `waiting-list` | Master Record ▸ Waiting List (add / remove; list names are edited from the same page) | Add / remove / rename; `waitingList`, `waitingListName` rows | Throwaway list | `waitinglist/*` |
+| `appointment-search-history` | Schedule ▸ provider column header ▸ Search view icon; Master Record ▸ Appt. History | The seeded appointment is found by date/provider/patient; history lists it | Seeded appointment | `appointment/appointmentsearch`, `demographic/DemographicApptHistory` |
 | `my-groups` | Administration ▸ Schedule Management ▸ Add a Group ▸ add providers; day sheet ▸ Group view | Group created; the day sheet's group view shows its providers | Throwaway group | `admin/AdminNewGroup`, `AdminSaveMyGroup`, `provider/SaveMyGroup` |
 
 ### 2.4 Demographics and the master record
@@ -333,12 +338,12 @@ until the package can be installed with nginx + ModSecurity in CI.
 |---|---|---|---|---|
 | `demographic-edit-update` | Schedule ▸ Search ▸ result ▸ Master Record ▸ Edit | Address/phone/email/HIN+version/status/roster/MRP/language round-trip; a bad HIN check digit is refused, a good one accepted; `demographic` + `demographicExt` rows; roster change writes enrolment history | Throwaway demographic | `demographic/DemographicEdit`, `DemographicUpdate`, `validateHC` |
 | `master-record-tabs` | Every link on the Master Record: Appt. History, Waiting List, Billing History, Invoice List, Add Bill, Consultations, Prescriptions, E-Chart, Prevention, Tickler, AR1/AR2, Documents, eForms, Manage Contacts, Add Relation, Enrollment History, print/label menu | Each opens without an error page or a new console error; replaces the master-record half of `browser-surface` | Demographic 2 | see §1 |
-| `demographic-contacts` | Master Record ▸ Add Relation; ▸ Manage Contacts (Other Contacts, professional contacts); ▸ health-care team | Add/edit/delete a relation, an alternate contact, a professional contact; SDM flags; `relationships`, `demographiccontact` rows | Throwaway rows | `demographic/AddRelation`, `DeleteRelation`, `Contact`, `ViewProContact`, `ViewManageHealthCareTeam` |
+| `demographic-contacts` | Master Record ▸ Add Relation; ▸ Manage Contacts (Other Contacts, professional contacts); the health-care team the Master Record displays is managed from Chart ▸ Forms ▸ BPMH | Add/edit/delete a relation, an alternate contact, a professional contact; SDM flags; `relationships`, `demographiccontact` rows | Throwaway rows | `demographic/AddRelation`, `DeleteRelation`, `Contact`, `ViewProContact`, `ViewManageHealthCareTeam` |
 | `demographic-merge` | Administration ▸ Data Management ▸ Merge Patient Records | Two throwaway patients; after merge the child is flagged, the parent's chart lists the child's notes, search finds one active record; `demographic_merged` rows | Throwaway pair | `admin/DemographicMergeRecord`, `MergeRecords` |
-| `demographic-labels` | Master Record ▸ print/label menu ▸ Label, Address Label, Chart Label, Envelope; Inbox ▸ Create Lab ▸ lab label | bytes: `%PDF`, `application/pdf`, non-empty | none | `demographic/print*Label*`, `ViewPrintEnvelope`, `lab/CA/ALL/createLabLabel` |
+| `demographic-labels` | Master Record ▸ print/label menu ▸ Label, Address Label, Chart Label, Envelope; Inbox ▸ lab ▸ print lab label | bytes: `%PDF`, `application/pdf`, non-empty | none | `demographic/print*Label*`, `ViewPrintEnvelope`, `lab/CA/ALL/createLabLabel` |
 | `demographic-export-import` | Administration ▸ Data Management ▸ Demographic Export; ▸ Import New Demographic | Export produces the CDS XML for the patient (bytes); importing the fixture creates `FAKE-` patients; the import log downloads | Fixture files; delete created rows | `demographic/DemographicExport`, `form/importUpload`, `importLogDownload` |
 | `patient-set-cohort` | Master Record ▸ add to patient set; Schedule ▸ Report ▸ Demographic Report Tool ▸ sets | Set created, patient added, set drives a report row (the `prevention-recall-report` pattern) | Throwaway set | `demographic/ViewAddDemoToPatientSet`, `report/CreateDemographicSet`, `DemographicSetEdit` |
-| `demographic-audit` | Master Record ▸ audit view | The edit `demographic-edit-update` made appears with user and time | Reuse | `demographic/ViewDemographicAudit` |
+| `demographic-audit` | Master Record ▸ Edit ▸ clinical section ▸ audit link | The edit `demographic-edit-update` made appears with user and time | Reuse | `demographic/ViewDemographicAudit` |
 | `patient-search-modes` | Schedule ▸ Search: name, HIN, phone, chart no, DOB (existing), address, all; Active/inactive; swipe | Result set per mode; inactive excluded by default and included on request; nothing beyond the search term in the URL | Demo data | `demographic/ViewSearch`, `DemographicSearch`, `ViewZdemographicSwipe` |
 
 ### 2.5 Chart / encounter
@@ -351,10 +356,10 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `clinical-flowsheet` | Chart ▸ Flowsheet (visible after `echart-dx-registry`) ▸ Add links | Renders; Add saves; print answers a page; the measurement-entry 500 without a patient is asserted fixed | Needs the Dx fixture — the clinical doc's "recommended next addition" | `ViewTemplateFlowSheet`, `ViewAddMeasurementData`, `ViewTemplateFlowSheetPrint` |
 | `echart-measurements-history-graph` | Chart ▸ Measurements ▸ History / Graph / Export | History lists rows; the graph is a real PNG (#2859); export bytes | Seeded measurements | `SetupHistoryIndex`, `GraphMeasurements`, `ScatterPlotChartServlet`, `ViewExportMeasurement` |
 | `echart-navbar-modules` | Every Chart left-nav module and its "+": Consultations, Documents, eForms, Forms, HRM, Labs, Messenger, Pregnancy, Episode, Contacts, Decision Support, Ticklers, Preventions, Issues/Resolved | Renders with rows for demographic 2, no error page, "+" opens the right popup; read-only | Demographic 2 | `encounter/display*` |
-| `encounter-templates` | Administration ▸ eChart ▸ Insert a Template (create); Chart ▸ note ▸ Templates | Template text lands in the note; `encounterTemplate` CRUD | Throwaway template | `encounter/InsertTemplate`, `ViewInsertTemplate` |
-| `decision-support-alerts` | Chart of a patient matching a seeded rule ▸ Decision Support | Alert renders; guideline detail opens; dismissal persists | Seeded rule | `encounter/decisionSupport/*` |
+| `encounter-templates` | Administration ▸ eChart ▸ Insert a Template (create); Chart ▸ note ▸ Templates | Template text lands in the note; `encounterTemplate` CRUD | Throwaway template | `encounter/InsertTemplate` |
+| `decision-support-alerts` | Chart of a patient matching a seeded rule ▸ Decision Support | Alert renders; the module's guideline list opens; dismissal persists | Seeded rule | `encounter/decisionSupport/*` |
 | `episode-pregnancy` | Chart ▸ Episode; Chart ▸ Pregnancy (antenatal planner, OBAR risk / checklist) | Episode CRUD; a pregnancy episode creates planner rows; planner print bytes | Throwaway rows | `Episode`, `decision/antenatal/*`, `provider/ViewObar*` |
-| `immunization-schedule` | Chart ▸ Immunization; Administration ▸ immunization sets | Schedule renders for age; config save round-trips | Restore | `encounter/immunization/*` |
+| `immunization-schedule` | Chart ▸ Immunization | Schedule renders for the patient's age; saving a schedule round-trips (the immunization *set* configuration pages have no UI entry — see §6) | Restore | `encounter/immunization/*Schedule*` |
 | `calculators` | Chart ▸ Calculators | CAD risk / osteoporotic fracture / simple calculator compute deterministic results from typed inputs | none | `encounter/ViewCalculators`, `calculators/*` |
 
 ### 2.6 Labs, Inbox, documents, HRM
@@ -365,20 +370,20 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `lab-upload-hl7` | Inbox ▸ HL7 Lab Upload (and Administration ▸ Labs/Inbox ▸ Lab Upload) | The synthetic HL7 imports; appears under Unmatched ▸ HL7; Patient Match links it; Unlink removes it; `hl7TextInfo`, `patientLabRouting`, `providerLabRouting` rows | `fixtures/files/*.hl7` | `lab/labUpload`, `newLabUpload`, `CMLlabUpload`, `oscarMDS/PatientMatch`, `SearchPatient`, `UnlinkDemographic` |
 | `lab-forward-mrp-file` | Inbox ▸ row ▸ Forward; Send to MRP; Reassign; File; Inbox ▸ Forwarding Rules | `providerLabRouting` rows per action; the forwarded lab appears in the other provider's inbox; a rule created here is honoured by the next upload | Second provider | `oscarMDS/Forward`, `SendMRP`, `ReportReassign`, `FileLabs`, `ForwardingRules` |
 | `lab-cumulative-requisition` | Inbox ▸ lab ▸ cumulative values; Ontario lab values graph; link requisition | Cumulative columns match versions; graph bytes | Chain fixture | `lab/ViewCumulativeLabValues*`, `lab/CA/ON/ViewLabValuesGraph`, `ViewLinkReq` |
-| `document-manage` | Inbox ▸ document ▸ edit description/type/observation date; refile; delete; undelete; split; combine; add link; Inbox ▸ Incoming Docs / Pending Docs; Administration ▸ Document Description Template | `document` rows and `ctl_document` links; split → two rows and two files; combine → one; deleted hidden then restored | Fixture PDFs; files removed via `EDOC_NAV_DOCUMENT_STORE` | `documentManager/*` |
-| `hrm-report-lifecycle` | Inbox ▸ HRM ▸ open ▸ sign off / comment / category ▸ Print; Administration ▸ Integration ▸ HRM Status | `HRMDocument*` rows; print bytes; **a missing HRM file does not 500 the chart notes** (obs. 17) once fixed | Synthetic HRM XML/PDF | `hospitalReportManager/*` |
-| `fax-queue-admin` | Administration ▸ Integration ▸ Fax Status; Preferences ▸ General ▸ Fax Number | Seeded outbound rows render with status; resend/cancel updates `FaxJob`; **no live send** | Seeded `FaxJob` rows | `admin/ViewManageFaxes`, `fax/faxAction` |
+| `document-manage` | Inbox ▸ document ▸ edit description/type/observation date; refile; delete; undelete; split; combine; add link; Schedule ▸ eDoc ▸ document list ▸ combine / undelete; Inbox ▸ Incoming Docs / Pending Docs; Administration ▸ Doctor Content Management ▸ Document Description Template | `document` rows and `ctl_document` links; split → two rows and two files; combine → one; deleted hidden then restored | Fixture PDFs; files removed via `EDOC_NAV_DOCUMENT_STORE` | `documentManager/*` |
+| `hrm-report-lifecycle` | Inbox ▸ HRM ▸ open ▸ sign off / comment / category ▸ Print; Administration ▸ Integration ▸ Hospital Report Manager (HRM) Status | `HRMDocument*` rows; print bytes; **a missing HRM file does not 500 the chart notes** (obs. 17) once fixed | Synthetic HRM XML/PDF | `hospitalReportManager/*` |
+| `fax-queue-admin` | Administration ▸ Faxes ▸ Manage Faxes (shell; the panel: Status ▸ Fax Status); Preferences ▸ Contact Information ▸ fax number | Seeded outbound rows render with status; resend/cancel updates `faxes`; **no live send** | Seeded `faxes` rows | `admin/ViewManageFaxes`, `fax/faxAction` |
 
 ### 2.7 Ontario billing (4% covered; the revenue loop is unprotected)
 
 | Check | Path | Asserts | Fixtures | Routes |
 |---|---|---|---|---|
 | `billing-on-correction-delete` | Master Record ▸ Billing History ▸ bill; Administration ▸ Billing ▸ Billing Correction | Edit service code/dx/units → `billing_on_item` updated; status change; delete variants mark `billing_on_cheader1.status='D'` and unbill the appointment (day sheet B badge) | Bill created through the `billing-on-submit` path | `BillingONCorrection`, `UpdateBillingONCorrection`, `ViewBillingONStatus`, `BillingDelete*` |
-| `billing-on-invoice-3rdparty` | Master Record ▸ Invoice List ▸ print; bill form ▸ 3rd-party ▸ Add payment; Administration ▸ Billing ▸ Manage Payment Type | bytes `%PDF` with the invoice logo; `billing_on_payment` rows; statement balances | Third-party bill | `BillingInvoice*`, `ViewBillingON3rdInv`, `Add3rdPartyPayment`, `managePaymentType` |
-| `billing-on-ohip-file-cycle` | Administration ▸ Billing ▸ Simulation OHIP File; Generate OHIP File; Upload MOH files (fixture RA); View MOH files; Billing Reconciliation ▸ settle | Claim file bytes match the MOH fixed-width layout for the seeded bills; bills flip to `B`; RA import creates `ra_header`/`ra_detail`; settle flips to `S`; the error report marks rejects | Synthetic RA + error-report files; seeded bills | `ViewBillingOHIPsimulation`, `ViewGenReport`, `BillingONUpload`, `moveMOHFiles`, `ImportOnRA`, `ViewOnGenRA*`, `ViewOnGenRAsettle`, `DocumentErrorReportUpload` |
+| `billing-on-invoice-3rdparty` | Master Record ▸ Invoice List ▸ print; Administration ▸ Billing ▸ Billing Correction ▸ 3rd-party bill ▸ payments; Administration ▸ Billing ▸ Manage Payment Type | bytes `%PDF` with the invoice logo; `billing_on_payment` rows; statement balances | Third-party bill | `BillingInvoice*`, `ViewBillingON3rdInv`, `billingON3rdPayments`, `Add3rdPartyPayment`, `managePaymentType` |
+| `billing-on-ohip-file-cycle` | Administration ▸ Billing ▸ Simulation OHIP File; Generate OHIP File; Billing Reconciliation ▸ pick the RA file ▸ summary / detail ▸ settle; Upload MOH files (fixture error report); View MOH files | Claim file bytes match the MOH fixed-width layout for the seeded bills; bills flip to `B`; the RA creates `raheader`/`radetail`; settle flips to `S`; the error report marks rejects | Synthetic RA placed in the MOH files directory by the fixture (the `ImportOnRA` route has no UI caller — the Billing Reconciliation page reads the directory), synthetic error-report file, seeded bills | `ViewBillingOHIPsimulation`, `ViewBillingOHIPreport`, `ViewGenReport`, `ViewGenRA`, `ViewOnGenRA*`, `ViewOnGenRAsettle`, `BillingONUpload`, `DocumentErrorReportUpload`, `moveMOHFiles` |
 | `billing-on-mri-batch-clipboard` | Schedule ▸ Billing ▸ MRI; Administration ▸ Billing ▸ Batch Billing; bill form ▸ clipboard ▸ print | MRI lists unbilled/errored; batch creates N bills from N appointments; clipboard rows and print bytes | Seeded appointments | `ViewBillingONMRI`, `BatchBill`, `ViewBillingClipboard`, `ViewPrintBillingClipboard` |
-| `billing-on-reports` | Schedule ▸ Report ▸ Generate a billing report ▸ unbilled / billed / unsettled / OB / flu ▸ Create Report; Administration ▸ Billing ▸ Invoice Reports, End Year Statement, Payment Received Report, INR Batch Billing; Reports ▸ Age-Sex Report | Row counts equal SQL for the same range; PDF/CSV bytes | Seeded bills | `ViewBillingReportCenter`, `billingLreport`, `ViewBillingOBECEA`, `endYearStatement/*`, `DbReportAgeSex`, `inr/*` |
-| `billing-on-admin-config` | Administration ▸ Billing ▸ Manage Billing Form, Add Billing Location, Manage Private Billing Code, Manage Billing Codes (dx), Upload Schedule Of Benefits (fixture), Manage Clinic NBR Codes, Manage Referral Doctors, Manage Service Code Display Styles, GST Control/Report; bill form ▸ favourites | Each CRUD writes and restores `ctl_billingservice`, `billingservice`, `billing_on_payment_type`, `clinic_nbr`, `professionalSpecialists`… | Restore | `ManageBillingform*`, `ManageBillingLocation`, `ViewBillingONEditPrivateCode`, `BillingDigUpdate`, `benefitScheduleUpload`, `clinicNbrManage`, `ViewSearchRefDoc`, `manageCSSStyles`, `admin/Gst*`, `ViewBillingONFavourite` |
+| `billing-on-reports` | Schedule ▸ Report ▸ Generate a billing report ▸ unbilled / billed / unsettled / OB / flu ▸ Create Report; Administration ▸ Billing ▸ Invoice Reports, End Year Statement, Payment Received Report, INR Batch Billing; Administration ▸ Reports ▸ Age-Sex Report | Row counts equal SQL for the same range; PDF/CSV bytes | Seeded bills | `ViewBillingReportCenter`, `billingLreport`, `ViewBillingOBECEA`, `endYearStatement/*`, `DbReportAgeSex`, `ViewInrReportINR`, `InrUpdateINRbilling` |
+| `billing-on-admin-config` | Administration ▸ Billing ▸ Manage Billing Form, Add Billing Location, Manage Private Billing Code, Manage Billing Codes (dx), Upload Schedule Of Benefits (fixture), Manage Clinic NBR Codes, Manage Referral Doctors, Manage Service Code Display Styles, GST Control/Report; bill form ▸ favourites | Each CRUD writes and restores `ctl_billingservice`, `billingservice`, `billing_payment_type`, `clinic_nbr`, `professionalSpecialists`… | Restore | `ManageBillingform*`, `ManageBillingLocation`, `ViewBillingONEditPrivateCode`, `BillingDigUpdate`, `benefitScheduleUpload`, `clinicNbrManage`, `ViewSearchRefDoc`, `manageCSSStyles`, `admin/Gst*`, `ViewBillingONFavourite` |
 | `billing-shortcut` | Day sheet ▸ B ▸ billing form ▸ shortcut page 1 / 2 | Shortcut save creates the same rows as the long form | Seeded appointment | `billingShortcutPg1View`, `BillingShortcutPg2Save` |
 
 ### 2.8 Cross-cutting
@@ -416,8 +421,8 @@ until the package can be installed with nginx + ModSecurity in CI.
 | Check | Path | Asserts | Routes |
 |---|---|---|---|
 | `rx-favorites` | Chart ▸ Rx ▸ Favorites: Add to Favorites from a written script; edit; copy; use; delete | `favorites` rows; a used favourite prefills the script | `rx/*Favorite*`, `useFavorite` |
-| `rx-edit-discontinue` | Chart ▸ Rx ▸ drug profile: edit, discontinue with reason, delete, reorder, stash / clear pending | `drugs.archived`, `archivedReason`, order; Medical History shows it | `rx/UpdateScript`, `RxReason`, `deleteRx`, `reorderDrug`, `stash`, `clearPending` |
-| `rx-interactions-renal` | Chart ▸ Rx ▸ a known interacting pair; Preferences ▸ Prescriptions ▸ warning level | Interaction panel shows severity; changing the level hides/shows; renal dosing; limited-use code popup | `ViewInteractionDisplay`, `rxInteractionWarningLevel`, `ViewRenalDosing`, `ViewLimitedUseCode` |
+| `rx-edit-discontinue` | Chart ▸ Rx ▸ drug profile: edit, discontinue with reason, delete, reorder, stash / clear pending | `drugs.archived`, `drugs.archived_reason`, order; Medical History shows it | `rx/UpdateScript`, `RxReason`, `deleteRx`, `reorderDrug`, `stash`, `clearPending` |
+| `rx-interactions-renal` | Chart ▸ Rx ▸ a known interacting pair; Preferences ▸ Prescriptions ▸ Rx Interaction Warning Level (auto-saves via AJAX) | Interaction panel shows severity; changing the level hides/shows; renal dosing; limited-use code popup | `ViewInteractionDisplay`, `rxInteractionWarningLevel`, `ViewRenalDosing`, `ViewLimitedUseCode` |
 | `rx-pharmacy-manage` | Chart ▸ Rx ▸ Pharmacy: click to edit ▸ add, edit, set default, deactivate | `pharmacyInfo`, `demographicPharmacy` rows; preview picks the default | `rx/managePharmacy2`, `ViewSetDefaultAddr` |
 | `rx-print-profile` | Chart ▸ Rx ▸ print drug profile; previous prints | bytes `%PDF`; the print is listed | `ViewPrintDrugProfile2`, `ViewShowPreviousPrints` |
 | `allergy-edit-delete` | Chart ▸ Allergies: non-drug allergy, severity, reaction edit, delete/archive | `allergies` rows; chart box updates; the unnamed search form (obs. 20) asserted fixed | `rx/addAllergy2`, `addReaction2`, `deleteAllergy2` |
@@ -435,10 +440,10 @@ until the package can be installed with nginx + ModSecurity in CI.
 
 | Check | Path | Asserts | Routes |
 |---|---|---|---|
-| `messenger-attachments` | Schedule ▸ Msg ▸ Compose ▸ attach document / lab / eForm; recipient opens it ▸ PDF preview ▸ Transfer to chart; Administration ▸ Messages ▸ Messenger Group Admin ▸ group message; Chart ▸ Messenger ▸ patient-linked list | Attachments listed; preview bytes; note written; one `messagelisttbl` row per group member; markdown body renders (obs. 8) | `messenger/attachmentFrameset`, `AdjustAttachments`, `PreviewPDF`, `WriteToEncounter`, `AddGroup`, `DisplayDemographicMessages` |
-| `tickler-forward-filters` | Schedule ▸ Tickler: forward to another provider; priority/status/date filters; Administration ▸ suggested text; Preferences ▸ tickler settings; Dashboard ▸ Assign Tickler | Forwarded row appears for the other provider; filters match SQL; the patient-view date window (obs. 12) asserted fixed | `tickler/ForwardDemographicTickler`, `EditTicklerTextSuggest`, `setTicklerPreferences`, `web/dashboard/display/AssignTickler` |
+| `messenger-attachments` | Schedule ▸ Msg ▸ Compose ▸ attach document / lab / eForm; recipient opens it ▸ PDF preview ▸ Transfer to chart; Administration ▸ System Management ▸ Messenger Group Admin ▸ group message; Chart ▸ Messenger ▸ patient-linked list | Attachments listed; preview bytes; note written; one `messagelisttbl` row per group member; markdown body renders (obs. 8) | `messenger/attachmentFrameset`, `AdjustAttachments`, `PreviewPDF`, `WriteToEncounter`, `AddGroup`, `DisplayDemographicMessages` |
+| `tickler-forward-filters` | Schedule ▸ Tickler: forward to another provider; priority/status/date filters; Tickler ▸ Add Tickler ▸ suggested text; Preferences ▸ Lab, Prevention & Messaging ▸ tickler settings; Dashboard ▸ Assign Tickler | Forwarded row appears for the other provider; filters match SQL; the patient-view date window (obs. 12) asserted fixed | `tickler/ForwardDemographicTickler`, `EditTicklerTextSuggest`, `setTicklerPreferences`, `web/dashboard/display/AssignTickler` |
 | `prevention-edit-delete-refuse` | Chart ▸ Preventions: edit and delete an existing immunization; refused / ineligible; comments; next-date recall | `preventions` + `preventionsExt` rows; recall shows in the tickler | `prevention/AddPrevention` |
-| `prevention-admin` | Administration ▸ Prevention Notification Settings; Add Prevention Lot number / Search lot number; Chart ▸ Preventions ▸ print | Config rows; lot rows offered in the picker; print bytes | `ViewPreventionManager`, `ViewPreventionListManager`, `admin/LotNr*`, `rtlPreventions` |
+| `prevention-admin` | Administration ▸ Schedule Management ▸ Prevention Notification Settings; System Management ▸ Prevention List Manager (shell), Add Prevention Lot number / Search lot number by prevention; Chart ▸ Preventions ▸ print | Config rows; lot rows offered in the picker; print bytes | `ViewPreventionManager`, `ViewPreventionListManager`, `admin/LotNr*`, `rtlPreventions` |
 
 ### 3.5 Clinical forms (139 JSPs, 22 routes)
 
@@ -463,8 +468,7 @@ until the package can be installed with nginx + ModSecurity in CI.
 | `report-query-by-example` | Administration ▸ Reports ▸ Query By Example: save, favourite, run, load favourites | Rows; favourites persisted |
 | `report-daysheet-labs` | Schedule ▸ Report ▸ Day Sheet for a provider/date; lab day sheet print | Seeded appointments listed; print bytes |
 | `report-clinical-reports` | Administration ▸ Reports ▸ CDS Report, MIS Report, Provider Service Report (+export), PCN Catchment Report, Disease Registry Report, Visit Report, Age-Sex Report, Patient List by Appointment Time (existing), Population Report; Report ▸ Demographic Report Tool ▸ clinical export | Each answers a real report or its documented empty state; download bytes |
-| `report-letters` | Report ▸ Demographic Report Tool ▸ set ▸ Generate letters / envelopes / spreadsheet; manage / download / delete letter | bytes; rows |
-| `report-cdm` | Administration ▸ Reports ▸ CDM: patients met guideline / abnormal range / frequency of tests over seeded measurements | Rows equal SQL |
+| `report-cdm` | Administration ▸ Reports ▸ Query By Example ▸ CDM report: patients met guideline / abnormal range / frequency of tests over seeded measurements | Rows equal SQL |
 | `dashboard-display` | Schedule ▸ Dashboard (main menu): indicators, drilldown, export, bulk action (assign tickler), shared outcomes dashboard | Indicator counts equal SQL; drilldown lists patients; export bytes; `tickler` rows |
 
 ### 3.7 Administration and preferences
@@ -472,15 +476,14 @@ until the package can be installed with nginx + ModSecurity in CI.
 | Check | Path | Asserts |
 |---|---|---|
 | `admin-index-links` | Schedule ▸ Administration ▸ every link/popup in every group (and the same items in the `/administration` shell's left nav) | Opens without an error page or a new console error; replaces the admin half of `browser-surface`; catches the #3313 class of JS breakage across ~90 pages |
-| `admin-lookup-lists` | Administration ▸ System Management ▸ Manage Lookup Lists; eChart ▸ Lookup Field Editor | CRUD; the new item is offered where the list is used |
-| `admin-messages` | Administration ▸ eChart ▸ System Messages / Facility Messages / Default Encounter Issue | CRUD; the message shows on the login page / schedule banner |
-| `admin-issue-editor` | Administration ▸ eChart ▸ Issue Editor | Add/edit; the issue is offered in the note's issue search |
-| `admin-audit-log` | Administration ▸ System Reports ▸ Security Log Report; Data Management ▸ audit purge | Lists the READ/UPDATE audits earlier checks generated (PIPEDA evidence); purge refused without privilege and, with it, only outside the retention window |
-| `admin-jobs-api-keygen` | Administration ▸ Integration ▸ jobs; System Management ▸ REST Clients; Key Pair Generator | CRUD; API client create/revoke; key create/manage, public key download |
-| `admin-email-config` | Administration ▸ Integration ▸ configure email; Messages ▸ email queue | Save/restore; seeded queue rows; compose/send against a stubbed transport |
-| `admin-misc` | Administration ▸ System Management ▸ Help Link Setting, Clinic/Agency Address, Satellite-sites Admin, Access Control, Customize Measurements, Customize Disease Registry Quick List, Customize Consult Appointment Instructions; eChart ▸ Document Description Template; System Reports ▸ Server Logging; Data Management ▸ Database/Document Download (bytes, admin only, refused for others), Update Patient Provider; Manage Facilities | Each writes and restores its rows |
-| `provider-preferences` | Schedule ▸ Preferences ▸ General (colour, signature upload / draw / text, fax, default sex, HC type, workload), Scheduling (hours, period, group), Billing (default dx code, default billing form), Encounters (CME UI, stale date, favourite eForm group, forms/eForms display), Prescriptions (QR, page size, DOB, quantity), Consultations (cutoff, warning team, paste format), quick links (Add Link) | Each writes `property`/`provider` rows and restores; the signature shows on the next consultation letter |
-| `provider-encounter-history` | Schedule ▸ provider ▸ encounter history / single / print | Seeded notes listed; print bytes |
+| `admin-lookup-lists` | Administration ▸ System Management ▸ Manage Lookup Lists; CAISI ▸ Lookup Field Editor | CRUD; the new item is offered where the list is used |
+| `admin-messages` | Administration ▸ CAISI ▸ System Messages / Facility Messages / Default Encounter Issue | CRUD; the message shows on the login page / schedule banner |
+| `admin-issue-editor` | Administration ▸ CAISI ▸ Issue Editor | Add/edit; the issue is offered in the note's issue search |
+| `admin-audit-log` | Administration ▸ System Reports ▸ Security Log Report; Data Management ▸ Purge Audit Log (shell) | Lists the READ/UPDATE audits earlier checks generated (PIPEDA evidence); purge refused without privilege and, with it, only outside the retention window |
+| `admin-jobs-api-keygen` | Administration ▸ System Management ▸ Jobs Management / Job Type Management (shell), Key Pair Generator; Integration ▸ REST Clients | CRUD; API client create/revoke; key create/manage, public key download |
+| `admin-email-config` | Administration ▸ Emails ▸ Configure Email / Manage Emails (shell) | Save/restore; seeded queue rows; compose/send against a stubbed transport |
+| `admin-misc` | Administration ▸ System Management ▸ Help Link Setting, Clinic/Agency Address, Satellite-sites Admin, Customize Measurements, Customize Disease Registry Quick List, Customize Consult Appointment Instructions, Manage Facilities; Schedule Management ▸ Access Control, Add/Edit Group Preferences; Doctor Content Management ▸ Document Description Template; Reports ▸ Server Logging; Data Management ▸ Database/Document Download (bytes, admin only, refused for others), Update Patient Provider, Fix notes with invalid role (shell) | Each writes and restores its rows |
+| `provider-preferences` | Schedule ▸ Preferences (`providerpreference.jsp`, the page the top bar opens) ▸ every section: Schedule & Appointments, Contact Information (address / phone / fax used on prescriptions and consult letters), Prescriptions (Rx Interaction Warning Level), Clinical Settings (stale date for case notes and its format), Consultation (team warning), Display & UI (schedule navigation mode, quick chart size), Lab, Prevention & Messaging (Lab Recall Macros, tickler settings), Quick Links (Add Link / Remove), signature and colour where the page offers them, and the Change Password link | Each writes `property`/`provider` rows and restores; the signature shows on the next consultation letter |
 
 ---
 
@@ -555,9 +558,15 @@ shared helper.
 - **Live external systems** (SRFax send/receive, MCEDT, DHIR, CPSO registry, DrugRef rebuild
   against Health Canada): stay in `scripts/e2e/` or behind `*_LIVE=true`; UI checks stub the
   transport. They cost money, need credentials, or take an hour.
-- **Routes with no UI entry** (`prevention/printPrevention`, several `View*` fragments only
-  reachable as includes): no check — the finding is that the route is dead, tracked for
-  removal under the cleanup policy.
+- **Routes with no UI entry**: no check — the finding is that the route is dead (or
+  service-only), tracked for removal or documentation under the cleanup policy. Found while
+  verifying this plan: `prevention/printPrevention`; `report/ViewGenerateLetters` and the
+  letters / envelopes / spreadsheet generation behind it (nothing links the page);
+  `provider/ViewProviderEncounterHistory` (a `providercontrol` dispatch nothing calls);
+  the immunization *set* configuration pages (`encounter/immunization/config/*`);
+  `admin/ViewDbConnection`; `billing/CA/ON/ImportOnRA` (service-only, the Billing
+  Reconciliation page reads the MOH directory instead); and several `View*` fragments only
+  reachable as includes.
 - **PHR / integrator / eConsult**: the top bar's eConsult opens an external URL; nothing to
   assert locally.
 - **Visual regression by screenshot diff**: the MCP manual tests keep gold screenshots; the
