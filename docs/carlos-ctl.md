@@ -111,10 +111,23 @@ it. Everything runs with `sudo`.
 | `db-migrate` | Apply pending migrations — **back up first** |
 | `db-baseline` | Adopt an existing pre-Flyway (OSCAR 19 / OpenO) schema |
 | `db-repair` | Fix `flyway_schema_history` after a failed migration |
-| `db-apply-settings` | Restart MariaDB if it is not running the settings in the CARLOS drop-in |
+| `db-apply-settings [--no-restart]` | Restart MariaDB if it is not running the settings in the CARLOS drop-ins (`--no-restart` renders and reports only) |
 | `db-dump` | Consistent dump to stdout |
 | `db-users` | (Re)create the databases and least-privilege accounts |
 | `demo-data` | Load the fictitious demonstration dataset (~3000 `FAKE-` patients, 60 fake specialists) into an **empty**, freshly migrated database — what answering yes to the installer's demonstration-data question runs; refuses on any database holding patients, and the only removal is `destroy-data` |
+
+### Replication (optional)
+
+| Verb | What it does |
+|---|---|
+| `replica add <replica-ip> --listen <primary-ip>` | Make this host a MariaDB replication **primary** for the replica at `<replica-ip>`: one extra named bind address (never a wildcard; `--allow-public` for a routable one), a private replication CA and server certificate, `gtid_strict_mode`, a host-restricted TLS-only replication account, and a single-use join token under `/var/lib/carlos-emr/replicas/`. Idempotent; a joined replica is never re-credentialed without `--reissue`; `--no-restart` defers the one MariaDB restart |
+| `replica remove <replica-ip>` | Drop that replica's account and shred its token; the last one returns MariaDB to loopback only |
+| `replica status` | Connected replicas, token state, certificate expiry, binlog age against retention |
+
+The replica side (`replica join`, `replica promote`, the
+`carlos-emr-db-replica` package) is the next phase; see
+[deb-mariadb-replication-plan.md](deb-mariadb-replication-plan.md) and
+README.Debian section 13.
 
 ### Certificates
 

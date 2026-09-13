@@ -50,6 +50,10 @@ d /var/lib/carlos-emr/CarlosDocument/carlos        2750 carlos        carlos -
 d /var/lib/carlos-emr/modsecurity                 0750 www-data      www-data -
 d /var/lib/carlos-emr/modsecurity/tmp             0700 www-data      www-data -
 d /var/lib/carlos-emr/modsecurity/data            0700 www-data      www-data -
+# Replication state for a primary (carlos-ctl replica add): one directory per
+# replica holding its join token — a credential as sensitive as backup.env —
+# so root-only, and nothing below it is ever owned by a service account.
+d /var/lib/carlos-emr/replicas                    0700 root          root   -
 # ACME HTTP-01 webroot. Root-owned and world-readable: certbot writes the
 # challenge token as root and nginx serves it as www-data. Nothing sensitive is
 # ever placed here.

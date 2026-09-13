@@ -38,6 +38,21 @@ STAPLING="${CONF_DIR}/nginx/stapling.conf"
 ACME_WEBROOT=/var/lib/carlos-emr/acme
 SELF_SIGNED_DAYS=825
 
+# --- MariaDB replication TLS (carlos-ctl replica add) -----------------------
+# A private CA per PRIMARY host and a server certificate for its replication
+# listen address. Lives under /etc/mysql because the mariadbd AppArmor profile
+# grants /etc/mysql/** r and nothing under /etc/carlos-emr or /etc/ssl (bar
+# openssl.cnf). The CA key never leaves this host: a promoted replica issues
+# its own, and re-joining hosts receive the new CA in a fresh token.
+DB_TLS_DIR=/etc/mysql/carlos-emr-tls
+DB_CA="${DB_TLS_DIR}/ca.pem"
+DB_CA_KEY="${DB_TLS_DIR}/ca.key"
+DB_CERT="${DB_TLS_DIR}/server.pem"
+DB_KEY="${DB_TLS_DIR}/server.key"
+DB_CA_DAYS=3650
+DB_CERT_DAYS=730
+REPL_ENV="${CONF_DIR}/replication.env"
+
 CERT_CHANGED=0
 
 log()  { printf 'carlos-emr-cert: %s\n' "$*"; }
@@ -263,6 +278,12 @@ cmd_manual() {
 }
 
 cmd_renew() {
+    # Replication TLS first, independent of the front-door mode: it exists
+    # only on a primary (replica add wrote the listen address) and renews
+    # itself under 30 days with FLUSH SSL, no restart.
+    if [ -s "${DB_CA}" ] && [ -n "$(db_listen_ip)" ]; then
+        cmd_db_tls
+    fi
     case "$(current_mode)" in
         acme)
             command -v certbot >/dev/null 2>&1 || die "TLS mode is acme but certbot is not installed"
@@ -313,6 +334,107 @@ cmd_renew() {
     esac
 }
 
+# The listen address the replication drop-in binds; empty when this host is
+# not a primary. Read the way carlos-ctl reads it (last assignment wins).
+db_listen_ip() {
+    [ -r "${REPL_ENV}" ] || return 0
+    sed -n 's/^CARLOS_DB_REPL_LISTEN_IP=//p' "${REPL_ENV}" | tr -d '\042' | tail -1
+}
+
+# Generate (or, when --force / expiring / the SAN set changed, regenerate) the
+# MariaDB replication CA and server certificate. Idempotent: a routine run
+# with a valid pair whose SANs still match is a no-op. Sets DB_TLS_CHANGED.
+cmd_db_tls() {
+    local listen name fqdn want_san have_san regen=0
+    listen="$(db_listen_ip)"
+    [ -n "${listen}" ] || die "no CARLOS_DB_REPL_LISTEN_IP in ${REPL_ENV}; this is driven by 'carlos-ctl replica add'"
+    name="$(server_name)"
+    fqdn="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo localhost)"
+    # 0750 root:mysql: mariadbd (uid mysql) reads the server key through the
+    # group; the CA key below is 0600 root and never readable by mysql.
+    getent group mysql >/dev/null 2>&1 || die "the mysql group does not exist; is mariadb-server installed?"
+    install -d -m 0750 -o root -g mysql "${DB_TLS_DIR}"
+    umask 0077
+    if [ ! -s "${DB_CA}" ] || [ ! -s "${DB_CA_KEY}" ] || [ "${FORCE:-0}" = 1 ]; then
+        if [ -s "${DB_CA}" ] && [ "${FORCE:-0}" = 1 ]; then
+            log "regenerating the replication CA as requested; every replica must re-join with a new token"
+        fi
+        log "generating the MariaDB replication CA (${DB_CA_DAYS} days)"
+        openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days "${DB_CA_DAYS}" \
+            -subj "/CN=CARLOS EMR MariaDB replication CA (${fqdn})" \
+            -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign" \
+            -keyout "${DB_CA_KEY}.new" -out "${DB_CA}.new" >/dev/null 2>&1 \
+            || die "openssl could not generate the replication CA"
+        mv -f "${DB_CA_KEY}.new" "${DB_CA_KEY}"
+        mv -f "${DB_CA}.new" "${DB_CA}"
+        chown root:root "${DB_CA_KEY}"; chmod 0600 "${DB_CA_KEY}"
+        chown root:mysql "${DB_CA}"; chmod 0644 "${DB_CA}"
+        regen=1
+    fi
+    # IP SANs are verified by MariaDB since 10.4.5 (MDEV-18131), so the
+    # replica can pin MASTER_HOST=<ip> with MASTER_SSL_VERIFY_SERVER_CERT=1.
+    want_san="IP:${listen},IP:127.0.0.1,DNS:${name},DNS:${fqdn}"
+    if [ "${regen}" = 0 ] && [ -s "${DB_CERT}" ] && [ -s "${DB_KEY}" ]; then
+        # openssl prints "    IP Address:10.0.0.5, DNS:name, ..." on the
+        # line(s) after the header; normalise to ",IP Address:x,DNS:y," so a
+        # plain substring match is exact (spaces inside the labels are kept —
+        # stripping them once made this never match and regenerate twice a day).
+        have_san=",$(openssl x509 -noout -ext subjectAltName -in "${DB_CERT}" 2>/dev/null \
+            | tail -n +2 | tr -d '\n' | sed 's/^[[:space:]]*//; s/,[[:space:]]*/,/g; s/[[:space:]]*$//'),"
+        case "${have_san}" in
+            *",IP Address:${listen},"*) : ;;
+            *) log "replication certificate does not name ${listen}; regenerating"; regen=1 ;;
+        esac
+        if [ "${regen}" = 0 ] && ! openssl x509 -checkend $((30 * 86400)) -noout -in "${DB_CERT}" >/dev/null 2>&1; then
+            log "replication certificate expires within 30 days; regenerating"; regen=1
+        fi
+        if [ "${regen}" = 0 ] && ! openssl verify -CAfile "${DB_CA}" "${DB_CERT}" >/dev/null 2>&1; then
+            log "replication certificate does not verify against the CA; regenerating"; regen=1
+        fi
+        if [ "${regen}" = 0 ] && [ "$(openssl x509 -noout -pubkey -in "${DB_CERT}" 2>/dev/null | sha256sum)" != \
+             "$(openssl pkey -pubout -in "${DB_KEY}" 2>/dev/null | sha256sum)" ]; then
+            log "replication certificate and key do not match; regenerating"; regen=1
+        fi
+    else
+        regen=1
+    fi
+    if [ "${regen}" = 0 ] && [ "${FORCE:-0}" != 1 ]; then
+        log "MariaDB replication certificate for ${listen} is valid and current; nothing to do"
+        DB_TLS_CHANGED=0
+        return 0
+    fi
+    log "issuing the MariaDB replication server certificate for ${listen} (${DB_CERT_DAYS} days)"
+    local ext
+    ext="$(mktemp)"
+    printf 'subjectAltName=%s\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\n' "${want_san}" > "${ext}"
+    openssl req -new -newkey rsa:2048 -sha256 -nodes \
+        -subj "/CN=${name}" -keyout "${DB_KEY}.new" -out "${DB_CERT}.csr" >/dev/null 2>&1 \
+        || { rm -f "${ext}"; die "openssl could not create the replication certificate request"; }
+    openssl x509 -req -sha256 -days "${DB_CERT_DAYS}" -in "${DB_CERT}.csr" \
+        -CA "${DB_CA}" -CAkey "${DB_CA_KEY}" -CAcreateserial -extfile "${ext}" \
+        -out "${DB_CERT}.new" >/dev/null 2>&1 \
+        || { rm -f "${ext}" "${DB_CERT}.csr" "${DB_KEY}.new"; die "openssl could not sign the replication certificate"; }
+    rm -f "${ext}" "${DB_CERT}.csr"
+    mv -f "${DB_KEY}.new" "${DB_KEY}"
+    mv -f "${DB_CERT}.new" "${DB_CERT}"
+    chown root:mysql "${DB_KEY}" "${DB_CERT}"
+    chmod 0640 "${DB_KEY}"; chmod 0644 "${DB_CERT}"
+    DB_TLS_CHANGED=1
+    # A running server pins the pair it loaded; FLUSH SSL reloads it without
+    # a restart. Harmless when the drop-in is not applied yet (db-apply-settings
+    # follows) or MariaDB is down: the next start reads the files.
+    if mariadb --protocol=socket --user=root -e 'FLUSH SSL' >/dev/null 2>&1; then
+        log "MariaDB reloaded its TLS context (FLUSH SSL)"
+    fi
+}
+
+db_tls_status() {
+    [ -s "${DB_CERT}" ] || return 0
+    printf 'mariadb replication certificate: %s\n' "${DB_CERT}"
+    openssl x509 -noout -subject -issuer -dates -ext subjectAltName -in "${DB_CERT}" 2>/dev/null | sed 's/^/  /'
+}
+
 cmd_status() {
     printf 'mode:        %s\n' "$(current_mode)"
     printf 'server_name: %s\n' "$(server_name)"
@@ -324,6 +446,7 @@ cmd_status() {
     else
         printf 'certificate: MISSING\n'
     fi
+    db_tls_status
 }
 
 case "${1:-status}" in
@@ -343,8 +466,13 @@ case "${1:-status}" in
     manual)     cmd_manual ;;
     renew)      cmd_renew ;;
     status)     cmd_status ;;
+    db-tls)
+        shift
+        if [ "${1:-}" = --force ]; then FORCE=1; fi
+        cmd_db_tls
+        ;;
     *)
-        echo "usage: $0 {selfsigned [--force]|acme <email>|manual|renew|status}" >&2
+        echo "usage: $0 {selfsigned [--force]|acme <email>|manual|renew|status|db-tls [--force]}" >&2
         exit 2
         ;;
 esac

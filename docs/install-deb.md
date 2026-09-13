@@ -287,6 +287,15 @@ decommissioning is its own explicit command
 (`carlos-ctl destroy-data --confirm <server-name>`), which requires typing
 the host's own configured name back to it.
 
+## Optional standby database replica
+
+Off by default and added with one command at any time:
+`sudo carlos-ctl replica add <replica-ip> --listen <this-host's-replication-ip>`.
+It prepares this server as a MariaDB replication primary and writes a join
+token for the second machine. The replica package itself is the next phase.
+See `README.Debian` section 13 and
+[deb-mariadb-replication-plan.md](deb-mariadb-replication-plan.md).
+
 ## Optional demonstration data
 
 For evaluation, training, and development installs, the installer can fill

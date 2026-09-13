@@ -282,6 +282,7 @@ override_dh_auto_install:
 	    $(STAGE)/$(SHAREDIR)/skel/carlos.properties
 	install -m 0644 debian/assets/skel/carlos-emr.env $(STAGE)/$(SHAREDIR)/skel/carlos-emr.env
 	install -m 0644 debian/assets/skel/backup.env $(STAGE)/$(SHAREDIR)/skel/backup.env
+	install -m 0644 debian/assets/skel/replication.env $(STAGE)/$(SHAREDIR)/skel/replication.env
 	install -m 0644 debian/assets/nginx/proxy-params.conf $(STAGE)/$(SHAREDIR)/skel/proxy-params.conf
 	# CarlosDocument skeleton. Every directory that a property SET by carlos-ctl
 	# names must be here: Startup.checkAndSetProperty only auto-creates

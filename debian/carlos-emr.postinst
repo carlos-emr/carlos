@@ -294,6 +294,9 @@ case "$1" in
         install_once "${SHARE}/skel/carlos-emr.env" "${ENV_FILE}" 0644 root:root
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
+        # Replication role file: standalone until `carlos-ctl replica add`.
+        # No secrets, so 0644; operator-owned like the others.
+        install_once "${SHARE}/skel/replication.env" "${CONF_DIR}/replication.env" 0644 root:root
 
         # One-time migration (2026.08): earlier packages shipped
         # consultation_signature_enabled=false. install_once copied that into the
@@ -783,6 +786,23 @@ case "$1" in
                     echo "carlos-emr: WARNING: the demonstration dataset was NOT loaded (see" >&2
                     echo "carlos-emr: above). Fix the cause, then run 'sudo carlos-ctl demo-data'." >&2
                 }
+            fi
+            # Optional, preseed-only replication primary (README.Debian §13).
+            # Both answers empty by default = nothing happens. `replica add`
+            # is a no-op for a replica that has already joined, so re-running
+            # it on every configure never rotates a live credential. Runs
+            # BEFORE the application is started below, so the MariaDB restart
+            # it may cause interrupts nothing. Non-fatal like every other
+            # provisioning step: a bad address prints the command to re-run.
+            db_get carlos-emr/replica-listen-ip || RET=""; REPL_LISTEN="${RET:-}"
+            db_get carlos-emr/replica-allow-from || RET=""; REPL_FROM="${RET:-}"
+            if [ -n "${REPL_LISTEN}" ] && [ -n "${REPL_FROM}" ] && [ "${MIGRATION_OK}" = 1 ]; then
+                for repl_ip in $(printf '%s' "${REPL_FROM}" | tr ',' ' '); do
+                    carlos-ctl replica add "${repl_ip}" --listen "${REPL_LISTEN}" || {
+                        echo "carlos-emr: WARNING: could not set up replication for ${repl_ip} (see above)." >&2
+                        echo "carlos-emr: WARNING: fix the cause, then run: sudo carlos-ctl replica add ${repl_ip} --listen ${REPL_LISTEN}" >&2
+                    }
+                done
             fi
         else
             MIGRATION_OK=0

@@ -15,7 +15,7 @@ import os
 import sys
 from typing import List, Optional
 
-from . import config, dbops, util, validate, waf
+from . import config, dbops, replication, util, validate, waf
 from .util import LIB, die, need_root
 
 _USAGE = """carlos-ctl — administration for a CARLOS EMR host
@@ -45,6 +45,14 @@ _USAGE = """carlos-ctl — administration for a CARLOS EMR host
                                   into an EMPTY, freshly migrated database
                                   (refuses on any database with patients;
                                   NEVER for production systems)
+
+  carlos-ctl replica add <ip> --listen <ip>
+                                  make this host a replication PRIMARY for
+                                  the replica at <ip> and issue its join
+                                  token (optional; see README.Debian §13)
+  carlos-ctl replica remove <ip>  drop that replica's account; the last one
+                                  returns MariaDB to loopback only
+  carlos-ctl replica status       what is streaming from this host
 
   carlos-ctl cert status          what certificate is being served
   carlos-ctl cert selfsigned      (re)generate the self-signed certificate
@@ -82,6 +90,7 @@ Configuration — the loop is: edit the file, then run the verb beside it:
   /etc/carlos-emr/carlos.properties    app config    -> carlos-ctl restart
   /etc/carlos-emr/backup.env           backups       -> next timer run; prove
                                                         with carlos-ctl backup full
+  /etc/carlos-emr/replication.env      replication   -> carlos-ctl replica add
   /etc/carlos-emr/modsecurity/         WAF policy    -> carlos-ctl waf reload
   /etc/carlos-emr/tomcat/              Tomcat        -> carlos-ctl restart
 
@@ -188,6 +197,7 @@ _VERBS = {
     "db-repair": dbops.make_flyway_cmd("repair"),
     "db-apply-settings": dbops.cmd_db_apply_settings,
     "demo-data": dbops.cmd_demo_data,
+    "replica": replication.cmd_replica,
     "cert": _cmd_cert,
     "cert-renew": _cmd_cert_renew,
     "waf": waf.cmd_waf,
