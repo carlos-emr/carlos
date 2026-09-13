@@ -121,6 +121,10 @@ public final class IncomingDocUtil {
      * @param targetPath The path to validate
      * @return true if the path is within bounds, false otherwise
      */
+    // PATH_TRAVERSAL_IN: this is a containment predicate, not a file access — both File objects exist only to be canonicalized and compared, and validateExistingPath() is what decides the result.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "containment predicate: both File objects exist only to be canonicalized and compared by "
+            + "PathValidationUtils.validateExistingPath(); nothing is opened, read, or written here.")
     private static boolean isPathWithinBounds(String basePath, String targetPath) {
         try {
             File baseDir = new File(basePath).getCanonicalFile();
@@ -409,6 +413,11 @@ public final class IncomingDocUtil {
      * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
      * @throws IllegalArgumentException if queueId or pdfDir contains invalid values
      */
+    // PATH_TRAVERSAL_IN: queueId goes through validatePathComponent and pdfDir through the {Fax, Mail, File, Refile} allowlist; validateExistingPath() then confirms containment in INCOMINGDOCUMENT_DIR.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "queueId is validated by validatePathComponent() and pdfDir is restricted to the "
+            + "{Fax, Mail, File, Refile} allowlist; PathValidationUtils.validateExistingPath() then confirms the "
+            + "assembled path stays inside INCOMINGDOCUMENT_DIR.")
     public static String getIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath;
 
@@ -446,6 +455,11 @@ public final class IncomingDocUtil {
      * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
+    // PATH_TRAVERSAL_IN: the path comes from getIncomingDocumentFilePath (already validated), and is re-checked by isPathWithinBounds and validateConfiguredDirectory before any directory is created.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "the path is produced by the already-validating getIncomingDocumentFilePath() and is "
+            + "re-checked by isPathWithinBounds() and PathValidationUtils.validateConfiguredDirectory() before any "
+            + "directory is created.")
     public static String getAndCreateIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath = getIncomingDocumentFilePath(queueId, pdfDir);
         
