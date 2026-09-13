@@ -159,7 +159,12 @@ async function navigateDayView(page, label) {
       await assertNotErrorPage(page, `${label} day view`);
       return;
     } catch (error) {
-      if (attempt === 2 || !/ERR_ABORTED|frame was detached/.test(error.message)) {
+      // Three shapes of the same race, all of them the schedule navigating itself
+      // while this navigation is in flight: an aborted request, a detached frame,
+      // and Playwright's "interrupted by another navigation" (the status letter's
+      // own self-navigation, which arrives with &x=0&y=0 appended).
+      if (attempt === 2
+          || !/ERR_ABORTED|frame was detached|interrupted by another navigation/.test(error.message)) {
         throw error;
       }
       await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
@@ -361,6 +366,9 @@ async function rotateStatusFromSchedule(dayPage, appointmentNo, statusBefore) {
   ]);
   await dayPage.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
   await assertNotErrorPage(dayPage, 'day view after status rotation');
+  // The status link submits a self-navigation that can still be settling; let it
+  // finish before the next step issues a navigation of its own.
+  await dayPage.waitForLoadState('load', { timeout: 20000 }).catch(() => {});
 
   const row = await waitFor(() => {
     const rows = stampedAppointments();
