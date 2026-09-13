@@ -1105,21 +1105,21 @@ class TestReportContract(unittest.TestCase):
     # a literal "--password=<value>" (secret scanners flag the pattern)
     FAKE_PASSWORD = "fixture" + "-only-value"
 
-    def test_password_arg_problem_never_echoes_the_value(self):
-        self.assertIn("interactive", pf.password_arg_problem(["-p"]))
-        self.assertEqual(pf.password_arg_problem(["--password"]),
+    def test_refused_client_arg_shape_never_echoes_the_value(self):
+        self.assertIn("interactive", pf.refused_client_arg_shape(["-p"]))
+        self.assertEqual(pf.refused_client_arg_shape(["--password"]),
                          "'--password' (interactive prompt)")
         # the description is one of this module's own constants: no
         # substring of argv reaches the printed refusal (CodeQL
         # py/clear-text-logging-sensitive-data traced argv into it)
-        self.assertEqual(pf.password_arg_problem(["-p", "-uroot"]),
+        self.assertEqual(pf.refused_client_arg_shape(["-p", "-uroot"]),
                          "'-p' (interactive prompt)")
         for args in (["-p" + self.FAKE_PASSWORD],
                      ["--password=" + self.FAKE_PASSWORD]):
-            problem = pf.password_arg_problem(args)
+            problem = pf.refused_client_arg_shape(args)
             self.assertIn("password in argv", problem)
             self.assertNotIn(self.FAKE_PASSWORD, problem)
-        self.assertIsNone(pf.password_arg_problem(
+        self.assertIsNone(pf.refused_client_arg_shape(
             ["-uroot", "--protocol=socket", "--defaults-extra-file=/x"]))
 
     def test_main_refuses_password_arguments_as_a_tool_error(self):

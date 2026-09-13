@@ -1905,24 +1905,28 @@ def _ident(name):
     return "`" + name.replace("`", "``") + "`"
 
 
-INTERACTIVE_PASSWORD_ARGS = ("-p", "--password")
+#: The client's bare prompting forms: refused because every check runs a
+#: fresh client process, so each one would prompt again.
+INTERACTIVE_PROMPT_ARGS = ("-p", "--password")
 
 
-def password_arg_problem(mysql_args):
-    """A client argument that carries or prompts for the password, if any.
+def refused_client_arg_shape(mysql_args):
+    """The SHAPE of a client argument that carries or prompts for the
+    password, if any -- never the argument itself.
 
     A bare -p / --password would PROMPT once per query (every check is a
     fresh client process); an attached -pSECRET / --password=SECRET puts
     the credential in the process list and in any diagnostic that echoes
     argv. The password must come from --mysql-password-file (MYSQL_PWD)
-    or a client defaults file. The offending VALUE is never returned —
-    only its shape — so it cannot leak through the refusal message. The
-    description is built from this module's own constants, never from
-    the argument (not even the bare `-p`, which is a constant anyway):
-    the refusal is printed, and a scanner that follows argv into a
-    print must be able to see that nothing from argv reaches it."""
+    or a client defaults file. What comes back is a description built
+    from this module's own constants -- not a substring of argv, not
+    even the bare `-p` -- because main() prints it in the refusal, and
+    a reader (or a scanner following argv into a print) must be able to
+    see that no credential can reach stderr through it. The name says
+    what it returns for the same reason: this is not a password
+    accessor."""
     for a in mysql_args:
-        for known in INTERACTIVE_PASSWORD_ARGS:
+        for known in INTERACTIVE_PROMPT_ARGS:
             if a == known:
                 return "'{0}' (interactive prompt)".format(known)
         if a.startswith("--password="):
@@ -1935,7 +1939,7 @@ def password_arg_problem(mysql_args):
 def interactive_password_arg(mysql_args):
     """Back-compat name: the bare prompting form, if present."""
     for a in mysql_args:
-        if a in INTERACTIVE_PASSWORD_ARGS:
+        if a in INTERACTIVE_PROMPT_ARGS:
             return a
     return None
 
@@ -3868,7 +3872,7 @@ def main(argv=None):
                   .format(args.properties, exc), file=sys.stderr)
             return EXIT_TOOL_ERROR
 
-    bad = password_arg_problem(args.mysql_arg)
+    bad = refused_client_arg_shape(args.mysql_arg)
     if bad:
         print("ERROR: client argument {0} refused: a bare -p would prompt "
               "on every query (each check runs a fresh client) and an "
