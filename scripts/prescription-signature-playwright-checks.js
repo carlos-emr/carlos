@@ -526,6 +526,9 @@ async function runPrescriptionSignatureCheck(context) {
     try { if (browser) await browser.close(); } finally { cancellation.dispose(); }
   }
 })().catch((error) => {
+  // The cause is what makes a one-line failure diagnosable; a fixture guard ("must refer
+  // to an unsigned disposable fixture") and a browser timeout print identically without it.
   console.error('Prescription signature validation failed');
+  console.error(error && (error.stack || error.message || String(error)));
   process.exitCode = error.exitCode || 1;
 });

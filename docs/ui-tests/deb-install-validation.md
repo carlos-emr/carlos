@@ -616,8 +616,33 @@ suite_failed=0
 #   BILLING_CODE_EXISTING=A007A BILLING_CODE_NEW=X987Z   (billing-service-code-admin)
 #   PREVENTION_BRAND_QUERY=Tdap  (prevention-brand-picker)
 #   MACRO_LAB_NO=<lab_no>        (lab-macro-tickler; defaults to the first HL7 lab with a patient)
-# On a fresh Ontario install, consultation-request-create and specialist-add-cpso need at least one
-# active consultationServices row (the ON seed ships them all inactive; see the coverage page, finding 21).
+# consultation-request-create and specialist-add-cpso need at least one active consultationServices
+# row. Migration V1.0.23 (on) reactivates the seeded rows on a pristine demo/dev database (see
+# "Ontario consultation catalogue repair" below and the coverage page, finding 21), which the demo
+# install here is, so a package carrying it needs nothing; on an older package, or a configured
+# clinical install, activate one by hand first.
+# Clinical-workflow coverage scripts (docs/ui-tests/clinical-workflow-browser-checks.md). Each one
+# reaches its surface by clicking the links an operator clicks, seeds only what it needs and restores
+# it in a finally, and defaults to demographic 1 / provider 999998. Their knobs:
+#   APPOINTMENT_PROVIDER_NO=999998 APPOINTMENT_DEMOGRAPHIC_NO=1 APPOINTMENT_DAYS_AHEAD=400
+#                                (appointment-lifecycle; DAYS_AHEAD puts the booking on a far-future
+#                                day sheet so it cannot collide with a seeded appointment)
+#   MESSENGER_PROVIDER_NO=999998 (messenger-inbox-actions; enrols the provider as a local contact
+#                                through the Administration page when it is not already one, because a
+#                                hand-inserted groupMembers_tbl row does not make a recipient appear)
+#   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID must be the
+#                                NEWEST lab of its accession -- the Inboxhub opens labs with
+#                                showLatest=true, which renders the newest version of the chain, so an
+#                                older segment would put the acknowledge on a row it never routed. Left
+#                                unset the check picks a qualifying lab itself.)
+#                                (prevention-recall-report takes no knob: the screening type is fixed
+#                                to Flu because the check seeds a saved demographic query naming one
+#                                65+ patient with no flu shot and asserts the report classifies them
+#                                "No Info". Without a patientSet the report returns its empty form
+#                                unchanged, so the fixture is what makes it run at all. The saved
+#                                query is the only row written and a finally removes it.)
+#   MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
+#                                (measurement-validation)
 for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
   case "$s" in
     *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
@@ -1023,6 +1048,83 @@ can rerun `carlos-ctl demo-data` to bootstrap missing files even when the SQL
 completion marker already exists. Both Debian and devcontainer bootstraps leave
 existing documents untouched. These files contain invented, explicitly labelled
 reports for the FAKE patients; they do not reproduce the old reports' content.
+
+### Upgrade path: alpha11 packages -> alpha12 packages
+
+Reviewed and exercised on 2026-09-13: a controlled in-place `apt-get install` of
+the three `2026.09.0~snapshot22` packages over a `2026.09.0~snapshot19` install
+(Ubuntu 26.04 container, demo dataset, first-login reset already done so the
+operator's own password was in place). Two repo scripts make it repeatable:
+`scripts/deb-upgrade-baseline.sh` (a key=value snapshot: package versions,
+Flyway history, clinical row counts, config/TLS hashes, sentinels, the admin
+hash, build tag) taken before and after, and `scripts/deb-upgrade-verify.sh`,
+which diffs the two and asserts the contract below. Both are counts, hashes and
+flags only; no PHI leaves the host.
+
+What the review established, from the maintainer scripts and the run:
+
+- **Migrations.** The a11 package ships 23 Flyway migration *files*, a12 ships 27.
+  Files and applied rows are different numbers and it is worth keeping them apart:
+  the BC-only files never apply to an Ontario install, so this ON host went from
+  **19 applied rows to 23**, which is what `EXPECT_FLYWAY` in
+  `deb-upgrade-verify.sh` counts. The delta is exactly `V1.0.20`, `V1.0.21`,
+  `V1.0.22` (common) and `V1.0.23` (on);
+  nothing was removed and every shared file is byte-identical, so `validate`
+  passes and `carlos-ctl db-migrate` applies the four (`applied 4 migration(s);
+  schema is at 1.0.23`). `V1.0.23` is demo-guarded: it activated the 257 seeded
+  consultation services here because every demographic is a FAKE- patient; on a
+  configured clinical install it leaves the catalogue for an administrator.
+- **Credentials.** `carlos-ctl bootstrap-admin` runs on every configure but only
+  resets an account still carrying the *published* seeded hash, so the upgrade
+  logged `nothing to reset` and the operator's password hash, PIN and
+  `forcePasswordReset` were unchanged.
+- **Configuration.** `carlos-emr.env`, `carlos.properties`, `backup.env`, the
+  self-signed certificate, province, timezone and DB name were byte-identical
+  before and after (`FRESH_ENV=0` on an upgrade; the sentinel-guarded one-time
+  migrations had already run on a11). `prerm` is a no-op on `upgrade`, and every
+  destructive `postrm` action is gated to `purge`, which still keeps the clinical
+  record.
+- **Data.** Every clinical table's row count was preserved and every stored
+  document's file is still present. The store *grew* from 21 to 62 files: a12
+  ships the synthetic HRM report files that end the `HRMReportParser: File Not
+  Found` errors, and `carlos-ctl demo-data` is additive. One consequence to
+  know: `demo-data` detects an already-loaded dataset and leaves it alone, so a
+  seed-data correction in a12 (the prescription `digital_signature_id` fix)
+  reaches **fresh** a12 installs only; an upgraded demo/dev install keeps its
+  a11 rows. Production holds no demo rows, so this is a dev/demo note.
+- **Service.** The unit came back `active` with `NRestarts=0`, `carlos-ctl
+  check` reported all checks passed, and the About page carries the new build
+  tag `2026.08.0-alpha12-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot22)` — the
+  packaged WAR is stamped even when supplied prebuilt via `CARLOS_WAR=`.
+- **Compiled JSPs.** The a12 launcher (`/usr/lib/carlos-emr/carlos-emr-tomcat`)
+  runs `clear_jsp_cache` on every start, deleting compiled `org/apache/jsp`
+  classes under the Tomcat work directory, so the upgrade restart cannot serve
+  a11-compiled pages against a12 classes (the class of failure a truncated or
+  stale work directory produced during this validation). Do not try to verify
+  this from class-file timestamps: Jasper back-dates each compiled class to its
+  JSP source's mtime, and the package clamps source mtimes for reproducible
+  builds, so every class looks older than the upgrade regardless. Verify it
+  functionally — no `JasperException` in the journal after the restart, and the
+  changed pages rendering — or by comparing a changed JSP's mtime with its
+  compiled class's (equal means compiled from the deployed source).
+- **Harness prerequisite, not a package one.** a12's
+  `eform-render-playwright-checks.js` inspects the rendered PDF with
+  `pdftotext -bbox`, so `poppler-utils` (already in the harness install step
+  above) is required on the test host; the package correctly declares no
+  dependency on it. A host prepared with only `nodejs` fails that one check
+  with `spawnSync pdftotext ENOENT`.
+
+Result: `deb-upgrade-verify.sh` 30/30 (a transient `allergies 17 -> 19` seen
+once was the live suite's own `allergy-add-penicillin` fixture mid-run, deleted
+in its `finally`). The full browser suite was then run against the upgraded
+install: **73/76, 0 JVM restarts**. The three non-passes are the opt-in
+`eform-corpus-soak`, `eform-render` on a host missing `poppler-utils` (green
+once installed — see the harness note above), and `prescription-signature`,
+whose fixture reads as signed on an upgraded demo install for the `demo-data`
+reason above; all three pass on a fresh a12 install with the prerequisite in
+place. `lab-acknowledge` passed on the upgraded install and its
+`labDisplay_jsp.class` carries the deployed a12 source's exact mtime — compiled
+from the a12 page after the upgrade restart.
 
 ### Ontario consultation catalogue repair
 

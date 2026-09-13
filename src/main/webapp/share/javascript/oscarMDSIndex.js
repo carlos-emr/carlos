@@ -2222,7 +2222,14 @@ function updateStatus(formid) {//acknowledge
             console.log(data);
 
             jQuery.post(url, data).done(function (responseBody) {
-                updateDocStatusInQueue(doclabid);
+                // Only a DOCUMENT has an inbox queue link. This handler serves lab (HL7) and
+                // document acknowledge forms alike, and doclabid is whichever id the form
+                // carries -- lab segment ids and document ids are separate sequences, so
+                // posting a lab id here inactivated the queue link of an unrelated document
+                // that happened to share the number.
+                if (data.labType === 'DOC') {
+                    updateDocStatusInQueue(doclabid);
+                }
 				// How many routing rows the server took out of NEW. Only it knows: it derives
 				// the HL7 version chain itself rather than trusting the posted multiID, and it
 				// alone can see which of those rows were still NEW. Absent — an older server,

@@ -170,7 +170,11 @@ these are fixed by this change.
     no selectable consultation service and no specialty on Add Specialist
     until an admin activates them. The dev/demo database hides this because
     `development.sql` truncates the table and reseeds six active services, and
-    the additive demo build excludes the table.
+    the additive demo build excludes the table. **Fixed** in `release/2026.08`
+    by `V1.0.23__activate_legacy_consultation_services.sql`, which reactivates the
+    257 seeded rows only on a pristine demo/dev database (all rows still match the
+    shipped Ontario seed at `02` and every demographic is a FAKE- patient), and
+    leaves a configured clinical install for an administrator to curate.
 22. (deb, fixed in `release/2026.08`) The alpha-11 WAF policy inspects
     `ARGS:caseNote_note` with the full CRS set, so any encounter note with a
     line starting `Start `, `Type `, `Find ` (Windows-RCE rule 932115, e.g.
