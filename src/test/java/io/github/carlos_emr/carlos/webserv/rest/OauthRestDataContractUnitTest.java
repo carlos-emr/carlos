@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
@@ -85,6 +86,9 @@ class OauthRestDataContractUnitTest extends CarlosUnitTestBase {
     @Mock
     private DocumentManager documentManager;
 
+    @Mock
+    private SecurityInfoManager securityInfoManager;
+
     private LoggedInInfo loggedInInfo;
 
     @BeforeEach
@@ -99,6 +103,8 @@ class OauthRestDataContractUnitTest extends CarlosUnitTestBase {
         DemographicTo1 data = new DemographicTo1();
         Demographic domain = new Demographic(DEMOGRAPHIC_NO);
         DemographicTo1 persisted = new DemographicTo1();
+        // createDemographicData gates on the object-level (String-overload) privilege check.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)).thenReturn(true);
         when(demoConverter.getAsDomainObject(loggedInInfo, data)).thenReturn(domain);
         when(demoConverter.getAsTransferObject(loggedInInfo, domain)).thenReturn(persisted);
 
@@ -116,6 +122,9 @@ class OauthRestDataContractUnitTest extends CarlosUnitTestBase {
         data.setDemographicNo(DEMOGRAPHIC_NO);
         Demographic domain = new Demographic(DEMOGRAPHIC_NO);
         DemographicTo1 persisted = new DemographicTo1();
+        // updateDemographicData gates on the record-level (int-overload) privilege check.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "u", DEMOGRAPHIC_NO.intValue()))
+                .thenReturn(true);
         when(demoConverter.getAsDomainObject(loggedInInfo, data)).thenReturn(domain);
         when(demoConverter.getAsTransferObject(loggedInInfo, domain)).thenReturn(persisted);
 
@@ -162,6 +171,7 @@ class OauthRestDataContractUnitTest extends CarlosUnitTestBase {
         };
         injectDependency(service, "demographicManager", demographicManager);
         injectDependency(service, "demoConverter", demoConverter);
+        injectDependency(service, "securityInfoManager", securityInfoManager);
         return service;
     }
 

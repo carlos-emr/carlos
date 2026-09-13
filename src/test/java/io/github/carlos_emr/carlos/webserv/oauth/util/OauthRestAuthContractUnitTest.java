@@ -43,7 +43,6 @@ import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -93,13 +92,17 @@ class OauthRestAuthContractUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should pass non-OAuth1 requests through without authenticating")
-    void shouldPassThrough_whenRequestIsNotOAuth1() {
+    @DisplayName("should reject with 401 when the request carries no OAuth credentials")
+    void shouldReject_whenRequestIsNotOAuth1() {
+        // /ws/services is the OAuth-only REST surface, so a request with no OAuth credentials
+        // cannot be authenticated here and fails closed with 401 rather than passing through
+        // to handlers that may omit their own privilege check (#2798). Session/browser clients
+        // use the separate /ws/rs surface guarded by AuthenticationInInterceptor.
         Message message = messageFor(new MockHttpServletRequest("GET", "/ws/services/demographics/1"));
 
-        assertThatCode(() -> interceptor.handleMessage(message)).doesNotThrowAnyException();
+        assertFaultStatus(message, 401, "authentication_required");
 
-        // A non-OAuth1 request must short-circuit before any credential resolution or lookup.
+        // The rejection must short-circuit before any credential resolution or lookup.
         verifyNoInteractions(oauthDataProvider, verifier, providerDao);
     }
 
