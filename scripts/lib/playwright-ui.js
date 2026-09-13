@@ -130,6 +130,59 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
 }
 
 /**
+ * Click a control whose destination is a generated FILE, and take whichever way
+ * the browser chose to deliver it.
+ *
+ * WHY THIS IS A RACE AND NOT A WAIT. CARLOS opens its PDFs with
+ * popupPage(...) -> window.open(url). A headless Chromium with no PDF viewer
+ * turns that into a download on the opener and the popup never settles; a
+ * headed one renders it in a popup and no download fires. Both are correct
+ * behaviour, and a check that waits for one of them hangs on the other.
+ *
+ * Returns { kind: 'download' | 'popup', url, download, page }. `url` is the
+ * address the APPLICATION built for this control -- worth having on its own,
+ * because the caller reads the bytes back through the session rather than out
+ * of the renderer: a download gives a check no response body to inspect, and a
+ * PDF rendered in a viewer gives it no bytes either.
+ */
+async function clickDownloadsOrOpens(page, locator, options = {}) {
+  const context = options.context || page.context();
+  const label = options.label || 'download';
+  const timeout = options.timeout || DEFAULT_TIMEOUT;
+
+  // A loser must never settle: Promise.race takes the first settlement, so a
+  // rejected loser (both share one deadline) would win and hide the real one.
+  const never = () => new Promise(() => {});
+  const downloaded = page.waitForEvent('download', { timeout })
+    .then((download) => ({ kind: 'download', url: download.url(), download, page: null }), never);
+  const popped = context.waitForEvent('page', { timeout })
+    .then((popup) => ({ kind: 'popup', url: popup.url(), download: null, page: popup }), never);
+
+  let expire;
+  const deadline = new Promise((resolve, reject) => {
+    expire = setTimeout(
+      () => reject(new Error(`${label}: clicking produced neither a download nor a popup within ${timeout}ms`)),
+      timeout,
+    );
+  });
+
+  const target = typeof locator === 'string' ? page.locator(locator) : locator;
+  await target.scrollIntoViewIfNeeded().catch(() => {});
+  await target.click({ timeout });
+
+  let outcome;
+  try {
+    outcome = await Promise.race([downloaded, popped, deadline]);
+  } finally {
+    clearTimeout(expire);
+  }
+  if (outcome.kind === 'popup' && options.recorder) {
+    wireStrictPage(outcome.page, label, options.recorder, options);
+  }
+  return outcome;
+}
+
+/**
  * Click a control that replaces an AJAX-injected panel, and wait for the panel.
  *
  * The Administration shell injects its pages into #dynamic-content. Issue #3377
@@ -466,6 +519,7 @@ const REQUIRED_SECTIONS = [
 module.exports = {
   NAVIGATION,
   REQUIRED_SECTIONS,
+  clickDownloadsOrOpens,
   clickInjectsPanel,
   clickOpensPopup,
   clickOpensPopupOrNavigates,
