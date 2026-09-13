@@ -6,7 +6,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 
 /**
  * Represents the result of an email status query in the OpenO EMR email system.
@@ -40,10 +42,14 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private String providerLastName;
     private String recipientEmail;
     private boolean isEncrypted;
-    private String password;
     private EmailStatus status;
     private String errorMessage;
     private Date created;
+    private EmailConsentStatus consentStatus;
+    private Integer consentId;
+    private Date consentLastUpdateDate;
+    private boolean consentOverride;
+    private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailStatusResult instance.
@@ -65,14 +71,13 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @param providerFirstName String the first name of the associated healthcare provider
      * @param providerLastName String the last name of the associated healthcare provider
      * @param isEncrypted boolean flag indicating whether the email was encrypted
-     * @param password String the encryption password (if applicable)
      * @param status EmailStatus the current delivery status of the email
      * @param errorMessage String any error message associated with failed delivery (may be null)
      * @param created Date the timestamp when the email was created/sent
      */
     public EmailStatusResult(Integer logId, String subject, String senderFirstName, String senderLastName, String senderEmail,
                              String recipientFirstName, String recipientLastName, String recipientEmail, String providerFirstName,
-                             String providerLastName, boolean isEncrypted, String password, EmailStatus status,
+                             String providerLastName, boolean isEncrypted, EmailStatus status,
                              String errorMessage, Date created) {
         this.logId = logId;
         this.subject = subject;
@@ -85,7 +90,6 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         this.providerLastName = providerLastName;
         this.recipientEmail = recipientEmail;
         this.isEncrypted = isEncrypted;
-        this.password = password;
         this.status = status;
         this.errorMessage = errorMessage;
         this.created = created;
@@ -169,7 +173,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted sender's full name
      */
     public String getSenderFullName() {
-        return toCamelCase(senderFirstName) + " " + toCamelCase(senderLastName);
+        return formatFirstNameLastName(senderFirstName, senderLastName);
     }
 
     /**
@@ -243,7 +247,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted recipient's full name
      */
     public String getRecipientFullName() {
-        return toCamelCase(recipientFirstName) + " " + toCamelCase(recipientLastName);
+        return formatFirstNameLastName(recipientFirstName, recipientLastName);
     }
 
     /**
@@ -299,7 +303,15 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted provider's full name
      */
     public String getProviderFullName() {
-        return toCamelCase(providerLastName) + ", " + toCamelCase(providerFirstName);
+        String firstName = toCamelCase(providerFirstName);
+        String lastName = toCamelCase(providerLastName);
+        if (firstName.isEmpty()) {
+            return lastName;
+        }
+        if (lastName.isEmpty()) {
+            return firstName;
+        }
+        return lastName + ", " + firstName;
     }
 
     /**
@@ -358,31 +370,69 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         this.isEncrypted = isEncrypted;
     }
 
-    /**
-     * Gets the encryption password.
-     *
-     * <p><strong>Security Note:</strong> This password is used for email encryption in a
-     * healthcare context where emails may contain PHI. Handle this value with appropriate
-     * security measures: do not log it, avoid exposing it in error messages, and clear it
-     * from memory when no longer needed.</p>
-     *
-     * @return String the encryption password (may be null if not encrypted)
-     */
-    public String getPassword() {
-        return password;
+    /** @return the consent state captured for the displayed send attempt */
+    public EmailConsentStatus getConsentStatus() {
+        return consentStatus;
     }
 
     /**
-     * Sets the encryption password.
+     * Copies the persisted consent audit fields into this display result. The mutable consent date
+     * is defensively copied and absent fields remain {@code null} or empty.
      *
-     * <p><strong>Security Note:</strong> This password is used for email encryption in a
-     * healthcare context where emails may contain PHI. Ensure this value is handled
-     * securely and not logged or exposed in error messages.</p>
-     *
-     * @param password String the encryption password to set
+     * @param emailLog the persisted email log containing the consent snapshot
      */
-    public void setPassword(String password) {
-        this.password = password;
+    public void applyConsentSnapshot(EmailLog emailLog) {
+        this.consentStatus = emailLog.getConsentStatus();
+        this.consentId = emailLog.getConsentId();
+        this.consentLastUpdateDate = copyDate(emailLog.getConsentLastUpdateDate());
+        this.consentOverride = emailLog.getConsentOverride();
+        this.consentOverrideReason = emailLog.getConsentOverrideReason();
+    }
+
+    /** @return the source consent-record identifier, or {@code null} */
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    /** @return a defensive copy of the source consent record's update time */
+    public Date getConsentLastUpdateDate() {
+        return copyDate(consentLastUpdateDate);
+    }
+
+    /** @return whether a documented unknown-consent override permitted the send */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** @return the recorded override reason, or {@code null} */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /** @return the resource-bundle key for the consent status or a legacy not-recorded label */
+    public String getConsentMessageKey() {
+        EmailConsentStatus displayStatus = getConsentStatus();
+        return displayStatus != null
+                ? displayStatus.getMessageKey()
+                : "email.consent.status.notRecorded";
+    }
+
+    /**
+     * Formats the snapshotted consent update date as {@code yyyy-MM-dd}, or returns an empty string
+     * when the snapshot has no update date.
+     *
+     * @return the formatted consent update date
+     */
+    public String getConsentLastUpdateDisplay() {
+        Date lastUpdate = getConsentLastUpdateDate();
+        if (lastUpdate == null) {
+            return "";
+        }
+        return new SimpleDateFormat("yyyy-MM-dd").format(lastUpdate);
+    }
+
+    private static Date copyDate(Date date) {
+        return date != null ? new Date(date.getTime()) : null;
     }
 
     /**
@@ -482,11 +532,24 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      *
      * @param inputString String the input string to convert
      * @return String the Title Case formatted string
-     * @throws NullPointerException if inputString is null
-     * @throws StringIndexOutOfBoundsException if inputString is empty
      */
     private String toCamelCase(String inputString) {
+        if (inputString == null || inputString.isEmpty()) {
+            return "";
+        }
         return Character.toUpperCase(inputString.charAt(0)) + inputString.substring(1).toLowerCase();
+    }
+
+    private String formatFirstNameLastName(String firstName, String lastName) {
+        String formattedFirstName = toCamelCase(firstName);
+        String formattedLastName = toCamelCase(lastName);
+        if (formattedFirstName.isEmpty()) {
+            return formattedLastName;
+        }
+        if (formattedLastName.isEmpty()) {
+            return formattedFirstName;
+        }
+        return formattedFirstName + " " + formattedLastName;
     }
 
     /**

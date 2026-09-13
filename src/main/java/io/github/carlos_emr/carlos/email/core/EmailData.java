@@ -46,6 +46,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-01-14
  */
 public class EmailData {
+    /** Maximum persisted length of a consent override justification. */
+    public static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
+
     private Integer senderConfigId;
     private String sender;
     private String[] recipients;
@@ -63,6 +66,8 @@ public class EmailData {
     private String providerNo;
     private String additionalParams;
     private List<EmailAttachment> attachments;
+    private boolean consentOverride;
+    private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailData instance.
@@ -535,5 +540,40 @@ public class EmailData {
      */
     public void setAttachments(List<EmailAttachment> attachments) {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
+    }
+
+    /** @return whether the provider requested an unknown-consent override */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** @param consentOverride whether the provider requested an unknown-consent override */
+    public void setConsentOverride(boolean consentOverride) {
+        this.consentOverride = consentOverride;
+    }
+
+    /** @param consentOverride request value; only the exact value {@code true} enables override */
+    public void setConsentOverride(String consentOverride) {
+        this.consentOverride = "true".equals(consentOverride);
+    }
+
+    /** @return the trimmed provider-entered override reason, never {@code null} after assignment */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /**
+     * Stores a trimmed consent override reason without losing audit content.
+     *
+     * @param consentOverrideReason provider-entered justification
+     * @throws IllegalArgumentException when the trimmed reason exceeds 255 characters
+     */
+    public void setConsentOverrideReason(String consentOverrideReason) {
+        String reason = consentOverrideReason != null ? consentOverrideReason.trim() : "";
+        if (reason.length() > CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
+            throw new IllegalArgumentException("Consent override reason must not exceed "
+                    + CONSENT_OVERRIDE_REASON_MAX_LENGTH + " characters");
+        }
+        this.consentOverrideReason = reason;
     }
 }

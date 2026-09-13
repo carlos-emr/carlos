@@ -28,13 +28,18 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
+import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -99,6 +104,20 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    private final EmailConsentResolver emailConsentResolver;
+    private final EmailSenderFactory emailSenderFactory;
+
+    /**
+     * Creates an email manager with the consent gate and sender factory used by the send path.
+     * Remaining legacy collaborators are injected into their existing fields by Spring.
+     *
+     * @param emailConsentResolver resolves current patient email consent
+     * @param emailSenderFactory creates the outbound sender after consent is accepted
+     */
+    public EmailManager(EmailConsentResolver emailConsentResolver, EmailSenderFactory emailSenderFactory) {
+        this.emailConsentResolver = emailConsentResolver;
+        this.emailSenderFactory = emailSenderFactory;
+    }
 
     /**
      * Sends an email with optional encryption and creates a corresponding email log entry.
@@ -111,11 +130,12 @@ public class EmailManager {
      * The method performs the following steps:
      * 1. Validates user has _email WRITE privilege
      * 2. Sanitizes email data fields
-     * 3. Creates email log entry in FAILED status
-     * 4. Encrypts message and/or attachments if requested
-     * 5. Sends email via configured email server
-     * 6. Updates log status to SUCCESS or FAILED
-     * 7. Creates chart note if configured for WITH_FULL_NOTE display
+     * 3. Resolves current patient consent and records it on the email log
+     * 4. Returns the log in BLOCKED status without creating a sender when consent denies the send
+     * 5. Encrypts message and/or attachments if requested
+     * 6. Sends email via configured email server
+     * 7. Updates log status to SUCCESS or FAILED
+     * 8. Creates a chart note for successful sends configured for WITH_FULL_NOTE display
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
      * @param emailData EmailData containing email subject, body, recipients, attachments, and configuration options
@@ -128,12 +148,24 @@ public class EmailManager {
         }
 
         sanitizeEmailFields(emailData);
+        EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
+        applyConsentSnapshot(emailLog, consentResult, emailData);
+        logPreparedEmail(loggedInInfo, emailLog);
+        if (isBlockedByConsent(consentResult, emailData)) {
+            String errorMessage = getConsentBlockMessage(consentResult);
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.BLOCKED, errorMessage);
+            LogAction.addLog(loggedInInfo, "EmailManager.sendEmail.blocked", "Email",
+                    "emailLogId=" + emailLog.getId() + "&consentStatus=" + consentResult.getStatus(),
+                    String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+            return emailLog;
+        }
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
             }
-            EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
+            EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
             emailSender.send();
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
             if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
@@ -144,6 +176,43 @@ public class EmailManager {
             logger.error("Failed to send email", e);
         }
         return emailLog;
+    }
+
+    /**
+     * Transparently upgrades an email configuration's transport secrets to at-rest encryption on
+     * first use (the send path), so hand-inserted plaintext {@code emailConfig.configDetails} rows
+     * are migrated the first time they are used to send.
+     *
+     * <p>The upgrade is best-effort: if the encryption key is unavailable, or the persistence of the
+     * re-encrypted row fails, the row is left as-is and the send proceeds with the existing
+     * (plaintext) value rather than blocking outbound mail. Already-encrypted rows are detected by
+     * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
+     * {@code configDetails} JSON is ever logged.</p>
+     *
+     * @param emailConfig the configuration whose secrets should be encrypted at rest, may be null
+     */
+    void upgradeConfigCredentialsAtRest(EmailConfig emailConfig) {
+        if (emailConfig == null) {
+            return;
+        }
+        String original = emailConfig.getConfigDetailsJson();
+        try {
+            String encrypted = EmailConfigSecrets.encryptSecrets(original);
+            if (!java.util.Objects.equals(original, encrypted)) {
+                emailConfig.setConfigDetailsJson(encrypted);
+                emailConfigDao.merge(emailConfig);
+            }
+        } catch (EmailSendingException | RuntimeException e) {
+            // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
+            // from merge (RuntimeException, e.g. DataAccessException) may block outbound mail. The
+            // send proceeds with the existing value. Restore the detached object as well in case a
+            // merge failure happened after it was updated in memory. The logged cause aids diagnosis
+            // and carries no plaintext secret or raw config JSON: encryptSecrets fails before the
+            // value is set, and by the time merge runs the stored value is already ciphertext.
+            emailConfig.setConfigDetailsJson(original);
+            logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
+                    emailConfig.getId(), e);
+        }
     }
 
     /**
@@ -158,7 +227,7 @@ public class EmailManager {
      * 2. Loads demographic and provider information
      * 3. Creates EmailLog entity with all email data
      * 4. Persists the email log to database
-     * 5. Creates audit log entry for compliance tracking
+     * The caller records the consent snapshot and compliance audit entry after this method returns.
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
      * @param emailData EmailData containing email content, recipients, and configuration
@@ -195,8 +264,6 @@ public class EmailManager {
         emailLog.setDemographic(demographic);
         emailLog.setProvider(provider);
         emailLogDao.persist(emailLog);
-
-        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", "emailLogId=" + emailLog.getId(), String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
 
         return emailLog;
     }
@@ -244,7 +311,7 @@ public class EmailManager {
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required security object (_email)");
+            throw new RuntimeException("missing required sec object (_email)");
         }
 
         Date newTimestamp = (!emailStatus.equals(EmailStatus.RESOLVED)) ? new Date() : emailLog.getTimestamp();
@@ -389,6 +456,45 @@ public class EmailManager {
             emailAttachmentList.add(new EmailAttachment(emailLog, emailAttachment.getFileName(), emailAttachment.getFilePath(), emailAttachment.getDocumentType(), emailAttachment.getDocumentId()));
         }
         emailLog.setEmailAttachments(emailAttachmentList);
+    }
+
+    private void applyConsentSnapshot(EmailLog emailLog, EmailConsentResult consentResult, EmailData emailData) {
+        emailLog.setConsentStatus(consentResult.getStatus());
+        emailLog.setConsentId(consentResult.getConsentId());
+        emailLog.setConsentLastUpdateDate(consentResult.getConsentLastUpdateDate());
+        emailLog.setConsentOverride(isValidUnknownConsentOverride(consentResult, emailData));
+        emailLog.setConsentOverrideReason(emailLog.getConsentOverride() ? emailData.getConsentOverrideReason() : "");
+        emailLogDao.merge(emailLog);
+    }
+
+    private void logPreparedEmail(LoggedInInfo loggedInInfo, EmailLog emailLog) {
+        String logData = "emailLogId=" + emailLog.getId()
+                + "&consentStatus=" + emailLog.getConsentStatus()
+                + "&override=" + emailLog.getConsentOverride();
+        LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", logData,
+                String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
+    }
+
+    private boolean isBlockedByConsent(EmailConsentResult consentResult, EmailData emailData) {
+        return consentResult.getStatus() != EmailConsentStatus.OPT_IN
+                && (consentResult.getStatus() != EmailConsentStatus.UNKNOWN
+                || !isValidUnknownConsentOverride(consentResult, emailData));
+    }
+
+    private boolean isValidUnknownConsentOverride(EmailConsentResult consentResult, EmailData emailData) {
+        return consentResult.getStatus() == EmailConsentStatus.UNKNOWN
+                && emailData.getConsentOverride()
+                && !StringUtils.isNullOrEmpty(emailData.getConsentOverrideReason());
+    }
+
+    private String getConsentBlockMessage(EmailConsentResult consentResult) {
+        if (consentResult.getStatus() == EmailConsentStatus.OPT_OUT) {
+            return "Email blocked: patient has explicitly opted out of email communication.";
+        }
+        if (consentResult.getStatus() == EmailConsentStatus.NOT_CONFIGURED) {
+            return "Email blocked: patient email consent is not configured.";
+        }
+        return "Email blocked: patient email consent is unknown and no override reason was provided.";
     }
 
     /**
@@ -565,10 +671,24 @@ public class EmailManager {
             EmailConfig emailConfig = result.getEmailConfig();
             Demographic demographic = result.getDemographic();
             Provider provider = result.getProvider();
-            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
-                    emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
-                    demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
-                    result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+            // Null-guard the joined associations: an email log may legitimately have no linked
+            // demographic, provider, config, or recipient list, and an unguarded dereference would
+            // break the whole Manage Emails admin view with an NPE.
+            String senderFirstName = emailConfig != null ? emailConfig.getSenderFirstName() : "";
+            String senderLastName = emailConfig != null ? emailConfig.getSenderLastName() : "";
+            String demoFirstName = demographic != null ? demographic.getFirstName() : "";
+            String demoLastName = demographic != null ? demographic.getLastName() : "";
+            String provFirstName = provider != null ? provider.getFirstName() : "";
+            String provLastName = provider != null ? provider.getLastName() : "";
+            String toEmails = String.join(", ", result.getToEmail()); // getToEmail() is null-safe (empty array)
+            // Do NOT surface the stored PDF password in the Manage Emails view. The password stays
+            // out of the DTO by default (issue #3112); the encryption state is still shown so staff
+            // can see an email was encrypted without the credential being exposed on screen.
+            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), senderFirstName,
+                    senderLastName, result.getFromEmail(), demoFirstName,
+                    demoLastName, toEmails, provFirstName, provLastName,
+                    result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+            emailStatusResult.applyConsentSnapshot(result);
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

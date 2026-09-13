@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
@@ -81,6 +82,8 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_EMAIL_PDF_PASSWORD = "emailPDFPassword";
     private static final String PARAM_EMAIL_PDF_PASSWORD_CLUE = "emailPDFPasswordClue";
     private static final String PARAM_INTERNAL_COMMENT = "internalComment";
+    private static final String PARAM_CONSENT_OVERRIDE = "consentOverride";
+    private static final String PARAM_CONSENT_OVERRIDE_REASON = "consentOverrideReason";
     private static final int MINIMUM_PDF_PASSWORD_LENGTH = 5;
     private static final int MAXIMUM_MESSAGE_LENGTH = 10_000;
 
@@ -110,12 +113,13 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 result identifier - "success" for successful email operations,
      *         or NONE after cancellation or request rejection
      */
+    @Override
     // FindSecBugs XSS_SERVLET: validation failures are fixed server-authored strings returned as
     // text/plain, never request-derived content or HTML.
     @SuppressFBWarnings(
             value = "XSS_SERVLET",
             justification = "response is text/plain and validation messages are fixed server-authored strings")
-    public String execute () {
+    public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
             throw new SecurityException("missing required sec object (_email)");
@@ -151,7 +155,7 @@ public class EmailSend2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             response.setContentType("text/plain;charset=UTF-8");
             try {
-                response.getWriter().write(e.getMessage());
+                response.getWriter().write(SafeEncode.forHtmlContent(e.getMessage()));
             } catch (IOException ioException) {
                 logger.warn("Unable to write email validation response", ioException);
             }
@@ -268,7 +272,16 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute(PARAM_INTERNAL_COMMENT, request.getParameter(PARAM_INTERNAL_COMMENT));
         request.setAttribute("emailAdditionalParams", request.getParameter("additionalURLParams"));
         request.setAttribute("emailConsentName", request.getParameter("emailConsentName"));
-        request.setAttribute("emailConsentStatus", request.getParameter("emailConsentStatus"));
+        EmailConsentStatus consentStatus = emailLog.getConsentStatus() != null
+                ? emailLog.getConsentStatus()
+                : parseConsentStatus(request.getParameter("emailConsentStatus"));
+        request.setAttribute("emailConsentStatus", consentStatus.name());
+        request.setAttribute("emailConsentMessageKey", consentStatus.getMessageKey());
+        // Re-seed only the persisted, send-time decision. Trusting request parameters here would
+        // let a forged OPT_OUT submission render as though an override had been accepted.
+        request.setAttribute(PARAM_CONSENT_OVERRIDE, emailLog.getConsentOverride());
+        request.setAttribute(PARAM_CONSENT_OVERRIDE_REASON,
+                emailLog.getConsentOverride() ? emailLog.getConsentOverrideReason() : "");
         request.setAttribute("invalidReceiverEmailList", List.of());
 
         String[] recipients = request.getParameterValues("receiverEmailAddress");
@@ -282,6 +295,14 @@ public class EmailSend2Action extends ActionSupport {
         }
         if (emailLog.getDemographic() != null) {
             request.setAttribute("receiverName", emailLog.getDemographic().getFormattedName());
+        }
+    }
+
+    private EmailConsentStatus parseConsentStatus(String statusCode) {
+        try {
+            return EmailConsentStatus.valueOf(statusCode);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return EmailConsentStatus.UNKNOWN;
         }
     }
 
@@ -358,6 +379,7 @@ public class EmailSend2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         validateMessageRequirement(request);
         validateEncryptionRequirements(request);
+        validateConsentOverrideReason(request);
         EmailData emailData = prepareEmailFields(request);
         EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
         if (emailLog.getStatus() == EmailStatus.SUCCESS) {
@@ -423,6 +445,23 @@ public class EmailSend2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Rejects an audit reason that cannot be persisted in full before the send path consumes any
+     * compose state.
+     *
+     * @param request request containing the optional consent override reason
+     * @throws EmailSendValidationException when the reason exceeds the database column limit
+     */
+    private void validateConsentOverrideReason(HttpServletRequest request) {
+        String reason = request.getParameter(PARAM_CONSENT_OVERRIDE_REASON);
+        if (reason != null
+                && reason.trim().length() > EmailData.CONSENT_OVERRIDE_REASON_MAX_LENGTH) {
+            throw new EmailSendValidationException(
+                    "Consent override reason must not exceed "
+                            + EmailData.CONSENT_OVERRIDE_REASON_MAX_LENGTH + " characters");
+        }
+    }
+
     /** Validation failure translated to HTTP 400 by {@link #execute()}. */
     private static final class EmailSendValidationException extends IllegalArgumentException {
         private EmailSendValidationException(String message) {
@@ -484,6 +523,8 @@ public class EmailSend2Action extends ActionSupport {
         String transactionType = request.getParameter(PARAM_TRANSACTION_TYPE);
         String demographicNo = request.getParameter(PARAM_DEMOGRAPHIC_ID);
         String additionalParams = request.getParameter("additionalURLParams");
+        String consentOverride = request.getParameter(PARAM_CONSENT_OVERRIDE);
+        String consentOverrideReason = request.getParameter(PARAM_CONSENT_OVERRIDE_REASON);
         List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession()
                 .getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST);
 
@@ -507,6 +548,8 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setProviderNo(providerNo);
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(copyAttachments(emailAttachmentList));
+        emailData.setConsentOverride(consentOverride);
+        emailData.setConsentOverrideReason(consentOverrideReason);
 
         return emailData;
     }

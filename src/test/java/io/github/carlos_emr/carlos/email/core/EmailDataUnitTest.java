@@ -22,14 +22,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link EmailData#mergeMessage(boolean, String, String)} — the helper that folds the
- * two stored content channels (cleartext body / encrypted-PDF message) back into the single "Message"
- * value the compose screen seeds (issue #3118).
+ * Unit tests for merged email content and consent-audit validation in {@link EmailData}.
+ *
+ * @since 2026-07-06
  */
 @Tag("unit")
-@DisplayName("EmailData.mergeMessage")
+@Tag("fast")
+@DisplayName("EmailData")
 class EmailDataUnitTest {
 
     @Test
@@ -80,5 +82,15 @@ class EmailDataUnitTest {
     void shouldReturnEmpty_whenBothChannelsNull() {
         assertThat(EmailData.mergeMessage(true, null, null)).isEmpty();
         assertThat(EmailData.mergeMessage(false, null, null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject consent override reasons that cannot be persisted in full")
+    void shouldRejectConsentOverrideReason_whenLongerThanColumnLimit() {
+        EmailData emailData = new EmailData();
+
+        assertThatThrownBy(() -> emailData.setConsentOverrideReason("a".repeat(256)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Consent override reason must not exceed 255 characters");
     }
 }

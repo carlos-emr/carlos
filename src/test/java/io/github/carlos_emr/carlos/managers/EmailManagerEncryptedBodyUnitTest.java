@@ -20,7 +20,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
+import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -80,7 +82,7 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
                             anyString(), eq(".pdf")))
                     .thenReturn(encryptedMessage.toFile());
 
-            new EmailManager().encryptEmail(emailData);
+            createEmailManager().encryptEmail(emailData);
 
             assertThat(emailData.getAttachments()).hasSize(1);
             Path encryptedAttachment = Path.of(emailData.getAttachments().get(0).getFilePath());
@@ -114,9 +116,14 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ConvertToEdoc> converter = mockStatic(ConvertToEdoc.class)) {
             converter.when(() -> ConvertToEdoc.saveAsTempPDF(emailData)).thenReturn(null);
 
-            assertThatThrownBy(() -> new EmailManager().encryptEmail(emailData))
+            assertThatThrownBy(() -> createEmailManager().encryptEmail(emailData))
                     .isInstanceOf(EmailSendingException.class)
                     .hasMessage("Failed to render encrypted message attachment");
         }
+    }
+
+    private EmailManager createEmailManager() {
+        return new EmailManager(
+                mock(EmailConsentResolver.class), mock(EmailSenderFactory.class));
     }
 }

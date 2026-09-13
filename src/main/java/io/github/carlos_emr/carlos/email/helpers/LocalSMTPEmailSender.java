@@ -1,6 +1,5 @@
 package io.github.carlos_emr.carlos.email.helpers;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
@@ -12,7 +11,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
@@ -26,40 +24,36 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
     @Override
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            String host = jsonNode.get("host").asText();
-            String port = jsonNode.get("port").asText();
+        JsonNode jsonNode = parseConfig(emailConfig);
+        String host = requiredText(jsonNode, "host", emailConfig);
+        String port = requiredText(jsonNode, "port", emailConfig);
 
-            // SECURITY: Only allow localhost variations
-            if (!isLocalhost(host)) {
-                throw new EmailSendingException("local provider can only use localhost, got: " + host);
-            }
-            
-            mailSender.setHost(host);
-            mailSender.setPort(Integer.parseInt(port));
-            
-            // LOCAL provider - no authentication needed
-            // Username/password can be optional or ignored
-            if (jsonNode.has("username")) {
-                mailSender.setUsername(jsonNode.get("username").asText());
-            }
-            if (jsonNode.has("password")) {
-                mailSender.setPassword(jsonNode.get("password").asText());
-            }
-
-            Properties properties = new Properties();
-            properties.put("mail.transport.protocol", "smtp");
-            properties.put("mail.smtp.auth", "false");
-            properties.put("mail.smtp.starttls.enable", "false");
-            properties.put("mail.smtp.starttls.required", "false");
-            properties.put("mail.debug", "false");
-
-            mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
+        // SECURITY: Only allow localhost variations
+        if (!isLocalhost(host)) {
+            throw new EmailSendingException("local provider can only use localhost, got: " + host);
         }
+
+        mailSender.setHost(host);
+        try {
+            mailSender.setPort(Integer.parseInt(port));
+        } catch (NumberFormatException e) {
+            throw invalidConfiguration(emailConfig);
+        }
+
+        // LOCAL provider - no authentication needed. Username is optional; its password is not
+        // read, decrypted, or copied into the JavaMail sender when this provider cannot use it.
+        if (jsonNode.has("username")) {
+            mailSender.setUsername(jsonNode.get("username").asText());
+        }
+
+        Properties properties = new Properties();
+        properties.put("mail.transport.protocol", "smtp");
+        properties.put("mail.smtp.auth", "false");
+        properties.put("mail.smtp.starttls.enable", "false");
+        properties.put("mail.smtp.starttls.required", "false");
+        properties.put("mail.debug", "false");
+
+        mailSender.setJavaMailProperties(properties);
         return mailSender;
     }
 

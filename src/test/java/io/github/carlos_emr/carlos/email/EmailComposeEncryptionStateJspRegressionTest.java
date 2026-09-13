@@ -16,7 +16,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Verifies the encryption UI is synchronized before send-result branches can return. */
+/**
+ * Verifies the encryption UI is synchronized before send-result branches can return.
+ *
+ * @since 2026-08-25
+ */
 @Tag("unit")
 @Tag("fast")
 @Tag("email")
@@ -42,6 +46,16 @@ class EmailComposeEncryptionStateJspRegressionTest {
         assertThat(applyState)
                 .isGreaterThan(domReady)
                 .isLessThan(errorBranch);
+    }
+
+    @Test
+    @DisplayName("should localize consent labels without using them as state")
+    void shouldLocalizeConsentLabel_withoutUsingLabelAsState() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("<fmt:message key=\"${emailConsentMessageKey}\"");
+        assertThat(jsp).contains("emailConsentStatus eq 'UNKNOWN'");
+        assertThat(jsp).doesNotContain("emailConsentStatus eq 'Unknown'");
     }
 
     @Test
@@ -88,6 +102,8 @@ class EmailComposeEncryptionStateJspRegressionTest {
                 .contains("value=\"${carlos:forHtmlAttribute(deleteEFormAfterEmail)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(transactionType)}\"")
                 .contains("name=\"emailConsentName\" value=\"${carlos:forHtmlAttribute(emailConsentName)}\"")
+                .contains("${consentOverride ? 'checked' : ''}")
+                .contains("<carlos:encode value=\"${consentOverrideReason}\"/>")
                 .contains("class=\"alert-link\">${carlos:forHtmlContent(receiverName)}</a>")
                 .contains("placeholder=\"${carlos:forHtmlAttribute(emailComposeMessagePlaceholder)}\"")
                 .contains("title=\"${carlos:forHtmlAttribute(emailComposeEncryptionTooltip)}\"")
@@ -112,8 +128,9 @@ class EmailComposeEncryptionStateJspRegressionTest {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("errorElement.previousElementSibling.classList.add(\"is-invalid\")")
-                .contains("errorElement.previousElementSibling.classList.remove(\"is-invalid\")")
+                .contains("const invalidField = field || errorElement.previousElementSibling")
+                .contains("invalidField.classList.add(\"is-invalid\")")
+                .contains("invalidField.classList.remove(\"is-invalid\")")
                 .doesNotContain("errorElement.parentNode.firstElementChild.classList");
     }
 }

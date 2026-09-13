@@ -95,7 +95,7 @@ public class ConsentType extends AbstractModel<Integer> {
     }
 
     public boolean isActive() {
-        return active;
+        return Boolean.TRUE.equals(active);
     }
 
     public void setActive(boolean active) {
