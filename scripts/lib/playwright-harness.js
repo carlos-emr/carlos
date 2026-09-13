@@ -808,36 +808,62 @@ async function login(context, config, recorder, options = {}) {
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  if (/loginMfa/i.test(page.url())) {
-    assert(typeof options.mfaCode === 'function',
-      `${config.testUser} is enrolled in MFA; pass options.mfaCode to supply the challenge response`);
-    await page.locator('input[name="mfaCode"], #mfaCode').first().fill(await options.mfaCode());
-    await settleOperations([
-      page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility/i, { timeout: 30000 }),
-      page.locator('input[type="submit"], button[type="submit"]').first().click(),
-    ]);
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  // A LOOP, NOT A FIXED ORDER. Login2Action can present these stages more than
+  // once and in either order. Its forced-reset branch runs BEFORE the MFA
+  // branch, so an enrolled account with a flagged password sees the reset form
+  // first -- and after a successful reset the action sets forcedpasswordchange
+  // = false and falls through to the shared path, which reaches
+  // beginPendingMfaChallenge (Login2Action:630) and serves the MFA page a
+  // second time. Handling each stage once, in order, left such an account
+  // sitting on the MFA page with login() reporting success.
+  //
+  // Bounded so a stage that keeps re-serving itself (a wrong OTP, a reset the
+  // server rejects) fails with a diagnosis instead of spinning.
+  const STAGES = 4;
+  for (let stage = 0; stage < STAGES; stage += 1) {
+    const url = page.url();
+    if (/loginMfa/i.test(url)) {
+      assert(typeof options.mfaCode === 'function',
+        `${config.testUser} is enrolled in MFA; pass options.mfaCode to supply the challenge response`);
+      await page.locator('input[name="mfaCode"], #mfaCode').first().fill(await options.mfaCode());
+      await settleOperations([
+        page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility/i, { timeout: 30000 }),
+        page.locator('input[type="submit"], button[type="submit"]').first().click(),
+      ]);
+      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+      continue;
+    }
+
+    if (/forcepasswordreset/i.test(url)) {
+      assert(
+        config.resetPassword,
+        `${config.testUser} must change its password before it can be used: a fresh carlos-emr`
+        + ' install flags its generated admin credential for a forced reset. Complete it ONCE, in an'
+        + ' isolated run outside any suite loop, with RESET_PASSWORD set to a new password meeting'
+        + ' the policy, then export TEST_PASSWORD as that new password for every later run. Doing'
+        + ' it inside a loop leaves the scripts that ran before it unreset and the ones after it'
+        + ' authenticating with the old password.',
+      );
+      await page.locator('input[name="oldPassword"]').fill(config.testPassword);
+      await page.locator('input[name="newPassword"]').fill(config.resetPassword);
+      await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
+      // loginMfa is in this list because the reset can hand straight to the MFA
+      // challenge; leaving it out made that landing a 30s timeout rather than
+      // the next turn of this loop.
+      await settleOperations([
+        page.waitForURL(/providercontrol|appointment|select_facility|loginMfa/i, { timeout: 30000 }),
+        page.locator('input[type="submit"], button[type="submit"]').first().click(),
+      ]);
+      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+      continue;
+    }
+
+    break;
   }
 
-  if (/forcepasswordreset/i.test(page.url())) {
-    assert(
-      config.resetPassword,
-      `${config.testUser} must change its password before it can be used: a fresh carlos-emr`
-      + ' install flags its generated admin credential for a forced reset. Complete it ONCE, in an'
-      + ' isolated run outside any suite loop, with RESET_PASSWORD set to a new password meeting'
-      + ' the policy, then export TEST_PASSWORD as that new password for every later run. Doing'
-      + ' it inside a loop leaves the scripts that ran before it unreset and the ones after it'
-      + ' authenticating with the old password.',
-    );
-    await page.locator('input[name="oldPassword"]').fill(config.testPassword);
-    await page.locator('input[name="newPassword"]').fill(config.resetPassword);
-    await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
-    await settleOperations([
-      page.waitForURL(/providercontrol|appointment|select_facility/i, { timeout: 30000 }),
-      page.locator('input[type="submit"], button[type="submit"]').first().click(),
-    ]);
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  }
+  assert(!/loginMfa|forcepasswordreset/i.test(page.url()),
+    `login is still on ${pathOnly(page.url())} after working through the authentication stages, so the `
+    + 'credentials or the OTP are being refused rather than the flow having more steps');
 
   if (/select_facility/i.test(page.url())) {
     await settleOperations([

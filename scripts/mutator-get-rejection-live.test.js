@@ -172,3 +172,33 @@ test('the derivation still resolves every registered mutator', () => {
   assert.ok(routes.length >= 20,
     `only ${routes.length} routes derived; the contract registers far more than that`);
 });
+
+test('the live check names the conditional mutators it does not probe', () => {
+  // The check covers the UNCONDITIONAL half of the mutator contract. Reporting
+  // only "N mutator routes refused GET" invites reading that as the whole
+  // contract, when ten conditional mutators are deliberately absent from it.
+  const { conditionalMutatorClasses } = require('./lib/mutator-routes');
+  const conditional = conditionalMutatorClasses();
+  assert.ok(conditional.length > 0,
+    'the contract declares conditional mutators; parsing none would report full coverage of a contract '
+    + 'this check does not fully cover');
+  for (const name of conditional) {
+    assert.match(name, /2Action$/);
+  }
+
+  const source = require('node:fs').readFileSync(
+    require.resolve('./mutator-get-rejection-live-playwright-checks'), 'utf8',
+  );
+  assert.match(source, /conditionalMutatorClasses\(\)/);
+  assert.match(source, /NOT probed here, by design/);
+  assert.match(source, /conditionalNotProbed/);
+});
+
+test('the conditional and unconditional halves of the contract do not overlap', () => {
+  // A class in both lists would be probed live AND excused, which is the one
+  // combination that would make the report actively misleading.
+  const { conditionalMutatorClasses, unconditionalMutatorClasses } = require('./lib/mutator-routes');
+  const conditional = new Set(conditionalMutatorClasses());
+  const overlap = unconditionalMutatorClasses().filter((name) => conditional.has(name));
+  assert.deepEqual(overlap, []);
+});

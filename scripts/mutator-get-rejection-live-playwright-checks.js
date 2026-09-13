@@ -63,7 +63,7 @@
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
-const { mutatorRoutes } = require('./lib/mutator-routes');
+const { conditionalMutatorClasses, mutatorRoutes } = require('./lib/mutator-routes');
 
 /** What the contract requires, and what each other answer would mean. */
 const EXPECTED_STATUS = 405;
@@ -171,8 +171,21 @@ async function main() {
     // renders, and it is wired strictly. Without this the recorder collects a
     // broken login page and nothing ever reads it back.
     assertStrictPage(recorder);
+    // THE SPLIT IS REPORTED, not left to be inferred. This check covers the
+    // UNCONDITIONAL half of the mutator contract. The conditional half rejects
+    // GET only when a mutation-intent parameter is present, and supplying one
+    // against a live deployment is the request that performs the mutation if
+    // the guard is broken -- so those are covered by the focused *2ActionTest
+    // CLAUDE.md requires instead. Saying "12 routes refused GET" without
+    // saying so invites reading it as the whole contract.
+    const notProbed = conditionalMutatorClasses().map((name) => name.split('.').pop()).sort();
     console.log(`  ${refused.length} probe(s) across ${routes.length} mutator route(s) refused ${PROBED_METHODS.join('/')} with ${EXPECTED_STATUS}`);
-    return { refused: refused.length, probes, routes: routes.length };
+    console.log(`  ${notProbed.length} conditional mutator(s) NOT probed here, by design -- their GET rejection `
+      + 'depends on a mutation-intent parameter and is covered by their own unit tests: '
+      + `${notProbed.join(', ')}`);
+    return {
+      refused: refused.length, probes, routes: routes.length, conditionalNotProbed: notProbed.length,
+    };
   } finally {
     await browser.close().catch(() => {});
   }

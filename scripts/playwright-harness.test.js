@@ -469,3 +469,34 @@ test('a dialog can be dismissed rather than accepted when that is the user path'
   assert.equal(dismissed, true);
   assert.equal(recorder.unexpectedDialogs.length, 0);
 });
+
+test('login works through the authentication stages in whatever order they arrive', () => {
+  // Login2Action's forced-reset branch runs BEFORE its MFA branch, so an
+  // MFA-enrolled account with a flagged password sees the reset form first --
+  // and after a successful reset the action sets forcedpasswordchange = false
+  // and falls through to the shared path, which reaches
+  // beginPendingMfaChallenge (Login2Action:630) and serves the MFA page again.
+  // Handling each stage once, in a fixed order, left such an account sitting on
+  // the MFA page while login() returned as though it had succeeded.
+  const source = fs.readFileSync(require.resolve('./lib/playwright-harness'), 'utf8');
+  const login = source.slice(source.indexOf('async function login'));
+  const body = login.slice(0, login.indexOf('\nasync function screenshot'));
+
+  // Both stages are reachable repeatedly, from one loop.
+  assert.match(body, /for \(let stage = 0; stage < STAGES; stage \+= 1\)/);
+  assert.ok(body.indexOf('loginMfa/i.test(url)') > body.indexOf('for (let stage'),
+    'the MFA stage must be inside the loop, not ahead of it');
+  assert.ok(body.indexOf('forcepasswordreset/i.test(url)') > body.indexOf('for (let stage'),
+    'the reset stage must be inside the loop, not ahead of it');
+
+  // The reset submit must accept a landing on the MFA page, or that hand-off is
+  // a 30s timeout instead of the next turn of the loop.
+  const resetStage = body.slice(body.indexOf('forcepasswordreset/i.test(url)'));
+  assert.match(resetStage.slice(0, resetStage.indexOf('continue;')),
+    /waitForURL\(\/providercontrol\|appointment\|select_facility\|loginMfa\/i/);
+
+  // And the loop is bounded, with a diagnosis rather than a silent success when
+  // a stage keeps re-serving itself.
+  assert.match(body, /const STAGES = \d+;/);
+  assert.match(body, /login is still on \$\{pathOnly\(page\.url\(\)\)\} after working through/);
+});

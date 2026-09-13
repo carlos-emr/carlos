@@ -59,6 +59,27 @@ function unconditionalMutatorClasses(source = fs.readFileSync(CONTRACT_SOURCE, '
     .map((found) => found[1]);
 }
 
+/**
+ * The classes registered as CONDITIONAL mutators, so the live check can say what
+ * it is not probing instead of leaving the omission to be inferred.
+ *
+ * Deliberately NOT turned into probes: see the header. Naming them in the report
+ * is the difference between "12 mutator routes refused GET" and a reader taking
+ * that for the whole contract.
+ */
+function conditionalMutatorClasses(source = fs.readFileSync(CONTRACT_SOURCE, 'utf8')) {
+  const start = source.indexOf('private static final Set<String> CONDITIONAL_MUTATORS');
+  if (start < 0) {
+    throw new Error(
+      'MutatorActionGetRejectionContractUnitTest no longer declares CONDITIONAL_MUTATORS. The live check '
+      + 'reports the classes it deliberately does not probe, and a silent empty list would read as full '
+      + 'coverage of the contract.',
+    );
+  }
+  const end = source.indexOf(');', start);
+  return [...source.slice(start, end).matchAll(/"([a-zA-Z0-9_.]+2Action)"/g)].map((found) => found[1]);
+}
+
 /** Every `<action name=... class=...>` pair across the modular Struts config. */
 function strutsActions(directory = STRUTS_DIR) {
   const xml = fs.readdirSync(directory)
@@ -115,5 +136,6 @@ function mutatorRoutes(options = {}) {
 }
 
 module.exports = {
-  CONTRACT_SOURCE, STRUTS_DIR, mutatorRoutes, routesForClass, strutsActions, unconditionalMutatorClasses,
+  CONTRACT_SOURCE, STRUTS_DIR, conditionalMutatorClasses, mutatorRoutes, routesForClass, strutsActions,
+  unconditionalMutatorClasses,
 };
