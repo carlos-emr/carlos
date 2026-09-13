@@ -192,3 +192,83 @@ test('a dialog raised before the snapshot belongs to the previous item', () => {
   const before = snapshotRecorder(recorder);
   assert.deepEqual(findingsSince(recorder, before, 'Issue Editor'), []);
 });
+
+/*
+ * What the catalogue classifies, and what it therefore opens.
+ *
+ * Both of these were silent: an opener the catalogue read as same-tab sent the
+ * audit down the navigation branch, where it waited for a navigation that never
+ * came and then read the UNCHANGED host page -- reporting the opener's own
+ * content as the item's destination, which passes for every broken popup. And a
+ * route shape the extractor did not recognise on an href="#" anchor dropped the
+ * item from the catalogue entirely, so the page was never opened while the run
+ * still reported a full sweep.
+ */
+function anchorDouble(attributes, text) {
+  return {
+    textContent: text,
+    getAttribute: (name) => (Object.prototype.hasOwnProperty.call(attributes, name) ? attributes[name] : null),
+  };
+}
+
+function catalogue(anchors) {
+  const page = { $$eval: async (selector, fn) => fn(anchors) };
+  return catalogueLinks(page);
+}
+
+test('window.open and target="_blank" are classified as popups, like popupPage()', async () => {
+  const items = await catalogue([
+    anchorDouble({ href: '#', onclick: "popupPage(600,900,'/carlos/admin/providerAdd')" }, 'Add Provider'),
+    anchorDouble({ href: '#', onclick: "window.open('/carlos/report/reportIndex')" }, 'Reports'),
+    anchorDouble({ href: '/carlos/oscarMessenger/DisplayMessages', target: '_blank' }, 'Messenger'),
+    anchorDouble({ href: '/carlos/admin/systemMessage' }, 'System Messages'),
+  ]);
+  assert.deepEqual(items.map((item) => [item.text, item.opensPopup]), [
+    ['Add Provider', true],
+    ['Reports', true],
+    ['Messenger', true],
+    ['System Messages', false],
+  ]);
+});
+
+test('relative and bare onclick routes are catalogued, not only absolute ones', async () => {
+  const items = await catalogue([
+    anchorDouble({ href: '#', onclick: "popupPage(700,1000,'../encounter/IncomingEncounter?providerNo=999998')" }, 'Encounter'),
+    anchorDouble({ href: '#', onclick: "popup(500,700,'DemographicEdit?demographic_no=1')" }, 'Edit Demographic'),
+    anchorDouble({ href: '#', onclick: "popup(500,700,'viewformwcb?formId=3')" }, 'WCB Form'),
+    anchorDouble({ href: '#', onclick: "popupPage(600,900,'/carlos/billing/CA/ON/billingON')" }, 'Billing'),
+  ]);
+  assert.deepEqual(items.map((item) => item.route), [
+    '../encounter/IncomingEncounter?providerNo=999998',
+    'DemographicEdit?demographic_no=1',
+    'viewformwcb?formId=3',
+    '/carlos/billing/CA/ON/billingON',
+  ]);
+});
+
+test('a window name or a feature string is not mistaken for a route', async () => {
+  // popupPage()'s own arguments sit in the same quoted list. Reporting one of
+  // them as a route would make every opener look like it resolved to something,
+  // and would pull anchors with no destination at all into the sweep.
+  const items = await catalogue([
+    anchorDouble({ href: '#', onclick: "showHideDetail('_blank')" }, 'Toggle Detail'),
+    anchorDouble({ href: '#', onclick: "resizeTo('width=600')" }, 'Resize'),
+    anchorDouble({ href: '#', onclick: 'return false;' }, 'Inert'),
+  ]);
+  assert.deepEqual(items, []);
+});
+
+test('the navigation wait is armed before the click, not after it', () => {
+  // waitForLoadState() asked for after the click resolves instantly against the
+  // document still on screen, so the audit read the opener's body and reported
+  // it as this item's destination -- a pass for every broken page.
+  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-link-audit'), 'utf8');
+  const openItem = source.slice(source.indexOf('async function openItem'), source.indexOf('Click every item, assert the destination'));
+  const armed = openItem.indexOf("waitForURL((url) => String(url) !== before");
+  const clicked = openItem.indexOf('await link.click({ timeout });');
+  assert.ok(armed > -1, 'the same-tab branch must arm a navigation wait');
+  assert.ok(clicked > armed, 'the navigation wait must be created before the click');
+  // And the page is relabelled once it navigates, or a later assertStrictPage
+  // scoped to this item's label finds nothing recorded under it and passes.
+  assert.match(openItem, /relabelStrictPage\(hostPage, label\)/);
+});

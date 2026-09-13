@@ -179,3 +179,173 @@ test('a same-tab navigation is relabelled, so a later scoped assertion can see i
   await page.emit('pageerror', new Error('contextPath is not defined'));
   assert.throws(() => assertStrictPage(recorder, ['patient-search']), /contextPath is not defined/);
 });
+
+/*
+ * A click that throws must fail as a click failure.
+ *
+ * Both race helpers arm a rejecting deadline timer before clicking. If the
+ * click throws first, nothing awaits that deadline -- and an unobserved
+ * rejection ends the Node process, so a plain "locator not visible" was
+ * reported as a crash with a stack pointing nowhere near the control.
+ */
+async function clickThrowsIsReportedAsSuch(helper) {
+  const boom = new Error('locator resolved to hidden element');
+  const locator = {
+    scrollIntoViewIfNeeded: async () => {},
+    click: async () => { throw boom; },
+  };
+  const page = {
+    url: () => 'https://carlos.test/carlos/provider/providercontrol',
+    async waitForURL() { return new Promise(() => {}); },
+    async waitForEvent() { return new Promise(() => {}); },
+    async waitForLoadState() {},
+  };
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    await assert.rejects(
+      () => helper(page, locator, {
+        context: { async waitForEvent() { return new Promise(() => {}); } },
+        label: 'probe',
+        // Short, so an unhandled rejection would surface within the test.
+        timeout: 40,
+      }),
+      /locator resolved to hidden element/,
+    );
+    // Past the deadline the helper armed: if it were still live and unobserved,
+    // it would reject here.
+    await new Promise((resolve) => { setTimeout(resolve, 120); });
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
+  assert.deepEqual(unhandled, [], 'the armed deadline must not reject unobserved after a failed click');
+}
+
+test('clickOpensPopupOrNavigates reports a failed click, not an unhandled rejection', async () => {
+  await clickThrowsIsReportedAsSuch(clickOpensPopupOrNavigates);
+});
+
+test('clickDownloadsOrOpens reports a failed click, not an unhandled rejection', async () => {
+  await clickThrowsIsReportedAsSuch(clickDownloadsOrOpens);
+});
+
+/*
+ * pickDate.
+ *
+ * The helper used to locate days with `.flatpickr-day[data-date="..."]`.
+ * Flatpickr writes no such attribute -- its day factory sets an `aria-label`
+ * rendered through the locale's ariaDateFormat and hangs the Date itself off
+ * the element as `dateObj` -- so that locator matched nothing, ever, and the
+ * shared date picker could not be used by any check.
+ */
+function flatpickrDouble(shownDays, options = {}) {
+  const clicked = [];
+  const steps = [];
+  const dayElements = () => shownDays().map((entry) => ({
+    dateObj: entry.disabled === 'not-a-date' ? null : new Date(entry.year, entry.month - 1, entry.day),
+    classList: { contains: (name) => (name === 'flatpickr-disabled' ? Boolean(entry.disabled) : Boolean(entry[name])) },
+  }));
+  const days = {
+    evaluateAll: async (fn, argument) => fn(dayElements(), argument),
+    nth: (index) => ({ click: async () => clicked.push(index) }),
+  };
+  const calendar = {
+    waitFor: async () => {},
+    locator: (selector) => ({
+      isVisible: async () => options.arrowsVisible !== false,
+      click: async () => {
+        steps.push(selector.includes('next') ? 1 : -1);
+        if (options.onStep) { options.onStep(selector.includes('next') ? 1 : -1); }
+      },
+    }),
+    evaluate: async (fn) => fn({
+      querySelector: () => {
+        const current = shownDays().find((entry) => !entry.prevMonthDay && !entry.nextMonthDay);
+        return current ? { dateObj: new Date(current.year, current.month - 1, current.day) } : null;
+      },
+    }),
+  };
+  const input = {
+    scrollIntoViewIfNeeded: async () => {},
+    click: async () => {},
+    inputValue: async () => options.value || '2026-09-20',
+  };
+  const page = {
+    locator: (selector) => {
+      if (selector === '.flatpickr-calendar.open') { return calendar; }
+      if (selector === '.flatpickr-day') { return days; }
+      return input;
+    },
+  };
+  // The calendar's own day list is reached through calendar.locator, so route it.
+  calendar.locator = ((original) => (selector) => (selector === '.flatpickr-day' ? days : original(selector)))(calendar.locator);
+  return {
+    page, input, clicked, steps,
+  };
+}
+
+test('pickDate selects the requested day by its flatpickr dateObj, not a data-date attribute', async () => {
+  const { pickDate } = require('./lib/playwright-ui');
+  const september = [];
+  for (let day = 1; day <= 30; day += 1) {
+    september.push({ year: 2026, month: 9, day });
+  }
+  const double = flatpickrDouble(() => september, { value: '2026-09-20' });
+  const value = await pickDate(double.page, '#appointment_date', '2026-09-20', { timeout: 50 });
+  assert.equal(value, '2026-09-20');
+  // Index 19 is the 20th, and nothing else was clicked.
+  assert.deepEqual(double.clicked, [19]);
+  assert.deepEqual(double.steps, []);
+});
+
+test('pickDate refuses to click a different day when the date is unreachable', async () => {
+  const { pickDate } = require('./lib/playwright-ui');
+  // Every day disabled: the old fallback selector clicked whatever came first,
+  // so a date-sensitive check passed against the wrong date and proved nothing.
+  const days = [{
+    year: 2026, month: 9, day: 20, disabled: true,
+  }];
+  const double = flatpickrDouble(() => days, { arrowsVisible: false });
+  await assert.rejects(
+    () => pickDate(double.page, '#appointment_date', '2026-09-20', { timeout: 50 }),
+    /never offered 2026-09-20 as a selectable day/,
+  );
+  assert.deepEqual(double.clicked, []);
+});
+
+test('pickDate walks to the target month and stops rather than stepping forever', async () => {
+  const { pickDate } = require('./lib/playwright-ui');
+  let month = 9;
+  const shown = () => [{ year: 2026, month, day: 1 }, { year: 2026, month, day: 2 }];
+  const double = flatpickrDouble(shown, {
+    arrowsVisible: true,
+    onStep: (delta) => { month += delta; },
+    value: '2026-11-02',
+  });
+  const value = await pickDate(double.page, '#appointment_date', '2026-11-02', { timeout: 50 });
+  assert.equal(value, '2026-11-02');
+  // Forward twice, September -> November, then the second day of that month.
+  assert.deepEqual(double.steps, [1, 1]);
+  assert.deepEqual(double.clicked, [1]);
+});
+
+test('pickDate gives up after a bounded number of month steps', async () => {
+  const { pickDate } = require('./lib/playwright-ui');
+  // A maxDate the arrow silently refuses to cross: the month never changes.
+  const double = flatpickrDouble(() => [{ year: 2026, month: 9, day: 1 }], { arrowsVisible: true });
+  await assert.rejects(
+    () => pickDate(double.page, '#appointment_date', '2030-01-01', { timeout: 50, maxMonthSteps: 3 }),
+    /after 3 month step\(s\)/,
+  );
+  assert.equal(double.steps.length, 3);
+  assert.deepEqual(double.clicked, []);
+});
+
+test('pickDate reads the calendar rather than any attribute flatpickr does not write', () => {
+  const source = require('node:fs').readFileSync(require.resolve('./lib/playwright-ui'), 'utf8');
+  const pickDateSource = source.slice(source.indexOf('async function pickDate'), source.indexOf('async function dataTableRows'));
+  assert.ok(!/data-date/.test(pickDateSource),
+    'flatpickr writes no data-date; a selector using one matches nothing and the helper can never click');
+  assert.match(pickDateSource, /element\.dateObj/);
+});

@@ -143,3 +143,13 @@ test('the search is entered by clicking the schedule control, not by a URL', () 
   assert.ok(!/page\.goto\(/.test(SOURCE),
     'entering by address would skip the opener the whole suite exists to exercise');
 });
+
+test('the DOB validation alert is taken through the page\'s single dialog handler', () => {
+  // Playwright delivers a dialog to EVERY listener. A second page.on('dialog')
+  // added here meant the strict handler still recorded the alert as unexpected,
+  // so assertStrictPage() failed precisely when the DOB validation worked --
+  // a check that breaks on the behaviour it is asserting.
+  assert.match(SOURCE, /await withExpectedDialogs\(page, async \(\) => \{/);
+  assert.ok(!/page\.on\('dialog'/.test(SOURCE),
+    'the check must borrow the wired handler, never add a second listener');
+});

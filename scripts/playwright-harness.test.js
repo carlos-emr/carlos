@@ -10,7 +10,7 @@ const harness = require('./lib/playwright-harness');
 const {
   SkipCheck, assertStrictPage, createRecorder, createSqlRunner, isLocalTlsTarget,
   parseMysqlBatchOutput, readConfig, relabelStrictPage, runCheck, sqlString, unescapeMysqlBatchValue,
-  wirePage, wireStrictPage,
+  wirePage, wireStrictPage, withExpectedDialogs,
 } = harness;
 
 /** A page double that lets a test deliver the events Playwright would. */
@@ -403,4 +403,69 @@ test('wiring the same page twice relabels it instead of doubling every finding',
   await page.emit('pageerror', new Error('once'));
   assert.equal(recorder.pageErrors.length, 1);
   assert.equal(recorder.pageErrors[0].label, 'second');
+});
+
+/*
+ * withExpectedDialogs.
+ *
+ * A check that deliberately triggers a confirm() used to add its own
+ * page.on('dialog') listener. Playwright delivers to EVERY listener, so the
+ * strict one still recorded the dialog as unexpected -- and assertStrictPage()
+ * then failed precisely when the validation under test was working. There is
+ * one dialog listener per page, and this is how a step borrows it.
+ */
+test('an expected dialog is answered and is not recorded as unexpected', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'patient-search', recorder);
+  let accepted = false;
+  const seen = await withExpectedDialogs(page, async () => {
+    await page.emit('dialog', {
+      type: () => 'alert',
+      message: () => 'Please enter a valid date',
+      accept: async () => { accepted = true; },
+    });
+  });
+  assert.equal(accepted, true, 'the expected dialog must still be answered');
+  assert.equal(seen.length, 1);
+  assert.match(seen[0].text, /valid date/);
+  assert.equal(recorder.unexpectedDialogs.length, 0,
+    'a dialog the check asked for is not a finding');
+  assertStrictPage(recorder, ['patient-search']);
+});
+
+test('the strict handler is restored after the step, even when it throws', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'patient-search', recorder);
+  await assert.rejects(() => withExpectedDialogs(page, async () => {
+    throw new Error('the assertion inside the step failed');
+  }), /the assertion inside the step failed/);
+  // Back to strict: a dialog raised afterwards is a finding again.
+  await page.emit('dialog', { type: () => 'confirm', message: () => 'Delete?', dismiss: async () => {} });
+  assert.equal(recorder.unexpectedDialogs.length, 1);
+});
+
+test('withExpectedDialogs refuses a page that was never wired', async () => {
+  // On an unwired page there is no strict handler to stand in for, so the
+  // dialog would go unanswered and the click would hang until the timeout.
+  await assert.rejects(() => withExpectedDialogs(fakePage(), async () => {}),
+    /needs a page wired by wireStrictPage/);
+});
+
+test('a dialog can be dismissed rather than accepted when that is the user path', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'chart', recorder);
+  let dismissed = false;
+  await withExpectedDialogs(page, async () => {
+    await page.emit('dialog', {
+      type: () => 'confirm',
+      message: () => 'Discard this note?',
+      accept: async () => { throw new Error('must not accept'); },
+      dismiss: async () => { dismissed = true; },
+    });
+  }, { accept: false });
+  assert.equal(dismissed, true);
+  assert.equal(recorder.unexpectedDialogs.length, 0);
 });

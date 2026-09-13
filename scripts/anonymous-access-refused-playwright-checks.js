@@ -50,7 +50,7 @@
  *   npm run test:anonymous-access-refused-playwright
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
- *   ANON_ROUTE_LIMIT=60          how many catalogued routes to probe
+ *   ANON_ROUTE_LIMIT=60          how many catalogued routes to probe; 0 probes them all
  *   ANON_SEARCH=FAKE-            surname prefix used to reach a patient
  *   ANON_DEMOGRAPHIC_NO=2        which patient's Master Record to catalogue
  *   ANON_TIMEOUT_MS=20000        per-request allowance
@@ -60,7 +60,7 @@
  */
 
 const {
-  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
+  assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
@@ -114,14 +114,23 @@ async function catalogueReachable(context, schedulePage, recorder, options) {
   const { searchTerm, preferredDemographicNo, timeout, baseUrl } = options;
   const found = [];
 
+  // NOT optional. The check's whole claim is "everything a clinician reaches from
+  // the Administration panel and the Master Record", and ~120 of those routes are
+  // the Administration panel's. Skipping it silently would let a green result
+  // claim anonymous coverage of a surface that was never probed.
   const adminControl = schedulePage.locator('#admin-panel');
-  if (await adminControl.count() > 0) {
-    const admin = await clickOpensPopup(schedulePage, adminControl, {
-      context, label: 'administration', recorder, timeout,
-    });
-    found.push(...dedupe(await catalogueLinks(admin)));
-    await admin.close().catch(() => {});
-  }
+  assert(await adminControl.count() > 0,
+    'The schedule offers no Administration control, so the panel this check exists to probe cannot be '
+    + 'catalogued. carlosdoc has the rights; a missing control is a finding, not a reason to check less.');
+  const admin = await clickOpensPopup(schedulePage, adminControl, {
+    context, label: 'administration', recorder, timeout,
+  });
+  const adminLinks = dedupe(await catalogueLinks(admin));
+  assert(adminLinks.length >= 20,
+    `The Administration panel offered only ${adminLinks.length} link(s); it has around 120, so the catalogue `
+    + 'step is broken rather than the panel having shrunk');
+  found.push(...adminLinks);
+  await admin.close().catch(() => {});
 
   const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
     searchTerm, preferredDemographicNo, timeout,
@@ -186,7 +195,11 @@ async function main() {
   const config = readConfig();
   const searchTerm = process.env.ANON_SEARCH || 'FAKE-';
   const preferredDemographicNo = process.env.ANON_DEMOGRAPHIC_NO || '2';
+  // 0 means UNLIMITED, as it does everywhere else in this suite. Reading it as a
+  // literal cap made slice(0, 0) probe nothing at all and pass, because an empty
+  // failures list is an empty failures list.
   const limit = Number(process.env.ANON_ROUTE_LIMIT || '60');
+  assert(Number.isFinite(limit) && limit >= 0, 'ANON_ROUTE_LIMIT must be a non-negative number');
   const timeout = Number(process.env.ANON_TIMEOUT_MS || '20000');
 
   const recorder = createRecorder();
@@ -211,7 +224,8 @@ async function main() {
     const notFound = [];
     const failures = [];
     try {
-      for (const route of routes.slice(0, limit)) {
+      const selected = limit > 0 ? routes.slice(0, limit) : routes;
+      for (const route of selected) {
         let response;
         try {
           response = await anonymous.request.get(route.url, { timeout, maxRedirects: 0 });
@@ -234,6 +248,11 @@ async function main() {
       await anonymous.close().catch(() => {});
     }
 
+    // The cataloguing half logs in and opens two real surfaces through strict
+    // wiring. Without this, a pageerror while cataloguing is recorded and thrown
+    // away, and the route list it produced is trusted anyway.
+    assertStrictPage(recorder, ['administration', 'patient-search', 'master-record']);
+
     assert(failures.length === 0,
       `${failures.length} of ${probed.length + failures.length} route(s) a clinician reaches are not refused to a `
       + `session-less caller:\n    - ${failures.join('\n    - ')}`);
@@ -249,9 +268,15 @@ async function main() {
       + 'run proved nothing about authentication. The URLs were built from the catalogued links, so they are '
       + `probably wrong rather than the routes being gone: ${notFound.slice(0, 5).join(', ')}`);
 
+    // Say plainly when the run was partial. Reporting "60 refused" while 140 were
+    // catalogued reads as full coverage of the surface, and it is not.
+    const capped = limit > 0 && routes.length > limit;
     console.log(`  ${probed.length} catalogued route(s) refused a session-less request`
-      + `${notFound.length ? `, ${notFound.length} answered 404 and proved nothing` : ''}`);
-    return { probed: probed.length, notFound: notFound.length, catalogued: routes.length };
+      + `${notFound.length ? `, ${notFound.length} answered 404 and proved nothing` : ''}`
+      + `${capped ? ` -- PARTIAL: ${routes.length} routes were catalogued and ANON_ROUTE_LIMIT=${limit} probed only the first ${limit}. Set ANON_ROUTE_LIMIT=0 to probe them all.` : ''}`);
+    return {
+      probed: probed.length, notFound: notFound.length, catalogued: routes.length, partial: capped,
+    };
   } finally {
     await browser.close().catch(() => {});
   }

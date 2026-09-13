@@ -76,7 +76,7 @@ test('the untouched column is genuinely untouched', () => {
 test('the originals are captured from the database, not from the form', () => {
   // A form that renders a populated column blank is itself a defect; restoring
   // from the form would then silently erase the real value.
-  assert.match(SOURCE, /SELECT \$\{columns/, 'originals must be read with a SELECT');
+  assert.match(SOURCE, /SELECT \$\{selected\} FROM demographic/, 'originals must be read with a SELECT');
   const captureIndex = SOURCE.indexOf('const [before]');
   const fillIndex = SOURCE.indexOf('await input.fill(');
   assert.ok(captureIndex > 0 && fillIndex > captureIndex,
@@ -160,4 +160,16 @@ test('the audit list is read in full, through the page\'s own length menu', () =
   // newest entry is on the last page. Reading page one would never see it.
   assert.match(SOURCE, /select\[name="auditLog_length"\]/);
   assert.match(SOURCE, /selectOption\('-1'/);
+});
+
+test('a column that is NULL is told apart from one holding the text "NULL"', () => {
+  // `mysql -B` prints SQL NULL and the four-character string 'NULL' the same
+  // way, so the parsed value cannot decide which one a column held. Restoring
+  // from the parsed value alone writes a NULL column over a patient whose chart
+  // number really is the text "NULL" -- destroying the value this check exists
+  // to put back. The explicit flag, selected alongside each column, decides.
+  assert.ok(SOURCE.includes('${column}\\` IS NULL'),
+    'each column must be selected with an explicit IS NULL flag');
+  assert.match(SOURCE, /before\[index \* 2 \+ 1\] === '1' \? null : before\[index \* 2\]/,
+    'the flag, not the parsed token, must decide whether the original was NULL');
 });

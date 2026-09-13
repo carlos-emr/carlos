@@ -60,6 +60,9 @@ async function clickOpensPopup(page, locator, options = {}) {
   const label = options.label || 'popup';
   const timeout = options.timeout || DEFAULT_TIMEOUT;
   const popupPromise = context.waitForEvent('page', { timeout });
+  // Handled up front so a click that throws does not leave this event wait to
+  // time out unobserved and abort the run on an unhandled rejection.
+  popupPromise.catch(() => {});
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
   await target.scrollIntoViewIfNeeded().catch(() => {});
   await target.click({ timeout });
@@ -110,13 +113,18 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
       timeout,
     );
   });
+  // Marks the deadline handled without consuming it: Promise.race still sees
+  // the rejection. Without this, a click that throws (a detached or covered
+  // control) leaves the timer armed and the rejection unobserved, and Node 22
+  // kills the run on the unhandled rejection -- so a plain locator failure is
+  // reported as a crash with no stack pointing at the click.
+  deadline.catch(() => {});
 
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
-  await target.scrollIntoViewIfNeeded().catch(() => {});
-  await target.click({ timeout });
-
   let outcome;
   try {
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await target.click({ timeout });
     outcome = await Promise.race([popupArrived, navigated, deadline]);
   } finally {
     clearTimeout(expire);
@@ -175,13 +183,15 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
       timeout,
     );
   });
+  // See clickOpensPopupOrNavigates: marks the deadline handled so a click that
+  // throws cannot take the whole run down with an unhandled rejection.
+  deadline.catch(() => {});
 
   const target = typeof locator === 'string' ? page.locator(locator) : locator;
-  await target.scrollIntoViewIfNeeded().catch(() => {});
-  await target.click({ timeout });
-
   let outcome;
   try {
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await target.click({ timeout });
     outcome = await Promise.race([downloaded, popped, deadline]);
   } finally {
     clearTimeout(expire);
@@ -329,25 +339,76 @@ async function typeAutocomplete(page, inputSelector, text, options = {}) {
  * 35 JSPs use flatpickr. Its inputs are frequently readonly and always carry a
  * change handler the rest of the form depends on, so fill() either throws or
  * sets a value nothing reacts to.
+ *
+ * Days are matched on the `dateObj` Date that flatpickr hangs off each day
+ * element. There is deliberately no attribute selector here: flatpickr writes
+ * no `data-date`, and its only textual identifier is an `aria-label` rendered
+ * through `config.ariaDateFormat` in the active locale -- so matching on either
+ * would be a locator that silently matches nothing, or one that breaks the
+ * first time a page overrides the format.
  */
 async function pickDate(page, inputSelector, isoDate, options = {}) {
   const timeout = options.timeout || DEFAULT_TIMEOUT;
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(isoDate), `pickDate needs a YYYY-MM-DD date, got ${isoDate}`);
   const input = typeof inputSelector === 'string' ? page.locator(inputSelector) : inputSelector;
   await input.scrollIntoViewIfNeeded().catch(() => {});
   await input.click({ timeout });
   const calendar = page.locator('.flatpickr-calendar.open');
   await calendar.waitFor({ state: 'visible', timeout });
-  // Only the requested day. The earlier selector fell back to
-  // ".flatpickr-day:not(.flatpickr-disabled)" when the exact date was not
-  // rendered, which silently clicked whatever day came first -- so a
-  // date-sensitive check (a far-future appointment slot, a report range) could
-  // pass against the wrong date and prove nothing.
-  const day = calendar.locator(`.flatpickr-day[data-date="${isoDate}"]:not(.flatpickr-disabled)`);
-  const available = await day.count();
-  assert(available > 0,
-    `The calendar is not showing ${isoDate} as a selectable day (it may be on another month, or the date may be disabled); `
-    + 'refusing to click a different date');
-  await day.first().click({ timeout });
+
+  const days = calendar.locator('.flatpickr-day');
+  // Bounded, because a disabled range or a maxDate can leave the arrow inert:
+  // stepping forever would hang the check instead of reporting the date is
+  // unreachable. 24 covers two years either way, which is more than any CARLOS
+  // date field asks for.
+  const maxMonthSteps = options.maxMonthSteps || 24;
+  let index = -1;
+  let steps = 0;
+  for (;;) {
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- `wanted` is isoDate, already pinned to YYYY-MM-DD above, and is only compared as a string
+    index = await days.evaluateAll((elements, wanted) => elements.findIndex((element) => {
+      const date = element.dateObj;
+      if (!date || typeof date.getFullYear !== 'function') {
+        return false;
+      }
+      // Local components, not toISOString(): the day is rendered in the
+      // browser's zone, so a UTC conversion would be off by one for every
+      // negative offset -- which is every Canadian deployment.
+      const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      return iso === wanted && !element.classList.contains('flatpickr-disabled');
+    }), isoDate);
+    if (index >= 0 || steps >= maxMonthSteps) {
+      break;
+    }
+    // Which way to step is decided from the month flatpickr is actually
+    // showing, so this walks towards the target instead of guessing.
+    const shown = await calendar.evaluate((element) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code, no interpolation and no argument
+      const day = element.querySelector('.flatpickr-day:not(.prevMonthDay):not(.nextMonthDay)');
+      const date = day && day.dateObj;
+      return date ? { year: date.getFullYear(), month: date.getMonth() + 1 } : null;
+    });
+    if (!shown) {
+      break;
+    }
+    const [wantedYear, wantedMonth] = isoDate.split('-').map(Number);
+    const delta = (wantedYear - shown.year) * 12 + (wantedMonth - shown.month);
+    if (delta === 0) {
+      // Right month, no matching enabled day: stepping again would only walk
+      // away from the date. Fall through to the assertion below.
+      break;
+    }
+    const arrow = calendar.locator(delta > 0 ? '.flatpickr-next-month' : '.flatpickr-prev-month');
+    if (!(await arrow.isVisible().catch(() => false))) {
+      break;
+    }
+    await arrow.click({ timeout });
+    steps += 1;
+  }
+
+  assert(index >= 0,
+    `The calendar never offered ${isoDate} as a selectable day after ${steps} month step(s) `
+    + '(it may be outside minDate/maxDate, or disabled); refusing to click a different date');
+  await days.nth(index).click({ timeout });
   await calendar.waitFor({ state: 'hidden', timeout }).catch(() => {});
   const value = await input.inputValue();
   assert(value && value.trim() !== '', `The flatpickr picker left ${isoDate} unset`);

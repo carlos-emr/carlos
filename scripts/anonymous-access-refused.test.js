@@ -144,3 +144,39 @@ test('the check only reads', () => {
     assert.ok(!statement.test(SOURCE), `this check may only issue GETs; found ${statement}`);
   }
 });
+
+/*
+ * A security check that probes nothing must not report a pass.
+ *
+ * ANON_ROUTE_LIMIT=60 was applied as routes.slice(0, limit), so a caller who
+ * set it to 0 -- the natural spelling of "no limit" -- probed zero routes,
+ * collected zero failures and the check reported success. The same shape sat
+ * behind the Administration panel: when the schedule offered no Administration
+ * control, the catalogue silently came back with only the Master Record's few
+ * links and a green result meant almost nothing had been tried.
+ */
+test('ANON_ROUTE_LIMIT=0 probes every route rather than none', () => {
+  assert.match(SOURCE, /const selected = limit > 0 \? routes\.slice\(0, limit\) : routes;/);
+  assert.match(SOURCE, /ANON_ROUTE_LIMIT=60\s+how many catalogued routes to probe; 0 probes them all/);
+  assert.match(SOURCE, /Number\.isFinite\(limit\) && limit >= 0/,
+    'a nonsense limit must fail the run, not silently become zero');
+});
+
+test('a capped run says so instead of reporting a full sweep', () => {
+  // "60 refused" reads as a clean bill of health when 140 were catalogued.
+  assert.match(SOURCE, /PARTIAL: \$\{routes\.length\} routes were catalogued/);
+  assert.match(SOURCE, /partial: capped/);
+});
+
+test('the Administration panel is mandatory, and so is a plausible number of its links', () => {
+  // ~120 of the routes this check exists to probe are the panel's. A catalogue
+  // that quietly lost them leaves a green result covering almost nothing.
+  assert.match(SOURCE, /The schedule offers no Administration control/);
+  assert.match(SOURCE, /The Administration panel offered only \$\{adminLinks\.length\} link\(s\); it has around 120/);
+});
+
+test('the pages this check drives as a logged-in provider are read back', () => {
+  // The catalogue is built by clicking through a real session. A page that
+  // broke while cataloguing would otherwise go unreported.
+  assert.match(SOURCE, /assertStrictPage\(recorder, \['administration', 'patient-search', 'master-record'\]\)/);
+});

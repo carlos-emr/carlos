@@ -149,3 +149,36 @@ test('a check is spawned by absolute path, so the runner works from any director
   assert.ok(!/run\(process\.execPath, \[check\.script\]/.test(runner),
     'the raw manifest path must not be handed to the spawn');
 });
+
+/*
+ * The coverage plan states the suite's size in prose, and prose does not
+ * recompute itself. It shipped saying "92 named check entries over 83 scripts"
+ * and "its thirteen checks" while the manifest held 97 over 88 and twelve smoke
+ * entries -- numbers a reader uses to decide whether a gap is real. Pinning them
+ * here means the next entry either updates the sentence or fails the build.
+ */
+test('the coverage plan states the manifest\'s real size', () => {
+  const plan = fs.readFileSync(
+    path.join(__dirname, '..', 'docs', 'ui-tests', 'playwright-coverage-plan-2026.08.md'),
+    'utf8',
+  );
+  const scripts = new Set(checks.map((check) => check.script)).size;
+  assert.ok(
+    plan.includes(`The manifest: ${checks.length} named check entries over ${scripts} scripts`),
+    `the plan must say "${checks.length} named check entries over ${scripts} scripts"`,
+  );
+
+  const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+  const smoke = checks.filter((check) => check.tiers.includes('smoke'));
+  assert.ok(smoke.length < words.length, 'extend the number words if the smoke tier grows past twenty');
+  const budgetSeconds = smoke.reduce((total, check) => total + check.timeoutSec, 0);
+  // The prose writes the budget with a thousands separator ("3,600s"), which is
+  // the right way to write it; compare against a copy with the separators taken
+  // out rather than forcing the document to read like a log line.
+  const plainNumbers = plan.replace(/(\d),(?=\d{3}(?!\d))/g, '$1');
+  assert.ok(
+    plainNumbers.includes(`Its ${words[smoke.length]} checks come to ${budgetSeconds}s of`),
+    `the plan must say the smoke tier's ${words[smoke.length]} checks come to ${budgetSeconds}s`,
+  );
+});

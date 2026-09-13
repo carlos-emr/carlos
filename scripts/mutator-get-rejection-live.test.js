@@ -7,7 +7,9 @@ const path = require('node:path');
 const {
   CONTRACT_SOURCE, mutatorRoutes, routesForClass, strutsActions, unconditionalMutatorClasses,
 } = require('./lib/mutator-routes');
-const { EXPECTED_STATUS, diagnose, orderedRoutes } = require('./mutator-get-rejection-live-playwright-checks');
+const {
+  EXPECTED_STATUS, PROBED_METHODS, diagnose, orderedRoutes,
+} = require('./mutator-get-rejection-live-playwright-checks');
 
 const SOURCE = fs.readFileSync(
   path.join(__dirname, 'mutator-get-rejection-live-playwright-checks.js'), 'utf8',
@@ -113,13 +115,29 @@ test('each wrong status is explained as what it means, not just as "not 405"', (
   assert.match(diagnose(500), /past the point the contract requires/);
 });
 
-test('the GETs carry no parameters, so a hole is found without being fed', () => {
+test('the probes carry no parameters, so a hole is found without being fed', () => {
   // If the contract does NOT hold for some route, the request reaches the action
   // body. Sending no demographic_no, appointment_no or form data means it finds
   // nothing to act on.
-  assert.match(SOURCE, /context\.request\.get\(url, \{ timeout, maxRedirects: 0 \} \)|context\.request\.get\(url, \{ timeout, maxRedirects: 0 \}\)/);
+  assert.match(SOURCE, /context\.request\.fetch\(url, \{ method, timeout, maxRedirects: 0 \}\)/);
   assert.ok(!/demographic_no=|appointment_no=|params:/.test(SOURCE),
     'the check must not supply the data a real mutation would need');
+});
+
+test('HEAD is probed as well as GET, and first', () => {
+  // A container answers HEAD by running doGet() and discarding the body, so an
+  // action that tests `"GET".equals(method)` refuses the GET and performs the
+  // mutation on the HEAD. A GET-only check reports that hole as clean.
+  assert.deepEqual(PROBED_METHODS, ['HEAD', 'GET']);
+  // First, so that ordering still holds for the session-ending route: see
+  // orderedRoutes.
+  assert.match(SOURCE, /for \(const method of PROBED_METHODS\)/);
+});
+
+test('the login page this check renders is read back', () => {
+  // The session is established through the UI on a strictly wired page. Without
+  // the assertion the recorder collects a broken login page and nobody looks.
+  assert.match(SOURCE, /assertStrictPage\(recorder\)/);
 });
 
 test('redirects are observed, not followed', () => {

@@ -217,11 +217,23 @@ async function main() {
     // a field blank when the column is populated is itself a defect, and
     // restoring from the form would then silently erase the real value.
     const columns = [...fields.map((field) => field.column), UNTOUCHED_COLUMN];
+    // Each column is selected TWICE: its value, and an explicit IS NULL flag.
+    // `mysql -B` prints SQL NULL and the string 'NULL' the same way, so without
+    // the flag the restore below would write a NULL column over a patient whose
+    // chart number really is the text "NULL" -- destroying the value this check
+    // exists to put back.
+    const selected = columns
+      .map((column) => `\`${column}\`, \`${column}\` IS NULL`)
+      .join(', ');
     const [before] = sql.rows(
-      `SELECT ${columns.map((column) => `\`${column}\``).join(', ')} FROM demographic WHERE demographic_no = ${Number(demographicNo)}`,
+      `SELECT ${selected} FROM demographic WHERE demographic_no = ${Number(demographicNo)}`,
     );
     assert(before, `No demographic row for the patient the UI opened (demographic_no ${demographicNo})`);
-    original = Object.fromEntries(columns.map((column, index) => [column, before[index]]));
+    original = Object.fromEntries(columns.map((column, index) => [
+      column,
+      // The flag, not the parsed token, decides.
+      before[index * 2 + 1] === '1' ? null : before[index * 2],
+    ]));
 
     for (const field of fields) {
       const input = masterPage.locator(`[name="${field.input}"]`).first();

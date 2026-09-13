@@ -123,7 +123,11 @@ function validateMysqlHost(rawHost, env = process.env) {
   if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
   }
-  return rawHost;
+  // The NORMALISED value, not the raw one. createSqlRunner passes this straight
+  // to `mysql -h`, so returning the input would send the whitespace or the
+  // brackets that were stripped before validating -- the guard would pass and the
+  // connection would fail, or worse, connect somewhere else.
+  return normalizedHost;
 }
 
 /**
@@ -225,6 +229,14 @@ function readConfig(options = {}) {
  * another escape.
  */
 function unescapeMysqlBatchValue(raw) {
+  // AMBIGUOUS BY DESIGN OF THE CLIENT, NOT BY CHOICE HERE. `mysql -B` prints
+  // SQL NULL and the four-character string 'NULL' identically, so no parser can
+  // separate them from the output alone. Reading it as SQL NULL is the safer of
+  // the two readings for the suite's comparisons, but a caller that will WRITE
+  // the value back must not rely on it: select a companion `col IS NULL` flag
+  // and branch on that (see the restore in
+  // demographic-edit-update-playwright-checks.js), or the restore turns a real
+  // 'NULL' string into a null column.
   if (raw === 'NULL') {
     return null;
   }
@@ -471,16 +483,52 @@ function relabelStrictPage(page, label) {
   return true;
 }
 
+/**
+ * Run `body` with dialogs on this page EXPECTED rather than recorded as findings.
+ *
+ * WHY THIS EXISTS AND A SECOND LISTENER DOES NOT. Playwright delivers a dialog to
+ * every registered listener, so adding `page.on('dialog', ...)` alongside the
+ * strict wiring does not replace it: the strict handler still records the dialog
+ * in unexpectedDialogs and still races to dismiss it. A check that deliberately
+ * triggers an alert -- proving a validation fires -- would then fail its own
+ * assertStrictPage() precisely when the application behaves correctly. That is
+ * the trap the note on `dialogHandler` warns about, and this is the supported way
+ * out of it: the ONE listener's handler is swapped for the duration.
+ *
+ * @returns the dialogs seen, in order, so the caller can assert on them.
+ */
+async function withExpectedDialogs(page, body, options = {}) {
+  const wiring = WIRED_PAGES.get(page);
+  assert(wiring,
+    'withExpectedDialogs() needs a page wired by wireStrictPage(); on an unwired page there is no strict '
+    + 'handler to stand in for, and a dialog would go unanswered');
+  const seen = [];
+  const previous = wiring.dialogHandler;
+  wiring.dialogHandler = async (dialog, entry) => {
+    seen.push(entry);
+    if (options.accept === false) {
+      await dialog.dismiss().catch(() => {});
+      return;
+    }
+    await dialog.accept(options.promptText).catch(() => {});
+  };
+  try {
+    await body();
+  } finally {
+    wiring.dialogHandler = previous;
+  }
+  return seen;
+}
+
 function wireStrictPage(page, label, recorder, options = {}) {
   // Already wired: move the label rather than adding a second set of listeners.
   // See WIRED_PAGES above for why both halves of that matter.
   if (relabelStrictPage(page, label)) {
     return page;
   }
-  const wiring = { label };
+  const wiring = { label, dialogHandler: options.dialogHandler || null };
   WIRED_PAGES.set(page, wiring);
 
-  const dialogHandler = options.dialogHandler || null;
   const baseline = options.baseline || loadConsoleBaseline();
   // The signals no check asserted before this harness existed. wirePage() turns
   // them off so the 75 scripts that have not migrated keep recording exactly what
@@ -491,8 +539,10 @@ function wireStrictPage(page, label, recorder, options = {}) {
   page.on('dialog', async (dialog) => {
     const entry = { label: wiring.label, type: dialog.type(), text: dialog.message() };
     recorder.dialogs.push(entry);
-    if (dialogHandler) {
-      await dialogHandler(dialog, entry);
+    // Read at event time, not closed over: withExpectedDialogs() swaps it for the
+    // duration of a step that deliberately raises one.
+    if (wiring.dialogHandler) {
+      await wiring.dialogHandler(dialog, entry);
       return;
     }
     // An unexpected confirm() is a finding: dismissing it silently is how a
@@ -851,6 +901,7 @@ module.exports = {
   validateBaseUrl,
   relabelStrictPage,
   validateMysqlHost,
+  withExpectedDialogs,
   wirePage,
   wireStrictPage,
 };

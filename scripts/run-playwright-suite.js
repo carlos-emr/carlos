@@ -181,9 +181,22 @@ function readBuildIdentity(env, run = spawnSync) {
   // The earlier version wrote the body to /dev/null and returned %{http_code},
   // which is "200" before and "200" after -- the comparison below could never
   // fire, so the guard existed but did nothing.
+  //
+  // -k ONLY for a loopback/private target, matching the same rule the browser
+  // config uses (isLocalTlsTarget). The devcontainer serves a self-signed cert
+  // and would otherwise disable the guard entirely; a remote deployment reached
+  // under ALLOW_NON_LOCAL_BASE_URL=true must still have its certificate checked,
+  // because "skip verification" there means this fingerprint can be supplied by
+  // anyone on the path and the restart guard proves nothing.
+  let local = false;
+  try {
+    local = isLocalTlsTarget(new URL(base));
+  } catch {
+    return null;
+  }
   const result = run(
     'curl',
-    ['-sSkI', '--max-time', '10', `${base}/images/favicon.ico`],
+    [local ? '-sSkI' : '-sSI', '--max-time', '10', `${base}/images/favicon.ico`],
     { encoding: 'utf8' },
   );
   if (result.status !== 0) {

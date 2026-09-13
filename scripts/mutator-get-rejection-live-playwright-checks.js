@@ -13,7 +13,7 @@
 
 /*
  * The live twin of MutatorActionGetRejectionContractUnitTest: does the DEPLOYED
- * application refuse a GET on every action that mutates?
+ * application refuse a GET -- and a HEAD -- on every action that mutates?
  *
  * WHY A LIVE TWIN IS NOT REDUNDANT. The unit contract drives each action class
  * directly with a MockHttpServletRequest. That proves the code in the class is
@@ -43,7 +43,7 @@
  * action ran, a 302 means it redirected instead of refusing, and a 500 means it
  * got far enough to throw. None of those is the contract.
  *
- * READ-ONLY, AND DELIBERATELY UNDER-EQUIPPED. Each GET is sent with NO
+ * READ-ONLY, AND DELIBERATELY UNDER-EQUIPPED. Each probe is sent with NO
  * parameters. If the contract holds, nothing runs; if it does not, an action
  * that reached its body would find no demographic_no, no appointment_no and no
  * form data, so the check detects the hole without handing it the data a real
@@ -53,7 +53,7 @@
  *   npm run test:mutator-get-rejection-live-playwright
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
- *   MUTATOR_GET_TIMEOUT_MS=15000   per-route allowance
+ *   MUTATOR_GET_TIMEOUT_MS=15000   per-probe allowance
  *
  * IMPLEMENTS: coverage plan section 2.2, `mutator-get-rejection-live`
  * (docs/ui-tests/playwright-coverage-plan-2026.08.md). App defects this check
@@ -61,12 +61,24 @@
  */
 
 const {
-  assert, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
+  assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
 const { mutatorRoutes } = require('./lib/mutator-routes');
 
 /** What the contract requires, and what each other answer would mean. */
 const EXPECTED_STATUS = 405;
+
+/**
+ * Both methods the contract names.
+ *
+ * HEAD is not a formality. Servlet containers answer HEAD by running doGet()
+ * and discarding the body, so an action that checks `"GET".equals(method)`
+ * instead of "is this a read method" refuses the GET and performs the mutation
+ * on the HEAD -- with the response body thrown away, which is exactly what an
+ * attacker's <img src> wants and what a GET-only check reports as clean.
+ * HEAD is sent FIRST so that ordering holds on the session-ending route too.
+ */
+const PROBED_METHODS = ['HEAD', 'GET'];
 
 function diagnose(status) {
   if (status === 200) {
@@ -133,27 +145,34 @@ async function main() {
     const refused = [];
     for (const entry of orderedRoutes(routes)) {
       const url = `${base}/${entry.route}`;
-      let status;
-      try {
-        const response = await context.request.get(url, { timeout, maxRedirects: 0 });
-        status = response.status();
-      } catch (error) {
-        failures.push(`${entry.route} (${entry.simpleName}): the request itself failed -- ${String(error.message).split('\n')[0]}`);
-        continue;
+      for (const method of PROBED_METHODS) {
+        let status;
+        try {
+          const response = await context.request.fetch(url, { method, timeout, maxRedirects: 0 });
+          status = response.status();
+        } catch (error) {
+          failures.push(`${entry.route} (${entry.simpleName}): the ${method} itself failed -- ${String(error.message).split('\n')[0]}`);
+          continue;
+        }
+        if (status === EXPECTED_STATUS) {
+          refused.push(`${entry.route} ${method}`);
+          continue;
+        }
+        failures.push(
+          `${entry.route} (${entry.simpleName}) answered HTTP ${status} to a ${method}, not ${EXPECTED_STATUS}: ${diagnose(status)}`,
+        );
       }
-      if (status === EXPECTED_STATUS) {
-        refused.push(entry.route);
-        continue;
-      }
-      failures.push(
-        `${entry.route} (${entry.simpleName}) answered HTTP ${status} to a GET, not ${EXPECTED_STATUS}: ${diagnose(status)}`,
-      );
     }
 
+    const probes = routes.length * PROBED_METHODS.length;
     assert(failures.length === 0,
-      `${failures.length} of ${routes.length} mutator route(s) do not refuse a GET:\n    - ${failures.join('\n    - ')}`);
-    console.log(`  ${refused.length} mutator route(s) refused a GET with ${EXPECTED_STATUS}`);
-    return { refused: refused.length, routes: routes.length };
+      `${failures.length} of ${probes} mutator probe(s) do not refuse a read method:\n    - ${failures.join('\n    - ')}`);
+    // The login that established this session is the only page this check
+    // renders, and it is wired strictly. Without this the recorder collects a
+    // broken login page and nothing ever reads it back.
+    assertStrictPage(recorder);
+    console.log(`  ${refused.length} probe(s) across ${routes.length} mutator route(s) refused ${PROBED_METHODS.join('/')} with ${EXPECTED_STATUS}`);
+    return { refused: refused.length, probes, routes: routes.length };
   } finally {
     await browser.close().catch(() => {});
   }
@@ -163,4 +182,6 @@ if (require.main === module) {
   runCheck({ name: 'mutator-get-rejection-live', run: main });
 }
 
-module.exports = { EXPECTED_STATUS, diagnose, main, orderedRoutes };
+module.exports = {
+  EXPECTED_STATUS, PROBED_METHODS, diagnose, main, orderedRoutes,
+};

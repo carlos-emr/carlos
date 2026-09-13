@@ -66,7 +66,7 @@
 
 const {
   SkipCheck, assert, assertStrictPage, createRecorder, createSqlRunner, launchBrowser, login,
-  newContext, readConfig, runCheck, sqlString,
+  newContext, readConfig, runCheck, sqlString, withExpectedDialogs,
 } = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
@@ -336,13 +336,12 @@ async function checkStatusScope(page, sql, inactive, timeout) {
  */
 async function checkDobValidation(page, timeout) {
   const before = page.url();
-  const dialogs = [];
-  const listener = async (dialog) => {
-    dialogs.push({ type: dialog.type(), message: dialog.message() });
-    await dialog.accept().catch(() => {});
-  };
-  page.on('dialog', listener);
-  try {
+  // Through the strict wiring's ONE handler, not a second listener. Playwright
+  // delivers a dialog to every listener, so adding one alongside the strict
+  // handler does not replace it: the alert would still be recorded as an
+  // unexpected dialog and this check would fail its own assertStrictPage()
+  // precisely when the validation works. See withExpectedDialogs().
+  const dialogs = await withExpectedDialogs(page, async () => {
     const { form, keyword } = await searchForm(page, timeout);
     await form.locator('select[name="search_mode"]').first().selectOption('search_dob');
     await keyword.fill('');
@@ -351,9 +350,7 @@ async function checkDobValidation(page, timeout) {
     // No navigation is the assertion, so there is nothing to wait FOR. Give the
     // handler a beat and then check the page did not move.
     await page.waitForTimeout(750);
-  } finally {
-    page.off('dialog', listener);
-  }
+  });
 
   assert(dialogs.length > 0,
     'Typing a four-digit date of birth was accepted without complaint. checkTypeIn() is supposed to '

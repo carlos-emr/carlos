@@ -92,7 +92,25 @@ test('the two arrows are told apart by their icons, not by position', () => {
 test('the calendar popup navigates the opener, which is why the check waits there', () => {
   assert.match(CALENDAR_JSP, /opener\.location\.href =/);
   assert.match(CALENDAR_JSP, /self\.close\(\)/);
-  assert.match(SOURCE, /schedulePage\.waitForLoadState\('domcontentloaded'\)/);
+  // The wait is on the OPENER, not the popup that was clicked.
+  assert.match(SOURCE, /await clickAndAwaitReload\(schedulePage, cell, timeout\)/);
+});
+
+test('every navigation wait is armed before the click that causes it', () => {
+  // waitForLoadState resolves against the document already on screen, so a wait
+  // asked for after the click returns immediately and shownDate() reads the
+  // date the page was showing BEFORE it -- every arrow and jump compared
+  // against its own starting point, which passes whatever the server does.
+  assert.ok(!/Promise\.all\(\[\s*schedulePage\.waitForLoadState/.test(SOURCE),
+    'a click raced against waitForLoadState cannot detect that the page changed');
+  assert.match(SOURCE, /const navigated = watchPage\.waitForEvent\('framenavigated'/);
+  // Armed, then clicked -- in that order.
+  const armed = SOURCE.indexOf("waitForEvent('framenavigated'");
+  const clicked = SOURCE.indexOf('await locator.click({ timeout });');
+  assert.ok(armed > -1 && clicked > armed,
+    'the navigation wait must be created before the click, not after it');
+  // And a control that does nothing is a finding, not a silent pass.
+  assert.match(SOURCE, /without navigating; the control did nothing/);
 });
 
 test('a day cell is matched exactly, so "1" does not also select 11, 21 and 31', () => {

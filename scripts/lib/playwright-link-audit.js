@@ -34,10 +34,14 @@
  * pages" does not get acted on.
  */
 
-const { assert, screenshot } = require('./playwright-harness');
+const { assert, relabelStrictPage, screenshot } = require('./playwright-harness');
 const { clickOpensPopup } = require('./playwright-ui');
 
 const DEFAULT_TIMEOUT = 20000;
+// How long a click is given to START a navigation before the item is treated
+// as one that acts in place. Generous for a local Tomcat, short enough that a
+// 120-item sweep does not pay the full item timeout for every in-place item.
+const NAVIGATION_START_TIMEOUT = 4000;
 const ERROR_PAGE_RE = /CARLOS has encountered an unexpected error|HTTP Status 5\d\d|Exception Report|There is no Action mapped|Whitelabel Error Page/i;
 
 /**
@@ -53,9 +57,28 @@ async function catalogueLinks(page, options = {}) {
     const text = (anchor.textContent || '').replace(/\s+/g, ' ').trim();
     const href = anchor.getAttribute('href') || '';
     const onclick = anchor.getAttribute('onclick') || anchor.getAttribute('onClick') || '';
-    const routeInOnclick = onclick.match(/["'](\/[A-Za-z0-9_][A-Za-z0-9_/.-]*(?:\?[^"']*)?)["']/);
+    // Three shapes, in order, because CARLOS writes all three and an
+    // absolute-only pattern dropped the other two: the item was catalogued
+    // with no route, and an item with href="#" and no route was filtered out
+    // of the audit entirely -- so those pages were never opened while the
+    // audit still reported a full sweep.
+    //   absolute   popupPage(600,900,'/carlos/billing/...')
+    //   relative   popupPage(..., '../encounter/IncomingEncounter?...')
+    //   bare       popup(..., 'DemographicEdit?demographic_no=...')
+    const routeInOnclick = onclick.match(/["']((?:\.{1,2}\/)+[A-Za-z0-9_][^"'\s]*)["']/)
+      || onclick.match(/["'](\/[A-Za-z0-9_][A-Za-z0-9_/.-]*(?:\?[^"']*)?)["']/)
+      // Bare paths only when the token actually looks like one: it carries a
+      // slash, a query string, or a server-page extension. Without that guard
+      // this matches the window name and the feature string that sit in the
+      // same argument list ('_blank', 'width=600'), and the audit would report
+      // a route for every opener whether or not it found one.
+      || onclick.match(/["']([A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[^"'\s?]*)*(?:\.(?:jsp|do|html?)\b)?(?:\?[^"']*)?)["']/);
+    const looksLikeRoute = routeInOnclick
+      && (/^[./]/.test(routeInOnclick[1])
+        || /[/?]/.test(routeInOnclick[1])
+        || /\.(?:jsp|do|html?)$/i.test(routeInOnclick[1]));
     const hasRealHref = href && href !== '#' && !/^javascript:/i.test(href);
-    if (!text || text.length > 80 || (!hasRealHref && !routeInOnclick)) {
+    if (!text || text.length > 80 || (!hasRealHref && !looksLikeRoute)) {
       return null;
     }
     return {
@@ -67,8 +90,14 @@ async function catalogueLinks(page, options = {}) {
       index,
       text,
       href: hasRealHref ? href : '',
-      route: routeInOnclick ? routeInOnclick[1] : '',
-      opensPopup: /popup|newWindow|postToPopup/i.test(onclick),
+      route: looksLikeRoute ? routeInOnclick[1] : '',
+      // window.open and target="_blank" open a window exactly as popupPage()
+      // does. Classifying them as same-tab sent the audit down the navigation
+      // branch, where it waited for a navigation that never came and then read
+      // the UNCHANGED host page -- reporting the opener's own content as the
+      // item's destination, which passes for every broken popup.
+      opensPopup: /popup|newWindow|postToPopup|window\.open/i.test(onclick)
+        || (anchor.getAttribute('target') || '').toLowerCase() === '_blank',
     };
   }).filter(Boolean));
   // The selector travels with the item so the click resolves against the same
@@ -176,8 +205,32 @@ async function openItem(context, hostPage, item, recorder, label, timeout) {
     return { page: popup, isPopup: true };
   }
   const before = hostPage.url();
+  // ARMED BEFORE THE CLICK. waitForLoadState() asked for after the click
+  // resolves instantly against the document still on screen when the new one
+  // has not started loading yet, so the audit read the OPENER's body and
+  // reported it as this item's destination -- a pass for every item whose page
+  // is broken.
+  const navigationStarted = hostPage.waitForURL((url) => String(url) !== before, { timeout })
+    .then(() => true, () => false);
   await link.click({ timeout });
-  await hostPage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+  // Bounded, because plenty of admin items inject a panel in place and never
+  // navigate at all; waiting the full timeout on each of those would add
+  // minutes to a 120-item sweep for no signal.
+  let settleTimer;
+  const settled = new Promise((resolve) => {
+    settleTimer = setTimeout(() => resolve(false), Math.min(timeout, NAVIGATION_START_TIMEOUT));
+  });
+  const navigated = await Promise.race([navigationStarted, settled]);
+  clearTimeout(settleTimer);
+  if (navigated) {
+    await hostPage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+    // Same page object, new document: without the relabel it keeps the label
+    // it was wired with, and a later assertStrictPage scoped to this item's
+    // label finds nothing recorded under it and passes.
+    if (recorder) {
+      relabelStrictPage(hostPage, label);
+    }
+  }
   await hostPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
   return { page: hostPage, isPopup: false, cameFrom: before };
 }

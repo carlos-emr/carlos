@@ -156,3 +156,33 @@ test('the runner refuses a remote MYSQL_HOST even when BASE_URL is local', () =>
     BASE_URL: 'http://127.0.0.1:8080/carlos',
   }));
 });
+
+test('certificate verification is waived for the build probe only on a local target', () => {
+  // The devcontainer serves a self-signed certificate, so the probe must accept
+  // it there or the restart guard is disabled on every local run. Anywhere else
+  // -- a remote deployment reached under ALLOW_NON_LOCAL_BASE_URL=true -- "skip
+  // verification" means this fingerprint can be supplied by anyone on the path,
+  // and a guard that proves nothing is worse than none.
+  const headers = 'HTTP/1.1 200\r\nETag: "abc"\r\n\r\n';
+  const flagsFor = (base) => {
+    let seen = null;
+    readBuildIdentity({ BASE_URL: base }, (command, args) => {
+      seen = args[0];
+      return { status: 0, stdout: headers };
+    });
+    return seen;
+  };
+  assert.equal(flagsFor('https://127.0.0.1:8443/carlos'), '-sSkI');
+  assert.equal(flagsFor('https://192.168.1.20:8443/carlos'), '-sSkI');
+  assert.equal(flagsFor('https://emr.example.com/carlos'), '-sSI');
+});
+
+test('an unparseable BASE_URL disables the build probe rather than guessing', () => {
+  let called = false;
+  const identity = readBuildIdentity({ BASE_URL: 'not a url' }, () => {
+    called = true;
+    return { status: 0, stdout: 'HTTP/1.1 200\r\nETag: "abc"\r\n\r\n' };
+  });
+  assert.equal(identity, null);
+  assert.equal(called, false, 'nothing should be fetched from a target that cannot be parsed');
+});

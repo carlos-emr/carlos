@@ -88,6 +88,35 @@ const addDays = (date, days) => new Date(date.getFullYear(), date.getMonth(), da
 const lastDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
 /**
+ * Click something and wait for the schedule to be REPLACED, not merely loaded.
+ *
+ * WHY NOT Promise.all([page.waitForLoadState('domcontentloaded'), click]).
+ * waitForLoadState resolves against the document that is already on screen, and
+ * that document is already loaded -- so it returns immediately, the click's
+ * navigation has not started, and shownDate() reads the date the page was
+ * showing BEFORE the click. Every arrow, every calendar jump and the month view
+ * would then be compared against their own starting point.
+ *
+ * The navigation wait is armed BEFORE the click and watches the main frame, so
+ * only the document actually being replaced can satisfy it.
+ *
+ * @param watchPage the page that navigates -- not always the page clicked: the
+ *   calendar popup's cells navigate the OPENER and then close themselves.
+ */
+async function clickAndAwaitReload(watchPage, locator, timeout) {
+  const navigated = watchPage.waitForEvent('framenavigated', {
+    predicate: (frame) => frame === watchPage.mainFrame(),
+    timeout,
+  }).then(() => true, () => false);
+  await locator.click({ timeout });
+  const reloaded = await navigated;
+  assert(reloaded,
+    `Clicking left the schedule on ${watchPage.url()} without navigating; the control did nothing`);
+  await watchPage.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+  await watchPage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+}
+
+/**
  * Jump to a day of the CURRENT month through the calendar popup.
  *
  * The header date is an anchor that opens share/CalendarPopup; clicking a day
@@ -106,11 +135,7 @@ async function jumpToDay(context, schedulePage, day, recorder, timeout) {
   assert(index >= 0,
     `The calendar popup offers no cell for day ${day} of the shown month (it offers ${days.filter(Boolean).length} days)`);
   const cell = popup.locator('td a').nth(index);
-  await Promise.all([
-    schedulePage.waitForLoadState('domcontentloaded').catch(() => {}),
-    cell.click({ timeout }),
-  ]);
-  await schedulePage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await clickAndAwaitReload(schedulePage, cell, timeout);
   await popup.close().catch(() => {});
   return shownDate(schedulePage, timeout);
 }
@@ -119,11 +144,7 @@ async function jumpToDay(context, schedulePage, day, recorder, timeout) {
 async function step(schedulePage, selector, timeout) {
   const control = schedulePage.locator(selector).first();
   assert(await control.count() > 0, `The schedule header offers no ${selector} control`);
-  await Promise.all([
-    schedulePage.waitForLoadState('domcontentloaded').catch(() => {}),
-    control.click({ timeout }),
-  ]);
-  await schedulePage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await clickAndAwaitReload(schedulePage, control, timeout);
   return shownDate(schedulePage, timeout);
 }
 
@@ -185,11 +206,7 @@ async function checkMonthView(schedulePage, timeout) {
   if (await monthLink.count() === 0) {
     return null;
   }
-  await Promise.all([
-    schedulePage.waitForLoadState('domcontentloaded').catch(() => {}),
-    monthLink.click({ timeout }),
-  ]);
-  await schedulePage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await clickAndAwaitReload(schedulePage, monthLink, timeout);
 
   const body = await schedulePage.locator('body').innerText({ timeout }).catch(() => '');
   assert(body.trim().length > 0, 'The month view rendered a blank page');
@@ -200,11 +217,7 @@ async function checkMonthView(schedulePage, timeout) {
   const today = schedulePage.locator('a').filter({ hasText: /^\s*Today\s*$/i }).first();
   assert(await today.count() > 0,
     'The month view offers no Today link, so a user who opened it cannot get back to a day sheet');
-  await Promise.all([
-    schedulePage.waitForLoadState('domcontentloaded').catch(() => {}),
-    today.click({ timeout }),
-  ]);
-  await schedulePage.waitForLoadState('networkidle', { timeout }).catch(() => {});
+  await clickAndAwaitReload(schedulePage, today, timeout);
   const after = await shownDate(schedulePage, timeout);
   return { before, after };
 }
