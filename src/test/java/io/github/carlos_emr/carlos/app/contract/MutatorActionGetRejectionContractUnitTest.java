@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
-import io.github.carlos_emr.carlos.login.UploadLoginText2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -144,10 +143,6 @@ class MutatorActionGetRejectionContractUnitTest {
             // privilege-tuple fields below are left as empty strings — the contract assertion
             // skips the privilege check when hasPrivilege is never invoked.
             Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
-            // UploadLoginText2Action rewrites the login-page text file and persists the
-            // acceptable-use-agreement property; both side effects are POST-only.
-            Arguments.of("io.github.carlos_emr.carlos.login.UploadLoginText2Action",
-                    "_admin", "w"),
             // (ProEditPhoneNum2Action moved to CONDITIONAL_MUTATORS: EditPhoneNum is a dual view/mutate
             // route — GET renders providerPhone.jsp, only a POST or GET-with-faxNumber mutation intent
             // is gated. Its dedicated GET-rejection coverage lives in ProEditPhoneNum2ActionUnitTest.)
@@ -274,6 +269,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action",
         // Login gate: GET renders the selector, but selectedFacilityId is mutation intent.
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        // Login text upload: admin/uploadEntryText is dual-purpose. A GET/HEAD renders
+        // uploadEntryText.jsp (both the admin menu and the administration left-nav open it that
+        // way); only a POST -- or a GET/HEAD carrying an acceptable-use-agreement parameter -- is
+        // gated (see UploadLoginText2ActionUnitTest for the focused GET-rejection coverage).
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         // Ontario billing: dual-purpose pages reject GET only when mutation-intent params exist.
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
@@ -601,13 +601,6 @@ class MutatorActionGetRejectionContractUnitTest {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityUpdate2Action(methodSecurity);
-        }
-        if (actionClass.equals(UploadLoginText2Action.class)) {
-            SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-            when(securityInfoManager.hasPrivilege(
-                    any(LoggedInInfo.class), any(String.class), any(String.class), nullable(String.class)))
-                .thenReturn(true);
-            return new UploadLoginText2Action(securityInfoManager);
         }
         return actionClass.getDeclaredConstructor().newInstance();
     }

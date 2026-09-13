@@ -294,18 +294,67 @@ class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
         verify(propertyDao, never()).persist(any(Property.class));
     }
 
-    @Test
-    @DisplayName("should reject GET before file side effects")
-    void shouldRejectGet_beforeFileSideEffects() throws Exception {
+    /**
+     * admin/uploadEntryText is dual-purpose: the admin menu and the administration left-nav both
+     * open it with a bare GET to render the upload form. That GET must still render, so the route
+     * is registered in CONDITIONAL_MUTATORS rather than as an unconditional POST-only mutator.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should render the upload form when a bare read request arrives")
+    void shouldRenderUploadForm_whenBareReadRequest(String method) throws Exception {
+        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        request.setMethod(method);
+
+        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+        action.setImportFile(uploadFile.toFile());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        // The JSP only renders the upload-failure banner when this attribute is present.
+        assertThat(request.getAttribute("error")).isNull();
+        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
+        verify(propertyDao, never()).persist(any(Property.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"validForever", "foreverFrom", "validDurationNumber", "validDurationPeriod"})
+    @DisplayName("should reject GET carrying agreement mutation intent before side effects")
+    void shouldRejectGet_whenAgreementMutationIntentPresent(String mutationParam) throws Exception {
+        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
         request.setMethod("GET");
+        request.addParameter(mutationParam, "forever");
 
-        String result = new UploadLoginText2Action(securityInfoManager).execute();
+        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+        action.setImportFile(uploadFile.toFile());
+
+        String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
+        verify(propertyDao, never()).persist(any(Property.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PUT", "DELETE", "PATCH"})
+    @DisplayName("should reject unsupported methods before file side effects")
+    void shouldRejectUnsupportedMethod_beforeFileSideEffects(String method) throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        request.setMethod(method);
+
+        String result = new UploadLoginText2Action(securityInfoManager).execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
+        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
+        verify(propertyDao, never()).persist(any(Property.class));
     }
 
     @Test

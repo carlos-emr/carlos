@@ -77,8 +77,25 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     public String execute() throws Exception {
         requireAdminWrite();
 
-        if (rejectNonPost()) {
-            return NONE;
+        // Dual-purpose route (struts admin/uploadEntryText -> uploadEntryText.jsp): the admin menu
+        // and the administration left-nav both open this URL with a GET to render the upload form,
+        // and the form POSTs multipart back to the same route. CSRFGuard does not validate GET, so
+        // neither side effect below -- the AUA property persist and the OSCARloginText.txt rewrite --
+        // may run on GET/HEAD. A GET/HEAD carrying any AUA mutation parameter is a CSRF-via-GET save
+        // attempt and is rejected before any side effect; a bare GET/HEAD renders the form. Any other
+        // method is unsupported. See CONDITIONAL_MUTATORS in
+        // MutatorActionGetRejectionContractUnitTest for where this contract is pinned.
+        String method = request.getMethod();
+        if (!"POST".equals(method)) {
+            boolean readView = "GET".equals(method) || "HEAD".equals(method);
+            if (!readView || hasAcceptableUseAgreementMutationIntent()) {
+                response.setHeader("Allow", readView ? "POST" : "GET, HEAD, POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+                return NONE;
+            }
+            // Render the form. The "error" request attribute is deliberately left unset: the JSP
+            // only renders the upload-failure banner when the attribute is present.
+            return SUCCESS;
         }
 
         updateAcceptableUseAgreementDuration();
@@ -94,14 +111,16 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         }
     }
 
-    private boolean rejectNonPost() throws IOException {
-        if ("POST".equals(request.getMethod())) {
-            return false;
-        }
-
-        response.setHeader("Allow", "POST");
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return true;
+    /**
+     * True when the request carries any parameter the acceptable-use-agreement persist reads.
+     * A multipart upload cannot reach a GET, so these four parameters are the only way a
+     * GET/HEAD could otherwise drive a write.
+     */
+    private boolean hasAcceptableUseAgreementMutationIntent() {
+        return request.getParameter("validForever") != null
+                || request.getParameter("foreverFrom") != null
+                || request.getParameter("validDurationNumber") != null
+                || request.getParameter("validDurationPeriod") != null;
     }
 
     private void updateAcceptableUseAgreementDuration() {
