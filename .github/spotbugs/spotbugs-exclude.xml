@@ -1140,6 +1140,11 @@
          segment-path notation ("/.OBR-7-1") is treated as a filesystem path
          when the field identifier comes from HL7 data.
 
+         Classes that genuinely open files are deliberately NOT covered here;
+         they carry method-scoped @SuppressFBWarnings with their own
+         justification instead, so the detector still guards the rest of the
+         class (see Factory.getHandler, excluded from the parsers match below).
+
          These are confirmed false positives after per-file code review.
          Do not remove without re-reviewing the affected classes. Do not
          broaden this list to unrelated modules (prescriptions, login,
@@ -1147,10 +1152,13 @@
          per-file review and its own justification comment.
          ================================================================ -->
 
-    <!-- HAPI HL7 parsers — "/.OBR-7-1" path notation mistaken for filesystem paths -->
+    <!-- HAPI HL7 parsers — "/.OBR-7-1" path notation mistaken for filesystem paths.
+         Factory is excluded on purpose: Factory.getHandler reads the LAB_TYPES
+         configuration file, so it is a real file-opening method and keeps a
+         method-scoped annotation instead of a blanket package exclusion. -->
     <Match>
         <Bug pattern="PATH_TRAVERSAL_IN"/>
-        <Package name="io.github.carlos_emr.carlos.lab.ca.all.parsers"/>
+        <Class name="~io\.github\.carlos_emr\.carlos\.lab\.ca\.all\.parsers\.(?!Factory(\$.*)?$).*"/>
     </Match>
     <!-- PathNet Connection.CreateInputStream() is an HTTP call to a medical device API, not FileInputStream -->
     <Match>
