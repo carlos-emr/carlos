@@ -1073,6 +1073,23 @@ What the review established, from the maintainer scripts and the run:
   check` reported all checks passed, and the About page carries the new build
   tag `2026.08.0-alpha12-SNAPSHOT (carlos-emr-deb 2026.09.0~snapshot22)` — the
   packaged WAR is stamped even when supplied prebuilt via `CARLOS_WAR=`.
+- **Compiled JSPs.** The a12 launcher (`/usr/lib/carlos-emr/carlos-emr-tomcat`)
+  runs `clear_jsp_cache` on every start, deleting compiled `org/apache/jsp`
+  classes under the Tomcat work directory, so the upgrade restart cannot serve
+  a11-compiled pages against a12 classes (the class of failure a truncated or
+  stale work directory produced during this validation). Do not try to verify
+  this from class-file timestamps: Jasper back-dates each compiled class to its
+  JSP source's mtime, and the package clamps source mtimes for reproducible
+  builds, so every class looks older than the upgrade regardless. Verify it
+  functionally — no `JasperException` in the journal after the restart, and the
+  changed pages rendering — or by comparing a changed JSP's mtime with its
+  compiled class's (equal means compiled from the deployed source).
+- **Harness prerequisite, not a package one.** a12's
+  `eform-render-playwright-checks.js` inspects the rendered PDF with
+  `pdftotext -bbox`, so `poppler-utils` (already in the harness install step
+  above) is required on the test host; the package correctly declares no
+  dependency on it. A host prepared with only `nodejs` fails that one check
+  with `spawnSync pdftotext ENOENT`.
 
 Result: `deb-upgrade-verify.sh` 30/30 (a transient `allergies 17 -> 19` seen
 once was the live suite's own `allergy-add-penicillin` fixture mid-run, deleted
