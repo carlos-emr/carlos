@@ -905,6 +905,20 @@ Notes on the contract:
   eChart checks (nginx `Server` header; warning when absent, failure with
   `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
   mistaken for coverage of 1100/1131.
+- **`login-failure-host-header-playwright-checks.js` must be run through `:443`.**
+  It fetches `/loginfailed` twice over a raw socket, once with the real `Host`
+  and once with an attacker-controlled one, and requires the two bodies to be
+  byte-identical; it then parses the page in the browser and requires no
+  `<base>` element, `document.baseURI` still equal to the page's own URL, the
+  favicon and `global.js` resolved under the servlet context path, and the
+  `errormsg` still rendered HTML-encoded. Going straight to Tomcat on
+  `127.0.0.1:18080` skips nginx, so it cannot see a front-door rewrite
+  re-introducing a Host-derived `<base href>` — the construct this pins. It is
+  pre-auth and read-only (every request is a GET; no login, no fixture, no
+  database access), so it needs no credentials and leaves nothing behind. A
+  front door that answers 400/421 to the spoofed `Host` is reported on stdout
+  and treated as a pass: the bad value never reached the application, and the
+  DOM assertions still run against the legitimate `Host`.
 - **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
   The chart loads 20 entries per one-second poll, including eForms and other
   chart entries as well as encounter notes. A populated fixture can legitimately
