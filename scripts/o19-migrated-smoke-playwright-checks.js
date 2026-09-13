@@ -135,7 +135,7 @@ function validateBaseUrl(rawBaseUrl) {
   // URL in navigation diagnostics, so a credential embedded here would be
   // both transmitted and logged.
   if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not carry embedded credentials');
+    throw new Error('BASE_URL must not contain embedded credentials');
   }
 
   const host = parsed.hostname.toLowerCase();
