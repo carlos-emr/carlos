@@ -26,9 +26,17 @@
  *   3. asserts the allergies row: description, type code, drugref id,
  *      reaction, severity, onset, life stage, start date, not archived, and
  *      that the ATC/regional identifier lookup against DrugRef ran;
- *   4. asserts the eChart's Allergies module shows the new allergy.
+ *   4. asserts the eChart's Allergies module shows the new allergy;
+ *   5. amends it from the list's own "Modify" link and asserts the correction
+ *      path's contract: RxAddAllergy2Action ARCHIVES the original
+ *      (allergyToArchive -> patient.deleteAllergy) and writes a REPLACEMENT row
+ *      rather than updating in place, so the record keeps what was believed when.
+ *      Both halves are asserted -- an amend that only adds leaves the allergy
+ *      recorded twice, one that only archives loses it -- along with
+ *      allergyToArchive surviving onto the reloaded form, which is what makes the
+ *      difference between an amend and a second add.
  *
- * The allergy row is deleted in a finally.
+ * Both allergy rows (the original and the amendment) are deleted in a finally.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
@@ -70,7 +78,11 @@ const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '2';
 assert(/^\d+$/.test(demographicNo), 'ALLERGY_DEMOGRAPHIC_NO must be numeric');
-const reactionText = `PW_ALLERGY_${Date.now()} rash`;
+const reactionMarker = `PW_ALLERGY_${Date.now()}`;
+const reactionText = `${reactionMarker} rash`;
+// The amend path writes a SECOND allergies row rather than updating the first, so
+// both carry the run marker and cleanup deletes by prefix.
+const amendedReactionText = `${reactionMarker} hives`;
 
 let mysqlDefaults = null;
 function initMysqlDefaults() {
@@ -99,8 +111,8 @@ function escapeSql(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
 }
 
-function allergyRow() {
-  const out = sql(`SELECT allergyid, DESCRIPTION, TYPECODE, drugref_id, reaction, severity_of_reaction, onset_of_reaction, start_date, life_stage, archived, IFNULL(regional_identifier,''), IFNULL(atc,'') FROM allergies WHERE demographic_no=${Number(demographicNo)} AND reaction='${escapeSql(reactionText)}' ORDER BY allergyid DESC LIMIT 1`);
+function allergyRow(wantedReaction = reactionText) {
+  const out = sql(`SELECT allergyid, DESCRIPTION, TYPECODE, drugref_id, reaction, severity_of_reaction, onset_of_reaction, start_date, life_stage, archived, IFNULL(regional_identifier,''), IFNULL(atc,'') FROM allergies WHERE demographic_no=${Number(demographicNo)} AND reaction='${escapeSql(wantedReaction)}' ORDER BY allergyid DESC LIMIT 1`);
   if (!out) {
     return null;
   }
@@ -108,7 +120,7 @@ function allergyRow() {
   return { id, description, typeCode, drugrefId, reaction, severity, onset, startDate, lifeStage, archived, regionalId, atc };
 }
 function cleanupRows() {
-  sql(`DELETE FROM allergies WHERE demographic_no=${Number(demographicNo)} AND reaction='${escapeSql(reactionText)}'`);
+  sql(`DELETE FROM allergies WHERE demographic_no=${Number(demographicNo)} AND reaction LIKE '${escapeSql(reactionMarker)}%'`);
 }
 
 let browser = null;
@@ -212,10 +224,67 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await chart.waitForFunction(() => document.body.innerText.includes('PENICILLINS'), null, { timeout: 30000 });
     await chart.close();
 
+    // 5. Amend the allergy the way the list offers it: the "Modify" link beside the
+    // row. This is the correction path a clinician uses when a reaction was recorded
+    // wrongly, and it is not an UPDATE -- RxAddAllergy2Action archives the original
+    // (allergyToArchive -> patient.deleteAllergy) and writes a replacement row, so the
+    // history of what was believed when is preserved. Both halves are asserted: a
+    // version that only added would double-report the allergy, and one that only
+    // archived would lose it.
+    const modifyLink = page.locator('a.modifyAllergyLink').filter({ hasText: 'Modify' })
+      .locator(`xpath=self::a[contains(@id, "allergyToArchive=${row.id}")]`).first();
+    assert(await modifyLink.count() > 0,
+      `the allergy list offered no Modify link carrying allergyToArchive=${row.id}`);
+
+    const [amendFormResponse] = await Promise.all([
+      page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/rx/addReaction2'), { timeout: 30000 }),
+      modifyLink.click(),
+    ]);
+    assert(amendFormResponse.status() < 400, `addReaction2 (amend) returned HTTP ${amendFormResponse.status()}`);
+    const amendForm = page.locator('#RxAddAllergyForm');
+    await amendForm.waitFor({ state: 'visible', timeout: 30000 });
+    // The archive target has to survive onto the form, or the amend silently becomes a
+    // plain second add and the patient ends up with the allergy recorded twice.
+    assert((await amendForm.locator('#allergyToArchive').inputValue()) === row.id,
+      `the amend form carried allergyToArchive=${await amendForm.locator('#allergyToArchive').inputValue()}, expected ${row.id}`);
+    assert((await amendForm.locator('input[name="name"]').inputValue()) === 'PENICILLINS',
+      'the amend form did not reload the allergy being corrected');
+
+    await amendForm.locator('#reactionDescription').fill(amendedReactionText);
+    await amendForm.locator('select[name="severityOfReaction"]').selectOption('1');
+    await amendForm.locator('#startDate').fill('2024-01-15');
+    const [amendResponse] = await Promise.all([
+      page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/rx/addAllergy2'), { timeout: 30000 }),
+      amendForm.locator('input[type="submit"][value="Add Allergy"]').click(),
+    ]);
+    assert(amendResponse.status() < 400, `addAllergy2 (amend) returned HTTP ${amendResponse.status()}`);
+    await page.waitForURL(/\/rx\/showAllergy/, { timeout: 30000 });
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await assertNotErrorPage(page, 'allergy page after amend');
+
+    const replacement = allergyRow(amendedReactionText);
+    assert(replacement, 'the amend wrote no replacement allergies row');
+    assert(replacement.id !== row.id,
+      'the amend overwrote the original row instead of archiving it and adding a replacement');
+    assert(replacement.description === 'PENICILLINS' && replacement.drugrefId === '44452',
+      `the replacement row lost the drug identity: ${replacement.description}/${replacement.drugrefId}`);
+    assert(replacement.severity === '1', `the replacement kept severity ${replacement.severity} instead of the corrected 1`);
+    assert(replacement.archived === '0', 'the replacement row was written already archived');
+    const archivedOriginal = sql(`SELECT archived FROM allergies WHERE allergyid=${Number(row.id)}`);
+    assert(archivedOriginal === '1',
+      `the original allergy ${row.id} was left with archived=${archivedOriginal} after the amend;`
+      + ' the patient now has the same allergy recorded twice');
+    // The list must show the correction and not the superseded reaction, which is the
+    // part an operator actually sees.
+    const listText = await page.locator('body').innerText();
+    assert(listText.includes('PENICILLINS'), 'the allergy list lost PENICILLINS after the amend');
+    assert(!listText.includes(reactionText),
+      'the allergy list still shows the superseded reaction text after the amend');
+
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
-    console.log(`PASS Penicillins allergy ${row.id} added for demographic ${demographicNo} and shown in the eChart`);
+    console.log(`PASS Penicillins allergy ${row.id} added for demographic ${demographicNo}, shown in the eChart, and amended to ${replacement.id} with the original archived`);
   } catch (error) {
     console.error(`FAIL Penicillins allergy check: ${error.stack || error.message}`);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));

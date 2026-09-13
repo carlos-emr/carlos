@@ -43,17 +43,34 @@ typing the address:
   post-login landing page uses actually renders a schedule.
 - **The measurement entry form is opened by its group.** The eChart's Measurements
   module opens `SetupMeasurements` for a measurement group and saves through
-  `encounter/Measurements?ajax=true`. Reaching the older `ViewAddMeasurementData`
-  form directly answers HTTP 500 unless a valid `template` is supplied, because
-  `MeasurementTemplateFlowSheetConfig.getFlowSheet()` has no null or unknown-name
-  guard — a route no UI path reaches, and a defect worth fixing rather than
-  working around in a check.
+  `encounter/Measurements?ajax=true`, which is how `measurement-validation` enters.
+  `AddMeasurementData.jsp` — the other measurement-entry form — dereferences
+  `demographic_no` and its resolved flowsheet without a guard, so it answers HTTP 500
+  when either is missing; its only UI entry is the clinical flowsheet's Add links,
+  which is the gap described below.
 - **The prevention recall report has exactly one UI entry**, the Preventions link on
   the report index. Driving it from there is what notices the link disappearing.
 
 A corollary: if a route has **no** UI entry, it does not get a check.
 `prevention/printPrevention` is referenced by no JSP in the tree, so it is left
 alone rather than covered through an address only a test would know.
+
+That corollary is also why the **clinical flowsheet** (`ViewTemplateFlowSheet`, and
+the `ViewAddMeasurementData` popup hanging off it) gets no check here, and it is worth
+recording why rather than leaving it looking like an oversight.
+`EctDisplayMeasurements2Action` builds the eChart navbar's flowsheet items from
+`getUniveralFlowsheets()`, then removes `diab3` unless `new_flowsheet_enabled` is
+true. Of the flowsheet XML files `applicationContext.xml` injects, `diab3`
+(`diabetesQueensFlowsheet.xml`) is the only `universal="true"` one, and the package
+ships `new_flowsheet_enabled=false` — so on a default install the universal list is
+empty and **no flowsheet item renders in the eChart at all** (measured on
+2026.08.0-alpha12: the module renders its measurement values and no
+`ViewTemplateFlowSheet` link). The remaining entry is dx-triggered: a patient with a
+matching active `dxresearch` code gets that flowsheet's item. Covering the clinical
+flowsheet therefore needs a diagnosis fixture first, and that is the recommended next
+addition here — not a hand-built URL to `ViewTemplateFlowSheet`.
+`flowsheet-admin` covers the administration side of the same feature and never opens
+a patient's flowsheet.
 
 ## What they assert, and why that shape
 
