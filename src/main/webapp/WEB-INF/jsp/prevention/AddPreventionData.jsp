@@ -726,6 +726,7 @@
                             <legend><fmt:message key="oscarprevention.addpreventiondata.summary"/></legend>
                             <%-- Derived display text is not an input to AddPrevention. Reposting its
                                  multiline Location: label also triggers response-splitting WAF rules. --%>
+                            <label for="summary" class="visually-hidden"><fmt:message key="oscarprevention.addpreventiondata.summary"/></label>
                             <textarea class="form-control form-control-sm" id="summary" readonly><carlos:encode value='<%= summary != null ? summary : "" %>' context="html"/></textarea>
 
                         </fieldset>
