@@ -62,6 +62,7 @@ const {
   assert, assertStrictPage, createSqlRunner, createRecorder, launchBrowser, login, newContext, readConfig,
   runCheck, sqlString,
 } = require('./lib/playwright-harness');
+const { clickOpensPopup } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /*
@@ -129,6 +130,44 @@ async function presentFields(page) {
   return present;
 }
 
+/**
+ * Every row the Audit Information popup is showing, as "time|provider|action".
+ *
+ * The audit trail is a compliance control: PIPEDA and HIPAA both require that
+ * who changed a patient record, and when, is recorded. A trail that silently
+ * stops recording looks exactly like one that is working -- the page renders, the
+ * old rows are all there, and only the new edit is missing. Nothing else in this
+ * suite looks at it.
+ *
+ * demographicAudit.jsp sorts ASCENDING by time and DataTables pages at ten, so
+ * the newest entry is on the last page. The check selects "All" from the page's
+ * own length menu rather than paging, which is what a user does when looking for
+ * a recent change.
+ */
+async function auditRows(context, masterPage, recorder, timeout) {
+  const control = masterPage.locator('input[value="Audit Information"]').first();
+  assert(await control.count() > 0,
+    'The Master Record offers no Audit Information control, so a clinic cannot see who changed a patient record');
+  const audit = await clickOpensPopup(masterPage, control, {
+    context, label: 'demographic-audit', recorder, timeout,
+  });
+  try {
+    await audit.locator('#auditLog').waitFor({ state: 'visible', timeout });
+    // "All", so the newest row is on the page being read. -1 is the value the
+    // page's own lengthMenu uses for it.
+    await audit.locator('select[name="auditLog_length"]').first()
+      .selectOption('-1', { timeout }).catch(() => {});
+    return audit.$$eval('#auditLog tbody tr', (rows) => rows
+      .map((row) => Array.from(row.querySelectorAll('td'))
+        .slice(0, 3)
+        .map((cell) => (cell.textContent || '').trim())
+        .join('|'))
+      .filter((row) => row.replace(/\|/g, '').length > 0));
+  } finally {
+    await audit.close().catch(() => {});
+  }
+}
+
 async function main() {
   const config = readConfig();
   const searchTerm = process.env.DEMOGRAPHIC_EDIT_SEARCH || 'FAKE-';
@@ -166,6 +205,10 @@ async function main() {
     const landed = masterPage.url().match(/demographic_no=(\d+)/);
     assert(landed, 'Could not determine which patient the Master Record opened');
     [, demographicNo] = landed;
+
+    // The audit trail as it stands BEFORE the edit, so the new row can be found
+    // by difference rather than by guessing at its timestamp.
+    const auditBefore = await auditRows(context, masterPage, recorder, timeout);
 
     await openEditForm(masterPage, timeout);
     fields = await presentFields(masterPage);
@@ -225,13 +268,35 @@ async function main() {
     assert(notShown.length === 0,
       `${notShown.length} field(s) are stored correctly but the re-opened form does not show them: ${notShown.join(', ')}`);
 
+    // 4. The edit was RECORDED. DemographicUpdate2Action writes
+    // LogAction.addLog(provider, "update", "demographic", ...), and the audit
+    // page is where a clinic reads it back. A trail that silently stops
+    // recording looks exactly like a working one -- the page renders, every old
+    // row is there, and only this edit is missing.
+    const auditAfter = await auditRows(context, masterPage, recorder, timeout);
+    const knownAuditRows = new Set(auditBefore);
+    const added = auditAfter.filter((row) => !knownAuditRows.has(row));
+    assert(added.length > 0,
+      `Updating the patient added no row to the audit trail (${auditBefore.length} rows before, `
+      + `${auditAfter.length} after). Who changed a patient record and when is a compliance control, not a log.`);
+    const updates = added.filter((row) => /\|\s*update\s*$/i.test(row));
+    assert(updates.length > 0,
+      `The audit trail gained ${added.length} row(s) but none records an "update" action, so the change is not `
+      + 'attributable to what was done');
+    // Rows are "time|provider|action"; an entry that cannot say WHO is not an
+    // audit entry. The provider name is not printed -- only whether it is there.
+    const anonymous = updates.filter((row) => !row.split('|')[1].trim());
+    assert(anonymous.length === 0,
+      `${anonymous.length} of the new audit row(s) name no provider, so the record cannot say who made the change`);
+
     // Everything above asserts what the database holds; this asserts what the
     // browser reported while getting there. Without it an uncaught page error,
     // a failed request or an unexpected dialog on the Master Record is recorded
     // and then thrown away, which is the Phase 0 contract this suite exists for.
     assertStrictPage(recorder);
 
-    console.log(`  round-tripped ${fields.length} demographic field(s) through the UI and the database`);
+    console.log(`  round-tripped ${fields.length} demographic field(s) through the UI and the database, `
+      + `and the edit added ${added.length} audit row(s)`);
     return { demographicNo, fields: fields.map((field) => field.input) };
   } finally {
     // Restore whatever was captured, even if the run threw mid-edit. Only the

@@ -138,7 +138,7 @@ schedule, never by a URL.
 | `surface-audit:preferences-surface` | §3.7 | Provider preferences |
 | `surface-audit:workflow-surface` | §4.4 | WorkFlow list |
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |
-| `demographic-edit-update` | §2.4 | Editing a patient from the Master Record, asserted against the database and restored |
+| `demographic-edit-update` | §2.4 (also §2.4 `demographic-audit`) | Editing a patient from the Master Record, asserted against the database, restored — and asserted to have been **recorded** in the audit trail with an actor |
 | `patient-search-modes` | §2.4 | Every patient-search mode, the active/inactive/all scope, and the browser-side date-of-birth refusal |
 | `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 | `demographic-labels` | §2.4 | The Master Record's Print / Labels menu — the PDF *bytes* of every envelope and label, not just that the popup opened |

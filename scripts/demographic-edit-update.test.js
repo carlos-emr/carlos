@@ -113,3 +113,51 @@ test('the patient the check asserts on is the one the UI actually opened', () =>
   assert.ok(landedIndex > 0 && selectIndex > landedIndex,
     'the id must be resolved from the landed page before any assertion uses it');
 });
+
+/*
+ * The audit trail is a compliance control -- PIPEDA and HIPAA both require that
+ * who changed a patient record, and when, is recorded. A trail that silently
+ * stops recording looks exactly like a working one: the page renders, every old
+ * row is there, and only the newest change is missing. Nothing else in this
+ * suite looks at it.
+ */
+
+test('the edit is asserted to have been RECORDED, not only stored', () => {
+  assert.match(SOURCE, /const auditBefore = await auditRows/);
+  assert.match(SOURCE, /const auditAfter = await auditRows/);
+  assert.match(SOURCE, /added no row to the audit trail/);
+});
+
+test('the new audit row is found by difference, not by a timestamp guess', () => {
+  // Matching on "a row from the last minute" would be flaky on a slow run and
+  // would match an unrelated concurrent change on a shared deployment.
+  assert.match(SOURCE, /knownAuditRows = new Set\(auditBefore\)/);
+  assert.match(SOURCE, /auditAfter\.filter\(\(row\) => !knownAuditRows\.has\(row\)\)/);
+  assert.ok(!/Date\.now\(\) - \d+/.test(SOURCE), 'the check must not date-match audit rows');
+});
+
+test('an audit row that names no provider is a finding', () => {
+  // An entry that cannot say WHO is not an audit entry. This is the assertion
+  // that would catch a trail recording the change with an empty actor.
+  assert.match(SOURCE, /name no provider, so the record cannot say who made the change/);
+});
+
+test('the audit assertion never prints the provider name', () => {
+  // Same rule as the field values: diagnostics name the column, not its content.
+  const auditMessages = SOURCE.slice(SOURCE.indexOf('const auditAfter'));
+  assert.ok(!/\$\{row\}|\$\{updates\[0\]\}|\$\{added\[0\]\}/.test(auditMessages),
+    'an audit failure message may not carry a row, which holds a provider name');
+});
+
+test('the audit popup is opened from the Master Record control, not by URL', () => {
+  assert.match(SOURCE, /input\[value="Audit Information"\]/);
+  assert.ok(!/ViewDemographicAudit/.test(SOURCE),
+    'the check must name the control a user clicks, not the route behind it');
+});
+
+test('the audit list is read in full, through the page\'s own length menu', () => {
+  // demographicAudit.jsp sorts ASCENDING and DataTables pages at ten, so the
+  // newest entry is on the last page. Reading page one would never see it.
+  assert.match(SOURCE, /select\[name="auditLog_length"\]/);
+  assert.match(SOURCE, /selectOption\('-1'/);
+});
