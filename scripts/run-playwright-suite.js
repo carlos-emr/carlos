@@ -208,7 +208,12 @@ function readBuildIdentity(env, run = spawnSync) {
 
 function runOne(check, options, run = spawnSync) {
   const started = Date.now();
-  const result = run(process.execPath, [check.script], {
+  // Resolved against the repository, not the working directory. Manifest paths
+  // are repo-relative, so invoking the runner from anywhere but the repo root --
+  // which some CI wrappers do -- made Node fail to find the script and every
+  // check "fail to start" for a reason that had nothing to do with the check.
+  const script = path.resolve(__dirname, '..', check.script);
+  const result = run(process.execPath, [script], {
     stdio: 'inherit',
     timeout: check.timeoutSec * 1000,
     // envSet lets one script back several named checks: the table-driven

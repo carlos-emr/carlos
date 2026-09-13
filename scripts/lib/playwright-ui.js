@@ -39,7 +39,9 @@
  * unvalidated entry cannot quietly look authoritative.
  */
 
-const { assert, assertNotErrorPage, wireStrictPage } = require('./playwright-harness');
+const {
+  assert, assertNotErrorPage, relabelStrictPage, wireStrictPage,
+} = require('./playwright-harness');
 
 const DEFAULT_TIMEOUT = 30000;
 
@@ -120,8 +122,16 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     clearTimeout(expire);
   }
 
-  if (outcome.isPopup && options.recorder) {
-    wireStrictPage(outcome.page, label, options.recorder, options);
+  if (options.recorder) {
+    if (outcome.isPopup) {
+      wireStrictPage(outcome.page, label, options.recorder, options);
+    } else {
+      // SAME page, new document. Without this it keeps the label it was wired
+      // with -- usually 'login' -- and every caller that later scopes
+      // assertStrictPage(recorder, ['patient-search', ...]) scopes to a label
+      // nothing was recorded under: the assertion runs, finds nothing, passes.
+      relabelStrictPage(outcome.page, label);
+    }
   }
   await outcome.page.waitForLoadState('domcontentloaded', { timeout });
   await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
@@ -156,7 +166,7 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
   const downloaded = page.waitForEvent('download', { timeout })
     .then((download) => ({ kind: 'download', url: download.url(), download, page: null }), never);
   const popped = context.waitForEvent('page', { timeout })
-    .then((popup) => ({ kind: 'popup', url: popup.url(), download: null, page: popup }), never);
+    .then((popup) => ({ kind: 'popup', url: '', download: null, page: popup }), never);
 
   let expire;
   const deadline = new Promise((resolve, reject) => {
@@ -176,8 +186,19 @@ async function clickDownloadsOrOpens(page, locator, options = {}) {
   } finally {
     clearTimeout(expire);
   }
-  if (outcome.kind === 'popup' && options.recorder) {
-    wireStrictPage(outcome.page, label, options.recorder, options);
+  if (outcome.kind === 'popup') {
+    if (options.recorder) {
+      wireStrictPage(outcome.page, label, options.recorder, options);
+    }
+    // THE URL IS NOT READ AT THE EVENT. 'page' fires when the window is created,
+    // and at that instant its url is 'about:blank' -- the address the opener
+    // asked for arrives with the navigation a moment later. Reading it too early
+    // hands the caller 'about:blank' for a popup that went on to load perfectly.
+    await outcome.page.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
+    await outcome.page.waitForURL((url) => String(url) !== 'about:blank', { timeout: 5000 }).catch(() => {});
+    // Whatever it settled on, including about:blank: a popup that really did
+    // open to nothing is a finding the caller should see, not one to paper over.
+    outcome.url = outcome.page.url();
   }
   return outcome;
 }

@@ -437,7 +437,49 @@ function isBaselinedText(text, baseline) {
  *   accepts races the default dismiss (the delete that never posts, see
  *   docs/ui-tests/clinical-workflow-browser-checks.md).
  */
+/*
+ * One wiring per page, with a label that can change.
+ *
+ * WHY A MUTABLE LABEL. A control can navigate the SAME page rather than opening
+ * a popup -- the schedule's Search is a same-tab href under the caisi module and
+ * a popup otherwise -- so the page a check goes on to assert against is often
+ * the page it logged in on, still carrying the label 'login'. Every caller that
+ * then scopes assertStrictPage(recorder, ['patient-search', ...]) is scoping to
+ * a label nothing was ever recorded under: the assertion runs, finds nothing,
+ * and passes. That is the same shape as the guards this suite has already had to
+ * fix twice, so the label is a box the handlers read at event time, not a
+ * constant they closed over.
+ *
+ * WHY ONE WIRING. Re-wiring a page would add a second set of listeners, so every
+ * finding would be recorded twice and -- worse -- a second dialog listener races
+ * the first, which is exactly the failure documented on dialogHandler below.
+ */
+const WIRED_PAGES = new WeakMap();
+
+/**
+ * Point an already-wired page's recordings at a new label.
+ *
+ * Safe to call on a page that was never wired: it reports false rather than
+ * pretending, so a caller cannot believe it relabelled something it did not.
+ */
+function relabelStrictPage(page, label) {
+  const wiring = WIRED_PAGES.get(page);
+  if (!wiring) {
+    return false;
+  }
+  wiring.label = label;
+  return true;
+}
+
 function wireStrictPage(page, label, recorder, options = {}) {
+  // Already wired: move the label rather than adding a second set of listeners.
+  // See WIRED_PAGES above for why both halves of that matter.
+  if (relabelStrictPage(page, label)) {
+    return page;
+  }
+  const wiring = { label };
+  WIRED_PAGES.set(page, wiring);
+
   const dialogHandler = options.dialogHandler || null;
   const baseline = options.baseline || loadConsoleBaseline();
   // The signals no check asserted before this harness existed. wirePage() turns
@@ -447,7 +489,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
   const strictSignals = options.strictSignals !== false;
 
   page.on('dialog', async (dialog) => {
-    const entry = { label, type: dialog.type(), text: dialog.message() };
+    const entry = { label: wiring.label, type: dialog.type(), text: dialog.message() };
     recorder.dialogs.push(entry);
     if (dialogHandler) {
       await dialogHandler(dialog, entry);
@@ -466,11 +508,11 @@ function wireStrictPage(page, label, recorder, options = {}) {
     const contentType = response.headers()['content-type'] || '';
     const resourceType = response.request().resourceType();
     recorder.requestLog.push({
-      label, status, method: response.request().method(), url: responseUrl, contentType, resourceType,
+      label: wiring.label, status, method: response.request().method(), url: responseUrl, contentType, resourceType,
     });
     if (status >= 400 && !isExpectedMissingAsset(status, responseUrl)) {
       recorder.badResponses.push({
-        label, status, method: response.request().method(), url: responseUrl, contentType, resourceType,
+        label: wiring.label, status, method: response.request().method(), url: responseUrl, contentType, resourceType,
       });
       return;
     }
@@ -481,7 +523,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
     // check looked at it.
     if (strictSignals && status < 400 && resourceType === 'script' && /^\s*text\/html/i.test(contentType)) {
       recorder.badResponses.push({
-        label, status, method: 'GET', url: responseUrl, contentType, resourceType, reason: 'script served as text/html',
+        label: wiring.label, status, method: 'GET', url: responseUrl, contentType, resourceType, reason: 'script served as text/html',
       });
     }
   });
@@ -501,7 +543,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
       return;
     }
     recorder.requestFailures.push({
-      label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
+      label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
     });
   });
   page.on('console', (message) => {
@@ -513,7 +555,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
       return;
     }
     recorder.consoleIssues.push({
-      label, type: message.type(), text, location: message.location(),
+      label: wiring.label, type: message.type(), text, location: message.location(),
     });
   });
   page.on('pageerror', (error) => {
@@ -521,7 +563,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
     if (isBaselinedText(text, baseline)) {
       return;
     }
-    recorder.pageErrors.push({ label, text });
+    recorder.pageErrors.push({ label: wiring.label, text });
   });
   return page;
 }
@@ -807,6 +849,7 @@ module.exports = {
   sqlString,
   unescapeMysqlBatchValue,
   validateBaseUrl,
+  relabelStrictPage,
   validateMysqlHost,
   wirePage,
   wireStrictPage,

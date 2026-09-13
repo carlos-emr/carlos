@@ -139,3 +139,13 @@ test('package.json exposes every check, so none is reachable only by full path',
   assert.deepEqual(unexposed, [], `no npm alias runs: ${unexposed.join(', ')}`);
   assert.ok(manifest.scripts['test:playwright'], 'there must be one alias that runs the suite through the runner');
 });
+
+test('a check is spawned by absolute path, so the runner works from any directory', () => {
+  // Manifest paths are repo-relative. Spawning them relative to process.cwd()
+  // made every check "fail to start" when the runner was invoked from anywhere
+  // but the repo root -- a failure with nothing to do with the check.
+  const runner = fs.readFileSync(path.join(__dirname, 'run-playwright-suite.js'), 'utf8');
+  assert.match(runner, /path\.resolve\(__dirname, '\.\.', check\.script\)/);
+  assert.ok(!/run\(process\.execPath, \[check\.script\]/.test(runner),
+    'the raw manifest path must not be handed to the spawn');
+});

@@ -9,7 +9,7 @@ const harness = require('./lib/playwright-harness');
 
 const {
   SkipCheck, assertStrictPage, createRecorder, createSqlRunner, isLocalTlsTarget,
-  parseMysqlBatchOutput, readConfig, runCheck, sqlString, unescapeMysqlBatchValue,
+  parseMysqlBatchOutput, readConfig, relabelStrictPage, runCheck, sqlString, unescapeMysqlBatchValue,
   wirePage, wireStrictPage,
 } = harness;
 
@@ -346,4 +346,61 @@ test('a timed-out query is reported as a timeout, not as a generic failure', () 
   } finally {
     runner.dispose();
   }
+});
+
+/*
+ * A control can navigate the SAME page instead of opening a popup (the
+ * schedule's Search is a same-tab href under the caisi module), so the page a
+ * check later asserts against is often the one it logged in on. Before the
+ * label became mutable, every caller scoping assertStrictPage to
+ * ['patient-search', ...] was scoping to a label nothing had been recorded
+ * under: the assertion ran, found nothing, and passed.
+ */
+
+test('a relabelled page records new findings under the new label', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'login', recorder);
+
+  await page.emit('pageerror', new Error('before the navigation'));
+  assert.equal(recorder.pageErrors[0].label, 'login');
+
+  assert.equal(relabelStrictPage(page, 'patient-search'), true);
+  await page.emit('pageerror', new Error('after the navigation'));
+  assert.equal(recorder.pageErrors[1].label, 'patient-search');
+
+  // And the scoped assertion now actually sees it, which is the whole point.
+  assert.throws(() => assertStrictPage(recorder, ['patient-search']), /after the navigation/);
+});
+
+test('an earlier finding keeps the label it was recorded under', () => {
+  // Relabelling must not rewrite history: the error that happened on the login
+  // page happened there, and a run that says otherwise sends someone to the
+  // wrong page.
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'login', recorder);
+  return page.emit('pageerror', new Error('on login')).then(() => {
+    relabelStrictPage(page, 'patient-search');
+    assert.equal(recorder.pageErrors[0].label, 'login');
+  });
+});
+
+test('relabelling a page that was never wired reports false rather than pretending', () => {
+  assert.equal(relabelStrictPage(fakePage(), 'whatever'), false);
+});
+
+test('wiring the same page twice relabels it instead of doubling every finding', async () => {
+  // Two listener sets would record every finding twice and, worse, a second
+  // dialog listener races the first -- the failure already documented on
+  // dialogHandler.
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'first', recorder);
+  wireStrictPage(page, 'second', recorder);
+  assert.equal(page.handlers.pageerror.length, 1, 'a second wiring must not add a second listener');
+  assert.equal(page.handlers.dialog.length, 1);
+  await page.emit('pageerror', new Error('once'));
+  assert.equal(recorder.pageErrors.length, 1);
+  assert.equal(recorder.pageErrors[0].label, 'second');
 });
