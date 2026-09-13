@@ -363,6 +363,23 @@
       ]
     },
     {
+      "name": "clinical-calculators",
+      "script": "scripts/clinical-calculators-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CALCULATOR_SEARCH",
+        "CALCULATOR_DEMOGRAPHIC_NO",
+        "CALCULATOR_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "demographic-master-crud-smoke",
       "script": "scripts/demographic-master-crud-smoke.js",
       "tiers": [

@@ -97,7 +97,8 @@
     "test:echart-navbar-modules-playwright": "node scripts/echart-navbar-modules-playwright-checks.js",
     "test:surface-audit-playwright": "node scripts/surface-audit-playwright-checks.js",
     "test:demographic-edit-update-playwright": "node scripts/demographic-edit-update-playwright-checks.js",
-    "test:patient-search-modes-playwright": "node scripts/patient-search-modes-playwright-checks.js"
+    "test:patient-search-modes-playwright": "node scripts/patient-search-modes-playwright-checks.js",
+    "test:clinical-calculators-playwright": "node scripts/clinical-calculators-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

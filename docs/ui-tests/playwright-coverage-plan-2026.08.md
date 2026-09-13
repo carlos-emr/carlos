@@ -136,11 +136,14 @@ schedule, never by a URL.
 | `surface-audit:scratch-surface` | §4.4 | Scratch pad |
 | `demographic-edit-update` | §2.4 | Editing a patient from the Master Record, asserted against the database and restored |
 | `patient-search-modes` | §2.4 | Every patient-search mode, the active/inactive/all scope, and the browser-side date-of-birth refusal |
+| `clinical-calculators` | §2.5 | The chart's osteoporotic-fracture and simple calculators — the numbers themselves, not just that the page rendered |
 
 The first thirteen share one tested engine (`scripts/lib/playwright-link-audit.js`):
 catalogue what the live page offers, click every item, and attribute each finding
-to the page that broke. The last two are workflow checks rather than audits: they
-assert what reached MariaDB, not only what rendered. The ten `surface-audit:*`
+to the page that broke. The last three are not audits: `demographic-edit-update`
+and `patient-search-modes` assert what reached MariaDB, and `clinical-calculators`
+asserts the clinical numbers a page computes in the browser, which no server-side
+test can reach. The ten `surface-audit:*`
 rows are a table in
 `scripts/lib/playwright-surfaces.js` — a new surface is four lines, not a new
 150-line script — and each is registered and reported individually.
