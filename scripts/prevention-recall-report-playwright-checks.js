@@ -97,6 +97,7 @@ const stamp = `PW_RECALL_${Date.now()}`;
 const recorder = createRecorder();
 const passed = [];
 let fixtureQueryId = null;
+let fixtureSeeded = false;
 let fixtureDemographicNo = null;
 
 let mysqlDefaults = null;
@@ -168,6 +169,10 @@ function seedFixture() {
   // between the elements because RptDemographicQueryLoader casts every child node to
   // an Element.
   const selectsXml = '<root><item value="demographic_no"/></root>';
+  // Armed BEFORE the insert, not after the id lookup: the row can exist while the
+  // lookup that assigns fixtureQueryId throws, and keying cleanup on that id alone
+  // would then leave the saved query behind for good.
+  fixtureSeeded = true;
   sql(
     'INSERT INTO demographicQueryFavourites (queryName, archived, demoIds, selects)'
     + ` VALUES ('${escapeSql(stamp)}', '1', '${escapeSql(demo)}', '${escapeSql(selectsXml)}')`
@@ -176,16 +181,21 @@ function seedFixture() {
   assert(/^\d+$/.test(fixtureQueryId), 'the saved-query fixture did not reach demographicQueryFavourites');
 }
 
+/**
+ * Removes the saved-query fixture, by its marker rather than by the id.
+ *
+ * Deleting on queryName covers the case where the INSERT landed but the id lookup did
+ * not, and a failure here is rethrown rather than warned about: a check that passes
+ * while leaving a saved query behind quietly grows the report's query list on every
+ * run, and the next run would pick a different fixture.
+ */
 function cleanupFixture() {
-  if (fixtureQueryId === null) {
+  if (!fixtureSeeded) {
     return;
   }
-  try {
-    sql(`DELETE FROM demographicQueryFavourites WHERE favId=${Number(fixtureQueryId)}`);
-  } catch (error) {
-    console.error(`WARN could not remove the saved-query fixture ${fixtureQueryId}: ${error.message}`);
-  }
+  fixtureSeeded = false;
   fixtureQueryId = null;
+  sql(`DELETE FROM demographicQueryFavourites WHERE queryName='${escapeSql(stamp)}'`);
 }
 
 function pass(message) {
@@ -301,13 +311,18 @@ async function assertFixtureIsReportedDue(report) {
   const row = report.locator('#preventionTable tbody tr')
     .filter({ has: report.locator(`a[onclick*="demographic_no=${fixtureDemographicNo}"]`) })
     .first();
+  // The demographic number stays in the locator and the SQL, never in the output.
+  // CLAUDE.md treats demographic_no as a PHI-correlating identifier and specifically
+  // says not to pair one with clinical context -- and "due for a flu shot" is clinical
+  // context. The saved-query marker below identifies the fixture for debugging without
+  // naming the patient, and the suite captures this output to log files.
   assert(await row.count() > 0,
-    `the ${reportType} recall report did not list patient ${fixtureDemographicNo},`
-    + ' who is over 65 with no flu shot on file and must be reported as due');
+    `the ${reportType} recall report did not list the seeded fixture patient (saved query`
+    + ` ${stamp}), who is over 65 with no flu shot on file and must be reported as due`);
   const state = (await row.locator('span.badge').first().innerText()).trim();
   assert(state === expectedState,
-    `the ${reportType} recall report classified patient ${fixtureDemographicNo} as "${state}",`
-    + ` expected "${expectedState}"`);
+    `the ${reportType} recall report classified the seeded fixture patient as "${state}",`
+    + ` expected "${expectedState}" (saved query ${stamp})`);
 }
 
 (async () => {
@@ -335,7 +350,7 @@ async function assertFixtureIsReportedDue(report) {
     pass(`the recall report runs for ${reportType} as of ${asOfValue} and keeps the chosen type selected`);
 
     await assertFixtureIsReportedDue(report);
-    pass(`patient ${fixtureDemographicNo} is reported "${expectedState}" for ${reportType}, so the recall query answers`);
+    pass(`the seeded fixture patient is reported "${expectedState}" for ${reportType}, so the recall query answers`);
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0,
@@ -352,6 +367,14 @@ async function assertFixtureIsReportedDue(report) {
     if (browser) await browser.close().catch(() => {});
     try {
       cleanupFixture();
+    } catch (cleanupError) {
+      // A leaked saved query is a failure, not a warning: it stays in the report's
+      // query list and the next run would seed and select a different one. Reported
+      // rather than rethrown so it cannot mask the original failure, and so the
+      // credential file below is still removed.
+      console.error(`FAIL prevention recall report: the saved-query fixture ${stamp} could not`
+        + ` be removed and is still in demographicQueryFavourites: ${cleanupError.message}`);
+      process.exitCode = 1;
     } finally {
       cleanupMysqlDefaults();
     }
