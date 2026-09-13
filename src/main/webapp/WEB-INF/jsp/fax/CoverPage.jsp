@@ -328,12 +328,12 @@
 					</div>
 				  	<div class="card-body">
 						<div class="container">
-						  	<div class="row" id="fax-recipients">
+                            <div class="row" id="fax-recipients">
 								<div class="col-sm-8 mb-3" style="position:relative;">
 									<label for="searchProfessionalSpecialist_name"><fmt:message key="coverPage.lbl.name"/></label>
-								 	<input class="form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
-								 		id="searchProfessionalSpecialist_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" required autocomplete="off"/>
-								 	<div id="faxRecipientDropdown" class="fax-ac-dropdown"></div>
+                                    <input class="form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
+                                        id="searchProfessionalSpecialist_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" required autocomplete="off"/>
+                                    <div id="faxRecipientDropdown" class="fax-ac-dropdown"></div>
 								 </div>
 								 <div class="col-sm-4 mb-3">
 									<label for="searchProfessionalSpecialist_fax"><fmt:message key="coverPage.lbl.fax"/></label>
@@ -352,22 +352,22 @@
 				  	<div class="card-body">
 				  		<div class="container" id="fax-additional-recipients" >
 
-				  			<div class="row" id="additionalRecipientControlPanel">
-				  				<div class="col-sm-7 mb-3" style="position:relative;">
-						  			<label for="additionalRecipient_name"><fmt:message key="coverPage.lbl.name"/></label>
-								 	<input class="form-control" type="text" value=""
-								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" autocomplete="off"/>
-								 	<div id="faxCcDropdown" class="fax-ac-dropdown"></div>
+                            <div class="row" id="additionalRecipientControlPanel">
+                                <div class="col-sm-7 mb-3" style="position:relative;">
+                                    <label for="additionalRecipient_name"><fmt:message key="coverPage.lbl.name"/></label>
+                                    <input class="form-control" type="text" value=""
+                                        id="additionalRecipient_name" name="additionalRecipient_name" placeholder="${carlos:forHtmlAttribute(phNameSearch)}" autocomplete="off"/>
+                                    <div id="faxCcDropdown" class="fax-ac-dropdown"></div>
 								</div>
 									<div class="col-sm-3 mb-3">
-								 	<label for="additionalRecipient_fax"><fmt:message key="coverPage.lbl.fax"/></label>
-								 	<input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""
-								 		id="additionalRecipient_fax" placeholder="${carlos:forHtmlAttribute(phFaxNumber)}"/>
+                                    <label for="additionalRecipient_fax"><fmt:message key="coverPage.lbl.fax"/></label>
+                                    <input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""
+                                        id="additionalRecipient_fax" placeholder="${carlos:forHtmlAttribute(phFaxNumber)}"/>
 								</div>
 								<div class="col-sm-2 mb-3">
 									<label for="additionalRecipient_fax_btn">&nbsp;</label>
 							        <button class="btn btn-primary" id="additionalRecipient_fax_btn" title="${carlos:forHtmlAttribute(btnAddRecipient)}" type="button">
-							        	<i class="fa-solid fa-plus"></i>
+                                        <i class="fa-solid fa-plus"></i>
 							        </button>
 							   </div>
 						 	</div>

@@ -33,7 +33,7 @@ CHROME_PATH=/path/to/chromium \
 npm run test:annotate-document-playwright
 ```
 
-Use the credentials for your disposable test account; do not put real credentials in a committed script. The account should have completed its first-login password change. Self-signed certificates are accepted only on loopback hosts. The script must exit zero and report no failed checks. Review the saved copies visually as well as the automated results.
+Use the credentials for your disposable test account; do not put real credentials in a committed script. The account should have completed its first-login password change. Self-signed certificates are accepted only on loopback hosts. The script must exit zero and report no failed checks. Review the saved copies visually as well as the automated results. To include signature filing, configure a synthetic stamp for the test provider in the application's effective eForm image directory and set `EXPECT_SIGNATURE_STAMP=true`. Do not assume the directory from a different deployment context applies.
 
 ## Administrator upgrade check
 
