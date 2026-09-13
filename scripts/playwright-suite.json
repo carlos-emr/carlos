@@ -412,6 +412,22 @@
       ]
     },
     {
+      "name": "mutator-get-rejection-live",
+      "script": "scripts/mutator-get-rejection-live-playwright-checks.js",
+      "tiers": [
+        "smoke",
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MUTATOR_GET_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "demographic-master-crud-smoke",
       "script": "scripts/demographic-master-crud-smoke.js",
       "tiers": [

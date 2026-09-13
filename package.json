@@ -100,7 +100,8 @@
     "test:patient-search-modes-playwright": "node scripts/patient-search-modes-playwright-checks.js",
     "test:clinical-calculators-playwright": "node scripts/clinical-calculators-playwright-checks.js",
     "test:demographic-labels-playwright": "node scripts/demographic-labels-playwright-checks.js",
-    "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js"
+    "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js",
+    "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
