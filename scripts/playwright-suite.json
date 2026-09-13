@@ -53,6 +53,24 @@
       ]
     },
     {
+      "name": "admin-index-links",
+      "script": "scripts/admin-index-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "ADMIN_LINKS_ONLY",
+        "ADMIN_LINKS_LIMIT",
+        "ADMIN_LINKS_TIMEOUT_MS",
+        "ADMIN_LINKS_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "allergy-add-penicillin",
       "script": "scripts/allergy-add-penicillin-playwright-checks.js",
       "tiers": [
@@ -397,6 +415,25 @@
         "ECHART_SCREENSHOT_DIR",
         "ECHART_SEARCH_TERM",
         "EXPECT_FRONT_DOOR"
+      ]
+    },
+    {
+      "name": "echart-navbar-modules",
+      "script": "scripts/echart-navbar-modules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ECHART_NAV_SEARCH",
+        "ECHART_NAV_DEMOGRAPHIC_NO",
+        "ECHART_NAV_LIMIT",
+        "ECHART_NAV_TIMEOUT_MS",
+        "ECHART_NAV_SCREENSHOT_DIR"
       ]
     },
     {
@@ -891,6 +928,25 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "master-record-tabs",
+      "script": "scripts/master-record-tabs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "MASTER_RECORD_SEARCH",
+        "MASTER_RECORD_DEMOGRAPHIC_NO",
+        "MASTER_RECORD_LIMIT",
+        "MASTER_RECORD_TIMEOUT_MS",
+        "MASTER_RECORD_SCREENSHOT_DIR"
+      ]
     },
     {
       "name": "measurement-validation",

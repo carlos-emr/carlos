@@ -91,7 +91,10 @@
     "test:drugref-update-playwright": "node scripts/drugref-update-playwright-checks.js",
     "test:patient-list-by-appointment-export-playwright": "node scripts/patient-list-by-appointment-export-playwright-checks.js",
     "test:patient-search-dob-playwright": "node scripts/patient-search-dob-playwright-checks.js",
-    "test:rx-preview-pharmacy-playwright": "node scripts/rx-preview-pharmacy-playwright-checks.js"
+    "test:rx-preview-pharmacy-playwright": "node scripts/rx-preview-pharmacy-playwright-checks.js",
+    "test:admin-index-links-playwright": "node scripts/admin-index-links-playwright-checks.js",
+    "test:master-record-tabs-playwright": "node scripts/master-record-tabs-playwright-checks.js",
+    "test:echart-navbar-modules-playwright": "node scripts/echart-navbar-modules-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
