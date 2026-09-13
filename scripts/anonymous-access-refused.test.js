@@ -77,9 +77,20 @@ test('a too-short needle cannot match by accident', () => {
   assert.match(SOURCE, /Could not read the patient surname from the Master Record/);
 });
 
-test('a 404 is not counted as an authentication finding', () => {
-  // Nothing was served either way, and reporting it would bury the real ones.
-  assert.equal(verdictFor({ url: '/x' }, 404, '', '', 'FAKE-SMITH'), null);
+test('a 404 is not an authentication finding, but it is not a pass either', () => {
+  // Nothing was served either way, so reporting it as a failure would bury the
+  // real ones -- but counting it as "refused" would let a run where every URL
+  // was wrong report success. It gets its own outcome.
+  assert.equal(verdictFor({ url: '/x' }, 404, '', '', 'FAKE-SMITH'), 'NOT_FOUND');
+  assert.notEqual(verdictFor({ url: '/x' }, 404, '', '', 'FAKE-SMITH'), null);
+});
+
+test('a run where most routes 404 fails rather than reporting everything refused', () => {
+  // The failure this suite keeps having to fix: a guard that runs, finds
+  // nothing, and passes. If the URLs this check builds were wrong, every one
+  // would 404 and "60 routes refused" would be a result about the check.
+  assert.match(SOURCE, /probed\.length \* 2 > attempted/);
+  assert.match(SOURCE, /proved nothing about authentication/);
 });
 
 test('a 500 IS a finding, because reaching an exception means getting past the gate', () => {

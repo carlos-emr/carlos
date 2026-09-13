@@ -238,6 +238,15 @@ async function main() {
     const fracture = await checkFractureRisk(context, chartPage, recorder, timeout);
     const arithmetic = await checkArithmetic(context, chartPage, recorder, timeout);
 
+    // A floor, not a formality. Everything above is inside a loop over a table;
+    // an empty table would leave every assertion unexecuted and the check would
+    // report success having computed nothing. That failure has come up three
+    // times in this suite already, so each family states how many it must run.
+    assert(fracture.length >= 5,
+      `Only ${fracture.length} fracture-risk scenario(s) ran; the table holds more, so the loop did not execute`);
+    assert(arithmetic.length >= 4,
+      `Only ${arithmetic.length} arithmetic sequence(s) ran; the table holds more, so the loop did not execute`);
+
     assertStrictPage(recorder);
     console.log(`  verified ${fracture.length} fracture-risk scenario(s) and ${arithmetic.length} arithmetic sequence(s)`);
     return { fracture, arithmetic };

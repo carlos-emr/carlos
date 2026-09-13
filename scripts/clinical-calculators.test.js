@@ -189,3 +189,13 @@ test('the calculators are reached by clicking, never by their URL', () => {
   assert.ok(!/ViewOsteoporoticFracture|ViewSimpleCalculator/.test(SOURCE),
     'the check must name the link a clinician clicks, not the route behind it');
 });
+
+test('the run refuses to report success having computed nothing', () => {
+  // Every assertion in this check lives inside a loop over a table. An empty
+  // table would leave them all unexecuted, and the check would pass. The floors
+  // have to stay below the table sizes, or they fail on a correct run.
+  assert.match(SOURCE, /fracture\.length >= 5/);
+  assert.match(SOURCE, /arithmetic\.length >= 4/);
+  assert.ok(FRACTURE_CASES.length >= 5, 'the floor must be reachable');
+  assert.ok(ARITHMETIC_CASES.length >= 4, 'the floor must be reachable');
+});

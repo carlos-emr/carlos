@@ -161,8 +161,10 @@ function verdictFor(route, status, location, body, surname) {
       + 'rather than to the login surface';
   }
   if (status === 404) {
-    // Not a finding about authentication: nothing was served either way.
-    return null;
+    // Not a finding about authentication: nothing was served either way. It IS
+    // counted separately by the caller, because a run where everything 404s has
+    // proved nothing and must not report success.
+    return 'NOT_FOUND';
   }
   if (status >= 500) {
     return `${route.url} answered HTTP ${status} to a session-less request. It should have been refused before `
@@ -206,6 +208,7 @@ async function main() {
     // the authenticated one would test nothing at all.
     const anonymous = await browser.newContext({ ignoreHTTPSErrors: config.ignoreHTTPSErrors === true });
     const probed = [];
+    const notFound = [];
     const failures = [];
     try {
       for (const route of routes.slice(0, limit)) {
@@ -219,7 +222,9 @@ async function main() {
         const status = response.status();
         const body = status === 200 ? await response.text().catch(() => '') : '';
         const verdict = verdictFor(route, status, response.headers().location, body, surname);
-        if (verdict) {
+        if (verdict === 'NOT_FOUND') {
+          notFound.push(route.url);
+        } else if (verdict) {
           failures.push(verdict);
         } else {
           probed.push(route.url);
@@ -232,8 +237,21 @@ async function main() {
     assert(failures.length === 0,
       `${failures.length} of ${probed.length + failures.length} route(s) a clinician reaches are not refused to a `
       + `session-less caller:\n    - ${failures.join('\n    - ')}`);
-    console.log(`  ${probed.length} catalogued route(s) refused a session-less request`);
-    return { probed: probed.length, catalogued: routes.length };
+
+    // THE VACUOUS CASE. A route that 404s anonymously proves nothing about
+    // authentication, so if most of them do, the URLs this check built are wrong
+    // and "everything was refused" is a result about the check, not the
+    // application. That is the failure this whole suite keeps having to fix:
+    // a guard that runs, finds nothing, and passes.
+    const attempted = probed.length + notFound.length;
+    assert(probed.length * 2 > attempted,
+      `${notFound.length} of ${attempted} probed route(s) answered 404 to a session-less request, so most of this `
+      + 'run proved nothing about authentication. The URLs were built from the catalogued links, so they are '
+      + `probably wrong rather than the routes being gone: ${notFound.slice(0, 5).join(', ')}`);
+
+    console.log(`  ${probed.length} catalogued route(s) refused a session-less request`
+      + `${notFound.length ? `, ${notFound.length} answered 404 and proved nothing` : ''}`);
+    return { probed: probed.length, notFound: notFound.length, catalogued: routes.length };
   } finally {
     await browser.close().catch(() => {});
   }
