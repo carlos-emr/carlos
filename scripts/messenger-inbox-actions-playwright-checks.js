@@ -308,6 +308,11 @@ async function sendSelfMessage(inbox, subjectText = subject, body = bodyText) {
     inbox.locator('button[type="submit"]').first().click(),
   ]);
   assert(response.status() < 400, `messenger/CreateMessage returned HTTP ${response.status()}`);
+  // domcontentloaded alone is not enough to read this page's text. Under suite load the
+  // confirmation was called blank while the access log showed the POST answering 200 with
+  // 4133 bytes: the assertion had simply run before the body was there. Every other
+  // navigation in this check settles on networkidle first, so this one does too.
+  await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(inbox, 'messenger sent confirmation');
 
   const messageId = await waitFor(() => stampedMessageId(subjectText),
