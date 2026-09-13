@@ -135,6 +135,13 @@ const COMMUNITY_PAYLOAD = '"><img src=x id=fnxss-community>';
 const SEEDED_KEYS = Object.keys(PAYLOADS);
 
 let mysqlDefaults = null;
+// A MySQL option file interprets backslash escapes, so a password containing \ or "
+// reaches the client mangled unless it is quoted and escaped here. Same helper as
+// messenger-inbox-actions-playwright-checks.js.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function initMysqlDefaults() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
@@ -146,7 +153,7 @@ function initMysqlDefaults() {
   // Leaving one behind strands MYSQL_PASSWORD in cleartext under /tmp.
   mysqlDefaults = { dir, file };
   try {
-    fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+    fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
   } catch (writeError) {
     // This function runs before the main try/finally, so nothing else would
     // remove the directory. Registering the path is not enough on its own --
@@ -328,7 +335,13 @@ function restoreSeededRows() {
       // cleanup, and an edit made by someone using the app mid-run would be
       // silently reverted. If the value is no longer ours, leaving it alone is
       // the correct outcome.
-      const stillOurs = `AND value=${sqlString(PAYLOADS[key])}`;
+      // demographicExt is COLLATE=utf8mb4_general_ci, so `value = '...'` ignores
+      // letter case and trailing spaces: a clinician who edited the payload to
+      // `IMG` or added a space would still match, and the restore would revert
+      // their edit while claiming to have checked. HEX() is byte-exact, and it
+      // is the same representation the capture path already uses.
+      const payloadHex = Buffer.from(PAYLOADS[key], 'utf8').toString('hex').toUpperCase();
+      const stillOurs = `AND HEX(value)=${sqlString(payloadHex)}`;
       if (row) {
         // UNHEX('') is the empty string, not NULL, so the two cases stay
         // distinct all the way back into the column.
