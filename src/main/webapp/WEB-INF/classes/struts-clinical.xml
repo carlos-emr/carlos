@@ -141,6 +141,8 @@
         <action name="oscarResearch/oscarDxResearch/ViewQuickCodeList" class="io.github.carlos_emr.carlos.dxresearch.gate.ViewDxResearch2Action">
             <result name="success">/WEB-INF/jsp/oscarResearch/oscarDxResearch/quickCodeList.jsp</result>
         </action>
+        <action name="cvc" class="io.github.carlos_emr.carlos.prevention.web.VaccineCatalogue2Action" method="execute"/>
+
         <action name="prevention/AddPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action">
             <result name="success">/WEB-INF/jsp/prevention/close.jsp</result>
             <result name="review">/WEB-INF/jsp/prevention/review.jsp</result>

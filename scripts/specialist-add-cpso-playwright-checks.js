@@ -293,10 +293,13 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     const editLink = listPage.locator(`a[href*="/encounter/EditSpecialists?specId=${row.specId}"]`).first();
     assert(await editLink.count(), 'Edit Specialists list did not show the new consultant');
 
-    // Assign the consultant to the chosen service the way an operator does.
+    // Creating a specialist must assign the selected specialty automatically.
+    assert(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)} AND specId=${Number(row.specId)}`) === '1',
+      'Add Specialist did not assign the selected consultation service');
+    // An unchanged service update must preserve that assignment and all others.
     const servicesPage = await context.newPage();
     wirePage(servicesPage, 'show-all-services', recorder);
-    await gotoApp(servicesPage, config.baseUrl, '/encounter/oscarConsultationRequest/config/ViewShowAllServices');
+    await gotoApp(servicesPage, config.baseUrl, '/encounter/ShowAllServices');
     await servicesPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(servicesPage, 'show all services');
     await servicesPage.locator(`a[href*="/encounter/ShowAllServices?serviceId=${specTypeValue}&"]`).first().click();
@@ -307,7 +310,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(preChecked === assignedBefore, `service page pre-checked ${preChecked} specialists but ${assignedBefore} are assigned; updating would clobber assignments`);
     const newBox = servicesPage.locator(`input[name="specialists"][value="${row.specId}"]`);
     assert(await newBox.count(), 'service page did not list the new consultant');
-    await newBox.check();
+    assert(await newBox.isChecked(), 'selected specialty was not checked after saving the consultant');
     await Promise.all([
       servicesPage.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/encounter/UpdateServiceSpecialists'), { timeout: 30000 }),
@@ -317,7 +320,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await assertNotErrorPage(servicesPage, 'service specialists after update');
     assert(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)} AND specId=${Number(row.specId)}`) === '1',
       'Update these Services Specialists did not write the serviceSpecialists row');
-    assert(Number(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)}`)) === assignedBefore + 1,
+    assert(Number(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)}`)) === assignedBefore,
       'service update changed the other specialists assigned to the service');
     await servicesPage.close();
 
@@ -360,9 +363,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(deletedRow && deletedRow.deleted === '1', `delete did not soft-delete the consultant (deleted=${deletedRow && deletedRow.deleted})`);
     assert(!(await listPage.locator(`a[href*="/encounter/EditSpecialists?specId=${row.specId}"]`).count()), 'deleted consultant is still listed');
 
-    const isMissingSignatureImage = (entry) => /providerSignatureImage/.test(entry.url || (entry.location && entry.location.url) || '');
-    const badResponses = recorder.badResponses.filter((entry) => !(entry.status === 404 && isMissingSignatureImage(entry)));
-    const consoleIssues = recorder.consoleIssues.filter((entry) => !isMissingSignatureImage(entry));
+    const { badResponses, consoleIssues } = recorder;
     assertNoPageErrors(recorder);
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);

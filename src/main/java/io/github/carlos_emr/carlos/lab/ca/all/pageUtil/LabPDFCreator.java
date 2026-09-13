@@ -286,9 +286,11 @@ public class LabPDFCreator extends PdfPageEventHelper {
      * <p>{@code currentPDF} must live in an allowed temp directory (see
      * {@link PathValidationUtils#validateUpload(File)}); every caller renders the lab into a
      * secure temp file first. A source anywhere else is refused and nothing is written, and the
-     * refusal is logged without the path: the lab file name is built from the patient's name.</p>
+     * failure is reported to the caller without patient filenames or exception messages.</p>
+     *
+     * @throws IOException if any required PDF cannot be included
      */
-    public void addEmbeddedDocuments(File currentPDF, OutputStream os) {
+    public void addEmbeddedDocuments(File currentPDF, OutputStream os) throws IOException {
         List<Object> alist = new ArrayList<Object>();
 
         try {
@@ -301,13 +303,13 @@ public class LabPDFCreator extends PdfPageEventHelper {
                     alist.add(tmp);
                 }
 
-                ConcatPDF.concat(alist, os);
+                ConcatPDF.concatRequired(alist, os);
             }
-        } catch (SecurityException e) {
-            // Deliberately no path: it carries the patient's name (PHI) into the log.
-            MiscUtils.getLogger().error("Security violation: lab PDF source rejected; it must be in an allowed temp directory", e);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            // A missing or invalid lab/attachment must not become a successful partial PDF.
+            // Causes can contain patient filenames; callers often log the exception they receive.
+            MiscUtils.getLogger().error("Lab PDF source rejected or assembly failed ({})", e.getClass().getSimpleName());
+            throw new IOException("Lab PDF could not be assembled completely");
         }
     }
 

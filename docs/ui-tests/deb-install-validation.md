@@ -442,7 +442,7 @@ lxc exec carlos-test -- carlos-ctl restart
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y nodejs npm
+  apt-get install -y nodejs npm poppler-utils
   cd /root && npm init -y && npm install --save-exact playwright@1.60.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
@@ -455,6 +455,13 @@ browser shipped to operators instead of a second downloaded browser.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
 paths resolve; Node still finds Playwright via `/root/node_modules`.
+
+`eform-render-playwright-checks.js` requires `pdftotext` from `poppler-utils`.
+It checks both authored PDF pages, content beyond a narrower page container,
+and the coordinates of a percentage-positioned field. A PDF header alone
+cannot establish that the clinical content was retained. The corpus soak also
+records the application's explicit completeness refusal and its issue report;
+it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
 
@@ -684,6 +691,23 @@ Notes on the contract:
 - `eform-corpus-soak-playwright-checks.js` additionally needs a corpus
   directory (see `docs/eform-corpus-soak-method.md`) and is not part of the
   standard pass.
+- **DrugRef refreshes can remove legacy AHFS names.** The allergy browser check uses
+  `AMOXICILLIN` (typed) and `CLARITHROMYCIN` (free text), which are present in both
+  the demo reference and the current DPD extract. It requires both recording paths
+  to produce confirmed warnings; it no longer substitutes an arbitrary search
+  result or skips the typed warning. Also run with
+  `ALLERGY_CUSTOM_ALLERGEN=PWUNKNOWNALRG ALLERGY_EXPECT_UNCHECKED=true` to require
+  an explicit `Not checked` notice for an unresolved allergy. Service failures and
+  malformed responses must remain visibly incomplete, never look like a negative check.
+  The check also opens another patient in the same browser session and rechecks the
+  original tab. `ALLERGY_OTHER_DEMOGRAPHIC_NO` defaults to patient 1 (patient 2 when
+  the primary fixture is patient 1); it must name a different existing demo patient.
+
+- **The HRM PDF marker belongs to a specific report.**
+  `eform-rtl-attachment-pdf-playwright-checks.js` defaults to `RTL_HRM_DOCUMENT_NO=1`
+  and `RTL_HRM_TEXT_MARKER=SEED-HRM-ATTACHMENT-MARKER`. Override both together for
+  another fixture; the first listed report can change when missing demo files are restored.
+
 - **`allergy-rx-alert-playwright-checks.js` cleans up both allergies it records.**
   Each run uses cryptographically unique reaction markers and, in `finally`,
   inactivates every active row carrying one of those exact markers through the
@@ -747,9 +771,9 @@ Notes on the contract:
   The two dimensions run in sequence rather than as a matrix -- each body once,
   then each selection with the worst-case body, 15 prints in all -- because the
   403 rides on the note in the serialized form, not on any print checkbox.
-  Driving fifteen prints through one open encounter
-  outlives the note lock, so the eChart's own autosave answering 409 partway
-  through is expected and tolerated; a 403 from any of them is not. Each print
+  Every draft autosave must succeed, including after earlier prints. A 409
+  indicates a lost note lock and fails the check, as does a 403. Restoring an
+  existing draft during cleanup must also succeed. Each print
   must come back as a download whose bytes start with `%PDF-` and run to at
   least 1 KB: the action sets `application/pdf` before it generates, so the
   Content-Type alone would pass a truncated body. It also waits, per note
@@ -834,6 +858,13 @@ Notes on the contract:
   eChart checks (nginx `Server` header; warning when absent, failure with
   `EXPECT_FRONT_DOOR=true`), so a loopback run against bare Tomcat is never
   mistaken for coverage of 1100/1131.
+- **`echart-playwright-checks.js` allows 90 seconds for note pagination to settle.**
+  The chart loads 20 entries per one-second poll, including eForms and other
+  chart entries as well as encounter notes. A populated fixture can legitimately
+  need more than 30 seconds. `ECHART_NOTES_POLL_TIMEOUT_MS` accepts 5000–240000
+  milliseconds for an intentionally larger fixture; the check still requires
+  four quiet seconds and a cleared loading indicator, and fails continuous
+  pagination at the configured deadline.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
@@ -968,3 +999,26 @@ SCHEMA but always populated in the dump — regressions on the null path have
 been 500s in the past, so exercise it by nulling a row explicitly
 (`UPDATE consultationRequests SET providerNo=NULL, urgency=NULL WHERE
 requestId=<id>;`) rather than assuming the dump provides one.
+
+### Demo HRM report files
+
+The demo package includes synthetic HRM XML for all 41 report filenames in the
+snapshot, plus `demo-hrm-diagnostic-imaging.xml` for the attachment PDF check.
+The legacy `.xml.<timestamp>` filenames are intentional: existing demo installs
+can rerun `carlos-ctl demo-data` to bootstrap missing files even when the SQL
+completion marker already exists. Both Debian and devcontainer bootstraps leave
+existing documents untouched. These files contain invented, explicitly labelled
+reports for the FAKE patients; they do not reproduce the old reports' content.
+
+### Ontario consultation catalogue repair
+
+Migration `V1.0.23` activates the accidentally disabled reference catalogue only
+when all 257 entries still match the shipped Ontario seed and there are no
+non-FAKE patients. It preserves custom catalogues and clinical databases because
+`02` is also the administrator's deliberate-disable value. On a configured
+clinical installation, an administrator must review the existing service IDs and
+explicitly reactivate the intended rows (`active='1'`) through database
+maintenance to retain their IDs and specialist assignments. The current
+consultation settings offer Add/Delete, without a re-enable control. Automatic
+repair cannot infer which existing inactive services were deliberately disabled.
+Published migration checksums remain unchanged.

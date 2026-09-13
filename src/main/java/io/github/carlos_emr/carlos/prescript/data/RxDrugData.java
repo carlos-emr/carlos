@@ -885,68 +885,43 @@ public class RxDrugData {
      * @since 2026-02-26
      */
     public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allergies, List<Allergy> missing) throws Exception {
-        List<Map<String, String>> allergyDataList = new ArrayList<>();
+        if (allergies.length == 0) return new Allergy[0];
+        Vector<Map<String, String>> allergyData = new Vector<>();
         for (int i = 0; i < allergies.length; i++) {
             Allergy allergy = allergies[i];
-            Map<String, String> allergyMap = new Hashtable<>();
-            allergyMap.put("id", String.valueOf(i));
-            allergyMap.put("description", allergy.getDescription());
-            allergyMap.put("type", String.valueOf(allergy.getTypeCode()));
-
-            if (allergy.getRegionalIdentifier() != null) {
-                allergyMap.put("uuid", allergy.getRegionalIdentifier());
-            }
-
-            allergyMap.put("ATC", allergy.getAtc());
-            allergyDataList.add(allergyMap);
+            Map<String, String> item = new Hashtable<>();
+            item.put("id", String.valueOf(i));
+            item.put("description", allergy.getDescription() == null ? "" : allergy.getDescription());
+            item.put("type", String.valueOf(allergy.getTypeCode()));
+            item.put("ATC", allergy.getAtc() == null ? "" : allergy.getAtc());
+            if (allergy.getRegionalIdentifier() != null) item.put("uuid", allergy.getRegionalIdentifier());
+            allergyData.add(item);
         }
-
-        RxDrugRef drugRef = new RxDrugRef();
-        Vector<Map<String, String>> allergyDataVector = new Vector<>(allergyDataList);
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> response = drugRef.getAlergyWarnings(atcCode, allergyDataVector);
-
-        Allergy[] actualAllergies = {};
-        List<Allergy> foundWarnings = new ArrayList<>();
-        if (response != null && !response.isEmpty()) {
-            Map<String, Object> warningData = response.getFirst();
-            if (warningData != null) {
-                List<String> warningIndices = (List<String>) warningData.get("warnings");
-                if (warningIndices != null) {
-                    for (String indexStr : warningIndices) {
-                        try {
-                            int index = Integer.parseInt(indexStr);
-                            if (index < 0 || index >= allergies.length) {
-                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: warning index '{}' out of bounds (size={})", indexStr, allergies.length);
-                                continue;
-                            }
-                            foundWarnings.add(allergies[index]);
-                        } catch (NumberFormatException e) {
-                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid warning index '{}' from DrugRef", indexStr);
-                        }
-                    }
-                }
-
-                List<String> missingIndices = (List<String>) warningData.get("missing");
-                if (missingIndices != null && missing != null) {
-                    for (String indexStr : missingIndices) {
-                        try {
-                            int index = Integer.parseInt(indexStr);
-                            if (index < 0 || index >= allergies.length) {
-                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: missing index '{}' out of bounds (size={})", indexStr, allergies.length);
-                                continue;
-                            }
-                            missing.add(allergies[index]);
-                        } catch (NumberFormatException e) {
-                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid missing index '{}' from DrugRef", indexStr);
-                        }
-                    }
-                }
-            }
+        List<?> response = new RxDrugRef().getAlergyWarnings(atcCode, allergyData);
+        if (response == null || response.isEmpty() || !(response.getFirst() instanceof Map<?, ?> result)
+                || !(result.get("warnings") instanceof List<?> warnings)
+                || !(result.get("missing") instanceof List<?> unchecked)) {
+            throw new IllegalStateException("DrugRef returned an incomplete allergy-check response");
         }
-        actualAllergies  =  (Allergy[]) foundWarnings.toArray(actualAllergies);
+        List<Allergy> found = resolveAllergyIndices(warnings, allergies);
+        List<Allergy> unresolved = resolveAllergyIndices(unchecked, allergies);
+        if (missing != null) missing.addAll(unresolved);
+        return found.toArray(new Allergy[0]);
+    }
 
-        return actualAllergies;
+    private static List<Allergy> resolveAllergyIndices(List<?> indices, Allergy[] allergies) {
+        List<Allergy> result = new ArrayList<>();
+        for (Object value : indices) {
+            if (!(value instanceof String text)) {
+                throw new IllegalStateException("DrugRef returned a non-string allergy index");
+            }
+            int index = Integer.parseInt(text);
+            if (index < 0 || index >= allergies.length) {
+                throw new IllegalStateException("DrugRef returned an out-of-range allergy index");
+            }
+            if (!result.contains(allergies[index])) result.add(allergies[index]);
+        }
+        return result;
     }
 
 

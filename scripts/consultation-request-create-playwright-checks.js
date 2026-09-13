@@ -223,14 +223,12 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     ]);
     await formPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
     await assertNotErrorPage(formPage, 'consultation confirmation');
-    // The save path 302-redirects to ViewConfirmConsultationRequest, so the
-    // confirmation page is asserted by route plus its close-countdown text. (The
-    // "Consultation Request Form has been Created" heading is driven by a
-    // request attribute that does not survive that redirect, so it is not a
-    // reliable signal -- the row check below is the proof of creation.)
+    // The redirect must retain the successful create confirmation.
     assert(/ViewConfirmConsultationRequest/.test(formPage.url()),
       `submit did not land on the confirmation page (url ${formPage.url()})`);
     const confirmText = await formPage.locator('body').innerText();
+    assert(/Consultation Request Form has been\s+Created/i.test(confirmText),
+      'confirmation did not show the successful create message');
     assert(/This window will close in 5 seconds/i.test(confirmText),
       `confirmation page did not render its close countdown: ${confirmText.slice(0, 300)}`);
     assert(recorder.dialogs.length === 0, `unexpected dialogs during submit: ${JSON.stringify(recorder.dialogs)}`);
@@ -257,6 +255,19 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       'reopened request did not show the consultant name');
     assert((await viewPage.locator('textarea[name="reasonForConsultation"]').inputValue()) === reasonText,
       'reopened request did not restore the reason text');
+    const updatedReason = `${reasonText} updated`;
+    await viewPage.locator('textarea[name="reasonForConsultation"]').fill(updatedReason);
+    await Promise.all([
+      viewPage.waitForResponse((response) => response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/encounter/RequestConsultation'), { timeout: 30000 }),
+      viewPage.locator('input[name="update"]').click(),
+    ]);
+    await viewPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    assert(/Consultation Request Form has been\s+Updated/i.test(await viewPage.locator('body').innerText()),
+      'confirmation did not show the successful update message');
+    const updatedRows = findRequestRows();
+    assert(updatedRows.length === 1 && updatedRows[0].requestId === row.requestId
+      && updatedRows[0].reason === updatedReason, 'update did not persist on the original consultation');
     await viewPage.close();
 
     // 6. It shows in the patient's list. The confirmation popup refreshes its
@@ -269,11 +280,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(listText.includes(specialistName) && /Urgent/i.test(listText),
       'patient consultation list did not show the new request');
 
-    // The 404 for a provider without a stored signature image is a known
-    // legacy gap (the pad renders without one), not a regression this check owns.
-    const isMissingSignatureImage = (entry) => /providerSignatureImage/.test(entry.url || (entry.location && entry.location.url) || '');
-    const badResponses = recorder.badResponses.filter((entry) => !(entry.status === 404 && isMissingSignatureImage(entry)));
-    const consoleIssues = recorder.consoleIssues.filter((entry) => !isMissingSignatureImage(entry));
+    const { badResponses, consoleIssues } = recorder;
     assertNoPageErrors(recorder);
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);

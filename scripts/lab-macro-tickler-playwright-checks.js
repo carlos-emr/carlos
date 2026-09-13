@@ -267,23 +267,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     // 4. In the patient's tickler list.
     const list = await context.newPage();
     wirePage(list, 'tickler-list', recorder);
-    // The list's date window defaults to today, and the patient-scoped view
-    // carries no date controls (a future-dated recall never shows there --
-    // tracked for review), so use the full tickler list and widen its window
-    // to cover the two-week recall the macro scheduled, submitting it the way
-    // the filter's own button does (DataTables ajax reload).
-    await gotoApp(list, config.baseUrl, `/tickler/ViewTicklerMain?ticklerview=A`);
-    await list.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    const window14 = { from: sql('SELECT DATE(NOW() - INTERVAL 1 DAY)'), to: sql('SELECT DATE(NOW() + INTERVAL 30 DAY)') };
-    const [listResponse] = await Promise.all([
-      list.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/tickler/ListTicklers') && new URL(response.url()).searchParams.get('endDate') === window14.to, { timeout: 30000 }),
-      list.evaluate((range) => {
-        document.getElementById('xml_vdate').value = range.from;
-        document.getElementById('xml_appointment_date').value = range.to;
-        window.jQuery('#ticklerResults').DataTable().ajax.reload();
-      }, window14),
-    ]);
-    assert(listResponse.status() < 400, `tickler list reload returned HTTP ${listResponse.status()}`);
+    await gotoApp(list, config.baseUrl, `/tickler/ViewTicklerMain?ticklerview=A&demoview=${encodeURIComponent(fixture.demographicNo)}`);
     await list.waitForFunction((needle) => document.body.innerText.includes(needle), ticklerMessage, { timeout: 30000 });
     const listRow = list.locator('#ticklerResults tbody tr', { hasText: ticklerMessage }).first();
     assert((await listRow.innerText()).includes(sql(`SELECT CONCAT(last_name, ', ', first_name) FROM demographic WHERE demographic_no=${Number(fixture.demographicNo)}`).split(',')[0]),

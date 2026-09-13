@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import org.junit.jupiter.api.DisplayName;
@@ -422,4 +424,115 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
                     .hasMessageContaining("Unsafe case-management redirect context path");
         }
     }
+    @Test
+    void shouldRecoverOrphanedDraftWithoutReusingMissingNoteId() {
+        CaseManagementNote recovered = CaseManagementEntry2Action.restoreDraftNote(
+                null, "Unsaved clinical draft", "999998", "1");
+        assertThat(recovered.getId()).isNull();
+        assertThat(recovered.getNote()).isEqualTo("Unsaved clinical draft");
+        assertThat(recovered.getDemographic_no()).isEqualTo("1");
+        assertThat(recovered.getProviderNo()).isEqualTo("999998");
+        assertThat(recovered.isSigned()).isFalse();
+    }
+
+    @Test
+    void shouldRetainExistingDraftNoteMetadata() {
+        CaseManagementNote original = new CaseManagementNote();
+        original.setId(123L);
+        original.setDemographic_no("1");
+        original.setAppointmentNo(456);
+        original.setHistory("Previous revision");
+        CaseManagementNote recovered = CaseManagementEntry2Action.restoreDraftNote(
+                original, "Recovered draft", "999998", "1");
+        assertThat(recovered).isSameAs(original);
+        assertThat(recovered.getId()).isEqualTo(123L);
+        assertThat(recovered.getAppointmentNo()).isEqualTo(456);
+        assertThat(recovered.getHistory()).isEqualTo("Previous revision");
+        assertThat(recovered.getNote()).isEqualTo("Recovered draft");
+    }
+
+    @Test
+    void shouldRejectDraftReferenceToAnotherPatientWithoutChangingOriginal() {
+        CaseManagementNote original = new CaseManagementNote();
+        original.setDemographic_no("2");
+        original.setNote("Other patient's note");
+        assertThatThrownBy(() -> CaseManagementEntry2Action.restoreDraftNote(
+                original, "Draft", "999998", "1")).isInstanceOf(SecurityException.class);
+        assertThat(original.getNote()).isEqualTo("Other patient's note");
+    }
+
+    @Test
+    void shouldUseChartAppointment_whenAnotherTabChangesSessionAppointment() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("1");
+        io.github.carlos_emr.carlos.commn.model.Appointment appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setDemographicNo(1);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "42", "99", id -> {
+            assertThat(id).isEqualTo(42);
+            return appointment;
+        })).isEqualTo(42);
+    }
+
+    @Test
+    void shouldPreserveVisitAssociation_whenEditingExistingNote() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setId(1L);
+        note.setAppointmentNo(42);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "99", "100", id -> {
+            throw new AssertionError("Existing note must retain its appointment");
+        })).isEqualTo(42);
+    }
+
+    @Test
+    void shouldRejectAppointmentOutsidePatientChart_whenSavingNewNote() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("1");
+        io.github.carlos_emr.carlos.commn.model.Appointment appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setDemographicNo(2);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "42", null, id -> appointment)).isZero();
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "42", null, id -> null)).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "", "invalid", "-1", "999999999999999999999"})
+    void shouldNotUseSharedSessionAppointment_whenChartExplicitlyHasNoValidAppointment(String requestValue) {
+        CaseManagementNote note = new CaseManagementNote();
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, requestValue, "42", id -> {
+            throw new AssertionError("Invalid chart value must not fall back to shared session");
+        })).isZero();
+    }
+
+    @Test
+    void shouldSupportLegacyAppointment_whenRequestOmitsAppointment() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("1");
+        io.github.carlos_emr.carlos.commn.model.Appointment appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setDemographicNo(1);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, null, "42", id -> appointment)).isEqualTo(42);
+    }
+
+    @Test
+    void shouldKeepUnknownOwnerLock_whenLegacyLockHasNullProvider() {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao.class);
+        var lock = new io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock();
+        lock.setNoteId(42L);
+        when(dao.findByNoteDemo(1, 42L)).thenReturn(lock);
+        try (var spring = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
+            spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                    io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao.class)).thenReturn(dao);
+            var actual = CaseManagementEntry2Action.isNoteEdited(42L, 1, "999998", "127.0.0.1", "new-session");
+            assertThat(actual).isSameAs(lock);
+            assertThat(actual.isLocked()).isTrue();
+            org.mockito.Mockito.verify(dao, org.mockito.Mockito.never()).persist(org.mockito.ArgumentMatchers.any());
+        }
+    }
+
+    @Test
+    void shouldRenderEmptyDraft_whenLegacyDraftTextIsNull() {
+        CaseManagementNote restored = CaseManagementEntry2Action.restoreDraftNote(null, null, "999998", "1");
+        assertThat(restored.getNote()).isEmpty();
+        assertThat(restored.getAuditString()).contains("Issues");
+        assertThat(restored.getId()).isNull();
+    }
+
 }

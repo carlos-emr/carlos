@@ -277,6 +277,9 @@ public final class FormViewRoutes {
      * WEB-INF target.
      */
     public static String resolveInternalViewFromFormLink(String formLink) {
+        if (ALLOWED_WILDCARD_FORM_VIEWS.contains(formLink)) {
+            formLink += ".jsp";
+        }
         if (formLink == null || !SAFE_FORM_LINK_PATTERN.matcher(formLink).matches()) {
             return null;
         }

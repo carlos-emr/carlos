@@ -1,3 +1,12 @@
+> Promotion follow-up: the observations below describe the original alpha11
+> investigation. PR #3644 imports these checks with stricter assertions for
+> alpha12: editor/billing exceptions, missing signatures, lost appointment IDs,
+> broken form redirects, inaccessible save controls, and missing specialist
+> assignments now fail the checks. Patient ticklers are checked in the patient
+> view, and the default chart patient is now demographic 1. The vaccine check
+> also exercises local CVC lot lookup. See the promotion PR for current results;
+> historical warnings below are not accepted promotion outcomes.
+
 # Alpha 11 tester report → Playwright coverage map
 
 An alpha-11 tester (main branch) reported the workflows below as working. This
