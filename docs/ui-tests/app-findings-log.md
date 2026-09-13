@@ -47,8 +47,11 @@ to name the issue that removes it; these two can only name a docs paragraph.
 
 | # | Defect | Where | Status |
 |---|---|---|---|
-| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature | alpha-11 observation 6 | `open` — needs an issue; the fix is to make the request conditional |
-| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on **every keystroke** (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders) | alpha-11 observation 15 | `open` — needs an issue; until it is fixed, no check can type into a chart note and assert a clean console |
+| 6 | The consultation form requests `providerSignatureImage?providerNo=…` unconditionally, so it 404s and logs a console error for every provider without a stored signature. Remedy: make the request conditional on the provider having a stored signature | alpha-11 observation 6; tolerated by `scripts/lib/console-baseline.json` | `open` |
+| 7 | The eChart note editor throws a `TypeError` from `getActiveText()` on **every keystroke** (`js/newCaseManagementView.js.jsp` writes to a `keyword` element the current layout no longer renders). Until it is fixed, no check can type into a chart note and assert a clean console | alpha-11 observation 15; tolerated by `scripts/lib/console-baseline.json` | `open` |
+
+Neither has a GitHub issue yet; both need one filed, and the console-baseline
+entry should then cite the issue instead of this log.
 
 Finding 7 is the more serious of the two: it is on the single most-used screen in
 the product, it fires continuously while a clinician types, and it is the reason
@@ -71,8 +74,21 @@ Recorded so the same candidates are not re-investigated.
 1. A finding here is **not** a reason to weaken a check. The suite's rule is
    report, don't encode: a check that pins current broken behaviour as expected
    makes the bug permanent.
-2. When an issue is filed, put the number in the Status column and, if the
-   defect is on the console baseline, update that entry's `issue` field so the
-   burn-down is traceable from either direction.
+2. When an issue is filed, set the Status cell to `issue-filed`, name the issue
+   in the Defect cell, and update the console-baseline entry's `issue` field to
+   the issue number so the burn-down is traceable from either direction.
 3. When a fix lands, delete the console-baseline entry in the same change —
    otherwise the suite stays blind to the next occurrence.
+4. **This file is enforced, not remembered.** `scripts/app-findings-log.test.js`
+   runs in CI and fails the build if a finding has no evidence or an unknown
+   status, if ids are not unique and consecutive, or — the point of it — if a
+   console-baseline entry cites a finding that is not recorded here. The suite
+   may not tolerate a defect that nobody wrote down.
+
+## Adding a finding
+
+Keep the same shape as the rows above: the next id, what the defect is, the
+evidence (a command, a file and line, or the check that caught it — enough for a
+reader to re-check it), and a status. If a browser check had to tolerate the
+defect to keep running, add the console-baseline entry in the same change and
+point its `issue` field at this finding by number.

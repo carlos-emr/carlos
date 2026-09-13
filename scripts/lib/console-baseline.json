@@ -15,18 +15,22 @@
     "         loader rejects anything shorter than 8 characters or containing regex",
     "         metacharacters, so a pattern cannot be added by mistake and silently",
     "         match nothing.",
-    "issue:   the GitHub issue, or the docs reference, that tracks removing it.",
+    "issue:   where removing it is tracked. Either a GitHub issue (#1234) or a",
+    "         finding in docs/ui-tests/app-findings-log.md (\"... finding 7\").",
+    "         scripts/app-findings-log.test.js fails the build if this names a",
+    "         finding that is not recorded there, so a baseline entry can never cite",
+    "         a defect nobody wrote down.",
     "note:    what the defect is, so a reviewer can tell it apart from a new one."
   ],
   "allow": [
     {
       "match": "providerSignatureImage",
-      "issue": "docs/ui-tests/alpha-11-tester-coverage.md observation 6",
+      "issue": "docs/ui-tests/app-findings-log.md finding 6",
       "note": "The consultation form requests providerSignatureImage?providerNo=... unconditionally, which 404s for any provider without a stored signature, so every open of that form logs a console error. Needs an issue filed and the request made conditional."
     },
     {
       "match": "getActiveText",
-      "issue": "docs/ui-tests/alpha-11-tester-coverage.md observation 15",
+      "issue": "docs/ui-tests/app-findings-log.md finding 7",
       "note": "The eChart note editor throws a TypeError on every keystroke from getActiveText() in js/newCaseManagementView.js.jsp, which writes to a 'keyword' element the current layout no longer renders. Needs an issue filed; until then any check that types into a chart note would fail on it."
     },
     {
