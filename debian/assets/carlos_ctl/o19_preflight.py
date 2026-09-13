@@ -1916,10 +1916,15 @@ def password_arg_problem(mysql_args):
     the credential in the process list and in any diagnostic that echoes
     argv. The password must come from --mysql-password-file (MYSQL_PWD)
     or a client defaults file. The offending VALUE is never returned —
-    only its shape — so it cannot leak through the refusal message."""
+    only its shape — so it cannot leak through the refusal message. The
+    description is built from this module's own constants, never from
+    the argument (not even the bare `-p`, which is a constant anyway):
+    the refusal is printed, and a scanner that follows argv into a
+    print must be able to see that nothing from argv reaches it."""
     for a in mysql_args:
-        if a in INTERACTIVE_PASSWORD_ARGS:
-            return "'{0}' (interactive prompt)".format(a)
+        for known in INTERACTIVE_PASSWORD_ARGS:
+            if a == known:
+                return "'{0}' (interactive prompt)".format(known)
         if a.startswith("--password="):
             return "'--password=...' (password in argv)"
         if a.startswith("-p") and not a.startswith("--"):
